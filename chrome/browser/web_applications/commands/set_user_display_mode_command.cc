@@ -9,6 +9,7 @@
 
 #include "base/functional/callback.h"
 #include "base/metrics/user_metrics.h"
+#include "base/strings/to_string.h"
 #include "base/values.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
@@ -43,7 +44,15 @@ void SetUserDisplayModeCommand::StartWithLock(
   app_lock_ = std::move(app_lock);
 
   if (!app_lock_->registrar().IsInRegistrar(app_id_)) {
-    CompleteAndSelfDestruct(CommandResult::kFailure);
+    CompleteAndSelfDestruct(CommandResult::kSuccess);
+    return;
+  }
+
+  // Users shouldn't be able to interact with apps that are suggested for
+  // migration, so changing the user display mode is not allowed for them.
+  if (app_lock_->registrar().AppMatches(
+          app_id_, WebAppFilter::IsAppSuggestedForMigration())) {
+    CompleteAndSelfDestruct(CommandResult::kSuccess);
     return;
   }
 

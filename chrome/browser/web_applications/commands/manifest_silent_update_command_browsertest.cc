@@ -28,6 +28,7 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
+#include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -37,6 +38,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -422,6 +424,121 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
                    ->pending_update_info()
                    .has_value());
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
+                       MenuButtonDoesNotShowUpAfterInstall) {
+  // First, install a web app, set it to open in a browser tab.
+  clock_->SetNow(base::Time::Now());
+  const GURL app_url = https_server()->GetURL("/web_apps/updating/index.html");
+  const webapps::AppId app_id =
+      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+  base::test::TestFuture<void> test_future;
+  provider().scheduler().SetUserDisplayMode(
+      app_id, mojom::UserDisplayMode::kBrowser, test_future.GetCallback());
+  EXPECT_TRUE(test_future.Wait());
+
+  // Second, navigate to app url in scope, and verify a pending update is stored
+  // in the web app.
+  const GURL update_url =
+      https_server()->GetURL("/web_apps/updating/new_icon_page.html");
+  {
+    UpdateAwaiter awaiter(provider().install_manager());
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), update_url));
+    awaiter.AwaitUpdate();
+    provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  }
+
+  // Third, reinstall the same app, verify that the user display mode is set to
+  // standalone, and the pending update info is cleared.
+  EXPECT_TRUE(provider()
+                  .registrar_unsafe()
+                  .GetAppById(app_id)
+                  ->pending_update_info()
+                  .has_value());
+  const webapps::AppId new_installed_app_id =
+      InstallWebAppFromPageAndCloseAppBrowser(browser(), update_url);
+  ASSERT_EQ(new_installed_app_id, app_id);
+  EXPECT_FALSE(provider()
+                   .registrar_unsafe()
+                   .GetAppById(new_installed_app_id)
+                   ->pending_update_info()
+                   .has_value());
+  EXPECT_TRUE(provider().registrar_unsafe().AppMatches(
+      new_installed_app_id,
+      WebAppFilter::InstalledInOperatingSystemForTesting()));
+
+  // Fourth, launch the app, and wait for any commands to complete. The menu
+  // button should not be updated.
+  Browser* app_browser = LaunchWebAppBrowser(app_id);
+  provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  WebAppMenuButton* const menu_button =
+      static_cast<WebAppMenuButton*>(app_browser->GetBrowserView()
+                                         .toolbar_button_provider()
+                                         ->GetAppMenuButton());
+  EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
+                       UpdateFromNonInScopePage) {
+  clock_->SetNow(base::Time::Now());
+  const GURL app_url = https_server()->GetURL("/web_apps/updating/index.html");
+  const webapps::AppId app_id = InstallWebAppFromPage(browser(), app_url);
+
+  EXPECT_EQ(app_url, provider().registrar_unsafe().GetAppStartUrl(app_id));
+
+  // Navigate the normal browser to a page that is out of scope for the web app
+  // but links to the web app's manifest, specifying a different start_url.
+  const GURL update_url =
+      https_server()->GetURL("/web_apps/updating_out_of_scope_page.html");
+  const GURL new_start_url =
+      https_server()->GetURL("/web_apps/updating/new_start_url_page.html");
+  {
+    UpdateAwaiter awaiter(provider().install_manager());
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), update_url));
+    awaiter.AwaitUpdate();
+    // Wait for the command to complete so all data is saved.
+    provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  }
+  EXPECT_EQ(new_start_url,
+            provider().registrar_unsafe().GetAppStartUrl(app_id));
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
+                       UpdateFromEachManifestSeen) {
+  clock_->SetNow(base::Time::Now());
+  const GURL app_url = https_server()->GetURL("/web_apps/updating/index.html");
+  const webapps::AppId app_id =
+      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+
+  EXPECT_EQ(app_url, provider().registrar_unsafe().GetAppStartUrl(app_id));
+
+  // Navigate the normal browser to a page that updates the start_url.
+  const GURL new_start_url =
+      https_server()->GetURL("/web_apps/updating/new_start_url_page.html");
+  {
+    UpdateAwaiter awaiter(provider().install_manager());
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), new_start_url));
+    awaiter.AwaitUpdate();
+    // Wait for the command to complete so all data is saved.
+    provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  }
+  EXPECT_EQ(new_start_url,
+            provider().registrar_unsafe().GetAppStartUrl(app_id));
+
+  // Now, change the manifest link in that page to the old start_url manifest,
+  // and verify that the app is updated without any new navigation.
+  {
+    UpdateAwaiter awaiter(provider().install_manager());
+    EXPECT_TRUE(
+        content::ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+                        "document.querySelector('link[rel=manifest]').href = "
+                        "'first_manifest.json'"));
+    awaiter.AwaitUpdate();
+    // Wait for the command to complete so all data is saved.
+    provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  }
+  EXPECT_EQ(app_url, provider().registrar_unsafe().GetAppStartUrl(app_id));
 }
 
 // Used to verify that if the `kBypassSmallIconDiffThrottle` flag is used,

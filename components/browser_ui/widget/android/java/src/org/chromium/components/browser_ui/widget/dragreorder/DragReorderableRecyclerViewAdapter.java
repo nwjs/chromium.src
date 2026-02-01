@@ -8,7 +8,9 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.util.SparseArray;
+import android.view.PointerIcon;
 import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
@@ -19,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.R;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -67,6 +70,8 @@ public class DragReorderableRecyclerViewAdapter extends SimpleRecyclerViewAdapte
     private @Nullable RecyclerView mRecyclerView;
 
     private boolean mDragEnabled;
+    // Default long-press behavior.
+    private boolean mDefaultLongPressDragEnabled = true;
     private int mStart;
     private @Nullable LongPressDragDelegate mLongPressDragDelegate;
 
@@ -127,12 +132,46 @@ public class DragReorderableRecyclerViewAdapter extends SimpleRecyclerViewAdapte
                 mStart = viewHolder.getAdapterPosition();
                 onDragStateChange(true);
                 updateVisualState(true, viewHolder);
+                if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+                    if (mRecyclerView != null) {
+                        PointerIcon icon =
+                                PointerIcon.getSystemIcon(
+                                        mRecyclerView.getContext(), PointerIcon.TYPE_GRABBING);
+
+                        // This ensures that even when the user moves the cursor outside of the row
+                        // while dragging, the cursor will still be TYPE_GRABBING instead of
+                        // default.
+                        mRecyclerView.setPointerIcon(icon);
+
+                        // Iterate through all of the children (ImprovedBookmarkRows) and set the
+                        // cursor explicitly to TYPE_GRABBING. This is to ensure that when we drag
+                        // row A over row B, row B's grab handle's onHoverListener (open hand
+                        // cursor) does not get activated.
+                        for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                            View child = mRecyclerView.getChildAt(i);
+                            child.setPointerIcon(icon);
+                        }
+                    }
+                }
             }
         }
 
         @Override
         public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
             super.clearView(recyclerView, viewHolder);
+
+            if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+                if (mRecyclerView != null) {
+                    // Reset to default cursor.
+                    mRecyclerView.setPointerIcon(null);
+
+                    // Reset children to default cursor.
+                    for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                        View child = mRecyclerView.getChildAt(i);
+                        child.setPointerIcon(null);
+                    }
+                }
+            }
             // No need to commit change if recycler view is not attached to window, such as dragging
             // is terminated by destroying activity.
             if (viewHolder.getAdapterPosition() != mStart && recyclerView.isAttachedToWindow()) {
@@ -147,7 +186,8 @@ public class DragReorderableRecyclerViewAdapter extends SimpleRecyclerViewAdapte
 
         @Override
         public boolean isLongPressDragEnabled() {
-            return mLongPressDragDelegate != null
+            return mDefaultLongPressDragEnabled
+                    && mLongPressDragDelegate != null
                     && mLongPressDragDelegate.isLongPressDragEnabled()
                     && mDragEnabled;
         }
@@ -206,15 +246,32 @@ public class DragReorderableRecyclerViewAdapter extends SimpleRecyclerViewAdapte
         super(modelList);
 
         Resources resources = context.getResources();
-        // Set the alpha to 90% when dragging which is 230/255
-        mDraggedBackgroundColor =
-                ColorUtils.setAlphaComponent(
-                        SemanticColorUtils.getColorSurfaceContainerHigh(context),
-                        resources.getInteger(R.integer.list_item_dragged_alpha));
+        if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+            mDraggedBackgroundColor = Color.TRANSPARENT;
+        } else {
+            // Set the alpha to 90% when dragging which is 230/255
+            mDraggedBackgroundColor =
+                    ColorUtils.setAlphaComponent(
+                            SemanticColorUtils.getColorSurfaceContainerHigh(context),
+                            resources.getInteger(R.integer.list_item_dragged_alpha));
+        }
+
         mDraggedElevation = resources.getDimension(R.dimen.list_item_dragged_elevation);
     }
 
-    /** @param longPressDragDelegate The delegate which decides when long press dragging is enabled. */
+    /**
+     * Sets whether the default system long-press drag gesture is enabled. If false, dragging can
+     * only be initiated manually via {@link ItemTouchHelper#startDrag}.
+     *
+     * @param enabled True to enable automatic long-press detection, false to disable it.
+     */
+    public void setDefaultLongPressDragEnabled(boolean enabled) {
+        mDefaultLongPressDragEnabled = enabled;
+    }
+
+    /**
+     * @param longPressDragDelegate The delegate which decides when long press dragging is enabled.
+     */
     public void setLongPressDragDelegate(LongPressDragDelegate longPressDragDelegate) {
         mLongPressDragDelegate = longPressDragDelegate;
     }
@@ -312,6 +369,13 @@ public class DragReorderableRecyclerViewAdapter extends SimpleRecyclerViewAdapte
     public void onBindViewHolder(ViewHolder viewHolder, int position) {
         super.onBindViewHolder(viewHolder, position);
         int typeId = mListData.get(position).type;
+
+        // If this view was previously used during a drag (and drifted off-screen), it might still
+        // have the "closed hand" cursor set, so we reset it to a default cursor.
+        if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+            viewHolder.itemView.setPointerIcon(null);
+        }
+
         // Overridden to given the draggable items a chance to bind correctly since a ViewHolder
         // is required.
         DragBinder dragBinder = mDragBinderMap.get(typeId);

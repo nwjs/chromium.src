@@ -7,23 +7,31 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/modules/shared_storage/shared_storage.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
+namespace {
+
 class WindowSharedStorageImpl final
     : public GarbageCollected<WindowSharedStorageImpl>,
-      public GarbageCollectedMixin {
+      public Supplement<LocalDOMWindow> {
  public:
+  static const char kSupplementName[];
+
   static WindowSharedStorageImpl& From(LocalDOMWindow& window) {
-    WindowSharedStorageImpl* supplement = window.GetWindowSharedStorageImpl();
+    WindowSharedStorageImpl* supplement =
+        Supplement<LocalDOMWindow>::template From<WindowSharedStorageImpl>(
+            window);
     if (!supplement) {
-      supplement = MakeGarbageCollected<WindowSharedStorageImpl>();
-      window.SetWindowSharedStorageImpl(supplement);
+      supplement = MakeGarbageCollected<WindowSharedStorageImpl>(window);
+      Supplement<LocalDOMWindow>::ProvideTo(window, supplement);
     }
     return *supplement;
   }
 
-  WindowSharedStorageImpl() = default;
+  explicit WindowSharedStorageImpl(LocalDOMWindow& window)
+      : Supplement<LocalDOMWindow>(window) {}
 
   SharedStorage* GetOrCreate(LocalDOMWindow& fetching_scope) {
     if (!shared_storage_)
@@ -33,11 +41,18 @@ class WindowSharedStorageImpl final
 
   void Trace(Visitor* visitor) const override {
     visitor->Trace(shared_storage_);
+    Supplement<LocalDOMWindow>::Trace(visitor);
   }
 
  private:
   Member<SharedStorage> shared_storage_;
 };
+
+// static
+const char WindowSharedStorageImpl::kSupplementName[] =
+    "WindowSharedStorageImpl";
+
+}  // namespace
 
 SharedStorage* WindowSharedStorage::sharedStorage(
     LocalDOMWindow& window,

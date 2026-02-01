@@ -7,15 +7,23 @@
 
 #import <UIKit/UIKit.h>
 
+@class GeminiDynamicSettingsItem;
+
 // Consumer protocol for BWG settings.
 @protocol BWGSettingsConsumer
 
 // Sets the Precise Location boolean.
 - (void)setPreciseLocationEnabled:(BOOL)enabled;
 
+// Sets the Camera Permission boolean.
+- (void)setCameraPermissionEnabled:(BOOL)enabled;
+
 // Sets the Page Content Sharing boolean.
 - (void)setPageContentSharingEnabled:(BOOL)enabled;
 
+// Adds table view sections and rows for the given dynamic settings.
+- (void)updateDynamicSettingsItems:
+    (NSArray<GeminiDynamicSettingsItem*>*)newItems;
 @end
 
 #endif  // IOS_CHROME_BROWSER_SETTINGS_UI_BUNDLED_BWG_UI_BWG_SETTINGS_CONSUMER_H_

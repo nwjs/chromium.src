@@ -29,6 +29,7 @@
 #include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/i18n/rtl.h"
+#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
@@ -331,7 +332,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       public network::mojom::TrustTokenAccessObserver,
       public network::mojom::SharedDictionaryAccessObserver,
       public network::mojom::DeviceBoundSessionAccessObserver,
-      public BucketContext {
+      public BucketContext,
+      public base::MemoryPressureListener {
  public:
   using JavaScriptDialogCallback =
       content::JavaScriptDialogManager::DialogClosedCallback;
@@ -355,6 +357,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   static RenderFrameHostImpl* FromID(GlobalRenderFrameHostId id);
   static RenderFrameHostImpl* FromID(int process_id, int routing_id);
+  static RenderFrameHostImpl* FromID(ChildProcessId process_id, int routing_id);
   // Returns the `RenderFrameHostImpl` with the given `blink::LocalFrameToken`,
   // or `nullptr` if no such `RenderFrameHostImpl` exists.
   //
@@ -366,8 +369,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   static RenderFrameHostImpl* FromFrameToken(
       const GlobalRenderFrameHostToken& frame_token,
       mojo::ReportBadMessageCallback* process_mismatch_callback = nullptr);
+  // TODO(crbug.com/379869738) Remove this method when usages are ported.
   static RenderFrameHostImpl* FromFrameToken(
       int process_id,
+      const blink::LocalFrameToken& frame_token,
+      mojo::ReportBadMessageCallback* process_mismatch_callback = nullptr);
+  static RenderFrameHostImpl* FromFrameToken(
+      ChildProcessId process_id,
       const blink::LocalFrameToken& frame_token,
       mojo::ReportBadMessageCallback* process_mismatch_callback = nullptr);
   // Returns the `RenderFrameHostImpl` with the given `blink::DocumentToken`, or
@@ -2647,16 +2655,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void RecordWindowProxyUsageMetrics(
       const blink::FrameToken& target_frame_token,
       blink::mojom::WindowProxyAccessType access_type) override;
-  void InitializeCrashReportStorage(
+  void InitializeCrashReportContext(
       uint64_t length,
-      InitializeCrashReportStorageCallback callback) override;
-  void SetCrashReportStorageKey(
-      const std::string& key,
-      const std::string& value,
-      SetCrashReportStorageKeyCallback callback) override;
-  void RemoveCrashReportStorageKey(
-      const std::string& key,
-      RemoveCrashReportStorageKeyCallback callback) override;
+      InitializeCrashReportContextCallback callback) override;
 
   // blink::mojom::BackForwardCacheControllerHost:
   void EvictFromBackForwardCache(
@@ -3086,6 +3087,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::BucketHost::GetDirectoryCallback callback) override;
   storage::BucketClientInfo GetBucketClientInfo() const override;
 
+  // base::MemoryPressureListener:
+  void OnMemoryPressure(base::MemoryPressureLevel level) override {}
+
   // Returns false if this document not the initial empty document, or if the
   // current document's input stream has been opened with document.open(),
   // causing the document to lose its "initial empty document" status. For more
@@ -3249,6 +3253,12 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // revocation can only happen when network access has been disabled for this
   // fenced frame tree as well as for all of its descendant fenced frame trees.
   void CalculateUntrustedNetworkStatus();
+
+  // Returns the network restrictions ID which the network service uses to block
+  // requests originating from this document. If there is a pending commit, the
+  // identifier for that commit will be used. Otherwise, the identifier for
+  // the last committed navigation will be used.
+  std::optional<base::UnguessableToken> GetNetworkRestrictionsID();
 
   // Find the frame that triggered the beforeunload handler to run in this
   // frame, which might be the frame itself or its ancestor.  This will
@@ -4079,6 +4089,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Based on the termination |status| and |exit_code|, may generate a crash
   // report to be routed to the Reporting API.
   void MaybeGenerateCrashReport(base::TerminationStatus status, int exit_code);
+  base::Value::Dict ReadCrashReportAPIBody();
 
   // Bitfield values for recording navigation frame-type (main or subframe)
   // combined with whether a sudden termination disabler is present. Currently
@@ -5560,8 +5571,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
 #if BUILDFLAG(IS_ANDROID)
   // Holds a reference to a pending remote WebAuthn RP ID validation while one
   // is ongoing. Destroying this object cancels the validation.
-  std::unique_ptr<WebAuthRequestSecurityChecker::RemoteValidation>
-      webauthn_remote_rp_id_validation_;
+  std::unique_ptr<webauthn::RemoteValidation> webauthn_remote_rp_id_validation_;
 #endif
 
   // Tracks the page that initiates Protected Audience auction. This is set
@@ -5598,6 +5608,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Tracing track used to emit async event related to lifecycle.
   const perfetto::NamedTrack tracing_track_;
+
+  base::MemoryPressureListenerRegistration
+      memory_pressure_listener_registration_;
 
   // WeakPtrFactories are the last members, to ensure they are destroyed before
   // all other fields of `this`.

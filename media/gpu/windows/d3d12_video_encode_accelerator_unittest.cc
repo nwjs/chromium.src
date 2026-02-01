@@ -4,6 +4,7 @@
 
 #include "media/gpu/windows/d3d12_video_encode_accelerator.h"
 
+#include "base/functional/callback_helpers.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/task_environment.h"
 #include "components/viz/common/resources/shared_image_format.h"
@@ -44,8 +45,9 @@ class MockVideoEncodeAcceleratorClient : public VideoEncodeAccelerator::Client {
 class MockVideoEncoderDelegate : public D3D12VideoEncodeDelegate {
  public:
   MockVideoEncoderDelegate(ID3D12VideoDevice3* video_device,
+                           const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
                            VideoCodecProfile profile)
-      : D3D12VideoEncodeDelegate(video_device) {}
+      : D3D12VideoEncodeDelegate(video_device, gpu_workarounds) {}
 
   MOCK_METHOD1(Initialize, EncoderStatus(VideoEncodeAccelerator::Config));
   MOCK_METHOD(size_t, GetMaxNumOfRefFrames, (), (const override));
@@ -80,9 +82,10 @@ class MockVideoEncoderDelegateFactory
   std::unique_ptr<D3D12VideoEncodeDelegate> CreateVideoEncodeDelegate(
       ID3D12VideoDevice3* video_device,
       VideoCodecProfile profile) override {
+    gpu::GpuDriverBugWorkarounds gpu_workarounds{};
     auto encoder_delegate =
-        std::make_unique<NiceMock<MockVideoEncoderDelegate>>(video_device,
-                                                             profile);
+        std::make_unique<NiceMock<MockVideoEncoderDelegate>>(
+            video_device, gpu_workarounds, profile);
     ON_CALL(*encoder_delegate, Initialize(_))
         .WillByDefault(Return(EncoderStatus::Codes::kOk));
     ON_CALL(*encoder_delegate, GetMaxNumOfRefFrames())

@@ -13,7 +13,6 @@
 #include <utility>
 
 #include "base/base_paths_posix.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/i18n/time_formatting.h"
@@ -388,7 +387,6 @@ std::u16string MediaGalleryPrefInfo::GetGalleryDisplayName() const {
     if (!display_name.empty())
       return display_name;
 
-#if BUILDFLAG(IS_CHROMEOS)
     // See chrome/browser/ash/fileapi/file_system_backend.cc
     base::FilePath download_path;
     if (base::PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS_SAFE,
@@ -398,9 +396,6 @@ std::u16string MediaGalleryPrefInfo::GetGalleryDisplayName() const {
         return relative.LossyDisplayName();
     }
     return absolute_path.BaseName().LossyDisplayName();
-#else
-    return absolute_path.LossyDisplayName();
-#endif
   }
 
   StorageInfo info(device_id,
@@ -663,8 +658,9 @@ base::FilePath MediaGalleriesPreferences::LookUpGalleryPathForExtension(
   DCHECK(IsInitialized());
   DCHECK(extension);
   if (!include_unpermitted_galleries &&
-      !base::Contains(GalleriesForExtension(*extension), gallery_id))
+      !GalleriesForExtension(*extension).contains(gallery_id)) {
     return base::FilePath();
+  }
 
   MediaGalleriesPrefInfoMap::const_iterator it =
       known_galleries_.find(gallery_id);
@@ -968,8 +964,9 @@ void MediaGalleriesPreferences::EraseOrBlocklistGalleryById(
       prefs, prefs::kMediaGalleriesRememberedGalleries);
   base::Value::List& list = update->Get();
 
-  if (!base::Contains(known_galleries_, id))
+  if (!known_galleries_.contains(id)) {
     return;
+  }
 
   for (auto iter = list.begin(); iter != list.end(); ++iter) {
     MediaGalleryPrefId iter_id;
@@ -1006,7 +1003,7 @@ void MediaGalleriesPreferences::EraseOrBlocklistGalleryById(
 bool MediaGalleriesPreferences::NonAutoGalleryHasPermission(
     MediaGalleryPrefId id) const {
   DCHECK(IsInitialized());
-  DCHECK(!base::Contains(known_galleries_, id) ||
+  DCHECK(!known_galleries_.contains(id) ||
          known_galleries_.find(id)->second.type !=
              MediaGalleryPrefInfo::kAutoDetected);
   ExtensionPrefs* prefs = GetExtensionPrefs();

@@ -14,7 +14,6 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/shell.h"
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -613,13 +612,6 @@ ArcAppListPrefs::ArcAppListPrefs(
 ArcAppListPrefs::~ArcAppListPrefs() {
   for (auto& observer : observer_list_)
     observer.OnArcAppListPrefsDestroyed();
-
-  arc::ArcSessionManager* arc_session_manager = arc::ArcSessionManager::Get();
-  if (!arc_session_manager)
-    return;
-  DCHECK(arc::ArcServiceManager::Get());
-  arc_session_manager->RemoveObserver(this);
-  app_connection_holder()->RemoveObserver(this);
 }
 
 void ArcAppListPrefs::StartPrefs() {
@@ -1560,6 +1552,10 @@ std::string ArcAppListPrefs::GetAppPackageName(const std::string& app_id) {
 }
 
 void ArcAppListPrefs::Shutdown() {
+  if (app_connection_holder()) {
+    app_connection_holder()->RemoveObserver(this);
+  }
+
   arc::ArcPolicyBridge* policy_bridge =
       arc::ArcPolicyBridge::GetForBrowserContext(profile_);
   if (policy_bridge)
@@ -1568,6 +1564,11 @@ void ArcAppListPrefs::Shutdown() {
   // TODO(lgcheng) remove the check once the feature is enabled.
   if (install_priority_handler_) {
     install_priority_handler_->Shutdown();
+  }
+
+  arc::ArcSessionManager* arc_session_manager = arc::ArcSessionManager::Get();
+  if (arc_session_manager) {
+    arc_session_manager->RemoveObserver(this);
   }
 }
 
@@ -2514,7 +2515,7 @@ void ArcAppListPrefs::OnPackageListRefreshed(
   for (const auto& package : packages) {
     AddOrUpdatePackagePrefs(*package,
                             UpdatePackagePrefsReason::kOnPackageListRefreshed);
-    if (!base::Contains(old_packages, package->package_name)) {
+    if (!old_packages.contains(package->package_name)) {
       for (auto& observer : observer_list_)
         observer.OnPackageInstalled(*package);
     } else {
@@ -2525,7 +2526,7 @@ void ArcAppListPrefs::OnPackageListRefreshed(
   }
 
   for (const auto& package_name : old_packages) {
-    if (!base::Contains(current_packages, package_name)) {
+    if (!current_packages.contains(package_name)) {
       RemovePackageFromPrefs(package_name);
       for (auto& observer : observer_list_)
         observer.OnPackageRemoved(package_name, false);

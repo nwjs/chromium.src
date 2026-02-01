@@ -234,23 +234,6 @@ class AutofillClient {
     PopupAnchorType anchor_type = PopupAnchorType::kField;
   };
 
-  // Describes the position of the Autofill popup on the screen.
-  struct PopupScreenLocation {
-    // The bounds of the popup in the screen coordinate system.
-    gfx::Rect bounds;
-    // Describes the position of the arrow on the popup's border and corresponds
-    // to a subset of the available options in `views::BubbleBorder::Arrow`.
-    enum class ArrowPosition {
-      kTopRight,
-      kTopLeft,
-      kBottomRight,
-      kBottomLeft,
-      kLeftTop,
-      kRightTop,
-      kMax = kRightTop
-    };
-    ArrowPosition arrow_position;
-  };
   using EntityImportPromptResultCallback =
       base::OnceCallback<void(AutofillAiBubbleClosedReason close_reason)>;
 
@@ -327,7 +310,7 @@ class AutofillClient {
 
   // Returns whether the client has a PersonalDataManager.
   //
-  // TODO(crbug.cm/455121491) This is a temporary fix to avoid crashes when
+  // TODO(crbug.com/455121491) This is a temporary fix to avoid crashes when
   // AutofillAnnotationsProviderImpl::AddAutofillInformation tries to query
   // autofillable data but deals with an AndroidAutofillClient.
   virtual bool HasPersonalDataManager() const;
@@ -532,10 +515,6 @@ class AutofillClient {
   virtual void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) = 0;
 
-  // Returns the information of the popup on the screen, if there is one that is
-  // showing. Note that this implemented only on Desktop.
-  virtual std::optional<PopupScreenLocation> GetPopupScreenLocation() const;
-
   // Returns the identifier of the suggestion UI that is currently showing or
   // `std::nullopt` is there is none.
   virtual std::optional<SuggestionUiSessionId>
@@ -591,7 +570,7 @@ class AutofillClient {
 
   // Returns whether there is an active actor task for this client's tab (if
   // one exists).
-  virtual bool IsActorTaskActive() const;
+  virtual bool IsTabInActorMode() const;
 
   // Returns true if either Profile or CreditCard Autofill is enabled.
   virtual bool IsAutofillEnabled() const = 0;
@@ -605,10 +584,6 @@ class AutofillClient {
 
   // Returns whether password management is enabled as per the user preferences.
   virtual bool IsPasswordManagerEnabled() const = 0;
-
-  // Inform the client that the form has been filled.
-  virtual void DidFillForm(AutofillTriggerSource trigger_source,
-                           bool is_refill) = 0;
 
   // If the context is secure.
   virtual bool IsContextSecure() const = 0;

@@ -18,6 +18,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/to_string.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/icu_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -669,6 +670,25 @@ TEST_F(PdfViewWebPluginWithoutInitializeTest, InitializeForPrintPreview) {
   EXPECT_CALL(*client_ptr_, CreateAssociatedURLLoader).Times(0);
 
   EXPECT_TRUE(plugin_->InitializeForTesting());
+}
+
+TEST_F(PdfViewWebPluginWithoutInitializeTest,
+       RecordSchemeIsFileMetricForHttps) {
+  base::HistogramTester histograms;
+
+  SetUpPluginWithUrl("https://www.example.com/path/to/the.pdf");
+  EXPECT_TRUE(plugin_->InitializeForTesting());
+
+  histograms.ExpectUniqueSample("PDF.SchemeIsFile", 0, 1);
+}
+
+TEST_F(PdfViewWebPluginWithoutInitializeTest, RecordSchemeIsFileMetricForFile) {
+  base::HistogramTester histograms;
+
+  SetUpPluginWithUrl("file:///path/to/the.pdf");
+  EXPECT_TRUE(plugin_->InitializeForTesting());
+
+  histograms.ExpectUniqueSample("PDF.SchemeIsFile", 1, 1);
 }
 
 TEST_F(PdfViewWebPluginTest, CreateUrlLoader) {

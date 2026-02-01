@@ -39,7 +39,6 @@ class CommandBufferProxyImpl;
 class SharedImageInterface;
 class GpuChannelHost;
 struct GpuFeatureInfo;
-class GpuMemoryBufferManager;
 class ImplementationBase;
 class TransferBuffer;
 
@@ -95,7 +94,6 @@ class ContextProviderCommandBuffer
       bool support_locking,
       const gpu::SharedMemoryLimits& memory_limits,
       command_buffer_metrics::ContextType type,
-      bool enable_gpu_rasterization,
       bool lose_context_when_out_of_memory);
 
   static scoped_refptr<ContextProviderCommandBuffer> CreateForWebGPU(
@@ -146,6 +144,10 @@ class ContextProviderCommandBuffer
   // which BindToThread is called.
   void SetDefaultTaskRunner(
       scoped_refptr<base::SingleThreadTaskRunner> default_task_runner);
+  // Set the default task runner for IPCs from the GPU process. If not
+  // specified, this will be the default task runner.
+  void SetReplyTaskRunner(
+      scoped_refptr<base::SingleThreadTaskRunner> reply_task_runner);
 
  protected:
   friend class base::DeleteHelper<ContextProviderCommandBuffer>;
@@ -183,6 +185,7 @@ class ContextProviderCommandBuffer
 
   scoped_refptr<gpu::GpuChannelHost> channel_;
   scoped_refptr<base::SequencedTaskRunner> default_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> reply_task_runner_;
 
   // |shared_image_interface_| must be torn down after |command_buffer_| to
   // ensure any dependent commands in the command stream are flushed before the

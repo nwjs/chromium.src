@@ -34,6 +34,8 @@ struct Theme {
   skia.mojom.SkColor border_glow_color;
   // Gradient colors for the scrim background.
   array<skia.mojom.SkColor, 3> scrim_colors;
+  // Color of the magic cursor glow.
+  skia.mojom.SkColor magic_cursor_color;
 };
 
 // Browser -> Renderer
@@ -47,4 +49,20 @@ interface ActorOverlayPage {
 
   // Sets the current theme.
   SetTheme(Theme theme);
+
+  // Notifies WebUI to move the magic cursor to a passed in gfx.mojom.Point
+  // object.
+  //
+  // |point| must be in physical pixels, matching the coordinate system of the
+  // AnnotatedPageContent proto.
+  //
+  // The WebUI implementation is responsible for scaling this down to logical
+  // pixels based on the current window.devicePixelRatio.
+  //
+  // Expects a response from WebUI once the transition is finished.
+  MoveCursorTo(gfx.mojom.Point point) => ();
+
+  // Notifies WebUI to trigger a click animation at the current position.
+  // Expects a response from WebUI once the animation is finished.
+  TriggerClickAnimation() => ();
 };

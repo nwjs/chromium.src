@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -34,8 +33,9 @@ class ServiceWorkerDiskCache::CreateBackendCallbackShim
   void Cancel() { service_worker_disk_cache_ = nullptr; }
 
   void Callback(disk_cache::BackendResult result) {
-    if (service_worker_disk_cache_)
+    if (service_worker_disk_cache_) {
       service_worker_disk_cache_->OnCreateBackendComplete(std::move(result));
+    }
   }
 
  private:
@@ -123,8 +123,9 @@ net::Error ServiceWorkerDiskCache::InitWithMemBackend(
 
 void ServiceWorkerDiskCache::Disable() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (is_disabled_)
+  if (is_disabled_) {
     return;
+  }
 
   is_disabled_ = true;
 
@@ -168,7 +169,7 @@ void ServiceWorkerDiskCache::CreateEntry(int64_t key, EntryCallback callback) {
   }
 
   uint64_t call_id = GetNextCallId();
-  DCHECK(!base::Contains(active_entry_calls_, call_id));
+  DCHECK(!active_entry_calls_.contains(call_id));
   active_entry_calls_.emplace(call_id, std::move(callback));
 
   disk_cache::EntryResult result = disk_cache_->CreateEntry(
@@ -203,7 +204,7 @@ void ServiceWorkerDiskCache::OpenEntry(int64_t key, EntryCallback callback) {
   }
 
   uint64_t call_id = GetNextCallId();
-  DCHECK(!base::Contains(active_entry_calls_, call_id));
+  DCHECK(!active_entry_calls_.contains(call_id));
   active_entry_calls_.emplace(call_id, std::move(callback));
 
   disk_cache::EntryResult result = disk_cache_->OpenEntry(
@@ -239,7 +240,7 @@ void ServiceWorkerDiskCache::DoomEntry(int64_t key,
   }
 
   uint64_t call_id = GetNextCallId();
-  DCHECK(!base::Contains(active_doom_calls_, call_id));
+  DCHECK(!active_doom_calls_.contains(call_id));
   active_doom_calls_.emplace(call_id, std::move(callback));
 
   net::Error net_error = disk_cache_->DoomEntry(
@@ -270,14 +271,16 @@ net::Error ServiceWorkerDiskCache::Init(net::CacheType cache_type,
   disk_cache::BackendResult result = disk_cache::CreateCacheBackend(
       cache_type, net::CACHE_BACKEND_SIMPLE, /*file_operations=*/nullptr,
       cache_directory, cache_size, disk_cache::ResetHandling::kNeverReset,
-      /*net_log=*/nullptr, std::move(post_cleanup_callback),
+      /*net_log=*/nullptr, /*cache_encryption_delegate=*/nullptr,
+      std::move(post_cleanup_callback),
       base::BindOnce(&CreateBackendCallbackShim::Callback,
                      create_backend_callback_));
   net::Error rv = result.net_error;
-  if (rv == net::ERR_IO_PENDING)
+  if (rv == net::ERR_IO_PENDING) {
     init_callback_ = std::move(callback);
-  else
+  } else {
     OnCreateBackendComplete(std::move(result));
+  }
   return rv;
 }
 
@@ -295,8 +298,9 @@ void ServiceWorkerDiskCache::OnCreateBackendComplete(
   }
 
   // Service pending calls that were queued up while we were initializing.
-  for (auto& call : pending_calls_)
+  for (auto& call : pending_calls_) {
     std::move(call).Run();
+  }
   pending_calls_.clear();
 }
 

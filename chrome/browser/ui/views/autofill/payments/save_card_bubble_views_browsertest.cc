@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
@@ -155,7 +156,6 @@ const double kFakeGeolocationLongitude = 4.56;
 // action framework.
 struct SaveCardBubbleViewsBrowserTestParams {
   bool is_page_action_migration_enabled = false;
-  bool is_new_fop_display_enabled = false;
 };
 
 class SaveCardBubbleViewsFullFormBrowserTest
@@ -1053,19 +1053,7 @@ IN_PROC_BROWSER_TEST_P(SaveCardBubbleViewsFullFormBrowserTest,
 class SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream
     : public SaveCardBubbleViewsFullFormBrowserTest {
  public:
-  SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream() {
-    feature_list_.InitWithFeatureState(
-        features::kAutofillEnableNewFopDisplayDesktop,
-        IsNewFopDisplayEnabled());
-
-    CHECK_EQ(base::FeatureList::IsEnabled(
-                 features::kAutofillEnableNewFopDisplayDesktop),
-             IsNewFopDisplayEnabled());
-  }
-
-  bool IsNewFopDisplayEnabled() const {
-    return GetParam().is_new_fop_display_enabled;
-  }
+  SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream() = default;
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -2314,7 +2302,7 @@ IN_PROC_BROWSER_TEST_P(
 
   EXPECT_EQ(GetSaveCardBubbleViews()->GetCardIdentifierString(),
             card.CardNameAndLastFourDigits(
-                /*customized_nickname=*/u"", IsNewFopDisplayEnabled() ? 2 : 4));
+                /*customized_nickname=*/u"", 2));
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -2333,7 +2321,7 @@ IN_PROC_BROWSER_TEST_P(
   SubmitFormAndWaitForCardUploadSaveBubble();
 
   EXPECT_EQ(GetSaveCardBubbleViews()->GetCardIdentifierString(),
-            card.NetworkAndLastFourDigits(IsNewFopDisplayEnabled() ? 2 : 4));
+            card.NetworkAndLastFourDigits(2));
 }
 
 // Tests the upload save bubble. Ensures that if cardholder name is explicitly
@@ -2627,23 +2615,19 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     ,
     SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream,
-    ::testing::ConvertGenerator(
-        testing::Combine(::testing::Bool(), ::testing::Bool()),
-        [](std::tuple<bool, bool> t) {
-          return SaveCardBubbleViewsBrowserTestParams{
-              .is_page_action_migration_enabled = std::get<0>(t),
-              .is_new_fop_display_enabled = std::get<1>(t),
-          };
-        }),
+    ::testing::ConvertGenerator(::testing::Bool(),
+                                [](bool migration_enabled) {
+                                  return SaveCardBubbleViewsBrowserTestParams{
+                                      .is_page_action_migration_enabled =
+                                          migration_enabled,
+                                  };
+                                }),
     [](const ::testing::TestParamInfo<
         SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream::ParamType>&
            info) {
       return base::StrCat({
           info.param.is_page_action_migration_enabled ? "NewPageAction"
                                                       : "OldPageAction",
-          "_With_",
-          info.param.is_new_fop_display_enabled ? "NewFopDisplayEnabled"
-                                                : "NewFopDisplayDisabled",
       });
     });
 

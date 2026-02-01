@@ -17,10 +17,10 @@
 #include "chrome/android/chrome_jni_headers/ProxyNativeTask_jni.h"
 
 static jlong JNI_ProxyNativeTask_Init(JNIEnv* env,
-                                      const JavaParamRef<jobject>& jobj,
+                                      const JavaRef<jobject>& jobj,
                                       jint task_id,
                                       std::string& extras,
-                                      const JavaParamRef<jobject>& jcallback) {
+                                      const JavaRef<jobject>& jcallback) {
   std::unique_ptr<background_task::BackgroundTask> background_task =
       ChromeBackgroundTaskFactory::GetNativeBackgroundTaskFromTaskId(task_id);
 
@@ -57,7 +57,7 @@ void ProxyNativeTask::Destroy(JNIEnv* env) {
 
 void ProxyNativeTask::StartBackgroundTaskInReducedMode(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jkey) {
+    const JavaRef<jobject>& jkey) {
   if (!background_task_) {
     std::move(finish_callback_).Run(false);
     return;
@@ -90,7 +90,7 @@ void ProxyNativeTask::OnFullBrowserLoaded(JNIEnv* env,
   background_task_->OnFullBrowserLoaded(profile);
 }
 
-jboolean ProxyNativeTask::StopBackgroundTask(JNIEnv* env) {
+bool ProxyNativeTask::StopBackgroundTask(JNIEnv* env) {
   if (!background_task_)
     return false;
 

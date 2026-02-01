@@ -53,10 +53,21 @@ void ToolbarLayer::PushResource(int toolbar_resource_id,
       ToolbarResource::From(resource_manager_->GetResource(
           ui::ANDROID_RESOURCE_TYPE_DYNAMIC, toolbar_resource_id));
 
-  // Ensure the toolbar resource is available before making the layer visible.
-  layer_->SetHideLayerAndSubtree(!resource);
-  if (!resource)
+  // TODO(https://crbug.com/466162772): after the progress bar is decoupled from
+  // the toolbar, we can freely set the visibility of the toolbar without
+  // worrying about the progress bar. If AnimatedProgressBar is enabled, ensure
+  // that we don't hide the parent layer so that the progress bar is still
+  // visible even when we don't have a capture for the toolbar.
+  if (features::IsAndroidAnimatedProgressBarInBrowserEnabled()) {
+    toolbar_background_layer_->SetHideLayerAndSubtree(!resource);
+    url_bar_background_layer_->SetHideLayerAndSubtree(!resource);
+    bitmap_layer_->SetHideLayerAndSubtree(!resource);
+  } else {
+    layer_->SetHideLayerAndSubtree(!resource);
+  }
+  if (!resource) {
     return;
+  }
 
   // This layer effectively draws over the space the resource takes for shadows.
   // Set the bounds to the non-shadow size so that other things can properly
@@ -77,9 +88,24 @@ void ToolbarLayer::PushResource(int toolbar_resource_id,
   url_bar_background_layer_->SetHideLayerAndSubtree(!url_bar_visible);
   if (url_bar_visible) {
     ui::NinePatchResource* url_bar_background_resource;
-    url_bar_background_resource = ui::NinePatchResource::From(
-        resource_manager_->GetStaticResourceWithTint(
-            url_bar_background_resource_id, toolbar_textbox_background_color));
+    if (base::FeatureList::IsEnabled(
+            chrome::android::kMvcUpdateViewWhenModelChanged)) {
+      // Because the ToolbarLayer is not updated every frame, even if visible,
+      // we need keep the tint in the cache until the layer is destroyed.
+      url_bar_background_resource = ui::NinePatchResource::From(
+          resource_manager_->GetAndRetainStaticResourceWithTint(
+              url_bar_background_resource_id,
+              toolbar_textbox_background_color));
+      DCHECK(last_url_bar_background_resource_id_ == kInvalidResourceId ||
+             last_url_bar_background_resource_id_ ==
+                 url_bar_background_resource_id);
+      last_url_bar_background_resource_id_ = url_bar_background_resource_id;
+    } else {
+      url_bar_background_resource = ui::NinePatchResource::From(
+          resource_manager_->GetStaticResourceWithTint(
+              url_bar_background_resource_id,
+              toolbar_textbox_background_color));
+    }
 
     gfx::Size draw_size(url_bar_background_resource->DrawSize(
         resource->location_bar_content_rect().size()));
@@ -135,12 +161,7 @@ void ToolbarLayer::PushResource(int toolbar_resource_id,
   }
 
   layer_->SetPosition(gfx::PointF(x_offset, y_offset));
-
-  if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-    toolbar_layers_->SetOffsetTag(offset_tag);
-  } else {
-    layer_->SetOffsetTag(offset_tag);
-  }
+  layer_->SetOffsetTag(offset_tag);
 }
 
 int ToolbarLayer::GetIndexOfLayer(scoped_refptr<cc::slim::Layer> layer) {
@@ -155,11 +176,7 @@ int ToolbarLayer::GetIndexOfLayer(scoped_refptr<cc::slim::Layer> layer) {
 }
 
 scoped_refptr<cc::slim::Layer> ToolbarLayer::ToolbarParentLayer() {
-  if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-    return toolbar_layers_;
-  } else {
-    return layer_;
-  }
+  return layer_;
 }
 
 void ToolbarLayer::UpdateProgressBar(int progress_bar_x,
@@ -177,16 +194,10 @@ void ToolbarLayer::UpdateProgressBar(int progress_bar_x,
                                      int progress_bar_static_background_color,
                                      float corner_radius,
                                      bool progress_bar_visual_update_available,
-                                     bool visible,
-                                     const viz::OffsetTag& offset_tag) {
+                                     bool visible) {
   bool is_progress_bar_visible = SkColorGetA(progress_bar_background_color);
-  if (features::IsAndroidAnimatedProgressBarInVizEnabled() ||
-      features::IsAndroidAnimatedProgressBarInBrowserEnabled()) {
+  if (features::IsAndroidAnimatedProgressBarInBrowserEnabled()) {
     is_progress_bar_visible = visible;
-
-    if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-      progress_bar_layers_->SetOffsetTag(offset_tag);
-    }
   }
 
   progress_bar_background_layer_->SetHideLayerAndSubtree(!is_progress_bar_visible);
@@ -195,14 +206,8 @@ void ToolbarLayer::UpdateProgressBar(int progress_bar_x,
       !(is_progress_bar_visible && progress_bar_visual_update_available));
 
   if (is_progress_bar_visible) {
-    if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-      // Use corner_radius for gap between the foreground and background layer.
-      progress_bar_background_layer_->SetPosition(
-          gfx::PointF(corner_radius * 2, progress_bar_background_y));
-    } else {
-      progress_bar_background_layer_->SetPosition(
-          gfx::PointF(progress_bar_background_x, progress_bar_background_y));
-    }
+    progress_bar_background_layer_->SetPosition(
+        gfx::PointF(progress_bar_background_x, progress_bar_background_y));
     progress_bar_background_layer_->SetBounds(
         gfx::Size(progress_bar_background_width,
                   progress_bar_background_height));
@@ -210,15 +215,8 @@ void ToolbarLayer::UpdateProgressBar(int progress_bar_x,
     progress_bar_background_layer_->SetBackgroundColor(
         SkColor4f::FromColor(progress_bar_background_color));
     progress_bar_background_layer_->SetRoundedCorner(gfx::RoundedCornersF(corner_radius));
-
-    if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-      // Position the foregound layer to show 0% progress.
-      progress_bar_layer_->SetPosition(
-          gfx::PointF(-progress_bar_width, progress_bar_y));
-    } else {
-      progress_bar_layer_->SetPosition(
-          gfx::PointF(progress_bar_x, progress_bar_y));
-    }
+    progress_bar_layer_->SetPosition(
+        gfx::PointF(progress_bar_x, progress_bar_y));
     progress_bar_layer_->SetBounds(
         gfx::Size(progress_bar_width, progress_bar_height));
     // TODO(crbug.com/40219248): Remove FromColor and make all SkColor4f.
@@ -249,7 +247,7 @@ void ToolbarLayer::SetOpacity(float opacity) {
 }
 
 ToolbarLayer::ToolbarLayer(ui::ResourceManager* resource_manager)
-    : resource_manager_(resource_manager),
+    : resource_manager_(resource_manager->GetWeakPtr()),
       layer_(cc::slim::Layer::Create()),
       toolbar_layers_(cc::slim::Layer::Create()),
       progress_bar_layers_(cc::slim::Layer::Create()),
@@ -261,63 +259,39 @@ ToolbarLayer::ToolbarLayer(ui::ResourceManager* resource_manager)
       progress_bar_static_background_layer_(
           cc::slim::SolidColorLayer::Create()),
       debug_layer_(cc::slim::SolidColorLayer::Create()) {
-  if (features::IsAndroidAnimatedProgressBarInVizEnabled()) {
-    // Parents are drawn before children. Children added first are drawn first.
-    // Layers that are drawn later will cover all layers drawn before it.
-    toolbar_background_layer_->SetIsDrawable(true);
-    toolbar_layers_->AddChild(toolbar_background_layer_);
+  toolbar_background_layer_->SetIsDrawable(true);
+  layer_->AddChild(toolbar_background_layer_);
 
-    url_bar_background_layer_->SetIsDrawable(true);
-    url_bar_background_layer_->SetFillCenter(true);
-    toolbar_layers_->AddChild(url_bar_background_layer_);
+  url_bar_background_layer_->SetIsDrawable(true);
+  url_bar_background_layer_->SetFillCenter(true);
+  layer_->AddChild(url_bar_background_layer_);
 
-    bitmap_layer_->SetIsDrawable(true);
-    toolbar_layers_->AddChild(bitmap_layer_);
+  bitmap_layer_->SetIsDrawable(true);
+  layer_->AddChild(bitmap_layer_);
 
-    progress_bar_static_background_layer_->SetIsDrawable(true);
-    progress_bar_static_background_layer_->SetHideLayerAndSubtree(true);
-    toolbar_layers_->AddChild(progress_bar_static_background_layer_);
+  progress_bar_static_background_layer_->SetIsDrawable(true);
+  progress_bar_static_background_layer_->SetHideLayerAndSubtree(true);
+  layer_->AddChild(progress_bar_static_background_layer_);
 
-    layer_->AddChild(toolbar_layers_);
+  progress_bar_background_layer_->SetIsDrawable(true);
+  progress_bar_background_layer_->SetHideLayerAndSubtree(true);
+  layer_->AddChild(progress_bar_background_layer_);
 
-    progress_bar_layer_->SetIsDrawable(true);
-    progress_bar_layer_->SetHideLayerAndSubtree(true);
-    progress_bar_layers_->AddChild(progress_bar_layer_);
-
-    progress_bar_background_layer_->SetIsDrawable(true);
-    progress_bar_background_layer_->SetHideLayerAndSubtree(true);
-    progress_bar_layers_->AddChild(progress_bar_background_layer_);
-
-    layer_->AddChild(progress_bar_layers_);
-  } else {
-    toolbar_background_layer_->SetIsDrawable(true);
-    layer_->AddChild(toolbar_background_layer_);
-
-    url_bar_background_layer_->SetIsDrawable(true);
-    url_bar_background_layer_->SetFillCenter(true);
-    layer_->AddChild(url_bar_background_layer_);
-
-    bitmap_layer_->SetIsDrawable(true);
-    layer_->AddChild(bitmap_layer_);
-
-    progress_bar_static_background_layer_->SetIsDrawable(true);
-    progress_bar_static_background_layer_->SetHideLayerAndSubtree(true);
-    layer_->AddChild(progress_bar_static_background_layer_);
-
-    progress_bar_background_layer_->SetIsDrawable(true);
-    progress_bar_background_layer_->SetHideLayerAndSubtree(true);
-    layer_->AddChild(progress_bar_background_layer_);
-
-    progress_bar_layer_->SetIsDrawable(true);
-    progress_bar_layer_->SetHideLayerAndSubtree(true);
-    layer_->AddChild(progress_bar_layer_);
-  }
+  progress_bar_layer_->SetIsDrawable(true);
+  progress_bar_layer_->SetHideLayerAndSubtree(true);
+  layer_->AddChild(progress_bar_layer_);
 
   debug_layer_->SetIsDrawable(true);
   debug_layer_->SetBackgroundColor(SkColors::kGreen);
   debug_layer_->SetOpacity(0.5f);
 }
 
-ToolbarLayer::~ToolbarLayer() = default;
+ToolbarLayer::~ToolbarLayer() {
+  if (resource_manager_ &&
+      last_url_bar_background_resource_id_ != kInvalidResourceId) {
+    resource_manager_->ReleaseStaticResource(
+        last_url_bar_background_resource_id_);
+  }
+}
 
 }  //  namespace android

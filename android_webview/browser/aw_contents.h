@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "android_webview/browser/aw_browser_permission_request_delegate.h"
+#include "android_webview/browser/aw_navigation_client.h"
 #include "android_webview/browser/aw_render_process_gone_delegate.h"
 #include "android_webview/browser/find_helper.h"
 #include "android_webview/browser/gfx/browser_view_renderer.h"
@@ -30,6 +31,7 @@
 #include "base/memory/weak_ptr.h"
 #include "components/content_relationship_verification/digital_asset_links_handler.h"
 #include "components/js_injection/browser/js_communication_host.h"
+#include "components/js_injection/common/enum.mojom-forward.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class SkBitmap;
@@ -37,7 +39,7 @@ class SkBitmap;
 namespace content {
 class PrerenderHandle;
 class WebContents;
-}
+}  // namespace content
 
 namespace android_webview {
 
@@ -99,12 +101,12 @@ class AwContents : public FindHelper::Listener,
   // Methods called from Java.
   void SetJavaPeers(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& aw_contents,
-      const base::android::JavaParamRef<jobject>& web_contents_delegate,
-      const base::android::JavaParamRef<jobject>& contents_client_bridge,
-      const base::android::JavaParamRef<jobject>& io_thread_client,
-      const base::android::JavaParamRef<jobject>&
-          intercept_navigation_delegate);
+      const base::android::JavaRef<jobject>& aw_contents,
+      const base::android::JavaRef<jobject>& web_contents_delegate,
+      const base::android::JavaRef<jobject>& contents_client_bridge,
+      const base::android::JavaRef<jobject>& io_thread_client,
+      const base::android::JavaRef<jobject>& intercept_navigation_delegate,
+      const base::android::JavaRef<jobject>& navigation_client);
   void InitializeAndroidAutofill(JNIEnv* env);
   void InitSensitiveContentClient(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetWebContents(JNIEnv* env);
@@ -114,16 +116,15 @@ class AwContents : public FindHelper::Listener,
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
   void Destroy(JNIEnv* env);
   void DocumentHasImages(JNIEnv* env,
-                         const base::android::JavaParamRef<jobject>& message);
+                         const base::android::JavaRef<jobject>& message);
   void GenerateMHTML(JNIEnv* env,
-                     const base::android::JavaParamRef<jstring>& jpath,
-                     const base::android::JavaParamRef<jobject>& callback);
-  void CreatePdfExporter(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& pdfExporter);
+                     const base::android::JavaRef<jstring>& jpath,
+                     const base::android::JavaRef<jobject>& callback);
+  void CreatePdfExporter(JNIEnv* env,
+                         const base::android::JavaRef<jobject>& pdfExporter);
   void AddVisitedLinks(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobjectArray>& jvisited_links);
+      const base::android::JavaRef<jobjectArray>& jvisited_links);
   base::android::ScopedJavaLocalRef<jbyteArray> GetCertificate(JNIEnv* env);
   void UpdateLastHitTestData(JNIEnv* env);
   void OnSizeChanged(JNIEnv* env, int w, int h, int ow, int oh);
@@ -135,63 +136,64 @@ class AwContents : public FindHelper::Listener,
   bool IsVisible(JNIEnv* env);
   bool IsDisplayingInterstitialForTesting(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jbyteArray>
-  GetOpaqueState(JNIEnv* env, jint max_size, jboolean include_forward_state);
-  jboolean RestoreFromOpaqueState(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jbyteArray>& state);
+  GetOpaqueState(JNIEnv* env, jint max_size, bool include_forward_state);
+  bool RestoreFromOpaqueState(JNIEnv* env,
+                              const base::android::JavaRef<jbyteArray>& state);
   void FocusFirstNode(JNIEnv* env);
   void SetBackgroundColor(JNIEnv* env, jint color);
   void ZoomBy(JNIEnv* env, jfloat delta);
   void OnComputeScroll(JNIEnv* env, jlong animation_time_millis);
   bool OnDraw(JNIEnv* env,
-              const base::android::JavaParamRef<jobject>& canvas,
-              jboolean is_hardware_accelerated,
+              const base::android::JavaRef<jobject>& canvas,
+              bool is_hardware_accelerated,
               jint scroll_x,
               jint scroll_y,
               jint visible_left,
               jint visible_top,
               jint visible_right,
               jint visible_bottom,
-              jboolean force_auxiliary_bitmap_rendering);
+              bool force_auxiliary_bitmap_rendering);
   jfloat GetVelocityInPixelsPerSecond(JNIEnv* env);
   bool NeedToDrawBackgroundColor(JNIEnv* env);
   jlong CapturePicture(JNIEnv* env, int width, int height);
-  void EnableOnNewPicture(JNIEnv* env, jboolean enabled);
+  void EnableOnNewPicture(JNIEnv* env, bool enabled);
   void InsertVisualStateCallback(
       JNIEnv* env,
       jlong request_id,
-      const base::android::JavaParamRef<jobject>& callback);
+      const base::android::JavaRef<jobject>& callback);
   void ClearView(JNIEnv* env);
   void SetExtraHeadersForUrl(
       JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& url,
-      const base::android::JavaParamRef<jstring>& extra_headers);
+      const base::android::JavaRef<jstring>& url,
+      const base::android::JavaRef<jstring>& extra_headers);
 
-  void InvokeGeolocationCallback(
-      JNIEnv* env,
-      jboolean value,
-      const base::android::JavaParamRef<jstring>& origin);
+  void InvokeGeolocationCallback(JNIEnv* env,
+                                 bool value,
+                                 const base::android::JavaRef<jstring>& origin);
 
   jint GetEffectivePriority(JNIEnv* env);
 
   js_injection::JsCommunicationHost* GetJsCommunicationHost();
 
-  jint AddDocumentStartJavaScript(
+  jint AddPersistentJavaScript(
       JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& script,
-      const base::android::JavaParamRef<jobjectArray>& allowed_origin_rules);
+      const std::u16string& script,
+      js_injection::mojom::DocumentInjectionTime event_type,
+      const std::vector<std::string>& allowed_origin_rules,
+      jint world_identifier);
 
-  void RemoveDocumentStartJavaScript(JNIEnv* env, jint script_id);
+  void RemovePersistentJavaScript(JNIEnv* env, jint script_id);
 
   base::android::ScopedJavaLocalRef<jstring> AddWebMessageListener(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& listener,
-      const base::android::JavaParamRef<jstring>& js_object_name,
-      const base::android::JavaParamRef<jobjectArray>& allowed_origins);
+      const base::android::JavaRef<jobject>& listener,
+      const std::u16string& js_object_name,
+      const std::vector<std::string>& allowed_origin_rules,
+      jint world_id);
 
-  void RemoveWebMessageListener(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& js_object_name);
+  void RemoveWebMessageListener(JNIEnv* env,
+                                const std::u16string& js_object_name,
+                                jint world_id);
 
   std::vector<jni_zero::ScopedJavaLocalRef<jobject>> GetWebMessageListenerInfos(
       JNIEnv* env);
@@ -207,9 +209,9 @@ class AwContents : public FindHelper::Listener,
   jint StartPrerendering(
       JNIEnv* env,
       const std::string& prerendering_url,
-      const base::android::JavaParamRef<jobject>& j_prefetch_params,
-      const base::android::JavaParamRef<jobject>& j_activation_callback,
-      const base::android::JavaParamRef<jobject>& j_error_callback);
+      const base::android::JavaRef<jobject>& j_prefetch_params,
+      const base::android::JavaRef<jobject>& j_activation_callback,
+      const base::android::JavaRef<jobject>& j_error_callback);
 
   // `prerender_id` should be a returned value of StartPrerendering(). If a
   // corresponding prerendering has already been canceled or activated, this
@@ -231,10 +233,9 @@ class AwContents : public FindHelper::Listener,
     return permission_request_handler_.get();
   }
 
-  void PreauthorizePermission(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& origin,
-      jlong resources);
+  void PreauthorizePermission(JNIEnv* env,
+                              const base::android::JavaRef<jstring>& origin,
+                              jlong resources);
 
   // AwBrowserPermissionRequestDelegate implementation.
   void RequestProtectedMediaIdentifierPermission(
@@ -251,8 +252,8 @@ class AwContents : public FindHelper::Listener,
 
   // Find-in-page API and related methods.
   void FindAllAsync(JNIEnv* env,
-                    const base::android::JavaParamRef<jstring>& search_string);
-  void FindNext(JNIEnv* env, jboolean forward);
+                    const base::android::JavaRef<jstring>& search_string);
+  void FindNext(JNIEnv* env, bool forward);
   void ClearMatches(JNIEnv* env);
   FindHelper* GetFindHelper();
 
@@ -298,7 +299,7 @@ class AwContents : public FindHelper::Listener,
                      bool inside_vsync) override;
   ui::TouchHandleDrawable* CreateDrawable() override;
 
-  void ClearCache(JNIEnv* env, jboolean include_disk_files);
+  void ClearCache(JNIEnv* env, bool include_disk_files);
   // See //android_webview/docs/how-does-on-create-window-work.md for more
   // details.
   void SetPendingWebContentsForPopup(
@@ -315,8 +316,8 @@ class AwContents : public FindHelper::Listener,
   base::android::ScopedJavaLocalRef<jstring> GetScheme(JNIEnv* env);
   void OnInputEvent(JNIEnv* env);
 
-  void SetJsOnlineProperty(JNIEnv* env, jboolean network_up);
-  void TrimMemory(JNIEnv* env, jint level, jboolean visible);
+  void SetJsOnlineProperty(JNIEnv* env, bool network_up);
+  void TrimMemory(JNIEnv* env, jint level, bool visible);
 
   void GrantFileSchemeAccesstoChildProcess(JNIEnv* env);
 
@@ -347,9 +348,7 @@ class AwContents : public FindHelper::Listener,
   // AwSafeBrowsingAllowlistSetObserver overrides
   void OnSafeBrowsingAllowListSet() override;
 
-  // AwWebPerformanceMetricsObserver related methods
-  void OnPerformanceMark(std::string mark_name,
-                         const base::TimeDelta& mark_time);
+  AwNavigationClient* GetNavigationClient() { return navigation_client_.get(); }
 
  private:
   // Geolocation API support
@@ -363,6 +362,7 @@ class AwContents : public FindHelper::Listener,
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<AwWebContentsDelegate> web_contents_delegate_;
   std::unique_ptr<AwContentsClientBridge> contents_client_bridge_;
+  std::unique_ptr<AwNavigationClient> navigation_client_;
   std::unique_ptr<AwRenderViewHostExt> render_view_host_ext_;
   std::unique_ptr<FindHelper> find_helper_;
   std::unique_ptr<IconHelper> icon_helper_;

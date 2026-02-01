@@ -46,7 +46,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterImpl;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.R;
@@ -120,11 +119,7 @@ public class WarmupManagerTest {
         mTabModel = mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
 
         mTabGroupModelFilter =
-                mActivityTestRule
-                        .getActivity()
-                        .getTabModelSelector()
-                        .getTabGroupModelFilterProvider()
-                        .getTabGroupModelFilter(false);
+                mActivityTestRule.getActivity().getTabModelSelector().getTabGroupModelFilter(false);
 
         // Unlike most of Chrome, the WarmupManager inflates layouts with the application context.
         // This is because the inflation happens before an activity exists. If you're trying to fix
@@ -151,13 +146,6 @@ public class WarmupManagerTest {
                     WarmupManager.deInitForTesting();
                 });
         mWebServer.shutdown();
-    }
-
-    private void assertOrderValid(boolean expectedState) {
-        if (mTabGroupModelFilter instanceof TabGroupModelFilterImpl filter) {
-            boolean isOrderValid = ThreadUtils.runOnUiThreadBlocking(filter::isOrderValid);
-            assertEquals(expectedState, isOrderValid);
-        }
     }
 
     /**
@@ -448,7 +436,6 @@ public class WarmupManagerTest {
         Tab tab = addTabAt(/* index= */ 0, /* parent= */ tabs.get(1));
         tabs.add(1, tab);
         assertEquals(tabs, getCurrentTabs());
-        assertOrderValid(true);
         Assert.assertEquals(TabLaunchType.FROM_TAB_GROUP_UI, tab.getLaunchType());
 
         ThreadUtils.runOnUiThreadBlocking(

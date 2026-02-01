@@ -45,66 +45,66 @@ class SyncServiceAndroidBridge : public SyncServiceObserver {
   // Please keep all methods below in the same order as the @NativeMethods in
   // SyncServiceImpl.java.
   void AcknowledgeBookmarksLimitExceededError(JNIEnv* env);
-  jboolean IsSyncFeatureEnabled(JNIEnv* env);
-  jboolean IsSyncFeatureActive(JNIEnv* env);
-  jboolean IsSyncDisabledByEnterprisePolicy(JNIEnv* env);
-  jboolean IsEngineInitialized(JNIEnv* env);
-  void SetSetupInProgress(JNIEnv* env, jboolean in_progress);
-  jboolean IsInitialSyncFeatureSetupComplete(JNIEnv* env);
+  bool IsSyncFeatureEnabled(JNIEnv* env);
+  bool IsSyncFeatureActive(JNIEnv* env);
+  bool IsSyncDisabledByEnterprisePolicy(JNIEnv* env);
+  bool IsEngineInitialized(JNIEnv* env);
+  void SetSetupInProgress(JNIEnv* env, bool in_progress);
+  bool IsInitialSyncFeatureSetupComplete(JNIEnv* env);
   void SetInitialSyncFeatureSetupComplete(JNIEnv* env, jint source);
   base::android::ScopedJavaLocalRef<jintArray> GetActiveDataTypes(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jintArray> GetSelectedTypes(JNIEnv* env);
   void GetTypesWithUnsyncedData(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& callback);
+      const base::android::JavaRef<jobject>& callback);
   void GetLocalDataDescriptions(
       JNIEnv* env,
-      const base::android::JavaParamRef<jintArray>& types,
-      const base::android::JavaParamRef<jobject>& callback);
+      const base::android::JavaRef<jintArray>& types,
+      const base::android::JavaRef<jobject>& callback);
   void TriggerLocalDataMigration(
       JNIEnv* env,
-      const base::android::JavaParamRef<jintArray>& types);
-  jboolean IsTypeManagedByPolicy(JNIEnv* env, jint type);
-  jboolean IsTypeManagedByCustodian(JNIEnv* env, jint type);
-  void SetSelectedTypes(JNIEnv* env,
-                        jboolean sync_everything,
-                        const base::android::JavaParamRef<jintArray>&
-                            user_selectable_type_selection);
-  void SetSelectedType(JNIEnv* env, jint type, jboolean is_type_on);
-  jboolean IsCustomPassphraseAllowed(JNIEnv* env);
-  jboolean IsEncryptEverythingEnabled(JNIEnv* env);
-  jboolean IsPassphraseRequiredForPreferredDataTypes(JNIEnv* env);
-  jboolean IsTrustedVaultKeyRequired(JNIEnv* env);
-  jboolean IsTrustedVaultKeyRequiredForPreferredDataTypes(JNIEnv* env);
-  jboolean IsTrustedVaultRecoverabilityDegraded(JNIEnv* env);
-  jboolean IsUsingExplicitPassphrase(JNIEnv* env);
+      const base::android::JavaRef<jintArray>& types);
+  bool IsTypeManagedByPolicy(JNIEnv* env, jint type);
+  bool IsTypeManagedByCustodian(JNIEnv* env, jint type);
+  void SetSelectedTypes(
+      JNIEnv* env,
+      bool sync_everything,
+      const base::android::JavaRef<jintArray>& user_selectable_type_selection);
+  void SetSelectedType(JNIEnv* env, jint type, bool is_type_on);
+  bool IsCustomPassphraseAllowed(JNIEnv* env);
+  bool IsEncryptEverythingEnabled(JNIEnv* env);
+  bool IsPassphraseRequiredForPreferredDataTypes(JNIEnv* env);
+  bool IsTrustedVaultKeyRequired(JNIEnv* env);
+  bool IsTrustedVaultKeyRequiredForPreferredDataTypes(JNIEnv* env);
+  bool IsTrustedVaultRecoverabilityDegraded(JNIEnv* env);
+  bool IsUsingExplicitPassphrase(JNIEnv* env);
   jint GetPassphraseType(JNIEnv* env);
   jint GetTransportState(JNIEnv* env);
   jint GetUserActionableError(JNIEnv* env);
   void SetEncryptionPassphrase(
       JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& passphrase);
-  jboolean SetDecryptionPassphrase(
+      const base::android::JavaRef<jstring>& passphrase);
+  bool SetDecryptionPassphrase(
       JNIEnv* env,
-      const base::android::JavaParamRef<jstring>& passphrase);
+      const base::android::JavaRef<jstring>& passphrase);
   // Returns 0 if there's no passphrase time.
   jlong GetExplicitPassphraseTime(JNIEnv* env);
   void GetAllNodes(JNIEnv* env,
-                   const base::android::JavaParamRef<jobject>& callback);
+                   const base::android::JavaRef<jobject>& callback);
   GoogleServiceAuthError GetAuthError(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetAccountInfo(JNIEnv* env);
-  jboolean HasSyncConsent(JNIEnv* env);
-  jboolean IsPassphrasePromptMutedForCurrentProductVersion(JNIEnv* env);
+  bool HasSyncConsent(JNIEnv* env);
+  bool IsPassphrasePromptMutedForCurrentProductVersion(JNIEnv* env);
   void MarkPassphrasePromptMutedForCurrentProductVersion(JNIEnv* env);
-  jboolean HasKeepEverythingSynced(JNIEnv* env);
-  jboolean ShouldOfferTrustedVaultOptIn(JNIEnv* env);
+  bool HasKeepEverythingSynced(JNIEnv* env);
+  bool ShouldOfferTrustedVaultOptIn(JNIEnv* env);
   void TriggerRefresh(JNIEnv* env);
   // Returns a timestamp for when a sync was last executed. The return value is
   // the internal value of base::Time.
   jlong GetLastSyncedTimeForDebugging(JNIEnv* env);
   void KeepAccountSettingsPrefsOnlyForUsers(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobjectArray>& gaia_ids);
+      const base::android::JavaRef<jobjectArray>& gaia_ids);
 
  private:
   // A reference to the sync service for this profile.

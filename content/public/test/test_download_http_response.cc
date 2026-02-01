@@ -9,13 +9,13 @@
 #include <algorithm>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
@@ -335,12 +335,12 @@ std::string TestDownloadHttpResponse::GetDefaultResponseHeaders() {
   // Send partial response.
   if (parameters_.support_partial_response && parameters_.support_byte_ranges) {
     bool has_if_range =
-        base::Contains(request_.headers, net::HttpRequestHeaders::kIfRange);
+        request_.headers.contains(net::HttpRequestHeaders::kIfRange);
     if (((has_if_range &&
           request_.headers.at(net::HttpRequestHeaders::kIfRange) ==
               parameters_.etag) ||
          (!has_if_range &&
-          base::Contains(request_.headers, net::HttpRequestHeaders::kRange))) &&
+          request_.headers.contains(net::HttpRequestHeaders::kRange))) &&
         HandleRangeAssumingValidatorMatch(headers)) {
       return headers;
     }
@@ -348,7 +348,7 @@ std::string TestDownloadHttpResponse::GetDefaultResponseHeaders() {
 
   // Send precondition failed for "If-Match" request header.
   if (parameters_.support_partial_response && parameters_.support_byte_ranges &&
-      base::Contains(request_.headers, net::HttpRequestHeaders::kIfMatch)) {
+      request_.headers.contains(net::HttpRequestHeaders::kIfMatch)) {
     if (request_.headers.at(net::HttpRequestHeaders::kIfMatch) !=
             parameters_.etag ||
         !HandleRangeAssumingValidatorMatch(headers)) {

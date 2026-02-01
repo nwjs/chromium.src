@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_wrapper_mode.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -26,8 +27,10 @@ class V8PermissionState;
 //
 // TODO(peter): Use the PushMessaging Mojo service directly from here.
 class PushMessagingBridge final : public GarbageCollected<PushMessagingBridge>,
-                                  public GarbageCollectedMixin {
+                                  public Supplement<ServiceWorkerRegistration> {
  public:
+  static const char kSupplementName[];
+
   static PushMessagingBridge* From(ServiceWorkerRegistration* registration);
 
   explicit PushMessagingBridge(ServiceWorkerRegistration& registration);

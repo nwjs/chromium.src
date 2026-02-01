@@ -18,6 +18,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -96,20 +97,25 @@ InputSyncWriter::InputSyncWriter(
   DCHECK(glitch_counter_);
 
   audio_buses_.resize(shared_memory_segment_count);
+  input_buffers_.resize(shared_memory_segment_count);
 
   // Create vector of audio buses by wrapping existing blocks of memory.
   base::span<uint8_t> data = shared_memory_mapping_.GetMemoryAsSpan<uint8_t>();
   CHECK(!data.empty());
   auto reader = base::SpanReader<uint8_t>(data);
 
-  for (auto& bus : audio_buses_) {
+  for (uint32_t segment_index = 0; segment_index < shared_memory_segment_count;
+       segment_index++) {
     auto input_buffer = *reader.Read(shared_memory_segment_size_);
+    input_buffers_[segment_index] =
+        reinterpret_cast<media::AudioInputBuffer*>(input_buffer.data());
     auto audio_data =
         input_buffer.subspan<sizeof(media::AudioInputBufferParameters)>();
     CHECK_EQ(audio_data.size(), audio_bus_memory_size_);
     CHECK(
         base::IsAligned(audio_data.data(), media::AudioBus::kChannelAlignment));
-    bus = media::AudioBus::WrapMemory(params, audio_data);
+    audio_buses_[segment_index] =
+        media::AudioBus::WrapMemory(params, audio_data);
   }
 
   CHECK(reader.remaining_span().empty());
@@ -422,10 +428,8 @@ bool InputSyncWriter::SignalDataWrittenAndUpdateCounters() {
 
 media::AudioInputBuffer* InputSyncWriter::GetSharedInputBuffer(
     uint32_t segment_id) {
-  uint8_t* ptr = static_cast<uint8_t*>(shared_memory_mapping_.memory());
-  CHECK_LT(segment_id, audio_buses_.size());
-  UNSAFE_TODO(ptr += segment_id * shared_memory_segment_size_);
-  return reinterpret_cast<media::AudioInputBuffer*>(ptr);
+  CHECK_LT(segment_id, input_buffers_.size());
+  return input_buffers_[segment_id];
 }
 
 void InputSyncWriter::SendLogMessage(const char* format, ...) {
@@ -435,7 +439,7 @@ void InputSyncWriter::SendLogMessage(const char* format, ...) {
   va_list args;
   va_start(args, format);
   log_callback_.Run(
-      base::StrCat({"AISW::", base::StringPrintV(format, args),
+      base::StrCat({"AISW::", UNSAFE_TODO(base::StringPrintV(format, args)),
                     base::StringPrintf(" [this=0x%" PRIXPTR "]",
                                        reinterpret_cast<uintptr_t>(this))}));
   va_end(args);

@@ -6,6 +6,7 @@
 
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -123,9 +124,9 @@ Matcher<const PossibleTypes&> HasFlightNumberFormats(Ts&&... formats) {
 std::unique_ptr<FormStructure> ConstructFormStructureFromFormData(
     const FormData& form) {
   auto form_structure = std::make_unique<FormStructure>(form);
-  const RegexPredictions regex_predictions =
-      DetermineRegexTypes(GeoIpCountryCode(""), LanguageCode(""),
-                          form_structure->ToFormData(), nullptr);
+  const RegexPredictions regex_predictions = DetermineRegexTypes(
+      GeoIpCountryCode(""), LanguageCode(""), form_structure->ToFormData(),
+      nullptr, /*ignore_small_forms=*/true);
   regex_predictions.ApplyTo(form_structure->fields());
   form_structure->RationalizeAndAssignSections(GeoIpCountryCode(""),
                                                LanguageCode(""), nullptr);
@@ -141,7 +142,7 @@ void CheckThatOnlyFieldByIndexHasThisPossibleType(
     size_t field_index,
     FieldType type) {
   EXPECT_LT(field_index, possible_types.size());
-  for (size_t i = 0; i < possible_types.size(); i++) {
+  for (size_t i = 0; i < possible_types.size(); ++i) {
     if (i == field_index) {
       EXPECT_THAT(possible_types[i].types, ElementsAre(type)) << "i=" << i;
     } else {

@@ -601,6 +601,7 @@ class CC_EXPORT LayerTreeImpl {
   void DidModifyTilePriorities(bool pending_update_tiles = false);
 
   viz::ResourceId ResourceIdForUIResource(UIResourceId uid) const;
+  gfx::Size GetUIResourceSize(UIResourceId uid) const;
   void ProcessUIResourceRequestQueue();
 
   bool IsUIResourceOpaque(UIResourceId uid) const;
@@ -684,7 +685,6 @@ class CC_EXPORT LayerTreeImpl {
   float top_controls_height() const {
     return browser_controls_params_.top_controls_height;
   }
-  void SetLoadProgress(float progress);
   float top_controls_min_height() const {
     return browser_controls_params_.top_controls_min_height;
   }
@@ -1014,7 +1014,6 @@ class CC_EXPORT LayerTreeImpl {
       event_listener_properties_;
 
   BrowserControlsParams browser_controls_params_;
-  float load_progress_ = 0.f;
 
   OverscrollBehavior overscroll_behavior_;
 

@@ -19,8 +19,10 @@ import android.widget.Button;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.Px;
+import androidx.annotation.StringRes;
 import androidx.annotation.StyleRes;
 import androidx.constraintlayout.widget.ConstraintSet;
+import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -49,10 +51,12 @@ class FuseboxViewBinder {
                     model.get(FuseboxProperties.ATTACHMENTS_TOOLBAR_VISIBLE)
                             ? View.VISIBLE
                             : View.GONE);
+            reanchorViewsForCompactFusebox(model, view);
             updateButtonsVisibilityAndStyling(model, view);
         } else if (propertyKey == FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE) {
             reanchorViewsForCompactFusebox(model, view);
             updateButtonsVisibilityAndStyling(model, view);
+            updateButtonsA11yAnnouncements(model, view);
             updateToolDrawables(model.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE), view);
         } else if (propertyKey == FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE_CHANGEABLE) {
             updateButtonsVisibilityAndStyling(model, view);
@@ -62,6 +66,27 @@ class FuseboxViewBinder {
         } else if (propertyKey == FuseboxProperties.ATTACHMENTS_VISIBLE) {
             boolean visible = model.get(FuseboxProperties.ATTACHMENTS_VISIBLE);
             view.attachmentsView.setVisibility(visible ? View.VISIBLE : View.GONE);
+            reanchorViewsForCompactFusebox(model, view);
+
+            // This fixes a flicker we see when transitioning from 0 attachments to 1 attachment.
+            // The last attachment would be shown at the start of the fade animation, and any
+            // attempt to reset the attachment View or clear out pending animations didn't help. The
+            // correct solution is probably to instead allow the fade out animation to play, but
+            // that's difficult due to how this and similar classes are set up here. We don't have
+            // control over event sequencing or good observability on RV animations. Note when
+            // trying to repro this bug, as of writing only the add current tab context is able to
+            // trigger this, all of the intent based context flows have full screen animations that
+            // hide inconsistencies. Lastly, this removeAllViews() fixes the issue when invoked on
+            // either visibility edge. Here we're running it when hidden instead of when shown.
+            // While it doesn't really matter, this kind of shows that we've given up on the fade
+            // out animation, but we're trying to avoid tampering with the fade in animation, which
+            // still works.
+            if (!visible) {
+                LayoutManager layoutManager = view.attachmentsView.getLayoutManager();
+                if (layoutManager != null) {
+                    layoutManager.removeAllViews();
+                }
+            }
         } else if (propertyKey == FuseboxProperties.BUTTON_ADD_CLICKED) {
             view.addButton.setOnClickListener(
                     v -> model.get(FuseboxProperties.BUTTON_ADD_CLICKED).run());
@@ -209,6 +234,37 @@ class FuseboxViewBinder {
         views.popup.mCreateImageButton.setCompoundDrawablesRelativeWithIntrinsicBounds(
                 imageGenStartDrawable, null, imageGenEndDrawable, null);
         reapplyColorFilter(views.popup.mCreateImageButton);
+    }
+
+    static void updateButtonsA11yAnnouncements(PropertyModel model, FuseboxViewHolder views) {
+        @StringRes
+        int navButtonAccessibilityStringRes = R.string.acc_send_button_search_or_navigate;
+        @StringRes
+        int aiModeButtonAccessibilityStringRes = R.string.accessibility_omnibox_enable_ai_mode;
+        @StringRes
+        int imageGenButtonAccessibilityStringRes = R.string.accessibility_omnibox_create_image;
+        switch (model.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE)) {
+            case AutocompleteRequestType.AI_MODE:
+                navButtonAccessibilityStringRes = R.string.acc_send_button_send_to_ai;
+                aiModeButtonAccessibilityStringRes = R.string.acc_ai_mode_selected;
+                break;
+            case AutocompleteRequestType.IMAGE_GENERATION:
+                navButtonAccessibilityStringRes = R.string.acc_send_button_create_image;
+                imageGenButtonAccessibilityStringRes = R.string.acc_create_image_selected;
+                break;
+            case AutocompleteRequestType.SEARCH:
+                break;
+            default:
+                assert false : "Missing A11y announcement for the fusebox button in this context";
+                break;
+        }
+
+        var res = views.parentView.getResources();
+        views.navigateButton.setContentDescription(res.getText(navButtonAccessibilityStringRes));
+        views.popup.mAiModeButton.setContentDescription(
+                res.getText(aiModeButtonAccessibilityStringRes));
+        views.popup.mCreateImageButton.setContentDescription(
+                res.getText(imageGenButtonAccessibilityStringRes));
     }
 
     static void updateButtonsVisibilityAndStyling(PropertyModel model, FuseboxViewHolder views) {
@@ -361,7 +417,9 @@ class FuseboxViewBinder {
     }
 
     static void reanchorViewsForCompactFusebox(PropertyModel model, FuseboxViewHolder views) {
-        boolean shouldShowCompactUi = model.get(FuseboxProperties.COMPACT_UI);
+        boolean shouldShowCompactUi =
+                model.get(FuseboxProperties.COMPACT_UI)
+                        || !model.get(FuseboxProperties.ATTACHMENTS_TOOLBAR_VISIBLE);
 
         int topToTop = shouldShowCompactUi ? R.id.url_bar : ConstraintSet.UNSET;
         int topToBottom = shouldShowCompactUi ? ConstraintSet.UNSET : R.id.url_bar;
@@ -384,6 +442,12 @@ class FuseboxViewBinder {
         if (bottomToBottom != ConstraintSet.UNSET) {
             cs.connect(id, ConstraintSet.BOTTOM, bottomToBottom, ConstraintSet.BOTTOM);
         }
+
+        cs.connect(
+                R.id.url_bar,
+                ConstraintSet.END,
+                shouldShowCompactUi ? R.id.action_buttons_segment : R.id.delete_button,
+                ConstraintSet.START);
 
         cs.applyTo(views.parentView);
     }

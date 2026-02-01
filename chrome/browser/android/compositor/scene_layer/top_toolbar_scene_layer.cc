@@ -16,7 +16,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/ui/android/toolbar/jni_headers/TopToolbarSceneLayer_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 
 namespace android {
@@ -35,7 +34,7 @@ TopToolbarSceneLayer::~TopToolbarSceneLayer() = default;
 
 void TopToolbarSceneLayer::UpdateToolbarLayer(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jresource_manager,
+    const JavaRef<jobject>& jresource_manager,
     jint toolbar_resource_id,
     jint toolbar_background_color,
     jint url_bar_resource_id,
@@ -46,7 +45,7 @@ void TopToolbarSceneLayer::UpdateToolbarLayer(
     bool show_shadow,
     bool visible,
     bool anonymize,
-    const base::android::JavaParamRef<jobject>& joffset_tag) {
+    const base::android::JavaRef<jobject>& joffset_tag) {
   // If the toolbar layer has not been created yet, create it.
   if (!toolbar_layer_) {
     ui::ResourceManager* resource_manager =
@@ -84,13 +83,11 @@ void TopToolbarSceneLayer::UpdateProgressBar(
     jint progress_bar_static_background_width,
     jint progress_bar_static_background_color,
     jfloat corner_radius,
-    jboolean progress_bar_visual_update_available,
-    bool visible,
-    const base::android::JavaParamRef<jobject>& joffset_tag) {
+    bool progress_bar_visual_update_available,
+    bool visible) {
   if (!toolbar_layer_)
     return;
 
-  viz::OffsetTag offset_tag = cc::android::FromJavaOffsetTag(env, joffset_tag);
   toolbar_layer_->UpdateProgressBar(
       progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height,
       progress_bar_color, progress_bar_background_x, progress_bar_background_y,
@@ -98,12 +95,12 @@ void TopToolbarSceneLayer::UpdateProgressBar(
       progress_bar_background_color, progress_bar_static_background_x,
       progress_bar_static_background_width,
       progress_bar_static_background_color, corner_radius,
-      progress_bar_visual_update_available, visible, offset_tag);
+      progress_bar_visual_update_available, visible);
 }
 
 void TopToolbarSceneLayer::SetContentTree(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jcontent_tree) {
+    const JavaRef<jobject>& jcontent_tree) {
   SceneLayer* content_tree = FromJavaObject(env, jcontent_tree);
   if (!content_tree || !content_tree->layer())
     return;
@@ -130,7 +127,7 @@ bool TopToolbarSceneLayer::ShouldShowBackground() {
 }
 
 static jlong JNI_TopToolbarSceneLayer_Init(JNIEnv* env,
-                                           const JavaParamRef<jobject>& jobj) {
+                                           const JavaRef<jobject>& jobj) {
   // This will automatically bind to the Java object and pass ownership there.
   TopToolbarSceneLayer* toolbar_scene_layer =
       new TopToolbarSceneLayer(env, jobj);

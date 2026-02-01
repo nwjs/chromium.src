@@ -44,6 +44,7 @@
 #include "content/browser/media/frameless_media_interface_proxy.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/gpu_data_manager_observer.h"
 #include "content/public/browser/gpu_utils.h"
 #include "content/public/common/content_client.h"
@@ -980,6 +981,7 @@ void GpuDataManagerImplPrivate::UpdateGpuInfo(
 #endif
   gpu_info_ = gpu_info;
   RecordDiscreteGpuHistograms(gpu_info_);
+  RecordNpuHistograms(gpu_info_);
 #if BUILDFLAG(ENABLE_VULKAN)
   // Remember the initial hardware_supports_vulkan value so it doesn't change
   // if GPU process restarts as Vulkan might get disabled by GPU mode fallback.
@@ -1345,6 +1347,16 @@ void GpuDataManagerImplPrivate::UpdateGpuPreferences(
   DCHECK(gpu_preferences);
 
   gpu_preferences->gpu_program_cache_size = gpu::GetDefaultGpuDiskCacheSize();
+#if BUILDFLAG(IS_ANDROID)
+  // Disable WebGPU if Android Advanced Protection is enabled.
+  // Directly toggling preferences instead of kWebGPUService to prevent
+  // bypass by enable_unsafe_webgpu.
+  if (GetContentClient()->browser()->IsAndroidAdvancedProtectionEnabled() &&
+      base::FeatureList::IsEnabled(features::kAAPMBlocksWebGPU)) {
+    gpu_preferences->enable_webgpu = false;
+    gpu_preferences->enable_unsafe_webgpu = false;
+  }
+#endif
 
   gpu_preferences->watchdog_starts_backgrounded = !application_is_visible_;
 

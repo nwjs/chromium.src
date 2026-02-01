@@ -14,6 +14,8 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "url/gurl.h"
 
+#include "content/public/browser/web_contents.h"
+
 namespace content {
 class BrowserContext;
 class RenderFrameHost;

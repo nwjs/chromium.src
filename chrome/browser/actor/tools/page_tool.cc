@@ -65,7 +65,7 @@ bool ValidateTargetFrameCandidate(
     const PageTarget& target,
     RenderFrameHost* candidate_frame,
     WebContents& web_contents,
-    const std::optional<TargetNodeInfo> target_node_info) {
+    base::optional_ref<const TargetNodeInfo> target_node_info) {
   // Frame validation is performed only when targeting using coordinates.
   CHECK(std::holds_alternative<gfx::Point>(target));
 
@@ -105,7 +105,7 @@ bool ValidateTargetFrameCandidate(
 // Helper function to create ObservedToolTarget mojom struct from
 // TargetNodeInfo struct.
 mojom::ObservedToolTargetPtr ToMojoObservedToolTarget(
-    const std::optional<optimization_guide::TargetNodeInfo>&
+    base::optional_ref<const optimization_guide::TargetNodeInfo>
         observed_target_node_info,
     RenderFrameHost& target_frame) {
   if (!observed_target_node_info) {
@@ -209,9 +209,10 @@ mojom::ActionResultPtr PageTool::TimeOfUseValidation(
     return MakeResult(mojom::ActionResultCode::kTabWentAway);
   }
 
-  journal().Log(
-      JournalURL(), task_id(), "TimeOfUseValidation",
-      JournalDetailsBuilder().Add("tab_handle", tab->GetHandle()).Build());
+  journal().Log(JournalURL(), task_id(), "TimeOfUseValidation",
+                JournalDetailsBuilder()
+                    .Add("tab_handle", tab->GetHandle().raw_value())
+                    .Build());
 
   RenderFrameHost* frame =
       FindTargetLocalRootFrame(request_->GetTabHandle(), request_->GetTarget());

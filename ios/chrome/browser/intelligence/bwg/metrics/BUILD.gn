@@ -4,11 +4,20 @@
 
 source_set("metrics") {
   sources = [
-    "bwg_metrics.h",
-    "bwg_metrics.mm",
+    "gemini_metrics.h",
+    "gemini_metrics.mm",
   ]
   deps = [
     "//base",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "gemini_metrics_unittest.mm" ]
+  deps = [
+    ":metrics",
+    "//base/test:test_support",
   ]
 }

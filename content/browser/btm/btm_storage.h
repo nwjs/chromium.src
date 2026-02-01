@@ -6,7 +6,6 @@
 #define CONTENT_BROWSER_BTM_BTM_STORAGE_H_
 
 #include <cstddef>
-#include <map>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -37,9 +36,6 @@ class CONTENT_EXPORT BtmStorage {
 
   std::optional<PopupsStateValue> ReadPopup(const std::string& first_party_site,
                                             const std::string& tracking_site);
-
-  std::vector<PopupWithTime> ReadRecentPopupsWithInteraction(
-      const base::TimeDelta& lookback);
 
   bool WritePopup(const std::string& first_party_site,
                   const std::string& tracking_site,

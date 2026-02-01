@@ -1,5 +1,6 @@
 include_rules = [
   "+base/cpu_reduction_experiment.h",
+  "+base/task/thread_pool/thread_pool_instance.h",
   "+cc",
   "+components/performance_manager/scenario_api",
   "+components/viz/common",
@@ -27,8 +28,5 @@ specific_include_rules = {
   ],
   "main_thread_unittest.cc": [
     "+base/message_loop/message_pump_type.h",
-  ],
-  "main_thread_scheduler_impl.h": [
-    "+base/threading/scoped_thread_priority.h",
   ],
 }

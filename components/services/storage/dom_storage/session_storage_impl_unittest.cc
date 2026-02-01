@@ -10,7 +10,6 @@
 #include <string_view>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -24,17 +23,17 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/uuid.h"
-#include "components/services/storage/dom_storage/leveldb/dom_storage_batch_operation_leveldb.h"
-#include "components/services/storage/dom_storage/storage_area_test_util.h"
+#include "components/services/storage/dom_storage/test_support/dom_storage_database_testing.h"
+#include "components/services/storage/dom_storage/test_support/storage_area_test_util.h"
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/functions.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
-#include "third_party/leveldatabase/env_chromium.h"
 
 namespace storage {
 
@@ -54,7 +53,7 @@ class SessionStorageImplTest : public testing::Test {
   SessionStorageImplTest& operator=(const SessionStorageImplTest&) = delete;
 
   ~SessionStorageImplTest() override {
-    EXPECT_TRUE(temp_dir_.Delete());
+    EXPECT_TRUE(base::test::RunUntil([this]() { return temp_dir_.Delete(); }));
   }
 
   void SetUp() override {
@@ -79,9 +78,8 @@ class SessionStorageImplTest : public testing::Test {
     if (!session_storage_) {
       remote_session_storage_.reset();
       session_storage_ = std::make_unique<SessionStorageImpl>(
-          temp_path(), blocking_task_runner_,
-          base::SequencedTaskRunner::GetCurrentDefault(), backing_mode_,
-          kSessionStorageDirectory, base::DoNothing(),
+          temp_path(), backing_mode_, kSessionStorageDirectory,
+          base::DoNothing(),
           remote_session_storage_.BindNewPipeAndPassReceiver());
     }
     return session_storage_.get();
@@ -94,10 +92,6 @@ class SessionStorageImplTest : public testing::Test {
 
   void ShutDownSessionStorage() {
     remote_session_storage_.FlushForTesting();
-
-    base::RunLoop loop;
-    session_storage_->ShutDown(loop.QuitClosure());
-    loop.Run();
     session_storage_.reset();
   }
 
@@ -109,8 +103,7 @@ class SessionStorageImplTest : public testing::Test {
     session_storage()->CreateNamespace(namespace_id);
     mojo::Remote<blink::mojom::StorageArea> area;
     session_storage()->BindStorageArea(storage_key, namespace_id,
-                                       area.BindNewPipeAndPassReceiver(),
-                                       base::DoNothing());
+                                       area.BindNewPipeAndPassReceiver());
     EXPECT_TRUE(test::PutSync(area.get(), StringViewToUint8Vector(key),
                               StringViewToUint8Vector(value), std::nullopt,
                               source));
@@ -124,8 +117,7 @@ class SessionStorageImplTest : public testing::Test {
     session_storage()->CreateNamespace(namespace_id);
     mojo::Remote<blink::mojom::StorageArea> area;
     session_storage()->BindStorageArea(storage_key, namespace_id,
-                                       area.BindNewPipeAndPassReceiver(),
-                                       base::DoNothing());
+                                       area.BindNewPipeAndPassReceiver());
 
     // Use the GetAll interface because Gets are being removed.
     std::vector<blink::mojom::KeyValuePtr> data;
@@ -155,9 +147,6 @@ class SessionStorageImplTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
   SessionStorageImpl::BackingMode backing_mode_ =
       SessionStorageImpl::BackingMode::kRestoreDiskState;
-  scoped_refptr<base::SequencedTaskRunner> blocking_task_runner_{
-      base::ThreadPool::CreateSequencedTaskRunner(
-          {base::MayBlock(), base::TaskShutdownBehavior::BLOCK_SHUTDOWN})};
   std::unique_ptr<SessionStorageImpl> session_storage_;
   mojo::Remote<mojom::SessionStorageControl> remote_session_storage_;
 };
@@ -171,8 +160,7 @@ TEST_F(SessionStorageImplTest, StartupShutdownSave) {
 
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Verify no data.
   std::vector<blink::mojom::KeyValuePtr> data;
@@ -197,8 +185,7 @@ TEST_F(SessionStorageImplTest, StartupShutdownSave) {
   // This will re-initialize Session Storage and load the persisted namespace.
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // The data from before should be here.
   EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
@@ -213,8 +200,7 @@ TEST_F(SessionStorageImplTest, StartupShutdownSave) {
   // This will re-initialize Session Storage and the namespace should be empty.
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // The data from before should not be here.
   EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
@@ -231,12 +217,10 @@ TEST_F(SessionStorageImplTest, CloneBeforeBrowserClone) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::SessionStorageNamespace> ss_namespace1;
   session_storage()->BindNamespace(namespace_id1,
-                                   ss_namespace1.BindNewPipeAndPassReceiver(),
-                                   base::DoNothing());
+                                   ss_namespace1.BindNewPipeAndPassReceiver());
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Put some data.
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
@@ -254,8 +238,7 @@ TEST_F(SessionStorageImplTest, CloneBeforeBrowserClone) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be in namespace 2.
   std::vector<blink::mojom::KeyValuePtr> data;
@@ -273,12 +256,10 @@ TEST_F(SessionStorageImplTest, Cloning) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::SessionStorageNamespace> ss_namespace1;
   session_storage()->BindNamespace(namespace_id1,
-                                   ss_namespace1.BindNewPipeAndPassReceiver(),
-                                   base::DoNothing());
+                                   ss_namespace1.BindNewPipeAndPassReceiver());
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Internally triggered clone before the put. The clone doesn't actually count
   // until a clone comes from the namespace.
@@ -299,8 +280,7 @@ TEST_F(SessionStorageImplTest, Cloning) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // Delete the namespace and shut down Session Storage, BUT persist the
   // namespace so it can be loaded again. This tests the case where our cloning
@@ -322,8 +302,7 @@ TEST_F(SessionStorageImplTest, Cloning) {
   // Re-open namespace 1, check that we don't have the extra data.
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // We should only have the first value.
   EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
@@ -342,12 +321,10 @@ TEST_F(SessionStorageImplTest, ImmediateCloning) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::SessionStorageNamespace> ss_namespace1;
   session_storage()->BindNamespace(namespace_id1,
-                                   ss_namespace1.BindNewPipeAndPassReceiver(),
-                                   base::DoNothing());
+                                   ss_namespace1.BindNewPipeAndPassReceiver());
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Immediate clone.
   session_storage()->CloneNamespace(namespace_id1, namespace_id2,
@@ -357,8 +334,7 @@ TEST_F(SessionStorageImplTest, ImmediateCloning) {
   {
     mojo::Remote<blink::mojom::StorageArea> area_n2;
     session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                       area_n2.BindNewPipeAndPassReceiver(),
-                                       base::DoNothing());
+                                       area_n2.BindNewPipeAndPassReceiver());
     std::vector<blink::mojom::KeyValuePtr> data;
     EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
     EXPECT_EQ(0ul, data.size());
@@ -380,8 +356,7 @@ TEST_F(SessionStorageImplTest, ImmediateCloning) {
   {
     mojo::Remote<blink::mojom::StorageArea> area_n2;
     session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                       area_n2.BindNewPipeAndPassReceiver(),
-                                       base::DoNothing());
+                                       area_n2.BindNewPipeAndPassReceiver());
     std::vector<blink::mojom::KeyValuePtr> data;
     EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
     EXPECT_EQ(1ul, data.size());
@@ -414,21 +389,18 @@ TEST_F(SessionStorageImplTest, Scavenging) {
   session_storage()->CreateNamespace(namespace_id1);
 
   // This scavenge call should NOT delete the namespace, as we just created it.
-  {
-    base::RunLoop loop;
-    // Cause the connection to start loading, so we start scavenging mid-load.
-    session_storage()->Flush();
-    session_storage()->ScavengeUnusedNamespaces(loop.QuitClosure());
-    loop.Run();
-  }
+  // Cause the connection to start loading, so we start scavenging mid-load.
+  session_storage()->Flush();
+  session_storage()->ScavengeUnusedNamespaces();
+  FlushMojo();
+
   // Restart Session Storage.
   ShutDownSessionStorage();
   session_storage()->CreateNamespace(namespace_id1);
 
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
                             StringViewToUint8Vector("value1"), std::nullopt,
                             "source1"));
@@ -436,7 +408,7 @@ TEST_F(SessionStorageImplTest, Scavenging) {
 
   // This scavenge call should NOT delete the namespace, as we never called
   // delete.
-  session_storage()->ScavengeUnusedNamespaces(base::DoNothing());
+  session_storage()->ScavengeUnusedNamespaces();
 
   // Restart Session Storage.
   ShutDownSessionStorage();
@@ -448,20 +420,16 @@ TEST_F(SessionStorageImplTest, Scavenging) {
 
   // This scavenge call should NOT delete the namespace, as we explicitly
   // persisted the namespace.
-  {
-    base::RunLoop loop;
-    session_storage()->ScavengeUnusedNamespaces(loop.QuitClosure());
-    loop.Run();
-  }
+  session_storage()->ScavengeUnusedNamespaces();
+  FlushMojo();
 
   ShutDownSessionStorage();
 
-  // Re-initialize Session Storage, load the persisted namespace, and verify we
-  // still have data.
+  // Re-initialize Session Storage, load the persisted namespace, and verify
+  // we still have data.
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
   EXPECT_EQ(1ul, data.size());
@@ -471,18 +439,15 @@ TEST_F(SessionStorageImplTest, Scavenging) {
   // should leave the data on disk.
   ShutDownSessionStorage();
 
-  // Re-initialize Session Storage. Scavenge should now remove the namespace as
-  // there has been no call to CreateNamespace. Check that the data is
+  // Re-initialize Session Storage. Scavenge should now remove the namespace
+  // as there has been no call to CreateNamespace. Check that the data is
   // empty.
-  {
-    base::RunLoop loop;
-    session_storage()->ScavengeUnusedNamespaces(loop.QuitClosure());
-    loop.Run();
-  }
+  session_storage()->ScavengeUnusedNamespaces();
+  FlushMojo();
+
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
   EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
   EXPECT_EQ(0ul, data.size());
 }
@@ -502,17 +467,24 @@ void SessionStorageImplTest::TestInvalidVersionOnDisk(
 
   ShutDownSessionStorage();
   {
+    // Re-open the database.
+    base::RunLoop open_db_run_loop;
+    DbStatus status;
+
+    std::unique_ptr<AsyncDomStorageDatabase> database =
+        AsyncDomStorageDatabase::Open(
+            StorageType::kSessionStorage, temp_path(), kSessionStorageDirectory,
+            /*memory_dump_id=*/std::nullopt,
+            base::BindLambdaForTesting([&](DbStatus callback_status) {
+              status = callback_status;
+              open_db_run_loop.Quit();
+            }));
+
+    open_db_run_loop.Run();
+    ASSERT_TRUE(status.ok()) << status.ToString();
+
     // Mess up version number in database.
-    leveldb_env::ChromiumEnv env;
-    std::unique_ptr<leveldb::DB> db;
-    leveldb_env::Options options;
-    options.env = &env;
-    base::FilePath db_path =
-        temp_path().Append(FILE_PATH_LITERAL("Session Storage"));
-    ASSERT_TRUE(leveldb_env::OpenDB(options, db_path.AsUTF8Unsafe(), &db).ok());
-    ASSERT_TRUE(
-        db->Put(leveldb::WriteOptions(), "version", invalid_version_string)
-            .ok());
+    PutVersionForTesting(*database, 654654);
   }
 
   opt_value = DoTestGet(namespace_id, storage_key, "key");
@@ -551,7 +523,7 @@ TEST_F(SessionStorageImplTest, CorruptionOnDisk) {
   EXPECT_EQ(StringViewToUint8Vector("value"), opt_value.value());
 
   ShutDownSessionStorage();
-  // Also flush Task Scheduler tasks to make sure the leveldb is fully closed.
+  // Also flush Task Scheduler tasks to make sure the database is fully closed.
   RunUntilIdle();
 
   // Delete manifest files to mess up opening DB.
@@ -605,26 +577,25 @@ TEST_F(SessionStorageImplTest, RecreateOnCommitFailure) {
   mojo::Remote<blink::mojom::SessionStorageNamespace> ss_namespace;
   session_storage()->CreateNamespace(namespace_id);
   session_storage()->BindNamespace(namespace_id,
-                                   ss_namespace.BindNewPipeAndPassReceiver(),
-                                   base::DoNothing());
+                                   ss_namespace.BindNewPipeAndPassReceiver());
   session_storage()->BindStorageArea(storage_key1, namespace_id,
-                                     area_o1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_o1.BindNewPipeAndPassReceiver());
   session_storage()->BindStorageArea(storage_key2, namespace_id,
-                                     area_o2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_o2.BindNewPipeAndPassReceiver());
   session_storage()->BindStorageArea(storage_key3, namespace_id,
-                                     area_o3.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_o3.BindNewPipeAndPassReceiver());
   open_loop->Run();
 
   // Ensure that the first opened database always fails to write data.
-  session_storage_impl()->GetDatabaseForTesting().PostTaskWithThisObject(
-      base::BindLambdaForTesting([&](DomStorageDatabase* db) {
-        db->MakeAllCommitsFailForTesting();
-        db->SetDestructionCallbackForTesting(
-            base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
-      }));
+  session_storage_impl()
+      ->GetDatabaseForTesting()
+      ->database()
+      .PostTaskWithThisObject(
+          base::BindLambdaForTesting([&](DomStorageDatabase* db) {
+            db->MakeAllCommitsFailForTesting();
+            db->SetDestructionCallbackForTesting(
+                base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
+          }));
 
   // Verify one attempt was made to open the database.
   ASSERT_EQ(1u, num_database_open_requests);
@@ -681,12 +652,11 @@ TEST_F(SessionStorageImplTest, RecreateOnCommitFailure) {
   // Reconnect area_o1 to the new database, and try to read a value.
   ss_namespace.reset();
   session_storage()->BindStorageArea(storage_key1, namespace_id,
-                                     area_o1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_o1.BindNewPipeAndPassReceiver());
 
   base::RunLoop delete_loop;
   bool success = true;
-  test::MockLevelDBObserver observer4;
+  test::MockStorageAreaObserver observer4;
   area_o1->AddObserver(observer4.Bind());
   area_o1->Delete(StringViewToUint8Vector("key"), std::nullopt, "source",
                   base::BindLambdaForTesting([&](bool success_in) {
@@ -729,17 +699,19 @@ TEST_F(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->CreateNamespace(namespace_id);
   session_storage()->BindStorageArea(storage_key1, namespace_id,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
   open_loop->Run();
 
   // Ensure that this database always fails to write data.
-  session_storage_impl()->GetDatabaseForTesting().PostTaskWithThisObject(
-      base::BindLambdaForTesting([&](DomStorageDatabase* db) {
-        db->MakeAllCommitsFailForTesting();
-        db->SetDestructionCallbackForTesting(
-            base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
-      }));
+  session_storage_impl()
+      ->GetDatabaseForTesting()
+      ->database()
+      .PostTaskWithThisObject(
+          base::BindLambdaForTesting([&](DomStorageDatabase* db) {
+            db->MakeAllCommitsFailForTesting();
+            db->SetDestructionCallbackForTesting(
+                base::BindLambdaForTesting([&] { ++num_databases_destroyed; }));
+          }));
 
   // Verify one attempt was made to open the database.
   EXPECT_EQ(1u, num_database_open_requests);
@@ -754,7 +726,7 @@ TEST_F(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
         open_loop->Quit();
 
         // Ensure that this database also always fails to write data.
-        session_storage_impl()->GetDatabaseForTesting().AsyncCall(
+        session_storage_impl()->GetDatabaseForTesting()->database().AsyncCall(
             &DomStorageDatabase::MakeAllCommitsFailForTesting);
       }));
 
@@ -789,8 +761,7 @@ TEST_F(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
   // This time all should just keep getting written, and commit errors are
   // getting ignored.
   session_storage()->BindStorageArea(storage_key1, namespace_id,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
 
   old_value = std::nullopt;
   for (int i = 0; i < 64; ++i) {
@@ -824,8 +795,7 @@ TEST_F(SessionStorageImplTest, GetUsage) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
   // Put some data.
   EXPECT_TRUE(test::PutSync(area.get(), StringViewToUint8Vector("key1"),
                             StringViewToUint8Vector("value1"), std::nullopt,
@@ -852,8 +822,7 @@ TEST_F(SessionStorageImplTest, DeleteStorage) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
 
   // Put some data.
   EXPECT_TRUE(test::PutSync(area.get(), StringViewToUint8Vector("key1"),
@@ -885,17 +854,17 @@ TEST_F(SessionStorageImplTest, DeleteStorage) {
 
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
   data.clear();
   EXPECT_TRUE(test::GetAllSync(area.get(), &data));
   EXPECT_EQ(0ul, data.size());
 }
 
 TEST_F(SessionStorageImplTest, PurgeInactiveWrappers) {
+  DomStorageDatabase::Key key = StringViewToUint8Vector("key1");
+  DomStorageDatabase::Key value = StringViewToUint8Vector("value1");
+
   std::string namespace_id1 =
-      base::Uuid::GenerateRandomV4().AsLowercaseString();
-  std::string namespace_id2 =
       base::Uuid::GenerateRandomV4().AsLowercaseString();
   blink::StorageKey storage_key1 =
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
@@ -903,29 +872,47 @@ TEST_F(SessionStorageImplTest, PurgeInactiveWrappers) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
 
-  // Put some data in both.
-  EXPECT_TRUE(test::PutSync(area.get(), StringViewToUint8Vector("key1"),
-                            StringViewToUint8Vector("value1"), std::nullopt,
-                            "source1"));
+  // Write a key/value pair to the map in `area`.
+  EXPECT_TRUE(test::PutSync(area.get(), key, value, std::nullopt, "source1"));
   session_storage_impl()->FlushAreaForTesting(namespace_id1, storage_key1);
-
   area.reset();
 
-  // Clear all the data from the backing database.
-  base::RunLoop loop;
-  session_storage_impl()->DatabaseForTesting()->RunDatabaseTask(
-      base::BindOnce([](DomStorageDatabaseLevelDB& db) {
-        std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
-            db.CreateBatchOperation();
-        EXPECT_TRUE(batch->DeletePrefixed(StringViewToUint8Vector("map")).ok());
-        EXPECT_TRUE(batch->Commit().ok());
-        return 0;
-      }),
-      base::IgnoreArgs<int>(loop.QuitClosure()));
-  loop.Run();
+  // Find the `MapLocator` required to modify the map's key/values in the
+  // database.
+  const SessionStorageMetadata::NamespaceStorageKeyMap&
+      namespace_storage_key_map = session_storage_impl()
+                                      ->GetMetadataForTesting()
+                                      .namespace_storage_key_map();
+  auto namespace_it = namespace_storage_key_map.find(namespace_id1);
+  ASSERT_NE(namespace_it, namespace_storage_key_map.end());
+
+  const std::map<blink::StorageKey,
+                 scoped_refptr<DomStorageDatabase::SharedMapLocator>>&
+      storage_key_map = namespace_it->second;
+  auto storage_key_it = storage_key_map.find(storage_key1);
+  ASSERT_NE(storage_key_it, storage_key_map.end());
+
+  // Verify the key/value pair exists in the database.
+  const DomStorageDatabase::MapLocator& map_locator = *storage_key_it->second;
+  std::map<DomStorageDatabase::Key, DomStorageDatabase::Value> map_entries;
+  ASSERT_NO_FATAL_FAILURE(
+      ReadMapKeyValuesSync(*session_storage_impl()->DatabaseForTesting(),
+                           map_locator.Clone(), &map_entries));
+  EXPECT_EQ(map_entries.size(), 1u);
+  EXPECT_EQ(map_entries[key], value);
+
+  // Delete the key/value pair from the database.
+  FakeCommitter committer(session_storage_impl()->DatabaseForTesting(),
+                          map_locator.Clone());
+  committer.ClearMapSync();
+
+  // Verify the key/value pair no longer exists in the database.
+  ASSERT_NO_FATAL_FAILURE(
+      ReadMapKeyValuesSync(*session_storage_impl()->DatabaseForTesting(),
+                           map_locator.Clone(), &map_entries));
+  EXPECT_EQ(map_entries.size(), 0u);
 
   // Now open many new wrappers (for different storage_keys) to trigger clean
   // up.
@@ -934,16 +921,14 @@ TEST_F(SessionStorageImplTest, PurgeInactiveWrappers) {
         blink::StorageKey::CreateFromStringForTesting(
             base::StringPrintf("http://example.com:%d", i));
     session_storage()->BindStorageArea(storage_key, namespace_id1,
-                                       area.BindNewPipeAndPassReceiver(),
-                                       base::DoNothing());
+                                       area.BindNewPipeAndPassReceiver());
     RunUntilIdle();
     area.reset();
   }
 
   // And make sure caches were actually cleared.
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
   std::vector<blink::mojom::KeyValuePtr> data;
   ASSERT_TRUE(test::GetAllSync(area.get(), &data));
   EXPECT_EQ(0ul, data.size());
@@ -960,8 +945,7 @@ TEST_F(SessionStorageImplTest, ClearDiskState) {
 
   mojo::Remote<blink::mojom::StorageArea> area;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
 
   // Verify no data.
   std::vector<blink::mojom::KeyValuePtr> data;
@@ -983,8 +967,7 @@ TEST_F(SessionStorageImplTest, ClearDiskState) {
   // but it should have been deleted due to our backing mode.
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area.BindNewPipeAndPassReceiver());
 
   // The data from before should not be here, because SessionStorageImpl
   // clears disk space on open.
@@ -1012,8 +995,7 @@ TEST_F(SessionStorageImplTest, InterruptedCloneWithDelete) {
   // Open the second namespace which should be initialized and empty.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
@@ -1044,8 +1026,7 @@ TEST_F(SessionStorageImplTest, InterruptedCloneChainWithDelete) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n3;
   session_storage()->BindStorageArea(storage_key1, namespace_id3,
-                                     area_n3.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n3.BindNewPipeAndPassReceiver());
 
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(area_n3.get(), &data));
@@ -1082,8 +1063,7 @@ TEST_F(SessionStorageImplTest, InterruptedTripleCloneChain) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n4;
   session_storage()->BindStorageArea(storage_key1, namespace_id4,
-                                     area_n4.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n4.BindNewPipeAndPassReceiver());
 
   // Trigger the populated of namespace 2 by deleting namespace 1.
   session_storage()->DeleteNamespace(namespace_id1, false);
@@ -1137,14 +1117,12 @@ TEST_F(SessionStorageImplTest, PurgeMemoryDoesNotCrashOrHang) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   session_storage()->CreateNamespace(namespace_id2);
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // Put some data in both.
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
@@ -1192,8 +1170,7 @@ TEST_F(SessionStorageImplTest, DeleteWithPersistBeforeBrowserClone) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Put some data.
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
@@ -1211,8 +1188,7 @@ TEST_F(SessionStorageImplTest, DeleteWithPersistBeforeBrowserClone) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be in namespace 2.
   std::vector<blink::mojom::KeyValuePtr> data;
@@ -1230,8 +1206,7 @@ TEST_F(SessionStorageImplTest, DeleteWithoutPersistBeforeBrowserClone) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Put some data.
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
@@ -1249,8 +1224,7 @@ TEST_F(SessionStorageImplTest, DeleteWithoutPersistBeforeBrowserClone) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be gone, because the first namespace wasn't saved to disk.
   std::vector<blink::mojom::KeyValuePtr> data;
@@ -1268,8 +1242,7 @@ TEST_F(SessionStorageImplTest, DeleteAfterCloneWithoutMojoClone) {
   session_storage()->CreateNamespace(namespace_id1);
   mojo::Remote<blink::mojom::StorageArea> area_n1;
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
-                                     area_n1.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n1.BindNewPipeAndPassReceiver());
 
   // Put some data.
   EXPECT_TRUE(test::PutSync(area_n1.get(), StringViewToUint8Vector("key1"),
@@ -1287,8 +1260,7 @@ TEST_F(SessionStorageImplTest, DeleteAfterCloneWithoutMojoClone) {
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
-                                     area_n2.BindNewPipeAndPassReceiver(),
-                                     base::DoNothing());
+                                     area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be there, as the namespace should clone to all pending
   // namespaces on destruction if it didn't get a 'Clone' from mojo.
@@ -1331,11 +1303,10 @@ TEST_F(SessionStorageImplTest, Bug1128318) {
   // As such, the namespace_entry for the namespace should be null.
   auto* ns = session_storage_impl()->GetNamespaceForTesting(namespace_id3);
   EXPECT_TRUE(ns);
-  EXPECT_FALSE(base::Contains(session_storage_impl()
-                                  ->GetMetadataForTesting()
-                                  .namespace_storage_key_map(),
-                              namespace_id3));
-  EXPECT_EQ(ns->namespace_entry(), SessionStorageMetadata::NamespaceEntry());
+  EXPECT_FALSE(session_storage_impl()
+                   ->GetMetadataForTesting()
+                   .namespace_storage_key_map()
+                   .contains(namespace_id3));
 }
 
 }  // namespace storage

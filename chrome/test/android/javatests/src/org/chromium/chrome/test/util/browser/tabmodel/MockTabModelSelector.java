@@ -33,7 +33,8 @@ public class MockTabModelSelector extends TabModelSelectorBase {
             int tabCount,
             int incognitoTabCount,
             MockTabModel.MockTabModelDelegate delegate) {
-        super(null, false);
+        super(new MockTabCreatorManager(), false);
+        ((MockTabCreatorManager) getTabCreatorManager()).initialize(this);
         initialize(
                 TabModelHolderFactory.createTabModelHolderForTesting(
                         new MockTabModel(profile, delegate)),
@@ -60,7 +61,7 @@ public class MockTabModelSelector extends TabModelSelectorBase {
     public void initializeTabModels(
             TabModelInternal normalModel, IncognitoTabModelInternal incognitoModel) {
         destroy();
-        getTabGroupModelFilterProvider().resetTabGroupModelFilterListForTesting();
+        resetTabGroupModelFilterListForTesting();
         initialize(
                 TabModelHolderFactory.createTabModelHolderForTesting(normalModel),
                 TabModelHolderFactory.createIncognitoTabModelHolderForTesting(incognitoModel));

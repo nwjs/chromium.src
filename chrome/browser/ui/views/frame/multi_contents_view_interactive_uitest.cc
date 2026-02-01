@@ -745,17 +745,12 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, BackgroundVisibility) {
 
 IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
                        MiniToolbarVisibilityForContents) {
-  bool visible_on_active_contents =
-      features::kSideBySideMiniToolbarActiveConfiguration.Get() !=
-      features::MiniToolbarActiveConfiguration::Hide;
   RunTestSequence(
       // Open split view.
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
       // Verify the mini toolbar is visible for the inactive contents.
       Check([&]() {
-        return multi_contents_view()
-                   ->mini_toolbar_for_testing(0)
-                   ->GetVisible() == visible_on_active_contents;
+        return multi_contents_view()->mini_toolbar_for_testing(0)->GetVisible();
       }),
       // Verify the mini toolbar visibility on active contents.
       Check([&]() {
@@ -769,9 +764,7 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       }),
       // Verify the mini toolbar visibility on the newly active contents.
       Check([&]() {
-        return multi_contents_view()
-                   ->mini_toolbar_for_testing(1)
-                   ->GetVisible() == visible_on_active_contents;
+        return multi_contents_view()->mini_toolbar_for_testing(1)->GetVisible();
       }));
 }
 
@@ -1118,6 +1111,18 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
       // Dragging a non-url to the drop target area should have no
       // effect.
       MoveMouseTo(kNewTab, DeepQuery{"#button"}),
+      DragMouseToWithoutWait(kMultiContentsViewElementId, PointForDropTarget()),
+      WaitForHide(
+          MultiContentsDropTargetView::kMultiContentsDropTargetElementId));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewDragEntrypointsUiTest,
+                       DoesNotShowDropTargetOnChromePageLinkDragged) {
+  RunTestSequence(
+      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUIChromeURLsURL), 0),
+      WaitForActiveTabChange(0),
+      // Dragging a link from a chrome:// page should have no effect.
+      MoveMouseTo(kNewTab, DeepQuery{"chrome-urls-app", "a:first-child"}),
       DragMouseToWithoutWait(kMultiContentsViewElementId, PointForDropTarget()),
       WaitForHide(
           MultiContentsDropTargetView::kMultiContentsDropTargetElementId));

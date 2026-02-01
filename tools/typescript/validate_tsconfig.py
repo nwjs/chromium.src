@@ -44,6 +44,8 @@ _allowed_compiler_options = {
     'allowUmdGlobalAccess': None,
     'isolatedModules': None,
     'lib': None,
+    'module': ['NodeNext', 'preserve'],
+    'moduleResolution': ['NodeNext', 'bundler'],
     'noPropertyAccessFromIndexSignature': None,
     'noUncheckedIndexedAccess': None,
     'noUncheckedSideEffectImports': None,
@@ -147,9 +149,6 @@ def validateJavaScriptAllowed(source_dir, out_dir, platform):
         'ash/webui/help_app_ui/',
         # TODO(b/267329383): Migrate A11y to TypeScript.
         'chrome/browser/resources/chromeos/accessibility',
-        'chrome/browser/resources/chromeos/crostini_installer',
-        'chrome/browser/resources/chromeos/crostini_upgrader',
-        'chrome/browser/resources/chromeos/gaia_action_buttons',
         'chrome/test/data/webui/chromeos',
         'chrome/test/data/webui/chromeos/ash_common',
         'chrome/test/data/webui/chromeos/nearby_share',
@@ -162,15 +161,10 @@ def validateJavaScriptAllowed(source_dir, out_dir, platform):
 
   # Specific exceptions for directories that are still migrating to TS.
   migrating_directories = [
-      # TODO(crbug.com/41484340): Migrate to TypeScript.
-      'chrome/browser/resources/device_log',
       # TODO(crbug.com/385341235): Migrate inspect to TypeScript.
       'chrome/browser/resources/inspect',
       'chrome/browser/resources/net_internals',
       'chrome/test/data/webui',
-      # TODO(crbug.com/40848285): Migrate bluetooth-internals to TypeScript and
-      # remove exception.
-      'chrome/test/data/webui/bluetooth_internals',
       'components/autofill/core/browser/autofill_and_password_manager_internals',
       'components/net_log/resources',
       'components/safe_browsing/content/browser/web_ui/resources',

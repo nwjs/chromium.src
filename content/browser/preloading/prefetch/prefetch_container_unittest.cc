@@ -4,6 +4,7 @@
 
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 
+#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -185,6 +186,7 @@ void AddRedirectHop(PrefetchContainer* container, const GURL& url) {
   redirect_info.new_url = url;
   redirect_info.new_site_for_cookies = net::SiteForCookies::FromUrl(url);
   container->AddRedirectHop(redirect_info);
+  container->UpdateResourceRequest(redirect_info);
 }
 
 }  // namespace

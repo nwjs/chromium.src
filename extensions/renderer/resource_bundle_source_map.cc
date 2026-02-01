@@ -7,7 +7,6 @@
 #include <ostream>
 #include <string_view>
 
-#include "base/containers/contains.h"
 #include "base/notreached.h"
 #include "extensions/renderer/static_v8_external_one_byte_string_resource.h"
 #include "third_party/zlib/google/compression_utils.h"
@@ -36,16 +35,15 @@ ResourceBundleSourceMap::ResourceInfo::ResourceInfo(ResourceInfo&& other) =
 
 ResourceBundleSourceMap::ResourceInfo::~ResourceInfo() = default;
 
-ResourceBundleSourceMap::ResourceInfo& ResourceBundleSourceMap::ResourceInfo::
-operator=(ResourceInfo&& other) = default;
+ResourceBundleSourceMap::ResourceInfo&
+ResourceBundleSourceMap::ResourceInfo::operator=(ResourceInfo&& other) =
+    default;
 
 ResourceBundleSourceMap::ResourceBundleSourceMap(
     const ui::ResourceBundle* resource_bundle)
-    : resource_bundle_(resource_bundle) {
-}
+    : resource_bundle_(resource_bundle) {}
 
-ResourceBundleSourceMap::~ResourceBundleSourceMap() {
-}
+ResourceBundleSourceMap::~ResourceBundleSourceMap() = default;
 
 void ResourceBundleSourceMap::RegisterSource(std::string_view name,
                                              int resource_id) {
@@ -65,8 +63,9 @@ v8::Local<v8::String> ResourceBundleSourceMap::GetSource(
   }
 
   const ResourceInfo& info = resource_iter->second;
-  if (info.cached)
+  if (info.cached) {
     return ConvertString(isolate, *info.cached);
+  }
 
   std::string_view resource = resource_bundle_->GetRawDataResource(info.id);
   if (resource.empty()) {
@@ -93,7 +92,7 @@ v8::Local<v8::String> ResourceBundleSourceMap::GetSource(
 
 bool ResourceBundleSourceMap::Contains(const std::string& name) const {
   base::AutoLock lock(lock_);
-  return base::Contains(resource_map_, name);
+  return resource_map_.contains(name);
 }
 
 }  // namespace extensions

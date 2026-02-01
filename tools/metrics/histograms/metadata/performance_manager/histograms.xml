@@ -106,7 +106,7 @@ each histogram.
 
 <histogram
     name="CPU.Experimental.EstimatedFrequencyAsPercentOfLimit.{CoreType}"
-    units="%" expires_after="2026-04-05">
+    units="%" expires_after="2026-06-07">
   <owner>anthonyvd@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -121,7 +121,7 @@ each histogram.
 </histogram>
 
 <histogram name="CPU.Experimental.EstimatedFrequencyAsPercentOfMax.{CoreType}"
-    units="%" expires_after="2026-03-29">
+    units="%" expires_after="2026-05-31">
   <owner>anthonyvd@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -133,6 +133,35 @@ each histogram.
     only.
   </summary>
   <token key="CoreType" variants="CoreType"/>
+</histogram>
+
+<histogram name="CPU.Experimental.Windows.UserKernelRatio" units="%"
+    expires_after="2026-06-06">
+  <owner>spvm@chromium.org</owner>
+  <owner>catan-team@chromium.org</owner>
+  <summary>
+    The percentage of total CPU time (user + kernel) consumed by user mode. For
+    example 50% means that kernel and user time are equal for this time slice.
+    Value recorded is between 0 and 100. Only recorded on Windows. Emitted every
+    5 seconds after the start of metrics recording and includes only the 5s
+    slice between the last emission and the next one.
+  </summary>
+</histogram>
+
+<histogram name="CPU.Experimental.Windows.{Mode}Time" units="%"
+    expires_after="2026-06-06">
+  <owner>spvm@chromium.org</owner>
+  <owner>catan-team@chromium.org</owner>
+  <summary>
+    The percentage of elapsed time the processor spends in {Mode} mode, system
+    wide. Value recorded is between 0 and 100. Only recorded on Windows. Emitted
+    every 5 seconds after the start of metrics recording and includes only the
+    5s slice between the last emission and the next one.
+  </summary>
+  <token key="Mode">
+    <variant name="Kernel"/>
+    <variant name="User"/>
+  </token>
 </histogram>
 
 <histogram name="PerformanceManager.ChildScenarioMappingResult"
@@ -219,7 +248,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.DiskStats.UserDataDirFreeSpacePercent"
-    units="%" expires_after="2026-05-03">
+    units="%" expires_after="2026-07-05">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -275,7 +304,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.InputScenarioChanges{InputScenario}"
-    enum="InputScenarioUpdateReason" expires_after="2026-04-07">
+    enum="InputScenarioUpdateReason" expires_after="2026-06-07">
   <owner>kraskevich@google.com</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -297,7 +326,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.RegistryStats.FrontEndHeapDebugOptionsOutcome"
-    enum="FrontEndHeapDebugOptionsOutcome" expires_after="2026-04-05">
+    enum="FrontEndHeapDebugOptionsOutcome" expires_after="2026-06-07">
   <owner>fdoray@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -323,7 +352,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.ResourceQueryTime.{Function}"
-    units="microseconds" expires_after="2026-04-12">
+    units="microseconds" expires_after="2026-06-14">
   <owner>joenotcharles@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -388,7 +417,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.UserTuning.BatterySaverModeEnabledPercent"
-    units="%" expires_after="2026-04-26">
+    units="%" expires_after="2026-06-28">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -398,7 +427,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.UserTuning.EfficiencyMode"
-    enum="EfficiencyMode" expires_after="2026-04-05">
+    enum="EfficiencyMode" expires_after="2026-06-07">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -412,7 +441,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.UserTuning.MemorySaverModeEnabledPercent"
-    units="%" expires_after="2026-04-26">
+    units="%" expires_after="2026-06-28">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>

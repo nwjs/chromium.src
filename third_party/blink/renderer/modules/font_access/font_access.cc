@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/numerics/safe_conversions.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
@@ -34,10 +33,15 @@ const char kFeaturePolicyBlocked[] =
     "Access to the feature \"local-fonts\" is disallowed by Permissions Policy";
 }
 
-FontAccess::FontAccess(LocalDOMWindow* window) : remote_(window) {}
+// static
+const char FontAccess::kSupplementName[] = "FontAccess";
+
+FontAccess::FontAccess(LocalDOMWindow* window)
+    : Supplement<LocalDOMWindow>(*window), remote_(window) {}
 
 void FontAccess::Trace(blink::Visitor* visitor) const {
   visitor->Trace(remote_);
+  Supplement<LocalDOMWindow>::Trace(visitor);
 }
 
 // static
@@ -53,10 +57,10 @@ ScriptPromise<IDLSequence<FontMetadata>> FontAccess::queryLocalFonts(
 
 // static
 FontAccess* FontAccess::From(LocalDOMWindow* window) {
-  FontAccess* supplement = window->GetFontAccess();
+  auto* supplement = Supplement<LocalDOMWindow>::From<FontAccess>(window);
   if (!supplement) {
     supplement = MakeGarbageCollected<FontAccess>(window);
-    window->SetFontAccess(supplement);
+    Supplement<LocalDOMWindow>::ProvideTo(*window, supplement);
   }
   return supplement;
 }
@@ -153,7 +157,7 @@ void FontAccess::DidGetEnumerationResponse(
     // If the optional postscript name filter is set in QueryOptions,
     // only allow items that match.
     if (hasPostscriptNameFilter &&
-        !base::Contains(selection_utf8, element.postscript_name().c_str())) {
+        !selection_utf8.contains(element.postscript_name().c_str())) {
       continue;
     }
 

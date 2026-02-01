@@ -6,7 +6,8 @@
 
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
-#include "chrome/browser/actor/ui/mocks/mock_actor_ui_tab_controller.h"
+#include "chrome/browser/actor/ui/test_support/fake_actor_overlay_page.h"
+#include "chrome/browser/actor/ui/test_support/mock_actor_ui_tab_controller.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/ui/webui/webui_util_desktop.h"
@@ -25,55 +26,6 @@ namespace {
 
 using ::testing::_;
 using ::testing::Return;
-
-// Fake implementation for the ActorOverlayPage interface.
-class FakeActorOverlayPage : public mojom::ActorOverlayPage {
- public:
-  FakeActorOverlayPage() = default;
-  ~FakeActorOverlayPage() override = default;
-
-  mojo::PendingRemote<mojom::ActorOverlayPage> BindAndGetRemote() {
-    return receiver_.BindNewPipeAndPassRemote();
-  }
-
-  void FlushForTesting() { receiver_.FlushForTesting(); }
-
-  void ResetCounters() {
-    set_scrim_background_call_count_ = 0;
-    set_border_glow_call_count_ = 0;
-    theme_call_count_ = 0;
-  }
-
-  // mojom::ActorOverlayPage
-  void SetScrimBackground(bool is_visible) override {
-    is_scrim_background_visible_ = is_visible;
-    set_scrim_background_call_count_++;
-  }
-
-  // mojom::ActorOverlayPage
-  void SetBorderGlowVisibility(bool is_visible) override {
-    is_border_glow_visible_ = is_visible;
-    set_border_glow_call_count_++;
-  }
-
-  // mojom::ActorOverlayPage
-  void SetTheme(mojom::ThemePtr theme) override { theme_call_count_++; }
-
-  // Test accessors
-  bool is_scrim_background_visible() { return is_scrim_background_visible_; }
-  int scrim_background_call_count() { return set_scrim_background_call_count_; }
-  bool is_border_glow_visible() { return is_border_glow_visible_; }
-  int border_glow_call_count() { return set_border_glow_call_count_; }
-  int theme_call_count() { return theme_call_count_; }
-
- private:
-  mojo::Receiver<mojom::ActorOverlayPage> receiver_{this};
-  bool is_scrim_background_visible_ = false;
-  int set_scrim_background_call_count_ = 0;
-  bool is_border_glow_visible_ = false;
-  int set_border_glow_call_count_ = 0;
-  int theme_call_count_ = 0;
-};
 
 class ActorOverlayHandlerTest : public testing::Test {
  public:
@@ -190,6 +142,18 @@ TEST_F(ActorOverlayHandlerTest, OnThemeChanged) {
   }
 }
 
+TEST_F(ActorOverlayHandlerTest, MoveCursorTo) {
+  base::test::TestFuture<void> future;
+  gfx::Point point(100, 200);
+
+  handler_->MoveCursorTo(point, future.GetCallback());
+  fake_page_.FlushForTesting();
+  EXPECT_TRUE(future.Wait());
+
+  EXPECT_EQ(fake_page_.move_cursor_call_count(), 1);
+  EXPECT_EQ(fake_page_.last_cursor_point(), point);
+}
+
 TEST_F(ActorOverlayHandlerTest, HandlesNullTab) {
   // Verify that when the tab controller is null, we don't send the hover status
   // change.
@@ -204,6 +168,16 @@ TEST_F(ActorOverlayHandlerTest, HandlesNullTab) {
   EXPECT_CALL(*mock_actor_ui_tab_controller(), GetCurrentUiTabState()).Times(0);
   handler_->GetCurrentBorderGlowVisibility(future.GetCallback());
   EXPECT_FALSE(future.Take());
+}
+
+TEST_F(ActorOverlayHandlerTest, TriggerClickAnimation) {
+  base::test::TestFuture<void> future;
+
+  handler_->TriggerClickAnimation(future.GetCallback());
+  fake_page_.FlushForTesting();
+
+  EXPECT_TRUE(future.Wait());
+  EXPECT_EQ(fake_page_.trigger_click_animation_call_count(), 1);
 }
 
 }  // namespace

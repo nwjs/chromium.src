@@ -54,7 +54,8 @@ inline constexpr char kChromeUIResourcesHost[] = "resources";
 inline constexpr char kChromeUIServiceWorkerInternalsHost[] =
     "serviceworker-internals";
 inline constexpr char kChromeUIThemeHost[] = "theme";
-inline constexpr char kChromeUITracesInternalsHost[] = "traces";
+inline constexpr char kChromeUITracesHost[] = "traces";
+inline constexpr char kLegacyChromeUITracesInternalsHost[] = "traces-internals";
 inline constexpr char kChromeUITracingHost[] = "tracing";
 inline constexpr char kChromeUIUkmHost[] = "ukm";
 inline constexpr char kChromeUIUntrustedResourcesURL[] =

@@ -57,9 +57,7 @@ source_set("command_buffer_traits_sources") {
 
   deps = [
     "//base",
-    "//ui/gfx/ipc/buffer_types",
     "//ui/gfx/ipc/geometry",
-    "//ui/gfx/ipc/skia",
   ]
 }
 
@@ -108,12 +106,6 @@ source_set("ipc_common_sources") {
       "dxguid.lib",
     ]
   }
-  if (use_ozone) {
-    sources += [
-      "legacy_gpu_memory_buffer_for_video.cc",
-      "legacy_gpu_memory_buffer_for_video.h",
-    ]
-  }
   if (is_android) {
     visibility += [ "//media/gpu" ]
   }
@@ -146,10 +138,8 @@ source_set("ipc_common_sources") {
     "//ui/gfx:color_space",
     "//ui/gfx/geometry",
     "//ui/gfx/ipc",
-    "//ui/gfx/ipc/buffer_types",
     "//ui/gfx/ipc/color",
     "//ui/gfx/ipc/geometry",
-    "//ui/gfx/ipc/skia",
     "//ui/gl",
   ]
 
@@ -182,7 +172,7 @@ source_set("ipc_common_sources") {
 source_set("surface_handle_type") {
   public = [ "surface_handle.h" ]
 
-  public_deps = [ "//ui/gfx:native_widget_types" ]
+  public_deps = [ "//ui/gfx:native_ui_types" ]
 }
 
 source_set("vulkan_types") {
@@ -205,7 +195,7 @@ mojom("gpu_channel_mojom") {
     ":shared_image_pool_client_interface",
     ":surface_handle",
     "//mojo/public/mojom/base",
-    "//services/viz/public/mojom:shared_image_format",
+    "//services/viz/public/mojom/compositing:shared_image_format",
     "//skia/public/mojom",
     "//ui/gfx/geometry/mojom",
     "//ui/gfx/mojom",
@@ -301,7 +291,7 @@ mojom("surface_handle") {
         },
       ]
       traits_headers = [ "surface_handle_mojom_traits.h" ]
-      traits_public_deps = [ "//ui/gfx:native_widget_types" ]
+      traits_public_deps = [ "//ui/gfx:native_ui_types" ]
     },
   ]
 }
@@ -318,7 +308,6 @@ mojom("interfaces") {
     "gpu_info.mojom",
     "gpu_peak_memory.mojom",
     "mailbox.mojom",
-    "mailbox_holder.mojom",
     "memory_stats.mojom",
     "shared_image_capabilities.mojom",
     "shared_image_metadata.mojom",
@@ -336,7 +325,7 @@ mojom("interfaces") {
     ":shared_image_pool_client_interface",
     ":surface_handle",
     "//mojo/public/mojom/base",
-    "//services/viz/public/mojom:shared_image_format",
+    "//services/viz/public/mojom/compositing:shared_image_format",
     "//skia/public/mojom",
     "//ui/gfx/geometry/mojom",
     "//ui/gfx/mojom",
@@ -483,16 +472,6 @@ mojom("interfaces") {
     {
       types = [
         {
-          mojom = "gpu.mojom.MailboxHolder"
-          cpp = "::gpu::MailboxHolder"
-        },
-      ]
-      traits_headers = [ "mailbox_holder_mojom_traits.h" ]
-      traits_public_deps = [ ":mojom_traits" ]
-    },
-    {
-      types = [
-        {
           mojom = "gpu.mojom.SharedImageCapabilities"
           cpp = "::gpu::SharedImageCapabilities"
         },
@@ -620,15 +599,6 @@ mojom("interfaces") {
     {
       types = [
         {
-          mojom = "gpu.mojom.MailboxHolder"
-          cpp = "::gpu::MailboxHolder"
-        },
-      ]
-      traits_headers = [ "mailbox_holder_mojom_traits.h" ]
-    },
-    {
-      types = [
-        {
           mojom = "gpu.mojom.ExportedSharedImage"
           cpp = "::gpu::ExportedSharedImage"
           move_only = true
@@ -644,7 +614,8 @@ mojom("interfaces") {
         },
       ]
       traits_headers = [ "shared_image_metadata_mojom_traits.h" ]
-      traits_public_deps = [ "//services/viz/public/mojom:shared_image_format" ]
+      traits_public_deps =
+          [ "//services/viz/public/mojom/compositing:shared_image_format" ]
     },
     {
       types = [
@@ -805,7 +776,6 @@ source_set("mojom_traits") {
   sources = [
     "context_result_mojom_traits.h",
     "gpu_peak_memory_mojom_traits.h",
-    "mailbox_holder_mojom_traits.h",
     "mailbox_mojom_traits.cc",
     "mailbox_mojom_traits.h",
     "memory_stats_mojom_traits.h",

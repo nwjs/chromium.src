@@ -44,7 +44,7 @@
 #include "content/public/android/content_jni_headers/ChildProcessLauncherHelperImpl_jni.h"
 
 using base::android::AttachCurrentThread;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
 using base::android::ToJavaArrayOfStrings;
@@ -235,10 +235,10 @@ static void JNI_ChildProcessLauncherHelperImpl_SetTerminationInfo(
     JNIEnv* env,
     jlong termination_info_ptr,
     jint binding_state,
-    jboolean killed_by_us,
-    jboolean clean_exit,
-    jboolean exception_during_init,
-    jboolean is_spare_renderer) {
+    bool killed_by_us,
+    bool clean_exit,
+    bool exception_during_init,
+    bool is_spare_renderer) {
   ChildProcessTerminationInfo* info =
       reinterpret_cast<ChildProcessTerminationInfo*>(termination_info_ptr);
   info->binding_state =
@@ -249,8 +249,8 @@ static void JNI_ChildProcessLauncherHelperImpl_SetTerminationInfo(
   info->is_spare_renderer = is_spare_renderer;
 }
 
-static jboolean
-JNI_ChildProcessLauncherHelperImpl_ServiceGroupImportanceEnabled(JNIEnv* env) {
+static bool JNI_ChildProcessLauncherHelperImpl_ServiceGroupImportanceEnabled(
+    JNIEnv* env) {
   // Not this is called on the launcher thread, not UI thread.
   //
   // Note that service grouping is mandatory for site isolation on pre-U devices
@@ -322,7 +322,7 @@ void ChildProcessLauncherHelper::SetRenderProcessPriorityOnLauncherThread(
       priority.has_foreground_service_worker, priority.frame_depth,
       priority.intersects_viewport, priority.boost_for_pending_views,
       priority.boost_for_loading, priority.is_spare_renderer,
-      static_cast<jint>(priority.importance));
+      static_cast<jint>(priority.importance), priority.has_active_clients);
   if (result != static_cast<jint>(SpareRendererPriority::SPARE_NO_CHANGE)) {
     client_task_runner_->PostTask(
         FROM_HERE,

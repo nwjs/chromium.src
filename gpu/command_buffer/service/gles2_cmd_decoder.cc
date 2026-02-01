@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/heap_array.h"
 #include "base/containers/queue.h"
@@ -3315,7 +3314,6 @@ Capabilities GLES2DecoderImpl::GetCapabilities() {
       feature_info_->feature_flags().chromium_image_ycbcr_p010;
   caps.render_buffer_format_bgra8888 =
       feature_info_->feature_flags().ext_render_buffer_format_bgra8888;
-  caps.gpu_rasterization = false;
   caps.chromium_gpu_fence = feature_info_->feature_flags().chromium_gpu_fence;
   caps.mesa_framebuffer_flip_y =
       feature_info_->feature_flags().mesa_framebuffer_flip_y;
@@ -6294,8 +6292,12 @@ void GLES2DecoderImpl::DoGetInteger64v(GLenum pname,
 void GLES2DecoderImpl::DoGetIntegerv(GLenum pname,
                                      GLint* params,
                                      GLsizei params_size) {
-  DCHECK(params);
   GLsizei num_written = 0;
+  if (params_size == 0) {
+    return;
+  }
+
+  DCHECK(params);
   if (state_.GetStateAsGLint(pname, params, &num_written) ||
       GetHelper(pname, params, &num_written)) {
     DCHECK_EQ(num_written, params_size);
@@ -11368,8 +11370,7 @@ error::Error GLES2DecoderImpl::HandleReadPixels(uint32_t immediate_data_size,
         copy_binder = std::make_unique<ScopedFramebufferCopyBinder>(this);
       }
       if (y < 0) {
-        UNSAFE_TODO(pixels += static_cast<uint32_t>(-y)) * padded_row_size;
-        ;
+        UNSAFE_TODO(pixels += static_cast<uint32_t>(-y) * padded_row_size);
       }
       if (x < 0) {
         uint32_t group_size = GLES2Util::ComputeImageGroupSize(format, type);
@@ -14616,28 +14617,28 @@ error::Error GLES2DecoderImpl::HandleRequestExtensionCHROMIUM(
   bool desire_nv_egl_stream_consumer_external = false;
   if (feature_info_->context_type() == CONTEXT_TYPE_WEBGL1) {
     desire_standard_derivatives =
-        base::Contains(feature_str, "GL_OES_standard_derivatives ");
+        feature_str.contains("GL_OES_standard_derivatives ");
     desire_fbo_render_mipmap =
-        base::Contains(feature_str, "GL_OES_fbo_render_mipmap ");
-    desire_frag_depth = base::Contains(feature_str, "GL_EXT_frag_depth ");
-    desire_draw_buffers = base::Contains(feature_str, "GL_EXT_draw_buffers ");
+        feature_str.contains("GL_OES_fbo_render_mipmap ");
+    desire_frag_depth = feature_str.contains("GL_EXT_frag_depth ");
+    desire_draw_buffers = feature_str.contains("GL_EXT_draw_buffers ");
     desire_shader_texture_lod =
-        base::Contains(feature_str, "GL_EXT_shader_texture_lod ");
+        feature_str.contains("GL_EXT_shader_texture_lod ");
   } else if (feature_info_->context_type() == CONTEXT_TYPE_WEBGL2) {
-    desire_draw_instanced_base_vertex_base_instance = base::Contains(
-        feature_str, "GL_WEBGL_draw_instanced_base_vertex_base_instance ");
-    desire_multi_draw_instanced_base_vertex_base_instance = base::Contains(
-        feature_str,
-        "GL_WEBGL_multi_draw_instanced_base_vertex_base_instance ");
+    desire_draw_instanced_base_vertex_base_instance = feature_str.contains(
+        "GL_WEBGL_draw_instanced_base_vertex_base_instance ");
+    desire_multi_draw_instanced_base_vertex_base_instance =
+        feature_str.contains(
+            "GL_WEBGL_multi_draw_instanced_base_vertex_base_instance ");
   }
   if (feature_info_->IsWebGLContext()) {
-    desire_multi_draw = base::Contains(feature_str, "GL_WEBGL_multi_draw ");
+    desire_multi_draw = feature_str.contains("GL_WEBGL_multi_draw ");
     desire_arb_texture_rectangle =
-        base::Contains(feature_str, "GL_ANGLE_texture_rectangle ");
+        feature_str.contains("GL_ANGLE_texture_rectangle ");
     desire_oes_egl_image_external =
-        base::Contains(feature_str, "GL_OES_EGL_image_external ");
+        feature_str.contains("GL_OES_EGL_image_external ");
     desire_nv_egl_stream_consumer_external =
-        base::Contains(feature_str, "GL_NV_EGL_stream_consumer_external ");
+        feature_str.contains("GL_NV_EGL_stream_consumer_external ");
   }
   if (desire_standard_derivatives != derivatives_explicitly_enabled_ ||
       desire_fbo_render_mipmap != fbo_render_mipmap_explicitly_enabled_ ||
@@ -14670,31 +14671,31 @@ error::Error GLES2DecoderImpl::HandleRequestExtensionCHROMIUM(
     DestroyShaderTranslator();
   }
 
-  if (base::Contains(feature_str, "GL_CHROMIUM_color_buffer_float_rgba ")) {
+  if (feature_str.contains("GL_CHROMIUM_color_buffer_float_rgba ")) {
     feature_info_->EnableCHROMIUMColorBufferFloatRGBA();
   }
-  if (base::Contains(feature_str, "GL_CHROMIUM_color_buffer_float_rgb ")) {
+  if (feature_str.contains("GL_CHROMIUM_color_buffer_float_rgb ")) {
     feature_info_->EnableCHROMIUMColorBufferFloatRGB();
   }
-  if (base::Contains(feature_str, "GL_EXT_color_buffer_float ")) {
+  if (feature_str.contains("GL_EXT_color_buffer_float ")) {
     feature_info_->EnableEXTColorBufferFloat();
   }
-  if (base::Contains(feature_str, "GL_EXT_color_buffer_half_float ")) {
+  if (feature_str.contains("GL_EXT_color_buffer_half_float ")) {
     feature_info_->EnableEXTColorBufferHalfFloat();
   }
-  if (base::Contains(feature_str, "GL_EXT_texture_filter_anisotropic ")) {
+  if (feature_str.contains("GL_EXT_texture_filter_anisotropic ")) {
     feature_info_->EnableEXTTextureFilterAnisotropic();
   }
-  if (base::Contains(feature_str, "GL_OES_texture_float_linear ")) {
+  if (feature_str.contains("GL_OES_texture_float_linear ")) {
     feature_info_->EnableOESTextureFloatLinear();
   }
-  if (base::Contains(feature_str, "GL_OES_texture_half_float_linear ")) {
+  if (feature_str.contains("GL_OES_texture_half_float_linear ")) {
     feature_info_->EnableOESTextureHalfFloatLinear();
   }
-  if (base::Contains(feature_str, "GL_EXT_float_blend ")) {
+  if (feature_str.contains("GL_EXT_float_blend ")) {
     feature_info_->EnableEXTFloatBlend();
   }
-  if (base::Contains(feature_str, "GL_OES_fbo_render_mipmap ")) {
+  if (feature_str.contains("GL_OES_fbo_render_mipmap ")) {
     feature_info_->EnableOESFboRenderMipmap();
   }
 

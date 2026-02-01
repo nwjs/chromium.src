@@ -421,9 +421,9 @@ class BLINK_PLATFORM_EXPORT Platform {
   // Decodes the in-memory audio file data and returns the linear PCM audio data
   // in the |destination_bus|.
   // Returns true on success.
-  virtual bool DecodeAudioFileData(WebAudioBus* destination_bus,
-                                   base::span<const char> audio_file_data) {
-    return false;
+  virtual std::unique_ptr<WebAudioBus> DecodeAudioFileData(
+      base::span<const char> audio_file_data) {
+    return nullptr;
   }
 
   // Process lifetime management -----------------------------------------
@@ -527,12 +527,20 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   // Returns a newly allocated and initialized WebGPU context provider,
   // backed by an independent context. Returns null if the context cannot be
-  // created or initialized.
+  // created or initialized. The reply thread dictates which thread should be
+  // the one to process replies from the GPU process.
+  enum class WebGPUReplyThread {
+    kMainThread,
+    kIOThread,
+  };
   virtual std::unique_ptr<WebGraphicsContext3DProvider>
-  CreateWebGPUGraphicsContext3DProvider(const WebURL& document_url);
+  CreateWebGPUGraphicsContext3DProvider(
+      const WebURL& document_url,
+      WebGPUReplyThread reply_thread = WebGPUReplyThread::kMainThread);
 
   virtual void CreateWebGPUGraphicsContext3DProviderAsync(
       const blink::WebURL& document_url,
+      WebGPUReplyThread reply_thread,
       base::OnceCallback<
           void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback);
 
@@ -573,9 +581,13 @@ class BLINK_PLATFORM_EXPORT Platform {
   // Whether LCD text is enabled.
   virtual bool IsLcdTextEnabled() { return false; }
 
-  // Whether rubberbanding/elatic on overscrolling is enabled. This usually
-  // varies between each OS and can be configured via user settings in the OS.
-  virtual bool IsElasticOverscrollEnabled() { return false; }
+  // Whether rubberbanding/elastic overscrolling for the root scroller is
+  // enabled. Usually varies between each OS and can be configured via user
+  // settings in the OS.
+  virtual bool IsElasticOverscrollEnabledOnRoot() { return false; }
+
+  // Whether the platform supports elastic overscroll.
+  virtual bool IsElasticOverscrollSupported() { return false; }
 
   // Whether the scroll animator that produces smooth scrolling is enabled.
   virtual bool IsScrollAnimatorEnabled() { return true; }
@@ -855,10 +867,6 @@ class BLINK_PLATFORM_EXPORT Platform {
       uint64_t private_memory_footprint_bytes) {}
 
   virtual bool IsUserLevelMemoryPressureSignalEnabled() { return false; }
-  virtual std::pair<base::TimeDelta, base::TimeDelta>
-  InertAndMinimumIntervalOfUserLevelMemoryPressureSignal() {
-    return std::make_pair(base::TimeDelta(), base::TimeDelta());
-  }
 #endif
 
   // Memory Coordinator -------------------------------

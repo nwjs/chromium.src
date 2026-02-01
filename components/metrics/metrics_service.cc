@@ -1346,7 +1346,7 @@ void MetricsService::OnFinalLogInfoCollectionDone() {
   // 2. We only re-schedule the MetricsRotationScheduler after storing a
   //    periodic ongoing log.
   //
-  // TODO(crbug.com/40119012): Consider making it possible to have multiple
+  // TODO(crbug.com/466140652): Consider making it possible to have multiple
   // simultaneous async logs by having some queueing system (e.g., if we want
   // the log created when foregrounding Chrome to be async).
   DCHECK(!pending_ongoing_log_);
@@ -1662,8 +1662,8 @@ MetricsService::FinalizedLog MetricsService::FinalizeLog(
 
   FinalizedLog finalized_log;
   finalized_log.uncompressed_log_size = log_data.size();
-  finalized_log.log_info = std::make_unique<UnsentLogStore::LogInfo>();
-  finalized_log.log_info->Init(log_data, signing_key, log->log_metadata());
+  finalized_log.log_info = std::make_unique<UnsentLogStore::LogInfo>(
+      log_data, signing_key, log->log_metadata());
   return finalized_log;
 }
 

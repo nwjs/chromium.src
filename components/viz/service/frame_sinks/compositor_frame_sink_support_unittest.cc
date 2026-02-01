@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/feature_list.h"
-
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 
 #include <string>
@@ -11,11 +9,13 @@
 #include <utility>
 
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
+#include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/time.h"
 #include "base/token.h"
@@ -125,6 +125,8 @@ class MockFrameSinkManagerClient : public mojom::FrameSinkManagerClient {
       std::unique_ptr<CopyOutputResult> copy_output_result) override {}
   void OnVizTouchStateAvailable(
       base::ReadOnlySharedMemoryRegion region) override {}
+  void OnViewTransitionResourcesCaptured(
+      const blink::ViewTransitionToken& transition_token) override {}
 };
 
 class CompositorFrameSinkSupportTestBase : public testing::Test {
@@ -200,9 +202,9 @@ class CompositorFrameSinkSupportTestBase : public testing::Test {
   void UnrefResources(base::span<ResourceId> ids_to_unref,
                       base::span<int> counts_to_unref) {
     CHECK_EQ(ids_to_unref.size(), counts_to_unref.size());
-    std::vector<ReturnedResource> unref_array;
+    std::vector<ReturnedResourceViz> unref_array;
     for (size_t i = 0; i < ids_to_unref.size(); ++i) {
-      ReturnedResource resource;
+      ReturnedResourceViz resource;
       resource.sync_token = consumer_sync_token_;
       resource.id = ids_to_unref[i];
       resource.count = counts_to_unref[i];
@@ -232,7 +234,8 @@ class CompositorFrameSinkSupportTestBase : public testing::Test {
     ASSERT_EQ(expected_returned_ids.size(), actual_resources.size());
     for (size_t i = 0; i < expected_returned_ids.size(); ++i) {
       const auto& resource = actual_resources[i];
-      EXPECT_EQ(expected_sync_token, resource.sync_token);
+      EXPECT_TRUE(resource.shared_image_export_result.IsEqualForTesting(
+          expected_sync_token));
       EXPECT_EQ(expected_returned_ids[i], resource.id);
       EXPECT_EQ(expected_returned_counts[i], resource.count);
     }
@@ -982,8 +985,8 @@ TEST_P(CompositorFrameSinkSupportTest, CopyRequestOnSubtree) {
       CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(&CopyRequestTestCallback, &called1,
                      called1_run_loop.QuitClosure()));
-  support_->RequestCopyOfOutput(
-      {local_surface_id_, kSubtreeId1, std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id_, kSubtreeId1, std::move(request)));
   GetSurfaceForId(surface_id)->TakeCopyOutputRequestsFromClient();
   EXPECT_FALSE(called1);
 
@@ -996,8 +999,8 @@ TEST_P(CompositorFrameSinkSupportTest, CopyRequestOnSubtree) {
       CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(&CopyRequestTestCallback, &called2,
                      called2_run_loop.QuitClosure()));
-  support_->RequestCopyOfOutput(
-      {local_surface_id_, kSubtreeId2, std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id_, kSubtreeId2, std::move(request)));
   GetSurfaceForId(surface_id)->TakeCopyOutputRequestsFromClient();
   called2_run_loop.Run();
   EXPECT_FALSE(called1);
@@ -1037,8 +1040,8 @@ TEST_P(CompositorFrameSinkSupportTest, DuplicateCopyRequest) {
                      called1_run_loop.QuitClosure()));
   request->set_source(source_id1);
 
-  support_->RequestCopyOfOutput(
-      {local_surface_id_, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id_, SubtreeCaptureId(), std::move(request)));
   GetSurfaceForId(surface_id)->TakeCopyOutputRequestsFromClient();
   EXPECT_FALSE(called1);
 
@@ -1051,8 +1054,8 @@ TEST_P(CompositorFrameSinkSupportTest, DuplicateCopyRequest) {
                      called2_run_loop.QuitClosure()));
   request->set_source(source_id2);
 
-  support_->RequestCopyOfOutput(
-      {local_surface_id_, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id_, SubtreeCaptureId(), std::move(request)));
   GetSurfaceForId(surface_id)->TakeCopyOutputRequestsFromClient();
   // Callbacks have different sources so neither should be called.
   EXPECT_FALSE(called1);
@@ -1067,8 +1070,8 @@ TEST_P(CompositorFrameSinkSupportTest, DuplicateCopyRequest) {
                      called3_run_loop.QuitClosure()));
   request->set_source(source_id1);
 
-  support_->RequestCopyOfOutput(
-      {local_surface_id_, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id_, SubtreeCaptureId(), std::move(request)));
   GetSurfaceForId(surface_id)->TakeCopyOutputRequestsFromClient();
   // Two callbacks are from source1, so the first should be called.
   called1_run_loop.Run();
@@ -1335,8 +1338,8 @@ TEST_P(CompositorFrameSinkSupportTest,
       CopyOutputRequest::ResultFormat::RGBA,
       CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(StubResultCallback));
-  support_->RequestCopyOfOutput(
-      {local_surface_id1, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(), std::move(request)));
 
   // First surface takes CopyOutputRequests from its client. Now only the first
   // surface should report having CopyOutputRequests.
@@ -1379,8 +1382,8 @@ TEST_P(CompositorFrameSinkSupportTest,
       CopyOutputRequest::ResultFormat::RGBA,
       CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(StubResultCallback));
-  support_->RequestCopyOfOutput(
-      {local_surface_id2, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id2, SubtreeCaptureId(), std::move(request)));
 
   // The first surface doesn't have copy output requests, because it can't
   // satisfy the request that the client has.
@@ -1422,8 +1425,8 @@ TEST_P(CompositorFrameSinkSupportTest,
       CopyOutputRequest::ResultFormat::RGBA,
       CopyOutputRequest::ResultDestination::kSystemMemory,
       base::BindOnce(StubResultCallback));
-  support_->RequestCopyOfOutput(
-      {local_surface_id1, SubtreeCaptureId(), std::move(request)});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(), std::move(request)));
 
   // Create the second surface.
   support_->SubmitCompositorFrame(local_surface_id2,
@@ -1450,6 +1453,69 @@ TEST_P(CompositorFrameSinkSupportTest,
   EXPECT_FALSE(requests_map.empty());
 }
 
+// Verifies that CopyOutputRequests are released when the embedding
+// token changes.
+TEST_P(CompositorFrameSinkSupportTest, CopyOutputRequestEmbeddingTokenChanges) {
+  LocalSurfaceId local_surface_id1(1, kArbitraryToken);
+  LocalSurfaceId local_surface_id2(2, kAnotherArbitraryToken);
+  SurfaceId id2(support_->frame_sink_id(), local_surface_id2);
+
+  // Create the first surface.
+  support_->SubmitCompositorFrame(local_surface_id1,
+                                  MakeDefaultInteractiveCompositorFrame());
+
+  base::test::TestFuture<std::unique_ptr<CopyOutputResult>> result_future;
+  auto request = std::make_unique<CopyOutputRequest>(
+      CopyOutputRequest::ResultFormat::RGBA,
+      CopyOutputRequest::ResultDestination::kSystemMemory,
+      result_future.GetCallback());
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(), std::move(request)));
+
+  // Create the second surface with new embedding token.
+  support_->SubmitCompositorFrame(local_surface_id2,
+                                  MakeDefaultInteractiveCompositorFrame());
+
+  GetSurfaceForId(id2)->TakeCopyOutputRequestsFromClient();
+  EXPECT_FALSE(GetSurfaceForId(id2)->HasCopyOutputRequests());
+  const auto& copy_result = result_future.Get();
+  ASSERT_TRUE(copy_result);
+  EXPECT_TRUE(copy_result->IsEmpty());
+  EXPECT_EQ(copy_result->error(),
+            CopyOutputResult::Error::kEmbeddingTokenChanged);
+}
+
+// Verifies that CopyOutputRequests are added to the appropriate surface
+// when the embedding token changes.
+TEST_P(CompositorFrameSinkSupportTest,
+       CopyOutputRequestWithDifferentEmbeddingTokens) {
+  LocalSurfaceId local_surface_id1(1, kArbitraryToken);
+  LocalSurfaceId local_surface_id2(2, kAnotherArbitraryToken);
+  SurfaceId id1(support_->frame_sink_id(), local_surface_id1);
+  SurfaceId id2(support_->frame_sink_id(), local_surface_id2);
+
+  // Create the first surface.
+  support_->SubmitCompositorFrame(local_surface_id1,
+                                  MakeDefaultInteractiveCompositorFrame());
+
+  auto request = std::make_unique<CopyOutputRequest>(
+      CopyOutputRequest::ResultFormat::RGBA,
+      CopyOutputRequest::ResultDestination::kSystemMemory,
+      base::BindOnce(StubResultCallback));
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id2, SubtreeCaptureId(), std::move(request)));
+
+  GetSurfaceForId(id1)->TakeCopyOutputRequestsFromClient();
+  EXPECT_FALSE(GetSurfaceForId(id1)->HasCopyOutputRequests());
+
+  // Create the second surface with new embedding token.
+  support_->SubmitCompositorFrame(local_surface_id2,
+                                  MakeDefaultInteractiveCompositorFrame());
+
+  GetSurfaceForId(id2)->TakeCopyOutputRequestsFromClient();
+  EXPECT_TRUE(GetSurfaceForId(id2)->HasCopyOutputRequests());
+}
+
 // Verifies that OnFrameTokenUpdate is issued after OnFirstSurfaceActivation.
 TEST_P(CompositorFrameSinkSupportTest,
        OnFrameTokenUpdateAfterFirstSurfaceActivation) {
@@ -1467,6 +1533,33 @@ TEST_P(CompositorFrameSinkSupportTest,
   EXPECT_CALL(frame_sink_manager_client_,
               OnFrameTokenChanged(_, frame_token, _));
   support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
+}
+
+// Verifies that CopyOutputRequests expire after timeout if provided.
+TEST_P(CompositorFrameSinkSupportTest, CopyOutputRequestWithTimeout) {
+  LocalSurfaceId local_surface_id1(1, kArbitraryToken);
+  SurfaceId id1(support_->frame_sink_id(), local_surface_id1);
+
+  base::test::TestFuture<std::unique_ptr<CopyOutputResult>> result_future;
+  auto request = std::make_unique<CopyOutputRequest>(
+      CopyOutputRequest::ResultFormat::RGBA,
+      CopyOutputRequest::ResultDestination::kSystemMemory,
+      result_future.GetCallback());
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(), std::move(request),
+      /*capture_exact_id=*/false, base::Milliseconds(1)));
+
+  const auto& copy_result = result_future.Get();
+  ASSERT_TRUE(copy_result);
+  EXPECT_TRUE(copy_result->IsEmpty());
+  EXPECT_EQ(copy_result->error(), CopyOutputResult::Error::kTimeout);
+
+  // Create Surface1.
+  support_->SubmitCompositorFrame(local_surface_id1,
+                                  MakeDefaultInteractiveCompositorFrame());
+
+  GetSurfaceForId(id1)->TakeCopyOutputRequestsFromClient();
+  EXPECT_FALSE(GetSurfaceForId(id1)->HasCopyOutputRequests());
 }
 
 // Test that `PendingCopyOutputRequest` with `capture_exact_surface_id` set to
@@ -1489,23 +1582,23 @@ TEST_P(CompositorFrameSinkSupportTest,
 
   // Send a non-exact CopyOutputRequest. It can be picked up by either Surface1
   // or Surface2.
-  support_->RequestCopyOfOutput(
-      {local_surface_id1, SubtreeCaptureId(),
-       std::make_unique<CopyOutputRequest>(
-           CopyOutputRequest::ResultFormat::RGBA,
-           CopyOutputRequest::ResultDestination::kSystemMemory,
-           base::BindOnce(StubResultCallback))});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(),
+      std::make_unique<CopyOutputRequest>(
+          CopyOutputRequest::ResultFormat::RGBA,
+          CopyOutputRequest::ResultDestination::kSystemMemory,
+          base::BindOnce(StubResultCallback))));
   EXPECT_TRUE(surface_observer_->IsSurfaceDamaged(id1));
 
   // Send an exact CopyOutputRequest for Surface1. It can only be picked up by
   // Surface1.
-  support_->RequestCopyOfOutput(
-      {local_surface_id1, SubtreeCaptureId(),
-       std::make_unique<CopyOutputRequest>(
-           CopyOutputRequest::ResultFormat::RGBA,
-           CopyOutputRequest::ResultDestination::kSystemMemory,
-           base::BindOnce(StubResultCallback)),
-       /*capture_exact_id=*/true});
+  support_->RequestCopyOfOutput(std::make_unique<PendingCopyOutputRequest>(
+      local_surface_id1, SubtreeCaptureId(),
+      std::make_unique<CopyOutputRequest>(
+          CopyOutputRequest::ResultFormat::RGBA,
+          CopyOutputRequest::ResultDestination::kSystemMemory,
+          base::BindOnce(StubResultCallback)),
+      /*capture_exact_id=*/true));
   EXPECT_TRUE(surface_observer_->IsSurfaceDamaged(id2));
 
   // Surface2 picks up the non-exact CopyOutputRequest.
@@ -2060,8 +2153,8 @@ TEST_P(CompositorFrameSinkSupportTest,
       SurfaceAnimationManager::CreateWithSave(
           CompositorFrameTransitionDirective::CreateSave(
               transition_token, maybe_cross_frame_sink,
-              /*sequence_id=*/1, {}, {}),
-          surface, sii, &id_tracker, base::DoNothing());
+              /*sequence_id=*/1, {}, {}, false),
+          surface, sii, &id_tracker, base::DoNothing(), base::DoNothing());
   ASSERT_TRUE(animation_manager);
 
   EXPECT_FALSE(HasAnimationManagerForToken(transition_token));
@@ -2070,7 +2163,8 @@ TEST_P(CompositorFrameSinkSupportTest,
   EXPECT_TRUE(HasAnimationManagerForToken(transition_token));
 
   auto release_directive = CompositorFrameTransitionDirective::CreateRelease(
-      transition_token, maybe_cross_frame_sink, /*sequence_id=*/2);
+      transition_token, maybe_cross_frame_sink, /*sequence_id=*/2,
+      /*delay_layer_tree_view_deletion=*/false);
   ProcessCompositorFrameTransitionDirective(support_.get(), release_directive,
                                             surface);
   EXPECT_FALSE(HasAnimationManagerForToken(transition_token));
@@ -2120,7 +2214,7 @@ TEST_P(CompositorFrameSinkSupportTest, ViewTransitionBlitRequestTextureQuad) {
       CompositorFrameTransitionDirective::CreateSave(
           transition_token,
           /*maybe_cross_frame_sink=*/false,
-          /*sequence_id=*/1, {shared_element}, {}));
+          /*sequence_id=*/1, {shared_element}, {}, false));
 
   // Submit the frame.
   auto result = support_->MaybeSubmitCompositorFrame(

@@ -196,9 +196,9 @@ String String::Format(const char* format, ...) {
   // the locale is compatible, and also that it is the default "C"
   // locale so that we aren't just lucky. Android's locales work
   // differently so can't check the same way there.
-  DCHECK_EQ(UNSAFE_TODO(strcmp(localeconv()->decimal_point, ".")), 0);
+  DCHECK_EQ(StringView("."), localeconv()->decimal_point);
 #if !BUILDFLAG(IS_ANDROID)
-  DCHECK_EQ(UNSAFE_TODO(strcmp(setlocale(LC_NUMERIC, NULL), "C")), 0);
+  DCHECK_EQ(StringView("C"), setlocale(LC_NUMERIC, nullptr));
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   va_list args;
@@ -208,7 +208,7 @@ String String::Format(const char* format, ...) {
   Vector<char, kDefaultSize> buffer(kDefaultSize);
 
   va_start(args, format);
-  int length = base::VSpanPrintf(buffer, format, args);
+  int length = UNSAFE_TODO(base::VSpanPrintf(buffer, format, args));
   va_end(args);
 
   // TODO(esprehn): Negative result can only happen if there's an encoding
@@ -235,7 +235,7 @@ String String::Format(const char* format, ...) {
     // Not calling va_end/va_start here happens to work on lots of systems, but
     // fails e.g. on 64bit Linux.
     va_start(args, format);
-    length = base::VSpanPrintf(buffer, format, args);
+    length = UNSAFE_TODO(base::VSpanPrintf(buffer, format, args));
     va_end(args);
 
     // TODO(tsepez): can we get an error the second time around if

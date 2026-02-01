@@ -16,9 +16,8 @@ import type {MessageData, PrintPreviewParams} from './controller.js';
 import {PluginController} from './controller.js';
 import type {ViewerPageIndicatorElement} from './elements/viewer_page_indicator.js';
 import type {ViewerZoomToolbarElement} from './elements/viewer_zoom_toolbar.js';
-import {convertDocumentDimensionsMessage, convertLoadProgressMessage} from './message_converter.js';
-import {deserializeKeyEvent, LoadState, serializeKeyEvent} from './pdf_scripting_api.js';
-import type {KeyEventData} from './pdf_viewer_base.js';
+import {convertDocumentDimensionsMessage, convertLoadProgressMessage, convertSendKeyEventMessage} from './message_converter.js';
+import {LoadState, serializeKeyEvent} from './pdf_scripting_api.js';
 import {PdfViewerBaseElement} from './pdf_viewer_base.js';
 import {getCss} from './pdf_viewer_print.css.js';
 import {getHtml} from './pdf_viewer_print.html.js';
@@ -133,6 +132,8 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
           this.$.zoomToolbar.fitToggleFromHotKey();
         }
         return;
+      default:
+        break;
     }
 
     // Give print preview a chance to handle the key event.
@@ -254,9 +255,7 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
         this.pluginController_.resetPrintPreviewMode(printPreviewData);
         return true;
       case 'sendKeyEvent':
-        const keyEvent =
-            deserializeKeyEvent((message.data as KeyEventData).keyEvent);
-        const extendedKeyEvent = keyEvent as ExtendedKeyEvent;
+        const extendedKeyEvent = convertSendKeyEventMessage(message.data);
         extendedKeyEvent.fromScriptingAPI = true;
         this.handleKeyEvent(extendedKeyEvent);
         return true;
@@ -276,9 +275,9 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
         position.x += positionData.x;
         this.viewport.setPosition(position);
         return true;
+      default:
+        return false;
     }
-
-    return false;
   }
 
   override setLoadState(loadState: LoadState) {
@@ -288,7 +287,7 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
     }
   }
 
-  override handlePluginMessage(e: CustomEvent) {
+  override handlePluginMessage(e: CustomEvent<MessageData>) {
     const data = e.detail;
     switch (data.type.toString()) {
       case 'documentDimensions':
@@ -304,8 +303,7 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
         this.handlePrintPreviewLoaded_();
         return;
       case 'sendKeyEvent':
-        const keyEvent = deserializeKeyEvent((data as KeyEventData).keyEvent) as
-            ExtendedKeyEvent;
+        const keyEvent = convertSendKeyEventMessage(data);
         keyEvent.fromPlugin = true;
         this.handleKeyEvent(keyEvent);
         return;
@@ -323,8 +321,9 @@ export class PdfViewerPrintElement extends PdfViewerBaseElement {
       case 'setIsEditing':
         // These messages are not relevant in Print Preview.
         return;
+      default:
+        assertNotReached('Unknown message type received: ' + data.type);
     }
-    assertNotReached('Unknown message type received: ' + data.type);
   }
 
   /**

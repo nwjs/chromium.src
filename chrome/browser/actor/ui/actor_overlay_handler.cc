@@ -66,6 +66,11 @@ void ActorOverlayHandler::SetBorderGlowVisibility(bool is_visible) {
   page_->SetBorderGlowVisibility(is_visible);
 }
 
+void ActorOverlayHandler::MoveCursorTo(const gfx::Point& point,
+                                       base::OnceClosure callback) {
+  page_->MoveCursorTo(point, std::move(callback));
+}
+
 void ActorOverlayHandler::OnNativeThemeUpdated(
     ::ui::NativeTheme* observed_theme) {
   OnThemeChanged();
@@ -87,8 +92,15 @@ void ActorOverlayHandler::OnThemeChanged() {
         web_contents_->GetColorProvider().GetColor(kColorActorUiOverlayBorder);
     theme->border_glow_color = web_contents_->GetColorProvider().GetColor(
         kColorActorUiOverlayBorderGlow);
+    theme->magic_cursor_color =
+        web_contents_->GetColorProvider().GetColor(kColorActorUiMagicCursor);
+
     page_->SetTheme(std::move(theme));
   }
+}
+
+void ActorOverlayHandler::TriggerClickAnimation(base::OnceClosure callback) {
+  page_->TriggerClickAnimation(std::move(callback));
 }
 
 }  // namespace actor::ui

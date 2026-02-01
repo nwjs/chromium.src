@@ -84,6 +84,12 @@ if (!is_android) {
       "//ui/base/interaction",
       "//ui/menus",
     ]
+
+    if (enable_glic) {
+      sources += [ "glic_tab_sub_menu_model.h" ]
+
+      public_deps += [ "//chrome/browser/glic" ]
+    }
   }
 
   source_set("tab_list_bridge") {
@@ -92,10 +98,13 @@ if (!is_android) {
       "tab_list_bridge.h",
     ]
 
+    deps = [ "//chrome/browser/tab_group_sync:factories" ]
+
     public_deps = [
       ":tab_list_interface",
       ":tab_strip",
       "//base",
+      "//chrome/browser/resource_coordinator",
       "//chrome/browser/ui/browser_window",
       "//ui/base/unowned_user_data",
     ]
@@ -128,6 +137,8 @@ if (!is_android) {
     ]
 
     if (enable_glic) {
+      sources += [ "glic_tab_sub_menu_model.cc" ]
+
       deps += [ "//chrome/browser/glic" ]
     }
 
@@ -276,7 +287,6 @@ if (!is_android) {
     sources = [
       "tab_strip_model.h",
       "tab_strip_model_delegate.h",
-      "tab_strip_model_selection_adapter.h",
       "tab_strip_model_selection_state.h",
       "tab_strip_model_stats_recorder.h",
       "tab_strip_prefs.h",
@@ -302,7 +312,6 @@ if (!is_android) {
     sources = [
       "tab_strip_model.cc",
       "tab_strip_model_delegate.cc",
-      "tab_strip_model_selection_adapter.cc",
       "tab_strip_model_selection_state.cc",
       "tab_strip_model_stats_recorder.cc",
       "tab_strip_prefs.cc",
@@ -366,7 +375,6 @@ if (!is_android) {
     if (enable_glic) {
       sources += [
         "glic_actor_nudge_controller.h",
-        "glic_actor_task_icon_controller.h",
         "glic_actor_task_icon_manager.h",
         "glic_actor_task_icon_manager_factory.h",
       ]
@@ -401,7 +409,6 @@ if (!is_android) {
     if (enable_glic) {
       sources += [
         "glic_actor_nudge_controller.cc",
-        "glic_actor_task_icon_controller.cc",
         "glic_actor_task_icon_manager.cc",
         "glic_actor_task_icon_manager_factory.cc",
       ]
@@ -516,6 +523,7 @@ if (!is_android) {
       "//chrome/browser/commerce",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/contextual_cueing",
+      "//chrome/browser/contextual_tasks",
       "//chrome/browser/favicon",
       "//chrome/browser/image_fetcher",
       "//chrome/browser/media/webrtc",
@@ -542,6 +550,7 @@ if (!is_android) {
       "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/read_anything",
       "//chrome/browser/ui/tabs/alert:tab_alert",
+      "//chrome/browser/ui/tabs/projects",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/thumbnails",
       "//chrome/browser/ui/toolbar",
@@ -745,8 +754,10 @@ if (!is_android) {
     ]
 
     if (enable_glic) {
+      sources += [ "glic_tab_sub_menu_model_browsertest.cc" ]
       deps += [
         "//chrome/browser/glic",
+        "//chrome/browser/glic:impl",
         "//chrome/browser/glic/test_support",
       ]
     }
@@ -791,7 +802,6 @@ if (!is_android) {
       "tab_metrics_provider_unittest.cc",
       "tab_model_unittest.cc",
       "tab_strip_model_context_menu_unittest.cc",
-      "tab_strip_model_selection_adapter_unittest.cc",
       "tab_strip_model_selection_state_unittest.cc",
       "tab_strip_model_stats_recorder_unittest.cc",
       "tab_strip_model_unittest.cc",

@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_variable_data.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
-#include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/style/basic_shapes.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -54,9 +53,11 @@
 #include "third_party/blink/renderer/core/style/scroll_marker_group.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
 #include "third_party/blink/renderer/core/style/style_anchor_scope.h"
+#include "third_party/blink/renderer/core/style/style_name_scope.h"
 #include "third_party/blink/renderer/core/style/style_offset_rotation.h"
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
 #include "third_party/blink/renderer/core/style/style_reflection.h"
+#include "third_party/blink/renderer/core/style/style_trigger_scope.h"
 #include "third_party/blink/renderer/core/style/style_view_transition_group.h"
 #include "third_party/blink/renderer/core/style/style_view_transition_name.h"
 #include "third_party/blink/renderer/core/style/text_overflow_data.h"
@@ -220,6 +221,8 @@ class StyleBuilderConverter {
                                                 const CSSValue&);
   static ItemTolerance ConvertItemTolerance(const StyleResolverState&,
                                             const CSSValue&);
+  static GridLanesDirection ConvertGridLanesDirection(const StyleResolverState&,
+                                                      const CSSValue&);
   static StyleHyphenateLimitChars ConvertHyphenateLimitChars(
       StyleResolverState&,
       const CSSValue&);
@@ -260,12 +263,17 @@ class StyleBuilderConverter {
                                                    const CSSValue&);
   static ScopedCSSName* ConvertCustomIdent(StyleResolverState&,
                                            const CSSValue&);
+  static AtomicString ConvertNoneOrCustomIdentUnscoped(StyleResolverState&,
+                                                       const CSSValue&);
+  static AtomicString ConvertCustomIdentUnscoped(StyleResolverState&,
+                                                 const CSSValue&);
   static StylePositionAnchor ConvertPositionAnchor(StyleResolverState&,
                                                    const CSSValue&);
   static PositionVisibility ConvertPositionVisibility(StyleResolverState& state,
                                                       const CSSValue& value);
   static ScopedCSSNameList* ConvertAnchorName(StyleResolverState&,
                                               const CSSValue&);
+  static StyleNameScope ConvertNameScope(StyleResolverState&, const CSSValue&);
   static StyleAnchorScope ConvertAnchorScope(StyleResolverState&,
                                              const CSSValue&);
   static StyleInitialLetter ConvertInitialLetter(StyleResolverState&,
@@ -436,10 +444,10 @@ class StyleBuilderConverter {
                                                       const CSSValue&);
   static Vector<TimelineInset> ConvertViewTimelineInset(StyleResolverState&,
                                                         const CSSValue&);
-  static ScopedCSSNameList* ConvertViewTimelineName(StyleResolverState&,
-                                                    const CSSValue&);
-  static ScopedCSSNameList* ConvertTimelineScope(StyleResolverState&,
-                                                 const CSSValue&);
+  static Vector<AtomicString> ConvertViewTimelineName(StyleResolverState&,
+                                                      const CSSValue&);
+  static Vector<AtomicString> ConvertTimelineScope(StyleResolverState&,
+                                                   const CSSValue&);
 
   static PositionArea ConvertPositionArea(StyleResolverState&,
                                           const CSSValue&,
@@ -454,6 +462,9 @@ class StyleBuilderConverter {
 
   static ScopedCSSNameList* ConvertTimelineTriggerName(StyleResolverState&,
                                                        const CSSValue&);
+
+  static StyleTriggerScope ConvertTriggerScope(StyleResolverState&,
+                                               const CSSValue&);
 };
 
 template <typename T>

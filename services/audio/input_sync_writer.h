@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 
-#include "base/gtest_prod_util.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/sync_socket.h"
 #include "base/time/time.h"
@@ -159,6 +158,9 @@ class InputSyncWriter final : public InputController::SyncWriter {
   // Vector of audio buses allocated during construction and deleted in the
   // destructor.
   std::vector<std::unique_ptr<media::AudioBus>> audio_buses_;
+
+  // Vector of pointers to the AudioInputBuffers in the shared memory.
+  std::vector<media::AudioInputBuffer*> input_buffers_;
 
   // Fifo for audio that is used in case there isn't room in the shared memory.
   // This can for example happen under load when the consumer side is starved.

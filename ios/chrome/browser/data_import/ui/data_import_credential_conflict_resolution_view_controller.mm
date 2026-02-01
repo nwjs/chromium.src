@@ -7,18 +7,23 @@
 #import "base/check_op.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/data_import/public/accessibility_utils.h"
+#import "ios/chrome/browser/data_import/public/credential_item_identifier.h"
 #import "ios/chrome/browser/data_import/public/metrics.h"
+#import "ios/chrome/browser/data_import/public/passkey_import_item.h"
 #import "ios/chrome/browser/data_import/public/password_import_item.h"
+#import "ios/chrome/browser/data_import/ui/credential_import_item_cell_content_configuration.h"
 #import "ios/chrome/browser/data_import/ui/data_import_credential_conflict_mutator.h"
+#import "ios/chrome/browser/data_import/ui/data_import_credential_conflict_resolution_view_controller_delegate.h"
 #import "ios/chrome/browser/data_import/ui/data_import_import_stage_transition_handler.h"
-#import "ios/chrome/browser/data_import/ui/password_import_item_cell_content_configuration.h"
 #import "ios/chrome/browser/data_import/ui/ui_utils.h"
-#import "ios/chrome/browser/settings/ui_bundled/utils/password_utils.h"
+#import "ios/chrome/browser/passwords/coordinator/password_utils.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_attributed_string_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -36,25 +41,28 @@ NSString* const kDataImportCredentialConflictResolutionSection =
 @implementation DataImportCredentialConflictResolutionViewController {
   /// List of password conflicts.
   NSArray<PasswordImportItem*>* _passwordConflicts;
+  /// List of passkey conflicts.
+  NSArray<PasskeyImportItem*>* _passkeyConflicts;
   /// List of NSNumber representation of boolean values indicating the password
   /// at the respective index should be unmasked for display.
   NSMutableArray<NSNumber*>* _shouldUnmaskPasswordAtIndex;
   /// The data source painting each cell in the table from `_passwordConflicts`.
-  UITableViewDiffableDataSource<NSString*, NSNumber*>* _dataSource;
+  UITableViewDiffableDataSource<NSString*, CredentialItemIdentifier*>*
+      _dataSource;
   /// The "select" and "deselect" buttons.
   UIBarButtonItem* _selectButton;
   UIBarButtonItem* _deselectButton;
-  /// Module for reauthentication when user wants to see unmasked passwords.
-  ReauthenticationModule* _reauthModule;
 }
 
 #pragma mark - ChromeTableViewController
 
-- (instancetype)initWithPasswordConflicts:
-    (NSArray<PasswordImportItem*>*)passwords {
+- (instancetype)
+    initWithPasswordConflicts:(NSArray<PasswordImportItem*>*)passwords
+             passkeyConflicts:(NSArray<PasskeyImportItem*>*)passkeys {
   self = [super initWithStyle:ChromeTableViewStyle()];
   if (self) {
     _passwordConflicts = passwords;
+    _passkeyConflicts = passkeys;
     _shouldUnmaskPasswordAtIndex = [NSMutableArray array];
     NSUInteger count = _passwordConflicts.count;
     for (NSUInteger i = 0; i < count; i++) {
@@ -67,13 +75,13 @@ NSString* const kDataImportCredentialConflictResolutionSection =
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.title = l10n_util::GetNSString(
-      IDS_IOS_SAFARI_IMPORT_PASSWORD_CONFLICT_RESOLUTION_TITLE);
+      IDS_IOS_CREDENTIAL_IMPORT_CONFLICT_RESOLUTION_TITLE);
   [self setupBarButtons];
   /// Sets up table view properties.
   self.tableView.separatorInset =
       GetDataImportSeparatorInset(/*multiSelectionMode=*/YES);
   self.tableView.accessibilityIdentifier =
-      GetPasswordConflictResolutionTableViewAccessibilityIdentifier();
+      GetCredentialConflictResolutionTableViewAccessibilityIdentifier();
   self.tableView.delegate = self;
   self.tableView.allowsMultipleSelectionDuringEditing = YES;
   self.tableView.editing = YES;
@@ -97,10 +105,12 @@ NSString* const kDataImportCredentialConflictResolutionSection =
         [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote],
     NSForegroundColorAttributeName : [UIColor colorNamed:kTextSecondaryColor]
   };
+  int messageId =
+      _passkeyConflicts.count > 0u
+          ? IDS_IOS_IMPORT_PASSWORD_PASSKEY_CONFLICT_RESOLUTION_DISCLAIMER
+          : IDS_IOS_IMPORT_PASSWORD_CONFLICT_RESOLUTION_DISCLAIMER;
   NSMutableAttributedString* attributedText = [[NSMutableAttributedString alloc]
-      initWithString:
-          l10n_util::GetNSString(
-              IDS_IOS_SAFARI_IMPORT_PASSWORD_CONFLICT_RESOLUTION_DISCLAIMER)
+      initWithString:l10n_util::GetNSString(messageId)
           attributes:attributes];
   [header setAttributedString:attributedText];
   return header;
@@ -108,16 +118,12 @@ NSString* const kDataImportCredentialConflictResolutionSection =
 
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
-  if ([self selectedItemsCount] == _passwordConflicts.count) {
-    [self updateSelectionButton];
-  }
+  [self updateUIForSelection];
 }
 
 - (void)tableView:(UITableView*)tableView
     didDeselectRowAtIndexPath:(NSIndexPath*)indexPath {
-  if ([self selectedItemsCount] == _passwordConflicts.count - 1) {
-    [self updateSelectionButton];
-  }
+  [self updateUIForSelection];
 }
 
 #pragma mark - Button selectors
@@ -125,28 +131,40 @@ NSString* const kDataImportCredentialConflictResolutionSection =
 - (void)didTapCancelButton {
   RecordDataImportDismissCredentialConflictScreen(
       DataImportCredentialConflictScreenAction::kCancel);
-  [self.presentingViewController dismissViewControllerAnimated:YES
-                                                    completion:nil];
+  [self.delegate cancelledConflictResolution];
 }
 
 - (void)didTapContinueButton {
   RecordDataImportDismissCredentialConflictScreen(
       DataImportCredentialConflictScreenAction::kContinue);
   NSMutableArray<NSNumber*>* passwordIdentifiers = [NSMutableArray array];
+  NSMutableArray<NSNumber*>* passkeyIdentifiers = [NSMutableArray array];
   for (NSIndexPath* indexPath in [self.tableView indexPathsForSelectedRows]) {
-    [passwordIdentifiers
-        addObject:[_dataSource itemIdentifierForIndexPath:indexPath]];
+    CredentialItemIdentifier* identifier =
+        [_dataSource itemIdentifierForIndexPath:indexPath];
+    if (identifier.type == CredentialType::kPassword) {
+      [passwordIdentifiers addObject:@(identifier.index)];
+    } else {
+      [passkeyIdentifiers addObject:@(identifier.index)];
+    }
   }
-  [self.mutator continueToImportPasswords:passwordIdentifiers];
-  [self.presentingViewController dismissViewControllerAnimated:YES
-                                                    completion:nil];
+  [self.mutator continueToImportPasswords:passwordIdentifiers
+                                 passkeys:passkeyIdentifiers];
+  [self.delegate resolvedCredentialConflicts];
 }
 
+// If all rows in the table view are currently selected, deselects all.
+// Otherwise, selects all rows in the table view. Updates the toolbar button
+// based on the action that was taken ("select all" when all items where
+// deselected and "deselect all" otherwise).
 - (void)didTapSelectionButton {
-  NSUInteger totalCount = _passwordConflicts.count;
-  BOOL deselect = totalCount == [self selectedItemsCount];
-  for (NSUInteger idx = 0; idx < totalCount; idx++) {
-    NSIndexPath* indexPath = [_dataSource indexPathForItemIdentifier:@(idx)];
+  BOOL deselect = [self allItemsCount] == [self selectedItemsCount];
+  NSArray<CredentialItemIdentifier*>* identifiers = [[_dataSource snapshot]
+      itemIdentifiersInSectionWithIdentifier:
+          kDataImportCredentialConflictResolutionSection];
+  for (CredentialItemIdentifier* identifier in identifiers) {
+    NSIndexPath* indexPath =
+        [_dataSource indexPathForItemIdentifier:identifier];
     if (deselect) {
       [self.tableView deselectRowAtIndexPath:indexPath animated:NO];
     } else {
@@ -158,13 +176,13 @@ NSString* const kDataImportCredentialConflictResolutionSection =
   RecordDataImportDismissCredentialConflictScreen(
       deselect ? DataImportCredentialConflictScreenAction::kDeselectAll
                : DataImportCredentialConflictScreenAction::kSelectAll);
-  [self updateSelectionButton];
+  [self updateUIForSelection];
 }
 
 #pragma mark - Private
 
 /// Lazy-loader of the reauthentication module.
-- (ReauthenticationModule*)reauthenticationModule {
+- (ReauthenticationModule*)reauthModule {
   if (!_reauthModule) {
     _reauthModule = password_manager::BuildReauthenticationModule();
   }
@@ -178,23 +196,39 @@ NSString* const kDataImportCredentialConflictResolutionSection =
   return selectedRows ? selectedRows.count : 0;
 }
 
+/// Returns the count of all items displayed in the table.
+- (NSUInteger)allItemsCount {
+  return _passwordConflicts.count + _passkeyConflicts.count;
+}
+
 /// Returns the cell with the properties of the `item` displayed.
 - (UITableViewCell*)cellForIndexPath:(NSIndexPath*)indexPath
-                      itemIdentifier:(NSNumber*)identifier {
-  /// Populate cell with information.
-  PasswordImportItem* item = _passwordConflicts[identifier.intValue];
+                      itemIdentifier:(CredentialItemIdentifier*)identifier {
   UITableViewCell* cell = DequeueTableViewCell<UITableViewCell>(self.tableView);
-  cell.accessibilityIdentifier =
-      GetPasswordConflictResolutionTableViewCellAccessibilityIdentifier(
-          indexPath.item);
-  PasswordImportItemCellContentConfiguration* config;
-  if (_shouldUnmaskPasswordAtIndex[identifier.intValue].boolValue) {
-    config = [PasswordImportItemCellContentConfiguration
-        cellConfigurationForUnmaskPassword:item];
+  CredentialImportItemCellContentConfiguration* config;
+  CredentialImportItem* item;
+
+  /// Populate cell with information.
+  if (identifier.type == CredentialType::kPasskey) {
+    PasskeyImportItem* passkeyItem = _passkeyConflicts[identifier.index];
+    config = [CredentialImportItemCellContentConfiguration
+        cellConfigurationForPasskey:passkeyItem];
+    item = passkeyItem;
   } else {
-    config = [PasswordImportItemCellContentConfiguration
-        cellConfigurationForMaskPassword:item];
+    PasswordImportItem* passwordItem = _passwordConflicts[identifier.index];
+    if (_shouldUnmaskPasswordAtIndex[identifier.index].boolValue) {
+      config = [CredentialImportItemCellContentConfiguration
+          cellConfigurationForUnmaskPassword:passwordItem];
+    } else {
+      config = [CredentialImportItemCellContentConfiguration
+          cellConfigurationForMaskPassword:passwordItem];
+    }
+    item = passwordItem;
   }
+
+  cell.accessibilityIdentifier =
+      GetCredentialConflictResolutionTableViewCellAccessibilityIdentifier(
+          identifier);
   if (item.faviconAttributes) {
     config.faviconAttributes = item.faviconAttributes;
   } else {
@@ -206,14 +240,14 @@ NSString* const kDataImportCredentialConflictResolutionSection =
   cell.contentConfiguration = config;
   cell.editingAccessoryView = [self accessoryViewForItemIdentifier:identifier];
   UIView* selectedBackgroundView = [[UIView alloc] init];
-  selectedBackgroundView.backgroundColor = [UIColor clearColor];
+  selectedBackgroundView.backgroundColor = [UIColor colorNamed:kBlueHaloColor];
   cell.selectedBackgroundView = selectedBackgroundView;
   return cell;
 }
 
 /// Helper method to update the cell with `identifier`.
-- (void)updateItemWithIdentifier:(NSNumber*)identifier {
-  NSDiffableDataSourceSnapshot<NSString*, NSNumber*>* snapshot =
+- (void)updateItemWithIdentifier:(CredentialItemIdentifier*)identifier {
+  NSDiffableDataSourceSnapshot<NSString*, CredentialItemIdentifier*>* snapshot =
       [_dataSource snapshot];
   [snapshot reconfigureItemsWithIdentifiers:@[ identifier ]];
   [_dataSource applySnapshot:snapshot animatingDifferences:NO];
@@ -236,17 +270,24 @@ NSString* const kDataImportCredentialConflictResolutionSection =
                            target:self
                            action:@selector(didTapCancelButton)];
   /// Navigation bar: continue button.
-  NSString* continueButtonTitle = l10n_util::GetNSString(IDS_CONTINUE);
-  UIBarButtonItem* continueButton =
-      [self newButtonWithTitle:continueButtonTitle
-                        action:@selector(didTapContinueButton)];
-  NSDictionary<NSString*, UIFont*>* continueButtonAttributes = @{
-    NSFontAttributeName : [UIFont systemFontOfSize:UIFont.buttonFontSize
-                                            weight:UIFontWeightSemibold]
-  };
-  [continueButton setTitleTextAttributes:continueButtonAttributes
-                                forState:UIControlStateNormal];
-  self.navigationItem.rightBarButtonItem = continueButton;
+  if (@available(iOS 26, *)) {
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                             target:self
+                             action:@selector(didTapContinueButton)];
+  } else {
+    NSString* continueButtonTitle = l10n_util::GetNSString(IDS_CONTINUE);
+    UIBarButtonItem* continueButton =
+        [self newButtonWithTitle:continueButtonTitle
+                          action:@selector(didTapContinueButton)];
+    NSDictionary<NSString*, UIFont*>* continueButtonAttributes = @{
+      NSFontAttributeName : [UIFont systemFontOfSize:UIFont.buttonFontSize
+                                              weight:UIFontWeightSemibold]
+    };
+    [continueButton setTitleTextAttributes:continueButtonAttributes
+                                  forState:UIControlStateNormal];
+    self.navigationItem.rightBarButtonItem = continueButton;
+  }
   /// Toolbar select buttons.
   NSString* selectButtonTitle = l10n_util::GetNSString(
       IDS_IOS_SAFARI_IMPORT_PASSWORD_CONFLICT_RESOLUTION_BUTTON_SELECT_ALL);
@@ -256,16 +297,17 @@ NSString* const kDataImportCredentialConflictResolutionSection =
                                     action:@selector(didTapSelectionButton)];
   _deselectButton = [self newButtonWithTitle:deselectButtonTitle
                                       action:@selector(didTapSelectionButton)];
-  [self updateSelectionButton];
+  [self updateUIForSelection];
 }
 
-/// Sets `_dataSource` and fills the table with data from `_passwordConflicts`.
+/// Sets `_dataSource` and fills the table with data from `_passwordConflicts`
+/// and `_passkeyConflicts`.
 - (void)initializeDataSourceAndTable {
   /// Set up data source.
   __weak __typeof(self) weakSelf = self;
   UITableViewDiffableDataSourceCellProvider cellProvider = ^UITableViewCell*(
       UITableView* tableView, NSIndexPath* indexPath,
-      NSNumber* itemIdentifier) {
+      CredentialItemIdentifier* itemIdentifier) {
     CHECK_EQ(tableView, weakSelf.tableView);
     return [weakSelf cellForIndexPath:indexPath itemIdentifier:itemIdentifier];
   };
@@ -278,32 +320,54 @@ NSString* const kDataImportCredentialConflictResolutionSection =
   [snapshot appendSectionsWithIdentifiers:@[
     kDataImportCredentialConflictResolutionSection
   ]];
-  NSMutableArray* indicesForPasswordConflicts = [NSMutableArray array];
+
+  NSMutableArray<CredentialItemIdentifier*>* itemIdentifiers =
+      [NSMutableArray array];
   for (NSUInteger i = 0; i < _passwordConflicts.count; i++) {
-    [indicesForPasswordConflicts addObject:@(i)];
+    [itemIdentifiers addObject:[[CredentialItemIdentifier alloc]
+                                   initWithType:CredentialType::kPassword
+                                          index:i]];
   }
-  [snapshot appendItemsWithIdentifiers:indicesForPasswordConflicts
+  for (NSUInteger i = 0; i < _passkeyConflicts.count; i++) {
+    [itemIdentifiers addObject:[[CredentialItemIdentifier alloc]
+                                   initWithType:CredentialType::kPasskey
+                                          index:i]];
+  }
+
+  [snapshot appendItemsWithIdentifiers:itemIdentifiers
              intoSectionWithIdentifier:
                  kDataImportCredentialConflictResolutionSection];
   [_dataSource applySnapshot:snapshot animatingDifferences:NO];
 }
 
-/// Shows or updates the bottom button's text and behavior. Should show
-/// "Deselect all" when all items are selected, and "Select all" otherwise.
-- (void)updateSelectionButton {
-  UIBarButtonItem* selectionButton =
-      [self selectedItemsCount] == _passwordConflicts.count ? _deselectButton
-                                                            : _selectButton;
+/// Updates the title to reflect the count of items selected or a generic title
+/// if no items are selected. Updates the bottom button to display "Deselect
+/// all" when all items are selected, and "Select all" otherwise.
+- (void)updateUIForSelection {
+  NSUInteger selectedItemsCount = [self selectedItemsCount];
+  if (selectedItemsCount == 0) {
+    self.title = l10n_util::GetNSString(
+        IDS_IOS_CREDENTIAL_IMPORT_CONFLICT_RESOLUTION_TITLE);
+  } else {
+    self.title = l10n_util::GetPluralNSStringF(
+        IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS_COUNT, selectedItemsCount);
+  }
+
+  UIBarButtonItem* selectionButton = selectedItemsCount == [self allItemsCount]
+                                         ? _deselectButton
+                                         : _selectButton;
   self.toolbarItems = @[ selectionButton ];
 }
 
 /// Helper method to set up the accessory view.
-- (UIView*)accessoryViewForItemIdentifier:(NSNumber*)identifier {
-  if (![[self reauthenticationModule] canAttemptReauth]) {
+- (UIView*)accessoryViewForItemIdentifier:
+    (CredentialItemIdentifier*)identifier {
+  if (identifier.type == CredentialType::kPasskey ||
+      ![self.reauthModule canAttemptReauth]) {
     return nil;
   }
   BOOL forUnmaskAction =
-      !(_shouldUnmaskPasswordAtIndex[identifier.intValue].boolValue);
+      !(_shouldUnmaskPasswordAtIndex[identifier.index].boolValue);
   UIButtonConfiguration* configuration =
       [UIButtonConfiguration plainButtonConfiguration];
   NSString* symbol_name =
@@ -322,22 +386,23 @@ NSString* const kDataImportCredentialConflictResolutionSection =
       }];
   UIButton* button = [UIButton buttonWithConfiguration:configuration
                                          primaryAction:updatePasswordField];
-  /// Make sure the button is positioned correctly; not adding the following
-  /// line triggers a bug where the accessory view appears on the top-leading
-  /// edge of the cell.
-  button.frame =
-      CGRectMake(0, 0, buttonImage.size.width, buttonImage.size.height);
+  /// The following line calculates the correct size so the icon isn't cut off,
+  /// and ensures the button appears in the correct place within the cell.
+  [button sizeToFit];
   return button;
 }
 
 /// Reveal password if `shouldUnmask` is YES and user is authenticated to view
 /// passwords; mask password if otherwise.
 - (void)maybeUpdatePasswordMasking:(BOOL)shouldUnmask
-             forItemWithIdentifier:(NSNumber*)identifier
+             forItemWithIdentifier:(CredentialItemIdentifier*)identifier
                      authenticated:(BOOL)authenticated {
-  if (!shouldUnmask || authenticated ||
-      ![[self reauthenticationModule] canAttemptReauth]) {
-    _shouldUnmaskPasswordAtIndex[identifier.intValue] = @(shouldUnmask);
+  if (identifier.type == CredentialType::kPasskey) {
+    return;
+  }
+
+  if (!shouldUnmask || authenticated || ![self.reauthModule canAttemptReauth]) {
+    _shouldUnmaskPasswordAtIndex[identifier.index] = @(shouldUnmask);
     [self updateItemWithIdentifier:identifier];
     return;
   }
@@ -353,9 +418,9 @@ NSString* const kDataImportCredentialConflictResolutionSection =
   };
   NSString* reason = l10n_util::GetNSString(
       IDS_IOS_SAFARI_IMPORT_PASSWORD_UNMASK_REAUTH_REASON);
-  [[self reauthenticationModule] attemptReauthWithLocalizedReason:reason
-                                             canReusePreviousAuth:YES
-                                                          handler:handler];
+  [self.reauthModule attemptReauthWithLocalizedReason:reason
+                                 canReusePreviousAuth:YES
+                                              handler:handler];
 }
 
 @end

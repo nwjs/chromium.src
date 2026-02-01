@@ -146,7 +146,8 @@ class ProfilePolicyConnectorTest : public testing::Test {
     const auto task_runner = task_environment_.GetMainThreadTaskRunner();
     cloud_policy_manager_ = std::make_unique<CloudPolicyManager>(
         std::string(), std::string(), std::move(cloud_policy_store),
-        task_runner, network::TestNetworkConnectionTracker::CreateGetter());
+        /*extension_install_store=*/nullptr, task_runner,
+        network::TestNetworkConnectionTracker::CreateGetter());
     cloud_policy_manager_->Init(&schema_registry_);
   }
 
@@ -582,5 +583,8 @@ TEST_F(ProfilePolicyConnectorTest, AffiliationMetrics_Affiliated) {
   // Cleanup.
   connector.Shutdown();
 }
+
+// TODO(crbug.com/452305191) Add test for extension install policies being
+// loaded in the right policy domain
 
 }  // namespace policy

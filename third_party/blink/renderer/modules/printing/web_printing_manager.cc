@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/printing/web_printing_manager.h"
 
+#include "base/task/single_thread_task_runner.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
@@ -13,6 +14,7 @@
 #include "third_party/blink/renderer/modules/printing/web_printer.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
@@ -50,20 +52,22 @@ bool CheckContextAndPermissions(ScriptState* script_state,
 
 }  // namespace
 
+const char WebPrintingManager::kSupplementName[] = "PrintingManager";
+
 WebPrintingManager* WebPrintingManager::GetWebPrintingManager(
     ExecutionContext& execution_context) {
   WebPrintingManager* printing_manager =
-      execution_context.GetWebPrintingManager();
+      Supplement<ExecutionContext>::From<WebPrintingManager>(execution_context);
   if (!printing_manager) {
     printing_manager =
         MakeGarbageCollected<WebPrintingManager>(&execution_context);
-    execution_context.SetWebPrintingManager(printing_manager);
+    ProvideTo(execution_context, printing_manager);
   }
   return printing_manager;
 }
 
 WebPrintingManager::WebPrintingManager(ExecutionContext* execution_context)
-    : execution_context_(*execution_context),
+    : Supplement<ExecutionContext>(*execution_context),
       printing_service_(execution_context) {}
 
 ScriptPromise<IDLSequence<WebPrinter>> WebPrintingManager::getPrinters(
@@ -91,7 +95,7 @@ ScriptPromise<IDLSequence<WebPrinter>> WebPrintingManager::getPrinters(
 void WebPrintingManager::Trace(Visitor* visitor) const {
   visitor->Trace(printing_service_);
   ScriptWrappable::Trace(visitor);
-  visitor->Trace(execution_context_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 mojom::blink::WebPrintingService* WebPrintingManager::GetPrintingService() {
@@ -130,7 +134,7 @@ void WebPrintingManager::OnPrintersRetrieved(
 }
 
 ExecutionContext* WebPrintingManager::GetExecutionContext() {
-  return execution_context_;
+  return GetSupplementable();
 }
 
 }  // namespace blink

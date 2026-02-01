@@ -4,26 +4,37 @@
 
 #include "components/signin/internal/identity_manager/token_binding_helper.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
-#include "base/containers/contains.h"
+#include "base/barrier_callback.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/process/process.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
+#include "base/types/expected_macros.h"
 #include "components/signin/public/base/session_binding_utils.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/service_error.h"
+#include "components/unexportable_keys/unexportable_key_id.h"
 #include "components/unexportable_keys/unexportable_key_loader.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "crypto/signature_verifier.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "url/gurl.h"
 
 namespace {
@@ -87,7 +98,7 @@ void TokenBindingHelper::SetBindingKey(
 }
 
 bool TokenBindingHelper::HasBindingKey(const CoreAccountId& account_id) const {
-  return base::Contains(binding_keys_, account_id);
+  return binding_keys_.contains(account_id);
 }
 
 void TokenBindingHelper::ClearAllKeys() {
@@ -124,6 +135,15 @@ void TokenBindingHelper::GenerateBindingKeyAssertion(
       destination_url, std::move(callback)));
 }
 
+void TokenBindingHelper::StartGarbageCollection(
+    absl::flat_hash_set<std::vector<uint8_t>> known_wrapped_keys_in_db) {
+  unexportable_key_service_->GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+      unexportable_keys::BackgroundTaskPriority::kBestEffort,
+      base::BindOnce(&TokenBindingHelper::OnGetAllKeysForGarbageCollection,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     std::move(known_wrapped_keys_in_db)));
+}
+
 std::vector<uint8_t> TokenBindingHelper::GetWrappedBindingKey(
     const CoreAccountId& account_id) const {
   auto it = binding_keys_.find(account_id);
@@ -143,6 +163,20 @@ bool TokenBindingHelper::AreAllBindingKeysSame() const {
     return kv_pair.second.wrapped_key ==
            binding_keys_.begin()->second.wrapped_key;
   });
+}
+
+void TokenBindingHelper::CopyBindingKeyFromAnotherTokenService(
+    base::span<const uint8_t> wrapped_binding_key) {
+  // This will force a load of the `wrapped_binding_key` into the
+  // `unexportable_key_service_`. In stateful implementations like on macOS,
+  // this will furthermore ensure that the key representation on disk will be
+  // duplicated with metadata corresponding to `unexportable_key_service_`. This
+  // in turn will ensure that this key will not be deleted by garbage collection
+  // if the source token service no longer needs this key, but
+  // `unexportable_key_service_` still does.
+  unexportable_key_service_->FromWrappedSigningKeySlowlyAsync(
+      // TODO(crbug.com/455538352): Implement metrics.
+      wrapped_binding_key, kTokenBindingPriority, base::DoNothing());
 }
 
 TokenBindingHelper::BindingKeyData::BindingKeyData(
@@ -190,4 +224,74 @@ void TokenBindingHelper::SignAssertionToken(
                      std::move(pubkey))
           .Then(base::BindOnce(&RunCallbackAndRecordMetrics,
                                std::move(callback))));
+}
+
+void TokenBindingHelper::OnGetAllKeysForGarbageCollection(
+    absl::flat_hash_set<std::vector<uint8_t>> known_wrapped_keys_in_db,
+    unexportable_keys::ServiceErrorOr<
+        std::vector<unexportable_keys::UnexportableKeyId>>
+        all_key_ids_or_error) {
+  if (!all_key_ids_or_error.has_value() || all_key_ids_or_error->empty()) {
+    return;
+  }
+
+  std::vector<unexportable_keys::UnexportableKeyId>& all_key_ids =
+      *all_key_ids_or_error;
+
+  static constexpr std::string_view kGarbageCollectionHistogramPrefix =
+      "Crypto.UnexportableKeys.GarbageCollection.RefreshTokenBinding.";
+
+  const size_t key_count = all_key_ids.size();
+  base::UmaHistogramCounts100(
+      base::StrCat({kGarbageCollectionHistogramPrefix, "TotalKeyCount"}),
+      key_count);
+
+  // Construct a set of all wrapped keys that are still used.
+  absl::flat_hash_set<std::vector<uint8_t>> known_wrapped_keys =
+      std::move(known_wrapped_keys_in_db);
+
+  for (const auto& [_, binding_key_data] : binding_keys_) {
+    known_wrapped_keys.insert(binding_key_data.wrapped_key);
+  }
+
+  // Filter out keys from the response that are still used or were generated
+  // after the current Chrome session started.
+  std::erase_if(all_key_ids, [&](unexportable_keys::UnexportableKeyId key_id) {
+    unexportable_keys::ServiceErrorOr<std::vector<uint8_t>> wrapped_key =
+        unexportable_key_service_->GetWrappedKey(key_id);
+    return !wrapped_key.has_value() ||
+           known_wrapped_keys.contains(*wrapped_key) ||
+           unexportable_key_service_->GetCreationTime(key_id).value_or(
+               base::Time::Now()) >= base::Process::Current().CreationTime();
+  });
+
+  base::UmaHistogramCounts100(
+      base::StrCat({kGarbageCollectionHistogramPrefix, "UsedKeyCount"}),
+      key_count - all_key_ids.size());
+
+  base::UmaHistogramCounts100(
+      base::StrCat({kGarbageCollectionHistogramPrefix, "ObsoleteKeyCount"}),
+      all_key_ids.size());
+
+  auto barrier_callback =
+      base::BarrierCallback<unexportable_keys::ServiceErrorOr<void>>(
+          all_key_ids.size(),
+          base::BindOnce(
+              [](std::vector<unexportable_keys::ServiceErrorOr<void>> results) {
+                base::UmaHistogramCounts100(
+                    base::StrCat({kGarbageCollectionHistogramPrefix,
+                                  "ObsoleteKeyDeletionCount"}),
+                    std::ranges::count_if(results, [](auto result) {
+                      return result.has_value();
+                    }));
+              }));
+
+  // TODO(crbug.com/443931937): Add a bulk deletion API to
+  // `UnexportableKeyService` and use it here.
+  std::ranges::for_each(
+      all_key_ids, [&](unexportable_keys::UnexportableKeyId key_id) {
+        unexportable_key_service_->DeleteKeySlowlyAsync(
+            key_id, unexportable_keys::BackgroundTaskPriority::kBestEffort,
+            barrier_callback);
+      });
 }

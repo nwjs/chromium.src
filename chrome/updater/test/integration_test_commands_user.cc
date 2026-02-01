@@ -126,6 +126,12 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
                               target_url);
   }
 
+  void ExpectInstallSource(ScopedServer* test_server,
+                           const std::string& install_source) const override {
+    updater::test::ExpectInstallSource(updater_scope_, test_server,
+                                       install_source);
+  }
+
   void ExpectAppCommandPing(
       ScopedServer* test_server,
       const std::string& appid,
@@ -369,6 +375,10 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::ExpectLegacyProcessLauncherSucceeds(updater_scope_);
   }
 
+  void ExpectProcessLauncherLaunchCmdLineSucceeds() const override {
+    updater::test::ExpectProcessLauncherLaunchCmdLineSucceeds(updater_scope_);
+  }
+
   void ExpectLegacyAppCommandWebSucceeds(
       const std::string& app_id,
       const std::string& command_id,
@@ -516,10 +526,11 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
   void RunOfflineInstall(bool is_legacy_install,
                          bool is_silent_install,
                          int installer_result,
-                         int installer_error) override {
+                         int installer_error,
+                         const std::string& install_source) override {
     updater::test::RunOfflineInstall(updater_scope_, is_legacy_install,
                                      is_silent_install, installer_result,
-                                     installer_error);
+                                     installer_error, install_source);
   }
 
   void RunOfflineInstallOsNotSupported(bool is_legacy_install,

@@ -24,13 +24,11 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/blocklist_factory.h"
-#include "chrome/browser/extensions/convert_user_script.h"
 #include "chrome/browser/extensions/extension_assets_manager.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
-#include "chrome/browser/extensions/load_error_reporter.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -47,6 +45,7 @@
 #include "extensions/browser/blocklist.h"
 #include "extensions/browser/blocklist_check.h"
 #include "extensions/browser/content_verifier/content_verifier.h"
+#include "extensions/browser/convert_user_script.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
@@ -58,6 +57,7 @@
 #include "extensions/browser/install_flag.h"
 #include "extensions/browser/install_stage.h"
 #include "extensions/browser/install_tracker.h"
+#include "extensions/browser/load_error_reporter.h"
 #include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/browser/policy_check.h"
 #include "extensions/browser/preload_check_group.h"
@@ -194,10 +194,9 @@ void CrxInstaller::InstallCrx(const base::FilePath& source_file) {
 }
 
 void CrxInstaller::InstallCrxFile(const CRXFileInfo& source_file) {
-  if (!profile_ || browser_terminating_) {
+  if (!AcquireKeepAlive()) {
     return;
   }
-
   NotifyCrxInstallBegin();
 
   source_file_ = source_file.path;
@@ -216,10 +215,9 @@ void CrxInstaller::InstallCrxFile(const CRXFileInfo& source_file) {
 void CrxInstaller::InstallUnpackedCrx(const ExtensionId& extension_id,
                                       const std::string& public_key,
                                       const base::FilePath& unpacked_dir) {
-  if (!profile_ || browser_terminating_) {
+  if (!AcquireKeepAlive()) {
     return;
   }
-
   NotifyCrxInstallBegin();
 
   source_file_ = unpacked_dir;
@@ -240,6 +238,9 @@ void CrxInstaller::InstallUserScript(const base::FilePath& source_file,
                                      const GURL& download_url) {
   DCHECK(!download_url.is_empty());
 
+  if (!AcquireKeepAlive()) {
+    return;
+  }
   NotifyCrxInstallBegin();
 
   source_file_ = source_file;
@@ -1080,10 +1081,25 @@ void CrxInstaller::ReportInstallationStage(InstallationStage stage) {
   install_stage_tracker->ReportCRXInstallationStage(expected_id_, stage);
 }
 
-void CrxInstaller::NotifyCrxInstallBegin() {
-  profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
+bool CrxInstaller::AcquireKeepAlive() {
+  if (!profile_ || browser_terminating_) {
+    return false;
+  }
+
+  profile_keep_alive_ = ScopedProfileKeepAlive::TryAcquire(
       profile_, ProfileKeepAliveOrigin::kCrxInstaller);
 
+  if (!profile_keep_alive_) {
+    RunInstallerCallbacks(
+        CrxInstallError(CrxInstallErrorType::OTHER,
+                        CrxInstallErrorDetail::PROFILE_SHUTTING_DOWN,
+                        u"Profile is shutting down."));
+    return false;
+  }
+  return true;
+}
+
+void CrxInstaller::NotifyCrxInstallBegin() {
   InstallTrackerFactory::GetForBrowserContext(profile())->OnBeginCrxInstall(
       expected_id_);
 }

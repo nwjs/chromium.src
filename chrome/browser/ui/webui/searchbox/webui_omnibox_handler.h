@@ -60,6 +60,7 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
 
   void OnShow();
   void OnShowAiModeButtonPrefChanged();
+  void OnContentSharingPolicyChanged();
 
   // ContextualSearchboxHandler:
   void SetPage(
@@ -97,11 +98,6 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
       const TabStripSelectionChange& selection) override;
 
   void OnNavigationFinished(content::NavigationHandle* navigation_handle);
-
- protected:
-  // ContextualSearchboxHandler:
-  std::optional<lens::LensOverlayInvocationSource> GetInvocationSource()
-      const override;
 
  private:
   // Delegate to observe WebContents.

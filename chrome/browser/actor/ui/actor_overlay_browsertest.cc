@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/strings/string_number_conversions.h"
+#include "base/test/gtest_util.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/ui/actor_overlay_ui.h"
@@ -20,43 +23,48 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/test/split_view_browser_test_mixin.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "ui/display/display_switches.h"
 
 namespace actor::ui {
 namespace {
 using actor::mojom::ActionResultPtr;
 using base::test::TestFuture;
 
+ActorOverlayWebView* GetActorOverlayWebView(Browser* browser) {
+  return browser->GetBrowserView()
+      .GetActiveContentsContainerView()
+      ->actor_overlay_web_view();
+}
+
+bool IsActorOverlayVisible(Browser* browser) {
+  return GetActorOverlayWebView(browser)->GetVisible();
+}
+
+content::WebContents* GetActorOverlayWebViewWebContents(Browser* browser) {
+  return GetActorOverlayWebView(browser)->web_contents();
+}
+
 class ActorOverlayTest : public InProcessBrowserTest {
  public:
   void SetUp() override {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        features::kGlicActorUi, {{features::kGlicActorUiOverlayName, "true"}});
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{features::kGlicActorUi,
+                               {{features::kGlicActorUiOverlayName, "true"}}},
+                              {features::kGlicActorUiOverlayMagicCursor, {}}},
+        /*disabled_features=*/{});
     InProcessBrowserTest::SetUp();
   }
-
-  ActorOverlayWebView* GetActorOverlayWebView(Browser* browser) const {
-    return browser->GetBrowserView()
-        .GetActiveContentsContainerView()
-        ->actor_overlay_web_view();
-  }
-
-  bool IsActorOverlayVisible(Browser* browser) const {
-    return GetActorOverlayWebView(browser)->GetVisible();
-  }
-
-  content::WebContents* GetActorOverlayWebViewWebContents(
-      Browser* browser) const {
-    return GetActorOverlayWebView(browser)->web_contents();
-  }
-
  private:
   base::test::ScopedFeatureList feature_list_;
 };
@@ -154,14 +162,14 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, WebViewLifecycleAndVisibility) {
 
   // Make the scrim visible.
   TestFuture<void> future1;
-  contents_controller->UpdateOverlayState(
+  contents_controller->OnOverlayStateChanged(
       /*is_visible=*/true, ActorOverlayState(), future1.GetCallback());
   EXPECT_TRUE(future1.Wait());
   // Actor Overlay WebView should now be visible.
   EXPECT_TRUE(IsActorOverlayVisible(browser()));
 
   TestFuture<void> future2;
-  contents_controller->UpdateOverlayState(
+  contents_controller->OnOverlayStateChanged(
       /*is_visible=*/false, ActorOverlayState(), future2.GetCallback());
   EXPECT_TRUE(future2.Wait());
   // Confirm Actor Overlay WebView is hidden.
@@ -461,6 +469,326 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, OverlayIsIgnoredByAccessibility) {
   EXPECT_TRUE(overlay_web_view->GetViewAccessibility().GetIsIgnored());
 }
 
+IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
+                       FindInPageDisabledWhenOverlayVisibleMultiTab) {
+  // Verify that the default state is enabled, otherwise we may see a false
+  // positive in this test.
+  ASSERT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Add a second tab to the browser.
+  chrome::NewTab(browser());
+  ASSERT_EQ(browser()->tab_strip_model()->count(), 2);
+  // Activate the first tab.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  // Start actuating on the first tab and wait for the overlay to be visible.
+  Profile* const profile = browser()->profile();
+  ActorUiStateManagerInterface* state_manager =
+      ActorKeyedService::Get(profile)->GetActorUiStateManager();
+  ASSERT_NE(state_manager, nullptr);
+  tabs::TabHandle tab_handle = browser()->GetActiveTabInterface()->GetHandle();
+  TestFuture<ActionResultPtr> result;
+  state_manager->OnUiEvent(StartingToActOnTab(tab_handle, TaskId(1)),
+                           result.GetCallback());
+  ExpectOkResult(result);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsActorOverlayVisible(browser()); }));
+  // Verify that the FIP command is disabled because the actor overlay is
+  // visible.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Activate the second tab and verify the overlay is not visible.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !IsActorOverlayVisible(browser()); }));
+  // Verify that the FIP command is enabled on the non-actuating tab.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Activate the first tab again and verify the overlay is visible.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsActorOverlayVisible(browser()); }));
+  // Verify that the FIP command is still disabled.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Stop actuating.
+  state_manager->OnUiEvent(StoppedActingOnTab(tab_handle));
+  // Wait for actor overlay to be hidden.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !IsActorOverlayVisible(browser()); }));
+  // Verify that the FIP command is back to enabled.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+}
+
+IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
+                       FindInPageDisabledWhenOverlayVisibleMultiWindow) {
+  Browser* browser1 = browser();
+  // Verify that the default state is enabled for first browser.
+  ASSERT_TRUE(chrome::IsCommandEnabled(browser1, IDC_FIND));
+  // Create a second browser window.
+  Profile* const profile = browser1->profile();
+  Browser* browser2 = CreateBrowser(profile);
+  ASSERT_NE(browser2, browser1);
+  // Verify that the default state is enabled for the second browser.
+  ASSERT_TRUE(chrome::IsCommandEnabled(browser2, IDC_FIND));
+  // Activate the first browser window.
+  browser1->window()->Activate();
+  // Start actuating on the first browser window and wait for overlay to
+  // visible.
+  ActorUiStateManagerInterface* state_manager =
+      ActorKeyedService::Get(profile)->GetActorUiStateManager();
+  ASSERT_NE(state_manager, nullptr);
+  tabs::TabHandle tab_handle = browser1->GetActiveTabInterface()->GetHandle();
+  TestFuture<ActionResultPtr> result;
+  state_manager->OnUiEvent(StartingToActOnTab(tab_handle, TaskId(1)),
+                           result.GetCallback());
+  ExpectOkResult(result);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsActorOverlayVisible(browser1); }));
+  // Verify that the FIP command is disabled in the first browser.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser1, IDC_FIND));
+  // Activate the second browser window.
+  browser2->window()->Activate();
+  // Verify that the FIP command is enabled in the second browser.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser2, IDC_FIND));
+  // Activate the first browser window again.
+  browser1->window()->Activate();
+  // Verify that the FIP command is still disabled in the first browser.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser1, IDC_FIND));
+  // Stop actuating and wait for overlay to be hidden.
+  state_manager->OnUiEvent(StoppedActingOnTab(tab_handle));
+  // Wait for actor overlay to be hidden.
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !IsActorOverlayVisible(browser1); }));
+  // Verify that the FIP command is enabled in both browsers.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser1, IDC_FIND));
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser2, IDC_FIND));
+}
+
+class ActorOverlaySplitViewTest
+    : public SplitViewBrowserTestMixin<InProcessBrowserTest> {
+ public:
+  const std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures()
+      override {
+    return {
+        {features::kGlicActorUi, {{features::kGlicActorUiOverlayName, "true"}}},
+        {features::kGlicActorUiOverlayMagicCursor, {}},
+        {features::kSideBySide, {}}};
+  }
+
+  void CreateSplitView() {
+    auto* tab_strip_model = browser()->tab_strip_model();
+    const int active_index = tab_strip_model->active_index();
+
+    RunScheduledLayouts();
+    chrome::NewSplitTab(browser(),
+                        split_tabs::SplitTabCreatedSource::kToolbarButton);
+    EXPECT_TRUE(content::WaitForLoadStop(
+        tab_strip_model->GetWebContentsAt(active_index + 1)));
+    RunScheduledLayouts();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ActorOverlaySplitViewTest,
+                       FindInPageDisabledWhenOverlayVisibleAndActiveTab) {
+  CreateSplitView();
+  // Activate the right split view tab.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  ASSERT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Start actuation on right split view tab and wait for overlay to be visible.
+  Profile* const profile = browser()->profile();
+  ActorUiStateManagerInterface* state_manager =
+      ActorKeyedService::Get(profile)->GetActorUiStateManager();
+  ASSERT_NE(state_manager, nullptr);
+  tabs::TabHandle tab_handle = browser()->GetActiveTabInterface()->GetHandle();
+  TestFuture<ActionResultPtr> result;
+  state_manager->OnUiEvent(StartingToActOnTab(tab_handle, TaskId(1)),
+                           result.GetCallback());
+  ExpectOkResult(result);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return IsActorOverlayVisible(browser()); }));
+  // Verify FIP is disabled.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Activate left split view tab.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  // Verify FIP is enabled.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Activate right split view tab.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  // Verify FIP is still disabled.
+  EXPECT_FALSE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  // Stop actuating and wait for overlay to be hidden.
+  state_manager->OnUiEvent(StoppedActingOnTab(tab_handle));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !IsActorOverlayVisible(browser()); }));
+  // Verify FIP is enabled when either split view tabs are activated.
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_FIND));
+}
+
+std::string WaitForCursorTransformScript() {
+  return R"(
+    (async () => {
+      return new Promise(resolve => {
+        const check = () => {
+          const val = document.querySelector('actor-overlay-app')
+                              ?.shadowRoot
+                              ?.querySelector('#magicCursor')
+                              ?.style?.transform;
+          if (val && val.startsWith('translate')) {
+             resolve(val);
+          } else {
+             requestAnimationFrame(check);
+          }
+        };
+        check();
+      });
+    })();
+  )";
+}
+
+class ActorOverlayMagicCursorDeviceScaleFactorTest
+    : public ActorOverlayTest,
+      public testing::WithParamInterface<float> {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ActorOverlayTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitchASCII(switches::kForceDeviceScaleFactor,
+                                    base::NumberToString(GetParam()));
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(ActorOverlayMagicCursorDeviceScaleFactorTest,
+                       MagicCursorMovesToCoordinates) {
+  ActorUiWindowController* window_controller =
+      ActorUiWindowController::From(browser());
+  ASSERT_NE(window_controller, nullptr);
+
+  ActorUiContentsContainerController* contents_controller =
+      window_controller->GetControllerForWebContents(
+          browser()->GetActiveTabInterface()->GetContents());
+  ASSERT_NE(contents_controller, nullptr);
+
+  // Initialize UI
+  ActorOverlayState init_state;
+  init_state.is_active = true;
+
+  TestFuture<void> init_future;
+  contents_controller->OnOverlayStateChanged(/*is_visible=*/true, init_state,
+                                             init_future.GetCallback());
+  ASSERT_TRUE(init_future.Wait());
+
+  content::WebContents* overlay_contents =
+      GetActorOverlayWebViewWebContents(browser());
+  ASSERT_NE(overlay_contents, nullptr);
+
+  ASSERT_TRUE(content::WaitForLoadStop(overlay_contents));
+
+  // Move Cursor
+  gfx::Point physical_target(75, 150);
+  ActorOverlayState move_state;
+  move_state.is_active = true;
+  move_state.mouse_target = physical_target;
+
+  TestFuture<void> move_future;
+  contents_controller->OnOverlayStateChanged(/*is_visible=*/true, move_state,
+                                             move_future.GetCallback());
+  ASSERT_TRUE(move_future.Wait());
+
+  // Verify Coordinates
+  float scale_factor =
+      overlay_contents->GetRenderWidgetHostView()->GetDeviceScaleFactor();
+  EXPECT_EQ(scale_factor, GetParam());
+  double expected_x = physical_target.x() / scale_factor;
+  double expected_y = physical_target.y() / scale_factor;
+
+  std::string expected_transform = "translate(" +
+                                   base::NumberToString(expected_x) + "px, " +
+                                   base::NumberToString(expected_y) + "px)";
+  std::string actual_transform =
+      content::EvalJs(overlay_contents, WaitForCursorTransformScript())
+          .ExtractString();
+
+  LOG(INFO) << "Expected: " << expected_transform;
+  LOG(INFO) << "Actual: " << actual_transform;
+  EXPECT_EQ(actual_transform, expected_transform);
+}
+
+// Run with 0.5 (Low DPI), 1.0 (Standard), and 1.5 (High DPI).
+INSTANTIATE_TEST_SUITE_P(All,
+                         ActorOverlayMagicCursorDeviceScaleFactorTest,
+                         testing::Values(0.5f, 1.0f, 1.5f));
+
+std::string WaitForCursorClickingScript() {
+  return R"(
+    (async () => {
+      return new Promise(resolve => {
+        const check = () => {
+          const cursor = document.querySelector('actor-overlay-app')
+                              ?.shadowRoot
+                              ?.querySelector('#magicCursor');
+          if (cursor?.classList.contains('clicking')) {
+             resolve(true);
+          } else {
+             requestAnimationFrame(check);
+          }
+        };
+        check();
+      });
+    })();
+  )";
+}
+
+class ActorOverlayMagicCursorTest : public ActorOverlayTest {};
+
+IN_PROC_BROWSER_TEST_F(ActorOverlayMagicCursorTest,
+                       MagicCursorTriggersClickAnimation) {
+  ActorUiWindowController* window_controller =
+      ActorUiWindowController::From(browser());
+  ActorUiContentsContainerController* contents_controller =
+      window_controller->GetControllerForWebContents(
+          browser()->GetActiveTabInterface()->GetContents());
+
+  // Initialize overlay
+  ActorOverlayState init_state;
+  init_state.is_active = true;
+  TestFuture<void> init_future;
+  contents_controller->OnOverlayStateChanged(true, init_state,
+                                             init_future.GetCallback());
+  ASSERT_TRUE(init_future.Wait());
+
+  // Move Cursor
+  ActorOverlayState move_state;
+  move_state.is_active = true;
+  move_state.mouse_target = gfx::Point(100, 100);
+  TestFuture<void> move_future;
+  contents_controller->OnOverlayStateChanged(true, move_state,
+                                             move_future.GetCallback());
+  ASSERT_TRUE(move_future.Wait());
+
+  content::WebContents* overlay_contents =
+      GetActorOverlayWebViewWebContents(browser());
+  ASSERT_TRUE(content::WaitForLoadStop(overlay_contents));
+
+  // Trigger click animation
+  ActorOverlayState click_state;
+  click_state.is_active = true;
+  click_state.mouse_down = true;
+  TestFuture<void> click_future;
+  contents_controller->OnOverlayStateChanged(true, click_state,
+                                             click_future.GetCallback());
+
+  // Verify clicking animation started
+  EXPECT_EQ(content::EvalJs(overlay_contents, WaitForCursorClickingScript()),
+            true);
+  ASSERT_TRUE(click_future.Wait());
+
+  // Verify clicking animation stopped
+  bool has_class =
+      content::EvalJs(
+          overlay_contents,
+          "document.querySelector('actor-overlay-app').shadowRoot"
+          ".querySelector('#magicCursor').classList.contains('clicking')")
+          .ExtractBool();
+  EXPECT_FALSE(has_class);
+}
+
 class ActorOverlayDisabledTest : public InProcessBrowserTest {
  public:
   void SetUp() override {
@@ -486,7 +814,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayDisabledTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayDisabledTest,
-                       UpdateOverlayStateRunsCallbackWhenOverlayIsNull) {
+                       OnOverlayStateChangedRunsCallbackWhenOverlayIsNull) {
   ActorUiWindowController* window_controller =
       ActorUiWindowController::From(browser());
   // The window controller should still exist when the GlicActorUi feature is
@@ -502,7 +830,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayDisabledTest,
   // is null because the GlicActorUiOverlay feature is disabled. This verifies
   // that the callback passed in is still run when the webview is null.
   base::test::TestFuture<void> future;
-  contents_controller->UpdateOverlayState(
+  contents_controller->OnOverlayStateChanged(
       /*is_visible=*/true, ActorOverlayState(), future.GetCallback());
   EXPECT_TRUE(future.Wait());
 }

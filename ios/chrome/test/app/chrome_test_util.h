@@ -9,12 +9,12 @@
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 
-@protocol ApplicationCommands;
 class Browser;
 @protocol CountryCodePickerCommands;
 @protocol DriveFilePickerCommands;
 @class MainController;
 class ProfileIOS;
+@protocol SceneCommands;
 @class SceneController;
 @class SceneState;
 @class UIViewController;
@@ -40,6 +40,9 @@ ProfileIOS* GetOriginalProfile();
 // Returns the current incognito Profile
 ProfileIOS* GetCurrentIncognitoProfile();
 
+// Sets a browser that will override the one from the SceneState.
+void SetMainBrowserOverride(Browser* browser);
+
 // Returns the browser for the main interface.
 Browser* GetMainBrowser();
 
@@ -52,7 +55,7 @@ Browser* GetCurrentBrowser();
 UIViewController* GetActiveViewController();
 
 // Returns the dispatcher for the active Browser.
-id<ApplicationCommands,
+id<SceneCommands,
    BrowserCommands,
    BrowserCoordinatorCommands,
    UnitConversionCommands,

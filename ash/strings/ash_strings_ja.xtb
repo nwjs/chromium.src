@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">最近の <ph name="INDEX" /> / <ph name="TOTAL_COUNT" /> 件の写真。</translation>
 <translation id="2201687081523799384">Google ToDo リストを折りたたむ</translation>
 <translation id="2208323208084708176">デスクトップ統合モード</translation>
+<translation id="2210311543574621570">Ctrl+V キーを長押しするとクリップボードが表示されます。このショートカットをオフにするには、chrome://flags で #clipboard-history-longpress フラグを無効にします。</translation>
 <translation id="2215920961700443347">インターネットに接続されていません。インターネットに接続してから、もう一度お試しください。</translation>
 <translation id="2222841058024245321">デスク 7</translation>
 <translation id="2223384056430485343">分割画面表示</translation>
@@ -874,6 +875,7 @@
 <translation id="397105322502079400">計算しています...</translation>
 <translation id="397726367135689299">バッテリーの充電が不安定になっている可能性があります</translation>
 <translation id="3977512764614765090">電池残量は <ph name="PERCENTAGE" />% です（現在充電中）。</translation>
+<translation id="3978162107953847778">閲覧履歴や Google ドライブなどからリンクを挿入したり、絵文字や画像ファイルなどを挿入したりできます。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">オーディオ出力を切り替えますか？</translation>
 <translation id="3984536049089846927">次のページ</translation>
 <translation id="3986082989454912832">応答</translation>
@@ -1024,7 +1026,6 @@
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 件の重要な通知}other{# 件の重要な通知}}</translation>
 <translation id="4450893287417543264">次回から表示しない</translation>
 <translation id="4451374464530248585">キーボード ショートカット「Alt+下矢印」が変更されました。PageDown キーを使用するには、<ph name="LAUNCHER_KEY_NAME" />+下矢印キーを押してください。</translation>
-<translation id="4453876312474547652">Ctrl+V キーを長押しするとクリップボードが表示されます。このショートカットをオフにするには、chrome://flags（Lacros を使用している場合は os://flags）で #clipboard-history-longpress フラグを無効にします。</translation>
 <translation id="445765352722456792">提案をカスタマイズ</translation>
 <translation id="4458688154122353284">画面の録画を停止</translation>
 <translation id="445923051607553918">Wi-Fi ネットワークへの接続</translation>
@@ -1600,6 +1601,7 @@
 <translation id="6260038345397266744"><ph name="TITLE" />。<ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: 有効にしています...</translation>
 <translation id="6274202259872570803">スクリーンキャスト</translation>
+<translation id="6274422179279280249">リンクや絵文字などを挿入したり、Google AI を使用して文章を作成したりできます。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">ページのソースを表示する</translation>
 <translation id="6285871695023807425">カレンダーに追加</translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" /> は、保護者の許可があれば後から追加できます。</translation>
@@ -2191,6 +2193,7 @@
 <translation id="8237964652943995219">次のデスク: <ph name="DESK_NAME" />。デスク <ph name="DESK_INDEX" />/<ph name="DESK_COUNT" />。</translation>
 <translation id="8238817965863339552"><ph name="PRODUCT_NAME" /> について学べるクイックツアーをお試しください。5 つのステップでご利用を開始できます。</translation>
 <translation id="8239034820133090126">右側のデスクを有効にする</translation>
+<translation id="8241650983304689286">新しい分割ビューにタブを追加</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />、信号強度 <ph name="SIGNAL_STRENGTH" />、電池残量 <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Google ドライブのすべてのコンテンツを表示</translation>
 <translation id="8257510091797044096">デバイスをセットアップする</translation>

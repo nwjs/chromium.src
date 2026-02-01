@@ -265,9 +265,6 @@ class DownloadProtectionService {
       base::flat_map<base::FilePath, base::FilePath> save_package_files,
       CheckDownloadRepeatingCallback callback,
       enterprise_connectors::AnalysisSettings analysis_settings);
-
-  // Returns all the currently active deep scanning requests.
-  std::vector<DeepScanningRequest*> GetDeepScanningRequests();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory(
@@ -393,7 +390,7 @@ class DownloadProtectionService {
 #if !BUILDFLAG(IS_ANDROID)
   // Get the BinaryUploadService for the given |profile|. Virtual so it can be
   // overridden in tests.
-  virtual BinaryUploadService* GetBinaryUploadService(
+  virtual enterprise_connectors::BinaryUploadService* GetBinaryUploadService(
       Profile* profile,
       const enterprise_connectors::AnalysisSettings& settings);
 #endif

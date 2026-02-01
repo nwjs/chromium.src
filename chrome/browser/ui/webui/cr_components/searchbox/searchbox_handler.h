@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
@@ -149,7 +150,7 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
 
   const AutocompleteMatch* GetMatchWithUrl(size_t index, const GURL& url) const;
 
-  virtual omnibox::ChromeAimToolsAndModels GetAimToolMode() const;
+  virtual omnibox::ToolMode GetAimToolMode() const;
 
   raw_ptr<Profile> profile_;
   raw_ptr<content::WebContents> web_contents_;

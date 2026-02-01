@@ -20,7 +20,6 @@ group("resources") {
     "borealis_installer:resources",
     "cloud_upload:resources",
     "crostini_installer:resources",
-    "crostini_upgrader:resources",
     "desk_api:resources",
     "edu_coexistence:resources",
     "emoji_picker:resources",
@@ -28,7 +27,6 @@ group("resources") {
     "floating_workspace:resources",
     "gaia_action_buttons:resources",
     "healthd_internals:resources",
-    "input_method:resources",
     "internet_config_dialog:resources",
     "internet_detail_dialog:resources",
     "kerberos:resources",
@@ -90,7 +88,6 @@ group("closure_compile") {
     "account_manager/components:closure_compile",
     "emulator:closure_compile",
     "multidevice_internals:closure_compile",
-    "password_change:closure_compile",
     "smb_shares:closure_compile",
     "sys_internals:closure_compile",
   ]

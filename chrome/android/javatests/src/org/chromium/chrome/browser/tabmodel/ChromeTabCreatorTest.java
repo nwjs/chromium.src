@@ -26,7 +26,7 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -39,6 +39,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.tab.InterceptNavigationDelegateClientImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -241,7 +242,7 @@ public class ChromeTabCreatorTest {
         mPage = mPage.loadWebPageProgrammatically(url2);
         final ChromeTabbedActivity activity = mPage.getActivity();
         final TabModel tabModel = activity.getCurrentTabModel();
-        final ObservableSupplier<Tab> currentTabSupplier = tabModel.getCurrentTabSupplier();
+        final NullableObservableSupplier<Tab> currentTabSupplier = tabModel.getCurrentTabSupplier();
         final CallbackHelper createdCallback = new CallbackHelper();
         final AtomicReference<Boolean> wasSelected = new AtomicReference<>(false);
         ThreadUtils.runOnUiThreadBlocking(
@@ -341,7 +342,7 @@ public class ChromeTabCreatorTest {
                                         .createTabWithHistory(
                                                 parentTab,
                                                 TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND));
-        ObservableSupplier<Tab> currentTabSupplier =
+        NullableObservableSupplier<Tab> currentTabSupplier =
                 mActivityTestRule.getActivity().getCurrentTabModel().getCurrentTabSupplier();
         assertEquals(
                 "Expected TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND to launch tab in fg",
@@ -512,6 +513,10 @@ public class ChromeTabCreatorTest {
     @Feature({"Browser"})
     @RequiresRestart // Avoid having multiple windows mess up the other tests
     public void testCreateNewTabInNewWindow() {
+        final boolean expectReparent = MultiWindowUtils.isMultiInstanceApi31Enabled();
+        if (expectReparent) {
+            InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
+        }
         Tab currentTab = mActivityTestRule.getActivityTab();
         String testPath = mTestServer.getURL(TEST_PATH);
         ThreadUtils.runOnUiThreadBlocking(
@@ -524,7 +529,7 @@ public class ChromeTabCreatorTest {
                                         TabLaunchType.FROM_LINK_CREATING_NEW_WINDOW,
                                         currentTab));
 
-        if (MultiWindowUtils.isMultiInstanceApi31Enabled()) {
+        if (expectReparent) {
             CriteriaHelper.pollUiThread(
                     () ->
                             MultiWindowUtils.getInstanceCountWithFallback(

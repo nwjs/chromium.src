@@ -52,15 +52,6 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
        std::cref(features::kCriticalClientHint),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(features::kBlockInsecurePrivateNetworkRequests),
-       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-      {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(features::kBlockInsecurePrivateNetworkRequestsFromPrivate),
-       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-      {switches::kEnableExperimentalWebPlatformFeatures,
-       std::cref(features::kBlockInsecurePrivateNetworkRequestsFromUnknown),
-       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-      {switches::kEnableExperimentalWebPlatformFeatures,
        std::cref(net::features::kThirdPartyStoragePartitioning),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
       {switches::kEnableExperimentalWebPlatformFeatures,
@@ -110,11 +101,6 @@ GetSwitchDependentFeatureOverrides(const base::CommandLine& command_line) {
       // Override for --reduce-user-agent-minor-version.
       {switches::kReduceUserAgentMinorVersion,
        std::cref(blink::features::kReduceUserAgentMinorVersion),
-       base::FeatureList::OVERRIDE_ENABLE_FEATURE},
-
-      // Override for --reduce-user-agent-platform-oscpu.
-      {switches::kReduceUserAgentPlatformOsCpu,
-       std::cref(blink::features::kReduceUserAgentPlatformOsCpu),
        base::FeatureList::OVERRIDE_ENABLE_FEATURE},
 
       // Override for --reduce-accept-language.

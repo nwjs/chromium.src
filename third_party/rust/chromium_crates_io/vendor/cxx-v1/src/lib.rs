@@ -18,7 +18,7 @@
 //!
 //! <br>
 //!
-//! *Compiler support: requires rustc 1.87+ and c++11 or newer*<br>
+//! *Compiler support: requires rustc 1.82+ and c++11 or newer*<br>
 //! *[Release notes](https://github.com/dtolnay/cxx/releases)*
 //!
 //! <br>
@@ -363,7 +363,7 @@
 //! </table>
 
 #![no_std]
-#![doc(html_root_url = "https://docs.rs/cxx/1.0.187")]
+#![doc(html_root_url = "https://docs.rs/cxx/1.0.192")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
     improper_ctypes,
@@ -390,9 +390,6 @@
     clippy::needless_lifetimes,
     clippy::needless_pass_by_value,
     clippy::new_without_default,
-    clippy::ptr_as_ptr,
-    clippy::ptr_cast_constness,
-    clippy::ref_as_ptr,
     clippy::uninlined_format_args
 )]
 #![allow(unknown_lints, mismatched_lifetime_syntaxes)]

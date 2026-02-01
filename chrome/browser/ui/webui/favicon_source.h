@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_FAVICON_SOURCE_H_
 #define CHROME_BROWSER_UI_WEBUI_FAVICON_SOURCE_H_
 
-#include <map>
 #include <string>
 
 #include "base/memory/raw_ptr.h"
@@ -109,6 +108,12 @@ class FaviconSource : public content::URLDataSource {
                            float scale_factor,
                            bool dark_mode,
                            DefaultFaviconBehavior behavior);
+
+  // Records metrics for the result of a fetched favicon.
+  void LogFaviconResult(
+      const chrome::ParsedFaviconPath& parsed,
+      const content::WebContents::Getter& wc_getter,
+      const favicon_base::FaviconRawBitmapResult& bitmap_result);
 
   chrome::FaviconUrlFormat url_format_;
 

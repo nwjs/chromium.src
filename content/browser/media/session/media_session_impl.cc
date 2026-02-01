@@ -29,6 +29,7 @@
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_client.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_client.h"
@@ -39,10 +40,13 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/media_session/public/cpp/media_image_manager.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "ui/gfx/favicon_size.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/browser/media/session/media_session_android.h"
@@ -1765,7 +1769,7 @@ void MediaSessionImpl::SetRemotePlaybackMetadata(
 
 bool MediaSessionImpl::ShouldRouteAction(
     media_session::mojom::MediaSessionAction action) const {
-  return routed_service_ && base::Contains(routed_service_->actions(), action);
+  return routed_service_ && routed_service_->actions().contains(action);
 }
 
 const base::UnguessableToken& MediaSessionImpl::GetSourceId() const {
@@ -1821,8 +1825,7 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
 
   // If the website has specified an action handler for 'enterpictureinpicture',
   // then we should expose EnterAutoPictureInPicture as an available action.
-  if (base::Contains(
-          actions,
+  if (actions.contains(
           media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
     actions.insert(
         media_session::mojom::MediaSessionAction::kEnterAutoPictureInPicture);
@@ -1843,7 +1846,7 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
         media_session::mojom::MediaSessionAction::kExitPictureInPicture);
   }
 
-  // If the website could enter browser initiated automatic picture in picture,
+  // If the website could enter browser-initiated automatic picture in picture,
   // then we should expose EnterAutoPictureInPicture as an available action.
   if (CanEnterBrowserInitiatedAutomaticPictureInPicture()) {
     actions.insert(
@@ -1968,16 +1971,21 @@ void MediaSessionImpl::BuildMetadata(
   }
 
   if (source_title.empty()) {
-    // If the url is a file then we should display a placeholder.
-    source_title =
-        url.SchemeIsFile()
-            ? content_client->GetLocalizedString(IDS_MEDIA_SESSION_FILE_SOURCE)
-            : url_formatter::FormatUrl(
-                  url::Origin::Create(url).GetURL(),
-                  url_formatter::kFormatUrlOmitDefaults |
-                      url_formatter::kFormatUrlOmitHTTPS |
-                      url_formatter::kFormatUrlOmitTrivialSubdomains,
-                  base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
+    // If the url is a file or a data url then we should display a placeholder.
+    if (url.SchemeIsFile()) {
+      source_title =
+          content_client->GetLocalizedString(IDS_MEDIA_SESSION_FILE_SOURCE);
+    } else if (url.SchemeIs(url::kDataScheme)) {
+      source_title =
+          content_client->GetLocalizedString(IDS_MEDIA_SESSION_DATA_SOURCE);
+    } else {
+      source_title = url_formatter::FormatUrl(
+          url::Origin::Create(url).GetURL(),
+          url_formatter::kFormatUrlOmitDefaults |
+              url_formatter::kFormatUrlOmitHTTPS |
+              url_formatter::kFormatUrlOmitTrivialSubdomains,
+          base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
+    }
   }
 
   metadata.source_title = source_title;
@@ -2159,16 +2167,14 @@ bool MediaSessionImpl::IsActivelyUsingCameraOrMicrophone() const {
 
 bool MediaSessionImpl::CanEnterBrowserInitiatedAutomaticPictureInPicture()
     const {
-  if (!base::FeatureList::IsEnabled(
-          blink::features::kBrowserInitiatedAutomaticPictureInPicture)) {
+  if (!IsBrowserInitiatedPictureInPictureEnabled()) {
     return false;
   }
 
   // If the website has specified an action handler for 'enterpictureinpicture',
-  // then we should not enter browser initiated automatic picture-in-picture.
+  // then we should not enter browser-initiated automatic picture-in-picture.
   if (routed_service_ &&
-      base::Contains(
-          routed_service_->actions(),
+      routed_service_->actions().contains(
           media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
     return false;
   }
@@ -2190,7 +2196,7 @@ bool MediaSessionImpl::CanEnterBrowserInitiatedAutomaticPictureInPicture()
     return false;
   }
 
-  // Ensure that browser initiated automatic picture-in-picture is only allowed
+  // Ensure that browser-initiated automatic picture-in-picture is only allowed
   // for the primary main frame.
   RenderFrameHost* frame = first.observer->render_frame_host();
   if (!frame || !frame->IsInPrimaryMainFrame()) {
@@ -2200,9 +2206,27 @@ bool MediaSessionImpl::CanEnterBrowserInitiatedAutomaticPictureInPicture()
   return true;
 }
 
+void MediaSessionImpl::RecordBrowserInitiatedAutomaticPictureInPictureUkm(
+    bool is_dry_run) {
+  ukm::UkmRecorder* ukm_recorder = ukm::UkmRecorder::Get();
+  if (!ukm_recorder) {
+    return;
+  }
+
+  ukm::SourceId source_id = GetRoutedFrame()->GetPageUkmSourceId();
+  if (source_id == ukm::kInvalidSourceId) {
+    return;
+  }
+
+  ukm::builders::
+      Media_AutoPictureInPicture_EnterPictureInPicture_AutomaticReason_BrowserInitiated(
+          source_id)
+          .SetIsDryRun(is_dry_run)
+          .Record(ukm_recorder);
+}
+
 void MediaSessionImpl::MaybeEnterBrowserInitiatedAutomaticPictureInPicture() {
-  if (!base::FeatureList::IsEnabled(
-          blink::features::kBrowserInitiatedAutomaticPictureInPicture)) {
+  if (!IsBrowserInitiatedPictureInPictureEnabled()) {
     return;
   }
 
@@ -2216,11 +2240,24 @@ void MediaSessionImpl::MaybeEnterBrowserInitiatedAutomaticPictureInPicture() {
   // initiated automatic picture-in-picture.
   CHECK_EQ(normal_players_.size(), 1u);
 
-  auto& first = normal_players_.begin()->first;
-  first.observer->OnEnterPictureInPicture(first.player_id);
+  if (base::FeatureList::IsEnabled(
+          blink::features::kBrowserInitiatedAutomaticPictureInPicture)) {
+    auto& first = normal_players_.begin()->first;
+    first.observer->OnEnterPictureInPicture(first.player_id);
+    RecordBrowserInitiatedAutomaticPictureInPictureUkm(false);
+  } else {
+    RecordBrowserInitiatedAutomaticPictureInPictureUkm(true);
+  }
 
   uma_helper_.RecordEnterPictureInPicture(
       MediaSessionUmaHelper::EnterPictureInPictureType::kDefaultAutomatic);
+}
+
+bool MediaSessionImpl::IsBrowserInitiatedPictureInPictureEnabled() const {
+  return base::FeatureList::IsEnabled(
+             blink::features::kBrowserInitiatedAutomaticPictureInPicture) ||
+         base::FeatureList::IsEnabled(
+             media::kBrowserInitiatedAutomaticPictureInPictureDryRun);
 }
 
 void MediaSessionImpl::NotifyPlayerOfAutoPictureInPictureInfo(

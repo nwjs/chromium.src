@@ -6,6 +6,7 @@ package org.chromium.chrome.browser;
 
 import android.app.Activity;
 
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -49,6 +50,7 @@ import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate
 import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -75,6 +77,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     private final Supplier<CompositorViewHolder> mCompositorViewHolderSupplier;
     private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final Supplier<SnackbarManager> mSnackbarManagerSupplier;
+    private final ActivityResultTracker mActivityResultTracker;
     private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
     private final BrowserControlsManager mBrowserControlsManager;
     private final Supplier<@Nullable Tab> mCurrentTabSupplier;
@@ -82,7 +85,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     private final WindowAndroid mWindowAndroid;
     private final Supplier<Toolbar> mToolbarSupplier;
     private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
-    private final ObservableSupplier<Integer> mTabStripHeightSupplier;
+    private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
     private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
     private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
     private final ObservableSupplier<TopInsetCoordinator> mTopInsetCoordinatorSupplier;
@@ -91,6 +94,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
     private @Nullable NativePageFactory mNativePageFactory;
     private final BackPressManager mBackPressManager;
     private final MultiInstanceManager mMultiInstanceManager;
+    private final RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
 
     public TabbedModeTabDelegateFactory(
             Activity activity,
@@ -107,6 +111,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
             Supplier<CompositorViewHolder> compositorViewHolderSupplier,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
             Supplier<SnackbarManager> snackbarManagerSupplier,
+            ActivityResultTracker activityResultTracker,
             BrowserControlsManager browserControlsManager,
             Supplier<@Nullable Tab> currentTabSupplier,
             ActivityLifecycleDispatcher lifecycleDispatcher,
@@ -114,14 +119,15 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
             Supplier<Toolbar> toolbarSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            ObservableSupplier<Integer> tabStripHeightSupplier,
+            NonNullObservableSupplier<Integer> tabStripHeightSupplier,
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
             StartupMetricsTracker startupMetricsTracker,
             @Nullable ExclusiveAccessManager exclusiveAccessManager,
             BackPressManager backPressManager,
-            MultiInstanceManager multiInstanceManager) {
+            MultiInstanceManager multiInstanceManager,
+            RecentlyClosedEntriesManager recentlyClosedEntriesManager) {
         mActivity = activity;
         mAppBrowserControlsVisibilityDelegate = appBrowserControlsVisibilityDelegate;
         mShareDelegateSupplier = shareDelegateSupplier;
@@ -135,6 +141,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
+        mActivityResultTracker = activityResultTracker;
         mSnackbarManagerSupplier = snackbarManagerSupplier;
         mBrowserControlsManager = browserControlsManager;
         mCurrentTabSupplier = currentTabSupplier;
@@ -151,6 +158,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
         mExclusiveAccessManager = exclusiveAccessManager;
         mBackPressManager = backPressManager;
         mMultiInstanceManager = multiInstanceManager;
+        mRecentlyClosedEntriesManager = recentlyClosedEntriesManager;
     }
 
     @Override
@@ -209,6 +217,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
                             mBottomSheetController,
                             mBrowserControlsManager,
                             mCurrentTabSupplier,
+                            mModalDialogManagerSupplier,
                             mSnackbarManagerSupplier,
                             mLifecycleDispatcher,
                             mTabModelSelectorSupplier.get(),
@@ -216,6 +225,7 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
                             mWindowAndroid,
                             mToolbarSupplier,
                             mHomeSurfaceTracker,
+                            mActivityResultTracker,
                             mTabContentManagerSupplier,
                             mTabStripHeightSupplier,
                             mModuleRegistrySupplier,
@@ -223,7 +233,8 @@ public class TabbedModeTabDelegateFactory implements TabDelegateFactory {
                             mTopInsetCoordinatorSupplier,
                             mStartupMetricsTracker,
                             mBackPressManager,
-                            mMultiInstanceManager);
+                            mMultiInstanceManager,
+                            mRecentlyClosedEntriesManager);
         }
         return mNativePageFactory.createNativePage(url, candidatePage, tab, pdfInfo);
     }

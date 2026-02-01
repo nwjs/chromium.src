@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <functional>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
@@ -49,8 +48,9 @@ void QuotaTask::Abort() {
 
 void QuotaTask::DeleteSoon() {
   DCHECK(original_task_runner_->BelongsToCurrentThread());
-  if (delete_scheduled_)
+  if (delete_scheduled_) {
     return;
+  }
   delete_scheduled_ = true;
   base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(FROM_HERE,
                                                                 this);
@@ -71,7 +71,7 @@ void QuotaTaskObserver::RegisterTask(QuotaTask* task) {
 }
 
 void QuotaTaskObserver::UnregisterTask(QuotaTask* task) {
-  DCHECK(base::Contains(running_quota_tasks_, task));
+  DCHECK(running_quota_tasks_.contains(task));
   running_quota_tasks_.erase(task);
 }
 

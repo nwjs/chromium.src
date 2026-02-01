@@ -77,7 +77,7 @@ void HeadlessModeProtocolBrowserTest::SetUpCommandLine(
                                   "MAP *.test 127.0.0.1");
   HeadlessModeDevTooledBrowserTest::SetUpCommandLine(command_line);
 
-  test_meta_info_.AppendToCommandLine(*command_line);
+  feature_list_ = test_meta_info_.ProcessCommandLineSwitches(*command_line);
 }
 
 base::Value::Dict HeadlessModeProtocolBrowserTest::GetPageUrlExtraParams() {
@@ -132,7 +132,7 @@ void HeadlessModeProtocolBrowserTest::OnDevToolsProtocolExposed(
     base::Value::Dict params) {
   // Navigate to test harness page
   GURL page_url = embedded_test_server()->GetURL(
-      "harness.test", "/protocol/inspector-protocol-test.html");
+      "harness.test", "/resources/inspector-protocol-test-subtarget.html");
   devtools_client_.SendCommand("Page.navigate", Param("url", page_url.spec()));
 }
 
@@ -340,13 +340,7 @@ HEADLESS_MODE_PROTOCOL_TEST(ScreenDetailsRotationAngle,
 HEADLESS_MODE_PROTOCOL_TEST(ScreenDetailsPixelRatio,
                             "shared/screen-details-pixel-ratio.js")
 
-// TODO(crbug.com/442920826): Re-enable this test
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_ScreenDetailsColorDepth DISABLED_ScreenDetailsColorDepth
-#else
-#define MAYBE_ScreenDetailsColorDepth ScreenDetailsColorDepth
-#endif
-HEADLESS_MODE_PROTOCOL_TEST(MAYBE_ScreenDetailsColorDepth,
+HEADLESS_MODE_PROTOCOL_TEST(ScreenDetailsColorDepth,
                             "shared/screen-details-color-depth.js")
 
 HEADLESS_MODE_PROTOCOL_TEST(ScreenDetailsWorkArea,
@@ -501,6 +495,9 @@ HEADLESS_MODE_PROTOCOL_TEST(RemoveScreenGetScreenDetails,
                             "shared/remove-screen-get-screen-details.js")
 
 HEADLESS_MODE_PROTOCOL_TEST(AddRemoveScreen, "shared/add-remove-screen.js")
+
+HEADLESS_MODE_PROTOCOL_TEST(RangeMouseEventAfterNodeRemoval,
+                            "shared/range-mouse-event-after-node-removal.js")
 
 // TODO(crbug.com/423951863): Fails on Mac.
 #if BUILDFLAG(IS_MAC)

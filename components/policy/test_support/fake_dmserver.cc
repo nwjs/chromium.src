@@ -19,6 +19,7 @@
 #include "base/task/bind_post_task.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/types/optional_util.h"
 #include "components/policy/test_support/client_storage.h"
 #include "components/policy/test_support/embedded_policy_test_server.h"
 #include "components/policy/test_support/policy_storage.h"
@@ -71,6 +72,7 @@ constexpr char kLogPathSwitch[] = "log-path";
 constexpr char kStartupPipeSwitch[] = "startup-pipe";
 constexpr char kMinLogLevelSwitch[] = "min-log-level";
 constexpr char kLogToConsoleSwitch[] = "log-to-console";
+constexpr char kPortSwitch[] = "port";
 
 constexpr base::TimeDelta kRemoteCommandTimeoutSeconds = base::Seconds(10);
 constexpr int64_t kDefaultServerStopTimeoutMs = 100;
@@ -303,7 +305,8 @@ void ParseFlags(const base::CommandLine& command_line,
                 std::optional<std::string>& log_path,
                 base::ScopedFD& startup_pipe,
                 bool& log_to_console,
-                int& min_log_level) {
+                int& min_log_level,
+                int& port) {
   policy_blob_path = kDefaultPolicyBlobFilename;
   client_state_path = kDefaultClientStateFilename;
   log_to_console = kDefaultLogToConsole;
@@ -345,6 +348,12 @@ void ParseFlags(const base::CommandLine& command_line,
 
   if (command_line.HasSwitch(kLogToConsoleSwitch)) {
     log_to_console = true;
+  }
+
+  if (command_line.HasSwitch(kPortSwitch)) {
+    std::string port_str = command_line.GetSwitchValueASCII(kPortSwitch);
+    CHECK(base::StringToInt(port_str, &port))
+        << "Expected an int value for --port switch, but got: " << port_str;
   }
 }
 
@@ -602,13 +611,13 @@ void FakeDMServer::HandleWaitRemoteCommandAcked(
   reactor->Write(std::move(resp));
 }
 
-bool FakeDMServer::StartFakeServer() {
+bool FakeDMServer::StartFakeServer(int port) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(fake_dmserver_main_sequence_checker_);
   LOG(INFO) << "Starting the FakeDMServer with args policy_blob_path="
             << policy_blob_path_ << " client_state_path=" << client_state_path_
             << " grpc_unix_socket_uri=" << grpc_unix_socket_uri_;
 
-  if (!policy::EmbeddedPolicyTestServer::Start()) {
+  if (!policy::EmbeddedPolicyTestServer::Start(port)) {
     LOG(ERROR) << "Failed to start the EmbeddedPolicyTestServer";
     return false;
   }
@@ -821,7 +830,9 @@ base::Value::Dict FakeDMServer::GetValueFromClient(
   dict.Set(kDeviceIdKey, c.device_id);
   dict.Set(kDeviceTokenKey, c.device_token);
   dict.Set(kMachineNameKey, c.machine_name);
-  dict.Set(kUsernameKey, c.username.value_or(""));
+  if (c.username.has_value()) {
+    dict.Set(kUsernameKey, c.username.value());
+  }
   base::Value::List state_keys, allowed_policy_types;
   for (auto& key : c.state_keys) {
     state_keys.Append(key);
@@ -885,7 +896,6 @@ FakeDMServer::GetClientFromValue(const base::Value& v) {
   if (!FindKey(*dict, kDeviceIdKey, base::Value::Type::STRING) ||
       !FindKey(*dict, kDeviceTokenKey, base::Value::Type::STRING) ||
       !FindKey(*dict, kMachineNameKey, base::Value::Type::STRING) ||
-      !FindKey(*dict, kUsernameKey, base::Value::Type::STRING) ||
       !FindKey(*dict, kStateKeysKey, base::Value::Type::LIST) ||
       !FindKey(*dict, kAllowedPolicyTypesKey, base::Value::Type::LIST)) {
     return std::nullopt;
@@ -894,7 +904,7 @@ FakeDMServer::GetClientFromValue(const base::Value& v) {
   client_info.device_id = *dict->FindString(kDeviceIdKey);
   client_info.device_token = *dict->FindString(kDeviceTokenKey);
   client_info.machine_name = *dict->FindString(kMachineNameKey);
-  client_info.username = *dict->FindString(kUsernameKey);
+  client_info.username = base::OptionalFromPtr(dict->FindString(kUsernameKey));
   const base::Value::List* state_keys = dict->FindList(kStateKeysKey);
   for (const auto& it : *state_keys) {
     const std::string* key = it.GetIfString();

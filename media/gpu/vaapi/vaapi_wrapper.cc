@@ -677,9 +677,8 @@ bool IsLowPowerIntelProcessor() {
         base::MatchPattern(cpuid.cpu_brand(), "Intel(R) Core(TM) *Y CPU*");
 
     return cpuid.family() == kPentiumAndLaterFamily &&
-           (base::Contains(cpuid.cpu_brand(), "Pentium") ||
-            base::Contains(cpuid.cpu_brand(), "Celeron") ||
-            is_core_y_processor);
+           (cpuid.cpu_brand().contains("Pentium") ||
+            cpuid.cpu_brand().contains("Celeron") || is_core_y_processor);
   }();
 
   return is_low_power_intel;
@@ -1707,7 +1706,7 @@ int VaapiWrapper::GetMaxNumDecoderInstances() {
   constexpr int kAMDStoneyRidgeMaxNumOfInstances = 10;
   auto va_display_state_handle = VADisplayStateSingleton::GetHandle();
   if (va_display_state_handle &&
-      base::Contains(va_display_state_handle->vendor_string(), "stoney")) {
+      va_display_state_handle->vendor_string().contains("stoney")) {
     return kAMDStoneyRidgeMaxNumOfInstances;
   }
   // TODO(andrescj): we can relax this once we extract video decoding into its
@@ -3029,7 +3028,8 @@ bool VaapiWrapper::GetVAEncMaxNumOfRefFrames(VideoCodecProfile profile,
 bool VaapiWrapper::GetSupportedPackedHeaders(VideoCodecProfile profile,
                                              bool& packed_sps,
                                              bool& packed_pps,
-                                             bool& packed_slice) {
+                                             bool& packed_slice,
+                                             bool& packed_raw) {
   VAAPI_CHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   const VAProfile va_profile = ProfileToVAProfile(profile);
   VAConfigAttrib attrib{};
@@ -3041,6 +3041,7 @@ bool VaapiWrapper::GetSupportedPackedHeaders(VideoCodecProfile profile,
   packed_sps = attrib.value & VA_ENC_PACKED_HEADER_SEQUENCE;
   packed_pps = attrib.value & VA_ENC_PACKED_HEADER_PICTURE;
   packed_slice = attrib.value & VA_ENC_PACKED_HEADER_SLICE;
+  packed_raw = attrib.value & VA_ENC_PACKED_HEADER_RAW_DATA;
 
   return true;
 }

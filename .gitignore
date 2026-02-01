@@ -8,6 +8,7 @@
 *.opensdf
 *.orig
 *.pdb
+*.profraw
 *.props
 *.pyc
 *.pyproj
@@ -36,6 +37,7 @@
 !Android.mk
 .*.sw?
 .DS_Store
+/.agent
 .android
 .ccls-cache
 .cipd
@@ -60,11 +62,6 @@
 *.class
 compile_commands.json
 cscope.*
-child_pool-0.profraw
-child_pool-1.profraw
-child_pool-2.profraw
-child_pool-3.profraw
-default.profraw
 GPATH
 GRTAGS
 GSYMS

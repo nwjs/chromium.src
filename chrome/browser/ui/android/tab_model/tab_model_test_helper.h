@@ -48,9 +48,12 @@ class TestTabModel : public TabModel {
   tabs::TabInterface* GetActiveTab() override;
   content::WebContents* GetWebContentsAt(int index) const override;
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject() const override;
-  void CreateTab(TabAndroid* parent,
-                 content::WebContents* web_contents,
-                 bool select) override;
+  tabs::TabInterface* CreateTab(
+      TabAndroid* parent,
+      std::unique_ptr<content::WebContents> web_contents,
+      int index,
+      TabLaunchType type,
+      bool should_pin) override;
   void HandlePopupNavigation(TabAndroid* parent,
                              NavigateParams* params) override;
   content::WebContents* CreateNewTabForDevTools(const GURL& url,
@@ -79,7 +82,9 @@ class TestTabModel : public TabModel {
 
   // TODO(crbug.com/415351293): Implement these.
   // TabListInterface implementation.
+  void ActivateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* OpenTab(const GURL& url, int index) override;
+  void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
   void DiscardTab(tabs::TabHandle tab) override;
   tabs::TabInterface* DuplicateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* GetTab(int index) override;
@@ -91,6 +96,16 @@ class TestTabModel : public TabModel {
   std::vector<tabs::TabInterface*> GetAllTabs() override;
   void PinTab(tabs::TabHandle tab) override;
   void UnpinTab(tabs::TabHandle tab) override;
+  bool ContainsTabGroup(tab_groups::TabGroupId group_id) override;
+  std::vector<tab_groups::TabGroupId> ListTabGroups() override;
+  std::optional<tab_groups::TabGroupVisualData> GetTabGroupVisualData(
+      tab_groups::TabGroupId group_id) override;
+  gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
+  std::optional<tab_groups::TabGroupId> CreateTabGroup(
+      const std::vector<tabs::TabHandle>& tabs) override;
+  void SetTabGroupVisualData(
+      tab_groups::TabGroupId group_id,
+      const tab_groups::TabGroupVisualData& visual_data) override;
   std::optional<tab_groups::TabGroupId> AddTabsToGroup(
       std::optional<tab_groups::TabGroupId> group_id,
       const std::set<tabs::TabHandle>& tabs) override;
@@ -149,9 +164,12 @@ class OwningTestTabModel : public TabModel {
   void SetActiveIndex(int index) override;
   void ForceCloseAllTabs() override;
   void CloseTabAt(int index) override;
-  void CreateTab(TabAndroid* parent,
-                 content::WebContents* web_contents,
-                 bool select) override;
+  tabs::TabInterface* CreateTab(
+      TabAndroid* parent,
+      std::unique_ptr<content::WebContents> web_contents,
+      int index,
+      TabLaunchType type,
+      bool should_pin) override;
   bool IsActiveModel() const override;
   void AddObserver(TabModelObserver* observer) override;
   void RemoveObserver(TabModelObserver* observer) override;
@@ -191,7 +209,9 @@ class OwningTestTabModel : public TabModel {
 
   // TODO(crbug.com/415351293): Implement these.
   // TabListInterface implementation.
+  void ActivateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* OpenTab(const GURL& url, int index) override;
+  void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
   void DiscardTab(tabs::TabHandle tab) override;
   tabs::TabInterface* DuplicateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* GetTab(int index) override;
@@ -203,6 +223,16 @@ class OwningTestTabModel : public TabModel {
   std::vector<tabs::TabInterface*> GetAllTabs() override;
   void PinTab(tabs::TabHandle tab) override;
   void UnpinTab(tabs::TabHandle tab) override;
+  bool ContainsTabGroup(tab_groups::TabGroupId group_id) override;
+  std::vector<tab_groups::TabGroupId> ListTabGroups() override;
+  std::optional<tab_groups::TabGroupVisualData> GetTabGroupVisualData(
+      tab_groups::TabGroupId group_id) override;
+  gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
+  std::optional<tab_groups::TabGroupId> CreateTabGroup(
+      const std::vector<tabs::TabHandle>& tabs) override;
+  void SetTabGroupVisualData(
+      tab_groups::TabGroupId group_id,
+      const tab_groups::TabGroupVisualData& visual_data) override;
   std::optional<tab_groups::TabGroupId> AddTabsToGroup(
       std::optional<tab_groups::TabGroupId> group_id,
       const std::set<tabs::TabHandle>& tabs) override;

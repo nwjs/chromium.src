@@ -1,0 +1,147 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_TOOLBAR_VIEW_MODEL_H_
+#define CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_TOOLBAR_VIEW_MODEL_H_
+
+#include "base/containers/flat_map.h"
+#include "chrome/browser/ui/extensions/extension_action_delegate.h"
+#include "chrome/browser/ui/extensions/extension_action_view_model.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
+#include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
+#include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
+#include "extensions/buildflags/buildflags.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
+
+// ViewModel for the ExtensionsToolbarContainer. This class manages the business
+// logic for the order and state of extension actions in the toolbar. It serves
+// as the single source of truth for the ordering of the list of actions.
+class ExtensionsToolbarViewModel : public ExtensionsContainer,
+                                   public ToolbarActionsModel::Observer {
+ public:
+  // Delegate used to retrieve platform-specific information.
+  class Delegate {
+   public:
+    // Creates the platform-specific action view model.
+    virtual std::unique_ptr<ExtensionActionViewModel> CreateActionViewModel(
+        const ToolbarActionsModel::ActionId& action_id,
+        ExtensionsContainer* extensions_container) = 0;
+    // Hides any actively showing popups.
+    // TODO(crbug.com/473701535): Determine whether this method belongs in the
+    // delegate or the observer.
+    virtual void HideActivePopup() = 0;
+
+    // Closes the overflow menu, if it was open. Returns whether or not the
+    // overflow menu was closed.
+    virtual bool CloseOverflowMenuIfOpen() = 0;
+
+    // Returns whether a popup can be shown.
+    virtual bool CanShowToolbarActionPopupForAPICall(
+        const ToolbarActionsModel::ActionId& action_id) = 0;
+
+    // Toggle the Extensions menu (as if the user clicked the puzzle piece
+    // icon).
+    // TODO(crbug.com/473701535): Determine whether this method belongs in the
+    // delegate or the observer.
+    virtual void ToggleExtensionsMenu() = 0;
+
+   protected:
+    virtual ~Delegate() = default;
+  };
+
+  // Observer used to notify platforms about changes to the model.
+  class Observer : public base::CheckedObserver {
+   public:
+    // Called after all actions are added to the model.
+    virtual void OnActionsInitialized() = 0;
+
+    // Called when an action is added to the model.
+    virtual void OnActionAdded(
+        const ToolbarActionsModel::ActionId& action_id) = 0;
+
+    // Called when an action is removed from the model.
+    virtual void OnActionRemoved(
+        const ToolbarActionsModel::ActionId& action_id) = 0;
+
+    // Called when an action in the model is updated.
+    virtual void OnActionUpdated(
+        const ToolbarActionsModel::ActionId& action_id) = 0;
+
+    // Called when the pinned actions in the model are changed.
+    virtual void OnPinnedActionsChanged() = 0;
+  };
+
+  ExtensionsToolbarViewModel(Delegate* delegate,
+                             ToolbarActionsModel* actions_model);
+  ExtensionsToolbarViewModel(const ExtensionsToolbarViewModel&) = delete;
+  ExtensionsToolbarViewModel& operator=(ExtensionsToolbarViewModel&) = delete;
+  ~ExtensionsToolbarViewModel() override;
+
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
+
+  // Returns the view model of the action if it exists, else a nullptr.
+  ToolbarActionViewModel* GetActionModelForId(
+      const ToolbarActionsModel::ActionId& action_id);
+
+  // Move the pinned action `action_id` to `target_index`.
+  void MovePinnedAction(const ToolbarActionsModel::ActionId& action_id,
+                        size_t target_index);
+
+  // Move this pinned action `action_id` by the specified `move_by` amount.
+  void MovePinnedActionBy(const std::string& action_id, int move_by);
+
+  // Returns the sorted list of the IDs of all installed actions.
+  const base::flat_set<ToolbarActionsModel::ActionId>& GetAllActionIds() const;
+
+  // Returns the ordered list of ids of pinned actions.
+  const std::vector<ToolbarActionsModel::ActionId>& GetPinnedActionIds() const;
+
+  // Returns whether the actions are initialized.
+  bool AreActionsInitialized();
+
+  // Returns whether any of `actions` given have access to the `web_contents`.
+  bool AnyActionHasCurrentSiteAccess(content::WebContents* web_contents);
+
+  // ExtensionsContainer:
+  ToolbarActionViewModel* GetActionForId(const std::string& action_id) override;
+  void HideActivePopup() override;
+  bool CloseOverflowMenuIfOpen() override;
+  bool ShowToolbarActionPopupForAPICall(const std::string& action_id,
+                                        ShowPopupCallback callback) override;
+  void ToggleExtensionsMenu() override;
+  bool HasAnyExtensions() const override;
+
+  // ToolbarActionsModel::Observer:
+  void OnToolbarModelInitialized() override;
+  void OnToolbarActionAdded(
+      const ToolbarActionsModel::ActionId& action_id) override;
+  void OnToolbarActionRemoved(
+      const ToolbarActionsModel::ActionId& action_id) override;
+  void OnToolbarActionUpdated(
+      const ToolbarActionsModel::ActionId& action_id) override;
+  void OnToolbarPinnedActionsChanged() override;
+
+ private:
+  // Creates and appends an action model to `actions_` vector.
+  void AppendActionModel(const ToolbarActionsModel::ActionId& action_id);
+
+  // The delegate to retrieve platform-specific information.
+  const raw_ptr<Delegate> delegate_;
+
+  const raw_ptr<ToolbarActionsModel> actions_model_;
+  base::ScopedObservation<ToolbarActionsModel, ToolbarActionsModel::Observer>
+      actions_model_observation_{this};
+
+  // The observers that handles platform-specific UI.
+  base::ObserverList<Observer> observers_;
+
+  // Actions for all extensions.
+  base::flat_map<ToolbarActionsModel::ActionId,
+                 std::unique_ptr<ToolbarActionViewModel>>
+      actions_;
+};
+
+#endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSIONS_TOOLBAR_VIEW_MODEL_H_

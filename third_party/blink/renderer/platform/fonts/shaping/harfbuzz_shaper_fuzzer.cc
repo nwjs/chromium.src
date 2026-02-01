@@ -11,13 +11,13 @@
 #include "base/command_line.h"
 #include "base/logging/logging_settings.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
-#include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/plain_text_node.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_bloberizer.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
 #include "third_party/blink/renderer/platform/fonts/text_fragment_paint_info.h"
 #include "third_party/blink/renderer/platform/testing/blink_fuzzer_test_support.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
+#include "third_party/blink/renderer/platform/text/text_run.h"
 
 namespace blink {
 
@@ -39,7 +39,6 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     }
   }
 
-  FontCachePurgePreventer font_cache_purge_preventer;
   FontDescription font_description;
   Font font(font_description);
   // Set font size to something other than the default 0 size in

@@ -32,25 +32,27 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_CRYPTO_GLOBAL_CRYPTO_H_
 
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
 class Crypto;
-class WindowOrWorkerGlobalScope;
+class ExecutionContext;
 
 class GlobalCrypto final : public GarbageCollected<GlobalCrypto>,
-                           public GarbageCollectedMixin {
+                           public Supplement<ExecutionContext> {
  public:
-  static Crypto* crypto(WindowOrWorkerGlobalScope&);
-  Crypto* crypto() const;
+  static const char kSupplementName[];
 
-  GlobalCrypto() = default;
+  static GlobalCrypto& From(ExecutionContext&);
+  static Crypto* crypto(ExecutionContext&);
+
+  explicit GlobalCrypto(ExecutionContext& execution_context);
 
   void Trace(Visitor*) const override;
 
  private:
-  static GlobalCrypto& From(WindowOrWorkerGlobalScope&);
+  Crypto* crypto() const;
 
   mutable Member<Crypto> crypto_;
 };

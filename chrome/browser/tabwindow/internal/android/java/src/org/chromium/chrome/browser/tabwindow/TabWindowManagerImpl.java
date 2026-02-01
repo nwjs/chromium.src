@@ -33,6 +33,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.InstanceInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -542,9 +543,7 @@ public class TabWindowManagerImpl implements TabWindowManager {
         if (tabModelSelector == null) return null;
 
         @Nullable TabGroupModelFilter tabGroupModelFilter =
-                tabModelSelector
-                        .getTabGroupModelFilterProvider()
-                        .getTabGroupModelFilter(isIncognito);
+                tabModelSelector.getTabGroupModelFilter(isIncognito);
         if (tabGroupModelFilter == null) return null;
 
         return tabGroupModelFilter.getTabsInGroup(tabGroupId);
@@ -596,7 +595,8 @@ public class TabWindowManagerImpl implements TabWindowManager {
         mKeepAllTabModelsLoaded = true;
 
         List<TabModelSelector> tabModelSelectorList = new ArrayList<>();
-        List<InstanceInfo> instanceInfoList = multiInstanceManager.getInstanceInfo();
+        List<InstanceInfo> instanceInfoList =
+                multiInstanceManager.getInstanceInfo(PersistedInstanceType.ANY);
         if (instanceInfoList.isEmpty()) {
             tabModelSelectorList.add(selector);
         } else {
@@ -645,22 +645,17 @@ public class TabWindowManagerImpl implements TabWindowManager {
                 return;
             }
 
-            filterList.add(
-                    selector.getTabGroupModelFilterProvider()
-                            .getTabGroupModelFilter(/* isIncognito= */ false));
+            filterList.add(selector.getTabGroupModelFilter(/* isIncognito= */ false));
         }
         TabGroupSyncUtils.unmapLocalIdsNotInTabGroupModelFilterList(
                 tabGroupSyncService, filterList);
     }
 
     private void deleteOrphanedTabGroupData(List<TabModelSelector> tabModelSelectors) {
-        if (!ChromeFeatureList.sTabGroupAndroidVisualDataCleanup.isEnabled()) return;
-
         Set<String> tabGroupIdTokenStrings = new HashSet<>();
         for (TabModelSelector selector : tabModelSelectors) {
-            var filterProvider = selector.getTabGroupModelFilterProvider();
             for (boolean isIncognito : List.of(false, true)) {
-                TabGroupModelFilter filter = filterProvider.getTabGroupModelFilter(isIncognito);
+                TabGroupModelFilter filter = selector.getTabGroupModelFilter(isIncognito);
                 assumeNonNull(filter);
                 for (Token tabGroupId : filter.getAllTabGroupIds()) {
                     tabGroupIdTokenStrings.add(tabGroupId.toString());
@@ -677,9 +672,7 @@ public class TabWindowManagerImpl implements TabWindowManager {
             TabModelSelector selector = entry.getKey();
             if (!selector.isTabStateInitialized()) continue;
 
-            TabGroupModelFilter filter =
-                    selector.getTabGroupModelFilterProvider()
-                            .getTabGroupModelFilter(/* isIncognito= */ false);
+            TabGroupModelFilter filter = selector.getTabGroupModelFilter(/* isIncognito= */ false);
             if (filter == null) continue;
 
             if (TabGroupSyncUtils.isInCurrentWindow(filter, new LocalTabGroupId(tabGroupId))) {
@@ -725,9 +718,8 @@ public class TabWindowManagerImpl implements TabWindowManager {
     }
 
     private boolean isPossiblyAnArchivedTab() {
-        return ChromeFeatureList.sAndroidTabDeclutterRescueKillSwitch.isEnabled()
-                && (mArchivedTabModelSelector == null
-                        || !mArchivedTabModelSelector.isTabStateInitialized());
+        return mArchivedTabModelSelector == null
+                || !mArchivedTabModelSelector.isTabStateInitialized();
     }
 
     private @Nullable Tab getTabFromTabModelSelector(

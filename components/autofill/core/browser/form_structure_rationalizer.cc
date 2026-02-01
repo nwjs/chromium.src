@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "base/containers/contains.h"
 #include "base/containers/to_vector.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/data_model_utils.h"
@@ -163,6 +162,10 @@ void RationalizePhoneNumbersForFilling(std::vector<AutofillField*>& fields) {
   // number related but not one of the found fields from first pass, set their
   // |only_fill_when_focused| field to true.
   for (AutofillField* field : fields) {
+    // It is important to reset `AutofillField::only_fill_when_focused_` before
+    // updating it accordingly for consistent cache updates (see
+    // AutofillManager::UpdateFormCache() for more details).
+    field->set_only_fill_when_focused(false);
     // As above, using the rationalized `Type()` is intentional.
     const FieldType current_field_type = field->Type().GetAddressType();
     switch (current_field_type) {
@@ -677,6 +680,9 @@ void FormStructureRationalizer::RationalizeCreditCardNumberOffsets(
   };
 
   for (const auto& field : fields_) {
+    // It is important to reset `AutofillField::credit_card_number_offset_`
+    // before updating it accordingly for consistent cache updates (see
+    // AutofillManager::UpdateFormCache() for more details).
     field->set_credit_card_number_offset(0);
   }
   for (auto begin = fields_.begin(); begin != fields_.end();) {

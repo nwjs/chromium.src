@@ -33,6 +33,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -73,6 +74,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/unified_consent/unified_consent_service_factory.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
@@ -878,8 +880,9 @@ bool ProfileManager::IsValidProfile(const void* profile) {
       return true;
     std::vector<Profile*> otr_profiles =
         candidate->GetAllOffTheRecordProfiles();
-    if (base::Contains(otr_profiles, profile))
+    if (base::Contains(otr_profiles, profile)) {
       return true;
+    }
   }
   return false;
 }
@@ -1339,7 +1342,13 @@ bool ProfileManager::AddKeepAlive(Profile* profile,
             << "The keepalive was not added. This may cause a crash during "
             << "teardown. (except in unit tests, where Profiles may not be "
             << "registered with the ProfileManager)";
-    return false;
+    if (base::FeatureList::IsEnabled(features::kDestroyProfileOnBrowserClose)) {
+      return false;
+    }
+    // On platforms where we don't destroy profiles on close (e.g. ChromeOS),
+    // we can treat a missing refcount as success because the profile stays
+    // alive anyway.
+    return true;
   }
 
   if (base::FeatureList::IsEnabled(features::kDestroyProfileOnBrowserClose)) {
@@ -1359,9 +1368,7 @@ bool ProfileManager::AddKeepAlive(Profile* profile,
   if (origin == ProfileKeepAliveOrigin::kBrowserWindow ||
       origin == ProfileKeepAliveOrigin::kProfileCreationFlow ||
       origin == ProfileKeepAliveOrigin::kProfileStatistics ||
-      origin == ProfileKeepAliveOrigin::kWaitingForGlicView ||
-      (origin == ProfileKeepAliveOrigin::kProfilePickerView &&
-       base::FeatureList::IsEnabled(features::kDestroySystemProfiles))) {
+      origin == ProfileKeepAliveOrigin::kWaitingForGlicView) {
     ClearFirstBrowserWindowKeepAlive(profile);
   }
 
@@ -1383,9 +1390,9 @@ void ProfileManager::RemoveKeepAlive(Profile* profile,
     VLOG(1) << "RemoveKeepAlive(" << profile->GetDebugName() << ", " << origin
             << ") called before the Profile was added to the "
             << "ProfileManager. The keepalive was not removed.";
-    // DumpWithoutCrashing turned off for a couple milestones until we fix the
+    // DumpWithoutCrashing turned off for the Stable channel until we fix the
     // root cause, due to the high volume of reports. See crbug.com/368360956.
-    if (version_info::GetMajorVersionNumberAsInt() >= 144) {
+    if (chrome::GetChannel() != version_info::Channel::STABLE) {
       // TODO(crbug.com/368360956): Not incrementing the refcount will cause
       // `profile` to get destroyed too early. Remove or convert to a CHECK()
       // once the root cause is fixed.
@@ -1396,7 +1403,7 @@ void ProfileManager::RemoveKeepAlive(Profile* profile,
     return;
   }
 
-  DCHECK(base::Contains(info->keep_alives, origin));
+  DCHECK(info->keep_alives.contains(origin));
 
 #if !BUILDFLAG(IS_ANDROID)
   // When removing the last keep alive of an ephemeral profile, schedule the
@@ -1726,7 +1733,7 @@ Profile* ProfileManager::GetActiveUserOrOffTheRecordProfile() {
 void ProfileManager::UnloadProfile(const base::FilePath& profile_dir) {
   TRACE_EVENT0("browser", "ProfileManager::UnloadProfile");
 
-  DCHECK(base::Contains(profiles_info_, profile_dir));
+  DCHECK(profiles_info_.contains(profile_dir));
 
   bool ephemeral =
       IsRegisteredAsEphemeral(&GetProfileAttributesStorage(), profile_dir);

@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/text/locale_to_script_mapping.h"
 
 namespace blink {
@@ -37,10 +38,10 @@ using mojom::blink::HoverType;
 using mojom::blink::PointerType;
 
 InternalSettings* InternalSettings::From(Page& page) {
-  InternalSettings* supplement = page.GetInternalSettings();
+  InternalSettings* supplement = Supplement<Page>::From<InternalSettings>(page);
   if (!supplement) {
     supplement = MakeGarbageCollected<InternalSettings>(page);
-    page.SetInternalSettings(supplement);
+    ProvideTo(page, supplement);
   }
   return supplement;
 }

@@ -70,7 +70,7 @@
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
-#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-data-view.h"
+#include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "skia/ext/codec_utils.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
@@ -268,13 +268,16 @@ ManifestBuilder::PermissionsPolicy::PermissionsPolicy(
     const ManifestBuilder::PermissionsPolicy&) = default;
 ManifestBuilder::PermissionsPolicy::~PermissionsPolicy() = default;
 
-ManifestBuilder::ManifestBuilder()
+ManifestBuilder::ManifestBuilder(
+    bool include_cross_origin_isolated_permissions_policy)
     : name_("Test App"),
       version_(*IwaVersion::Create("0.0.1")),
       start_url_("/") {
-  AddPermissionsPolicy(
-      network::mojom::PermissionsPolicyFeature::kCrossOriginIsolated,
-      /*self=*/true, /*origins=*/{});
+  if (include_cross_origin_isolated_permissions_policy) {
+    AddPermissionsPolicy(
+        network::mojom::PermissionsPolicyFeature::kCrossOriginIsolated,
+        /*self=*/true, /*origins=*/{});
+  }
 }
 
 ManifestBuilder::ManifestBuilder(const ManifestBuilder&) = default;
@@ -292,6 +295,12 @@ ManifestBuilder& ManifestBuilder::SetVersion(std::string_view version) {
 
 ManifestBuilder& ManifestBuilder::SetStartUrl(std::string_view start_url) {
   start_url_ = start_url;
+  return *this;
+}
+
+ManifestBuilder& ManifestBuilder::SetUpdateManifestUrl(
+    const GURL& update_manifest_url) {
+  update_manifest_url_ = update_manifest_url;
   return *this;
 }
 
@@ -363,6 +372,10 @@ const std::string& ManifestBuilder::start_url() const {
   return start_url_;
 }
 
+const std::optional<GURL>& ManifestBuilder::update_manifest_url() const {
+  return update_manifest_url_;
+}
+
 const std::vector<ManifestBuilder::IconMetadata>& ManifestBuilder::icons()
     const {
   return icons_;
@@ -383,6 +396,9 @@ std::string ManifestBuilder::ToJson() const {
                   .Set("display_override",
                        base::ToValueList(display_mode_override_,
                                          &blink::DisplayModeToString));
+  if (update_manifest_url_) {
+    json.Set("update_manifest_url", update_manifest_url_->spec());
+  }
 
   if (launch_handler_client_mode_) {
     json.SetByDottedPath("launch_handler.client_mode", [&] {
@@ -407,6 +423,9 @@ std::string ManifestBuilder::ToJson() const {
     }
     if (policy.second.self) {
       values.Append("self");
+    }
+    if (values.empty() && policy.second.origins.empty()) {
+      values.Append("none");
     }
     for (const auto& origin : policy.second.origins) {
       values.Append(origin.Serialize());
@@ -471,8 +490,14 @@ blink::mojom::ManifestPtr ManifestBuilder::ToBlinkManifest(
   manifest->id = base_url;
   manifest->scope = base_url;
   manifest->start_url = base_url.Resolve(start_url_);
+  if (update_manifest_url_) {
+    manifest->update_manifest_url = update_manifest_url_;
+  }
   manifest->display = display_mode_;
-  manifest->display_override = display_mode_override_;
+  for (const auto& display_mode : display_mode_override_) {
+    manifest->display_override.push_back(
+        blink::Manifest::DisplayOverride::Create(display_mode));
+  }
   if (launch_handler_client_mode_) {
     manifest->launch_handler =
         blink::Manifest::LaunchHandler(*launch_handler_client_mode_);

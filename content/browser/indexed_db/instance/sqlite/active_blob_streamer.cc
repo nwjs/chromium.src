@@ -11,6 +11,7 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/numerics/clamped_math.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
@@ -176,9 +177,11 @@ void ActiveBlobStreamer::ReadRange(
     mojo::ScopedDataPipeProducerHandle handle,
     mojo::PendingRemote<blink::mojom::BlobReaderClient> pending_client) {
   uint64_t read_length = ClampReadLength(offset, length);
-  mojo::Remote<blink::mojom::BlobReaderClient> client(
-      std::move(pending_client));
-  client->OnCalculatedSize(blob_length_, read_length);
+  mojo::Remote<blink::mojom::BlobReaderClient> client;
+  if (pending_client) {
+    client.Bind(std::move(pending_client));
+    client->OnCalculatedSize(blob_length_, read_length);
+  }
   (new SqliteBlobToDataPipe(
        base::BindRepeating(
            [](base::WeakPtr<ActiveBlobStreamer> streamer, uint64_t offset,
@@ -194,7 +197,9 @@ void ActiveBlobStreamer::ReadRange(
              if (streamer) {
                streamer->BlobReadComplete(result);
              }
-             client->OnComplete(result, transferred_bytes);
+             if (client) {
+               client->OnComplete(result, transferred_bytes);
+             }
            },
            weak_factory_.GetWeakPtr(), std::move(client))))
       ->Start();

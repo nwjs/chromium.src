@@ -12,7 +12,6 @@
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_number_conversions.h"
@@ -274,6 +273,9 @@ bool ShouldShowIbanOnSettingsPage(const std::string& user_country_code,
 
 bool IsDeviceAuthAvailable(
     device_reauth::DeviceAuthenticator* device_authenticator) {
+  // TODO(crbug.com/467173735): Check with ChromeOS team on the implementation
+  // details. It is still in active discussion with the ChromeOS team on how to
+  // implement this.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   CHECK(device_authenticator);
   return device_authenticator->CanAuthenticateWithBiometricOrScreenLock();
@@ -281,6 +283,7 @@ bool IsDeviceAuthAvailable(
   return false;
 #endif
 }
+
 bool IsTouchToFillPaymentMethodSupported() {
 #if BUILDFLAG(IS_ANDROID)
   // Touch To Fill is only supported on Android.

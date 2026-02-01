@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "base/containers/flat_set.h"
 #include "base/containers/to_vector.h"
@@ -14,7 +15,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
 #include "chrome/common/extensions/api/autofill_private.h"
 #include "components/autofill/core/browser/autofill_field.h"
@@ -24,6 +24,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -87,15 +88,15 @@ void EntityInstanceToPrivateApiEntityInstanceWithLabels(
 
     const EntityType entity_type = entity_instance.type();
     entity_instance_with_labels.type.type_name =
-        base::to_underlying(entity_type.name());
+        std::to_underlying(entity_type.name());
     entity_instance_with_labels.type.type_name_as_string =
         base::UTF16ToUTF8(entity_type.GetNameForI18n());
     entity_instance_with_labels.type.add_entity_type_string =
-        GetAddEntityTypeStringForI18n(entity_type);
+        autofill::GetAddEntityTypeStringForI18n(entity_type);
     entity_instance_with_labels.type.edit_entity_type_string =
-        GetEditEntityTypeStringForI18n(entity_type);
+        autofill::GetEditEntityTypeStringForI18n(entity_type);
     entity_instance_with_labels.type.delete_entity_type_string =
-        GetDeleteEntityTypeStringForI18n(entity_type);
+        autofill::GetDeleteEntityTypeStringForI18n(entity_type);
 
     entity_instance_with_labels.entity_instance_label =
         base::UTF16ToUTF8(entity_instance.type().GetNameForI18n());
@@ -108,81 +109,6 @@ void EntityInstanceToPrivateApiEntityInstanceWithLabels(
 }
 
 }  // namespace
-
-std::string GetAddEntityTypeStringForI18n(EntityType entity_type) {
-  switch (entity_type.name()) {
-    case EntityTypeName::kDriversLicense:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_ADD_DRIVERS_LICENSE_ENTITY);
-    case EntityTypeName::kKnownTravelerNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_ADD_KNOWN_TRAVELER_NUMBER_ENTITY);
-    case EntityTypeName::kNationalIdCard:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_ADD_NATIONAL_ID_CARD_ENTITY);
-    case EntityTypeName::kPassport:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_ADD_PASSPORT_ENTITY);
-    case EntityTypeName::kRedressNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_ADD_REDRESS_NUMBER_ENTITY);
-    case EntityTypeName::kVehicle:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_ADD_VEHICLE_ENTITY);
-    case EntityTypeName::kFlightReservation:
-      // Flight reservations are read-only and do not use this string.
-      return "";
-  }
-  NOTREACHED();
-}
-
-std::string GetEditEntityTypeStringForI18n(EntityType entity_type) {
-  switch (entity_type.name()) {
-    case EntityTypeName::kDriversLicense:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_EDIT_DRIVERS_LICENSE_ENTITY);
-    case EntityTypeName::kKnownTravelerNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_EDIT_KNOWN_TRAVELER_NUMBER_ENTITY);
-    case EntityTypeName::kNationalIdCard:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_EDIT_NATIONAL_ID_CARD_ENTITY);
-    case EntityTypeName::kPassport:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_EDIT_PASSPORT_ENTITY);
-    case EntityTypeName::kRedressNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_EDIT_REDRESS_NUMBER_ENTITY);
-    case EntityTypeName::kVehicle:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_EDIT_VEHICLE_ENTITY);
-    case EntityTypeName::kFlightReservation:
-      // Flight reservations are read-only and do not use this string.
-      return "";
-  }
-  NOTREACHED();
-}
-
-std::string GetDeleteEntityTypeStringForI18n(EntityType entity_type) {
-  switch (entity_type.name()) {
-    case EntityTypeName::kDriversLicense:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_DELETE_DRIVERS_LICENSE_ENTITY);
-    case EntityTypeName::kKnownTravelerNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_DELETE_KNOWN_TRAVELER_NUMBER_ENTITY);
-    case EntityTypeName::kNationalIdCard:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_DELETE_NATIONAL_ID_CARD_ENTITY);
-    case EntityTypeName::kPassport:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_DELETE_PASSPORT_ENTITY);
-    case EntityTypeName::kRedressNumber:
-      return l10n_util::GetStringUTF8(
-          IDS_AUTOFILL_AI_DELETE_REDRESS_NUMBER_ENTITY);
-    case EntityTypeName::kVehicle:
-      return l10n_util::GetStringUTF8(IDS_AUTOFILL_AI_DELETE_VEHICLE_ENTITY);
-    case EntityTypeName::kFlightReservation:
-      // Flight reservations are read-only and do not use this string.
-      return "";
-  }
-  NOTREACHED();
-}
 
 api::autofill_private::AttributeTypeDataType
 AttributeTypeDataTypeToPrivateApiAttributeTypeDataType(
@@ -210,7 +136,7 @@ std::optional<EntityInstance> PrivateApiEntityInstanceToEntityInstance(
        private_api_entity_instance.attribute_instances) {
     if (private_api_attribute_instance.type.type_name < 0 ||
         private_api_attribute_instance.type.type_name >
-            base::to_underlying(AttributeTypeName::kMaxValue)) {
+            std::to_underlying(AttributeTypeName::kMaxValue)) {
       return std::nullopt;
     }
 
@@ -287,7 +213,7 @@ autofill_private::EntityInstance EntityInstanceToPrivateApiEntityInstance(
        entity_instance.attributes()) {
     private_api_attribute_instances.emplace_back();
     private_api_attribute_instances.back().type.type_name =
-        base::to_underlying(attribute_instance.type().name());
+        std::to_underlying(attribute_instance.type().name());
     private_api_attribute_instances.back().type.type_name_as_string =
         base::UTF16ToUTF8(attribute_instance.type().GetNameForI18n());
 
@@ -326,15 +252,15 @@ autofill_private::EntityInstance EntityInstanceToPrivateApiEntityInstance(
 
   autofill_private::EntityInstance private_api_entity_instance;
   private_api_entity_instance.type.type_name =
-      base::to_underlying(entity_instance.type().name());
+      std::to_underlying(entity_instance.type().name());
   private_api_entity_instance.type.type_name_as_string =
       base::UTF16ToUTF8(entity_instance.type().GetNameForI18n());
   private_api_entity_instance.type.add_entity_type_string =
-      GetAddEntityTypeStringForI18n(entity_instance.type());
+      autofill::GetAddEntityTypeStringForI18n(entity_instance.type());
   private_api_entity_instance.type.edit_entity_type_string =
-      GetEditEntityTypeStringForI18n(entity_instance.type());
+      autofill::GetEditEntityTypeStringForI18n(entity_instance.type());
   private_api_entity_instance.type.delete_entity_type_string =
-      GetDeleteEntityTypeStringForI18n(entity_instance.type());
+      autofill::GetDeleteEntityTypeStringForI18n(entity_instance.type());
   private_api_entity_instance.attribute_instances =
       std::move(private_api_attribute_instances);
   private_api_entity_instance.guid = *entity_instance.guid();
@@ -366,15 +292,15 @@ api::autofill_private::EntityType EntityTypeToPrivateApiEntityType(
     const EntityType& entity_type,
     bool supports_wallet_storage) {
   autofill_private::EntityType api_type;
-  api_type.type_name = base::to_underlying(entity_type.name());
+  api_type.type_name = std::to_underlying(entity_type.name());
   api_type.type_name_as_string =
       base::UTF16ToUTF8(entity_type.GetNameForI18n());
   api_type.add_entity_type_string =
-      autofill_ai_util::GetAddEntityTypeStringForI18n(entity_type);
+      autofill::GetAddEntityTypeStringForI18n(entity_type);
   api_type.edit_entity_type_string =
-      autofill_ai_util::GetEditEntityTypeStringForI18n(entity_type);
+      autofill::GetEditEntityTypeStringForI18n(entity_type);
   api_type.delete_entity_type_string =
-      autofill_ai_util::GetDeleteEntityTypeStringForI18n(entity_type);
+      autofill::GetDeleteEntityTypeStringForI18n(entity_type);
   api_type.supports_wallet_storage = supports_wallet_storage;
   return api_type;
 }

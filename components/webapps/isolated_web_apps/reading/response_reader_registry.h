@@ -7,12 +7,12 @@
 
 #include <memory>
 
+#include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
-#include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -36,8 +36,7 @@ namespace web_app {
 // will also check the integrity of the Signed Web Bundle. On ChromeOS, it is
 // assumed that the Signed Web Bundle has not been corrupted due to its location
 // inside cryptohome, and signatures are not checked.
-class IsolatedWebAppReaderRegistry : public KeyedService,
-                                     public IwaRuntimeDataProvider::Observer {
+class IsolatedWebAppReaderRegistry : public KeyedService {
  public:
   IsolatedWebAppReaderRegistry(
       content::BrowserContext* browser_context,
@@ -84,7 +83,6 @@ class IsolatedWebAppReaderRegistry : public KeyedService,
   // both the response head and a closure it can call to read the response body,
   // or a string if an error occurs.
   void ReadResponse(const base::FilePath& web_bundle_path,
-                    bool dev_mode,
                     const web_package::SignedWebBundleId& web_bundle_id,
                     const network::ResourceRequest& resource_request,
                     ReadResponseCallback callback);
@@ -126,12 +124,10 @@ class IsolatedWebAppReaderRegistry : public KeyedService,
 
   bool IsCleanupTimerRunningForTesting() const;
 
-  // IwaRuntimeDataProvider::Observer:
-  void OnRuntimeDataChanged() override;
+  void OnRuntimeDataChanged();
 
   void OnResponseReaderCreated(
       const base::FilePath& web_bundle_path,
-      const web_package::SignedWebBundleId& web_bundle_id,
       base::expected<std::unique_ptr<IsolatedWebAppResponseReader>,
                      UnusableSwbnFileError> reader);
 
@@ -144,9 +140,7 @@ class IsolatedWebAppReaderRegistry : public KeyedService,
       base::expected<IsolatedWebAppResponseReader::Response,
                      IsolatedWebAppResponseReader::Error> response);
 
-  base::ScopedObservation<IwaRuntimeDataProvider,
-                          IwaRuntimeDataProvider::Observer>
-      key_provider_observation_{this};
+  base::CallbackListSubscription runtime_data_changed_subscription_;
 
   // A set of files whose signatures have been verified successfully during the
   // current browser session. Signatures of these files are not re-verified even

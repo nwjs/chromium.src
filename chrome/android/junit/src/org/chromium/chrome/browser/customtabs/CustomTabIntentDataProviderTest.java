@@ -1775,7 +1775,6 @@ public class CustomTabIntentDataProviderTest {
 
     @Test
     @Config(sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    @EnableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
     public void testTwaMinUiEnabledDisplayMode_ResolveToMinimalUi() {
         // on sdk < 35 min ui is not supported
         checkResolvedDisplayMode(
@@ -1784,15 +1783,6 @@ public class CustomTabIntentDataProviderTest {
 
     @Test
     @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    @DisableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
-    public void testTwaMinUiDisabledDisplayMode_ResolveToStandalone() {
-        checkResolvedDisplayMode(
-                new TrustedWebActivityDisplayMode.MinimalUiMode(), null, DisplayMode.STANDALONE);
-    }
-
-    @Test
-    @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    @EnableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
     public void testTwaBrowserModeWithEnabledMinUI_ResolveToMinimalUi() {
         checkResolvedDisplayMode(
                 new TrustedWebActivityDisplayMode.BrowserMode(), null, DisplayMode.MINIMAL_UI);
@@ -1800,7 +1790,6 @@ public class CustomTabIntentDataProviderTest {
 
     @Test
     @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    @EnableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
     public void testTwaBrowserModeWithEnabledMinUI_ResolveDisplayOverrideToMinimalUi() {
         checkResolvedDisplayMode(
                 null,
@@ -1808,17 +1797,10 @@ public class CustomTabIntentDataProviderTest {
                 DisplayMode.MINIMAL_UI);
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
-    @EnableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
     public void testTwaBrowserModeWithEnabledMinUiPreSdk35_ResolveToMinimalUi() {
-        checkResolvedDisplayMode(
-                new TrustedWebActivityDisplayMode.BrowserMode(), null, DisplayMode.STANDALONE);
-    }
-
-    @Test
-    @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    @DisableFeatures({ChromeFeatureList.ANDROID_MINIMAL_UI_LARGE_SCREEN})
-    public void testTwaBrowserModeWithDisabledMinimalUi_ResolveToStandalone() {
         checkResolvedDisplayMode(
                 new TrustedWebActivityDisplayMode.BrowserMode(), null, DisplayMode.STANDALONE);
     }

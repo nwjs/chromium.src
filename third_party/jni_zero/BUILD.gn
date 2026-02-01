@@ -21,6 +21,7 @@ generate_jni("generate_jni") {
 
 generate_jar_jni("system_jni") {
   classes = [
+    "android/os/Process.class",
     "java/util/Arrays.class",
     "java/util/Collection.class",
     "java/util/List.class",
@@ -35,18 +36,13 @@ generate_jar_jni("system_jni") {
 # This is the public target that we intend others to use.
 component("jni_zero") {
   public = [
+    "common_apis.h",
     "default_conversions.h",
     "jni_zero.h",
-
-    # TODO(bugs.webrtc.org/42225138): Move back to sources as
-    # soon as WebRTC removes the jni_generator_helper.h which at
-    # the moment needs to read jni_zero::internal::kJniStackMarkerValue.
-    "jni_zero_internal.h",
   ]
 
   sources = [
     "common_apis.cc",
-    "common_apis.h",
     "default_conversions.cc",
     "java_refs.cc",
     "java_refs.h",
@@ -54,6 +50,7 @@ component("jni_zero") {
     "jni_methods.h",
     "jni_wrappers.h",
     "jni_zero.cc",
+    "jni_zero_internal.h",
     "logging.cc",
     "logging.h",
     "type_conversions.h",
@@ -87,10 +84,11 @@ component("jni_zero") {
 if (enable_java_templates && is_android) {
   import("//build/config/android/rules.gni")
 
-  android_library("jni_zero_java") {
+  java_library("jni_zero_java") {
     deps = [ ":generate_jni_java" ]
     public_deps = [ ":gendeps_java" ]
     preferred_dep = true
+    supports_android = true
     sources = [
       "java/src/org/jni_zero/AccessedByNative.java",
       "java/src/org/jni_zero/CalledByNative.java",
@@ -109,7 +107,8 @@ if (enable_java_templates && is_android) {
   }
 
   # Classes referenced by generated code.
-  android_library("gendeps_java") {
+  java_library("gendeps_java") {
+    supports_android = true
     sources = [
       "java/src/org/jni_zero/CheckDiscard.java",
       "java/src/org/jni_zero/JniStaticTestMocker.java",

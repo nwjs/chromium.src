@@ -5,7 +5,6 @@
 #ifndef CONTENT_BROWSER_PICTURE_IN_PICTURE_VIDEO_PICTURE_IN_PICTURE_WINDOW_CONTROLLER_IMPL_H_
 #define CONTENT_BROWSER_PICTURE_IN_PICTURE_VIDEO_PICTURE_IN_PICTURE_WINDOW_CONTROLLER_IMPL_H_
 
-#include <map>
 #include <set>
 
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
@@ -86,7 +85,7 @@ class CONTENT_EXPORT VideoPictureInPictureWindowControllerImpl
       int minimum_size_px,
       int desired_size_px,
       MediaSession::GetMediaImageBitmapCallback callback) override;
-  std::optional<gfx::Rect> GetWindowBounds() override;
+  std::optional<gfx::Rect> GetWindowBoundsInScreen() override;
 
   std::optional<url::Origin> GetOrigin() override;
   void SetOrigin(std::optional<url::Origin> origin);

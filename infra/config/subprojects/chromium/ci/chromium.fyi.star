@@ -203,46 +203,6 @@ ci.builder(
 )
 
 ci.builder(
-    name = "linux-trees-in-viz-rel",
-    description_html = "Runs tests with TreesInViz feature enabled",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(config = "chromium"),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "release_builder",
-            "remoteexec",
-            "dcheck_always_on",
-            "linux",
-            "x64",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "trees_in_viz_fyi_gtests",
-            "trees_in_viz_fyi_blink_web_tests",
-        ],
-        mixins = [
-            "linux-jammy",
-            "x86-64",
-        ],
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "compositor",
-    ),
-    contact_team_email = "chrome-compositor@google.com",
-    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
-)
-
-ci.builder(
     name = "linux-annotator-rel",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(config = "chromium"),
@@ -1521,7 +1481,7 @@ ci.builder(
             "variations_smoke_tests",  # single module scheme
             "mojo_python_unittests",  # pyunit scheme
             "grit_python_unittests",  # pyunit scheme
-            "webgpu_cts_structured_test_id_dedicated_worker_tests",  # webgpucts scheme
+            "webgpu_cts_dedicated_worker_tests",  # webgpucts scheme
         ],
         mixins = [
             "isolate_profile_data",
@@ -1576,7 +1536,7 @@ ci.builder(
             "webdriver_wpt_tests": targets.mixin(
                 ci_only = True,
             ),
-            "webgpu_cts_structured_test_id_dedicated_worker_tests": [
+            "webgpu_cts_dedicated_worker_tests": [
                 "linux_nvidia_gtx_1660_stable",
             ],
         },
@@ -1981,6 +1941,7 @@ fyi_ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "enable_swift_cxx_interop",
         ],
     ),
     targets = targets.bundle(
@@ -2038,6 +1999,7 @@ fyi_ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "enable_swift_cxx_interop",
         ],
     ),
     # ios18-beta-sim compiles with xcode version n-1, but
@@ -2095,6 +2057,7 @@ fyi_ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "enable_swift_cxx_interop",
         ],
     ),
     targets = targets.bundle(
@@ -2154,6 +2117,7 @@ fyi_ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "enable_swift_cxx_interop",
         ],
     ),
     # ios18-sdk-sim compiles with xcode version n, and runs

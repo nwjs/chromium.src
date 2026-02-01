@@ -45,7 +45,7 @@
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
+#include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #endif
 
 namespace contextual_cueing {
@@ -136,6 +136,10 @@ void ContextualCueingHelper::DidFinishNavigation(
                                ui::PAGE_TRANSITION_RELOAD)) {
     return;
   }
+  if (navigation_handle->GetPreviousPrimaryMainFrameURL() ==
+      navigation_handle->GetURL()) {
+    return;
+  }
 
   // Reset FCP state.
   has_first_contentful_paint_ = false;
@@ -148,7 +152,7 @@ void ContextualCueingHelper::DidFinishNavigation(
         web_contents()->GetPrimaryPage());
   }
 
-  // Ignore fragment changes.
+  // Ignore fragment changes for cueing only.
   if (navigation_handle->GetPreviousPrimaryMainFrameURL().GetWithoutRef() ==
       navigation_handle->GetURL().GetWithoutRef()) {
     return;
@@ -321,10 +325,7 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
   }
 
   auto* glic_side_panel_coordinator =
-      tab_interface->GetTabFeatures() &&
-              tab_interface->GetTabFeatures()->glic_side_panel_coordinator()
-          ? tab_interface->GetTabFeatures()->glic_side_panel_coordinator()
-          : nullptr;
+      glic::GlicSidePanelCoordinator::GetForTab(tab_interface);
   if (glic_side_panel_coordinator && glic_side_panel_coordinator->IsShowing()) {
     recorder->set_nudge_decision(
         NudgeDecision::kNudgeNotShownSidePanelForTabShowing);
@@ -395,9 +396,7 @@ void ContextualCueingHelper::OnCueingDecision(
 // static
 void ContextualCueingHelper::MaybeCreateForWebContents(
     content::WebContents* web_contents) {
-  if (!base::FeatureList::IsEnabled(contextual_cueing::kContextualCueing) &&
-      !base::FeatureList::IsEnabled(
-          contextual_cueing::kGlicZeroStateSuggestions)) {
+  if (!IsContextualCueingEnabled() && !IsZeroStateSuggestionsEnabled()) {
     return;
   }
 

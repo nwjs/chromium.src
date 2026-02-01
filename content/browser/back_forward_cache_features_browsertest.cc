@@ -686,11 +686,20 @@ IN_PROC_BROWSER_TEST_F(
                     {}, FROM_HERE);
 }
 
+// TODO(crbug.com/469570289): enable the flaky test.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted \
+  DISABLED_PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted
+#else
+#define MAYBE_PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted \
+  PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted
+#endif  // BUILDFLAG(IS_LINUX)
 // Tests the case when fetching started in a dedicated worker and the header was
 // received before the page is frozen, but parts of the response body is
 // received when the page is frozen.
-IN_PROC_BROWSER_TEST_F(BackForwardCacheWithDedicatedWorkerBrowserTest,
-                       PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted) {
+IN_PROC_BROWSER_TEST_F(
+    BackForwardCacheWithDedicatedWorkerBrowserTest,
+    MAYBE_PageWithDrainedDatapipeRequestsForFetchShouldBeEvicted) {
   CreateHttpsServer();
 
   net::test_server::ControllableHttpResponse fetch_response(https_server(),
@@ -2273,7 +2282,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
   // Only WebSocket should be reported.
-  EXPECT_EQ(static_cast<int>(map.size()), 1);
+  EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Both socketA and socketB's JavaScript locations should be reported.
@@ -2338,7 +2347,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
   // Only WebSocket should be reported.
-  EXPECT_EQ(static_cast<int>(map.size()), 1);
+  EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Only socketB's JavaScript locations should be reported.
@@ -2393,7 +2402,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
   // Only WebSocket should be reported.
-  EXPECT_EQ(static_cast<int>(map.size()), 1);
+  EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Both socketA and socketB's JavaScript locations should be reported.
@@ -2455,7 +2464,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                     {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
   // Only WebSocket should be reported.
-  EXPECT_EQ(static_cast<int>(map.size()), 1);
+  EXPECT_EQ(map.size(), 1u);
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   // Only socketB's JavaScript locations should be reported.
@@ -2508,7 +2517,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
        blink::scheduler::WebSchedulerTrackedFeature::kWebSocketSticky},
       {}, {}, {}, FROM_HERE);
   auto& map = GetTreeResult()->GetBlockingDetailsMap();
-  EXPECT_EQ(static_cast<int>(map.size()), 3);
+  EXPECT_EQ(map.size(), 3u);
   EXPECT_TRUE(
       map.contains(blink::scheduler::WebSchedulerTrackedFeature::kWebSocket));
   EXPECT_TRUE(map.contains(

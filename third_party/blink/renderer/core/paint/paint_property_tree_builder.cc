@@ -352,6 +352,10 @@ class FragmentPaintPropertyTreeBuilder {
           oof_context) const {
     context_.current = oof_context;
 
+    if (RuntimeEnabledFeatures::FragmentedOofInCbEnabled()) {
+      return;
+    }
+
     // If we're not block-fragmented, simply setting a new context is all we
     // have to do.
     if (!oof_context.is_in_block_fragmentation)
@@ -455,6 +459,12 @@ class FragmentPaintPropertyTreeBuilder {
 static bool NeedsScrollAndScrollTranslation(
     const LayoutObject& object,
     CompositingReasons direct_compositing_reasons) {
+  if (object.IsOverscrollContainer()) {
+    // Overscroll containing boxes require a scroll node in order to chain
+    // overscroll to their respective ::-internal-overscroll-area-parent
+    // pseudo-elements.
+    return true;
+  }
   if (!object.IsScrollContainer()) {
     return false;
   }
@@ -785,8 +795,20 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
                     CompositorElementIdNamespace::kDOMNodeId)
               : cc::ElementId();
     }
-    OnUpdateTransform(properties_->UpdatePaintOffsetTranslation(
-        *context_.current.transform, std::move(state)));
+    // Skip the ScrollTranslation of the containing scroller for
+    // ::-internal-overscroll-area-parent.
+    bool skip_parent_scroll_translation =
+        object_.IsPseudoElement() &&
+        To<PseudoElement>(object_.GetNode())->GetPseudoId() ==
+            kPseudoIdOverscrollAreaParent;
+    const TransformPaintPropertyNodeOrAlias* parent =
+        skip_parent_scroll_translation ? context_.current.transform->Unalias()
+                                             .NearestScrollTranslationNode()
+                                             .Parent()
+                                       : context_.current.transform;
+
+    OnUpdateTransform(
+        properties_->UpdatePaintOffsetTranslation(*parent, std::move(state)));
     context_.current.transform = properties_->PaintOffsetTranslation();
     if (IsA<LayoutView>(object_)) {
       context_.absolute_position.transform =
@@ -1854,6 +1876,19 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
       if (EffectCanUseCurrentClipAsOutputClip())
         state.output_clip = context_.current.clip;
       state.opacity = style.Opacity();
+      // If the mask image is not valid, it must be treated as a transparent
+      // black image layer. See
+      // https://drafts.fxtf.org/css-masking-1/#the-mask-image.
+      // MaskBoundingBox() returns nullopt for all invalid mask image layers.
+      if (style.HasMask() && !style.BackdropFilter().IsEmpty() &&
+          RuntimeEnabledFeatures::
+              HandleInvalidMaskImageWithBackdropFilterEnabled()) {
+        // TODO(crbug.com/473987435): Consider waiting for all mask-image layers
+        // to load before rendering, instead of rendering after the first one.
+        if (style.MaskLayers().AllImagesAreInvalid()) {
+          state.opacity = 0.f;
+        }
+      }
       if (object_.IsBlendingAllowed()) {
         state.blend_mode = ToSkBlendMode(style.GetBlendMode());
       }
@@ -1911,8 +1946,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
           style.IsRunningBackdropFilterAnimationOnCompositor();
 
       const auto* parent_effect = context_.current_effect;
-      if (object_.GetNode() &&
-          object_.GetNode()->GetPseudoId() == kPseudoIdViewTransition) {
+      if (object_.IsPseudo(kPseudoIdViewTransition)) {
         parent_effect = ParentForViewTransitionPseudoEffect();
       }
       DCHECK(parent_effect);
@@ -2411,10 +2445,23 @@ void FragmentPaintPropertyTreeBuilder::UpdateClipPathClip() {
                                     ->GetClipPathPaintImageGenerator()
                                     ->GetAnimationBoundingRect(object_);
 
-        // GetAnimationBoundingRect always returns a value for now.
-        CHECK(paint_clip_path_rect_);
+        // A null return indicates that neither the cull rect or the animation
+        // keyframes can be used to limit the mask image size. Additionally,
+        // fallback in the case of clip-path: none and perspective transform, as
+        // cull rects are set to infinite in that case as well.
+        bool has_any_perspective =
+            object_.StyleRef().HasPerspective() ||
+            object_.StyleRef().Transform().HasPerspective() ||
+            context_.current.transform->Unalias().Matrix().HasPerspective();
 
-        if (!precise_clip_path_rect_) {
+        if (!paint_clip_path_rect_ ||
+            (has_any_perspective &&
+             gfx::ToEnclosingRect(*paint_clip_path_rect_) ==
+                 InfiniteIntRect())) {
+          paint_clip_path_rect_ = std::nullopt;
+          needs_mask_based_clip_path_ = false;
+          ClipPathClipper::FallbackClipPathAnimationDueToAbsentBounds(object_);
+        } else if (!precise_clip_path_rect_) {
           // In the case where clip-path: none, it is okay for the precise clip
           // path to equal the expanded rect, since we need to assign it a value
           precise_clip_path_rect_ = paint_clip_path_rect_;
@@ -2527,6 +2574,10 @@ static bool NeedsOverflowClip(const LayoutObject& object) {
 
   if (!object.IsBox())
     return false;
+
+  if (object.IsOverscrollContainer()) {
+    return true;
+  }
 
   if (!To<LayoutBox>(object).ShouldClipOverflowAlongEitherAxis())
     return false;
@@ -3061,10 +3112,29 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollNode() {
   PaintLayerScrollableArea* scrollable_area = box.GetScrollableArea();
   ScrollPaintPropertyNode::State state;
 
-  PhysicalRect clip_rect = box.OverflowClipRect(context_.current.paint_offset);
+  // clip_rect covers inline-start gutter via https://crrev.com/c/2680371.
+  PhysicalRect clip_rect =
+      box.OverflowClipRectForScrollNode(context_.current.paint_offset);
   state.container_rect = ToPixelSnappedRect(clip_rect);
-  state.contents_size =
-      scrollable_area->PixelSnappedContentsSize(clip_rect.offset);
+
+  if (RuntimeEnabledFeatures::ScrollbarGutterBugFixEnabled()) {
+    state.contents_rect = {
+        // Calculate the content offset relative to the container's border box,
+        // accounting for scroll origin shifts (e.g. vertical-rl, gutters).
+        box.ScrollableOverflowRect().PixelSnappedOffset() +
+            box.ScrollOrigin().OffsetFromOrigin(),
+        // PixelSnappedContentsSize does not cover inline-start gutter.
+        scrollable_area->PixelSnappedContentsSize(clip_rect.offset)};
+
+    // Expand to cover the gutter to let negative inline margin content paint
+    // over the inline-start gutter.
+    state.contents_rect.Union(state.container_rect);
+  } else {
+    state.contents_rect = {
+        gfx::Point(),
+        scrollable_area->PixelSnappedContentsSize(clip_rect.offset)};
+  }
+
   state.overflow_clip_node = properties_->OverflowClip();
   state.user_scrollable_horizontal =
       scrollable_area->UserInputScrollable(kHorizontalScrollbar);
@@ -3091,6 +3161,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollNode() {
 
   OnUpdateScroll(
       properties_->UpdateScroll(*context_.current.scroll, std::move(state)));
+  if (object_.IsPseudoElement() &&
+      To<PseudoElement>(object_.GetNode())->GetPseudoId() ==
+          kPseudoIdOverscrollAreaParent) {
+    context_.current.SetOverscrollParent(*properties_->Scroll());
+  }
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateOverflowControlEffects() {
@@ -3413,6 +3488,22 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
       // can be stored on PaintPropertyTreeBuilderFragmentContext instead of
       // recomputing them.
       context_.current.paint_offset += box->PhysicalLocation();
+
+      if (object_.IsPseudo(kPseudoIdViewTransition)) {
+        auto* scope = DynamicTo<LayoutBox>(To<PseudoElement>(object_.GetNode())
+                                               ->UltimateOriginatingElement()
+                                               .GetLayoutObject());
+        if (scope) {
+          LayoutBlock* containing_block = object_.ContainingBlock();
+          CHECK(containing_block == scope ||
+                containing_block->IsViewTransitionRoot());
+
+          // Undo the scroll origin offset that was applied during
+          // UpdateScrollAndScrollTranslation().
+          context_.current.paint_offset -=
+              PhysicalOffset(containing_block->ScrollOrigin());
+        }
+      }
     }
   }
 
@@ -3544,6 +3635,9 @@ static bool IsLayoutShiftRoot(const LayoutObject& object,
     return false;
   if (IsA<LayoutView>(object))
     return true;
+  if (object.IsOverscrollContainer()) {
+    return true;
+  }
   for (const TransformPaintPropertyNode* transform :
        properties->AllCSSTransformPropertiesOutsideToInside()) {
     if (transform && IsLayoutShiftRootTransform(*transform))
@@ -3588,6 +3682,14 @@ void FragmentPaintPropertyTreeBuilder::UpdateForSelf() {
   std::optional<gfx::Vector2d> paint_offset_translation;
   PhysicalOffset sticky_offset;
   UpdateForObjectLocation(paint_offset_translation, sticky_offset);
+
+  if (object_.IsPseudo(kPseudoIdViewTransition)) {
+    // The transition pseudos escape the scope's clip and scroll translation.
+    context_.current.clip = context_.clip_ancestor_for_transition_pseudo_root;
+    context_.current.transform =
+        context_.transform_ancestor_for_transition_pseudo_root;
+  }
+
   if (&fragment_data_ == &object_.FirstFragment())
     SetNeedsPaintPropertyUpdateIfNeeded();
 
@@ -3676,6 +3778,13 @@ void FragmentPaintPropertyTreeBuilder::UpdateForChildren() {
   // perspective itself doesn't affect backface visibility inheritance.
   context_.can_inherit_backface_visibility =
       context_.should_flatten_inherited_transform;
+
+  // The code below generates transform/clip nodes which should apply to all
+  // descendants of this layout object except the ::view-transition pseudo.
+  // That's why we cache the transform and clip to be used by the ::v-t here.
+  context_.clip_ancestor_for_transition_pseudo_root = context_.current.clip;
+  context_.transform_ancestor_for_transition_pseudo_root =
+      context_.current.transform;
 
   if (properties_) {
     UpdateInnerBorderRadiusClip();
@@ -3969,7 +4078,7 @@ void PaintPropertyTreeBuilder::UpdateForSelf() {
   // to determine whether we need to initialize paint properties for this
   // object.
   const bool is_in_fragment_container =
-      pre_paint_info_ &&
+      !RuntimeEnabledFeatures::FragmentedOofInCbEnabled() && pre_paint_info_ &&
       pre_paint_info_->fragmentainer_is_oof_containing_block &&
       IsA<LayoutBox>(object_) &&
       (To<LayoutBox>(object_).PhysicalFragmentCount() > 1);

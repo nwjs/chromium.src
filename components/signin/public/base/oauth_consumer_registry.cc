@@ -4,6 +4,9 @@
 
 #include "components/signin/public/base/oauth_consumer_registry.h"
 
+#include "base/feature_list.h"
+#include "base/notreached.h"
+#include "components/contextual_tasks/public/features.h"
 #include "google_apis/gaia/gaia_constants.h"
 
 namespace {
@@ -75,7 +78,6 @@ constexpr char kEduCoexistenceLoginHandlerName[] =
 constexpr char kEduAccountLoginHandlerName[] = "edu_account_login_handler";
 constexpr char kChromeosFamilyLinkUserMetricsProviderName[] =
     "chromeos_family_link_user_metrics_provider";
-constexpr char kEnterpriseIdentityServiceName[] = "enterprise_identity_service";
 constexpr char kPromotionEligibilityCheckerName[] =
     "promotion_eligibility_checker";
 constexpr char kPasswordManagerLeakDetectionName[] =
@@ -109,10 +111,31 @@ constexpr char kAuthServiceGlanceablesClassroomName[] =
 constexpr char kAuthServiceTasksClientName[] = "auth_service_tasks_client";
 constexpr char kYouTubeMusicName[] = "youtube_music";
 constexpr char kContextualTasksName[] = "contextual_tasks";
+constexpr char kDevtoolsGdpName[] = "devtools_gdp_client";
+constexpr char kAshDriveIntegrationName[] = "ash_drive_integration";
+constexpr char kAshClassroomPageHandlerName[] = "ash_classroom_page_handler";
+constexpr char kAshScannerKeyedServiceName[] = "ash_scanner_keyed_service";
+constexpr char kAshAutotestPrivateApiName[] = "ash_autotest_private_api";
+constexpr char kSyncDeviceStatisticsMetricsName[] =
+    "sync_device_statistics_metrics";
+constexpr char kLegionServiceName[] = "legion_service";
 
 }  // namespace
 
 namespace signin {
+
+BASE_FEATURE(kWebHistoryUseSpecificScope, base::FEATURE_ENABLED_BY_DEFAULT);
+
+OAuthConsumer GetOAuthConsumerForDynamicScopes(
+    OAuthConsumerId oauth_consumer_id,
+    const signin::ScopeSet& scopes) {
+  switch (oauth_consumer_id) {
+    case OAuthConsumerId::kAshAutotestPrivateApi:
+      return OAuthConsumer(kAshAutotestPrivateApiName, scopes);
+    default:
+      NOTREACHED();
+  }
+}
 
 OAuthConsumerRegistry::OAuthConsumerRegistry() = default;
 OAuthConsumerRegistry::~OAuthConsumerRegistry() = default;
@@ -262,9 +285,15 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
           /*name=*/kPasswordSharingRecipientsDownloaderName,
           /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
     case OAuthConsumerId::kWebHistoryService:
-      return OAuthConsumer(
-          /*name=*/kWebHistoryServiceName,
-          /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
+      if (base::FeatureList::IsEnabled(kWebHistoryUseSpecificScope)) {
+        return OAuthConsumer(
+            /*name=*/kWebHistoryServiceName,
+            /*scopes=*/{GaiaConstants::kWebHistoryOAuth2Scope});
+      } else {
+        return OAuthConsumer(
+            /*name=*/kWebHistoryServiceName,
+            /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
+      }
     case OAuthConsumerId::kComposeboxQueryController:
       return OAuthConsumer(
           /*name=*/kComposeboxQueryControllerName,
@@ -342,10 +371,6 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
       return OAuthConsumer(
           /*name=*/kChromeosFamilyLinkUserMetricsProviderName,
           /*scopes=*/{});
-    case OAuthConsumerId::kEnterpriseIdentityService:
-      return OAuthConsumer(
-          /*name=*/kEnterpriseIdentityServiceName,
-          /*scopes=*/{GaiaConstants::kDeviceManagementServiceOAuth});
     case OAuthConsumerId::kPromotionEligibilityChecker:
       return OAuthConsumer(
           /*name=*/kPromotionEligibilityCheckerName,
@@ -467,12 +492,50 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
           /*name=*/kYouTubeMusicName,
           /*scopes=*/{GaiaConstants::kYouTubeMusicOAuth2Scope});
     case OAuthConsumerId::kContextualTasks:
-      // TODO(crbug.com/461578148): Remove kChromeSyncOAuth2Scope once a scope
-      // is created specifically for the search results page.
       return OAuthConsumer(
           /*name=*/kContextualTasksName,
-          /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope,
+          /*scopes=*/{contextual_tasks::ShouldUseSearchResultsScope()
+                          ? GaiaConstants::kSearchResultsOAuth2Scope
+                          : GaiaConstants::kChromeSyncOAuth2Scope,
                       GaiaConstants::kClearCutOAuth2Scope});
+    case OAuthConsumerId::kEnterprisePlusAddress:
+      return GetOAuthConsumerForEnterprisePlusAddress();
+    case OAuthConsumerId::kGlicUserStatus:
+      return GetOAuthConsumerForGlicUserStatus();
+    case OAuthConsumerId::kDevtoolsGdp:
+      return OAuthConsumer(
+          /*name=*/kDevtoolsGdpName,
+          /*scopes=*/{GaiaConstants::kGdpOAuth2Scope});
+    case OAuthConsumerId::kAshDriveIntegration:
+      return OAuthConsumer(
+          /*name=*/kAshDriveIntegrationName,
+          /*scopes=*/{GaiaConstants::kDriveReadOnlyOAuth2Scope});
+    case OAuthConsumerId::kAshBocaClassroomPageHandler:
+      return OAuthConsumer(
+          /*name=*/kAshClassroomPageHandlerName,
+          /*scopes=*/{
+              GaiaConstants::kClassroomReadOnlyRostersOAuth2Scope,
+              GaiaConstants::kClassroomReadOnlyCoursesOAuth2Scope,
+              GaiaConstants::kClassroomReadOnlyCourseWorkStudentsOAuth2Scope,
+              GaiaConstants::kClassroomProfileEmailOauth2Scope,
+              GaiaConstants::kClassroomProfilePhotoUrlScope,
+              GaiaConstants::kClassroomCourseWorkMaterialsOAuthScope});
+    case OAuthConsumerId::kAshScannerKeyedService:
+      return OAuthConsumer(
+          /*name=*/kAshScannerKeyedServiceName,
+          /*scopes=*/{GaiaConstants::kContactsOAuth2Scope});
+    case OAuthConsumerId::kAshAutotestPrivateApi:
+      // This consumer id should be converted using
+      // GetOAuthConsumerForDynamicScopes().
+      NOTREACHED();
+    case OAuthConsumerId::kSyncDeviceStatisticsMetrics:
+      return OAuthConsumer(
+          /*name=*/kSyncDeviceStatisticsMetricsName,
+          /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
+    case OAuthConsumerId::kLegionService:
+      return OAuthConsumer(
+          /*name=*/kLegionServiceName,
+          /*scopes=*/{GaiaConstants::kLegionAuthScope});
   }
 }
 

@@ -28,9 +28,9 @@ BASE_FEATURE(kAndroidDownloadableFontsMatching,
 BASE_FEATURE(kAndroidDragDropOopif, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
-// Flag guard for Windows Arabic digit substitution workaround.
+// Flag guard for Windows Arabic Indic digit input solution.
 // crbug.com/440381284
-BASE_FEATURE(kArabicDigitSubstitution, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kArabicIndicDigitInput, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // Synchronously continuing with navigation can lead to trying to start another
@@ -96,14 +96,6 @@ BASE_FEATURE(kBeforeUnloadBrowserResponseQueue,
 #endif
 );
 
-// When this feature is enabled, requests to localhost initiated from non-secure
-// contexts in the `unknown` IP address space are blocked.
-//
-// See also:
-//  - kBlockInsecurePrivateNetworkRequests
-BASE_FEATURE(kBlockInsecurePrivateNetworkRequestsFromUnknown,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 // Whether to hide paste popup on GestureScrollBegin or GestureScrollUpdate.
 BASE_FEATURE(kHidePastePopupOnGSB, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -115,8 +107,13 @@ BASE_FEATURE(kHoldbackDebugReasonStringRemoval,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
+
+BASE_FEATURE(kBlockThirdPartyInProcessPlugins,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kCancelCompositionWhenWindowLosesFocus,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_MAC)
 
 // If Canvas2D Image Chromium is allowed, this feature controls whether it is
@@ -163,6 +160,10 @@ BASE_FEATURE(kCopyFromSurfaceAlwaysCallCallback,
 // https://github.com/WICG/client-hints-infrastructure/blob/master/reliability.md#critical-ch
 BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// This feature controls whether Dev Tools supports debugging Device Bound
+// Sessions.
+BASE_FEATURE(kDeviceBoundSessionsDevTools, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -195,11 +196,6 @@ BASE_FEATURE(kEnforceSameDocumentOriginInvariants,
 // experimental Content Security Policy features ('navigate-to').
 BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether to support the newer syntax for the "Use Other Account"
-// and account labels features.
-BASE_FEATURE(kFedCmUseOtherAccountAndLabelsNewSyntax,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables NonString Tokens
 BASE_FEATURE(kFedCmNonStringToken, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -267,7 +263,7 @@ const base::FeatureParam<double>
 // Windows and Linux (via separate features and experiments). See
 // crbug.com/335680565.
 #if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kFontDataServiceAllWebContents, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFontDataServiceAllWebContents, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<FontDataServiceTypefaceType>::Option
     font_data_service_typeface[] = {
         {FontDataServiceTypefaceType::kDwrite, "DWrite"},
@@ -344,11 +340,6 @@ BASE_FEATURE(kIgnoreDuplicateNavsOnlyWithUserGesture,
 
 // A feature flag for the memory-backed code cache.
 BASE_FEATURE(kInMemoryCodeCache, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether initial WebUI navigations should synchronously go from navigation
-// start to commit, by doing e.g. in-renderer body loading.
-BASE_FEATURE(kInitialWebUISyncNavStartToCommit,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the ability to use the updateIfOlderThanMs field in the trusted
 // bidding response to trigger a post-auction update if the group has been
@@ -611,6 +602,18 @@ BASE_FEATURE(kReusePrerenderingProcessForMainFrames,
 // now anyway; they don't work.
 BASE_FEATURE(kRestrictOrientationLockToPhones,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, inactive renderers (e.g. in back-forward cache) are removed
+// from the binding manager to lower their priority.
+BASE_FEATURE(kRemoveCachedProcessFromBindingManager,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+// Fix for scrolling to focused editable input fields after tapping to show the
+// on-screen keyboard (crbug.com/462636368).
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kServiceWorkerAvoidMainThreadForInitialization,

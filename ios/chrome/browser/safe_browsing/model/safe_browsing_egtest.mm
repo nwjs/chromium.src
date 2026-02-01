@@ -228,7 +228,9 @@ void EnableEnterpriseUrlFilteringPrefs() {
         std::string("--mark_as_enterprise_blocked=") +
         _enterpriseBlockURL.spec());
   } else if ([self isRunningTest:@selector(testEnterpriseWarningPage)] ||
-             [self isRunningTest:@selector(testEnterpriseWarningPageBypass)]) {
+             [self isRunningTest:@selector(testEnterpriseWarningPageBypass)] ||
+             [self isRunningTest:@selector
+                   (testEnterpriseWarningPageRefreshedThenBypass)]) {
     config.additional_args.push_back(
         std::string("--mark_as_enterprise_warned=") +
         _enterpriseWarnURL.spec());
@@ -358,21 +360,6 @@ void EnableEnterpriseUrlFilteringPrefs() {
 
 #pragma mark - Helper methods
 
-// Instantiates an ElementSelector to detect the enhanced protection message on
-// interstitial page.
-- (ElementSelector*)enhancedProtectionMessage {
-  NSString* selector =
-      @"(function() {"
-       "  var element = document.getElementById('enhanced-protection-message');"
-       "  if (element == null) return false;"
-       "  if (element.classList.contains('hidden')) return false;"
-       "  return true;"
-       "})()";
-  NSString* description = @"Enhanced Safe Browsing message.";
-  return [ElementSelector selectorWithScript:selector
-                         selectorDescription:description];
-}
-
 - (BOOL)isRunningEnterpriseReportingTest {
   return [self isRunningTest:@selector
                (testProceedingPastPhishingWarningReported)] ||
@@ -380,13 +367,17 @@ void EnableEnterpriseUrlFilteringPrefs() {
                (testProceedingPastMalwareWarningReported)] ||
          [self isRunningTest:@selector(testEnterpriseBlockingPage)] ||
          [self isRunningTest:@selector(testEnterpriseWarningPage)] ||
-         [self isRunningTest:@selector(testEnterpriseWarningPageBypass)];
+         [self isRunningTest:@selector(testEnterpriseWarningPageBypass)] ||
+         [self isRunningTest:@selector
+               (testEnterpriseWarningPageRefreshedThenBypass)];
 }
 
 - (BOOL)isRunningEntepriseUrlFilteringTest {
   return [self isRunningTest:@selector(testEnterpriseBlockingPage)] ||
          [self isRunningTest:@selector(testEnterpriseWarningPage)] ||
-         [self isRunningTest:@selector(testEnterpriseWarningPageBypass)];
+         [self isRunningTest:@selector(testEnterpriseWarningPageBypass)] ||
+         [self isRunningTest:@selector
+               (testEnterpriseWarningPageRefreshedThenBypass)];
 }
 - (void)waitForEnterpriseReports:(int)count {
   // Use metrics to detect that the report upload completed. This is the best
@@ -746,22 +737,14 @@ void EnableEnterpriseUrlFilteringPrefs() {
 // Tests enabling Enhanced Protection from a Standard Protection state (Default
 // state) from the interstitial blocking page.
 - (void)testDisableAndEnableEnhancedSafeBrowsing {
-  BOOL isInfobarEnabled = [ChromeEarlGrey isEnhancedSafeBrowsingInfobarEnabled];
   // Disable Enhanced Safe Browsing and verify that a dark red box prompting to
   // turn on Enhanced Protection is visible.
   [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kSafeBrowsingEnhanced];
-  ElementSelector* enhancedSafeBrowsingMessage =
-      [self enhancedProtectionMessage];
 
   [ChromeEarlGrey loadURL:_safeURL1];
   [ChromeEarlGrey waitForWebStateContainingText:_safeContent1];
   [ChromeEarlGrey loadURL:_phishingURL];
-  if (isInfobarEnabled) {
-    [ChromeEarlGrey waitForMatcher:EnhancedSafeBrowsingInfobarButtonMatcher()];
-  } else {
-    [ChromeEarlGrey
-        waitForWebStateContainingElement:enhancedSafeBrowsingMessage];
-  }
+  [ChromeEarlGrey waitForMatcher:EnhancedSafeBrowsingInfobarButtonMatcher()];
 
   // Re-enable Enhanced Safe Browsing and verify that a dark red box prompting
   // to turn on Enhanced Protection is not visible.
@@ -771,35 +754,21 @@ void EnableEnterpriseUrlFilteringPrefs() {
   [ChromeEarlGrey loadURL:_realTimePhishingURL];
   [ChromeEarlGrey waitForWebStateContainingText:l10n_util::GetStringUTF8(
                                                     IDS_SAFEBROWSING_HEADING)];
-  if (isInfobarEnabled) {
-    [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
-                        EnhancedSafeBrowsingInfobarButtonMatcher()];
-  } else {
-    [ChromeEarlGrey
-        waitForWebStateNotContainingElement:enhancedSafeBrowsingMessage];
-  }
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
+                      EnhancedSafeBrowsingInfobarButtonMatcher()];
 }
 
 - (void)testEnhancedSafeBrowsingLink {
-  BOOL isInfobarEnabled = [ChromeEarlGrey isEnhancedSafeBrowsingInfobarEnabled];
   // Disable Enhanced Safe Browsing and verify that a dark red box prompting to
   // turn on Enhanced Protection is visible.
   [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kSafeBrowsingEnhanced];
-  ElementSelector* enhancedSafeBrowsingMessage =
-      [self enhancedProtectionMessage];
 
   [ChromeEarlGrey loadURL:_safeURL1];
   [ChromeEarlGrey waitForWebStateContainingText:_safeContent1];
   [ChromeEarlGrey loadURL:_phishingURL];
-  if (isInfobarEnabled) {
-    [[EarlGrey
-        selectElementWithMatcher:EnhancedSafeBrowsingInfobarButtonMatcher()]
-        performAction:grey_tap()];
-  } else {
-    [ChromeEarlGrey
-        waitForWebStateContainingElement:enhancedSafeBrowsingMessage];
-    [ChromeEarlGrey tapWebStateElementWithID:@"enhanced-protection-link"];
-  }
+  [[EarlGrey
+      selectElementWithMatcher:EnhancedSafeBrowsingInfobarButtonMatcher()]
+      performAction:grey_tap()];
 
   [[EarlGrey
       selectElementWithMatcher:
@@ -815,13 +784,8 @@ void EnableEnterpriseUrlFilteringPrefs() {
   [ChromeEarlGrey loadURL:_phishingURL];
   [ChromeEarlGrey waitForWebStateContainingText:l10n_util::GetStringUTF8(
                                                     IDS_SAFEBROWSING_HEADING)];
-  if (isInfobarEnabled) {
-    [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
-                        EnhancedSafeBrowsingInfobarButtonMatcher()];
-  } else {
-    [ChromeEarlGrey
-        waitForWebStateNotContainingElement:enhancedSafeBrowsingMessage];
-  }
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
+                      EnhancedSafeBrowsingInfobarButtonMatcher()];
 }
 
 // Tests displaying a warning for an unsafe page in incognito mode, and
@@ -1132,6 +1096,68 @@ void EnableEnterpriseUrlFilteringPrefs() {
   requests = _reportingEnvironment->reporting_server()->GetUploadedReports();
   GREYAssertEqual(2U, requests.size(), kWrongNumberOfReportsErrorMessage);
   [self assertUrlFilteringInterstitialEvent:requests[1]
+                                        url:_enterpriseWarnURL
+                             clickedThrough:YES
+                                eventResult:EventResult::EVENT_RESULT_BYPASSED
+                                 threatType:UrlFilteringInterstitialEvent::
+                                                ENTERPRISE_WARNED_BYPASS];
+
+  // Load the enterprise flagged page should go directly to the page after the
+  // warning was bypassed.
+  [ChromeEarlGrey loadURL:_enterpriseWarnURL];
+  [ChromeEarlGrey waitForWebStateContainingText:_enterpriseWarnContent];
+}
+
+// Verifies that the Enteprise warning interstitial allows to bypass the warning
+// after refreshing the warning page and navigate to urls flagged by Enterprise
+// organizations.
+- (void)testEnterpriseWarningPageRefreshedThenBypass {
+  EnableEnterpriseUrlFilteringPrefs();
+
+  [ChromeEarlGrey loadURL:_safeURL1];
+  [ChromeEarlGrey waitForWebStateContainingText:_safeContent1];
+
+  // Load the enterprise flagged page and verify a warning is shown.
+  [ChromeEarlGrey loadURL:_enterpriseWarnURL];
+  [ChromeEarlGrey waitForWebStateContainingText:kEnterpriseWarningPage];
+
+  // Verify the server is notified the browser flagged a navigation.
+  [self waitForEnterpriseReports:1];
+  std::vector<UploadEventsRequest> requests =
+      _reportingEnvironment->reporting_server()->GetUploadedReports();
+  GREYAssertEqual(1U, requests.size(), kWrongNumberOfReportsErrorMessage);
+  [self assertUrlFilteringInterstitialEvent:requests[0]
+                                        url:_enterpriseWarnURL
+                             clickedThrough:NO
+                                eventResult:EventResult::EVENT_RESULT_WARNED
+                                 threatType:UrlFilteringInterstitialEvent::
+                                                ENTERPRISE_WARNED_SEEN];
+
+  // Use javaScript command to refresh since iPad does not have pull-to-refresh.
+  NSString* script = @"location.reload();";
+  [ChromeEarlGrey evaluateJavaScriptForSideEffect:script];
+  [ChromeEarlGrey waitForWebStateContainingText:kEnterpriseWarningPage];
+
+  // Verify the server is notified the browser flagged a navigation.
+  [self waitForEnterpriseReports:2];
+  requests = _reportingEnvironment->reporting_server()->GetUploadedReports();
+  GREYAssertEqual(2U, requests.size(), kWrongNumberOfReportsErrorMessage);
+  [self assertUrlFilteringInterstitialEvent:requests[1]
+                                        url:_enterpriseWarnURL
+                             clickedThrough:NO
+                                eventResult:EventResult::EVENT_RESULT_WARNED
+                                 threatType:UrlFilteringInterstitialEvent::
+                                                ENTERPRISE_WARNED_SEEN];
+
+  [ChromeEarlGrey tapWebStateElementWithID:@"proceed-button"];
+  [ChromeEarlGrey waitForWebStateContainingText:_enterpriseWarnContent];
+
+  // Verify the server is notified about the user bypassing a flagged a
+  // navigation.
+  [self waitForEnterpriseReports:3];
+  requests = _reportingEnvironment->reporting_server()->GetUploadedReports();
+  GREYAssertEqual(3U, requests.size(), kWrongNumberOfReportsErrorMessage);
+  [self assertUrlFilteringInterstitialEvent:requests[2]
                                         url:_enterpriseWarnURL
                              clickedThrough:YES
                                 eventResult:EventResult::EVENT_RESULT_BYPASSED

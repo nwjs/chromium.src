@@ -10,9 +10,9 @@
 #import "base/functional/callback_helpers.h"
 #import "base/no_destructor.h"
 #import "base/path_service.h"
+#import "components/activity_reporter/activity_reporter.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/component_updater/component_updater_service.h"
-#import "components/component_updater/installer_policies/autofill_states_component_installer.h"
 #import "components/component_updater/timer_update_scheduler.h"
 #import "components/metrics/demographics/user_demographics.h"
 #import "components/os_crypt/async/browser/keychain_key_provider.h"
@@ -130,8 +130,6 @@ PrefService* ApplicationContext::GetLocalState() {
     signin::IdentityManager::RegisterLocalStatePrefs(pref_registry.get());
     component_updater::RegisterComponentUpdateServicePrefs(pref_registry.get());
     update_client::RegisterPrefs(pref_registry.get());
-    component_updater::AutofillStatesComponentInstallerPolicy::RegisterPrefs(
-        pref_registry.get());
     metrics::RegisterDemographicsLocalStatePrefs(pref_registry.get());
     sessions::SessionIdGenerator::RegisterPrefs(pref_registry.get());
 
@@ -219,6 +217,14 @@ const std::string& ApplicationContext::GetApplicationLocale() {
 net::NetLog* ApplicationContext::GetNetLog() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return net::NetLog::Get();
+}
+
+activity_reporter::ActivityReporter* ApplicationContext::GetActivityReporter() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!activity_reporter_) {
+    activity_reporter_ = activity_reporter::CreateActivityReporterDisabled();
+  }
+  return activity_reporter_.get();
 }
 
 component_updater::ComponentUpdateService*

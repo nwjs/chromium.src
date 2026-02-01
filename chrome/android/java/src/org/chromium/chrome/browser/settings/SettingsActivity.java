@@ -32,7 +32,6 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.window.layout.WindowMetricsCalculator;
 
 import com.google.android.material.appbar.AppBarLayout;
 
@@ -121,6 +120,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     static final String EXTRA_SHOW_FRAGMENT_ARGUMENTS = "show_fragment_args";
     static final String EXTRA_SHOW_FRAGMENT_STANDALONE = "show_fragment_standalone";
     static final String EXTRA_ADD_TO_BACK_STACK = "add_to_back_stack";
+    static final String EXTRA_FRAGMENT_TAG = "fragment_tag";
 
     /** The current instance of SettingsActivity in the resumed state, if any. */
     private static @Nullable SettingsActivity sResumedInstance;
@@ -205,7 +205,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         mProfile,
                         mSnackbarManagerSupplier,
                         mBottomSheetControllerSupplier,
-                        getModalDialogManagerSupplier()),
+                        getModalDialogManagerSupplier(),
+                        () -> mSearchCoordinator),
                 /* recursive= */ true);
         fragmentManager.registerFragmentLifecycleCallbacks(
                 new WideDisplayPaddingApplier(), /* recursive= */ true);
@@ -309,6 +310,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             if (isMultiColumnSettingEnabled()) {
                 assert mMultiColumnSettings != null;
                 createMultiColumnTitleUpdater();
+                if (ChromeFeatureList.sSearchInSettings.isEnabled()) createSearchCoordinator();
             } else {
                 mTitleUpdater = new TitleUpdater();
                 fragmentManager.registerFragmentLifecycleCallbacks(
@@ -407,7 +409,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                                     createMultiColumTitleUpdaterInternal(
                                             v.findViewById(R.id.settings_title_in_detailed_pane));
                                     fm.unregisterFragmentLifecycleCallbacks(this);
-                                    createSearchCoordinator();
                                 }
                             },
                             false);
@@ -427,43 +428,31 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     }
 
     private void createSearchCoordinator() {
-        assert ChromeFeatureList.sSearchInSettings.isEnabled();
         Callback<Integer> updateFirstVisibleTitle =
                 isMultiColumnSettingEnabled()
-                        ? assumeNonNull(mMultiColumnTitleUpdater)::setFirstVisibleTitleIndex
+                        ? this::updateFirstVisibleTitle
                         : CallbackUtils.emptyCallback();
-        // TODO(crbug.com/439911511): Refactor to use `isTwoColumnSettingsVisible` instead of
-        // `getUseMultiColumn`.
-        // Ensure `mMultiColumnSettings.isTwoColumn()` is reliable by confirming layout pass
-        // completion
-        // before direct replacement, as premature usage can lead to incorrect behavior.
         mSearchCoordinator =
                 new SettingsSearchCoordinator(
                         this,
-                        this::getUseMultiColumn,
+                        this::isTwoColumnSettingsVisible,
                         mMultiColumnSettings,
                         mItemDecorations,
                         mProfile,
-                        updateFirstVisibleTitle);
-        mSearchCoordinator.initializeSearchUi();
+                        updateFirstVisibleTitle,
+                        getModalDialogManagerSupplier());
+        if (mMultiColumnSettings != null) {
+            mMultiColumnSettings.setOnCreateViewRunnable(mSearchCoordinator::initializeSearchUi);
+            mMultiColumnSettings.addObserver(mSearchCoordinator);
+        }
+    }
+
+    private void updateFirstVisibleTitle(int index) {
+        assumeNonNull(mMultiColumnTitleUpdater).setFirstVisibleTitleIndex(index);
     }
 
     private void onTitleTapped(@Nullable String entryName) {
         if (mSearchCoordinator != null) mSearchCoordinator.onTitleTapped(entryName);
-    }
-
-    /**
-     * Returns true if multi-column mode will be displayed. This happens when the flag
-     * #settings-multicolumn is enabled and the screen width is broad enough to activate the
-     * multi-column mode.
-     */
-    private boolean getUseMultiColumn() {
-        if (!isMultiColumnSettingEnabled()) return false;
-
-        var windowMetrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(this);
-        return windowMetrics.getBounds().width()
-                >= getResources()
-                        .getDimensionPixelSize(R.dimen.settings_min_multi_column_screen_width);
     }
 
     /** Returns true if the AndroidSettingsContainment feature is enabled. */
@@ -787,8 +776,9 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (mTitleUpdater != null) {
             getSupportFragmentManager().unregisterFragmentLifecycleCallbacks(mTitleUpdater);
         }
-        if (ChromeFeatureList.sSearchInSettings.isEnabled()) {
-            assumeNonNull(mSearchCoordinator).destroy();
+        if (mSearchCoordinator != null && mMultiColumnSettings != null) {
+            mMultiColumnSettings.removeObserver(mSearchCoordinator);
+            mSearchCoordinator.destroy();
         }
         super.onDestroy();
     }
@@ -826,11 +816,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        if (ChromeFeatureList.sSearchInSettings.isEnabled()) {
-            assert mSearchCoordinator != null;
-            assumeNonNull(mSearchCoordinator).hideHelpAndFeedbackIcon();
-            return false;
-        }
         // By default, every screen in Settings shows a "Help & feedback" menu item.
         MenuItem help =
                 menu.add(
@@ -840,15 +825,12 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         R.string.menu_help);
         help.setIcon(
                 TraceEventVectorDrawableCompat.create(
-                        getResources(), R.drawable.ic_help_and_feedback, getTheme()));
+                        getResources(), R.drawable.ic_help_24dp, getTheme()));
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        if (ChromeFeatureList.sSearchInSettings.isEnabled()) {
-            return false;
-        }
         if (menu.size() == 1) {
             MenuItem item = menu.getItem(0);
             if (item.getIcon() != null) item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);

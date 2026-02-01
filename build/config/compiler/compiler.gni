@@ -11,6 +11,7 @@ import("//build/config/compiler/pgo/pgo.gni")
 import("//build/config/cronet/config.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/toolchain/cc_wrapper.gni")
+import("//build/toolchain/kythe.gni")
 import("//build/toolchain/toolchain.gni")
 import("//build_overrides/build.gni")
 
@@ -32,18 +33,13 @@ declare_args() {
   # The default linker everywhere else.
   use_lld = is_clang && current_os != "zos"
 
+  # If false, build using C++20; otherwise, build using C++23.
+  use_cxx23 = true
+
   # If true, optimize for size.
   # Default to favoring speed over size for platforms not listed below.
   optimize_for_size =
       !is_high_end_android && (is_android || is_castos || is_fuchsia)
-}
-
-# Allow other projects to keep use_cxx23 false by default if they aren't ready.
-if (!defined(use_cxx23)) {
-  declare_args() {
-    # If false, build using C++20; otherwise, build using C++23.
-    use_cxx23 = false
-  }
 }
 
 declare_args() {
@@ -168,7 +164,9 @@ assert(!enable_profiling || !is_component_build,
 
 # The Abseil .def lists for Windows component builds are created expecting sized
 # deallocation. Disabling it leads to symbol mismatches and build failures.
-assert(!is_win || !is_component_build || use_sized_deallocation,
+# This assertion is restricted to Clang builds. ANGLE MSVC builds, where
+# is_clang is false, do not use Abseil that requires this assertion.
+assert(!is_clang || !is_win || !is_component_build || use_sized_deallocation,
        "Sized deallocation must be enabled in component builds on Windows.")
 assert(is_clang || !use_sized_deallocation,
        "Sized deallocation is supported on clang.")
@@ -282,6 +280,12 @@ if (strip_absolute_paths_from_debug_symbols_default) {
 # When absolute_paths in debug symbols, we need to use input root
 # absolute path to execute remotely in RBE.
 clang_need_input_root_absolute_path = !strip_absolute_paths_from_debug_symbols
+
+# TODO(crbug.com/473693507): Remove once fixed.
+# Builders as Kythe client might output system headers with absolute paths.
+if (is_win && enable_kythe_annotations) {
+  clang_need_input_root_absolute_path = true
+}
 
 if (clang_need_input_root_absolute_path) {
   compiler_logs += [ "clang_need_input_root_absolute_path=true" ]

@@ -1036,7 +1036,11 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 #pragma mark - TabGridToolbarsGridDelegate
 
 - (void)closeAllButtonTapped:(id)sender {
-  NOTREACHED();
+  NOTREACHED() << "Should not be called in a tab group.";
+}
+
+- (void)closeOtherTabsButtonTapped:(id)sender {
+  NOTREACHED() << "Should not be called in a tab group.";
 }
 
 - (void)doneButtonTapped:(id)sende {
@@ -1068,6 +1072,18 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 }
 
 - (void)selectTabsButtonTapped:(id)sender {
+  NOTREACHED();
+}
+
+- (void)pageActionMenuEntrypointTapped:(id)sender {
+  NOTREACHED();
+}
+
+- (void)createNewTabGroupButtonTapped:(id)sender {
+  NOTREACHED();
+}
+
+- (void)deleteBrowsingDataButtonTapped:(id)sender {
   NOTREACHED();
 }
 

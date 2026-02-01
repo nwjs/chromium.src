@@ -49,7 +49,6 @@ import org.chromium.ui.test.util.DeviceRestriction;
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
-@EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
 // TODO(crbug.com/419289558): Re-enable color surface feature flags
 @Features.DisableFeatures({
     ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
@@ -145,7 +144,11 @@ public class TabGroupListBottomSheetTest {
     @Test
     @MediumTest
     @ImportantFormFactors(DeviceFormFactor.TABLET_OR_DESKTOP)
-    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP, DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @Restriction({
+        DeviceFormFactor.TABLET_OR_DESKTOP,
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
+        DeviceRestriction.RESTRICTION_TYPE_NON_FOLDABLE
+    })
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testNewGroup_IncognitoNewTabPageStation_Tablet() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
@@ -209,7 +212,11 @@ public class TabGroupListBottomSheetTest {
     @Test
     @MediumTest
     @ImportantFormFactors(DeviceFormFactor.TABLET_OR_DESKTOP)
-    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP, DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @Restriction({
+        DeviceFormFactor.TABLET_OR_DESKTOP,
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
+        DeviceRestriction.RESTRICTION_TYPE_NON_FOLDABLE
+    })
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testNewGroup_IncognitoWebPageStation_Tablet() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();

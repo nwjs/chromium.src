@@ -85,7 +85,6 @@
 #include "third_party/blink/renderer/core/frame/widget_creation_observer.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
-#include "third_party/blink/renderer/platform/forward_declared_member.h"
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
@@ -94,9 +93,11 @@
 #include "third_party/blink/renderer/platform/heap_observer_list.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/hash_counted_set.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 
@@ -226,7 +227,6 @@ class MediaQueryMatcher;
 class NodeIterator;
 class NthIndexCache;
 class Page;
-class PaintLayerScrollableArea;
 class PendingAnimations;
 class PendingLinkPreload;
 class ProcessingInstruction;
@@ -248,7 +248,6 @@ class ScriptRunnerDelayer;
 class ScriptValue;
 class ScriptableDocumentParser;
 class ScriptedAnimationController;
-class ScrollMarkerGroupData;
 class SecurityOrigin;
 class SelectorQueryCache;
 class SerializedScriptValue;
@@ -273,34 +272,6 @@ class VisitedLinkState;
 class WebMouseEvent;
 class WorkletAnimationController;
 class V8VisibilityState;
-
-class AnchorElementMetricsSender;
-class AnchorElementViewportPositionTracker;
-class AnnotationAgentContainerImpl;
-class CSSSelectorWatch;
-class DisabledAccelerationCounterSupplement;
-class DocumentFencedFrames;
-class DocumentParserTiming;
-class DocumentSpeculationRules;
-class DocumentStorageAccess;
-class DocumentXPathEvaluator;
-class DocumentXSLT;
-class FontFaceSetDocument;
-class InteractiveDetector;
-class PaintTiming;
-class PatchSupplement;
-class PictureInPictureController;
-class RenderBlockingMetricsReporter;
-class RouteMap;
-class TransferToGPUTextureInvokedSupplement;
-class AIPageContentAgent;
-class BrowsingTopicsDocumentSupplement;
-class CredentialMetrics;
-class DocumentMetadataServer;
-class FrameMetadataObserverRegistry;
-class InnerHtmlAgent;
-class InnerTextAgent;
-class RTCPeerConnectionController;
 
 template <typename EventType>
 class EventWithHitTestResults;
@@ -387,7 +358,8 @@ struct UnloadEventTimingInfo {
 class CORE_EXPORT Document : public ContainerNode,
                              public TreeScope,
                              public UseCounter,
-                             public WidgetCreationObserver {
+                             public WidgetCreationObserver,
+                             public Supplementable<Document> {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -454,6 +426,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // DOM methods & attributes for Document
 
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(autofill, kAutofill)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecopy, kBeforecopy)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut, kBeforecut)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(beforepaste, kBeforepaste)
@@ -1626,7 +1599,7 @@ class CORE_EXPORT Document : public ContainerNode,
                                       Member<Node>& block_target,
                                       Member<Node>& inline_target);
 
-  void DispatchEventsForPrinting();
+  void DispatchMediaQueryListEvents();
 
   void exitPointerLock();
   Element* PointerLockElement() const;
@@ -1738,16 +1711,27 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapHashSet<Member<HTMLElement>>& PopoversWaitingToHide() {
     return popovers_waiting_to_hide_;
   }
+  // PopoverPointerdownTarget is used by the popover light dismiss system, to
+  // track pointer events that might light-dismiss popovers.
   const HTMLElement* PopoverPointerdownTarget() const {
     return popover_pointerdown_target_.Get();
   }
   void SetPopoverPointerdownTarget(const HTMLElement*);
-  std::optional<gfx::PointF> PopoverPickerMousedownLocation() const {
-    return popover_picker_mousedown_location_;
-  }
-  void SetPopoverPickerMousedownLocation(std::optional<gfx::PointF>);
+  // DialogPointerdownTarget is used by the dialog light dismiss (`closedby`)
+  // system, to track pointer events that might light-dismiss dialogs.
   const HTMLDialogElement* DialogPointerdownTarget() const;
   void SetDialogPointerdownTarget(const HTMLDialogElement*);
+  // PopoverPickerPointerdown* is used by both customizable-<select> and the
+  // <menuitem> element for mousedown-drag-mouseup type interactions. If the
+  // `target` member is nullptr, no pointerdown info is stored.
+  struct PopoverPickerPointerdownInfo {
+    DISALLOW_NEW();
+    Member<Node> target;
+    gfx::PointF location;
+    void Trace(Visitor* visitor) const { visitor->Trace(target); }
+  };
+  PopoverPickerPointerdownInfo PopoverPickerPointerdown() const;
+  void SetPopoverPickerPointerdown(PopoverPickerPointerdownInfo);
 
   HeapLinkedHashSet<Member<HTMLDialogElement>>& AllOpenDialogs() {
     return all_open_dialogs_;
@@ -2003,6 +1987,12 @@ class CORE_EXPORT Document : public ContainerNode,
   void ResponsiveEmbeddedSizingChanged();
   void SetResponsiveEmbeddedSizing() { responsive_embedded_sizing_ = true; }
 
+  // A META element with name=text-scale was added, removed, or
+  // modified. Re-collect the META values.
+  void TextScaleMetaChanged();
+  bool TextScaleMetaTagPresent() const;
+  void SetTextScaleMetaTagPresent(bool present);
+
   // Use counter related functions.
   void CountUse(mojom::WebFeature feature) final;
   void CountDeprecation(mojom::WebFeature feature) final;
@@ -2236,24 +2226,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void ScheduleShadowTreeCreation(HTMLInputElement& element);
   void UnscheduleShadowTreeCreation(HTMLInputElement& element);
 
-  // Traverses DOM tree and collects HTMLAnchorElements to closest ancestor
-  // element with scroll-target-group property.
-  void UpdateScrollTargetGroupRelations();
-  void SetNeedsScrollTargetGroupRelationsUpdate() {
-    needs_scroll_target_group_relations_update_ = true;
-  }
-
-  // Subscribes each ScrollMarkerGroupData to all scrollers
-  // that own corresponding scroll marker's scroll target (see
-  // scroll_target_group_to_scrollable_areas_ for details), so that the scroller
-  // will notify ScrollMarkerGroupData of updates.
-  void UpdateScrollTargetGroupToScrollableAreasMap();
-  void AddScrollTargetGroup(ScrollMarkerGroupData* scroll_target_group);
-  void RemoveScrollTargetGroup(ScrollMarkerGroupData* scroll_target_group);
-  void SetNeedsScrollTargetGroupsMapUpdate() {
-    needs_scroll_target_groups_map_update_ = true;
-  }
-
   void ScheduleSelectionchangeEvent();
 
   // Reset to false after the event gets callbacked
@@ -2307,217 +2279,11 @@ class CORE_EXPORT Document : public ContainerNode,
     }
   }
 
-  AnchorElementMetricsSender* GetAnchorElementMetricsSender() const {
-    return anchor_element_metrics_sender_;
+  const HashCountedSet<AtomicString>& OverscrollCommandTargets() const {
+    return overscroll_command_targets_;
   }
-  void SetAnchorElementMetricsSender(
-      AnchorElementMetricsSender* anchor_element_metrics_sender) {
-    anchor_element_metrics_sender_ = anchor_element_metrics_sender;
-  }
-
-  AnchorElementViewportPositionTracker*
-  GetAnchorElementViewportPositionTracker() const {
-    return anchor_element_viewport_position_tracker_;
-  }
-  void SetAnchorElementViewportPositionTracker(
-      AnchorElementViewportPositionTracker*
-          anchor_element_viewport_position_tracker) {
-    anchor_element_viewport_position_tracker_ =
-        anchor_element_viewport_position_tracker;
-  }
-
-  AnnotationAgentContainerImpl* GetAnnotationAgentContainerImpl() const {
-    return annotation_agent_container_impl_;
-  }
-  void SetAnnotationAgentContainerImpl(
-      AnnotationAgentContainerImpl* annotation_agent_container_impl) {
-    annotation_agent_container_impl_ = annotation_agent_container_impl;
-  }
-
-  CSSSelectorWatch* GetCSSSelectorWatch() const { return css_selector_watch_; }
-  void SetCSSSelectorWatch(CSSSelectorWatch* css_selector_watch) {
-    css_selector_watch_ = css_selector_watch;
-  }
-
-  ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
-  GetDisabledAccelerationCounterSupplement() const {
-    return disabled_acceleration_counter_supplement_;
-  }
-  void SetDisabledAccelerationCounterSupplement(
-      ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
-          disabled_acceleration_counter_supplement) {
-    disabled_acceleration_counter_supplement_ =
-        disabled_acceleration_counter_supplement;
-  }
-
-  DocumentFencedFrames* GetDocumentFencedFrames() const {
-    return document_fenced_frames_;
-  }
-  void SetDocumentFencedFrames(DocumentFencedFrames* document_fenced_frames) {
-    document_fenced_frames_ = document_fenced_frames;
-  }
-
-  DocumentParserTiming* GetDocumentParserTiming() const {
-    return document_parser_timing_;
-  }
-  void SetDocumentParserTiming(DocumentParserTiming* document_parser_timing) {
-    document_parser_timing_ = document_parser_timing;
-  }
-
-  DocumentSpeculationRules* GetDocumentSpeculationRules() const {
-    return document_speculation_rules_;
-  }
-  void SetDocumentSpeculationRules(
-      DocumentSpeculationRules* document_speculation_rules) {
-    document_speculation_rules_ = document_speculation_rules;
-  }
-
-  ForwardDeclaredMember<DocumentStorageAccess> GetDocumentStorageAccess()
-      const {
-    return document_storage_access_;
-  }
-  void SetDocumentStorageAccess(
-      ForwardDeclaredMember<DocumentStorageAccess> document_storage_access) {
-    document_storage_access_ = document_storage_access;
-  }
-
-  DocumentXPathEvaluator* GetDocumentXPathEvaluator() const {
-    return document_xpath_evaluator_;
-  }
-  void SetDocumentXPathEvaluator(
-      DocumentXPathEvaluator* document_xpath_evaluator) {
-    document_xpath_evaluator_ = document_xpath_evaluator;
-  }
-
-  DocumentXSLT* GetDocumentXSLT() const { return document_xslt_; }
-  void SetDocumentXSLT(DocumentXSLT* document_xslt) {
-    document_xslt_ = document_xslt;
-  }
-
-  FontFaceSetDocument* GetFontFaceSetDocument() const {
-    return font_face_set_document_;
-  }
-  void SetFontFaceSetDocument(FontFaceSetDocument* font_face_set_document) {
-    font_face_set_document_ = font_face_set_document;
-  }
-
-  InteractiveDetector* GetInteractiveDetector() const {
-    return interactive_detector_;
-  }
-  void SetInteractiveDetector(InteractiveDetector* interactive_detector) {
-    interactive_detector_ = interactive_detector;
-  }
-
-  PaintTiming* GetPaintTiming() const { return paint_timing_; }
-  void SetPaintTiming(PaintTiming* paint_timing) {
-    paint_timing_ = paint_timing;
-  }
-
-  PatchSupplement* GetPatchSupplement() const { return patch_supplement_; }
-  void SetPatchSupplement(PatchSupplement* patch_supplement) {
-    patch_supplement_ = patch_supplement;
-  }
-
-  PictureInPictureController* GetPictureInPictureController() const {
-    return picture_in_picture_controller_;
-  }
-  void SetPictureInPictureController(
-      PictureInPictureController* picture_in_picture_controller) {
-    picture_in_picture_controller_ = picture_in_picture_controller;
-  }
-
-  RenderBlockingMetricsReporter* GetRenderBlockingMetricsReporter() const {
-    return render_blocking_metrics_reporter_;
-  }
-  void SetRenderBlockingMetricsReporter(
-      RenderBlockingMetricsReporter* render_blocking_metrics_reporter) {
-    render_blocking_metrics_reporter_ = render_blocking_metrics_reporter;
-  }
-
-  RouteMap* GetRouteMap() const { return route_map_; }
-  void SetRouteMap(RouteMap* route_map) { route_map_ = route_map; }
-
-  ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
-  GetTransferToGPUTextureInvokedSupplement() const {
-    return transfer_to_gpu_texture_invoked_supplement_;
-  }
-  void SetTransferToGPUTextureInvokedSupplement(
-      ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
-          transfer_to_gpu_texture_invoked_supplement) {
-    transfer_to_gpu_texture_invoked_supplement_ =
-        transfer_to_gpu_texture_invoked_supplement;
-  }
-
-  ForwardDeclaredMember<AIPageContentAgent> GetAIPageContentAgent() const {
-    return ai_page_content_agent_;
-  }
-  void SetAIPageContentAgent(
-      ForwardDeclaredMember<AIPageContentAgent> ai_page_content_agent) {
-    ai_page_content_agent_ = ai_page_content_agent;
-  }
-
-  ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
-  GetBrowsingTopicsDocumentSupplement() const {
-    return browsing_topics_document_supplement_;
-  }
-  void SetBrowsingTopicsDocumentSupplement(
-      ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
-          browsing_topics_document_supplement) {
-    browsing_topics_document_supplement_ = browsing_topics_document_supplement;
-  }
-
-  ForwardDeclaredMember<CredentialMetrics> GetCredentialMetrics() const {
-    return credential_metrics_;
-  }
-  void SetCredentialMetrics(
-      ForwardDeclaredMember<CredentialMetrics> credential_metrics) {
-    credential_metrics_ = credential_metrics;
-  }
-
-  ForwardDeclaredMember<DocumentMetadataServer> GetDocumentMetadataServer()
-      const {
-    return document_metadata_server_;
-  }
-  void SetDocumentMetadataServer(
-      ForwardDeclaredMember<DocumentMetadataServer> document_metadata_server) {
-    document_metadata_server_ = document_metadata_server;
-  }
-
-  ForwardDeclaredMember<FrameMetadataObserverRegistry>
-  GetFrameMetadataObserverRegistry() const {
-    return frame_metadata_observer_registry_;
-  }
-  void SetFrameMetadataObserverRegistry(
-      ForwardDeclaredMember<FrameMetadataObserverRegistry>
-          frame_metadata_observer_registry) {
-    frame_metadata_observer_registry_ = frame_metadata_observer_registry;
-  }
-
-  ForwardDeclaredMember<InnerHtmlAgent> GetInnerHtmlAgent() const {
-    return inner_html_agent_;
-  }
-  void SetInnerHtmlAgent(
-      ForwardDeclaredMember<InnerHtmlAgent> inner_html_agent) {
-    inner_html_agent_ = inner_html_agent;
-  }
-
-  ForwardDeclaredMember<InnerTextAgent> GetInnerTextAgent() const {
-    return inner_text_agent_;
-  }
-  void SetInnerTextAgent(
-      ForwardDeclaredMember<InnerTextAgent> inner_text_agent) {
-    inner_text_agent_ = inner_text_agent;
-  }
-
-  ForwardDeclaredMember<RTCPeerConnectionController>
-  GetRTCPeerConnectionController() const {
-    return rtc_peer_connection_controller_;
-  }
-  void SetRTCPeerConnectionController(
-      ForwardDeclaredMember<RTCPeerConnectionController>
-          rtc_peer_connection_controller) {
-    rtc_peer_connection_controller_ = rtc_peer_connection_controller;
-  }
+  void AddOverscrollCommandTarget(const AtomicString& target);
+  void RemoveOverscrollCommandTarget(const AtomicString& target);
 
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
@@ -3169,14 +2935,14 @@ class CORE_EXPORT Document : public ContainerNode,
   HeapVector<Member<HTMLElement>> popover_hint_stack_;
   // The popover (if any) that received the most recent pointerdown event.
   Member<const HTMLElement> popover_pointerdown_target_;
-  // The mouse location for the mousedown that opened the picker, if any.
-  std::optional<gfx::PointF> popover_picker_mousedown_location_;
   // The dialog (if any) that received the most recent pointerdown event. This
   // is distinct from popover_pointerdown_target_ because the same pointer
   // action could trigger light dismiss on a containing popover and not a
   // containing dialog, or vice versa. This will be nullptr for a click on
   // the ::backdrop pseudo-element for a dialog.
   Member<const HTMLDialogElement> dialog_pointerdown_target_;
+  // The mouse target information for the event that opened the picker, if any.
+  PopoverPickerPointerdownInfo popover_picker_pointerdown_info_;
   // A set of popovers for which hidePopover() has been called, but animations
   // are still running.
   HeapHashSet<Member<HTMLElement>> popovers_waiting_to_hide_;
@@ -3390,27 +3156,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // Number of disabled <fieldset> elements in this document.
   unsigned disabled_fieldset_count_ = 0;
 
-  // True if the document has scroll marker groups that need to be
-  // recalculated due to e.g. a new element with scroll-target-group
-  // property was added or removed, hence it can now be a container
-  // for some html anchor scroll marker elements of other container.
-  bool needs_scroll_target_group_relations_update_ = false;
-  // True if the document has elements with scroll-target-group property
-  // and some html anchor scroll marker elements. It is a signal to update a
-  // map between scroll marker groups and scrollable areas to subscribe scroll
-  // marker groups to scrollable areas changes.
-  bool needs_scroll_target_groups_map_update_ = false;
-  // Every element with scroll-target-group property set collects
-  // HTMLAnchorElements as scroll markers inside its ScrollMarkerGroupData.
-  // This is the map of ScrollMarkerGroupData to all scrollers that is the
-  // closest scroller to scroll marker's scroll target (e.g. scroll marker is <a
-  // href="#target"> then scroll target is some element with id="target" and
-  // scroller is closest ancestor scroller of scroll target).
-  // It's needed to subscribe ScrollMarkerGroupData to changes in scrollers.
-  HeapHashMap<Member<ScrollMarkerGroupData>,
-              HeapHashSet<Member<PaintLayerScrollableArea>>>
-      scroll_target_group_to_scrollable_areas_;
-
   // For rendering media URLs in a top-level context that use the
   // Content-Security-Policy header to sandbox their content. This causes
   // access-controlled media to not load when it is the top-level URL when
@@ -3440,40 +3185,14 @@ class CORE_EXPORT Document : public ContainerNode,
 #endif
 
   bool responsive_embedded_sizing_ = false;
+  bool text_scale_meta_tag_present_ = false;
 
-  Member<AnchorElementMetricsSender> anchor_element_metrics_sender_;
-  Member<AnchorElementViewportPositionTracker>
-      anchor_element_viewport_position_tracker_;
-  Member<AnnotationAgentContainerImpl> annotation_agent_container_impl_;
-  Member<CSSSelectorWatch> css_selector_watch_;
-  Member<DocumentFencedFrames> document_fenced_frames_;
-  Member<DocumentParserTiming> document_parser_timing_;
-  Member<DocumentSpeculationRules> document_speculation_rules_;
-  ForwardDeclaredMember<DocumentStorageAccess> document_storage_access_;
-  Member<DocumentXPathEvaluator> document_xpath_evaluator_;
-  Member<DocumentXSLT> document_xslt_;
-  Member<FontFaceSetDocument> font_face_set_document_;
-  Member<InteractiveDetector> interactive_detector_;
-  Member<PaintTiming> paint_timing_;
-  Member<PatchSupplement> patch_supplement_;
-  Member<PictureInPictureController> picture_in_picture_controller_;
-  Member<RenderBlockingMetricsReporter> render_blocking_metrics_reporter_;
-  Member<RouteMap> route_map_;
-  ForwardDeclaredMember<TransferToGPUTextureInvokedSupplement>
-      transfer_to_gpu_texture_invoked_supplement_;
-  ForwardDeclaredMember<AIPageContentAgent> ai_page_content_agent_;
-  ForwardDeclaredMember<BrowsingTopicsDocumentSupplement>
-      browsing_topics_document_supplement_;
-  ForwardDeclaredMember<CredentialMetrics> credential_metrics_;
-  ForwardDeclaredMember<DisabledAccelerationCounterSupplement>
-      disabled_acceleration_counter_supplement_;
-  ForwardDeclaredMember<DocumentMetadataServer> document_metadata_server_;
-  ForwardDeclaredMember<FrameMetadataObserverRegistry>
-      frame_metadata_observer_registry_;
-  ForwardDeclaredMember<InnerHtmlAgent> inner_html_agent_;
-  ForwardDeclaredMember<InnerTextAgent> inner_text_agent_;
-  ForwardDeclaredMember<RTCPeerConnectionController>
-      rtc_peer_connection_controller_;
+  // A map of idrefs that have been identified by commandfor with an overscroll
+  // related command (e.g. toggle-overscroll). This determines a
+  // :-internal-overscroll-target pseudo class. Whenever adding or removing
+  // entries here, the element identified by the target needs to invalidate that
+  // pseudo class.
+  HashCountedSet<AtomicString> overscroll_command_targets_;
 
   // If you want to add new data members to blink::Document, please reconsider
   // if the members really should be in blink::Document.  document.h is a very
@@ -3488,6 +3207,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // If you need to add new data members to blink::Document and it requires new
   // #includes, add them to blink::DocumentData instead.
 };
+
+extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Document>;
 
 inline void Document::ScheduleLayoutTreeUpdateIfNeeded() {
   // Inline early out to avoid the function calls below.

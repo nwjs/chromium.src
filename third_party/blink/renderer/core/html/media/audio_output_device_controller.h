@@ -7,11 +7,15 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
-class CORE_EXPORT AudioOutputDeviceController : public GarbageCollectedMixin {
+class CORE_EXPORT AudioOutputDeviceController
+    : public Supplement<HTMLMediaElement> {
  public:
+  static const char kSupplementName[];
+
   static AudioOutputDeviceController* From(HTMLMediaElement&);
 
   virtual void SetSinkId(const String&) = 0;
@@ -23,8 +27,6 @@ class CORE_EXPORT AudioOutputDeviceController : public GarbageCollectedMixin {
 
   // To be called by the implementation to register itself.
   static void ProvideTo(HTMLMediaElement&, AudioOutputDeviceController*);
-
-  Member<HTMLMediaElement> html_media_element_;
 };
 
 }  // namespace blink

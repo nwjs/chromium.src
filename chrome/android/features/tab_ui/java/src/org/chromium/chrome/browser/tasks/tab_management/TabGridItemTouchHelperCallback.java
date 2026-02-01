@@ -30,7 +30,6 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
@@ -152,7 +151,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
      */
     void setOnLongPressTabItemEventListener(@Nullable OnLongPressTabItemEventListener listener) {
         assert mTabGridItemLongPressOrchestrator == null;
-        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled() && listener != null) {
+        if (listener != null) {
             setTabGridItemLongPressOrchestrator(
                     new TabGridItemLongPressOrchestrator(
                             mRecyclerViewSupplier,
@@ -190,6 +189,22 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
                         | ItemTouchHelper.END
                         | ItemTouchHelper.UP
                         | ItemTouchHelper.DOWN;
+    }
+
+    /** Resets the state of any selected and highlighted cards. */
+    public void clearCardState() {
+        if (mSelectedTabIndex != TabModel.INVALID_TAB_INDEX) {
+            mModel.updateSelectedCardForSelection(mSelectedTabIndex, false);
+            mSelectedTabIndex = TabModel.INVALID_TAB_INDEX;
+        }
+        if (mHoveredTabIndex != TabModel.INVALID_TAB_INDEX) {
+            mModel.updateHoveredCardForHover(mHoveredTabIndex, false);
+            mHoveredTabIndex = TabModel.INVALID_TAB_INDEX;
+        }
+        if (mPreviousArchivedMessageCardIndex != TabModel.INVALID_TAB_INDEX) {
+            mModel.updateHoveredCardForHover(mPreviousArchivedMessageCardIndex, false);
+            mPreviousArchivedMessageCardIndex = TabModel.INVALID_TAB_INDEX;
+        }
     }
 
     boolean isMessageType(RecyclerView.@Nullable ViewHolder viewHolder) {
@@ -589,7 +604,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
 
         mCurrentActionState = actionState;
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && mActionsOnAllRelatedTabs) {
-            int prev_hovered = mHoveredTabIndex;
+            int prevHovered = mHoveredTabIndex;
             mHoveredTabIndex =
                     TabListRecyclerView.getHoveredCardIndex(
                             recyclerView, viewHolder.itemView, dX, dY, mMergeThreshold);
@@ -607,8 +622,8 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             } else {
                 mHoveredTabIndex = TabModel.INVALID_TAB_INDEX;
             }
-            if (prev_hovered != mHoveredTabIndex) {
-                mModel.updateHoveredCardForHover(prev_hovered, false);
+            if (prevHovered != mHoveredTabIndex) {
+                mModel.updateHoveredCardForHover(prevHovered, false);
             }
         } else if (actionState == ItemTouchHelper.ACTION_STATE_DRAG
                 && mTabGridDialogHandler != null) {
@@ -632,8 +647,6 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
     }
 
     private void handleHoverForArchiveMessage(RecyclerView recyclerView) {
-        if (!ChromeFeatureList.sTabArchivalDragDropAndroid.isEnabled()) return;
-
         SimpleRecyclerViewAdapter.ViewHolder hoveredViewHolder =
                 (SimpleRecyclerViewAdapter.ViewHolder)
                         recyclerView.findViewHolderForAdapterPosition(mHoveredTabIndex);
@@ -672,12 +685,6 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
         if (tab == null) return false;
 
         Token groupId = tab.getTabGroupId();
-
-        // Tab groups can only be archived when this feature is enabled.
-        if (groupId != null
-                && !ChromeFeatureList.sAndroidTabDeclutterArchiveTabGroups.isEnabled()) {
-            return false;
-        }
 
         // Check if the tab is in a shared group.
         return groupId == null || !hasCollaboration(tabToBeArchived);

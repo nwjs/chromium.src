@@ -25,7 +25,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/glic_button.h"
 #include "chrome/common/chrome_features.h"
@@ -260,9 +260,8 @@ class ContextSharingBorderViewUiTestBase : public test::InteractiveGlicTest {
     RunTestSequence(
         // See https://crrev.com/c/6373789: the glic window is in detach mode by
         // default.
-        OpenGlicWindow(GlicWindowMode::kDetached),
-        ExecuteJsAt(test::kGlicContentsElementId,
-                    kContextAccessIndicatorCheckBox, kClickFn));
+        OpenGlic(), ExecuteJsAt(test::kGlicContentsElementId,
+                                kContextAccessIndicatorCheckBox, kClickFn));
   }
 
   void CloseGlicWindow() {
@@ -1000,7 +999,7 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewWithActorGlowUiTest,
   auto* actor_keyed_service =
       actor::ActorKeyedService::Get(browser()->profile());
   ASSERT_TRUE(actor_keyed_service);
-  actor_keyed_service->GetPolicyChecker().SetActOnWebForTesting(true);
+  actor_keyed_service->GetPolicyChecker().set_act_on_web_for_testing(true);
 
   // Create a new task.
   const actor::TaskId task_id = actor_keyed_service->CreateTask();
@@ -1064,7 +1063,7 @@ IN_PROC_BROWSER_TEST_F(
   auto* actor_keyed_service =
       actor::ActorKeyedService::Get(browser()->profile());
   ASSERT_TRUE(actor_keyed_service);
-  actor_keyed_service->GetPolicyChecker().SetActOnWebForTesting(true);
+  actor_keyed_service->GetPolicyChecker().set_act_on_web_for_testing(true);
 
   // Create a new task.
   const actor::TaskId task_id = actor_keyed_service->CreateTask();
@@ -1401,20 +1400,7 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, MinimizeRestore) {
   EXPECT_TRUE(border->IsShowing());
 }
 
-class ContextSharingBorderViewSideBySideUiTest
-    : public ContextSharingBorderViewUiTest {
- public:
-  ContextSharingBorderViewSideBySideUiTest() {
-    feature_list_.InitAndEnableFeature(features::kSideBySide);
-  }
-  ~ContextSharingBorderViewSideBySideUiTest() override = default;
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewSideBySideUiTest,
-                       BasicVisiblity) {
+IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, BasicVisiblity) {
   if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
     // TODO(b/453696965): Broken in multi-instance.
     GTEST_SKIP() << "Skipping for kGlicMultiInstance";

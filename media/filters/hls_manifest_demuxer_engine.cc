@@ -183,14 +183,12 @@ HlsManifestDemuxerEngine::~HlsManifestDemuxerEngine() = default;
 HlsManifestDemuxerEngine::HlsManifestDemuxerEngine(
     base::SequenceBound<HlsDataSourceProvider> dsp,
     scoped_refptr<base::SequencedTaskRunner> media_task_runner,
-    base::RepeatingCallback<void(const MediaTrack&)> add_track,
-    base::RepeatingCallback<void(const MediaTrack&)> remove_track,
+    std::unique_ptr<TrackManager> track_manager,
     bool was_already_tainted,
     GURL root_playlist_uri,
     MediaLog* media_log)
     : media_task_runner_(std::move(media_task_runner)),
-      add_track_(std::move(add_track)),
-      remove_track_(std::move(remove_track)),
+      track_manager_(std::move(track_manager)),
       root_playlist_uri_(std::move(root_playlist_uri)),
       media_log_(media_log->Clone()),
       network_access_(std::make_unique<HlsNetworkAccessImpl>(std::move(dsp))),
@@ -423,8 +421,6 @@ void HlsManifestDemuxerEngine::OnTimeUpdateAction(
     double playback_rate,
     ManifestDemuxer::DelayCallback cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  TRACE_EVENT_BEGIN("media", "HLS::OnTimeUpdate",
-                    perfetto::Track::FromPointer(this));
   cb = base::BindOnce(&HlsManifestDemuxerEngine::FinishTimeUpdate,
                       weak_factory_.GetWeakPtr(), std::move(cb));
   for (const auto& [role, _] : renditions_) {
@@ -439,7 +435,6 @@ void HlsManifestDemuxerEngine::FinishTimeUpdate(
     ManifestDemuxer::DelayCallback cb,
     base::TimeDelta delay_time) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
   std::move(cb).Run(std::move(delay_time));
 }
 
@@ -492,8 +487,6 @@ void HlsManifestDemuxerEngine::UpdateRenditionManifestUri(
     GURL uri,
     HlsDemuxerStatusCallback cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  TRACE_EVENT_BEGIN("media", "HLS::UpdateRenditionManifest",
-                    perfetto::Track::FromPointer(this), "uri", uri);
   GURL uri_copy = uri;
   ReadManifest(
       std::move(uri_copy),
@@ -538,7 +531,6 @@ void HlsManifestDemuxerEngine::UpdateMediaPlaylistForRole(
                        std::move(error).AddHere()});
     return;
   }
-  TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
 
   renditions_[role]->UpdatePlaylist(std::move(maybe_playlist).value());
   std::move(cb).Run(OkStatus());
@@ -550,7 +542,6 @@ void HlsManifestDemuxerEngine::OnRenditionsReselected(
     std::optional<hls::RenditionGroup::RenditionTrack> primary,
     std::optional<hls::RenditionGroup::RenditionTrack> extra) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  stats_reporter_.OnAdaptation(reason);
   ProcessAsyncAction<HlsDemuxerStatus>(
       base::BindOnce(&HlsManifestDemuxerEngine::CheckActionState,
                      weak_factory_.GetWeakPtr()),
@@ -565,8 +556,6 @@ void HlsManifestDemuxerEngine::AdaptationAction(
     std::optional<hls::RenditionGroup::RenditionTrack> extra,
     HlsDemuxerStatusCallback cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  TRACE_EVENT_BEGIN("media", "HLS::SelectRenditions",
-                    perfetto::Track::FromPointer(this), "reselect", true);
 
   OnRenditionsSelected(std::move(cb), variant, std::move(primary),
                        std::move(extra));
@@ -583,7 +572,6 @@ void HlsManifestDemuxerEngine::UpdateHlsDataSourceStats(
   }
   auto stream = std::move(result).value();
   origin_tainted_ |= stream->would_taint_origin();
-  stats_reporter_.SetWouldTaintOrigin(origin_tainted_);
   total_stream_memory_ = stream->memory_usage();
   std::move(cb).Run(std::move(stream));
 }
@@ -669,7 +657,6 @@ void HlsManifestDemuxerEngine::ParsePlaylist(
             .Run(HlsDemuxerStatus::Codes::kRecursiveMultivariantPlaylists);
         return;
       }
-      stats_reporter_.SetIsMultivariantPlaylist(true);
       auto playlist = hls::MultivariantPlaylist::Parse(
           stream->AsString(), parse_info.uri, (*m_info).version);
       if (!playlist.has_value()) {
@@ -688,7 +675,6 @@ void HlsManifestDemuxerEngine::ParsePlaylist(
         // Only a root playlist is allowed to be multivariant, so if the root
         // is only a media playlist, then this entire playback is not
         // multivariant.
-        stats_reporter_.SetIsMultivariantPlaylist(false);
       }
       auto playlist = ParseMediaPlaylistFromStringSource(
           stream->AsString(), parse_info.uri, (*m_info).version);
@@ -745,8 +731,6 @@ void HlsManifestDemuxerEngine::OnMultivariantPlaylist(
     scoped_refptr<hls::MultivariantPlaylist> playlist) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   CHECK(!rendition_manager_);
-  TRACE_EVENT_BEGIN("media", "HLS::SelectRenditions",
-                    perfetto::Track::FromPointer(this));
   multivariant_root_ = std::move(playlist);
   rendition_manager_ = std::make_unique<hls::RenditionManager>(
       multivariant_root_,
@@ -760,8 +744,6 @@ void HlsManifestDemuxerEngine::OnMultivariantPlaylist(
     std::move(parse_complete_cb).Run(HlsDemuxerStatus::Codes::kNoRenditions);
     return;
   }
-
-  TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
   rendition_manager_->Reselect(
       base::BindOnce(&HlsManifestDemuxerEngine::OnRenditionsSelected,
                      weak_factory_.GetWeakPtr(), std::move(parse_complete_cb)));
@@ -803,8 +785,6 @@ void HlsManifestDemuxerEngine::OnRenditionsSelected(
   std::vector<std::string> no_codecs;
   selected_variant_codecs_ = variant->GetCodecs().value_or(no_codecs);
 
-  TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
-
   if (extra.has_value()) {
     on_complete = BindPlaylistLoader(extra.value(), kAudioOverride,
                                      std::move(on_complete));
@@ -821,8 +801,6 @@ void HlsManifestDemuxerEngine::LoadPlaylist(
     HlsDemuxerStatusCallback on_complete) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   auto uri = parse_info.uri;
-  TRACE_EVENT_BEGIN("media", "HLS::LoadPlaylist",
-                    perfetto::Track::FromPointer(this), "uri", uri);
   ReadManifest(std::move(uri),
                base::BindOnce(&HlsManifestDemuxerEngine::ParsePlaylist,
                               weak_factory_.GetWeakPtr(),
@@ -842,14 +820,11 @@ void HlsManifestDemuxerEngine::OnMediaPlaylist(
   if (maybe_exists != renditions_.end()) {
     maybe_exists->second->UpdatePlaylistURI(parse_info.uri);
     maybe_exists->second->UpdatePlaylist(std::move(playlist));
-    TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
     std::move(parse_complete_cb).Run(OkStatus());
     return;
   }
 
   hls::MediaPlaylist* playlist_ptr = playlist.get();
-  TRACE_EVENT_BEGIN("media", "HLS::DetermineStreamContainerAndCodecs",
-                    perfetto::Track::FromPointer(this));
   DetermineStreamContainer(
       playlist_ptr,
       base::BindOnce(&HlsManifestDemuxerEngine::OnStreamContainerDetermined,
@@ -895,14 +870,7 @@ void HlsManifestDemuxerEngine::OnStreamContainerDetermined(
   }
 
   is_seekable_ = seekable;
-  stats_reporter_.SetIsLiveContent(!seekable);
   renditions_[parse_info.role] = std::move(rendition);
-  TRACE_EVENT_END(
-      "media",
-      /*HLS::DetermineStreamContainerAndCodecs */ perfetto::Track::FromPointer(
-          this));
-  TRACE_EVENT_END("media",
-                  /* HLS::LoadPlaylist */ perfetto::Track::FromPointer(this));
   std::move(parse_complete_cb).Run(OkStatus());
 }
 
@@ -938,9 +906,6 @@ void HlsManifestDemuxerEngine::DetermineStreamContainer(
   if (mime.has_value()) {
     std::move(container_cb).Run(mime.value());
   } else {
-    TRACE_EVENT_BEGIN("media", "HLS::PeekSegmentChunk",
-                      perfetto::Track::FromPointer(this), "uri",
-                      segments[0]->GetUri());
     bool read_chunked = true;
     if (auto enc_data = segments[0]->GetEncryptionData()) {
       switch (enc_data->GetMethod()) {
@@ -967,8 +932,6 @@ void HlsManifestDemuxerEngine::DetermineBitstreamContainer(
     HlsDemuxerStatusCb<RelaxedParserSupportedType> cb,
     HlsDataSourceProvider::ReadResult maybe_stream) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
-  TRACE_EVENT_END(
-      "media", /* HLS::PeekSegmentChunk */ perfetto::Track::FromPointer(this));
 
   if (!maybe_stream.has_value()) {
     std::move(cb).Run(HlsDemuxerStatusTraits::FromReadStatus(

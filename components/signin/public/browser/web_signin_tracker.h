@@ -6,6 +6,7 @@
 #define COMPONENTS_SIGNIN_PUBLIC_BROWSER_WEB_SIGNIN_TRACKER_H_
 
 #include <optional>
+#include <string>
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
@@ -40,7 +41,7 @@ class WebSigninTracker : public IdentityManager::Observer,
 
   WebSigninTracker(IdentityManager* identity_manager,
                    AccountReconcilor* account_reconcilor,
-                   CoreAccountId signin_account,
+                   std::variant<CoreAccountId, std::string> signin_account,
                    base::OnceCallback<void(Result)> callback,
                    std::optional<base::TimeDelta> timeout = std::nullopt);
 
@@ -60,16 +61,29 @@ class WebSigninTracker : public IdentityManager::Observer,
 
  private:
   void OnTimeoutReached();
+
+  // Searches for the requested account among valid cookie accounts and calls
+  // `FinishWithResult` if found. Returns whether the requested account was
+  // found.
+  bool FinishIfRequestedAccountPresentInCookies(
+      const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info);
+
   void FinishWithResult(WebSigninTracker::Result result);
+  bool MatchesRequestedAccount(const CoreAccountId& account_id,
+                               const std::string& account_email);
 
   const raw_ptr<IdentityManager> identity_manager_;
-  CoreAccountId signin_account_;
+  const raw_ptr<AccountReconcilor> account_reconcilor_;
+  // Holds either the CoreAccountId of the signed-in account, or the email
+  // address of the account has not been made available in IdentityManager yet.
+  std::variant<CoreAccountId, std::string> signin_account_;
   base::OnceCallback<void(Result)> callback_;
   base::ScopedObservation<IdentityManager, IdentityManager::Observer>
       identity_manager_observation_{this};
   base::ScopedObservation<AccountReconcilor, AccountReconcilor::Observer>
       account_reconcilor_observation_{this};
   base::OneShotTimer timeout_timer_;
+  base::TimeTicks web_signin_tracker_start_time_;
 };
 
 }  // namespace signin

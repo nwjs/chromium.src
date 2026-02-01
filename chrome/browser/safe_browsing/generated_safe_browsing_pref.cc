@@ -4,7 +4,8 @@
 
 #include "chrome/browser/safe_browsing/generated_safe_browsing_pref.h"
 
-#include "base/types/cxx23_to_underlying.h"
+#include <utility>
+
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/settings_private.h"
 #include "components/prefs/pref_service.h"
@@ -13,27 +14,7 @@
 namespace settings_api = extensions::api::settings_private;
 
 namespace safe_browsing {
-namespace {
-
-const SafeBrowsingState kStandardSecurityBundleDefault =
-    SafeBrowsingState::STANDARD_PROTECTION;
-const SafeBrowsingState kEnhancedSecurityBundleDefault =
-    SafeBrowsingState::ENHANCED_PROTECTION;
-
-}  // anonymous namespace
-
 const char kGeneratedSafeBrowsingPref[] = "generated.safe_browsing";
-
-// static
-SafeBrowsingState GeneratedSafeBrowsingPref::GetDefault(
-    SecuritySettingsBundleSetting bundle_setting) {
-  switch (bundle_setting) {
-    case SecuritySettingsBundleSetting::STANDARD:
-      return kStandardSecurityBundleDefault;
-    case SecuritySettingsBundleSetting::ENHANCED:
-      return kEnhancedSecurityBundleDefault;
-  }
-}
 
 GeneratedSafeBrowsingPref::GeneratedSafeBrowsingPref(Profile* profile)
     : profile_(profile) {
@@ -185,9 +166,9 @@ void GeneratedSafeBrowsingPref::ApplySafeBrowsingManagementState(
 
     pref_object.user_selectable_values.emplace();
     pref_object.user_selectable_values->Append(
-        base::to_underlying(SafeBrowsingState::STANDARD_PROTECTION));
+        std::to_underlying(SafeBrowsingState::STANDARD_PROTECTION));
     pref_object.user_selectable_values->Append(
-        base::to_underlying(SafeBrowsingState::NO_SAFE_BROWSING));
+        std::to_underlying(SafeBrowsingState::NO_SAFE_BROWSING));
   }
 }
 

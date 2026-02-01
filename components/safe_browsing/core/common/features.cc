@@ -86,12 +86,6 @@ const base::FeatureParam<double> kCsdCreditCardFormSampleRate{
 const base::FeatureParam<int> kCsdCreditCardFormMaxUserVisit{
     &kClientSideDetectionCreditCardForm, "MaxUserVisit",
     /*default_value=*/1};
-const base::FeatureParam<bool> kCsdCreditCardFormPingOnDetection{
-    &kClientSideDetectionCreditCardForm, "PingOnDetection",
-    /*default_value=*/false};
-const base::FeatureParam<bool> kCsdCreditCardFormPingOnInteraction{
-    &kClientSideDetectionCreditCardForm, "PingOnInteraction",
-    /*default_value=*/false};
 const base::FeatureParam<bool> kCsdCreditCardFormEnableNewSiteFilter{
     &kClientSideDetectionCreditCardForm, "EnableNewSiteFilter",
     /*default_value=*/false};
@@ -104,6 +98,12 @@ const base::FeatureParam<bool> kCsdCreditCardFormEnableReferringAppFilter{
 
 BASE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClientSideDetectionImageEmbeddingMatch,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kCsdImageEmbeddingMatchWithIntelligentScan{
+    &kClientSideDetectionImageEmbeddingMatch,
+    "CsdImageEmbeddingMatchWithIntelligentScan", /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionKillswitch, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -128,6 +128,15 @@ BASE_FEATURE(kClientSideDetectionSendIntelligentScanInfoAndroid,
 BASE_FEATURE(kClientSideDetectionSendLlamaForcedTriggerInfo,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int> kClientSideDetectionServerModelMaxScansPerDay{
+    &kClientSideDetectionServerModelForScamDetectionAndroid,
+    "MaxIntelligentScansPerDay",
+    /*default_value=*/5};
+#endif
+
 BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -135,6 +144,9 @@ BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
 BASE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kClientSideDetectionSkipErrorPage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionVibrationApi,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -187,31 +199,15 @@ BASE_FEATURE(kEnterpriseFileSystemAccessDeepScan,
 BASE_FEATURE(kEnterprisePasswordReuseUiRefresh,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEsbAsASyncedSetting,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+BASE_FEATURE(kEsbAsASyncedSetting, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtendedReportingRemovePrefDependency,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kExtendedReportingRemovePrefDependencyIos,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             "ExtendedReportingRemovePrefDependency",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionTelemetryConfiguration,
              "SafeBrowsingExtensionTelemetryConfiguration",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kExtensionTelemetryDeclarativeNetRequestActionSignal,
-             "SafeBrowsingExtensionTelemetryDeclarativeNetRequestActionSignal",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions,
-             "SafeBrowsingExtensionTelemetryFileDataForCommandLineExtensions",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionTelemetrySearchHijackingSignal,
              "SafeBrowsingExtensionTelemetrySearchHijackingSignal",
@@ -258,10 +254,10 @@ constexpr base::FeatureParam<std::string> kHashPrefixRealTimeLookupsKeyFetchUrl{
 
 BASE_FEATURE(kHashPrefixRealTimeLookupsSamplePing,
              "SafeBrowsingHashPrefixRealTimeLookupsSamplePing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int> kHashPrefixRealTimeLookupsSampleRate{
     &kHashPrefixRealTimeLookupsSamplePing,
-    "HashPrefixRealTimeLookupsSampleRate", /*default_value=*/100};
+    "HashPrefixRealTimeLookupsSampleRate", /*default_value=*/5};
 
 BASE_FEATURE(kLocalListsUseSBv5,
              "SafeBrowsingLocalListsUseSBv5",
@@ -285,14 +281,26 @@ constexpr base::FeatureParam<std::string>
                                                  /*default_value=*/""};
 #endif
 
+BASE_FEATURE(kMigrateEnhancedSbUserToEnhancedBundle,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMigrateToBlockV8OptimizerOnUnfamiliarSites,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kModifiedESBFetchErrorHandling, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMovePasswordLeakDetectionToggleIos,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kNoticeQueueForEsb, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNotificationTelemetry, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNotificationTelemetrySwb, base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<double>
+    kNotificationTelemetrySwbReportingProbability{
+        &kNotificationTelemetrySwb,
+        "NotificationTelemetrySwbReportingProbability", /*default_value=*/1.0};
 constexpr base::FeatureParam<bool> kNotificationTelemetrySwbSendReports{
     &kNotificationTelemetrySwb, "NotificationTelemetrySwbSendReports",
     /*default_value=*/true};
@@ -381,6 +389,7 @@ base::Value::List GetFeatureStatusList() {
       &kBundledSecuritySettings,
       &kClientSideDetectionClipboardCopyApi,
       &kClientSideDetectionForcedLlamaRedirectChainKillswitch,
+      &kClientSideDetectionImageEmbeddingMatch,
       &kClientSideDetectionKillswitch,
       &kClientSideDetectionRedirectChainKillswitch,
       &kCreateNotificationsAcceptedClientSafeBrowsingReports,
@@ -390,10 +399,10 @@ base::Value::List GetFeatureStatusList() {
       &kEnhancedSafeBrowsingPromo,
       &kEnterprisePasswordReuseUiRefresh,
       &kEsbAsASyncedSetting,
-      &kExtensionTelemetryDeclarativeNetRequestActionSignal,
       &kExternalAppRedirectTelemetry,
       &kHashPrefixRealTimeLookups,
       &kLocalListsUseSBv5,
+      &kMigrateEnhancedSbUserToEnhancedBundle,
       &kNotificationTelemetrySwb,
       &kReportNotificationContentDetectionData,
       &kShowManualNotificationRevocationsSafetyHub,

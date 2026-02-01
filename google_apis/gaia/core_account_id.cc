@@ -5,7 +5,6 @@
 #include "google_apis/gaia/core_account_id.h"
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/containers/to_vector.h"
 #include "build/build_config.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -20,7 +19,7 @@ namespace {
 // Returns whether the string looks like an email (the test is
 // crude an only checks whether it includes an '@').
 bool IsEmailString(const std::string& string) {
-  return base::Contains(string, '@');
+  return string.contains('@');
 }
 }  // anonymous namespace
 
@@ -38,8 +37,9 @@ CoreAccountId& CoreAccountId::operator=(CoreAccountId&&) noexcept = default;
 
 // static
 CoreAccountId CoreAccountId::FromGaiaId(const GaiaId& gaia_id) {
-  if (gaia_id.empty())
+  if (gaia_id.empty()) {
     return CoreAccountId();
+  }
 
   DCHECK(!IsEmailString(gaia_id.ToString()))
       << "Expected a Gaia ID and got an email [actual = " << gaia_id << "]";
@@ -48,8 +48,9 @@ CoreAccountId CoreAccountId::FromGaiaId(const GaiaId& gaia_id) {
 
 // static
 CoreAccountId CoreAccountId::FromRobotEmail(const std::string& robot_email) {
-  if (robot_email.empty())
+  if (robot_email.empty()) {
     return CoreAccountId();
+  }
   DCHECK(gaia::IsGoogleRobotAccountEmail(robot_email))
       << "Not a valid robot email [robot_email = " << robot_email << "]";
   return CoreAccountId::FromString(robot_email);
@@ -58,8 +59,9 @@ CoreAccountId CoreAccountId::FromRobotEmail(const std::string& robot_email) {
 #if BUILDFLAG(IS_CHROMEOS)
 // static
 CoreAccountId CoreAccountId::FromEmail(const std::string& email) {
-  if (email.empty())
+  if (email.empty()) {
     return CoreAccountId();
+  }
 
   DCHECK(IsEmailString(email))
       << "Expected an email [actual = " << email << "]";

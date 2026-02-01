@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <limits>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -22,7 +23,7 @@ namespace {
 
 TEST(AbslHardeningTest, Optional) {
   absl::optional<int> optional;
-  EXPECT_DEATH_IF_SUPPORTED(*optional, "");
+  EXPECT_DEATH_IF_SUPPORTED(std::ignore = *optional, "");
 }
 
 TEST(AbslHardeningTest, StringView) {
@@ -73,8 +74,8 @@ TEST(AbslHardeningTest, Span) {
 
 TEST(AbslHardeningTest, Variant) {
   absl::variant<int, std::string> variant = 5;
-  EXPECT_DEATH_IF_SUPPORTED(absl::get<std::string>(variant), "");
-  EXPECT_DEATH_IF_SUPPORTED(absl::get<1>(variant), "");
+  EXPECT_DEATH_IF_SUPPORTED(std::ignore = absl::get<std::string>(variant), "");
+  EXPECT_DEATH_IF_SUPPORTED(std::ignore = absl::get<1>(variant), "");
 }
 
 }  // namespace

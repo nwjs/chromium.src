@@ -33,6 +33,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/strings/string_view_util.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/integer_to_string_conversion.h"
@@ -188,8 +189,7 @@ class WTF_EXPORT String {
   // This function should be removed after enabling C++23 because
   // std::u16string_view(Span16()) will work with C++23.
   std::u16string_view View16() const LIFETIME_BOUND {
-    auto chars = Span16();
-    return std::u16string_view(chars.begin(), chars.end());
+    return base::as_string_view(Span16());
   }
 
   UChar operator[](wtf_size_t index) const {
@@ -595,12 +595,6 @@ inline bool operator==(const char* a, const String& b) {
 
 inline bool EqualIgnoringNullity(const String& a, const String& b) {
   return EqualIgnoringNullity(a.Impl(), b.Impl());
-}
-
-template <wtf_size_t inlineCapacity>
-inline bool EqualIgnoringNullity(const Vector<UChar, inlineCapacity>& a,
-                                 const String& b) {
-  return EqualIgnoringNullity(a, b.Impl());
 }
 
 inline void swap(String& a, String& b) {

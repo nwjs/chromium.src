@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -17,7 +18,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
-#include "base/threading/sequence_bound.h"
 #include "base/trace_event/memory_allocator_dump_guid.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "base/types/pass_key.h"
@@ -62,6 +62,10 @@ class DomStorageDatabaseLevelDB
   DbStatus Put(KeyView key, ValueView value);
   StatusOr<std::vector<KeyValuePair>> GetPrefixed(KeyView prefix) const;
   std::unique_ptr<DomStorageBatchOperationLevelDB> CreateBatchOperation();
+
+  // Like `GetPrefixed()` above, but returns a map of entries with `prefix`
+  // removed from each key.
+  StatusOr<std::map<Key, Value>> GetMapKeyValues(KeyView prefix);
 
   DbStatus RewriteDB();
 

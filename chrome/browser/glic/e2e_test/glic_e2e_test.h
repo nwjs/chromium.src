@@ -70,10 +70,15 @@ class GlicE2ETest : public InteractiveBrowserTestMixin<signin::test::LiveTest> {
   GlicWindowController& window_controller();
   GlicFreController& fre_controller();
   WebPageReplayServerWrapper* web_page_replay_server_wrapper();
+  tabs::TabInterface* active_tab();
 
   GlicE2ETestMode test_mode() const { return test_mode_; }
   bool run_low_bandwidth_tests() { return enable_low_bandwidth_tests_; }
   bool run_actor_tests() const { return running_actor_tests_; }
+
+ protected:
+  // Opt-in flag for using WPR for some requests in real_backend mode.
+  bool use_wpr_for_real_backend_ = false;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;

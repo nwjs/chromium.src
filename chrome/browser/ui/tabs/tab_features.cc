@@ -89,6 +89,7 @@
 #include "components/contextual_tasks/public/features.h"
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
 #include "chrome/browser/wallet/chrome_walletable_pass_client.h"
 #endif
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
@@ -114,7 +115,7 @@
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
-#include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/glic/glic_side_panel_coordinator_impl.h"
 
 #endif
 
@@ -298,10 +299,8 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                       image_fetcher::ImageFetcherConfig::kNetworkOnly),
               side_panel_registry_.get());
 
-      if (base::FeatureList::IsEnabled(privacy_sandbox::kRollBackModeB)) {
-        roll_back_mode_b_infobar_controller_ =
-            std::make_unique<RollBackModeBInfoBarController>(tab.GetContents());
-      }
+      roll_back_mode_b_infobar_controller_ =
+          std::make_unique<RollBackModeBInfoBarController>(tab.GetContents());
     }
 
     contextual_cueing::ContextualCueingHelper::MaybeCreateForWebContents(
@@ -352,8 +351,9 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     if (glic::GlicEnabling::IsMultiInstanceEnabled() &&
         glic::GlicKeyedService::Get(profile)) {
       glic_side_panel_coordinator_ =
-          GetUserDataFactory().CreateInstance<glic::GlicSidePanelCoordinator>(
-              tab, &tab, side_panel_registry_.get());
+          GetUserDataFactory()
+              .CreateInstance<glic::GlicSidePanelCoordinatorImpl>(
+                  tab, &tab, side_panel_registry_.get());
     }
 #endif  // BUILDFLAG(ENABLE_GLIC)
     // TODO(crbug.com/433973411): Move this logic to a helper function.
@@ -363,8 +363,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
       // injection callbacks and as a direct constructor argument.
       actor_ui_tab_controller_ =
           GetUserDataFactory().CreateInstance<actor::ui::ActorUiTabController>(
-              tab, tab, actor::ActorKeyedService::Get(profile),
-              std::make_unique<actor::ui::ActorUiTabControllerFactory>());
+              tab, tab, actor::ActorKeyedService::Get(profile));
     }
     actor_tab_data_ =
         GetUserDataFactory().CreateInstance<actor::ActorTabData>(tab, &tab);
@@ -402,14 +401,15 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   // any potential consumers, like the side panel controller.
   if (features::IsImmersiveReadAnythingEnabled()) {
     read_anything_controller_ =
-        GetUserDataFactory().CreateInstance<ReadAnythingController>(tab, &tab);
+        GetUserDataFactory().CreateInstance<ReadAnythingController>(
+            tab, &tab, side_panel_registry_.get());
+  } else {
+    // TODO(crbug.com/447418049): This will be removed in the future when
+    // ownership of this controller is migrated to ReadAnythingController.
+    read_anything_side_panel_controller_ =
+        std::make_unique<ReadAnythingSidePanelController>(
+            &tab, side_panel_registry_.get());
   }
-
-  // TODO(crbug.com/447418049): This will be removed in the future when
-  // ownership of this controller is migrated to ReadAnythingController.
-  read_anything_side_panel_controller_ =
-      std::make_unique<ReadAnythingSidePanelController>(
-          &tab, side_panel_registry_.get());
 
   // Create the HttpAuthCacheStatus to start observing resource load
   // completions.
@@ -440,7 +440,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   tab_creation_metrics_controller_ =
       std::make_unique<TabCreationMetricsController>(&tab);
 
-  tab_ui_helper_ = std::make_unique<TabUIHelper>(tab);
+  tab_ui_helper_ = GetUserDataFactory().CreateInstance<TabUIHelper>(tab, tab);
 
   task_manager::WebContentsTags::CreateForTabContents(tab.GetContents());
 
@@ -452,6 +452,12 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   if (base::FeatureList::IsEnabled(wallet::kWalletablePassDetection)) {
     walletable_pass_client_ =
         std::make_unique<wallet::ChromeWalletablePassClient>(&tab);
+  }
+
+  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasksContext)) {
+    contextual_tasks_tab_visit_tracker_ =
+        std::make_unique<contextual_tasks::ContextualTasksTabVisitTracker>(
+            tab.GetContents());
   }
 #endif
 
@@ -517,14 +523,22 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
 
   Profile* profile = tab->GetBrowserWindowInterface()->GetProfile();
 
-  // This method is transiently used to reset features that do not handle tab
-  // discarding themselves.
-  read_anything_side_panel_controller_->ResetForTabDiscard();
-  read_anything_side_panel_controller_.reset();
-  read_anything_side_panel_controller_ =
-      std::make_unique<ReadAnythingSidePanelController>(
-          tab, side_panel_registry_.get());
-
+  if (features::IsImmersiveReadAnythingEnabled()) {
+    // TODO(crbug.com/467301642): Handle having the ReadAnythingController
+    // discard internally, rather than having TabFeatures recreate it.
+    read_anything_controller_.reset();
+    read_anything_controller_ =
+        GetUserDataFactory().CreateInstance<ReadAnythingController>(
+            *tab, tab, side_panel_registry_.get());
+  } else {
+    // This method is transiently used to reset features that do not handle tab
+    // discarding themselves.
+    read_anything_side_panel_controller_->ResetForTabDiscard();
+    read_anything_side_panel_controller_.reset();
+    read_anything_side_panel_controller_ =
+        std::make_unique<ReadAnythingSidePanelController>(
+            tab, side_panel_registry_.get());
+  }
   // Deregister side-panel entries that are web-contents scoped rather than tab
   // scoped.
   side_panel_registry_->Deregister(
@@ -583,6 +597,12 @@ TabFeatures::SetCustomizeChromeSidePanelControllerForTesting(
   customize_chrome_side_panel_controller_ =
       std::move(customize_chrome_side_panel_controller);
   return customize_chrome_side_panel_controller_.get();
+}
+
+TabAlertController* TabFeatures::SetTabAlertControllerForTesting(
+    std::unique_ptr<TabAlertController> tab_alert_controller) {
+  tab_alert_controller_ = std::move(tab_alert_controller);
+  return tab_alert_controller_.get();
 }
 
 // static

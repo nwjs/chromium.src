@@ -42,6 +42,7 @@ import("//build_overrides/build.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
 import("//third_party/protobuf/proto_library.gni")
+import("//tools/metrics/generate_allowlist_from_histograms_file.gni")
 
 if (is_ios) {
   # Used to access target_environment and target_platform.
@@ -161,6 +162,14 @@ buildflag_header("ios_cronet_buildflags") {
 
 use_epoll = is_linux || is_chromeos || is_android
 
+generate_allowlist_from_histograms_file("memory_dump_provider_name_variants") {
+  namespace = "trace_event_metrics"
+  input_xml_file = "//tools/metrics/histograms/metadata/memory/histograms.xml"
+  output_file = "trace_event/memory_dump_provider_name_variants.h"
+  tag = "variant"
+  allow_list_name = "MemoryDumpProviderName"
+}
+
 # Base and everything it depends on should be a static library rather than
 # a source set. Base is more of a "library" in the classic sense in that many
 # small parts of it are used in many different contexts. This combined with a
@@ -228,7 +237,6 @@ component("base") {
     "check_op.h",
     "command_line.cc",
     "command_line.h",
-    "compiler_specific.h",
     "component_export.h",
     "containers/adapters.h",
     "containers/adapters_internal.h",
@@ -324,6 +332,7 @@ component("base") {
     "functional/concurrent_closures.h",
     "functional/disallow_unretained.h",
     "functional/function_ref.h",
+    "functional/is_callback.h",
     "functional/unretained_traits.h",
     "gtest_prod_util.h",
     "hash/hash.cc",
@@ -627,8 +636,6 @@ component("base") {
     "strings/durable_string_view.h",
     "strings/escape.cc",
     "strings/escape.h",
-    "strings/latin1_string_conversions.cc",
-    "strings/latin1_string_conversions.h",
     "strings/lazy_string_builder.cc",
     "strings/lazy_string_builder.h",
     "strings/levenshtein_distance.cc",
@@ -925,11 +932,12 @@ component("base") {
     "trace_event/named_trigger.h",
     "trace_event/trace_id_helper.cc",
     "trace_event/trace_id_helper.h",
+    "trace_event/trace_session_observer.cc",
+    "trace_event/trace_session_observer.h",
     "traits_bag.h",
     "tuple.h",
     "types/cxx23_from_range.h",
-    "types/cxx23_is_scoped_enum.h",
-    "types/cxx23_to_underlying.h",
+    "types/cxx26_projected_value_t.h",
     "types/expected.h",
     "types/expected_internal.h",
     "types/expected_macros.h",
@@ -1069,6 +1077,7 @@ component("base") {
 
   deps = [
     ":check_version_internal",
+    ":simdutf_shim",
     "//base/allocator:buildflags",
     "//base/third_party/cityhash",
     "//base/third_party/cityhash_v103",
@@ -2040,6 +2049,7 @@ component("base") {
       "apple/scoped_objc_class_swizzler.h",
       "apple/scoped_objc_class_swizzler.mm",
       "apple/scoped_typeref.h",
+      "apple/swift_interop_util.h",
       "file_version_info_apple.h",
       "file_version_info_apple.mm",
       "files/file_util_apple.mm",
@@ -2426,7 +2436,6 @@ component("base") {
   }
 
   sources += [
-    "trace_event/auto_open_close_event.h",
     "trace_event/builtin_categories.h",
     "trace_event/heap_profiler.h",
     "trace_event/interned_args_helper.cc",
@@ -2435,6 +2444,8 @@ component("base") {
     "trace_event/log_message.h",
     "trace_event/malloc_dump_provider.cc",
     "trace_event/malloc_dump_provider.h",
+    "trace_event/measured_memory_dump_provider_info.cc",
+    "trace_event/measured_memory_dump_provider_info.h",
     "trace_event/memory_allocator_dump.cc",
     "trace_event/memory_allocator_dump.h",
     "trace_event/memory_dump_manager.cc",
@@ -2491,6 +2502,8 @@ component("base") {
   ]
 
   public_deps += [
+    ":compiler_specific",
+    ":memory_dump_provider_name_variants",
     "//base/tracing/protos:chrome_track_event_zero",
     "//third_party/perfetto:libperfetto",
   ]
@@ -2515,8 +2528,6 @@ component("base") {
     sources += [
       "trace_event/application_state_proto_android.cc",
       "trace_event/application_state_proto_android.h",
-      "trace_event/cpufreq_monitor_android.cc",
-      "trace_event/cpufreq_monitor_android.h",
       "trace_event/java_heap_dump_provider_android.cc",
       "trace_event/java_heap_dump_provider_android.h",
     ]
@@ -2539,6 +2550,29 @@ component("base") {
     configs -= [ "//build/config/compiler:default_optimization" ]
     configs += [ "//build/config/compiler:optimize_max" ]
   }
+}
+
+# A separate source_set for this header to avoid circular dependencies.
+source_set("compiler_specific") {
+  public = [ "compiler_specific.h" ]
+}
+
+# Separate simdutf from ":base", so simdutf cannot accidentally affect the
+# build config for ":base".
+source_set("simdutf_shim") {
+  visibility = [ ":base" ]
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config/compiler:wglobal_constructors",
+  ]
+  if (!is_win) {
+    # Generates -Werror,-Wsign-conversion
+    configs += [ "//build/config/compiler:prevent_unsafe_narrowing" ]
+  }
+
+  public = [ "simdutf_shim.h" ]
+  sources = [ "simdutf_shim.cc" ]
+  deps = [ "//third_party/simdutf" ]
 }
 
 if (is_android) {
@@ -2623,6 +2657,7 @@ if (is_linux || is_chromeos) {
     ]
 
     deps = [
+      ":compiler_specific",
       "//base/allocator/partition_allocator:raw_ptr",
       "//base/numerics:base_numerics",
       "//base/third_party/symbolize",
@@ -3467,6 +3502,7 @@ test("base_unittests") {
     "functional/concurrent_callbacks_unittest.cc",
     "functional/concurrent_closures_unittest.cc",
     "functional/function_ref_unittest.cc",
+    "functional/is_callback_unittest.cc",
     "gmock_unittest.cc",
     "hash/hash_unittest.cc",
     "hash/legacy_hash_unittest.cc",
@@ -3748,8 +3784,6 @@ test("base_unittests") {
     "tools_sanity_unittest.cc",
     "traits_bag_unittest.cc",
     "tuple_unittest.cc",
-    "types/cxx23_is_scoped_enum_unittest.cc",
-    "types/cxx23_to_underlying_unittest.cc",
     "types/expected_macros_unittest.cc",
     "types/expected_unittest.cc",
     "types/fixed_array_unittest.cc",
@@ -4362,10 +4396,7 @@ test("base_unittests") {
   ]
 
   if (is_android) {
-    sources += [
-      "trace_event/cpufreq_monitor_android_unittest.cc",
-      "trace_event/java_heap_dump_provider_android_unittest.cc",
-    ]
+    sources += [ "trace_event/java_heap_dump_provider_android_unittest.cc" ]
   }
 
   if (is_win) {
@@ -4800,6 +4831,7 @@ if (is_android) {
       ":pii_elider_java",
       ":promise_java",
       ":resetters_java",
+      ":screen_off_broadcast_receiver_java",
       ":stream_util_java",
       ":supplier_java",
       ":sys_utils_java",
@@ -5033,18 +5065,24 @@ if (is_android) {
 
   android_library("supplier_java") {
     sources = [
+      "android/java/src/org/chromium/base/supplier/BaseObservableSupplierImpl.java",
       "android/java/src/org/chromium/base/supplier/LazyOneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/LazyOneshotSupplierImpl.java",
+      "android/java/src/org/chromium/base/supplier/NonNullObservableSupplier.java",
+      "android/java/src/org/chromium/base/supplier/NullableObservableSupplier.java",
       "android/java/src/org/chromium/base/supplier/ObservableSupplier.java",
       "android/java/src/org/chromium/base/supplier/ObservableSupplierImpl.java",
+      "android/java/src/org/chromium/base/supplier/ObservableSuppliers.java",
       "android/java/src/org/chromium/base/supplier/OneShotCallback.java",
       "android/java/src/org/chromium/base/supplier/OneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/OneshotSupplierImpl.java",
+      "android/java/src/org/chromium/base/supplier/SettableNonNullObservableSupplier.java",
+      "android/java/src/org/chromium/base/supplier/SettableNullableObservableSupplier.java",
+      "android/java/src/org/chromium/base/supplier/SettableObservableSupplier.java",
       "android/java/src/org/chromium/base/supplier/SupplierUtils.java",
       "android/java/src/org/chromium/base/supplier/SyncOneshotSupplier.java",
       "android/java/src/org/chromium/base/supplier/SyncOneshotSupplierImpl.java",
       "android/java/src/org/chromium/base/supplier/TransitiveObservableSupplier.java",
-      "android/java/src/org/chromium/base/supplier/UnownedUserDataSupplier.java",
       "android/java/src/org/chromium/base/supplier/UnwrapObservableSupplier.java",
     ]
     deps = [
@@ -5054,6 +5092,7 @@ if (is_android) {
       ":resetters_java",
       ":tasks_java",
       ":unowned_user_data_java",
+      "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
     ]
   }
@@ -5089,6 +5128,15 @@ if (is_android) {
     sources = [
       "android/java/src/org/chromium/base/library_loader/LibraryLoader.java",
       "android/java/src/org/chromium/base/library_loader/LibraryPrefetcher.java",
+    ]
+  }
+
+  android_library("screen_off_broadcast_receiver_java") {
+    sources =
+        [ "android/java/src/org/chromium/base/ScreenOffBroadcastReceiver.java" ]
+    deps = [
+      ":tasks_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
     ]
   }
 
@@ -5149,6 +5197,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/task/ChainedTasks.java",
       "android/java/src/org/chromium/base/task/ChromeThreadPoolExecutor.java",
       "android/java/src/org/chromium/base/task/Location.java",
+      "android/java/src/org/chromium/base/task/LocationAwareExecutor.java",
       "android/java/src/org/chromium/base/task/PostTask.java",
       "android/java/src/org/chromium/base/task/SequencedTaskRunner.java",
       "android/java/src/org/chromium/base/task/SequencedTaskRunnerImpl.java",
@@ -5411,6 +5460,7 @@ if (is_android) {
       ":promise_java",
       ":service_loader_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/androidx:androidx_core_core_java",
     ]
     sources = [
       "android/java/src/org/chromium/base/AconfigFlaggedApiDelegate.java",
@@ -5661,6 +5711,7 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/util/TestThreadUtils.java",
       "test/android/javatests/src/org/chromium/base/test/util/TimeoutTimer.java",
       "test/android/javatests/src/org/chromium/base/test/util/UserActionTester.java",
+      "test/android/javatests/src/org/chromium/base/test/util/VeryLongPressAction.java",
       "test/android/javatests/src/org/chromium/base/test/util/ViewActionOnDescendant.java",
       "test/android/javatests/src/org/chromium/base/test/util/ViewPrinter.java",
     ]
@@ -5773,6 +5824,7 @@ if (is_android) {
       "android/junit/src/org/chromium/base/PostNativeFlagUnitTest.java",
       "android/junit/src/org/chromium/base/PromiseTest.java",
       "android/junit/src/org/chromium/base/ResettersForTestingTest.java",
+      "android/junit/src/org/chromium/base/ScreenOffBroadcastReceiverTest.java",
       "android/junit/src/org/chromium/base/ThreadUtilsTest.java",
       "android/junit/src/org/chromium/base/TimeUtilsTest.java",
       "android/junit/src/org/chromium/base/TokenUnitTest.java",
@@ -5800,7 +5852,6 @@ if (is_android) {
       "android/junit/src/org/chromium/base/supplier/SupplierUtilsTest.java",
       "android/junit/src/org/chromium/base/supplier/SyncOneshotSupplierImplTest.java",
       "android/junit/src/org/chromium/base/supplier/TransitiveObservableSupplierTest.java",
-      "android/junit/src/org/chromium/base/supplier/UnownedUserDataSupplierTest.java",
       "android/junit/src/org/chromium/base/supplier/UnwrapObservableSupplierTest.java",
       "android/junit/src/org/chromium/base/task/AsyncTaskThreadTest.java",
       "android/junit/src/org/chromium/base/task/ChromiumExecutorServiceFactoryTest.java",
@@ -5921,7 +5972,10 @@ fuzzer_test("base64_decode_fuzzer") {
 
 fuzzer_test("base64_encode_fuzzer") {
   sources = [ "base64_encode_fuzzer.cc" ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+  ]
 }
 
 fuzzer_test("base64url_fuzzer") {

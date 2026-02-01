@@ -24,7 +24,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "android_webview/browser_jni_headers/AwDevToolsServer_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using content::DevToolsAgentHost;
 
 namespace {
@@ -150,9 +150,8 @@ bool IsAwDevToolsServerStarted() {
   return g_is_debugging_started_;
 }
 
-static void JNI_AwDevToolsServer_SetRemoteDebuggingEnabled(
-    JNIEnv* env,
-    jboolean enabled) {
+static void JNI_AwDevToolsServer_SetRemoteDebuggingEnabled(JNIEnv* env,
+                                                           bool enabled) {
   if (enabled) {
     StartAwDevToolsServer();
   } else {

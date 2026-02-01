@@ -26,6 +26,7 @@ import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -41,10 +42,12 @@ public class FreshCtaTransitTestRule extends BaseCtaTransitTestRule implements T
     private static final String TAG = "TestRule";
     private boolean mSkipInstanceAndTabStateCleanup;
 
+    /** Use {@link ChromeTransitTestRules#freshChromeTabbedActivityRule()}. */
     FreshCtaTransitTestRule() {
         super();
     }
 
+    /** Use {@link ChromeTransitTestRules#wrapTestRule(ChromeTabbedActivityTestRule)}. */
     FreshCtaTransitTestRule(ChromeTabbedActivityTestRule testRule) {
         super(testRule);
     }
@@ -84,8 +87,8 @@ public class FreshCtaTransitTestRule extends BaseCtaTransitTestRule implements T
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             MultiInstanceManager mim = cta.getMultiInstanceMangerForTesting();
-                            mim.closeWindow(
-                                    cta.getWindowIdForTesting(),
+                            mim.closeWindows(
+                                    Collections.singletonList(cta.getWindowIdForTesting()),
                                     MultiInstanceManager.CloseWindowAppSource.OTHER);
                         });
                 // closeWindow() already called finishAndRemoveTask().

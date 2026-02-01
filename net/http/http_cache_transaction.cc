@@ -619,18 +619,6 @@ void HttpCache::Transaction::CloseConnectionOnDestruction() {
   }
 }
 
-bool HttpCache::Transaction::IsMdlMatchForMetrics() const {
-  if (network_transaction_info_.previous_mdl_match_for_metrics) {
-    return true;
-  }
-  const HttpTransaction* transaction = GetOwnedOrMovedNetworkTransaction();
-  if (transaction) {
-    return transaction->IsMdlMatchForMetrics();
-  } else {
-    return false;
-  }
-}
-
 void HttpCache::Transaction::SetValidatingCannotProceed() {
   DCHECK(!reading_);
   // Ensure this transaction is waiting for a callback.
@@ -3368,6 +3356,8 @@ int HttpCache::Transaction::DoConnectedCallbackComplete(int result) {
   if (result != OK) {
     if (result ==
         ERR_CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_LOCAL_NETWORK_ACCESS_POLICY) {
+      net_log_.AddEvent(
+          net::NetLogEventType::LOCAL_NETWORK_ACCESS_RETRY_DUE_TO_CACHE);
       DoomInconsistentEntry();
       UpdateCacheEntryStatusToOther(OtherStatusReason::kBlockedByIpSpace);
       TransitionToState(reading_ ? STATE_SEND_REQUEST
@@ -4052,10 +4042,6 @@ void HttpCache::Transaction::SaveNetworkTransactionInfo(
       connection_attempts.begin(), connection_attempts.end());
   network_transaction_info_.old_remote_endpoint = IPEndPoint();
   transaction.GetRemoteEndpoint(&network_transaction_info_.old_remote_endpoint);
-
-  if (transaction.IsMdlMatchForMetrics()) {
-    network_transaction_info_.previous_mdl_match_for_metrics = true;
-  }
 }
 
 void HttpCache::Transaction::OnIOComplete(int result) {

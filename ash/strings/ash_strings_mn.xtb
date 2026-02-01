@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Саяхны <ph name="TOTAL_COUNT" />-с <ph name="INDEX" />-р зураг.</translation>
 <translation id="2201687081523799384">Google Tasks-г хураах</translation>
 <translation id="2208323208084708176">Компьютерийн нэгдмэл горим</translation>
+<translation id="2210311543574621570">Та Ctrl + V дээр удаан дарахдаа түр санах ойг харна. Та энэ товчлолыг chrome://flags-с #clipboard-history-longpress-г идэвхгүй болгосноор унтраах боломжтой.</translation>
 <translation id="2215920961700443347">Интернэт байхгүй. Интернэтэд холбогдоод, дахин оролдоно уу.</translation>
 <translation id="2222841058024245321">Дэлгэц 7</translation>
 <translation id="2223384056430485343">Хуваасан дэлгэцэд</translation>
@@ -875,6 +876,7 @@
 <translation id="397105322502079400">Тооцоолж байна ...</translation>
 <translation id="397726367135689299">Батарейн цэнэглэлт найдваргүй байж болзошгүй.</translation>
 <translation id="3977512764614765090">Батарей <ph name="PERCENTAGE" />%-тай байгаа бөгөөд цэнэглэж байна.</translation>
+<translation id="3978162107953847778">Өөрийн хөтчийн түүх, Google Драйв зэрэг эх сурвалжаас холбоос оруулаарай. Та мөн эможи, зургийн файл болон бусад зүйлийг оруулах боломжтой. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Аудио гаралтыг сэлгэх үү?</translation>
 <translation id="3984536049089846927">Дараагийн хуудас</translation>
 <translation id="3986082989454912832">Хариулах</translation>
@@ -1025,7 +1027,6 @@
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 чухал мэдэгдэл}other{# чухал мэдэгдэл}}</translation>
 <translation id="4450893287417543264">Дахиж бүү харуул</translation>
 <translation id="4451374464530248585">Alt + Доош сумны товчлуурын шууд холбоосыг өөрчилсөн байна. Page Down товчлуурыг ашиглахын тулд <ph name="LAUNCHER_KEY_NAME" /> товчлуур + Доош сумыг дарна уу.</translation>
-<translation id="4453876312474547652">Та Ctrl + V-г удаан дарах үедээ түр санах ой харна. Та энэ товчлолыг #clipboard-history-longpress flag in chrome://flags-г (Lacros ашиглаж байгаа бол os://flags) идэвхгүй болгосноор унтраах боломжтой.</translation>
 <translation id="445765352722456792">Зөвлөмжүүдийг өөрчлөх</translation>
 <translation id="4458688154122353284">Дэлгэцийн үйлдэл бичихийг зогсоох</translation>
 <translation id="445923051607553918">Wi-Fi сүлжээнд холбогдох</translation>
@@ -1601,6 +1602,7 @@
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: идэвхжүүлж байна...</translation>
 <translation id="6274202259872570803">Дэлгэцийн видео бичлэг</translation>
+<translation id="6274422179279280249">Холбоос, эможи болон бусад зүйлийг оруулаарай. Та мөн Google-н ХОУ-аар бичих тусламж авах боломжтой. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Хуудасны эх сурвалжийг харуулах</translation>
 <translation id="6285871695023807425">Календарьт нэмэх</translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" />-г эцэг эхийн зөвшөөрөлтэйгөөр дараа дахин нэмэх боломжтой.</translation>
@@ -2191,6 +2193,7 @@
 <translation id="8237964652943995219">Дараагийн дэлгэц: <ph name="DESK_NAME" />. <ph name="DESK_COUNT" />-н <ph name="DESK_INDEX" />-р дэлгэц.</translation>
 <translation id="8238817965863339552">Өөрийн <ph name="PRODUCT_NAME" />-н эргэн тойронд хэрхэн очихыг мэдэж авахын тулд шуурхай аялал хийнэ үү. 5 алхмаар ажиллуулж эхлээрэй.</translation>
 <translation id="8239034820133090126">Дэлгэцийг баруун талд идэвхжүүлэх</translation>
+<translation id="8241650983304689286">Шинэ хуваасан харагдах байдалд таб нэмэх</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, дохионы хүч <ph name="SIGNAL_STRENGTH" />, утасны батарей <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Google Драйвын бүх контентыг харуулах</translation>
 <translation id="8257510091797044096">Төхөөрөмжөө тохируулах</translation>

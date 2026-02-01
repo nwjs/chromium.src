@@ -87,7 +87,7 @@ class PageContextExtractorJavaScriptFeatureTest : public PlatformTest {
 };
 
 // TODO(crbug.com/455761581): Test is flaky.
-TEST_F(PageContextExtractorJavaScriptFeatureTest, FLAKY_ExtractPageContext) {
+TEST_F(PageContextExtractorJavaScriptFeatureTest, DISABLED_ExtractPageContext) {
   const std::string main_html =
       base::StrCat({"<html><head><title>Main</title></head><body><p>Main frame "
                     "text</p><iframe "
@@ -134,8 +134,9 @@ TEST_F(PageContextExtractorJavaScriptFeatureTest, FLAKY_ExtractPageContext) {
   EXPECT_THAT(result_value, base::test::IsSupersetOfValue(expected_value));
 }
 
+// TODO(crbug.com/455761581): Test is flaky.
 TEST_F(PageContextExtractorJavaScriptFeatureTest,
-       ExtractPageContextWithAnchors) {
+       DISABLED_ExtractPageContextWithAnchors) {
   const std::string main_html =
       "<html><head><title>Main</title></head><body><a "
       "href=\"http://foo.com\">foo</a></body></html>";
@@ -170,8 +171,9 @@ TEST_F(PageContextExtractorJavaScriptFeatureTest,
   EXPECT_THAT(result_value, base::test::IsSupersetOfValue(expected_value));
 }
 
+// TODO(crbug.com/455761581): Test is flaky.
 TEST_F(PageContextExtractorJavaScriptFeatureTest,
-       ExtractPageContextWithForceDetach) {
+       DISABLED_ExtractPageContextWithForceDetach) {
   const std::string main_html = "<html><body><p>Hello</p></body></html>";
   web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
                       test_server_.GetURL(kMainPagePath), web_state());

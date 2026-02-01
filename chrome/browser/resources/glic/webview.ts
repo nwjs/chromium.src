@@ -268,6 +268,8 @@ export class WebviewController {
         }
         return;
       }
+      default:
+        break;
     }
     console.warn(`Webview permission request was denied: ${e.permission}`);
     e.request.deny();
@@ -319,7 +321,7 @@ export class WebviewController {
         this.webClientState.assignAndSignal(state);
       });
     }
-    this.browserProxy.handler.webviewCommitted({url});
+    this.browserProxy.pageHandler.webviewCommitted({url});
 
     if (!this.host) {
       this.delegate.webviewPageCommit('loadError');

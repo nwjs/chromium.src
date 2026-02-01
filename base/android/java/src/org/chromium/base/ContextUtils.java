@@ -30,6 +30,9 @@ public class ContextUtils {
     private static final String TAG = "ContextUtils";
     private static @Nullable Context sApplicationContext;
 
+    // Used to allow test classes to set the command-line before feature list is initialized.
+    public static @Nullable Runnable sDoFeatureListInitHookForTesting;
+
     /** Initialization-on-demand holder. This exists for thread-safe lazy initialization. */
     private static class Holder {
         // Not final for tests.
@@ -55,9 +58,19 @@ public class ContextUtils {
     }
 
     /**
+     * A version of getApplicationContext which does not assert non-null.
+     *
+     * <p>Only use in extremely odd cases, for example you are unsure if our Application class has
+     * been instantiated.
+     */
+    public static @Nullable Context getApplicationContextUnsafe() {
+        return sApplicationContext;
+    }
+
+    /**
      * Initializes the java application context.
      *
-     * This should be called exactly once early on during startup, before native is loaded and
+     * <p>This should be called exactly once early on during startup, before native is loaded and
      * before any other clients make use of the application context through this class.
      *
      * @param appContext The application context.

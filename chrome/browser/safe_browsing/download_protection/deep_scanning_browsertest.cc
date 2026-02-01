@@ -31,7 +31,6 @@
 #include "chrome/browser/enterprise/identifiers/profile_id_service_factory.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service_factory.h"
 #include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
@@ -48,6 +47,7 @@
 #include "components/download/public/common/download_features.h"
 #include "components/enterprise/browser/identifiers/profile_id_service.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/enterprise/obfuscation/core/utils.h"
@@ -199,7 +199,7 @@ class DownloadDeepScanningBrowserTestBase
     identity_test_environment_ =
         std::make_unique<signin::IdentityTestEnvironment>();
     identity_test_environment_->MakePrimaryAccountAvailable(
-        kUserName, signin::ConsentLevel::kSync);
+        kUserName, signin::ConsentLevel::kSignin);
     enterprise_connectors::RealtimeReportingClientFactory::GetForProfile(
         browser()->profile())
         ->SetIdentityManagerForTesting(
@@ -407,7 +407,7 @@ class DownloadDeepScanningBrowserTestBase
         CloudBinaryUploadServiceFactory::GetForProfile(browser()->profile()))
         ->SetAuthForTesting("dm_token",
                             /*auth_check_result=*/enterprise_connectors::
-                                ScanRequestUploadResult::SUCCESS);
+                                ScanRequestUploadResult::kSuccess);
   }
 
   bool connectors_machine_scope() const { return connectors_machine_scope_; }
@@ -947,7 +947,7 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
   // UMAs for this request should only be recorded once.
   histograms.ExpectUniqueSample(
       "SafeBrowsingBinaryUploadRequest.Result",
-      enterprise_connectors::ScanRequestUploadResult::SUCCESS, 1);
+      enterprise_connectors::ScanRequestUploadResult::kSuccess, 1);
   histograms.ExpectUniqueSample("SafeBrowsingBinaryUploadRequest.DlpResult",
                                 true, 1);
   histograms.ExpectUniqueSample("SafeBrowsingBinaryUploadRequest.MalwareResult",

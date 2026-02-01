@@ -8,11 +8,10 @@
 #include <GLES2/gl2.h>
 
 #include "android_webview/public/browser/draw_fn.h"
-// Must come after all headers that specialize FromJniType() / ToJniType().
-#include "android_webview/test/draw_fn_impl_jni_headers/ContextManager_jni.h"
 #include "android_webview/test/shell/src/draw_fn/allocator.h"
 #include "base/android/jni_array.h"
 #include "base/compiler_specific.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/native_library.h"
@@ -47,6 +46,9 @@
 #include "third_party/skia/include/gpu/vk/VulkanMutableTextureState.h"
 #include "third_party/skia/include/gpu/vk/VulkanTypes.h"
 #include "ui/gfx/color_space.h"
+
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/test/draw_fn_impl_jni_headers/ContextManager_jni.h"
 
 namespace draw_fn {
 
@@ -235,7 +237,7 @@ class ContextManagerGL : public ContextManager {
       int height,
       int scroll_x,
       int scroll_y,
-      jboolean readback_quadrants) override;
+      bool readback_quadrants) override;
   void DoCreateContext(JNIEnv* env, int width, int height) override;
   void DestroyContext() override;
   void CurrentFunctorChanged() override {}
@@ -261,7 +263,7 @@ base::android::ScopedJavaLocalRef<jintArray> ContextManagerGL::Draw(
     int height,
     int scroll_x,
     int scroll_y,
-    jboolean readback_quadrants) {
+    bool readback_quadrants) {
   int results[] = {0, 0, 0, 0};
   if (!current_functor_ || !gl_context_) {
     LOG(ERROR) << "Draw failed. context:" << gl_context_
@@ -495,7 +497,7 @@ class ContextManagerVulkan : public ContextManager {
       int height,
       int scroll_x,
       int scroll_y,
-      jboolean readback_quadrants) override;
+      bool readback_quadrants) override;
   void DoCreateContext(JNIEnv* env, int width, int height) override;
   void DestroyContext() override;
   void CurrentFunctorChanged() override;
@@ -544,7 +546,7 @@ base::android::ScopedJavaLocalRef<jintArray> ContextManagerVulkan::Draw(
     int height,
     int scroll_x,
     int scroll_y,
-    jboolean readback_quadrants) {
+    bool readback_quadrants) {
   int results[] = {0, 0, 0, 0};
   if (!current_functor_) {
     LOG(ERROR) << "Draw failed no functor:" << current_functor_;
@@ -819,12 +821,12 @@ void ContextManager::CreateContext(
 }
 
 static jlong JNI_ContextManager_GetDrawFnFunctionTable(JNIEnv* env,
-                                                       jboolean use_vulkan) {
+                                                       bool use_vulkan) {
   draw_fn::SetDrawFnUseVulkan(use_vulkan);
   return reinterpret_cast<intptr_t>(draw_fn::GetDrawFnFunctionTable());
 }
 
-static jlong JNI_ContextManager_Init(JNIEnv* env, jboolean use_vulkan) {
+static jlong JNI_ContextManager_Init(JNIEnv* env, bool use_vulkan) {
   ContextManager* manager = nullptr;
   if (use_vulkan) {
     manager = new draw_fn::ContextManagerVulkan;

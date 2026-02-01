@@ -108,8 +108,7 @@ public class RecentlyClosedBridgeTest {
         mActivity = mActivityTestRule.getActivity();
         mTabModelSelector = mActivity.getTabModelSelectorSupplier().get();
         mTabModel = mTabModelSelector.getModel(false);
-        TabGroupModelFilter filter =
-                mTabModelSelector.getTabGroupModelFilterProvider().getTabGroupModelFilter(false);
+        TabGroupModelFilter filter = mTabModelSelector.getTabGroupModelFilter(false);
         mTabGroupModelFilter = filter;
         final Tab tab = mActivityTestRule.getActivityTab();
         ChromeTabUtils.waitForInteractable(tab);
@@ -283,12 +282,12 @@ public class RecentlyClosedBridgeTest {
         assertTabsAre(recentTabs, titles, urls);
 
         // 1. Blank Tab
-        // 2. tabB
-        // 3. tabA - restored.
+        // 2. tabA - restored (non-undoable tabs are restored to their previous position).
+        // 3. tabB.
         final List<Tab> tabs = getAllTabs();
         Assert.assertEquals(3, tabs.size());
-        Assert.assertEquals(titles[0], ChromeTabUtils.getTitleOnUiThread(tabs.get(2)));
-        Assert.assertEquals(urls[0], ChromeTabUtils.getUrlOnUiThread(tabs.get(2)).getSpec());
+        Assert.assertEquals(titles[0], ChromeTabUtils.getTitleOnUiThread(tabs.get(1)));
+        Assert.assertEquals(urls[0], ChromeTabUtils.getUrlOnUiThread(tabs.get(1)).getSpec());
     }
 
     /**
@@ -1790,8 +1789,7 @@ public class RecentlyClosedBridgeTest {
         mTabModelSelector = mActivity.getTabModelSelectorSupplier().get();
         CriteriaHelper.pollUiThread(mTabModelSelector::isTabStateInitialized);
         mTabModel = mTabModelSelector.getModel(false);
-        mTabGroupModelFilter =
-                mTabModelSelector.getTabGroupModelFilterProvider().getTabGroupModelFilter(false);
+        mTabGroupModelFilter = mTabModelSelector.getTabGroupModelFilter(false);
     }
 
     private void closeTabs(TabClosureParams params) {

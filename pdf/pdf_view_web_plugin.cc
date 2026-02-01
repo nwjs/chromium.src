@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/check_op.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/queue.h"
@@ -562,6 +562,7 @@ bool PdfViewWebPlugin::InitializeCommon() {
                                           base::debug::CrashKeySize::Size256);
   base::debug::SetCrashKeyString(subresource_url, params->original_url);
 
+  use_skia_renderer_ = params->use_skia;
   PerProcessInitializer::GetInstance().Acquire(params->use_skia);
   initialized_ = true;
 
@@ -599,6 +600,7 @@ bool PdfViewWebPlugin::InitializeCommon() {
   url_ = params->original_url;
 
   metrics_handler_ = std::make_unique<MetricsHandler>();
+  metrics_handler_->RecordUrlSchemeIsFile(GURL(url_).SchemeIsFile());
   return true;
 }
 
@@ -1113,6 +1115,11 @@ void PdfViewWebPlugin::ProposeDocumentLayout(const DocumentLayout& layout) {
   if (layout.dirty() && accessibility_state_ == AccessibilityState::kLoaded) {
     LoadAccessibility();
   }
+}
+
+bool PdfViewWebPlugin::UseSkiaPremultipliedAlpha() {
+  return use_skia_renderer_ &&
+         chrome_pdf::features::kPdfUseSkiaPremultiplied.Get();
 }
 
 void PdfViewWebPlugin::Invalidate(const gfx::Rect& rect) {
@@ -1984,13 +1991,13 @@ void PdfViewWebPlugin::HandleRotateCounterclockwiseMessage(
 void PdfViewWebPlugin::HandleSaveAttachmentMessage(
     const base::Value::Dict& message) {
   const int index = message.FindInt("attachmentIndex").value();
+  CHECK_GE(index, 0);
 
   const std::vector<DocumentAttachmentInfo>& list =
       engine_->GetDocumentAttachmentInfoList();
-  DCHECK_GE(index, 0);
-  DCHECK_LT(static_cast<size_t>(index), list.size());
-  DCHECK(list[index].is_readable);
-  DCHECK(IsSaveDataSizeValid(list[index].size_bytes));
+  CHECK_LT(static_cast<size_t>(index), list.size());
+  CHECK(list[index].is_readable);
+  CHECK(IsSaveDataSizeValid(list[index].size_bytes));
 
   std::vector<uint8_t> data = engine_->GetAttachmentData(index);
   base::Value data_to_save(
@@ -2678,11 +2685,13 @@ void PdfViewWebPlugin::OnViewportChanged(
   const gfx::Size new_image_size =
       PaintManager::GetNewContextSize(old_image_size, plugin_rect_.size());
   if (new_image_size != old_image_size) {
+    SkAlphaType alpha_type = UseSkiaPremultipliedAlpha()
+                                 ? kPremul_SkAlphaType
+                                 : kUnpremul_SkAlphaType;
     // Ignore the result. If the allocation fails, the image data buffer will be
     // empty and the code below will handle that.
-    (void)image_data_.tryAllocPixels(
-        SkImageInfo::MakeN32(new_image_size.width(), new_image_size.height(),
-                             kUnpremul_SkAlphaType));
+    (void)image_data_.tryAllocPixels(SkImageInfo::MakeN32(
+        new_image_size.width(), new_image_size.height(), alpha_type));
     first_paint_ = true;
   }
 
@@ -2890,7 +2899,8 @@ void PdfViewWebPlugin::SendMetadata() {
   }
 
   metadata.Set("fileSize",
-               ui::FormatBytes(base::ByteCount(document_metadata.size_bytes)));
+               ui::FormatBytes(base::ByteSize(base::checked_cast<uint64_t>(
+                   document_metadata.size_bytes))));
 
   metadata.Set("linearized", document_metadata.linearized);
 

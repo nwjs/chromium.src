@@ -15,9 +15,9 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/signin/services/android/jni_headers/UnifiedConsentServiceBridge_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 
-static jboolean
+static bool
 JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionEnabled(
     JNIEnv* env,
     Profile* profile) {
@@ -25,7 +25,7 @@ JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionEnabled(
       unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
 }
 
-static jboolean
+static bool
 JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionManaged(
     JNIEnv* env,
     Profile* profile) {
@@ -37,7 +37,7 @@ static void
 JNI_UnifiedConsentServiceBridge_SetUrlKeyedAnonymizedDataCollectionEnabled(
     JNIEnv* env,
     Profile* profile,
-    const jboolean enabled) {
+    const bool enabled) {
   auto* unifiedConsentService =
       UnifiedConsentServiceFactory::GetForProfile(profile);
   DCHECK(unifiedConsentService);

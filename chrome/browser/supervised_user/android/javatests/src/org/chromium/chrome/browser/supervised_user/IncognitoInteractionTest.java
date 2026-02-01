@@ -81,10 +81,6 @@ public class IncognitoInteractionTest {
     @Policies.Add({@Policies.Item(key = "IncognitoModeAvailability", string = "0")})
     public void incognitoTabsNotClosedWhenPolicyAllowsIncognito() throws Exception {
         Profile profile = mActivityTestRule.getProfile(/* incognito= */ false);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    SupervisedUserServiceTestBridge.init(profile);
-                });
 
         // Create a new incognito tab. This succeeds, as the device is not
         // supervised.
@@ -92,8 +88,8 @@ public class IncognitoInteractionTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Tab tab = incognitoNtp.getActivity().getActivityTab();
-                    // Enable browser content filtering for the current profile.
-                    SupervisedUserServiceTestBridge.enableBrowserContentFilters(profile);
+                    // Enable browser content filtering.
+                    SupervisedUserServiceTestBridge.enableBrowserContentFilters();
                     // Successfully load a URL in the incognito tab. That proves that the tab is not
                     // closed. If the tab was closed, the load would fail due to assertion error.
                     assertNotNull(tab.getWebContents());
@@ -108,10 +104,6 @@ public class IncognitoInteractionTest {
     public void incognitoTabsClosedWhenBrowserContentFilteringIsEnabledWithoutAccount()
             throws Exception {
         Profile profile = mActivityTestRule.getProfile(/* incognito= */ false);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    SupervisedUserServiceTestBridge.init(profile);
-                });
 
         // Create a new incognito tab. This succeeds, as the device is not
         // supervised.
@@ -121,8 +113,8 @@ public class IncognitoInteractionTest {
                 () -> {
                     Tab tab = incognitoNtp.getActivity().getActivityTab();
                     tab.addObserver(tabClosedWaiter);
-                    // Enable browser content filtering for the current profile.
-                    SupervisedUserServiceTestBridge.enableBrowserContentFilters(profile);
+                    // Enable browser content filtering.
+                    SupervisedUserServiceTestBridge.enableBrowserContentFilters();
                     assertNull(tab.getWebContents());
                 });
 
@@ -137,10 +129,6 @@ public class IncognitoInteractionTest {
             throws Exception {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         Profile profile = mActivityTestRule.getProfile(/* incognito= */ false);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    SupervisedUserServiceTestBridge.init(profile);
-                });
 
         // Create a new incognito tab. This succeeds, as the device is not
         // supervised (however, a regular account is signed in).
@@ -150,8 +138,8 @@ public class IncognitoInteractionTest {
                 () -> {
                     Tab tab = incognitoNtp.getActivity().getActivityTab();
                     tab.addObserver(tabClosedWaiter);
-                    // Enable browser content filtering for the current profile.
-                    SupervisedUserServiceTestBridge.enableBrowserContentFilters(profile);
+                    // Enable browser content filtering.
+                    SupervisedUserServiceTestBridge.enableBrowserContentFilters();
                     assertNull(tab.getWebContents());
                 });
 
@@ -166,10 +154,6 @@ public class IncognitoInteractionTest {
             throws Exception {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         Profile profile = mActivityTestRule.getProfile(/* incognito= */ false);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    SupervisedUserServiceTestBridge.init(profile);
-                });
 
         // Create a new incognito tab. This succeeds, as the device is not
         // supervised (however, a regular account is signed in).
@@ -179,8 +163,8 @@ public class IncognitoInteractionTest {
                 () -> {
                     Tab tab = incognitoNtp.getActivity().getActivityTab();
                     tab.addObserver(tabClosedWaiter);
-                    // Enable browser content filtering for the current profile.
-                    SupervisedUserServiceTestBridge.enableSearchContentFilters(profile);
+                    // Enable browser content filtering.
+                    SupervisedUserServiceTestBridge.enableSearchContentFilters();
                     assertNull(tab.getWebContents());
                 });
 

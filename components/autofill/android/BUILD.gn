@@ -146,8 +146,6 @@ android_resources("autofill_payments_java_resources") {
     "payments/java/res/drawable-xxxhdpi/verve_card.png",
     "payments/java/res/drawable-xxxhdpi/verve_metadata_card.png",
     "payments/java/res/drawable-xxxhdpi/visa_metadata_card.png",
-    "payments/java/res/drawable/affirm_linked.xml",
-    "payments/java/res/drawable/affirm_unlinked.xml",
     "payments/java/res/drawable/bnpl_icon_generic.xml",
     "payments/java/res/drawable/discover_card.xml",
     "payments/java/res/drawable/elo_card.xml",
@@ -156,12 +154,8 @@ android_resources("autofill_payments_java_resources") {
     "payments/java/res/drawable/ic_credit_card_black.xml",
     "payments/java/res/drawable/ic_credit_card_primary.xml",
     "payments/java/res/drawable/ic_offer_tag.xml",
-    "payments/java/res/drawable/klarna_linked.xml",
-    "payments/java/res/drawable/klarna_unlinked.xml",
     "payments/java/res/drawable/mir_card.xml",
     "payments/java/res/drawable/visa_card.xml",
-    "payments/java/res/drawable/zip_linked.xml",
-    "payments/java/res/drawable/zip_unlinked.xml",
   ]
   deps = [ "//ui/android:ui_java_resources" ]
 }
@@ -186,10 +180,11 @@ android_resources("autofill_browser_resources") {
     "browser/java/res/drawable/autofill_external_link.xml",
     "browser/java/res/drawable/directions_car.xml",
     "browser/java/res/drawable/flight.xml",
-    "browser/java/res/drawable/home_logo.xml",
     "browser/java/res/drawable/id_card.xml",
-    "browser/java/res/drawable/location_on_logo.xml",
+    "browser/java/res/drawable/passport.xml",
     "browser/java/res/drawable/person_check.xml",
+    "browser/java/res/drawable/travel_luggage_and_bags.xml",
+    "browser/java/res/drawable/wallet.xml",
     "browser/java/res/drawable/work_logo.xml",
   ]
 }
@@ -265,10 +260,15 @@ android_library("main_autofill_java") {
     "java/src/org/chromium/components/autofill/LoyaltyCard.java",
     "java/src/org/chromium/components/autofill/PaymentsPayload.java",
     "java/src/org/chromium/components/autofill/SubKeyRequester.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/AttributeInstance.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/AttributeType.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/EntityInstance.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/EntityType.java",
   ]
   srcjar_deps = [
     ":autofill_core_browser_java_enums",
     ":main_autofill_jni_headers",
+    "//components/autofill/core/browser:autofill_ai_core_browser_java_enums",
   ]
   resources_package = "org.chromium.components.autofill"
 }
@@ -285,6 +285,10 @@ generate_jni("main_autofill_jni_headers") {
     "java/src/org/chromium/components/autofill/LoyaltyCard.java",
     "java/src/org/chromium/components/autofill/PaymentsPayload.java",
     "java/src/org/chromium/components/autofill/SubKeyRequester.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/AttributeInstance.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/AttributeType.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/EntityInstance.java",
+    "java/src/org/chromium/components/autofill/autofill_ai/EntityType.java",
   ]
 }
 
@@ -320,6 +324,7 @@ android_library("payments_autofill_java") {
     "java/src/org/chromium/components/autofill/payments/Ewallet.java",
     "java/src/org/chromium/components/autofill/payments/LegalMessageLine.java",
     "java/src/org/chromium/components/autofill/payments/PaymentInstrument.java",
+    "java/src/org/chromium/components/autofill/payments/TouchToFillDisplayOptions.java",
   ]
   deps = [
     ":payments_interfaces_java",
@@ -375,6 +380,7 @@ generate_jni("payments_jni_headers") {
     "java/src/org/chromium/components/autofill/payments/Ewallet.java",
     "java/src/org/chromium/components/autofill/payments/LegalMessageLine.java",
     "java/src/org/chromium/components/autofill/payments/PaymentInstrument.java",
+    "java/src/org/chromium/components/autofill/payments/TouchToFillDisplayOptions.java",
   ]
 }
 

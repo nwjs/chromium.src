@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/omnibox/browser/location_bar_model.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/url_formatter/url_formatter.h"
 #include "components/vector_icons/vector_icons.h"
@@ -247,8 +248,8 @@ CustomTabBarView::CustomTabBarView(BrowserView* browser_view,
       AddChildView(views::CreateVectorImageButton(base::BindRepeating(
           &CustomTabBarView::GoBackToApp, base::Unretained(this))));
   close_button_->SetTooltipText(l10n_util::GetStringUTF16(IDS_APP_CLOSE));
-  close_button_->SetBorder(views::CreateEmptyBorder(
-      gfx::Insets(GetLayoutConstant(LOCATION_BAR_CHILD_INTERIOR_PADDING))));
+  close_button_->SetBorder(views::CreateEmptyBorder(gfx::Insets(
+      GetLayoutConstant(LayoutConstant::kLocationBarChildInteriorPadding))));
   close_button_->SizeToPreferredSize();
   close_button_->SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
   views::InstallCircleHighlightPathGenerator(close_button_);
@@ -359,10 +360,10 @@ void CustomTabBarView::OnThemeChanged() {
       color_provider->GetColor(kColorPwaToolbarButtonIcon);
   const SkColor foreground_disabled_color =
       color_provider->GetColor(kColorPwaToolbarButtonIconDisabled);
-  SetImageFromVectorIconWithColor(close_button_,
-                                  vector_icons::kCloseRoundedIcon,
-                                  GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
-                                  foreground_color, foreground_disabled_color);
+  SetImageFromVectorIconWithColor(
+      close_button_, vector_icons::kCloseRoundedIcon,
+      GetLayoutConstant(LayoutConstant::kLocationBarIconSize), foreground_color,
+      foreground_disabled_color);
 
   background_color_ = color_provider->GetColor(kColorPwaToolbarBackground);
   SetBackground(views::CreateSolidBackground(background_color_));
@@ -370,10 +371,10 @@ void CustomTabBarView::OnThemeChanged() {
   title_origin_view_->SetColors(background_color_);
 }
 
-void CustomTabBarView::TabChangedAt(content::WebContents* contents,
-                                    int index,
-                                    TabChangeType change_type) {
-  if (delegate_->GetWebContents() == contents) {
+void CustomTabBarView::OnTabChangedAt(tabs::TabInterface* tab,
+                                      int index,
+                                      TabChangeType change_type) {
+  if (delegate_->GetWebContents() == tab->GetContents()) {
     UpdateContents();
   }
 }
@@ -469,7 +470,7 @@ ui::ImageModel CustomTabBarView::GetLocationIcon(
   return ui::ImageModel::FromVectorIcon(
       delegate_->GetLocationBarModel()->GetVectorIcon(),
       GetSecurityChipColor(GetLocationBarModel()->GetSecurityLevel()),
-      GetLayoutConstant(LOCATION_BAR_ICON_SIZE));
+      GetLayoutConstant(LayoutConstant::kLocationBarIconSize));
 }
 
 void CustomTabBarView::GoBackToAppForTesting() {

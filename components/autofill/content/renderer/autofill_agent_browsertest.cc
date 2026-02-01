@@ -18,6 +18,7 @@
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
@@ -53,6 +54,7 @@ namespace autofill {
 
 namespace {
 
+using ::base::test::RunOnceClosure;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AtMost;
@@ -815,9 +817,10 @@ TEST_F(AutofillAgentTest, PreviewThenClear) {
   test_api(form).field(0).set_is_autofilled(true);
 
   ASSERT_EQ(field.GetAutofillState(), blink::WebAutofillState::kNotFilled);
-  autofill_agent().ApplyFieldsAction(mojom::FormActionType::kFill,
-                                     mojom::ActionPersistence::kPreview,
-                                     GetFieldsForFilling({form}));
+  autofill_agent().ApplyFieldsAction(
+      mojom::FormActionType::kFill, mojom::ActionPersistence::kPreview,
+      GetFieldsForFilling({form}), FillId::Create(),
+      /*supports_refill=*/false);
   EXPECT_EQ(field.GetAutofillState(), blink::WebAutofillState::kPreviewed);
   autofill_agent().ClearPreviewedForm();
   EXPECT_EQ(field.GetAutofillState(), blink::WebAutofillState::kNotFilled);
@@ -1007,9 +1010,10 @@ TEST_P(AutofillAgentSubmissionTest,
   ASSERT_EQ(field.GetAutofillState(), blink::WebAutofillState::kNotFilled);
   FormData form;
   form.set_fields({form_field});
-  autofill_agent().ApplyFieldsAction(mojom::FormActionType::kFill,
-                                     mojom::ActionPersistence::kFill,
-                                     GetFieldsForFilling({form}));
+  autofill_agent().ApplyFieldsAction(
+      mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
+      GetFieldsForFilling({form}), FillId::Create(),
+      /*supports_refill=*/false);
   ASSERT_EQ(field.GetAutofillState(), blink::WebAutofillState::kAutofilled);
 
   std::optional<FormData> provisionally_saved_form =
@@ -1047,9 +1051,10 @@ TEST_P(AutofillAgentSubmissionTest,
   test_api(form).field(0).set_is_autofilled(true);
 
   ASSERT_EQ(field.GetAutofillState(), blink::WebAutofillState::kNotFilled);
-  autofill_agent().ApplyFieldsAction(mojom::FormActionType::kFill,
-                                     mojom::ActionPersistence::kFill,
-                                     GetFieldsForFilling({form}));
+  autofill_agent().ApplyFieldsAction(
+      mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
+      GetFieldsForFilling({form}), FillId::Create(),
+      /*supports_refill=*/false);
   ASSERT_EQ(field.GetAutofillState(), blink::WebAutofillState::kAutofilled);
 
   std::optional<FormData> provisionally_saved_form =
@@ -1272,9 +1277,10 @@ TEST_P(AutofillAgentSubmissionTest,
   static_cast<content::RenderFrameObserver*>(&autofill_agent())
       ->FocusedElementChanged(field_elements[0]);
 
-  autofill_agent().ApplyFieldsAction(mojom::FormActionType::kFill,
-                                     mojom::ActionPersistence::kFill,
-                                     GetFieldsForFilling({*form}));
+  autofill_agent().ApplyFieldsAction(
+      mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
+      GetFieldsForFilling({*form}), FillId::Create(),
+      /*supports_refill=*/false);
 
   for (const blink::WebFormControlElement& field_element : field_elements) {
     ASSERT_EQ(field_element.GetAutofillState(),
@@ -1767,6 +1773,73 @@ TEST_F(AutofillAgentTest, DOMContentLoadedEmitsMetric) {
   EXPECT_THAT(histogram_tester.GetAllSamples(
                   "Autofill.DOMContentLoadedInOutermostMainFrame"),
               base::BucketsAre(base::Bucket(true, 1), base::Bucket(false, 0)));
+}
+
+// Tests that AutofillAgent::RequestRefill() registers a callback that is called
+// when the corresponding ApplyFieldsAction() message is received.
+TEST_F(AutofillAgentTestWithFeatures, RequestRefill) {
+  const FillId fill_id = FillId::Create();
+  std::vector<FormData> forms;
+  base::MockOnceCallback<void(bool)> on_refill;
+  base::RunLoop run_loop;
+  {
+    testing::InSequence in_sequence;
+    EXPECT_CALL(autofill_driver(), FormsSeen).WillOnce(SaveArg<0>(&forms));
+    EXPECT_CALL(autofill_driver(), RequestRefill)
+        .WillOnce([&](const FillId& fill) {
+          FormFieldData field = forms.front().fields().front();
+          autofill_agent().ApplyFieldsAction(
+              mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
+              {FormFieldData::FillData(field)}, fill_id,
+              /*supports_refill=*/false);
+        });
+    EXPECT_CALL(on_refill, Run(true));
+    EXPECT_CALL(autofill_driver(), FormsSeen)
+        .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
+  }
+  LoadHTML(R"(<form><input></form>)");
+  WaitForFormsSeen();
+  autofill_agent().RequestRefill(fill_id, on_refill.Get());
+  std::move(run_loop).Run();
+}
+
+// Tests that AutofillAgent::RequestRefill() registers a callback that is called
+// after a timeout if no refill happens.
+TEST_F(AutofillAgentTestWithFeatures, RequestRefillTimesOut) {
+  const FillId fill_id = FillId::Create();
+  std::vector<FormData> forms;
+  base::MockOnceCallback<void(bool)> on_refill;
+  base::RunLoop run_loop;
+  {
+    testing::InSequence in_sequence;
+    EXPECT_CALL(autofill_driver(), FormsSeen).WillOnce(SaveArg<0>(&forms));
+    EXPECT_CALL(autofill_driver(), RequestRefill(fill_id))
+        .WillOnce([&](const FillId& fill) {
+          FormFieldData field = forms.front().fields().front();
+          // None of the three ApplyFieldsAction() calls below is a refill:
+          // They're a preview, an undo, and a fill with a different FillId.
+          // So they must not call `on_refill`.
+          autofill_agent().ApplyFieldsAction(
+              mojom::FormActionType::kFill, mojom::ActionPersistence::kPreview,
+              {FormFieldData::FillData(field)}, fill_id,
+              /*supports_refill=*/false);
+          autofill_agent().ApplyFieldsAction(
+              mojom::FormActionType::kUndo, mojom::ActionPersistence::kFill,
+              {FormFieldData::FillData(field)}, fill_id,
+              /*supports_refill=*/false);
+          autofill_agent().ApplyFieldsAction(
+              mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
+              {FormFieldData::FillData(field)}, FillId::Create(),
+              /*supports_refill=*/false);
+        });
+    EXPECT_CALL(autofill_driver(), FormsSeen).Times(2);
+    EXPECT_CALL(on_refill, Run(false))
+        .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
+  }
+  LoadHTML(R"(<form><input></form>)");
+  WaitForFormsSeen();
+  autofill_agent().RequestRefill(fill_id, on_refill.Get());
+  std::move(run_loop).Run();
 }
 
 }  // namespace

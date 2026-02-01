@@ -40,7 +40,6 @@
 #include "third_party/blink/renderer/core/animation/interpolation.h"
 #include "third_party/blink/renderer/core/animation/timeline_offset.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/properties/css_bitset.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -56,6 +55,7 @@ class ComputedStyleBuilder;
 class Element;
 class StylePropertyShorthand;
 class StyleResolver;
+class StyleRuleKeyframes;
 class StyleTimeline;
 class WritingDirectionMode;
 class TimelineTrigger;
@@ -133,11 +133,10 @@ class CORE_EXPORT CSSAnimations final {
                                    CSSAnimationUpdate&,
                                    ComputedStyleBuilder&);
 
-  // This performs an update of the given element's set of named triggers, but
-  // only named triggers which are directly declared on this element via CSS.
-  static void UpdateNamedTriggers(const ComputedStyleBuilder& style_builder,
-                                  const CSSAnimationUpdate& update,
-                                  Element& element);
+  // This performs an update of the given element's set of named triggers, i.e.
+  // triggers declared trigger-instantiating properties like timeline-trigger.
+  static void UpdateNamedTriggers(Element& element,
+                                  const CSSAnimationUpdate& update);
 
   const CSSAnimationUpdate& PendingUpdate() const { return pending_update_; }
   void SetPendingUpdate(const CSSAnimationUpdate& update) {
@@ -190,10 +189,7 @@ class CORE_EXPORT CSSAnimations final {
       specified_timing = update.specified_timing;
     }
 
-    void Trace(Visitor* visitor) const {
-      visitor->Trace(animation);
-      visitor->Trace(style_rule);
-    }
+    void Trace(Visitor*) const;
 
     Member<Animation> animation;
     AtomicString name;
@@ -235,16 +231,16 @@ class CORE_EXPORT CSSAnimations final {
     DISALLOW_NEW();
 
    public:
-    void SetScrollTimeline(const ScopedCSSName& name, ScrollTimeline*);
+    void SetScrollTimeline(const AtomicString& name, ScrollTimeline*);
     const CSSScrollTimelineMap& GetScrollTimelines() const {
       return scroll_timelines_;
     }
-    void SetViewTimeline(const ScopedCSSName& name, ViewTimeline*);
+    void SetViewTimeline(const AtomicString& name, ViewTimeline*);
     const CSSViewTimelineMap& GetViewTimelines() const {
       return view_timelines_;
     }
 
-    void SetDeferredTimeline(const ScopedCSSName& name, DeferredTimeline*);
+    void SetDeferredTimeline(const AtomicString& name, DeferredTimeline*);
     const CSSDeferredTimelineMap& GetDeferredTimelines() const {
       return deferred_timelines_;
     }
@@ -408,20 +404,20 @@ class CORE_EXPORT CSSAnimations final {
 
   static const TimelineData* GetTimelineData(const Element&);
 
-  static ScrollSnapshotTimeline* FindTimelineForNode(const ScopedCSSName& name,
+  static ScrollSnapshotTimeline* FindTimelineForNode(const AtomicString& name,
                                                      Node*,
                                                      const CSSAnimationUpdate*);
   template <typename TimelineType>
-  static TimelineType* FindTimelineForElement(const ScopedCSSName& name,
+  static TimelineType* FindTimelineForElement(const AtomicString& name,
                                               const TimelineData*,
                                               const CSSAnimationUpdate*);
 
   static ScrollSnapshotTimeline* FindAncestorTimeline(
-      const ScopedCSSName& name,
+      const AtomicString& name,
       Node*,
       const CSSAnimationUpdate*);
 
-  static DeferredTimeline* FindDeferredTimeline(const ScopedCSSName& name,
+  static DeferredTimeline* FindDeferredTimeline(const AtomicString& name,
                                                 Element*,
                                                 const CSSAnimationUpdate*);
 

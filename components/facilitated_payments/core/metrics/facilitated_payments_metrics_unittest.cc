@@ -4,6 +4,7 @@
 
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
 
+#include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/types/expected.h"
@@ -123,11 +124,17 @@ TEST(FacilitatedPaymentsMetricsTest,
   base::HistogramTester histogram_tester;
 
   LogPaymentCodeValidationResultAndLatency(
-      PixCodeValidationResult::kValidatorFailed, base::Milliseconds(10));
+      PixCodeValidationResult::kValidatorFailed, std::nullopt,
+      base::Milliseconds(10));
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PaymentCodeValidation.Result",
       /*sample=*/PixCodeValidationResult::kValidatorFailed,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PaymentCodeValidation.ValidatorFailed."
+      "ResultVsRust",
+      /*sample=*/PixCodeValidationResult::kInvalid,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PaymentCodeValidation.ValidatorFailed.Latency",
@@ -139,11 +146,15 @@ TEST(FacilitatedPaymentsMetricsTest,
      LogPaymentCodeValidationResultAndLatency_InvalidCode) {
   base::HistogramTester histogram_tester;
 
-  LogPaymentCodeValidationResultAndLatency(PixCodeValidationResult::kInvalid,
-                                           base::Milliseconds(10));
+  LogPaymentCodeValidationResultAndLatency(
+      PixCodeValidationResult::kInvalid, std::nullopt, base::Milliseconds(10));
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PaymentCodeValidation.Result",
+      /*sample=*/PixCodeValidationResult::kInvalid,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PaymentCodeValidation.InvalidCode.ResultVsRust",
       /*sample=*/PixCodeValidationResult::kInvalid,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
@@ -156,11 +167,16 @@ TEST(FacilitatedPaymentsMetricsTest,
      LogPaymentCodeValidationResultAndLatency_DynamicCode) {
   base::HistogramTester histogram_tester;
 
-  LogPaymentCodeValidationResultAndLatency(PixCodeValidationResult::kDynamic,
-                                           base::Milliseconds(10));
+  LogPaymentCodeValidationResultAndLatency(
+      PixCodeValidationResult::kDynamic, PixCodeRustValidationResult::kDynamic,
+      base::Milliseconds(10));
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PaymentCodeValidation.Result",
+      /*sample=*/PixCodeValidationResult::kDynamic,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PaymentCodeValidation.DynamicCode.ResultVsRust",
       /*sample=*/PixCodeValidationResult::kDynamic,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
@@ -174,10 +190,15 @@ TEST(FacilitatedPaymentsMetricsTest,
   base::HistogramTester histogram_tester;
 
   LogPaymentCodeValidationResultAndLatency(PixCodeValidationResult::kStatic,
+                                           PixCodeRustValidationResult::kStatic,
                                            base::Milliseconds(10));
 
   histogram_tester.ExpectUniqueSample(
       "FacilitatedPayments.Pix.PaymentCodeValidation.Result",
+      /*sample=*/PixCodeValidationResult::kStatic,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PaymentCodeValidation.StaticCode.ResultVsRust",
       /*sample=*/PixCodeValidationResult::kStatic,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(

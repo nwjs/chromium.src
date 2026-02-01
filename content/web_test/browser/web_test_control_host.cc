@@ -21,7 +21,6 @@
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -930,7 +929,7 @@ void WebTestControlHost::EnqueueSurfaceCopyRequest() {
   }
 
   auto* rwhv = main_window_->web_contents()->GetRenderWidgetHostView();
-  rwhv->CopyFromSurface(gfx::Rect(), gfx::Size(),
+  rwhv->CopyFromSurface(gfx::Rect(), gfx::Size(), base::TimeDelta(),
                         base::BindOnce(&WebTestControlHost::OnPixelDumpCaptured,
                                        weak_factory_.GetWeakPtr()));
 }
@@ -1254,8 +1253,8 @@ void WebTestControlHost::HandleNewRenderFrameHost(RenderFrameHost* frame) {
   // TODO(rakina): Understand the fetch tests to figure out if it's possible to
   // remove RenderProcessHost tracking here.
   if (main_window &&
-      (!base::Contains(main_window_render_view_hosts_, view_host) ||
-       !base::Contains(main_window_render_process_hosts_, process_host))) {
+      (!main_window_render_view_hosts_.contains(view_host) ||
+       !main_window_render_process_hosts_.contains(process_host))) {
     // When we find the main window's main frame for the first time, we mark the
     // test as starting for the renderer.
     const bool starting_test = main_window_render_process_hosts_.empty();
@@ -1399,17 +1398,17 @@ void WebTestControlHost::OnDumpFrameLayoutResponse(
 }
 
 void WebTestControlHost::OnPixelDumpCaptured(
-    const viz::CopyOutputBitmapWithMetadata& result) {
-  const SkBitmap& snapshot = result.bitmap;
+    const content::CopyFromSurfaceResult& result) {
   // In the test: test_runner/notify_done_and_defered_close_dump_surface.html,
   // the |main_window_| is closed while waiting for the pixel dump. When this
   // happens, every window is closed and while pumping the message queue,
   // OnPixelDumpCaptured is called with an empty snapshot. It is also possible
   // to use a redirect to capture an empty snapshot - see crbug.com/1443169.
-  if (!main_window_ || snapshot.drawsNothing()) {
+  if (!main_window_ || !result.has_value()) {
     return;
   }
-  pixel_dump_ = snapshot;
+
+  pixel_dump_ = result->bitmap;
   waiting_for_pixel_results_ = false;
   ReportResults();
 }
@@ -1765,10 +1764,13 @@ void WebTestControlHost::WebTestRuntimeFlagsChanged(
   // need to send it once per process so we build a list of the first
   // frame we find per process.
   for (auto& item : web_test_render_frame_map_) {
-    if (item.first.child_id == render_process_id) {
+    // TODO(crbug.com/379869738) Remove GetUnsafeValue.
+    if (item.first.child_id.GetUnsafeValue() == render_process_id) {
       continue;
     }
-    process_to_frame_map.emplace(item.first.child_id, item.second.get());
+    // TODO(crbug.com/379869738) Remove GetUnsafeValue.
+    process_to_frame_map.emplace(item.first.child_id.GetUnsafeValue(),
+                                 item.second.get());
   }
 
   // Then we send the new flags to those frames.
@@ -2189,7 +2191,7 @@ mojo::AssociatedRemote<mojom::WebTestRenderFrame>&
 WebTestControlHost::GetWebTestRenderFrameRemote(RenderFrameHost* frame) {
   GlobalRenderFrameHostId key(frame->GetProcess()->GetDeprecatedID(),
                               frame->GetRoutingID());
-  if (!base::Contains(web_test_render_frame_map_, key)) {
+  if (!web_test_render_frame_map_.contains(key)) {
     mojo::AssociatedRemote<mojom::WebTestRenderFrame>& new_ptr =
         web_test_render_frame_map_[key];
     frame->GetRemoteAssociatedInterfaces()->GetInterface(&new_ptr);

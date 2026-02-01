@@ -8,6 +8,7 @@ import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoor
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.THEME_COLLECTIONS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.CHROME_COLOR;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.IMAGE_FROM_DISK;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.THEME_COLLECTION;
 import static org.chromium.chrome.browser.ntp_customization.theme.NtpThemeProperty.THEME_KEYS;
 
@@ -20,6 +21,7 @@ import androidx.activity.ComponentActivity;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CallbackController;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
@@ -29,12 +31,15 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationViewProperties;
 import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpChromeColorsCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.BackgroundCollection;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionManager;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.NtpThemeCollectionsCoordinator;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.UploadImagePreviewCoordinator;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+
+import java.util.List;
 
 /** Coordinator for the NTP appearance settings bottom sheet in the NTP customization. */
 @NullMarked
@@ -96,18 +101,21 @@ public class NtpThemeCoordinator {
                         mContext,
                         profile,
                         mCallbackController.makeCancelable(
-                                () -> {
+                                (Bitmap bitmap) -> {
                                     initializeBottomSheetContent(
                                             BottomSheetType.SINGLE_THEME_COLLECTION);
+                                    initializeBottomSheetContent(BottomSheetType.THEME_COLLECTIONS);
                                     mMediator.updateTrailingIconVisibilityForSectionType(
                                             THEME_COLLECTION);
                                     mBottomSheetDelegate.onNewColorSelected(
                                             /* isDifferentColor= */ true);
+                                    mBottomSheetDelegate.onNewThemeCollectionImageSelected(bitmap);
                                 }));
         mNtpThemeDelegate = createNtpThemeDelegate();
         mMediator =
                 new NtpThemeMediator(
                         context,
+                        mProfile,
                         bottomSheetPropertyModel,
                         themePropertyModel,
                         delegate,
@@ -127,7 +135,7 @@ public class NtpThemeCoordinator {
 
         mUploadPreviewCoordinator =
                 new UploadImagePreviewCoordinator(
-                        (Activity) mContext, bitmap, this::onPreviewClosed);
+                        (Activity) mContext, mProfile, bitmap, this::onPreviewClosed);
     }
 
     /**
@@ -155,11 +163,14 @@ public class NtpThemeCoordinator {
                                     mCallbackController.makeCancelable(
                                             onChromeColorSelectedCallback));
                 }
+                mNtpChromeColorsCoordinator.prepareToShow();
                 mBottomSheetDelegate.showBottomSheet(CHROME_COLORS);
             }
 
             @Override
-            public void onThemeCollectionsClicked(Runnable onDailyRefreshCancelledCallback) {
+            public void onThemeCollectionsClicked(
+                    Runnable onDailyRefreshCancelledCallback,
+                    List<BackgroundCollection> themeCollectionsList) {
                 if (mNtpThemeCollectionsCoordinator == null) {
                     mNtpThemeCollectionsCoordinator =
                             new NtpThemeCollectionsCoordinator(
@@ -167,7 +178,8 @@ public class NtpThemeCoordinator {
                                     mBottomSheetDelegate,
                                     mProfile,
                                     mNtpThemeCollectionManager,
-                                    onDailyRefreshCancelledCallback);
+                                    onDailyRefreshCancelledCallback,
+                                    themeCollectionsList);
                 }
                 mBottomSheetDelegate.showBottomSheet(THEME_COLLECTIONS);
             }
@@ -204,6 +216,7 @@ public class NtpThemeCoordinator {
     @VisibleForTesting
     void onPreviewClosed(boolean isImageSelected) {
         if (isImageSelected) {
+            mMediator.updateTrailingIconVisibilityForSectionType(IMAGE_FROM_DISK);
             mBottomSheetDelegate.onNewColorSelected(/* isDifferentColor= */ true);
         }
         mDismissBottomSheetRunnable.run();
@@ -214,7 +227,9 @@ public class NtpThemeCoordinator {
     }
 
     void setMediatorForTesting(NtpThemeMediator mediator) {
+        var oldValue = mMediator;
         mMediator = mediator;
+        ResettersForTesting.register(() -> mMediator = oldValue);
     }
 
     void setNtpThemeBottomSheetViewForTesting(NtpThemeBottomSheetView ntpThemeBottomSheetView) {

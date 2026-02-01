@@ -20,12 +20,14 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.RecentlyClosedEntriesManager;
 import org.chromium.chrome.browser.app.download.home.DownloadPage;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkPage;
@@ -66,9 +68,11 @@ import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
@@ -83,6 +87,7 @@ public class NativePageFactory {
     private final BottomSheetController mBottomSheetController;
     private final BrowserControlsManager mBrowserControlsManager;
     private final Supplier<@Nullable Tab> mCurrentTabSupplier;
+    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final Supplier<SnackbarManager> mSnackbarManagerSupplier;
     private final ActivityLifecycleDispatcher mLifecycleDispatcher;
     private final TabModelSelector mTabModelSelector;
@@ -90,8 +95,9 @@ public class NativePageFactory {
     private final WindowAndroid mWindowAndroid;
     private final Supplier<Toolbar> mToolbarSupplier;
     private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
+    private final ActivityResultTracker mActivityResultTracker;
     private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
-    private final ObservableSupplier<Integer> mTabStripHeightSupplier;
+    private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
     private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
     private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
     private final ObservableSupplier<TopInsetCoordinator> mTopInsetCoordinatorSupplier;
@@ -102,12 +108,14 @@ public class NativePageFactory {
     private static @Nullable NativePage sTestPage;
     private final BackPressManager mBackPressManager;
     private final MultiInstanceManager mMultiInstanceManager;
+    private final RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
 
     public NativePageFactory(
             Activity activity,
             BottomSheetController sheetController,
             BrowserControlsManager browserControlsManager,
             Supplier<@Nullable Tab> currentTabSupplier,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
             Supplier<SnackbarManager> snackbarManagerSupplier,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             TabModelSelector tabModelSelector,
@@ -115,18 +123,21 @@ public class NativePageFactory {
             WindowAndroid windowAndroid,
             Supplier<Toolbar> toolbarSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
+            ActivityResultTracker activityResultTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            ObservableSupplier<Integer> tabStripHeightSupplier,
+            NonNullObservableSupplier<Integer> tabStripHeightSupplier,
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
             StartupMetricsTracker startupMetricsTracker,
             BackPressManager backPressManager,
-            MultiInstanceManager multiInstanceManager) {
+            MultiInstanceManager multiInstanceManager,
+            RecentlyClosedEntriesManager recentlyClosedEntriesManager) {
         mActivity = activity;
         mBottomSheetController = sheetController;
         mBrowserControlsManager = browserControlsManager;
         mCurrentTabSupplier = currentTabSupplier;
+        mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mSnackbarManagerSupplier = snackbarManagerSupplier;
         mLifecycleDispatcher = lifecycleDispatcher;
         mTabModelSelector = tabModelSelector;
@@ -134,6 +145,7 @@ public class NativePageFactory {
         mWindowAndroid = windowAndroid;
         mToolbarSupplier = toolbarSupplier;
         mHomeSurfaceTracker = homeSurfaceTracker;
+        mActivityResultTracker = activityResultTracker;
         mTabContentManagerSupplier = tabContentManagerSupplier;
         mTabStripHeightSupplier = tabStripHeightSupplier;
         mModuleRegistrySupplier = moduleRegistrySupplier;
@@ -142,6 +154,7 @@ public class NativePageFactory {
         mStartupMetricsTracker = startupMetricsTracker;
         mBackPressManager = backPressManager;
         mMultiInstanceManager = multiInstanceManager;
+        mRecentlyClosedEntriesManager = recentlyClosedEntriesManager;
     }
 
     private NativePageBuilder getBuilder() {
@@ -153,6 +166,7 @@ public class NativePageFactory {
                             mBottomSheetController,
                             mBrowserControlsManager,
                             mCurrentTabSupplier,
+                            mModalDialogManagerSupplier,
                             mSnackbarManagerSupplier,
                             mLifecycleDispatcher,
                             mTabModelSelector,
@@ -160,6 +174,7 @@ public class NativePageFactory {
                             mWindowAndroid,
                             mToolbarSupplier,
                             mHomeSurfaceTracker,
+                            mActivityResultTracker,
                             mTabContentManagerSupplier,
                             mTabStripHeightSupplier,
                             mModuleRegistrySupplier,
@@ -167,7 +182,8 @@ public class NativePageFactory {
                             mTopInsetCoordinatorSupplier,
                             mStartupMetricsTracker,
                             mBackPressManager,
-                            mMultiInstanceManager);
+                            mMultiInstanceManager,
+                            mRecentlyClosedEntriesManager);
         }
         return mNativePageBuilder;
     }
@@ -187,6 +203,7 @@ public class NativePageFactory {
         private final Supplier<NewTabPageCreationTracker> mNewTabPageCreationTracker;
         private final BrowserControlsManager mBrowserControlsManager;
         private final Supplier<@Nullable Tab> mCurrentTabSupplier;
+        private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
         private final Supplier<SnackbarManager> mSnackbarManagerSupplier;
         private final ActivityLifecycleDispatcher mLifecycleDispatcher;
         private final TabModelSelector mTabModelSelector;
@@ -194,14 +211,16 @@ public class NativePageFactory {
         private final WindowAndroid mWindowAndroid;
         private final Supplier<Toolbar> mToolbarSupplier;
         private final @Nullable HomeSurfaceTracker mHomeSurfaceTracker;
+        private final ActivityResultTracker mActivityResultTracker;
         private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
-        private final ObservableSupplier<Integer> mTabStripHeightSupplier;
+        private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
         private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
         private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
         private final ObservableSupplier<TopInsetCoordinator> mTopInsetCoordinatorSupplier;
         private final StartupMetricsTracker mStartupMetricsTracker;
         private final BackPressManager mBackPressManager;
         private final MultiInstanceManager mMultiInstanceManager;
+        private final RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
 
         public NativePageBuilder(
                 Activity activity,
@@ -209,6 +228,7 @@ public class NativePageFactory {
                 BottomSheetController sheetController,
                 BrowserControlsManager browserControlsManager,
                 Supplier<@Nullable Tab> currentTabSupplier,
+                Supplier<ModalDialogManager> modalDialogManagerSupplier,
                 Supplier<SnackbarManager> snackbarManagerSupplier,
                 ActivityLifecycleDispatcher lifecycleDispatcher,
                 TabModelSelector tabModelSelector,
@@ -216,19 +236,22 @@ public class NativePageFactory {
                 WindowAndroid windowAndroid,
                 Supplier<Toolbar> toolbarSupplier,
                 @Nullable HomeSurfaceTracker homeSurfaceTracker,
+                ActivityResultTracker activityResultTracker,
                 ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-                ObservableSupplier<Integer> tabStripHeightSupplier,
+                NonNullObservableSupplier<Integer> tabStripHeightSupplier,
                 OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
                 ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
                 ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
                 StartupMetricsTracker startupMetricsTracker,
                 BackPressManager backPressManager,
-                MultiInstanceManager multiInstanceManager) {
+                MultiInstanceManager multiInstanceManager,
+                RecentlyClosedEntriesManager recentlyClosedEntriesManager) {
             mActivity = activity;
             mNewTabPageCreationTracker = newTabPageCreationTracker;
             mBottomSheetController = sheetController;
             mBrowserControlsManager = browserControlsManager;
             mCurrentTabSupplier = currentTabSupplier;
+            mModalDialogManagerSupplier = modalDialogManagerSupplier;
             mSnackbarManagerSupplier = snackbarManagerSupplier;
             mLifecycleDispatcher = lifecycleDispatcher;
             mTabModelSelector = tabModelSelector;
@@ -236,6 +259,7 @@ public class NativePageFactory {
             mWindowAndroid = windowAndroid;
             mToolbarSupplier = toolbarSupplier;
             mHomeSurfaceTracker = homeSurfaceTracker;
+            mActivityResultTracker = activityResultTracker;
             mTabContentManagerSupplier = tabContentManagerSupplier;
             mTabStripHeightSupplier = tabStripHeightSupplier;
             mModuleRegistrySupplier = moduleRegistrySupplier;
@@ -244,6 +268,7 @@ public class NativePageFactory {
             mStartupMetricsTracker = startupMetricsTracker;
             mBackPressManager = backPressManager;
             mMultiInstanceManager = multiInstanceManager;
+            mRecentlyClosedEntriesManager = recentlyClosedEntriesManager;
         }
 
         protected NativePage buildNewTabPage(Tab tab, String url) {
@@ -266,6 +291,7 @@ public class NativePageFactory {
                     mActivity,
                     mBrowserControlsManager,
                     mCurrentTabSupplier,
+                    mModalDialogManagerSupplier,
                     mSnackbarManagerSupplier.get(),
                     mLifecycleDispatcher,
                     mTabModelSelector,
@@ -280,6 +306,7 @@ public class NativePageFactory {
                     mWindowAndroid,
                     mToolbarSupplier,
                     mHomeSurfaceTracker,
+                    mActivityResultTracker,
                     mTabContentManagerSupplier,
                     mTabStripHeightSupplier,
                     mModuleRegistrySupplier,
@@ -337,12 +364,17 @@ public class NativePageFactory {
             RecentTabsManager recentTabsManager =
                     new RecentTabsManager(
                             tab,
-                            mTabModelSelector,
-                            tab.getProfile(),
+                            mWindowAndroid,
                             mActivity,
+                            tab.getProfile(),
+                            mActivityResultTracker,
+                            mBottomSheetController,
+                            mModalDialogManagerSupplier,
+                            mSnackbarManagerSupplier.get(),
                             () ->
                                     HistoryManagerUtils.showHistoryManager(
-                                            mActivity, tab, tab.getProfile()));
+                                            mActivity, tab, tab.getProfile()),
+                            mRecentlyClosedEntriesManager);
 
             NativePageHost host =
                     new TabShim(

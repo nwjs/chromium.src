@@ -111,6 +111,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
@@ -588,20 +589,18 @@ void ReloadInternal(BrowserWindowInterface* browser,
       active_tab && tab_strip_model->selection_model().size() >
                         (active_tab->IsSplit() ? 2 : 1);
 
-  if (base::FeatureList::IsEnabled(features::kReloadSelectionModel) &&
-      !multiple_ui_tabs_selected) {
-    tabs_to_reload.push_back(active_contents);
-  } else {
+  if (multiple_ui_tabs_selected) {
     // Reloading a tab may change the selection (see crbug.com/339061099), so
     // take
     // a defensive copy into a more stable form before we begin. We take
     // WebContents* so we can follow the tabs as they shift within the same
     // tabstrip (e.g. if `disposition` is NEW_BACKGROUND_TAB).
-    for (const int selected_index :
-         tab_strip_model->selection_model().selected_indices()) {
-      tabs_to_reload.push_back(
-          tab_strip_model->GetWebContentsAt(selected_index));
+    for (tabs::TabInterface* t :
+         tab_strip_model->selection_model().selected_tabs()) {
+      tabs_to_reload.push_back(t->GetContents());
     }
+  } else {
+    tabs_to_reload.push_back(active_contents);
   }
 
   base::UmaHistogramCounts100("TabStrip.Tab.ReloadCount",
@@ -785,7 +784,12 @@ Browser* OpenEmptyWindow(Profile* profile,
   Browser::CreateParams params =
       Browser::CreateParams(Browser::TYPE_NORMAL, profile, true);
   params.should_trigger_session_restore = should_trigger_session_restore;
+  base::TimeTicks now = base::TimeTicks::Now();
   Browser* browser = Browser::Create(params);
+  if (auto* manager = InitialWebUIWindowMetricsManager::From(browser)) {
+    manager->SetWindowCreationInfo(
+        waap::NewWindowCreationSource::kBrowserInitiated, now);
+  }
 
   // Startup tabs could be created during browser creation. Add an empty tab
   // only if no tabs are created.
@@ -1174,9 +1178,7 @@ void CloseTab(BrowserWindowInterface* browser) {
   const bool only_active_split_tab_selected =
       browser->GetTabStripModel()->IsActiveTabSplit() &&
       browser->GetTabStripModel()->selection_model().size() == 2;
-  if (only_active_split_tab_selected &&
-      base::FeatureList::IsEnabled(
-          features::kCloseActiveTabInSplitViewViaHotkey)) {
+  if (only_active_split_tab_selected) {
     RecordTabCloseCount(1);
 
     content::WebContents* active_web_contents =
@@ -1303,15 +1305,22 @@ bool CanDuplicateKeyboardFocusedTab(const Browser* browser) {
 }
 
 bool CanMoveActiveTabToNewWindow(Browser* browser) {
-  const ui::ListSelectionModel::SelectedIndices& selection =
-      browser->tab_strip_model()->selection_model().selected_indices();
+  const ui::ListSelectionModel::SelectedIndices selection =
+      browser->tab_strip_model()
+          ->selection_model()
+          .GetListSelectionModel()
+          .selected_indices();
   return CanMoveTabsToNewWindow(
       browser, std::vector<int>(selection.begin(), selection.end()));
 }
 
+// TODO(crbug.com/435178910) Remove this usage of ListSelectionModel.
 void MoveActiveTabToNewWindow(Browser* browser) {
-  const ui::ListSelectionModel::SelectedIndices& selection =
-      browser->tab_strip_model()->selection_model().selected_indices();
+  const ui::ListSelectionModel::SelectedIndices selection =
+      browser->tab_strip_model()
+          ->selection_model()
+          .GetListSelectionModel()
+          .selected_indices();
   MoveTabsToNewWindow(browser,
                       std::vector<int>(selection.begin(), selection.end()));
 }
@@ -1352,6 +1361,7 @@ void MoveTabsToNewWindow(Browser* browser,
   }
 
   Browser* new_browser;
+  base::TimeTicks now = base::TimeTicks::Now();
   if (browser->is_type_app() && browser->app_controller()->has_tab_strip()) {
     new_browser = Browser::Create(Browser::CreateParams::CreateForApp(
         browser->app_name(), browser->is_trusted_source(), gfx::Rect(),
@@ -1361,6 +1371,10 @@ void MoveTabsToNewWindow(Browser* browser,
   } else {
     new_browser =
         Browser::Create(Browser::CreateParams(browser->profile(), true));
+  }
+  if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
+    manager->SetWindowCreationInfo(
+        waap::NewWindowCreationSource::kBrowserInitiated, now);
   }
 
   MoveTabsToWindowImpl(browser, new_browser, tab_indices);
@@ -1519,7 +1533,7 @@ void FocusNextTabGroup(Browser* browser) {
       tab_strip_model->GetTabGroupForTab(current_index);
 
   // Find the next tab group and focus its first tab.
-  int count = tab_strip_model->GetTabCount();
+  int count = tab_strip_model->count();
   for (int i = 1; i < count; ++i) {
     int new_index = (current_index + i) % count;
     std::optional<tab_groups::TabGroupId> new_group_id =
@@ -1544,7 +1558,7 @@ void FocusPreviousTabGroup(Browser* browser) {
       tab_strip_model->GetTabGroupForTab(current_index);
 
   // Find the next tab group and focus its first tab.
-  int count = tab_strip_model->GetTabCount();
+  int count = tab_strip_model->count();
   for (int i = 1; i < count; ++i) {
     int offset = count - i;
     int new_index = (current_index + offset) % count;
@@ -1924,11 +1938,8 @@ void ShowVirtualCardEnrollBubble(Browser* browser) {
 void StartTabOrganizationRequest(Browser* browser) {
   TabOrganizationService* service =
       TabOrganizationServiceFactory::GetForProfile(browser->profile());
-  UMA_HISTOGRAM_BOOLEAN("Tab.Organization.AllEntrypoints.Clicked", true);
-  UMA_HISTOGRAM_BOOLEAN("Tab.Organization.ThreeDotMenu.Clicked", true);
 
-  service->RestartSessionAndShowUI(browser,
-                                   TabOrganizationEntryPoint::kThreeDotMenu);
+  service->RestartSessionAndShowUI(browser);
 }
 
 void ShowTranslateBubble(BrowserWindowInterface* bwi) {
@@ -2207,7 +2218,7 @@ void ToggleContextualTasksSidePanel(BrowserWindowInterface* browser) {
 
 void ToggleVerticalTabs(Browser* browser) {
   tabs::VerticalTabStripStateController* controller =
-      browser->GetFeatures().vertical_tab_strip_state_controller();
+      tabs::VerticalTabStripStateController::From(browser);
   if (!controller) {
     return;
   }

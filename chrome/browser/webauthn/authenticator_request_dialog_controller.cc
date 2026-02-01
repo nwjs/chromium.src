@@ -20,7 +20,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -69,19 +68,19 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "device/fido/authenticator_get_assertion_response.h"
-#include "device/fido/cable/cable_discovery_data.h"
 #include "device/fido/cable/v2_constants.h"
 #include "device/fido/discoverable_credential_metadata.h"
 #include "device/fido/enclave/constants.h"
 #include "device/fido/enclave/metrics.h"
-#include "device/fido/features.h"
 #include "device/fido/fido_authenticator.h"
-#include "device/fido/fido_constants.h"
 #include "device/fido/fido_discovery_factory.h"
 #include "device/fido/fido_request_handler_base.h"
-#include "device/fido/fido_transport_protocol.h"
-#include "device/fido/fido_types.h"
 #include "device/fido/pin.h"
+#include "device/fido/public/cable_discovery_data.h"
+#include "device/fido/public/features.h"
+#include "device/fido/public/fido_constants.h"
+#include "device/fido/public/fido_transport_protocol.h"
+#include "device/fido/public/fido_types.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/icu/source/common/unicode/locid.h"
 #include "third_party/icu/source/common/unicode/utypes.h"
@@ -2051,8 +2050,8 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
     }
   }
   if (!did_enumerate_local_passkeys &&
-      base::Contains(transport_availability_.available_transports,
-                     AuthenticatorTransport::kInternal)) {
+      transport_availability_.available_transports.contains(
+          AuthenticatorTransport::kInternal)) {
     transports_to_list_if_active.push_back(AuthenticatorTransport::kInternal);
   }
 
@@ -2063,16 +2062,14 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   if (model_->cable_ui_type) {
     switch (*model_->cable_ui_type) {
       case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_2ND_FACTOR:
-        if (base::Contains(transport_availability_.available_transports,
-                           kCable)) {
+        if (transport_availability_.available_transports.contains(kCable)) {
           include_add_phone_option = !windows_handles_hybrid;
         }
         break;
 
       case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_SERVER_LINK:
       case AuthenticatorRequestDialogModel::CableUIType::CABLE_V1: {
-        if (base::Contains(transport_availability_.available_transports,
-                           kCable)) {
+        if (transport_availability_.available_transports.contains(kCable)) {
           transports_to_list_if_active.push_back(kCable);
 
           // If this is a caBLEv1 or server-link request then offering to "Try
@@ -2154,8 +2151,8 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   // not available, if tapping it would trigger a prompt to enable BLE, or if
   // hints suggest that hybrid and USB should be separate options.
   const bool include_usb_option =
-      base::Contains(transport_availability_.available_transports,
-                     AuthenticatorTransport::kUsbHumanInterfaceDevice) &&
+      transport_availability_.available_transports.contains(
+          AuthenticatorTransport::kUsbHumanInterfaceDevice) &&
       (!include_add_phone_option ||
        transport_availability_.ble_status != BleStatus::kOn ||
        hints_.transport == AuthenticatorTransport::kUsbHumanInterfaceDevice ||
@@ -2163,8 +2160,8 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
 
   if (include_add_phone_option) {
     model_->show_security_key_on_qr_sheet =
-        base::Contains(transport_availability_.available_transports,
-                       AuthenticatorTransport::kUsbHumanInterfaceDevice) &&
+        transport_availability_.available_transports.contains(
+            AuthenticatorTransport::kUsbHumanInterfaceDevice) &&
         !include_usb_option;
     std::u16string label = l10n_util::GetStringUTF16(
         GetHybridButtonLabel(model_->show_security_key_on_qr_sheet));
@@ -2182,8 +2179,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
   }
 
   for (const auto transport : transports_to_list_if_active) {
-    if (!base::Contains(transport_availability_.available_transports,
-                        transport)) {
+    if (!transport_availability_.available_transports.contains(transport)) {
       continue;
     }
 

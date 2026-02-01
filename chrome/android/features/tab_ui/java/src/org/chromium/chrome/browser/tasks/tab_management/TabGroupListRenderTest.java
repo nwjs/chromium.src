@@ -48,10 +48,7 @@ import org.chromium.ui.test.util.RenderTestRule.Component;
 /** Render tests for {@link TabGroupListView}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @EnableFeatures(ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE)
-@DisableFeatures({
-    ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-    OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS
-})
+@DisableFeatures({OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS})
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
 public class TabGroupListRenderTest {
@@ -99,8 +96,7 @@ public class TabGroupListRenderTest {
                 () -> {
                     ChromeTabbedActivity cta = mCtaTestRule.getActivity();
                     TabModelSelector selector = cta.getTabModelSelector();
-                    TabGroupModelFilter filter =
-                            selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(false);
+                    TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
                     TabModel model = cta.getTabModelSelector().getModel(false);
                     Tab tab =
                             model.getTabCreator()

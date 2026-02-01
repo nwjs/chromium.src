@@ -8,7 +8,6 @@
 #include <optional>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/ash/cert_provisioning/cert_provisioning_common.h"
@@ -89,11 +88,7 @@ void CertIterator::OnGetAttributeForKeyDone(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(wait_counter_ > 0);
 
-  // TODO(crbug.com/40127595): Currently if GetAttributeForKey fails to get the
-  // attribute (because it was not set or any other reason), it will return
-  // nullopt for cert_profile_id and empty error message. When
-  // PlatformKeysService switches to error codes, a code for such situation
-  // should not be returned via callback and cert collection can be continued.
+
   if (status != chromeos::platform_keys::Status::kSuccess) {
     StopIteration(status);
     return;
@@ -240,7 +235,7 @@ void CertDeleter::RememberOrDelete(scoped_refptr<net::X509Certificate> new_cert,
                                    const CertProfileId& cert_profile_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  if ((!base::Contains(cert_profile_ids_to_keep_, cert_profile_id)) ||
+  if ((!cert_profile_ids_to_keep_.contains(cert_profile_id)) ||
       (base::Time::Now() > new_cert->valid_expiry())) {
     DeleteCert(new_cert);
     return;

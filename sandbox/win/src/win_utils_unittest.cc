@@ -42,34 +42,6 @@ class ScopedTerminateProcess {
   HANDLE process_;
 };
 
-bool GetModuleList(HANDLE process, std::vector<HMODULE>* result) {
-  std::vector<HMODULE> modules(256);
-  DWORD size_needed = 0;
-  if (EnumProcessModules(
-          process, &modules[0],
-          base::checked_cast<DWORD>(modules.size() * sizeof(HMODULE)),
-          &size_needed)) {
-    result->assign(modules.begin(),
-                   modules.begin() + (size_needed / sizeof(HMODULE)));
-    return true;
-  }
-  modules.resize(size_needed / sizeof(HMODULE));
-  // Avoid the undefined-behavior of calling modules[0] on an empty list. This
-  // can happen if the process has not yet started or has already exited.
-  if (modules.size() == 0) {
-    return false;
-  }
-  if (EnumProcessModules(
-          process, &modules[0],
-          base::checked_cast<DWORD>(modules.size() * sizeof(HMODULE)),
-          &size_needed)) {
-    result->assign(modules.begin(),
-                   modules.begin() + (size_needed / sizeof(HMODULE)));
-    return true;
-  }
-  return false;
-}
-
 std::wstring GetRandomName() {
   return base::ASCIIToWide(
       base::StringPrintf("chrome_%016" PRIX64 "%016" PRIX64, base::RandUint64(),
@@ -89,6 +61,17 @@ void CompareHandleType(const base::win::ScopedHandle& handle,
   ASSERT_TRUE(type_name);
   EXPECT_TRUE(
       base::EqualsCaseInsensitiveASCII(type_name.value(), expected_type));
+}
+
+void ExpectEnvironmentBlock(const std::vector<std::wstring>& vars,
+                            const std::wstring& block) {
+  std::wstring expected;
+  for (const auto& var : vars) {
+    expected += var;
+    expected.push_back('\0');
+  }
+  expected.push_back('\0');
+  EXPECT_EQ(expected, block);
 }
 
 }  // namespace
@@ -136,38 +119,6 @@ TEST(WinUtils, NtStatusToWin32Error) {
             GetLastErrorFromNtStatus(STATUS_ACCESS_DENIED));
 }
 
-TEST(WinUtils, GetProcessBaseAddress) {
-  using sandbox::GetProcessBaseAddress;
-  STARTUPINFO start_info = {};
-  PROCESS_INFORMATION proc_info = {};
-  // The child process for this test must be a GUI app so that WaitForInputIdle
-  // can be used to guarantee that the child process has started but has not
-  // exited. notepad was used but will fail on Windows 11 if the store version
-  // of notepad is not installed.
-  WCHAR command_line[] = L"calc";
-  start_info.cb = sizeof(start_info);
-  start_info.dwFlags = STARTF_USESHOWWINDOW;
-  start_info.wShowWindow = SW_HIDE;
-  ASSERT_TRUE(::CreateProcessW(nullptr, command_line, nullptr, nullptr, false,
-                               CREATE_SUSPENDED, nullptr, nullptr, &start_info,
-                               &proc_info));
-  base::win::ScopedProcessInformation scoped_proc_info(proc_info);
-  ScopedTerminateProcess process_terminate(scoped_proc_info.process_handle());
-  void* base_address = GetProcessBaseAddress(scoped_proc_info.process_handle());
-  ASSERT_NE(nullptr, base_address);
-  ASSERT_NE(static_cast<DWORD>(-1),
-            ::ResumeThread(scoped_proc_info.thread_handle()));
-  ::WaitForInputIdle(scoped_proc_info.process_handle(), 1000);
-  ASSERT_NE(static_cast<DWORD>(-1),
-            ::SuspendThread(scoped_proc_info.thread_handle()));
-
-  std::vector<HMODULE> modules;
-  // Compare against the loader's module list (which should now be initialized).
-  ASSERT_TRUE(GetModuleList(scoped_proc_info.process_handle(), &modules));
-  ASSERT_GT(modules.size(), 0U);
-  EXPECT_EQ(base_address, modules[0]);
-}
-
 TEST(WinUtils, GetPathAndTypeFromHandle) {
   EXPECT_FALSE(GetPathFromHandle(nullptr));
   EXPECT_FALSE(GetTypeNameFromHandle(nullptr));
@@ -195,6 +146,40 @@ TEST(WinUtils, ContainsNulCharacter) {
   EXPECT_TRUE(ContainsNulCharacter(str));
   str += L"XYZ";
   EXPECT_TRUE(ContainsNulCharacter(str));
+}
+
+TEST(WinUtils, FilterEnvironment) {
+  const wchar_t empty[] = L"";
+  const wchar_t a2b3c4[] = L"A=2\0B=3\0C=4\0";
+  const wchar_t xy1z[] = L"X\0Y=1\0Z\0";
+
+  auto res = FilterEnvironment(empty, {});
+  ExpectEnvironmentBlock({}, res);
+
+  res = FilterEnvironment(a2b3c4, {});
+  ExpectEnvironmentBlock({}, res);
+
+  res = FilterEnvironment(a2b3c4, {L"B"});
+  ExpectEnvironmentBlock({L"B=3"}, res);
+
+  res = FilterEnvironment(empty, {L"B"});
+  ExpectEnvironmentBlock({}, res);
+
+  // D should be ignored, but B should still appear.
+  res = FilterEnvironment(a2b3c4, {L"B", L"D"});
+  ExpectEnvironmentBlock({L"B=3"}, res);
+
+  // D should be ignored.
+  res = FilterEnvironment(a2b3c4, {L"D"});
+  ExpectEnvironmentBlock({}, res);
+
+  // Once again D should be ignored but this time A and C should match.
+  res = FilterEnvironment(a2b3c4, {L"D", L"A", L"C"});
+  ExpectEnvironmentBlock({L"A=2", L"C=4"}, res);
+
+  // Check that the parser works if the '=' character is missing.
+  res = FilterEnvironment(xy1z, {L"X", L"Z"});
+  ExpectEnvironmentBlock({L"X", L"Z"}, res);
 }
 
 }  // namespace sandbox

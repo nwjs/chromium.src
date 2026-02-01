@@ -21,6 +21,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/task_runner.h"
@@ -458,12 +459,12 @@ int64_t SqlBackendImpl::MaxFileSize() const {
   return store_->MaxFileSize();
 }
 
-int32_t SqlBackendImpl::GetEntryCount(
-    net::Int32CompletionOnceCallback callback) const {
+base::expected<int32_t, net::Error> SqlBackendImpl::GetEntryCount(
+    GetEntryCountCallback callback) const {
   // The entry count must be retrieved asynchronously to ensure that all
   // pending database operations are reflected in the result.
   store_->GetEntryCountAsync(std::move(callback));
-  return net::ERR_IO_PENDING;
+  return base::unexpected(net::ERR_IO_PENDING);
 }
 
 EntryResult SqlBackendImpl::OpenOrCreateEntry(const std::string& key,

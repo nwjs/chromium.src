@@ -12,7 +12,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "ui/base/ui_base_switches.h"
@@ -83,10 +83,12 @@ TEST_F(BrowserFrameViewTabbedTest, MAYBE_HitTestTabstrip) {
   const gfx::Rect frame_bounds = frame_view_->bounds();
 
   gfx::RectF tabstrip_bounds_in_frame_coords(
-      frame_view_->browser_view()->tabstrip()->GetLocalBounds());
-  views::View::ConvertRectToTarget(frame_view_->browser_view()->tabstrip(),
-                                   frame_view_,
-                                   &tabstrip_bounds_in_frame_coords);
+      frame_view_->GetBrowserView()
+          ->horizontal_tab_strip_for_testing()
+          ->GetLocalBounds());
+  views::View::ConvertRectToTarget(
+      frame_view_->GetBrowserView()->horizontal_tab_strip_for_testing(),
+      frame_view_, &tabstrip_bounds_in_frame_coords);
   const gfx::Rect tabstrip_bounds =
       gfx::ToEnclosingRect(tabstrip_bounds_in_frame_coords);
   EXPECT_FALSE(tabstrip_bounds.IsEmpty());
@@ -101,7 +103,7 @@ TEST_F(BrowserFrameViewTabbedTest, MAYBE_HitTestTabstrip) {
   // first tab).
   EXPECT_TRUE(frame_view_->HitTestRect(gfx::Rect(
       tabstrip_bounds.x() + 10, tabstrip_bounds.bottom() - 10, 1, 1)));
-  EXPECT_TRUE(frame_view_->browser_view()->HitTestRect(gfx::Rect(
+  EXPECT_TRUE(frame_view_->GetBrowserView()->HitTestRect(gfx::Rect(
       tabstrip_bounds.x() + 10, tabstrip_bounds.bottom() - 10, 1, 1)));
 
 // Tabs extend to the top of the tabstrip everywhere in this test context on
@@ -116,9 +118,9 @@ TEST_F(BrowserFrameViewTabbedTest, MAYBE_HitTestTabstrip) {
 #endif
 
   // Hits tab strip and the browser-client area.
-  EXPECT_TRUE(frame_view_->HitTestRect(
-      gfx::Rect(tabstrip_bounds.x() + 1,
-                tabstrip_bounds.bottom() -
-                    GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP) - 1,
-                100, 100)));
+  EXPECT_TRUE(frame_view_->HitTestRect(gfx::Rect(
+      tabstrip_bounds.x() + 1,
+      tabstrip_bounds.bottom() -
+          GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap) - 1,
+      100, 100)));
 }

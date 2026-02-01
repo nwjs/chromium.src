@@ -13,10 +13,10 @@
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/omnibox/model/suggestions/omnibox_pedal_swift.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/ui/symbols/colorful_background_symbol_view.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -45,7 +45,7 @@ const CGFloat kSymbolSize = 18;
   if (!omniboxPedal) {
     return nil;
   }
-  __weak id<ApplicationCommands> applicationHandler = self.applicationHandler;
+  __weak id<SceneCommands> sceneHandler = self.sceneHandler;
   __weak id<SettingsCommands> settingsHandler = self.settingsHandler;
   __weak id<OmniboxCommands> omniboxHandler = self.omniboxHandler;
   __weak id<QuickDeleteCommands> quickDeleteHandler = self.quickDeleteHandler;
@@ -76,7 +76,7 @@ const CGFloat kSymbolSize = 18;
                        OpenNewTabCommand* command =
                            [OpenNewTabCommand commandWithURLFromChrome:url
                                                            inIncognito:NO];
-                       [applicationHandler openURLInNewTab:command];
+                       [sceneHandler openURLInNewTab:command];
                      }];
     }
     case OmniboxPedalId::CLEAR_BROWSING_DATA: {
@@ -102,13 +102,13 @@ const CGFloat kSymbolSize = 18;
                      }];
     }
     case OmniboxPedalId::SET_CHROME_AS_DEFAULT_BROWSER: {
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
       UIImage* image = MakeSymbolMulticolor(
           CustomSymbolWithPointSize(kMulticolorChromeballSymbol, kSymbolSize));
 #else
       UIImage* image = DefaultSymbolTemplateWithPointSize(kDefaultBrowserSymbol,
                                                           kSymbolSize);
-#endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#endif  // BUILDFLAG(IOS_USE_BRANDED_ASSETS)
       DefaultBrowserSettingsPageSource source =
           DefaultBrowserSettingsPageSource::kOmnibox;
       ProceduralBlock action = ^{
@@ -123,7 +123,7 @@ const CGFloat kSymbolSize = 18;
                                 IDS_IOS_OMNIBOX_PEDAL_SUBTITLE_DEFAULT_BROWSER)
           accessibilityHint:suggestionContents
                       image:image
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
              imageTintColor:nil
             backgroundColor:UIColor.whiteColor
            imageBorderColor:[UIColor colorNamed:kLightOnlyGrey200Color]
@@ -131,7 +131,7 @@ const CGFloat kSymbolSize = 18;
              imageTintColor:nil
             backgroundColor:[UIColor colorNamed:kPurple500Color]
            imageBorderColor:nil
-#endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#endif  // BUILDFLAG(IOS_USE_BRANDED_ASSETS)
                        type:pedalType
                      action:action];
     }
@@ -188,7 +188,7 @@ const CGFloat kSymbolSize = 18;
                        type:pedalType
                      action:^{
                        [omniboxHandler cancelOmniboxEditWithCompletion:^{
-                         [applicationHandler
+                         [sceneHandler
                              openURLInNewTab:[OpenNewTabCommand
                                                  incognitoTabCommand]];
                        }];
@@ -233,8 +233,7 @@ const CGFloat kSymbolSize = 18;
                        type:pedalType
                      action:^{
                        [omniboxHandler cancelOmniboxEditWithCompletion:^{
-                         [applicationHandler
-                             showSettingsFromViewController:nil];
+                         [sceneHandler showSettingsFromViewController:nil];
                        }];
                      }];
     }
@@ -254,7 +253,7 @@ const CGFloat kSymbolSize = 18;
                        type:pedalType
                      action:^{
                        [omniboxHandler cancelOmniboxEditWithCompletion:^{
-                         [applicationHandler showHistory];
+                         [sceneHandler showHistory];
                        }];
                      }];
     }

@@ -116,7 +116,6 @@ namespace http://www.w3.org/1999/xhtml
     property contains
     property contentEditable
     property currentCSSZoom
-    property currentPatch
     property dataset
     property dir
     property dispatchEvent
@@ -186,6 +185,7 @@ namespace http://www.w3.org/1999/xhtml
     property offsetTop
     property offsetWidth
     property onabort
+    property onanimationcancel
     property onanimationend
     property onanimationiteration
     property onanimationstart
@@ -305,11 +305,6 @@ namespace http://www.w3.org/1999/xhtml
     property parentElement
     property parentNode
     property part
-    property patchAfter
-    property patchAll
-    property patchBefore
-    property patchBetween
-    property patchSelf
     property popover
     property prefix
     property prepend
@@ -354,6 +349,7 @@ namespace http://www.w3.org/1999/xhtml
     property spellcheck
     property startViewTransition
     property streamAppendHTMLUnsafe
+    property streamHTMLUnsafe
     property style
     property tabIndex
     property tagName
@@ -854,9 +850,10 @@ html element ins
     property dateTime
 html element install
     property initialPermissionStatus
+    property installURL
     property invalidReason
     property isValid
-    property manifest
+    property manifestId
     property onpromptaction
     property onpromptdismiss
     property onvalidationstatuschange
@@ -923,7 +920,9 @@ html element menuitem
     property checked
     property command
     property commandForElement
+    property defaultChecked
     property disabled
+    property interestForElement
 html element menulist
 html element meta
     property content
@@ -1451,7 +1450,6 @@ namespace http://www.w3.org/2000/svg
     property containerTimingIgnore
     property contains
     property currentCSSZoom
-    property currentPatch
     property dataset
     property dispatchEvent
     property elementTiming
@@ -1505,6 +1503,7 @@ namespace http://www.w3.org/2000/svg
     property nonce
     property normalize
     property onabort
+    property onanimationcancel
     property onanimationend
     property onanimationiteration
     property onanimationstart
@@ -1624,11 +1623,6 @@ namespace http://www.w3.org/2000/svg
     property parentElement
     property parentNode
     property part
-    property patchAfter
-    property patchAll
-    property patchBefore
-    property patchBetween
-    property patchSelf
     property prefix
     property prepend
     property previousElementSibling
@@ -1669,6 +1663,7 @@ namespace http://www.w3.org/2000/svg
     property slot
     property startViewTransition
     property streamAppendHTMLUnsafe
+    property streamHTMLUnsafe
     property style
     property tabIndex
     property tagName

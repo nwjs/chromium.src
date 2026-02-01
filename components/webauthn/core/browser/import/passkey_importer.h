@@ -23,7 +23,6 @@ struct ImportProcessingResult;
 //
 // The caller should initiate the process by calling `StartImport`.
 // TODO(crbug.com/458337350): Add more unit tests.
-// TODO(crbug.com/458337350): Add metrics.
 class PasskeyImporter {
  public:
   using ProcessingCallback =
@@ -70,6 +69,10 @@ class PasskeyImporter {
   // Caches passkeys present on the import list that are conflicting with the
   // already stored passkeys (e.g. having matching `user_id` and `rp_id`).
   std::vector<sync_pb::WebauthnCredentialSpecifics> conflicting_passkeys_;
+
+  // Count of passkeys that are already stored in user's account (with matching
+  // credential ID).
+  size_t duplicate_passkey_count_ = 0;
 
   base::WeakPtrFactory<PasskeyImporter> weak_ptr_factory_{this};
 };

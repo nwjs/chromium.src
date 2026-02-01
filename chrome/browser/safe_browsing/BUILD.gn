@@ -10,6 +10,8 @@ static_library("safe_browsing") {
   sources = [
     "chrome_controller_client.cc",
     "chrome_controller_client.h",
+    "metrics/bundled_settings_metrics_provider.cc",
+    "metrics/bundled_settings_metrics_provider.h",
     "url_checker_delegate_impl.cc",
     "url_checker_delegate_impl.h",
   ]
@@ -35,6 +37,7 @@ static_library("safe_browsing") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_io_data",
     "//chrome/browser/signin",
+    "//chrome/browser/site_protection:utils",
     "//chrome/browser/sync",
     "//chrome/browser/ui/autofill",
     "//chrome/common",
@@ -106,6 +109,10 @@ static_library("safe_browsing") {
   }
 
   if (is_win || is_mac || is_linux || is_chromeos) {
+    sources += [
+      "security_settings_bundle_toast_helper.cc",
+      "security_settings_bundle_toast_helper.h",
+    ]
     deps += [
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/toasts",
@@ -257,6 +264,7 @@ static_library("safe_browsing") {
       "//components/content_extraction/content/browser",
       "//components/content_settings/core/browser",
       "//components/enterprise/connectors/core",
+      "//components/enterprise/connectors/core:cloud_content_scanning",
       "//components/no_state_prefetch/browser",
       "//components/omnibox/browser",
       "//components/password_manager/content/browser",
@@ -277,6 +285,7 @@ static_library("safe_browsing") {
       "//components/safe_browsing/content/browser/triggers:trigger_throttler",
       "//components/safe_browsing/content/common:file_type_policies",
       "//components/safe_browsing/core/browser",
+      "//components/safe_browsing/core/browser:intelligent_scan_delegate",
       "//components/safe_browsing/core/browser:referring_app_info",
       "//components/safe_browsing/core/browser:token_fetcher",
       "//components/safe_browsing/core/browser:verdict_cache_manager",
@@ -311,8 +320,6 @@ static_library("safe_browsing") {
       sources += [
         "chrome_safe_browsing_hats_delegate.cc",
         "chrome_safe_browsing_hats_delegate.h",
-        "cloud_content_scanning/binary_upload_service.cc",
-        "cloud_content_scanning/binary_upload_service.h",
         "cloud_content_scanning/cloud_binary_upload_service.cc",
         "cloud_content_scanning/cloud_binary_upload_service.h",
         "cloud_content_scanning/cloud_binary_upload_service_factory.cc",
@@ -508,7 +515,10 @@ static_library("safe_browsing") {
         ]
       }
       if (!is_android) {
-        deps += [ "//chrome/browser/ui:browser_list" ]
+        deps += [
+          "//chrome/browser/ui:browser_list",
+          "//chrome/browser/user_education",
+        ]
       }
     } else if (safe_browsing_mode == 2) {
       sources += [
@@ -641,6 +651,7 @@ source_set("unit_tests") {
     "advanced_protection_status_manager_factory_unittest.cc",
     "advanced_protection_status_manager_unittest.cc",
     "application_advanced_protection_status_detector_unittest.cc",
+    "metrics/bundled_settings_metrics_provider_unittest.cc",
   ]
 
   deps = [
@@ -658,7 +669,10 @@ source_set("unit_tests") {
     deps += [ "android:test_support" ]
   }
   if (is_win || is_mac || is_linux || is_chromeos) {
-    sources += [ "safe_browsing_pref_change_handler_unittest.cc" ]
+    sources += [
+      "safe_browsing_pref_change_handler_unittest.cc",
+      "security_settings_bundle_toast_helper_unittest.cc",
+    ]
 
     deps += [
       "//chrome/browser/sync",
@@ -700,6 +714,7 @@ source_set("test_support") {
       "//components/safe_browsing/content/browser:safe_browsing_service",
       "//components/safe_browsing/core/browser/db:database_manager",
       "//components/safe_browsing/core/browser/db:test_database_manager",
+      "//components/safe_browsing/core/browser/db:v4_protocol_config",
       "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
       "//components/safe_browsing/core/common/proto:crx_info_proto",
       "//content/public/browser",

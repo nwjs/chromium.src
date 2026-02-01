@@ -369,6 +369,7 @@ class ShowMetadataView : public InstallerDialogView {
     std::vector<std::pair<int, std::u16string>> info = {
         {IDS_IWA_INSTALLER_SHOW_METADATA_APP_NAME_LABEL, u""},
         {IDS_IWA_INSTALLER_SHOW_METADATA_APP_VERSION_LABEL, u""},
+        {IDS_IWA_INSTALLER_SHOW_METADATA_APP_ENTERPRISE_NAME_LABEL, u""},
     };
     info_pane_ = SetContentsView(std::make_unique<InfoPane>(info),
                                  IDS_IWA_INSTALLER_DETAILS_SCREENREADER_NAME);
@@ -531,12 +532,13 @@ void IsolatedWebAppInstallerViewImpl::ShowMetadataScreen(
        bundle_metadata.app_name()},
       {IDS_IWA_INSTALLER_SHOW_METADATA_APP_VERSION_LABEL,
        base::UTF8ToUTF16(bundle_metadata.version().GetString())},
-  };
+      {IDS_IWA_INSTALLER_SHOW_METADATA_APP_ENTERPRISE_NAME_LABEL,
+       base::UTF8ToUTF16(bundle_metadata.enterprise_name().value_or(""))}};
   show_metadata_view_->UpdateInfoPaneContents(data);
   show_metadata_view_->SetTitle(bundle_metadata.app_name());
   show_metadata_view_->SetIcon(
       CreateImageModelFromBundleMetadata(bundle_metadata));
-  if (bundle_metadata.image_info().is_maskable && !icon_masked_) {
+  if (bundle_metadata.image_info().is_maskable) {
     web_app::MaskIconOnOs(
         GetIconBitmapFromBundleMetadataToUseInDialog(bundle_metadata),
         base::BindOnce(
@@ -550,7 +552,7 @@ void IsolatedWebAppInstallerViewImpl::ShowInstallScreen(
     const SignedWebBundleMetadata& bundle_metadata) {
   install_view_->SetTitle(bundle_metadata.app_name());
   install_view_->SetIcon(CreateImageModelFromBundleMetadata(bundle_metadata));
-  if (bundle_metadata.image_info().is_maskable && !icon_masked_) {
+  if (bundle_metadata.image_info().is_maskable) {
     web_app::MaskIconOnOs(
         GetIconBitmapFromBundleMetadataToUseInDialog(bundle_metadata),
         base::BindOnce(
@@ -571,7 +573,7 @@ void IsolatedWebAppInstallerViewImpl::ShowInstallSuccessScreen(
                                      bundle_metadata.app_name());
   install_success_view_->SetIcon(
       CreateImageModelFromBundleMetadata(bundle_metadata));
-  if (bundle_metadata.image_info().is_maskable && !icon_masked_) {
+  if (bundle_metadata.image_info().is_maskable) {
     web_app::MaskIconOnOs(
         GetIconBitmapFromBundleMetadataToUseInDialog(bundle_metadata),
         base::BindOnce(
@@ -716,12 +718,10 @@ views::Widget* IsolatedWebAppInstallerViewImpl::ShowChildDialog(
 void IsolatedWebAppInstallerViewImpl::OnIconMaskedUpdateAppIcon(
     InstallerDialogView* view,
     SkBitmap masked_bitmap) {
-  CHECK(!icon_masked_);
   CHECK(!masked_bitmap.drawsNothing());
   CHECK(view);
   view->SetIcon(ui::ImageModel::FromImageSkia(
       gfx::ImageSkia::CreateFrom1xBitmap(std::move(masked_bitmap))));
-  icon_masked_ = true;
 }
 
 void IsolatedWebAppInstallerViewImpl::ShowChildView(views::View* view) {

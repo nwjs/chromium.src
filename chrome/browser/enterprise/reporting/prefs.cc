@@ -33,6 +33,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kLastUploadVersion, std::string());
   registry->RegisterTimeDeltaPref(kCloudReportingUploadFrequency,
                                   kDefaultReportFrequency);
+  registry->RegisterListPref(kSaaSReportDomainUrlsForBrowser);
+  registry->RegisterDictionaryPref(kSaaSDomainReport);
 }
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
@@ -56,6 +58,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   registry->RegisterListPref(kCloudLegacyTechReportAllowlist);
+  registry->RegisterListPref(kSaaSReportDomainUrlsForProfile);
+  registry->RegisterDictionaryPref(kSaaSDomainReport);
 }
 
 }  // namespace enterprise_reporting

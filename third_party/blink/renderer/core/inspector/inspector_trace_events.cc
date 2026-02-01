@@ -280,13 +280,14 @@ void InspectorTraceEvents::Did(const probe::CallFunction& probe) {
 void InspectorTraceEvents::PaintTiming(Document* document,
                                        const char* name,
                                        double timestamp) {
-  TRACE_EVENT_MARK_WITH_TIMESTAMP2(
-      "loading,rail,devtools.timeline", name,
-      trace_event::ToTraceTimestamp(timestamp), "frame",
-      GetFrameIdForTracing(document->GetFrame()), "data",
-      [&](perfetto::TracedValue context) {
-        GetNavigationTracingData(std::move(context), document);
-      });
+  TRACE_EVENT_MARK_WITH_TIMESTAMP2("loading,rail,devtools.timeline", name,
+                                   trace_event::ToTraceTimestamp(timestamp),
+                                   "frame",
+                                   GetFrameIdForTracing(document->GetFrame()),
+                                   "data", [&](perfetto::TracedValue context) {
+                                     GetNavigationTracingData(
+                                         std::move(context), document);
+                                   });
 }
 
 void InspectorTraceEvents::FrameStartedLoading(LocalFrame* frame) {
@@ -1464,11 +1465,8 @@ void inspector_event_dispatch_event::Data(perfetto::TracedValue context,
                                           v8::Isolate* isolate) {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("type", event.type());
-  bool record_input_enabled;
-  TRACE_EVENT_CATEGORY_GROUP_ENABLED(
-      TRACE_DISABLED_BY_DEFAULT("devtools.timeline.inputs"),
-      &record_input_enabled);
-  if (record_input_enabled) {
+  if (TRACE_EVENT_CATEGORY_ENABLED(
+          TRACE_DISABLED_BY_DEFAULT("devtools.timeline.inputs"))) {
     const auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
     if (keyboard_event) {
       dict.Add("modifier", GetModifierFromEvent(*keyboard_event));
@@ -1604,14 +1602,15 @@ void inspector_set_layer_tree_id::Data(perfetto::TracedValue context,
            frame->GetPage()->GetChromeClient().GetLayerTreeId(*frame));
 }
 
-struct DOMStats : public GarbageCollected<DOMStats> {
+struct DOMStats : public GarbageCollected<DOMStats>,
+                  public GarbageCollectedMixin {
   unsigned int total_elements = 0;
   unsigned int max_children = 0;
   unsigned int max_depth = 0;
   Member<Node> max_children_node;
   Member<Node> max_depth_node;
 
-  void Trace(Visitor* visitor) const {
+  void Trace(Visitor* visitor) const override {
     visitor->Trace(max_children_node);
     visitor->Trace(max_depth_node);
   }

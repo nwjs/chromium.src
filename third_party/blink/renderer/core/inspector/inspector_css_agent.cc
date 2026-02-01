@@ -153,7 +153,6 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
-#include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_custom_platform_data.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
@@ -1676,8 +1675,7 @@ protocol::Response InspectorCSSAgent::getEnvironmentVariables(
                     UADefinedVariable::kTitlebarAreaY,
                     UADefinedVariable::kTitlebarAreaWidth,
                     UADefinedVariable::kTitlebarAreaHeight,
-                    UADefinedVariable::kPreferredTextScale,
-                    UADefinedVariable::kSafePrintableInset};
+                    UADefinedVariable::kPreferredTextScale};
   // LINT.ThenChange(//third_party/blink/renderer/core/css/style_environment_variables.h:UADefinedVariable)
 
   for (auto variable : variables) {
@@ -2554,7 +2552,7 @@ protocol::Response InspectorCSSAgent::getLonghandProperties(
   const CSSParserContext* parser_context =
       MakeGarbageCollected<CSSParserContext>(kHTMLStandardMode,
                                              SecureContextMode::kSecureContext);
-  const auto local_context =
+  auto local_context =
       CSSParserLocalContext().WithCurrentShorthand(property.PropertyID());
 
   HeapVector<CSSPropertyValue, 64> css_longhand_properties;
@@ -2609,7 +2607,6 @@ void InspectorCSSAgent::CollectPlatformFontsForLayoutObject(
   if (DisplayLockUtilities::LockedAncestorPreventingPaint(*layout_object))
     return;
 
-  FontCachePurgePreventer preventer;
   DCHECK(layout_object->IsInLayoutNGInlineFormattingContext());
   InlineCursor cursor;
   cursor.MoveTo(*layout_object);

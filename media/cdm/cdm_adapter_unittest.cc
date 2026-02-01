@@ -23,12 +23,14 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "media/base/cdm_callback_promise.h"
 #include "media/base/cdm_factory.h"
 #include "media/base/cdm_key_information.h"
 #include "media/base/content_decryption_module.h"
 #include "media/base/media_switches.h"
 #include "media/base/mock_filters.h"
+#include "media/base/test_helpers.h"
 #include "media/cdm/api/content_decryption_module.h"
 #include "media/cdm/cdm_adapter.h"
 #include "media/cdm/cdm_module.h"
@@ -43,6 +45,7 @@
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::An;
 using ::testing::Invoke;
 using ::testing::IsNull;
 using ::testing::NotNull;
@@ -74,6 +77,18 @@ MATCHER(HasNoLicenseSdkVersion, "") {
 
 MATCHER_P(HasBypassBlocksTotalCount, expected_value, "") {
   return arg.decoder_bypass_block_count == expected_value;
+}
+
+MATCHER_P(HasDecoderCheck1SuccessCount, expected_value, "") {
+  return arg.decoder_check1_success_count == expected_value;
+}
+
+MATCHER_P(HasDecoderCheck1WarningCount, expected_value, "") {
+  return arg.decoder_check1_warning_count == expected_value;
+}
+
+MATCHER_P(HasDecoderCheck1ErrorCount, expected_value, "") {
+  return arg.decoder_check1_error_count == expected_value;
 }
 
 // TODO(jrummell): These tests are a subset of those in aes_decryptor_unittest.
@@ -270,7 +285,7 @@ class CdmAdapterTestWithClearKeyCdm : public CdmAdapterTestBase {
   void CreateSessionAndExpect(EmeInitDataType data_type,
                               const std::vector<uint8_t>& key_id,
                               ExpectedResult expected_result) {
-    DCHECK(!key_id.empty());
+    CHECK(!key_id.empty());
 
     if (expected_result == SUCCESS) {
       EXPECT_CALL(cdm_client_, OnSessionMessage(IsNotEmpty(), _, _));
@@ -295,7 +310,7 @@ class CdmAdapterTestWithClearKeyCdm : public CdmAdapterTestBase {
   // that LoadSession() succeeds or generates an error.
   void LoadSessionAndExpect(const std::string& session_id,
                             ExpectedResult expected_result) {
-    DCHECK(!session_id.empty());
+    CHECK(!session_id.empty());
     ASSERT_EQ(expected_result, FAILURE) << "LoadSession not supported.";
 
     cdm_->LoadSession(CdmSessionType::kTemporary, session_id,
@@ -310,7 +325,7 @@ class CdmAdapterTestWithClearKeyCdm : public CdmAdapterTestBase {
                               const std::string& key,
                               ExpectedResult expected_result,
                               bool new_key_expected) {
-    DCHECK(!key.empty());
+    CHECK(!key.empty());
 
     if (expected_result == SUCCESS) {
       EXPECT_CALL(cdm_client_,
@@ -408,6 +423,20 @@ class CdmAdapterTestWithMockCdm : public CdmAdapterTestBase {
     ASSERT_TRUE(mock_library_cdm_);
     cdm_host_proxy_ = mock_library_cdm_->GetCdmHostProxy();
     ASSERT_TRUE(cdm_host_proxy_);
+  }
+
+  void ExpectInitializeVideoDecoder(cdm::Status status) {
+    if (GetCdmInterfaceVersion() >= 12) {
+      EXPECT_CALL(
+          *mock_library_cdm_,
+          InitializeVideoDecoder(An<const cdm::VideoDecoderConfig_3&>()))
+          .WillOnce(Return(status));
+    } else {
+      EXPECT_CALL(
+          *mock_library_cdm_,
+          InitializeVideoDecoder(An<const cdm::VideoDecoderConfig_2&>()))
+          .WillOnce(Return(status));
+    }
   }
 
   // These are both owned by `cdm_`.
@@ -688,10 +717,20 @@ TEST_P(CdmAdapterTestWithMockCdm, RecordUMA) {
                                         /* expected_bucket_count= */ 1);
   }
 
+  // decoder check1 success, warning, error reports 1, 2, 3 respectively.
+  {
+    cdm_host_proxy_->ReportMetrics(cdm::kDecoderCheck1SuccessCount, 1);
+    cdm_host_proxy_->ReportMetrics(cdm::kDecoderCheck1WarningCount, 2);
+    cdm_host_proxy_->ReportMetrics(cdm::kDecoderCheck1ErrorCount, 3);
+  }
+
   // On destruction UKM should be logged containing the sum of all the reported
   // kDecoderBypassBlockCount values (and no license SDK version as one is not
   // set).
   EXPECT_CALL(*cdm_helper_, RecordUkm(AllOf(HasBypassBlocksTotalCount(111),
+                                            HasDecoderCheck1SuccessCount(1),
+                                            HasDecoderCheck1WarningCount(2),
+                                            HasDecoderCheck1ErrorCount(3),
                                             HasNoLicenseSdkVersion())));
 }
 
@@ -705,6 +744,45 @@ TEST_P(CdmAdapterTestWithMockCdm, ReportMetricsWithUnexpectedValue) {
   const uint32_t kInvalidMetricName = 99999999;  // Arbitrary large metric name.
   cdm_host_proxy_->ReportMetrics(
       static_cast<cdm::MetricName>(kInvalidMetricName), 12345);
+}
+
+// Test that DeinitializeDecoder cancels any pending video decoder
+// initialization callback. This prevents a CHECK failure when
+// InitializeVideoDecoder is called again after DeinitializeDecoder is called
+// while deferred initialization is pending (e.g., during config change
+// reinitialization).
+TEST_P(CdmAdapterTestWithMockCdm, DeinitializeDecoderCancelsPendingInit) {
+  CdmConfig cdm_config = GetCdmConfig();
+  InitializeWithCdmConfig(cdm_config);
+
+  auto* decryptor = cdm_->GetCdmContext()->GetDecryptor();
+  ASSERT_TRUE(decryptor);
+
+  // 1. InitializeVideoDecoder with deferred initialization.
+  ExpectInitializeVideoDecoder(cdm::kDeferredInitialization);
+
+  base::test::TestFuture<bool> first_init_result;
+  decryptor->InitializeVideoDecoder(TestVideoConfig::NormalEncrypted(),
+                                    first_init_result.GetCallback());
+
+  // Verify the callback was not called yet.
+  EXPECT_FALSE(first_init_result.IsReady());
+
+  // 2. DeinitializeDecoder should reject the pending callback.
+  EXPECT_CALL(*mock_library_cdm_, DeinitializeDecoder(cdm::kStreamTypeVideo));
+  decryptor->DeinitializeDecoder(Decryptor::kVideo);
+
+  // The pending callback should be dropped (not called).
+  EXPECT_FALSE(first_init_result.IsReady());
+
+  // 3. Verify we can initialize again immediately.
+  ExpectInitializeVideoDecoder(cdm::kSuccess);
+
+  base::test::TestFuture<bool> second_init_result;
+  decryptor->InitializeVideoDecoder(TestVideoConfig::NormalEncrypted(),
+                                    second_init_result.GetCallback());
+
+  EXPECT_TRUE(second_init_result.Get());
 }
 
 }  // namespace media

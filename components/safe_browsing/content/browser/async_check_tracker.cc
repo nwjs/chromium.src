@@ -124,7 +124,7 @@ void AsyncCheckTracker::PendingCheckerCompleted(
            << " proceed: " << result.proceed
            << " has_post_commit_interstitial_skipped: "
            << result.has_post_commit_interstitial_skipped;
-  if (!base::Contains(pending_checkers_, navigation_id)) {
+  if (!pending_checkers_.contains(navigation_id)) {
     return;
   }
   if (!result.proceed) {
@@ -157,12 +157,12 @@ void AsyncCheckTracker::PendingCheckerCompleted(
 }
 
 bool AsyncCheckTracker::IsNavigationPending(int64_t navigation_id) {
-  return !base::Contains(committed_navigation_timestamps_, navigation_id);
+  return !committed_navigation_timestamps_.contains(navigation_id);
 }
 
 std::optional<base::TimeTicks>
 AsyncCheckTracker::GetNavigationCommittedTimestamp(int64_t navigation_id) {
-  if (!base::Contains(committed_navigation_timestamps_, navigation_id)) {
+  if (!committed_navigation_timestamps_.contains(navigation_id)) {
     return std::nullopt;
   }
   return committed_navigation_timestamps_[navigation_id];
@@ -227,7 +227,7 @@ void AsyncCheckTracker::MaybeDisplayBlockingPage(
   }
   auto* primary_main_frame = web_contents()->GetPrimaryMainFrame();
   resource.rfh_locator = UnsafeResourceLocator::CreateForRenderFrameToken(
-      primary_main_frame->GetGlobalId().child_id,
+      primary_main_frame->GetGlobalId().child_id.value(),
       primary_main_frame->GetFrameToken().value());
   // The callback has already been run when BaseUIManager attempts to
   // trigger post commit error page, so there is no need to run again.
@@ -250,7 +250,7 @@ void AsyncCheckTracker::DisplayBlockingPage(UnsafeResource resource) {
 }
 
 void AsyncCheckTracker::MaybeDeleteChecker(int64_t navigation_id) {
-  if (!base::Contains(pending_checkers_, navigation_id)) {
+  if (!pending_checkers_.contains(navigation_id)) {
     return;
   }
   pending_checkers_[navigation_id].reset();

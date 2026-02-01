@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.ntp_customization.theme;
 
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundImageType.THEME_COLLECTION;
+
 import android.content.Context;
 
 import org.chromium.build.annotations.NullMarked;
@@ -17,9 +19,10 @@ import org.chromium.components.image_fetcher.ImageFetcher;
 /** Manages the lifecycle of NtpSyncedThemeBridge. */
 @NullMarked
 public class NtpSyncedThemeManager {
-    private final NtpSyncedThemeBridge mNtpSyncedThemeBridge;
     private final Context mContext;
+    private final Profile mProfile;
     private final @Nullable ImageFetcher mImageFetcher;
+    private @Nullable NtpSyncedThemeBridge mNtpSyncedThemeBridge;
 
     /**
      * Constructs a new NtpSyncedThemeManager.
@@ -29,13 +32,41 @@ public class NtpSyncedThemeManager {
      */
     public NtpSyncedThemeManager(Context context, Profile profile) {
         mContext = context;
+        mProfile = profile;
         mImageFetcher = NtpCustomizationUtils.createImageFetcher(profile);
-        mNtpSyncedThemeBridge = new NtpSyncedThemeBridge(profile, this::onThemeCollectionSynced);
     }
 
     /** Cleans up the C++ side of {@link NtpSyncedThemeBridge}. */
     public void destroy() {
-        mNtpSyncedThemeBridge.destroy();
+        if (mNtpSyncedThemeBridge != null) {
+            mNtpSyncedThemeBridge.destroy();
+        }
+    }
+
+    /**
+     * Called after a daily refresh for a theme collection is applied. This triggers fetching the
+     * image for the next day's refresh if one hasn't been fetched already.
+     */
+    public void fetchNextThemeCollectionImageAfterDailyRefreshApplied() {
+        if (NtpCustomizationUtils.getNtpBackgroundImageType() != THEME_COLLECTION) {
+            return;
+        }
+
+        CustomBackgroundInfo customBackgroundInfo =
+                NtpCustomizationUtils.getCustomBackgroundInfoFromSharedPreference();
+        if (customBackgroundInfo == null || !customBackgroundInfo.isDailyRefreshEnabled) {
+            return;
+        }
+
+        if (NtpCustomizationUtils.getDailyRefreshCustomBackgroundInfoFromSharedPreference()
+                != null) {
+            return;
+        }
+
+        // TODO(crbug.com/423579377): Move this back to constructor when adding specific android
+        // service for theme collections.
+        mNtpSyncedThemeBridge = new NtpSyncedThemeBridge(mProfile, this::onThemeCollectionSynced);
+        mNtpSyncedThemeBridge.fetchNextThemeCollectionImage();
     }
 
     /**
@@ -59,8 +90,9 @@ public class NtpSyncedThemeManager {
                         BackgroundImageInfo backgroundImageInfo =
                                 NtpCustomizationUtils.calculateInitialThemeCollectionImageMatrices(
                                         mContext, bitmap);
-                        NtpCustomizationUtils.saveBackgroundInfoForThemeCollectionOrUploadedImage(
+                        NtpCustomizationUtils.saveDailyRefreshBackgroundInfo(
                                 info, bitmap, backgroundImageInfo);
+                        destroy();
                     }
                 });
     }

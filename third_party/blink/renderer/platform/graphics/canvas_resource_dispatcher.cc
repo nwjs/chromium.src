@@ -26,6 +26,8 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "ui/gfx/geometry/point_f.h"
+#include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/mojom/presentation_feedback.mojom-blink.h"
 
 namespace {
@@ -49,6 +51,16 @@ struct CanvasResourceDispatcher::ExportedResource {
     CHECK(resource_);
   }
 
+  void ReleaseResource(gpu::SharedImageExportResult shared_image_export_result,
+                       bool is_lost) {
+    auto sync_token = resource_->GetClientSharedImage()->EndExport(
+        std::move(shared_image_export_result));
+    ReleaseResource(sync_token, is_lost);
+  }
+
+  ~ExportedResource() { ReleaseResource(gpu::SyncToken(), /*is_lost=*/false); }
+
+ private:
   void ReleaseResource(const gpu::SyncToken& sync_token, bool is_lost) {
     auto resource = std::move(resource_);
     if (release_callback_) {
@@ -57,9 +69,6 @@ struct CanvasResourceDispatcher::ExportedResource {
     }
   }
 
-  ~ExportedResource() { ReleaseResource(gpu::SyncToken(), /*is_lost=*/false); }
-
- private:
   scoped_refptr<CanvasResource> resource_;
   CanvasResource::ReleaseCallback release_callback_;
 };
@@ -277,6 +286,8 @@ bool CanvasResourceDispatcher::PrepareFrame(
   const viz::ResourceId resource_id = next_resource_id;
   resource.id = resource_id;
 
+  const gfx::Size resource_size = resource.GetSize();
+
   // Create a new ref on `canvas_resource` to pass to the placeholder, which
   // will manage the lifetime of this ref.
   auto resource_ref_for_placeholder = canvas_resource;
@@ -298,10 +309,11 @@ bool CanvasResourceDispatcher::PrepareFrame(
 
   const bool needs_blending = !is_opaque;
   constexpr gfx::PointF uv_top_left(0.f, 0.f);
-  constexpr gfx::PointF uv_bottom_right(1.f, 1.f);
   quad->SetAll(sqs, bounds, bounds, needs_blending, resource_id, uv_top_left,
-               uv_bottom_right, SkColors::kTransparent, nearest_neighbor,
-               /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+               gfx::PointF(resource_size.width(), resource_size.height()),
+               SkColors::kTransparent, nearest_neighbor,
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 
   frame->render_pass_list.push_back(std::move(pass));
 
@@ -426,7 +438,7 @@ void CanvasResourceDispatcher::OnFakeFrameTimer(TimerBase* timer) {
 
 void CanvasResourceDispatcher::ReclaimResources(
     Vector<viz::ReturnedResource> resources) {
-  for (const auto& resource : resources) {
+  for (auto& resource : resources) {
     auto it = exported_resources_.find(resource.id);
 
     CHECK(it != exported_resources_.end());
@@ -434,7 +446,8 @@ void CanvasResourceDispatcher::ReclaimResources(
       continue;
     }
 
-    it->value->ReleaseResource(resource.sync_token, resource.lost);
+    it->value->ReleaseResource(resource.shared_image_export_result,
+                               resource.lost);
     exported_resources_.erase(it);
   }
 }

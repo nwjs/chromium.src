@@ -134,10 +134,14 @@ class ExecutionEngineBrowserTest : public InProcessBrowserTest {
       : prerender_helper_(
             base::BindRepeating(&ExecutionEngineBrowserTest::web_contents,
                                 base::Unretained(this))) {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kGlic, features::kTabstripComboButton,
-                              features::kGlicActor,
-                              kGlicExternalProtocolActionResultCode},
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{features::kGlic, {}},
+                              {features::kTabstripComboButton, {}},
+                              {features::kGlicActor, {}},
+                              {kGlicExternalProtocolActionResultCode, {}},
+                              {kGlicCrossOriginNavigationGating,
+                               {{"confirm_navigation_to_new_origins",
+                                 "false"}}}},
         /*disabled_features=*/{features::kGlicWarming});
   }
   ExecutionEngineBrowserTest(const ExecutionEngineBrowserTest&) = delete;
@@ -161,7 +165,7 @@ class ExecutionEngineBrowserTest : public InProcessBrowserTest {
     }
     ASSERT_TRUE(embedded_https_test_server().Start());
 
-    actor_keyed_service()->GetPolicyChecker().SetActOnWebForTesting(true);
+    actor_keyed_service()->GetPolicyChecker().set_act_on_web_for_testing(true);
 
     StartNewTask();
 
@@ -502,11 +506,11 @@ class ExecutionEnginePixelBrowserTest : public ExecutionEngineBrowserTest {
     bool found_red = false;
     base::RunLoop run_loop;
     web_contents()->GetRenderWidgetHostView()->CopyFromSurface(
-        gfx::Rect(), gfx::Size(),
+        gfx::Rect(), gfx::Size(), base::TimeDelta(),
         base::BindLambdaForTesting(
-            [&](const viz::CopyOutputBitmapWithMetadata& result) {
-              const SkBitmap& bitmap = result.bitmap;
-              ASSERT_FALSE(bitmap.drawsNothing());
+            [&](const content::CopyFromSurfaceResult& result) {
+              ASSERT_TRUE(result.has_value());
+              const SkBitmap& bitmap = result->bitmap;
               for (int x = 0; x < bitmap.width() && !found_red; ++x) {
                 for (int y = 0; y < bitmap.height() && !found_red; ++y) {
                   if (bitmap.getColor(x, y) == SK_ColorRED) {

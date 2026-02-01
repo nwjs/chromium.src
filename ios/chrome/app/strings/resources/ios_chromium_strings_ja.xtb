@@ -34,8 +34,10 @@
 <translation id="159029779861043703">Chromium では、Face ID を使用してセンシティブ データを保護します。</translation>
 <translation id="1591119736686995611">Chromium タブグリッドを開きます。</translation>
 <translation id="16001233025397167">安全チェックにより、データ侵害や安全でないウェブサイトなどの脅威から保護されているかどうかが確認されます。Chromium で検出されたプライバシーやセキュリティの問題がある場合は、アラートが表示されます。</translation>
+<translation id="1614362805233822594">表示されているサイトのパスワードまたはパスキーはすでにパスワード マネージャーに保存されています。表示されているログイン情報を保存するアカウントを選択すると、パスワード マネージャーの情報が上書きされます。</translation>
 <translation id="1617663976202781617">Chromium 同期のデータ</translation>
 <translation id="164952285225495380">この荷物は Chromium ですでに追跡されています。</translation>
+<translation id="1703338211136118534">次のパスワードは要件を満たしていないため、パスワード マネージャーにインポートされませんでした。</translation>
 <translation id="1707458603865303524">メッセージや他のアプリ内でリンクをタップしたときに、常に Chromium で開くよう設定できます。</translation>
 <translation id="1722370509450468186">パスワードはアカウント（<ph name="EMAIL" />）に保存されます。</translation>
 <translation id="1747088204252710672">あなた向けのカスタム フィード</translation>
@@ -47,6 +49,7 @@
 <translation id="1847960401032164406">Chromium の Google マップ表示</translation>
 <translation id="1867772173333403444">4. [Chromium] を選択する</translation>
 <translation id="1965068424387304464">Chromium のヒント: パスワードを保存</translation>
+<translation id="1992653360331625459">これらのアカウントのパスワードはすでにパスワード マネージャーに保存されています。下記のパスワードをインポートすると、既存のパスワードが置き換えられます。</translation>
 <translation id="2006345422933397527">Chromium でアップデートを確認できませんでした。インターネット接続を確認してみてください。</translation>
 <translation id="2042889939382983733">Chromium 履歴を表示する</translation>
 <translation id="2052320862053429062">Chromium では、定期的にパスワードをオンライン上の公開リストと照合し、確認しています。その際、パスワードとユーザー名は Google を含め誰も読み取ることができないよう暗号化されます。</translation>
@@ -65,6 +68,7 @@
 <translation id="2326738825692478496">Chromium データの一部が Google アカウントにまだ保存されていません。
 
 数分待ってからログアウトしてください。今すぐログアウトすると、このデータは削除されます。</translation>
+<translation id="2334943301233020675">次のパスキーは要件を満たしていないため、パスワード マネージャーにインポートされませんでした。</translation>
 <translation id="2337722506862731008">Chromium を共有</translation>
 <translation id="2340423701577464731">Chromium にリーディング リストの項目を追加する</translation>
 <translation id="2374627437126809292">Chromium では Google マップを使用して、検出された住所までの経路やローカル情報を表示しています。</translation>
@@ -117,6 +121,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="3581385059720151202">Chromium で画像検索する</translation>
 <translation id="3582640969619785896">Chromium でパスワードの保存を確認するメッセージが表示されます</translation>
 <translation id="3594315078412605236">Chromium でお支払い方法を管理する</translation>
+<translation id="3600428265489994557">Chromium にログイン</translation>
 <translation id="3617143087229977194">iOS で [デフォルトのアプリ] の設定を開き、[ブラウザアプリ] をタップして [Chromium] を選択します。</translation>
 <translation id="3634039384458740619">Chromium の設定を開く</translation>
 <translation id="3639997914391704523">Google アカウントでログインすると、Chromium でパスワードを確認できるようになります。</translation>
@@ -124,6 +129,7 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="3728124580182886854">パーソナライズなどの目的で、Chromium と他の Google サービスをリンクします</translation>
 <translation id="377649297473651452">Chromium の自動入力拡張ビュー</translation>
 <translation id="3780779443901618967">標準保護機能より多くのサイトデータを分析して、危険なサイト（Google が認識していなかったサイトも含む）について警告します。Chromium の警告をスキップすることもできます。</translation>
+<translation id="3793136096560888222">Gemini in Chromium で画像を編集</translation>
 <translation id="3805899903892079518">Chromium で写真または動画にアクセスできません。iOS の [設定] &gt; [プライバシー] &gt; [写真] でアクセスを有効にしてください。</translation>
 <translation id="3816686541346279443">Chromium でパスワードの保存を確認するメッセージが表示されます。</translation>
 <translation id="3827545470516145620">このデバイスは標準のセキュリティ機能で保護されます</translation>
@@ -291,7 +297,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="7554983317097061001">Chromium のヒント: Chromium をドックに移動</translation>
 <translation id="7576863740961052505">Chromium の設定を管理する</translation>
 <translation id="7674213385180944843">[設定] &gt; [プライバシー] &gt; [カメラ] &gt; [Chromium] の順に選択し、カメラをオンにします。</translation>
-<translation id="7685160423563372998">Gemini in Chromium を使用して画像を作成</translation>
 <translation id="7733418656985455268">Chromium のヒント: レンズで検索</translation>
 <translation id="7747820849741499258">Chromium で検索</translation>
 <translation id="7753923083404296545">シークレット モードの Chromium で開きました</translation>
@@ -351,7 +356,6 @@ Chromium を使いやすくするためにデータを使用するその他の�
 <translation id="900560297598578021"><ph name="EMAIL" /> としてログインしています。
 
 データは <ph name="TIME" /> にパスフレーズで暗号化されました。Google アカウントで Chromium のデータを使用して保存するには、パスフレーズを入力してください。</translation>
-<translation id="9022552996538154597">Chromium にログイン</translation>
 <translation id="9031260906956926157">Chromium データの一部が Google アカウントにまだ保存されていません。
 数分待ってからログアウトしてください。今すぐログアウトすると、このデータは削除されます。</translation>
 <translation id="9050790730841755540">他のアプリのリンクをタップしたときに、常に Chromium で開くよう設定できます。</translation>

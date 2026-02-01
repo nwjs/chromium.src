@@ -11,10 +11,10 @@
 #include <utility>
 
 #include "base/check_is_test.h"
-#include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/notreached.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/process_memory_dump.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
@@ -120,6 +120,9 @@ uint32_t ComputeTextureTargetForSharedImage(
 
 }  // namespace
 
+SharedImageExportResult::SharedImageExportResult(const SyncToken& sync_token)
+    : sync_token_(sync_token) {}
+
 ClientSharedImage::ScopedMapping::ScopedMapping(const gfx::Size& size,
                                                 viz::SharedImageFormat format)
     : size_(size), format_(format) {}
@@ -161,7 +164,8 @@ base::span<uint8_t> ClientSharedImage::ScopedMapping::GetMemoryForPlane(
   // tightening here for NativePixmap.
   if (buffer_->GetType() == gfx::GpuMemoryBufferType::NATIVE_PIXMAP) {
     span_length =
-        buffer_->CloneHandle().native_pixmap_handle().planes[plane_index].size;
+        static_cast<MappableBufferNativePixmap*>(buffer_)->GetPlaneSize(
+            plane_index);
   }
 #endif
 
@@ -545,7 +549,14 @@ scoped_refptr<ClientSharedImage> ClientSharedImage::MakeUnowned() {
 ExportedSharedImage ClientSharedImage::Export(bool with_buffer_handle) {
   if (creation_sync_token_.HasData() &&
       !creation_sync_token_.verified_flush()) {
-    sii_holder_->Get()->VerifySyncToken(creation_sync_token_);
+    auto sii = sii_holder_->Get();
+    // TODO(crbug.com/40286368): We should let ClientSharedImage hold a strong
+    // SharedImageInterface reference to ensure `sii` is always valid.
+    if (sii) {
+      sii->VerifySyncToken(creation_sync_token_);
+    } else {
+      creation_sync_token_ = gpu::SyncToken();
+    }
   }
   std::optional<gfx::GpuMemoryBufferHandle> buffer_handle;
   std::optional<gfx::BufferUsage> buffer_usage;

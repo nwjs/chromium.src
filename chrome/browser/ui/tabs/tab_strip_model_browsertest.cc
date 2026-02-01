@@ -104,8 +104,8 @@ class TabStripModelPreventCloseTest : public PreventCloseTestBase,
 
   // TabStripModelObserver:
   MOCK_METHOD(void,
-              TabCloseCancelled,
-              (const content::WebContents* contents),
+              OnTabCloseCancelled,
+              (const tabs::TabInterface* tab),
               (override));
 
  protected:
@@ -131,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(TabStripModelPreventCloseTest,
   EXPECT_EQ(!kShouldPreventClose, tab_strip_model->IsTabClosable(
                                       tab_strip_model->GetActiveWebContents()));
 
-  EXPECT_CALL(*this, TabCloseCancelled(_)).Times(kShouldPreventClose ? 1 : 0);
+  EXPECT_CALL(*this, OnTabCloseCancelled(_)).Times(kShouldPreventClose ? 1 : 0);
 
   tab_strip_model->CloseAllTabs();
   EXPECT_EQ(kShouldPreventClose ? 1 : 0, tab_strip_model->count());
@@ -172,7 +172,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(
       tab_strip_model->IsTabClosable(tab_strip_model->GetActiveWebContents()));
 
-  EXPECT_CALL(*this, TabCloseCancelled(_)).Times(0);
+  EXPECT_CALL(*this, OnTabCloseCancelled(_)).Times(0);
 
   tab_strip_model->CloseAllTabs();
   EXPECT_EQ(0, tab_strip_model->count());
@@ -182,8 +182,7 @@ class TabStripModelBrowserTest : public InProcessBrowserTest,
                                  public TabStripModelObserver {
  public:
   TabStripModelBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {features::kTabOrganization, features::kSideBySide}, {});
+    feature_list_.InitWithFeatures({features::kTabOrganization}, {});
   }
 
   void TearDownOnMainThread() override { observer_.Reset(); }
@@ -272,11 +271,6 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandOrganizeTabs) {
   EXPECT_NE(session, nullptr);
   EXPECT_EQ(session->request()->state(),
             TabOrganizationRequest::State::NOT_STARTED);
-
-  histogram_tester.ExpectUniqueSample("Tab.Organization.AllEntrypoints.Clicked",
-                                      true, 1);
-  histogram_tester.ExpectUniqueSample("Tab.Organization.TabContextMenu.Clicked",
-                                      true, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest,
@@ -640,7 +634,7 @@ class TabStripModelTestTabGroupEntryPointsEnabled
   }
 
   TabStrip* tabstrip() {
-    return views::AsViewClass<TabStripRegionView>(
+    return views::AsViewClass<HorizontalTabStripRegionView>(
                browser()->GetBrowserView().tab_strip_view())
         ->tab_strip();
   }

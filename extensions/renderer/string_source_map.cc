@@ -7,7 +7,6 @@
 #include <ostream>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "gin/converter.h"
 #include "third_party/zlib/google/compression_utils.h"
 
@@ -20,20 +19,21 @@ v8::Local<v8::String> StringSourceMap::GetSource(
     v8::Isolate* isolate,
     const std::string& name) const {
   const auto& iter = sources_.find(name);
-  if (iter == sources_.end())
+  if (iter == sources_.end()) {
     return v8::Local<v8::String>();
+  }
   return gin::StringToV8(isolate, iter->second);
 }
 
 bool StringSourceMap::Contains(const std::string& name) const {
-  return base::Contains(sources_, name);
+  return sources_.contains(name);
 }
 
 void StringSourceMap::RegisterModule(const std::string& name,
                                      const std::string& source,
                                      bool gzipped) {
-  CHECK_EQ(0u, sources_.count(name)) << "A module for '" << name
-                                     << "' already exists.";
+  CHECK_EQ(0u, sources_.count(name))
+      << "A module for '" << name << "' already exists.";
   if (!gzipped) {
     sources_[name] = source;
     return;

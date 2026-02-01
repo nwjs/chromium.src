@@ -571,6 +571,15 @@ void RenderWidgetHostViewMac::WasOccluded() {
   host()->WasHidden();
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
+
+  // Headless mode forces focus change propagation inside Focus(), since there
+  // is no NSWindow to deliver the normal focus change notifications. As a
+  // result, when view is hidden, we must explicitly clear its focus state to
+  // keep focus behavior consistent and avoid leaving the view marked as focused
+  // wrongly.
+  if (IsHeadless() && HasFocus()) {
+    OnFirstResponderChanged(/*is_first_responder=*/false);
+  }
 }
 
 void RenderWidgetHostViewMac::SetSize(const gfx::Size& size) {
@@ -1059,8 +1068,8 @@ uint32_t RenderWidgetHostViewMac::GetCaptureSequenceNumber() const {
 void RenderWidgetHostViewMac::CopyFromSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
-    base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
-        callback) {
+    base::TimeDelta timeout,
+    base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
   base::WeakPtr<RenderWidgetHostImpl> popup_host;
   base::WeakPtr<DelegatedFrameHost> popup_frame_host;
   if (popup_child_host_view_) {
@@ -1074,7 +1083,7 @@ void RenderWidgetHostViewMac::CopyFromSurface(
   RenderWidgetHostViewBase::CopyMainAndPopupFromSurface(
       host()->GetWeakPtr(),
       browser_compositor_->GetDelegatedFrameHost()->GetWeakPtr(), popup_host,
-      popup_frame_host, src_subrect, dst_size, GetDeviceScaleFactor(),
+      popup_frame_host, src_subrect, dst_size, GetDeviceScaleFactor(), timeout,
       std::move(callback));
 }
 

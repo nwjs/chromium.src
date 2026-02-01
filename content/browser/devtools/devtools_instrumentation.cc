@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/notreached.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/traced_value.h"
 #include "components/download/public/common/download_create_info.h"
@@ -48,8 +49,6 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_package/signed_exchange_envelope.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/cookie_insight_list_data.h"
-#include "content/public/browser/cookie_insight_list_handler.h"
 #include "devtools_agent_host_impl.h"
 #include "devtools_instrumentation.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -1494,7 +1493,9 @@ bool MaybeCreateProxyForInterception(
     const base::UnguessableToken& frame_token,
     bool is_navigation,
     bool is_download,
-    network::mojom::URLLoaderFactoryOverride* agent_override) {
+    network::mojom::URLLoaderFactoryOverride* agent_override,
+    mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
+        header_client) {
   if (!agent_host) {
     return false;
   }
@@ -1503,7 +1504,7 @@ bool MaybeCreateProxyForInterception(
   for (const auto& handler : base::Reversed(handlers)) {
     had_interceptors |= handler->MaybeCreateProxyForInterception(
         process_id, storage_partition, frame_token, is_navigation, is_download,
-        agent_override);
+        agent_override, header_client);
   }
   return had_interceptors;
 }
@@ -1514,7 +1515,9 @@ bool WillCreateURLLoaderFactoryParams::Run(
     bool is_navigation,
     bool is_download,
     network::URLLoaderFactoryBuilder& factory_builder,
-    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+    mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
+        header_client) {
   CHECK(!is_download || is_navigation);
 
   network::mojom::URLLoaderFactoryOverride devtools_override;
@@ -1532,17 +1535,17 @@ bool WillCreateURLLoaderFactoryParams::Run(
   bool had_interceptors =
       MaybeCreateProxyForInterception<protocol::NetworkHandler>(
           agent_host_, process_id_, storage_partition_, devtools_token_,
-          is_navigation, is_download, handler_override);
+          is_navigation, is_download, handler_override, header_client);
 
   had_interceptors |= MaybeCreateProxyForInterception<protocol::FetchHandler>(
       agent_host_, process_id_, storage_partition_, devtools_token_,
-      is_navigation, is_download, handler_override);
+      is_navigation, is_download, handler_override, header_client);
 
   // TODO(caseq): assure deterministic order of browser agents (or sessions).
   for (auto* browser_agent_host : BrowserDevToolsAgentHost::Instances()) {
     had_interceptors |= MaybeCreateProxyForInterception<protocol::FetchHandler>(
         browser_agent_host, process_id_, storage_partition_, devtools_token_,
-        is_navigation, is_download, handler_override);
+        is_navigation, is_download, handler_override, header_client);
   }
   if (!had_interceptors) {
     return false;
@@ -2051,34 +2054,6 @@ BuildCookieDeprecationMetadataIssue(
   return issue;
 }
 
-std::unique_ptr<protocol::Audits::CookieIssueInsight> BuildCookieIssueInsight(
-    std::string_view cookie_domain,
-    const net::CookieInclusionStatus& status) {
-  std::optional<CookieIssueInsight> insight =
-      CookieInsightListHandler::GetInstance().GetInsight(cookie_domain, status);
-  if (!insight.has_value()) {
-    return nullptr;
-  }
-
-  switch (insight->type) {
-    case InsightType::kGitHubResource:
-      return protocol::Audits::CookieIssueInsight::Create()
-          .SetType(protocol::Audits::InsightTypeEnum::GitHubResource)
-          .SetTableEntryUrl(insight->domain_info.entry_url)
-          .Build();
-    case InsightType::kGracePeriod:
-      return protocol::Audits::CookieIssueInsight::Create()
-          .SetType(protocol::Audits::InsightTypeEnum::GracePeriod)
-          .Build();
-    case InsightType::kHeuristics:
-      return protocol::Audits::CookieIssueInsight::Create()
-          .SetType(protocol::Audits::InsightTypeEnum::Heuristics)
-          .Build();
-    default:
-      NOTREACHED();
-  }
-}
-
 }  // namespace
 
 void ReportCookieIssue(
@@ -2125,9 +2100,6 @@ void ReportCookieIssue(
                                .SetDomain(cookie.Domain())
                                .Build();
     cookie_issue_details->SetCookie(std::move(affected_cookie));
-
-    cookie_issue_details->SetInsight(BuildCookieIssueInsight(
-        cookie.DomainWithoutDot(), excluded_cookie->access_result.status));
   } else {
     CHECK(excluded_cookie->cookie_or_line->is_cookie_string());
     cookie_issue_details->SetRawCookieLine(
@@ -2610,6 +2582,18 @@ protocol::Audits::GenericIssueErrorType GenericIssueErrorTypeToProtocol(
     case blink::mojom::GenericIssueErrorType::kNavigationEntryMarkedSkippable:
       return protocol::Audits::GenericIssueErrorTypeEnum::
           NavigationEntryMarkedSkippable;
+    case blink::mojom::GenericIssueErrorType::
+        kAutofillAndManualTextPolicyControlledFeaturesInfo:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          AutofillAndManualTextPolicyControlledFeaturesInfo;
+    case blink::mojom::GenericIssueErrorType::
+        kAutofillPolicyControlledFeatureInfo:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          AutofillPolicyControlledFeatureInfo;
+    case blink::mojom::GenericIssueErrorType::
+        kManualTextPolicyControlledFeatureInfo:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          ManualTextPolicyControlledFeatureInfo;
   }
 }
 

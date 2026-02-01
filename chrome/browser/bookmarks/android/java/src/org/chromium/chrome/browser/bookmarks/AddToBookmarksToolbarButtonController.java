@@ -13,6 +13,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -82,7 +83,7 @@ public class AddToBookmarksToolbarButtonController extends BaseButtonDataProvide
      *     changes and checking if the current tab is bookmarked.
      */
     public AddToBookmarksToolbarButtonController(
-            ObservableSupplier<@Nullable Tab> activeTabSupplier,
+            NullableObservableSupplier<Tab> activeTabSupplier,
             Context context,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             Supplier<TabBookmarker> tabBookmarkerSupplier,
@@ -92,7 +93,7 @@ public class AddToBookmarksToolbarButtonController extends BaseButtonDataProvide
         super(
                 activeTabSupplier,
                 /* modalDialogManager= */ null,
-                AppCompatResources.getDrawable(context, R.drawable.star_outline_24dp),
+                AppCompatResources.getDrawable(context, R.drawable.ic_star_24dp),
                 context.getString(R.string.accessibility_menu_bookmark),
                 /* actionChipLabelResId= */ Resources.ID_NULL,
                 /* supportsTinting= */ true,
@@ -122,7 +123,7 @@ public class AddToBookmarksToolbarButtonController extends BaseButtonDataProvide
         // Create another ButtonSpec with a filled star icon and a "Edit bookmark" description.
         mFilledButtonSpec =
                 new ButtonSpec(
-                        AppCompatResources.getDrawable(context, R.drawable.btn_star_filled),
+                        AppCompatResources.getDrawable(context, R.drawable.ic_star_filled_24dp),
                         this,
                         null,
                         context.getString(R.string.menu_edit_bookmark),

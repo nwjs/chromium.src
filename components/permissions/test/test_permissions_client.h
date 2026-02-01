@@ -25,8 +25,6 @@ class TestPermissionsClient : public PermissionsClient {
       content::BrowserContext* browser_context) override;
   scoped_refptr<content_settings::CookieSettings> GetCookieSettings(
       content::BrowserContext* browser_context) override;
-  privacy_sandbox::TrackingProtectionSettings* GetTrackingProtectionSettings(
-      content::BrowserContext* browser_context) override;
   bool IsSubresourceFilterActivated(content::BrowserContext* browser_context,
                                     const GURL& url) override;
   OriginKeyedPermissionActionService* GetOriginKeyedPermissionActionService(
@@ -40,7 +38,7 @@ class TestPermissionsClient : public PermissionsClient {
       ContentSettingsType type) override;
   void GetUkmSourceId(ContentSettingsType permission_type,
                       content::BrowserContext* browser_context,
-                      content::WebContents* web_contents,
+                      content::RenderFrameHost* render_frame_host,
                       const GURL& requesting_origin,
                       GetUkmSourceIdCallback callback) override;
 

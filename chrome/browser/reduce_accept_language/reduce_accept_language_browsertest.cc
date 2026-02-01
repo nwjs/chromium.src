@@ -397,7 +397,7 @@ class ReduceAcceptLanguageBrowserTest : public policy::PolicyTest {
             "/subresource_redirect_style.css",
         });
     const std::string path = params->url_request.url.GetPath();
-    if (base::Contains(kSubresourcePaths, path)) {
+    if (kSubresourcePaths.contains(path)) {
       base::StrAppend(&headers, {BuildSubresourceResponseHeader()});
     } else {
       base::StrAppend(&headers, {BuildResponseHeader()});
@@ -437,7 +437,7 @@ class ReduceAcceptLanguageBrowserTest : public policy::PolicyTest {
         });
 
     std::string resource_path;
-    if (base::Contains(kServiceWorkerPaths, path)) {
+    if (kServiceWorkerPaths.contains(path)) {
       resource_path = "chrome/test/data/service_worker";
     } else {
       resource_path = "chrome/test/data/reduce_accept_language";
@@ -1742,8 +1742,9 @@ class SameOriginRedirectReduceAcceptLanguageBrowserTest
   // Intercepts only the requests that for same origin redirect tests.
   std::unique_ptr<net::test_server::HttpResponse> RequestHandlerRedirect(
       const net::test_server::HttpRequest& request) {
-    if (!base::Contains(kValidPaths, request.relative_url))
+    if (!kValidPaths.contains(request.relative_url)) {
       return nullptr;
+    }
 
     std::string accept_language;
     if (request.headers.find(kAcceptLanguage) != request.headers.end()) {
@@ -1786,8 +1787,9 @@ class SameOriginRedirectReduceAcceptLanguageBrowserTest
 
   // Called by `https_server_`.
   void MonitorResourceRequest(const net::test_server::HttpRequest& request) {
-    if (!base::Contains(kValidPaths, request.relative_url))
+    if (!kValidPaths.contains(request.relative_url)) {
       return;
+    }
 
     if (request.headers.find(kAcceptLanguage) != request.headers.end()) {
       actual_url_accept_language_.push_back(
@@ -1914,8 +1916,9 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
   // Intercepts only the requests that for cross origin redirect tests.
   std::unique_ptr<net::test_server::HttpResponse> RequestHandlerRedirect(
       const net::test_server::HttpRequest& request) {
-    if (!base::Contains(kValidPaths, request.relative_url))
+    if (!kValidPaths.contains(request.relative_url)) {
       return nullptr;
+    }
 
     std::string accept_language;
     if (request.headers.find(kAcceptLanguage) != request.headers.end())
@@ -1953,8 +1956,9 @@ class CrossOriginRedirectReduceAcceptLanguageBrowserTest
 
   // Called by `https_server_`.
   void MonitorResourceRequest(const net::test_server::HttpRequest& request) {
-    if (!base::Contains(kValidPaths, request.relative_url))
+    if (!kValidPaths.contains(request.relative_url)) {
       return;
+    }
 
     if (request.headers.find(kAcceptLanguage) != request.headers.end()) {
       actual_url_accept_language_.push_back(

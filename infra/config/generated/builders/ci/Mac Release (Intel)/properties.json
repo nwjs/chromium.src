@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU Mac Builder",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -35,7 +35,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac Release (Intel)",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -55,7 +55,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU Mac Builder",
-                "project": "chromium-m144"
+                "project": "chromium-m145"
               }
             }
           }
@@ -65,7 +65,7 @@
         {
           "bucket": "ci",
           "builder": "Mac Release (Intel)",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -74,8 +74,7 @@
           "group": "tryserver.chromium.mac"
         }
       ],
-      "targets_spec_directory": "infra/config/generated/builders/ci/Mac Release (Intel)/targets",
-      "targets_spec_directory_relative_to_source_dir": true
+      "targets_spec_directory": "infra/config/generated/builders/ci/Mac Release (Intel)/targets"
     }
   },
   "$recipe_engine/resultdb/test_presentation": {

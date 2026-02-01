@@ -8,13 +8,14 @@
 
 #include <algorithm>
 
-#include "base/containers/contains.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -117,8 +118,7 @@ bool BrowserMatches(BrowserWindowInterface* browser,
     return false;
   }
 
-  if (!DoesBrowserMatchProfile(*browser->GetBrowserForMigrationOnly(), profile,
-                               match_types)) {
+  if (!DoesBrowserMatchProfile(*browser, profile, match_types)) {
     return false;
   }
 
@@ -180,10 +180,6 @@ BrowserWindowInterface* FindBrowserWithTabbedOrAnyType(
     bool match_original_profiles,
     bool match_current_workspace,
     int64_t display_id = display::kInvalidDisplayId) {
-  BrowserList* browser_list_impl = BrowserList::GetInstance();
-  if (!browser_list_impl) {
-    return nullptr;
-  }
   uint32_t match_types = kMatchAny;
   if (match_tabbed) {
     match_types |= kMatchNormal;
@@ -207,16 +203,17 @@ BrowserWindowInterface* FindBrowserWithTabbedOrAnyType(
 size_t GetBrowserCountImpl(Profile* profile,
                            uint32_t match_types,
                            int64_t display_id = display::kInvalidDisplayId) {
-  BrowserList* browser_list_impl = BrowserList::GetInstance();
   size_t count = 0;
-  if (browser_list_impl) {
-    for (const auto& i : *browser_list_impl) {
-      if (BrowserMatches(i, profile, Browser::WindowFeature::kFeatureNone,
-                         match_types, display_id)) {
-        count++;
-      }
-    }
-  }
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&count, profile, match_types,
+       display_id](BrowserWindowInterface* browser) {
+        if (BrowserMatches(browser, profile,
+                           Browser::WindowFeature::kFeatureNone, match_types,
+                           display_id)) {
+          count++;
+        }
+        return true;
+      });
   return count;
 }
 
@@ -378,9 +375,90 @@ size_t GetBrowserCount(Profile* profile) {
   return GetBrowserCountImpl(profile, kIncludeBrowsersScheduledForDeletion);
 }
 
+size_t GetIncognitoBrowserCount() {
+  size_t incognito_browser_count = 0;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->IsIncognitoProfile() &&
+            browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS) {
+          incognito_browser_count++;
+        }
+        return true;
+      },
+      BrowserCollection::Order::kActivation);
+  return incognito_browser_count;
+}
+
 size_t GetTabbedBrowserCount(Profile* profile) {
   return GetBrowserCountImpl(
       profile, kMatchNormal | kIncludeBrowsersScheduledForDeletion);
+}
+
+void CloseAllBrowsersWithProfile(Profile* profile) {
+  ProfileBrowserCollection* browser_collection =
+      ProfileBrowserCollection::GetForProfile(profile);
+  if (!browser_collection) {
+    return;
+  }
+
+  browser_collection->ForEach(
+      [profile](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->GetOriginalProfile() ==
+            profile->GetOriginalProfile()) {
+          browser->GetWindow()->Close();
+        }
+        return true;
+      });
+}
+
+size_t GetOffTheRecordBrowsersActiveForProfile(Profile* profile) {
+  if (!profile) {
+    return 0;
+  }
+
+  size_t incognito_window_count = 0;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [profile, &incognito_window_count](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->IsSameOrParent(profile) &&
+            browser->GetProfile()->IsOffTheRecord() &&
+            browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS) {
+          ++incognito_window_count;
+        }
+        return true;
+      });
+  return incognito_window_count;
+}
+
+bool IsOffTheRecordBrowserInUse(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  bool off_the_record_in_use = false;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        Profile* window_profile = browser->GetProfile();
+        if (window_profile && window_profile->IsSameOrParent(profile) &&
+            window_profile->IsOffTheRecord()) {
+          off_the_record_in_use = true;
+        }
+        return !off_the_record_in_use;
+      });
+
+  return off_the_record_in_use;
+}
+
+size_t GetGuestBrowserCount() {
+  size_t guest_browser_count = 0;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&guest_browser_count](BrowserWindowInterface* browser) {
+        if (browser->GetProfile()->IsGuestSession() &&
+            browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS) {
+          guest_browser_count++;
+        }
+        return true;
+      });
+  return guest_browser_count;
 }
 
 }  // namespace chrome

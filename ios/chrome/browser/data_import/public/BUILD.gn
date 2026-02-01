@@ -6,17 +6,26 @@ source_set("public") {
   sources = [
     "accessibility_utils.h",
     "accessibility_utils.mm",
+    "credential_import_item.h",
+    "credential_import_item.mm",
+    "credential_import_item_favicon_data_source.h",
+    "credential_item_identifier.h",
+    "credential_item_identifier.mm",
     "import_data_item.h",
     "import_data_item.mm",
     "import_data_item_consumer.h",
+    "passkey_import_item.h",
+    "passkey_import_item.mm",
     "password_import_item.h",
     "password_import_item.mm",
-    "password_import_item_favicon_data_source.h",
+    "utils.h",
+    "utils.mm",
   ]
   deps = [
     "//base",
     "//components/password_manager/core/browser/import:importer",
     "//components/url_formatter",
+    "//components/webauthn/core/browser/import",
     "//ios/chrome/browser/shared/ui/util:url_with_title",
   ]
   frameworks = [ "Foundation.framework" ]

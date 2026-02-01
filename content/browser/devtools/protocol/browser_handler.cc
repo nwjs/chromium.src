@@ -26,8 +26,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/expected_macros.h"
 #include "build/build_config.h"
+#include "build/util/chromium_git_revision.h"
 #include "components/download/public/common/download_item.h"
-#include "components/embedder_support/user_agent_utils.h"
 #include "content/browser/devtools/browser_devtools_agent_host.h"
 #include "content/browser/devtools/devtools_agent_host_impl.h"
 #include "content/browser/devtools/devtools_manager.h"
@@ -132,7 +132,7 @@ Response BrowserHandler::GetVersion(std::string* protocol_version,
                                     std::string* user_agent,
                                     std::string* js_version) {
   *protocol_version = DevToolsAgentHost::GetProtocolVersion();
-  *revision = embedder_support::GetChromiumGitRevision();
+  *revision = CHROMIUM_GIT_REVISION;
   *product = GetContentClient()->browser()->GetProduct();
   *user_agent = GetContentClient()->browser()->GetUserAgent();
   *js_version = V8_VERSION_STRING;
@@ -232,6 +232,10 @@ Response PermissionDescriptorToPermissionType(
     *permission_type = PermissionType::WEB_APP_INSTALLATION;
   } else if (name == "local-network-access") {
     *permission_type = PermissionType::LOCAL_NETWORK_ACCESS;
+  } else if (name == "local-network") {
+    *permission_type = PermissionType::LOCAL_NETWORK;
+  } else if (name == "loopback-network") {
+    *permission_type = PermissionType::LOOPBACK_NETWORK;
   } else {
     return Response::InvalidParams("Invalid PermissionDescriptor name: " +
                                    name);
@@ -328,6 +332,10 @@ Response FromProtocolPermissionType(
   } else if (type ==
              protocol::Browser::PermissionTypeEnum::LocalNetworkAccess) {
     *out_type = PermissionType::LOCAL_NETWORK_ACCESS;
+  } else if (type == protocol::Browser::PermissionTypeEnum::LocalNetwork) {
+    *out_type = PermissionType::LOCAL_NETWORK;
+  } else if (type == protocol::Browser::PermissionTypeEnum::LoopbackNetwork) {
+    *out_type = PermissionType::LOOPBACK_NETWORK;
   } else {
     return Response::InvalidParams("Unknown permission type: " + type);
   }

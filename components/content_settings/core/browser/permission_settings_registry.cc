@@ -7,7 +7,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/values.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/geolocation_setting_delegate.h"
@@ -74,16 +73,16 @@ void PermissionSettingsRegistry::Init() {
   // If a permission is DELETED, please update
   // PrefProvider::DiscardOrMigrateObsoletePreferences() and
   // DefaultProvider::DiscardOrMigrateObsoletePreferences() accordingly.
-    Register(ContentSettingsType::GEOLOCATION_WITH_OPTIONS,
-             "geolocation-with-options",
-             GeolocationSetting(PermissionOption::kAsk, PermissionOption::kAsk),
-             WebsiteSettingsInfo::UNSYNCABLE,
-             /*allowlisted_primary_schemes=*/{},
-             WebsiteSettingsInfo::TOP_ORIGIN_ONLY_SCOPE,
-             WebsiteSettingsRegistry::PLATFORM_ANDROID |
-                 WebsiteSettingsRegistry::DESKTOP,
-             PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY,
-             std::make_unique<GeolocationSettingDelegate>());
+  Register(ContentSettingsType::GEOLOCATION_WITH_OPTIONS,
+           "geolocation-with-options",
+           GeolocationSetting(PermissionOption::kAsk, PermissionOption::kAsk),
+           WebsiteSettingsInfo::UNSYNCABLE,
+           /*allowlisted_primary_schemes=*/{},
+           WebsiteSettingsInfo::TOP_ORIGIN_ONLY_SCOPE,
+           WebsiteSettingsRegistry::PLATFORM_ANDROID |
+               WebsiteSettingsRegistry::DESKTOP,
+           PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY,
+           std::make_unique<GeolocationSettingDelegate>());
 }
 
 const PermissionSettingsInfo* PermissionSettingsRegistry::Register(
@@ -113,7 +112,7 @@ const PermissionSettingsInfo* PermissionSettingsRegistry::Register(
     return nullptr;
   }
 
-  DCHECK(!base::Contains(permission_settings_info_, type));
+  DCHECK(!permission_settings_info_.contains(type));
   auto& info = permission_settings_info_[type] =
       std::make_unique<PermissionSettingsInfo>(
           website_settings_info, allowlisted_primary_schemes,

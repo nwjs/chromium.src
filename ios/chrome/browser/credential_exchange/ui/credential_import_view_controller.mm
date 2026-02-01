@@ -21,24 +21,60 @@ namespace {
 // Number of expected items in the table.
 constexpr int kExpectedItemCount = 2;
 
+// Exporter display names of some of the password manager apps.
+NSString* const k1PasswordDisplayName = @"1Password";
+NSString* const kApplePasswordsDisplayName = @"Apple Passwords";
+NSString* const kBitwardenDisplayName = @"Bitwarden";
+NSString* const kDashlaneDisplayName = @"Dashlane";
+NSString* const kKeeperDisplayName = @"Keeper";
+
+// Returns the name of the banner based on `exporterDisplayName`. Returns a
+// generic banner if the name does not match any available banners.
+NSString* GetBannerName(NSString* exporterDisplayName) {
+  static NSDictionary* banners = @{
+    k1PasswordDisplayName : @"credential_import_1password",
+    kApplePasswordsDisplayName : @"credential_import_apple",
+    kBitwardenDisplayName : @"credential_import_bitwarden",
+    kDashlaneDisplayName : @"credential_import_dashlane",
+    kKeeperDisplayName : @"credential_import_keeper",
+  };
+
+  NSString* banner = banners[exporterDisplayName];
+  return banner ?: @"credential_import_generic";
+}
+
 }  // namespace
+
+@interface CredentialImportViewController () <UITableViewDelegate>
+@end
 
 @implementation CredentialImportViewController {
   // Displays the status of importing specific credential types.
   ImportDataItemTableView* _tableView;
 }
 
+// Overrides property of super class (PromoStyleViewControllerDelegate).
+@dynamic delegate;
+
 - (void)viewDidLoad {
-  // TODO(crbug.com/450982128): Use correct banner.
-  self.bannerName = @"safari_data_import";
   self.titleText =
       l10n_util::GetNSString(IDS_IOS_CREDENTIAL_EXCHANGE_IMPORT_TITLE);
   self.configuration.primaryActionString = l10n_util::GetNSString(IDS_CONTINUE);
-  self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-      initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
-                           target:self
-                           action:@selector(cancelButtonTapped)];
+  self.navigationItem.leftBarButtonItem =
+      [[UIBarButtonItem alloc] initWithTitle:l10n_util::GetNSString(IDS_CANCEL)
+                                       style:UIBarButtonItemStylePlain
+                                      target:self
+                                      action:@selector(cancelButtonTapped)];
   [super viewDidLoad];
+}
+
+#pragma mark - UITableViewDelegate
+
+- (void)tableView:(UITableView*)tableView
+    accessoryButtonTappedForRowWithIndexPath:(NSIndexPath*)indexPath {
+  CHECK_EQ(tableView, _tableView);
+  [self.delegate
+      didTapInfoButtonForType:[_tableView itemTypeForIndexPath:indexPath]];
 }
 
 #pragma mark - CredentialImportConsumer
@@ -57,17 +93,22 @@ constexpr int kExpectedItemCount = 2;
                               base::UTF8ToUTF16(userEmail));
 }
 
+- (void)setExporterDisplayName:(NSString*)exporterDisplayName {
+  self.bannerName = GetBannerName(exporterDisplayName);
+}
+
 - (void)transitionToImportStage:(CredentialImportStage)importStage {
   switch (importStage) {
     case CredentialImportStage::kNotStarted:
       NOTREACHED();
     case CredentialImportStage::kImporting:
-      self.navigationItem.rightBarButtonItem = nil;
+      self.navigationItem.leftBarButtonItem.enabled = NO;
       self.configuration.primaryActionEnabled = NO;
       [self reloadConfiguration];
       [_tableView notifyImportStart];
       break;
     case CredentialImportStage::kImported:
+      self.navigationItem.leftBarButtonItem = nil;
       self.configuration.primaryActionString = l10n_util::GetNSString(IDS_DONE);
       self.configuration.primaryActionEnabled = YES;
       [self reloadConfiguration];
@@ -88,6 +129,7 @@ constexpr int kExpectedItemCount = 2;
 - (void)createTableView {
   _tableView =
       [[ImportDataItemTableView alloc] initWithItemCount:kExpectedItemCount];
+  _tableView.delegate = self;
   UIView* specificContentView = self.specificContentView;
   [specificContentView addSubview:_tableView];
   [NSLayoutConstraint activateConstraints:@[

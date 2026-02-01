@@ -18,15 +18,12 @@
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_context.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
-#include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/repetition_checker.h"
 #include "components/optimization_guide/core/model_execution/safety_checker.h"
 #include "components/optimization_guide/core/model_execution/substitution.h"
-#include "components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/proto/model_quality_metadata.pb.h"
-#include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
-#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
@@ -178,11 +175,8 @@ class OnDeviceExecution final
   void FallbackToRemote(Result result);
 
   // Sends an error result and terminates on-device processing as healthy.
-  void CancelPendingResponse(
-      Result result,
-      OptimizationGuideModelExecutionError::ModelExecutionError error =
-          OptimizationGuideModelExecutionError::ModelExecutionError::
-              kCancelled);
+  void CancelPendingResponse(Result result,
+                             OnDeviceError error = OnDeviceError::kCancelled);
 
   // Sends the partial response callback, and does NOT terminate processing.
   void SendPartialResponseCallback(const proto::Any& success_response_metadata);

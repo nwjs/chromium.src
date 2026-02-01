@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/string_view_util.h"
 #include "build/build_config.h"
 #include "mojo/core/embedder/embedder.h"
 #include "mojo/public/c/system/invitation.h"
@@ -109,8 +110,9 @@ void SendInvitation(ScopedInvitationHandle invitation,
       invitation.get().value(), process_handle.get(), &endpoint, error_handler,
       error_handler_context, &options);
   // If successful, the invitation handle is already closed for us.
-  if (result == MOJO_RESULT_OK)
+  if (result == MOJO_RESULT_OK) {
     std::ignore = invitation.release();
+  }
 }
 
 #if !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_IOS)
@@ -178,7 +180,7 @@ ScopedMessagePipeHandle OutgoingInvitation::AttachMessagePipe(
 
 ScopedMessagePipeHandle OutgoingInvitation::AttachMessagePipe(uint64_t name) {
   return AttachMessagePipe(
-      std::string_view(reinterpret_cast<const char*>(&name), sizeof(name)));
+      base::as_string_view(base::byte_span_from_ref(name)));
 }
 
 ScopedMessagePipeHandle OutgoingInvitation::ExtractMessagePipe(
@@ -195,7 +197,7 @@ ScopedMessagePipeHandle OutgoingInvitation::ExtractMessagePipe(
 
 ScopedMessagePipeHandle OutgoingInvitation::ExtractMessagePipe(uint64_t name) {
   return ExtractMessagePipe(
-      std::string_view(reinterpret_cast<const char*>(&name), sizeof(name)));
+      base::as_string_view(base::byte_span_from_ref(name)));
 }
 
 // static
@@ -321,8 +323,9 @@ IncomingInvitation IncomingInvitation::Accept(
   MojoHandle invitation_handle;
   MojoResult result =
       MojoAcceptInvitation(&transport_endpoint, &options, &invitation_handle);
-  if (result != MOJO_RESULT_OK)
+  if (result != MOJO_RESULT_OK) {
     return IncomingInvitation();
+  }
 
   return IncomingInvitation(
       ScopedInvitationHandle(InvitationHandle(invitation_handle)));
@@ -345,8 +348,9 @@ IncomingInvitation IncomingInvitation::AcceptAsync(
   MojoHandle invitation_handle;
   MojoResult result =
       MojoAcceptInvitation(&transport_endpoint, nullptr, &invitation_handle);
-  if (result != MOJO_RESULT_OK)
+  if (result != MOJO_RESULT_OK) {
     return IncomingInvitation();
+  }
 
   return IncomingInvitation(
       ScopedInvitationHandle(InvitationHandle(invitation_handle)));
@@ -373,8 +377,9 @@ ScopedMessagePipeHandle IncomingInvitation::AcceptIsolated(
   MojoHandle invitation_handle;
   MojoResult result =
       MojoAcceptInvitation(&transport_endpoint, &options, &invitation_handle);
-  if (result != MOJO_RESULT_OK)
+  if (result != MOJO_RESULT_OK) {
     return ScopedMessagePipeHandle();
+  }
 
   IncomingInvitation invitation{
       ScopedInvitationHandle(InvitationHandle(invitation_handle))};
@@ -396,7 +401,7 @@ ScopedMessagePipeHandle IncomingInvitation::ExtractMessagePipe(
 
 ScopedMessagePipeHandle IncomingInvitation::ExtractMessagePipe(uint64_t name) {
   return ExtractMessagePipe(
-      std::string_view(reinterpret_cast<const char*>(&name), sizeof(name)));
+      base::as_string_view(base::byte_span_from_ref(name)));
 }
 
 }  // namespace mojo

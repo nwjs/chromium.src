@@ -6,10 +6,15 @@ package org.chromium.chrome.browser.incognito;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.os.Build;
+
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.ThreadUtils;
+import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -18,11 +23,13 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileKey;
 import org.chromium.chrome.browser.profiles.ProfileKeyUtil;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.ui.display.DisplayUtil;
 
 /** Utilities for working with incognito tabs spread across multiple activities. */
 @NullMarked
 public class IncognitoUtils {
     private static @Nullable Boolean sIsEnabledForTesting;
+    private static @Nullable Boolean sShouldOpenIncognitoAsWindowForTesting;
 
     private IncognitoUtils() {}
 
@@ -72,8 +79,37 @@ public class IncognitoUtils {
      * @return Whether incognito tabs should open in a separate window.
      */
     public static boolean shouldOpenIncognitoAsWindow() {
-        // TODO(crbug.com/435211685): Enable this feature only for eligible devices.
-        return ChromeFeatureList.sAndroidOpenIncognitoAsWindow.isEnabled();
+        if (!ChromeFeatureList.sAndroidOpenIncognitoAsWindow.isEnabled()) {
+            return false;
+        }
+        // Automotive is currently restricted to a single window.
+        if (DeviceInfo.isAutomotive() || DeviceInfo.isFoldable()) {
+            return false;
+        }
+        if (BuildConfig.IS_FOR_TEST) {
+            if (sShouldOpenIncognitoAsWindowForTesting == null) {
+                sShouldOpenIncognitoAsWindowForTesting =
+                        ThreadUtils.runOnUiThreadBlocking(
+                                DisplayUtil::isGlobalDefaultDisplayTabletSized);
+            }
+            return sShouldOpenIncognitoAsWindowForTesting;
+        }
+        // Simplified check based on MultiWindowUtils#isMultiInstanceApi31Enabled. Skips the
+        // Manifest launchMode check due to dependency restrictions on ChromeTabbedActivity.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S_V2) {
+            return false;
+        }
+        return DisplayUtil.isGlobalDefaultDisplayTabletSized();
+    }
+
+    /**
+     * Sets the value returned by {@link #shouldOpenIncognitoAsWindow()} for testing.
+     *
+     * @param enabled The value to force, or null to revert to default behavior.
+     */
+    public static void setShouldOpenIncognitoAsWindowForTesting(Boolean enabled) {
+        sShouldOpenIncognitoAsWindowForTesting = enabled;
+        ResettersForTesting.register(() -> sShouldOpenIncognitoAsWindowForTesting = null);
     }
 
     /**

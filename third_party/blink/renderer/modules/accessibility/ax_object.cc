@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
+#include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment_engine.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -1184,10 +1185,19 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
   SerializeAriaNotificationAttributes(
       AXObjectCache().RetrieveAriaNotifications(this), node_data);
 
+  // Over write ignored status when printing to PDF. All text that appears
+  // in the PDF should appear in the PDF's structured tree.
+  bool ignore = IsIgnored();
+  if (accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
+    if (node_data->role == ax::mojom::blink::Role::kStaticText) {
+      ignore = false;
+    }
+  }
+
   // Return early. The following attributes are unnecessary for ignored nodes.
   // Exception: focusable ignored nodes are fully serialized, so that reasonable
   // verbalizations can be made if they actually receive focus.
-  if (IsIgnored()) {
+  if (ignore) {
     node_data->AddState(ax::mojom::blink::State::kIgnored);
     if (!CanSetFocusAttribute()) {
       return;
@@ -1201,12 +1211,17 @@ void AXObject::Serialize(ui::AXNodeData* node_data,
 
   SerializeUnignoredAttributes(node_data, accessibility_mode, is_snapshot);
 
-  if (!accessibility_mode.has_mode(ui::AXMode::kExtendedProperties)) {
+  if (!accessibility_mode.has_mode(ui::AXMode::kExtendedProperties) &&
+      !accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
     // Return early. None of the following attributes are needed outside of
-    // screen reader mode.
+    // screen reader mode or PDF printing.
     return;
   }
 
+  // TODO(crbug.com/469328924): Not all of the attributes in
+  // SerializeScreenReaderAttributes are needed for PDF printing. Refactor this
+  // function (and maybe all of Serialize) to better separate out attributes
+  // needed printing and other modes.
   SerializeScreenReaderAttributes(node_data);
 
   if (accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
@@ -1770,6 +1785,14 @@ void AXObject::SerializeScreenReaderAttributes(ui::AXNodeData* node_data) const 
         ax::mojom::blink::IntAttribute::kActivedescendantId,
         active_descendant->AXObjectID());
   }
+
+  if (CheckedState() != ax::mojom::blink::CheckedState::kNone) {
+    node_data->SetCheckedState(CheckedState());
+  }
+
+  if (::features::IsAccessibilityTextChangeTypesEnabled()) {
+    SerializeTextChangeTypesAttributes(node_data);
+  }
 }
 
 String AXObject::KeyboardShortcut() const {
@@ -1853,10 +1876,6 @@ void AXObject::SerializeOtherScreenReaderAttributes(
 
   if (GetInvalidState() != ax::mojom::blink::InvalidState::kNone)
     node_data->SetInvalidState(GetInvalidState());
-
-  if (CheckedState() != ax::mojom::blink::CheckedState::kNone) {
-    node_data->SetCheckedState(CheckedState());
-  }
 
   if (node_data->role == ax::mojom::blink::Role::kListMarker) {
     SerializeListMarkerAttributes(node_data);
@@ -2458,12 +2477,14 @@ void AXObject::SerializeComputedDetailsRelation(
   }
 
   // Add aria-details for the element anchored to this object.
-  if (AXObject* positioned_obj = GetPositionedObjectForAnchor(node_data)) {
-    node_data->AddIntListAttribute(
-        ax::mojom::blink::IntListAttribute::kDetailsIds,
-        {static_cast<int32_t>(positioned_obj->AXObjectID())});
-    node_data->SetDetailsFrom(ax::mojom::blink::DetailsFrom::kCssAnchor);
-    return;
+  if (!RuntimeEnabledFeatures::NoAriaDetailsForAnchorPosEnabled()) {
+    if (AXObject* positioned_obj = GetPositionedObjectForAnchor(node_data)) {
+      node_data->AddIntListAttribute(
+          ax::mojom::blink::IntListAttribute::kDetailsIds,
+          {static_cast<int32_t>(positioned_obj->AXObjectID())});
+      node_data->SetDetailsFrom(ax::mojom::blink::DetailsFrom::kCssAnchor);
+      return;
+    }
   }
 
   // Add aria-details for a scroll marker pseudo-element.
@@ -2627,6 +2648,7 @@ AXObject* AXObject::GetInterestForTargetPopover() const {
 }
 
 AXObject* AXObject::GetPositionedObjectForAnchor(ui::AXNodeData* data) const {
+  CHECK(!RuntimeEnabledFeatures::NoAriaDetailsForAnchorPosEnabled());
   AXObject* positioned_obj = AXObjectCache().GetPositionedObjectForAnchor(this);
   if (!positioned_obj) {
     return nullptr;
@@ -2849,6 +2871,31 @@ void AXObject::SerializeTextInsertionDeletionOffsetAttributes(
   AXObjectCache().ClearTextOperationInNodeIdMap();
 }
 
+void AXObject::SerializeTextChangeTypesAttributes(
+    ui::AXNodeData* node_data) const {
+  ImeContext* ime_context = AXObjectCache().GetImeContext(this);
+  if (!ime_context) {
+    return;
+  }
+
+  if (ime_context->committed_text_length > 0) {
+    node_data->AddIntAttribute(
+        ax::mojom::blink::IntAttribute::kCommittedTextLength,
+        ime_context->committed_text_length);
+  } else if (ime_context->has_composition) {
+    node_data->AddBoolAttribute(
+        ax::mojom::blink::BoolAttribute::kHasComposition, true);
+    if (ime_context->ime_state ==
+        mojom::blink::ImeState::kTextSuggestionSelected) {
+      node_data->AddBoolAttribute(
+          ax::mojom::blink::BoolAttribute::kTextSuggestionSelectedByIME, true);
+    }
+  } else {
+    NOTREACHED();
+  }
+  AXObjectCache().ClearImeContext();
+}
+
 bool AXObject::IsAXNodeObject() const {
   return false;
 }
@@ -2900,10 +2947,16 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
           element->GetExecutionContext()) &&
       (role_ == ax::mojom::blink::Role::kGenericContainer ||
        role_ == ax::mojom::blink::Role::kUnknown)) {
-    // GetFocusgroupOwnerOfItem both checks if the input is a focusgroup item
-    // and returns the focusgroup owner if so.
+    // Avoid calling GetFocusgroupOwnerOfItem here to prevent
+    // unnecessary style recalcs, and state-associated CHECKS.
+    // Calling IsKeyboardFocusableSlow is safe here because we are passing the
+    // update behavior for accessibility.
+    bool is_item =
+        element->IsKeyboardFocusableSlow(
+            Element::UpdateBehavior::kNoneForAccessibility) &&
+        element->GetFocusgroupData().behavior != FocusgroupBehavior::kOptOut;
     Element* focusgroup_owner =
-        FocusgroupControllerUtils::GetFocusgroupOwnerOfItem(element);
+        is_item ? focusgroup::FindFocusgroupOwner(element) : nullptr;
     if (focusgroup_owner) {
       AXObject* focusgroup_owner_axobj = AXObjectCache().Get(focusgroup_owner);
       if (focusgroup_owner_axobj) {
@@ -4142,7 +4195,7 @@ bool AXObject::ComputeIsIgnoredButIncludedInTree() {
   CHECK(!IsDetached());
 
   // Nothing inside an inactive scroll marker's tab is included in the tree.
-  if (InsideOriginatingElementForInactiveScrollMarkerInTabsMode()) {
+  if (InsideInactiveScrollMarkerTab()) {
     return false;
   }
 
@@ -6621,7 +6674,12 @@ bool AXObject::ShouldDestroyWhenDetachingFromParent() const {
   }
 
   // Image map children are entirely dependent on the parent image.
-  if (ParentObject() && IsA<HTMLImageElement>(ParentObject()->GetNode())) {
+  // Use ParentObjectIfPresent() because during detachment the parent may
+  // already be detached, and we should not destroy the child in that case
+  // since the parent's destruction will handle cleanup.
+  AXObject* parent = ParentObjectIfPresent();
+  if (parent && !parent->IsDetached() &&
+      IsA<HTMLImageElement>(parent->GetNode())) {
     return true;
   }
 

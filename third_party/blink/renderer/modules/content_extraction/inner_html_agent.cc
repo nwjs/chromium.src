@@ -11,8 +11,11 @@
 namespace blink {
 
 // static
+const char InnerHtmlAgent::kSupplementName[] = "InnerHtmlAgent";
+
+// static
 InnerHtmlAgent* InnerHtmlAgent::From(Document& document) {
-  return document.GetInnerHtmlAgent();
+  return Supplement<Document>::From<InnerHtmlAgent>(document);
 }
 
 // static
@@ -25,13 +28,14 @@ void InnerHtmlAgent::BindReceiver(
   if (!agent) {
     agent = MakeGarbageCollected<InnerHtmlAgent>(
         base::PassKey<InnerHtmlAgent>(), *frame);
-    document.SetInnerHtmlAgent(agent);
+    Supplement<Document>::ProvideTo(document, agent);
   }
   agent->Bind(std::move(receiver));
 }
 
 InnerHtmlAgent::InnerHtmlAgent(base::PassKey<InnerHtmlAgent>, LocalFrame& frame)
-    : document_(*frame.GetDocument()), receiver_set_(this, frame.DomWindow()) {}
+    : Supplement<Document>(*frame.GetDocument()),
+      receiver_set_(this, frame.DomWindow()) {}
 
 InnerHtmlAgent::~InnerHtmlAgent() = default;
 
@@ -41,16 +45,16 @@ void InnerHtmlAgent::Bind(
   // a response to the user.
   receiver_set_.Add(
       std::move(receiver),
-      document_->GetTaskRunner(TaskType::kInternalUserInteraction));
+      GetSupplementable()->GetTaskRunner(TaskType::kInternalUserInteraction));
 }
 
 void InnerHtmlAgent::Trace(Visitor* visitor) const {
-  visitor->Trace(document_);
   visitor->Trace(receiver_set_);
+  Supplement<Document>::Trace(visitor);
 }
 
 void InnerHtmlAgent::GetInnerHtml(GetInnerHtmlCallback callback) {
-  LocalFrame* frame = document_->GetFrame();
+  LocalFrame* frame = GetSupplementable()->GetFrame();
   CHECK(frame);
   std::move(callback).Run(InnerHtmlBuilder::Build(*frame));
 }

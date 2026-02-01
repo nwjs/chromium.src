@@ -15,7 +15,6 @@
 #include "base/byte_count.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/to_vector.h"
 #include "base/debug/alias.h"
@@ -2604,6 +2603,15 @@ void RenderFrameImpl::CommitNavigation(
     mojom::CookieManagerInfoPtr cookie_manager_info,
     mojom::StorageInfoPtr storage_info,
     mojom::NavigationClient::CommitNavigationCallback commit_callback) {
+  if (commit_params->is_initial_webui) {
+    // Immediately mark the RenderFrame with its is-initial-WebUI-ness.
+    is_initial_webui_ = true;
+  } else {
+    // Once an initial WebUI is committed in a RenderFrame, it shouldn't be able
+    // to be used to commit non-initial WebUIs.
+    CHECK(!is_initial_webui_);
+  }
+
   RendererNavigationMetricsManager::Instance().MarkCommitStart(
       commit_params->navigation_metrics_token);
   if (!response_head->client_side_content_decoding_types.empty()) {
@@ -4202,6 +4210,12 @@ void RenderFrameImpl::DidFinishSameDocumentNavigation(
   same_document_params->same_document_metrics_token =
       same_document_metrics_token;
 
+  // `IsAdScriptInStack()` is the primary check. The IsAdFrame() check really
+  // only covers an edge scenario of a genuine user click (e.g., <a> tag) within
+  // an ad frame triggering a fragment navigation.
+  same_document_params->caused_by_ad =
+      GetWebFrame()->IsAdFrame() || GetWebFrame()->IsAdScriptInStack();
+
   DidCommitNavigationInternal(
       commit_type, transition, navigation_state.get(),
       network::ParsedPermissionsPolicy(),   // permissions_policy_header
@@ -4691,6 +4705,13 @@ void RenderFrameImpl::DidObserveSoftNavigation(
     blink::SoftNavigationMetricsForReporting metrics) {
   for (auto& observer : observers_) {
     observer.DidObserveSoftNavigation(metrics);
+  }
+}
+
+void RenderFrameImpl::DidObserveSoftLargestContentfulPaint(
+    const blink::LargestContentfulPaintDetailsForReporting& lcp) {
+  for (auto& observer : observers_) {
+    observer.DidObserveSoftLargestContentfulPaint(lcp);
   }
 }
 
@@ -6988,14 +7009,7 @@ RenderFrameImpl::CreateScopedClientNavigationThrottler() {
 }
 
 bool RenderFrameImpl::IsForInitialWebUI() const {
-#if !BUILDFLAG(IS_ANDROID)
-  static const bool is_for_initial_webui =
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kRendererForInitialWebUI);
-  return is_for_initial_webui;
-#else
-  return false;
-#endif  // !BUILDFLAG(IS_ANDROID)
+  return is_initial_webui_;
 }
 
 void RenderFrameImpl::ResetMembersUsedForDurationOfCommit() {

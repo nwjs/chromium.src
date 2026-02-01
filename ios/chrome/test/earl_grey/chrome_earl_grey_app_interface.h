@@ -556,17 +556,14 @@ enum class TipsNotificationType;
 // can, open multiple windows.
 + (BOOL)areMultipleWindowsSupported;
 
-// Returns whether the NewOverflowMenu feature is enabled.
-+ (BOOL)isNewOverflowMenuEnabled;
-
 // Returns whether the UseLensToSearchForImage feature is enabled.
 + (BOOL)isUseLensToSearchForImageEnabled;
 
 // Returns whether the current layout is showing the bottom omnibox.
 + (BOOL)isCurrentLayoutBottomOmnibox;
 
-// Returns whether the Enhanced Safe Browsing Infobar Promo feature is enabled.
-+ (BOOL)isEnhancedSafeBrowsingInfobarEnabled;
+// Returns whether the ComposeboxIOS feature is enabled.
++ (BOOL)isComposeboxIOSEnabled;
 
 // Returns the interface orientation of the scene.
 + (UIInterfaceOrientation)interfaceOrientation;
@@ -599,6 +596,14 @@ enum class TipsNotificationType;
 
 // Returns the value for provided key from NSUserDefaults.
 + (id)userDefaultsObjectForKey:(NSString*)key;
+
+// Creates a `AppGroupCommand` based on the provided text and writes it the
+// shared NSUserDefaults.
++ (void)setAppGroupCommandToSearchText:(NSString*)text;
+
+// Creates an incognito `AppGroupCommand` based on the provided text and writes
+// it the shared NSUserDefaults.
++ (void)setAppGroupCommandToIncognitoSearchText:(NSString*)text;
 
 #pragma mark - Pref Utilities (EG2)
 

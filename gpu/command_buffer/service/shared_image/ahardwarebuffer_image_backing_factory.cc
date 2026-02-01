@@ -53,7 +53,6 @@
 #include "third_party/skia/include/gpu/ganesh/vk/GrVkBackendSurface.h"
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
 #include "ui/gfx/android/android_surface_control_compat.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gl/buildflags.h"
@@ -189,10 +188,11 @@ std::optional<uint64_t> GetRecommendedAHBUsage(VkPhysicalDevice device,
   return ahb_usage.androidHardwareBufferUsage;
 }
 
-constexpr viz::SharedImageFormat kSupportedFormats[5]{
-    viz::SinglePlaneFormat::kRGBA_8888, viz::SinglePlaneFormat::kBGR_565,
-    viz::SinglePlaneFormat::kRGBA_F16, viz::SinglePlaneFormat::kRGBX_8888,
-    viz::SinglePlaneFormat::kRGBA_1010102};
+constexpr viz::SharedImageFormat kSupportedFormats[7]{
+    viz::SinglePlaneFormat::kRGBA_8888,    viz::SinglePlaneFormat::kBGR_565,
+    viz::SinglePlaneFormat::kRGBA_F16,     viz::SinglePlaneFormat::kRGBX_8888,
+    viz::SinglePlaneFormat::kRGBA_1010102, viz::MultiPlaneFormat::kNV12,
+    viz::MultiPlaneFormat::kYV12};
 
 // Returns whether the format is supported by AHardwareBuffer.
 // TODO(vikassoni): In future we will need to expose the set of formats and
@@ -211,6 +211,9 @@ bool AHardwareBufferSupportedFormat(viz::SharedImageFormat format) {
 unsigned int AHardwareBufferFormat(viz::SharedImageFormat format) {
   DCHECK(AHardwareBufferSupportedFormat(format));
 
+  // Comes from:
+  // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/graphics/java/android/graphics/ImageFormat.java
+  constexpr unsigned int AHARDWAREBUFFER_FORMAT_YV12 = 0x32315659;
   if (format == viz::SinglePlaneFormat::kRGBA_8888) {
     return AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
   } else if (format == viz::SinglePlaneFormat::kBGR_565) {
@@ -221,6 +224,10 @@ unsigned int AHardwareBufferFormat(viz::SharedImageFormat format) {
     return AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM;
   } else if (format == viz::SinglePlaneFormat::kRGBA_1010102) {
     return AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM;
+  } else if (format == viz::MultiPlaneFormat::kYV12) {
+    return AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+  } else if (format == viz::MultiPlaneFormat::kNV12) {
+    return AHARDWAREBUFFER_FORMAT_YV12;
   }
 
   NOTREACHED();
@@ -486,9 +493,13 @@ AHardwareBufferImageBacking::ProduceGLTexture(SharedImageManager* manager,
 
   // Android documentation states that right GL format for RGBX AHardwareBuffer
   // is GL_RGB8, so we don't use angle rgbx.
-  GLFormatDesc gl_format_desc =
-      gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(format(),
-                                                          /*plane_index=*/0);
+  GLFormatDesc gl_format_desc;
+  if (format().PrefersExternalSampler()) {
+    gl_format_desc = gl_format_caps_.ToGLFormatDescExternalSampler(format());
+  } else {
+    gl_format_desc = gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(
+        format(), /*plane_index=*/0);
+  }
   GLuint service_id =
       CreateAndBindTexture(egl_image.get(), gl_format_desc.target);
 
@@ -520,9 +531,13 @@ AHardwareBufferImageBacking::ProduceGLTexturePassthrough(
 
   // Android documentation states that right GL format for RGBX AHardwareBuffer
   // is GL_RGB8, so we don't use angle rgbx.
-  GLFormatDesc gl_format_desc =
-      gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(format(),
-                                                          /*plane_index=*/0);
+  GLFormatDesc gl_format_desc;
+  if (format().PrefersExternalSampler()) {
+    gl_format_desc = gl_format_caps_.ToGLFormatDescExternalSampler(format());
+  } else {
+    gl_format_desc = gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(
+        format(), /*plane_index=*/0);
+  }
   GLuint service_id =
       CreateAndBindTexture(egl_image.get(), gl_format_desc.target);
 
@@ -740,6 +755,14 @@ AHardwareBufferImageBackingFactory::FormatInfoForSupportedFormat(
     return info;
   }
 
+  if (format.is_multi_plane()) {
+    info.gl_supported = true;
+    info.gl_format = 0;
+    info.gl_type = 0;
+    info.internal_format = 0;
+    return info;
+  }
+
   // Check if AHB backed GL texture can be created using this format and
   // gather GL related format info.
   // TODO(vikassoni): Add vulkan related information in future.
@@ -870,46 +893,23 @@ AHardwareBufferImageBackingFactory::MakeBacking(
   hwb_desc.height = size.height();
   hwb_desc.format = format_info.ahb_format;
 
-  if (base::FeatureList::IsEnabled(
-          features::kUseHardwareBufferUsageFlagsFromVulkan)) {
-    hwb_desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-                     AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
-    if (usage.Has(SHARED_IMAGE_USAGE_SCANOUT)) {
-      hwb_desc.usage |= AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY;
-    }
+  hwb_desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+                   AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+  if (usage.Has(SHARED_IMAGE_USAGE_SCANOUT)) {
+    hwb_desc.usage |= AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY;
+  }
 
-    if (!usage.Has(SHARED_IMAGE_USAGE_SCANOUT) ||
-        base::FeatureList::IsEnabled(
-            features::kAllowHardwareBufferUsageFlagsFromVulkanForScanout)) {
-      if (vulkan_context_provider_) {
-        std::optional<uint64_t> ahb_usage =
-            GetRecommendedAHBUsage(vulkan_context_provider_->GetDeviceQueue()
-                                       ->GetVulkanPhysicalDevice(),
-                                   format);
-        if (!ahb_usage.has_value()) {
-          return nullptr;
-        }
-        hwb_desc.usage |= ahb_usage.value();
-      } else {
-        // For GL we use flags from SurfaceControl::RequiredUsage.
-        // TODO(crbug.com/40836080): Add support for Dawn
-        if (usage.Has(SHARED_IMAGE_USAGE_SCANOUT)) {
-          hwb_desc.usage |= gfx::SurfaceControl::RequiredUsage();
-        }
-      }
-    } else {
-      // Fallback to old behaviour if we're adding
-      // AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY and
-      // kAllowHardwareBufferUsageFlagsFromVulkanForScanout is off.
-      if (usage.Has(SHARED_IMAGE_USAGE_SCANOUT)) {
-        hwb_desc.usage |= gfx::SurfaceControl::RequiredUsage();
-      }
+  if (vulkan_context_provider_) {
+    std::optional<uint64_t> ahb_usage = GetRecommendedAHBUsage(
+        vulkan_context_provider_->GetDeviceQueue()->GetVulkanPhysicalDevice(),
+        format);
+    if (!ahb_usage.has_value()) {
+      return nullptr;
     }
+    hwb_desc.usage |= ahb_usage.value();
   } else {
-    // Set usage so that gpu can both read as a texture/write as a framebuffer
-    // attachment.
-    hwb_desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
-                     AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+    // For GL we use flags from SurfaceControl::RequiredUsage.
+    // TODO(crbug.com/40836080): Add support for Dawn
     if (usage.Has(SHARED_IMAGE_USAGE_SCANOUT)) {
       hwb_desc.usage |= gfx::SurfaceControl::RequiredUsage();
     }
@@ -1035,7 +1035,7 @@ bool AHardwareBufferImageBackingFactory::IsSupported(
     gfx::GpuMemoryBufferType gmb_type,
     GrContextType gr_context_type,
     base::span<const uint8_t> pixel_data) {
-  if (format.is_multi_plane()) {
+  if (format.is_multi_plane() && !format.PrefersExternalSampler()) {
     return false;
   }
 

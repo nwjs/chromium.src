@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -16,7 +15,7 @@
 #include <vector>
 
 #include "base/functional/function_ref.h"
-#include "base/memory/safety_checks.h"
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
 #include "content/common/content_export.h"
@@ -351,11 +350,6 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
   // rvalue ensure that the this method can be called without having access
   // to the declaration of ChromeBrowserContext proto.
   void WriteIntoTrace(perfetto::TracedProto<TraceProto> context) const;
-
-  // Grant third-party cookie access to certain sites that the user visited in
-  // the past, according to the popup heuristics described at
-  // https://github.com/amaliev/3pcd-exemption-heuristics/blob/main/explainer.md
-  void BackfillPopupHeuristicGrants(base::OnceCallback<void(bool)> callback);
 
   base::WeakPtr<BrowserContext> GetWeakPtr();
 

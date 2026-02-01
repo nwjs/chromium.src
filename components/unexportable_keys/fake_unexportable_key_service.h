@@ -29,12 +29,6 @@ class FakeUnexportableKeyService : public UnexportableKeyService {
       BackgroundTaskPriority priority,
       base::OnceCallback<void(ServiceErrorOr<std::vector<UnexportableKeyId>>)>
           callback) override;
-  void CopyKeyFromOtherService(
-      const UnexportableKeyService& other_service,
-      UnexportableKeyId key_id_from_other_service,
-      BackgroundTaskPriority priority,
-      base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback)
-      override;
   void SignSlowlyAsync(
       UnexportableKeyId key_id,
       base::span<const uint8_t> data,
@@ -53,6 +47,10 @@ class FakeUnexportableKeyService : public UnexportableKeyService {
   ServiceErrorOr<std::vector<uint8_t>> GetWrappedKey(
       UnexportableKeyId key_id) const override;
   ServiceErrorOr<crypto::SignatureVerifier::SignatureAlgorithm> GetAlgorithm(
+      UnexportableKeyId key_id) const override;
+  ServiceErrorOr<std::string> GetKeyTag(
+      UnexportableKeyId key_id) const override;
+  ServiceErrorOr<base::Time> GetCreationTime(
       UnexportableKeyId key_id) const override;
 };
 

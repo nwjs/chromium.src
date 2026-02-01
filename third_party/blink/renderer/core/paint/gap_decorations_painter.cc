@@ -211,8 +211,9 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
       is_column_gap ? style.ColumnRuleStyle() : style.RowRuleStyle();
   GapDataList<int> rule_widths =
       is_column_gap ? style.ColumnRuleWidth() : style.RowRuleWidth();
-  RuleBreak rule_break =
-      is_column_gap ? style.ColumnRuleBreak() : style.RowRuleBreak();
+  RuleBreak rule_break = CSSGapDecorationUtils::ResolveRuleBreakValue(
+      style, gap_geometry.GetContainerType(), track_direction);
+
   RuleVisibilityItems rule_visibility = is_column_gap
                                             ? style.ColumnRuleVisibilityItems()
                                             : style.RowRuleVisibilityItems();
@@ -307,10 +308,10 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
       // intersection point.
       // https://drafts.csswg.org/css-gaps-1/#propdef-column-rule-inset
       LayoutUnit start_inset =
-          gap_geometry.ComputeStartInset(style, gap_index, start, intersections,
+          gap_geometry.ComputeInsetStart(style, gap_index, start, intersections,
                                          is_column_gap, is_main, start_width);
       LayoutUnit end_inset =
-          gap_geometry.ComputeEndInset(style, gap_index, end, intersections,
+          gap_geometry.ComputeInsetEnd(style, gap_index, end, intersections,
                                        is_column_gap, is_main, end_width);
       // Compute the gap decorations offset as half of the `crossing_gap_width`
       // plus the inset.

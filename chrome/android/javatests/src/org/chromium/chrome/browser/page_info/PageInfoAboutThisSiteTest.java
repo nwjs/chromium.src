@@ -109,9 +109,7 @@ public class PageInfoAboutThisSiteTest {
     @Before
     public void setUp() {
         doReturn(true).when(mMockAboutThisSiteJni).isFeatureEnabled();
-        doReturn(R.drawable.ic_info_outline_grey_24dp)
-                .when(mMockAboutThisSiteJni)
-                .getJavaDrawableIconId();
+        doReturn(R.drawable.ic_info_24dp).when(mMockAboutThisSiteJni).getJavaDrawableIconId();
         PageInfoAboutThisSiteControllerJni.setInstanceForTesting(mMockAboutThisSiteJni);
         mTestServerRule.setServerUsesHttps(true);
         mStartingPage =
@@ -296,5 +294,29 @@ public class PageInfoAboutThisSiteTest {
         verify(mMockAboutThisSiteJni).onAboutThisSiteRowClicked(false);
 
         closeBottomSheet();
+    }
+
+    @Test
+    @MediumTest
+    public void testAboutThisSiteRowWithNullTabCreator() throws TimeoutException {
+        mockResponse(createDescription());
+        ChromeTabbedActivity activity = mActivityTestRule.getActivity();
+        Tab tab = mActivityTestRule.getActivityTab();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    new ChromePageInfo(
+                                    activity.getModalDialogManagerSupplier(),
+                                    null,
+                                    PageInfoController.OpenedFromSource.TOOLBAR,
+                                    null,
+                                    () -> null,
+                                    null)
+                            .show(tab, ChromePageInfoHighlight.noHighlight());
+                });
+        onViewWaiting(allOf(withId(R.id.page_info_url_wrapper), isDisplayed()), true);
+
+        onView(withId(PageInfoAboutThisSiteController.ROW_ID)).perform(click());
+        verify(mMockAboutThisSiteJni).onAboutThisSiteRowClicked(true);
+        dismissPageInfo();
     }
 }

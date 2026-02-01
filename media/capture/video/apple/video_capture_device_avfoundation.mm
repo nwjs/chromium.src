@@ -459,8 +459,11 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
     *outMessage = @"Could not open video capture device.";
     return NO;
   }
+
+#if BUILDFLAG(IS_MAC)
   // TODO(https://crbug.com/461717105): Remove this logging.
   media::LogAVCaptureDeviceInfo(_captureDevice);
+#endif
 
   // Create the capture input associated with the device. Easy peasy.
   NSError* error = nil;

@@ -35,10 +35,6 @@ bool DrawVideoFrameIntoResourceProvider(
   DCHECK(frame);
   DCHECK(resource_provider);
 
-  // This method should only be called with context providers supporting OOP-R.
-  CHECK(!raster_context_provider ||
-        raster_context_provider->ContextCapabilities().gpu_rasterization);
-
   if (frame->HasSharedImage()) {
     if (!raster_context_provider) {
       DLOG(ERROR) << "Unable to process a texture backed VideoFrame w/o a "
@@ -388,13 +384,16 @@ ExternalTexture CreateExternalTexture(
 
   // In 0-copy path, uploading shares the whole frame into dawn and apply
   // visible rect and sample from it. For 1-copy path, we should obey the
-  // same behaviour by:
-  // - Get recycle cache with video frame visible size.
-  // - Draw video frame visible rect into recycle cache, uses visible size.
-  // - Reset origin of visible rect in ExternalTextureDesc and use internal
-  // shader to
-  //   handle visible rect.
+  // same behaviour similarly:
+  // - Get recycle cache with video frame natural size.
+  // - Draw video frame visible rect into recycle cache, scaling to natural
+  // size if needed.
+  // - Reset crop origin and size to fit the entire natural size in
+  // ExternalTextureDesc.
   external_texture_desc.cropOrigin = {};
+  external_texture_desc.cropSize = {
+      static_cast<uint32_t>(natural_size.width()),
+      static_cast<uint32_t>(natural_size.height())};
 
   std::unique_ptr<media::PaintCanvasVideoRenderer> local_video_renderer;
   if (!video_renderer) {

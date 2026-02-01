@@ -4,9 +4,33 @@
 
 #include "third_party/blink/renderer/core/animation/css/css_animation_update.h"
 
+#include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 
 namespace blink {
+
+void NewCSSAnimation::UpdateVersion() {
+  style_rule_version = style_rule->Version();
+}
+
+void NewCSSAnimation::Trace(Visitor* visitor) const {
+  visitor->Trace(effect);
+  visitor->Trace(style_rule);
+  visitor->Trace(timeline);
+  visitor->Trace(trigger_attachments);
+}
+
+void UpdatedCSSAnimation::UpdateVersion() {
+  style_rule_version = style_rule->Version();
+}
+
+void UpdatedCSSAnimation::Trace(Visitor* visitor) const {
+  visitor->Trace(animation);
+  visitor->Trace(effect);
+  visitor->Trace(style_rule);
+  visitor->Trace(timeline);
+  visitor->Trace(trigger_attachments);
+}
 
 // Defined here, to avoid dependencies on ComputedStyle.h in the header file.
 CSSAnimationUpdate::CSSAnimationUpdate() = default;
@@ -31,6 +55,7 @@ void CSSAnimationUpdate::Copy(const CSSAnimationUpdate& update) {
   changed_view_timelines_ = update.changed_view_timelines_;
   changed_deferred_timelines_ = update.changed_deferred_timelines_;
   changed_timeline_attachments_ = update.changed_timeline_attachments_;
+  needs_named_trigger_update_ = update.needs_named_trigger_update_;
 }
 
 void CSSAnimationUpdate::Clear() {
@@ -48,6 +73,7 @@ void CSSAnimationUpdate::Clear() {
   changed_view_timelines_.clear();
   changed_deferred_timelines_.clear();
   changed_timeline_attachments_.clear();
+  needs_named_trigger_update_ = false;
 }
 
 void CSSAnimationUpdate::StartTransition(

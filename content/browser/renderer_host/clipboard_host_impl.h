@@ -5,7 +5,6 @@
 #ifndef CONTENT_BROWSER_RENDERER_HOST_CLIPBOARD_HOST_IMPL_H_
 #define CONTENT_BROWSER_RENDERER_HOST_CLIPBOARD_HOST_IMPL_H_
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -35,19 +34,6 @@ class ScopedClipboardWriter;
 namespace content {
 
 class ClipboardHostImplTest;
-
-// Returns a representation of the last source ClipboardEndpoint. This will
-// either match the last clipboard write if there is an RFH token in the
-// clipboard, or an endpoint built from `Clipboard::GetSource()` called with
-// `clipboard_buffer` otherwise.
-//
-// //content maintains additional metadata on top of what the //ui layer already
-// tracks about clipboard data's source, e.g. the WebContents that provided the
-// data. This function allows retrieving both the //ui metadata and the
-// //content metadata in a single call.
-CONTENT_EXPORT ClipboardEndpoint
-GetSourceClipboardEndpoint(const ui::DataTransferEndpoint* data_dst,
-                           ui::ClipboardBuffer clipboard_buffer);
 
 class CONTENT_EXPORT ClipboardHostImpl
     : public DocumentService<blink::mojom::ClipboardHost>,

@@ -524,7 +524,7 @@ std::string VariationsIdsProvider::GenerateBase64EncodedProto(
 
   std::string serialized;
   proto.SerializeToString(&serialized);
-  return base::Base64Encode(serialized);
+  return base::Base64EncodeEarlyStartup(base::as_byte_span(serialized));
 }
 
 bool VariationsIdsProvider::AddVariationIdsToSet(
@@ -625,8 +625,8 @@ bool VariationsIdsProvider::IsDuplicateId(VariationID id) {
     }
 
     const VariationIDEntry entry(id, key);
-    if (base::Contains(force_enabled_ids_set_, entry) ||
-        base::Contains(synthetic_variation_ids_set_, entry)) {
+    if (force_enabled_ids_set_.contains(entry) ||
+        synthetic_variation_ids_set_.contains(entry)) {
       return true;
     }
   }

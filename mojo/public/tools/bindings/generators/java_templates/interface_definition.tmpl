@@ -89,8 +89,11 @@ public static final {{manager_class(interface, True)}} MANAGER =
     }
 
     @Override
-    public Stub buildStub(org.chromium.mojo.system.Core core, {{interface|name}} impl) {
-        return new Stub(core, impl);
+    public org.chromium.mojo.bindings.Stub<{{interface|name}}> buildStub(
+            org.chromium.mojo.system.Core core,
+            {{interface|name}} impl,
+            int interfaceId) {
+        return new {{interface|name}}Stub(core, impl, interfaceId);
     }
 
     @Override
@@ -109,10 +112,10 @@ try {
     if (header.hasFlag(org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG)) {
         flags = flags | org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG;
     }
-    if (!header.validateHeader(flags)) {
+    if (!header.hasExactFlags(flags)) {
         return false;
     }
-    switch(header.getType()) {
+    switch(header.getMethodId()) {
 {%   if with_response %}
         case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
             return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRun(
@@ -203,6 +206,7 @@ class {{interface|name}}_Internal {
                     _message.serializeWithHeader(
                             getProxyHandler().getCore(),
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     {{method|method_ordinal_name}},
                                     {{flags_for_method(method, True)}},
                                     0)),
@@ -211,17 +215,19 @@ class {{interface|name}}_Internal {
             getProxyHandler().getMessageReceiver().accept(
                     _message.serializeWithHeader(
                             getProxyHandler().getCore(),
-                            new org.chromium.mojo.bindings.MessageHeader({{method|method_ordinal_name}})));
+                            new org.chromium.mojo.bindings.MessageHeader(
+                                org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
+                                {{method|method_ordinal_name}})));
 {%   endif %}
         }
 {% endfor %}
 
     }
 
-    static final class Stub extends org.chromium.mojo.bindings.Interface.Stub<{{interface|name}}> {
+    static final class {{interface|name}}Stub extends org.chromium.mojo.bindings.Stub<{{interface|name}}> {
 
-        Stub(org.chromium.mojo.system.Core core, {{interface|name}} impl) {
-            super(core, impl);
+        {{interface|name}}Stub(org.chromium.mojo.system.Core core, {{interface|name}} impl, int interfaceId) {
+            super(core, impl, interfaceId);
         }
 
         @Override
@@ -268,8 +274,7 @@ class {{interface|name}}_Internal {
 
     {{ struct_def(response_struct, True)|indent(4) }}
 
-    static class {{response_struct|name}}ForwardToCallback extends org.chromium.mojo.bindings.SideEffectFreeCloseable
-            implements org.chromium.mojo.bindings.MessageReceiver {
+    static class {{response_struct|name}}ForwardToCallback implements org.chromium.mojo.bindings.MessageReceiver {
         private final {{interface|name}}.{{method|interface_response_name}} mCallback;
 
         {{response_struct|name}}ForwardToCallback({{interface|name}}.{{method|interface_response_name}} callback) {
@@ -282,8 +287,10 @@ class {{interface|name}}_Internal {
                 org.chromium.mojo.bindings.ServiceMessage messageWithHeader =
                         message.asServiceMessage();
                 org.chromium.mojo.bindings.MessageHeader header = messageWithHeader.getHeader();
-                if (!header.validateHeader({{method|method_ordinal_name}},
-                                           {{flags_for_method(method, False)}})) {
+                if (header.getMethodId() != {{method|method_ordinal_name}}) {
+                    return false;
+                }
+                if (!header.hasExactFlags({{flags_for_method(method, False)}})) {
                     return false;
                 }
 {%   if method.response_parameters|length %}
@@ -301,6 +308,9 @@ class {{interface|name}}_Internal {
                 return false;
             }
         }
+
+        @Override
+        public void close() {}
     }
 
     static class {{response_struct|name}}ProxyToResponder implements {{interface|name}}.{{method|interface_response_name}} {
@@ -341,6 +351,7 @@ class {{interface|name}}_Internal {
                     _response.serializeWithHeader(
                             mCore,
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     {{method|method_ordinal_name}},
                                     {{flags_for_method(method, False)}},
                                     mRequestId));

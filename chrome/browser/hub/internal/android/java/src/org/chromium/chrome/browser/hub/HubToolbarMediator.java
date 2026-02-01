@@ -19,6 +19,7 @@ import static org.chromium.chrome.browser.hub.HubToolbarProperties.PANE_SWITCHER
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_BOX_VISIBLE;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_LISTENER;
 import static org.chromium.chrome.browser.hub.HubToolbarProperties.SEARCH_LOUPE_VISIBLE;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNonNativeNtpUrl;
 
 import android.content.ComponentCallbacks;
 import android.content.Context;
@@ -30,6 +31,7 @@ import androidx.core.util.Pair;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -37,7 +39,6 @@ import org.chromium.chrome.browser.hub.HubToolbarProperties.PaneButtonLookup;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -76,7 +77,7 @@ public class HubToolbarMediator {
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:HubSearchEntrypoint)
 
-    private static final int INVALID_PANE_SWITCHER_INDEX = -1;
+    static final int INVALID_PANE_SWITCHER_INDEX = -1;
 
     private final ComponentCallbacks mComponentCallbacks =
             new ComponentCallbacks() {
@@ -113,7 +114,7 @@ public class HubToolbarMediator {
     private final PaneManager mPaneManager;
     private final Tracker mTracker;
     private final SearchActivityClient mSearchActivityClient;
-    private final ObservableSupplier<@Nullable Tab> mCurrentTabSupplier;
+    private final NullableObservableSupplier<Tab> mCurrentTabSupplier;
     // The order of entries in this map are the order the buttons should appear to the user. A null
     // value should not be shown to the user.
     private final ArrayList<Pair<Integer, @Nullable DisplayButtonData>>
@@ -133,6 +134,7 @@ public class HubToolbarMediator {
     private final Callback<@Nullable Tab> mOnCurrentTabChange = this::onCurrentTabChange;
 
     private @Nullable PaneButtonLookup mPaneButtonLookup;
+    private boolean mIgnoreTabLayoutSelection;
 
     /** Creates the mediator. */
     public HubToolbarMediator(
@@ -141,7 +143,7 @@ public class HubToolbarMediator {
             PaneManager paneManager,
             Tracker tracker,
             SearchActivityClient searchActivityClient,
-            ObservableSupplier<@Nullable Tab> currentTabSupplier,
+            NullableObservableSupplier<Tab> currentTabSupplier,
             Runnable exitHubRunnable) {
         mContext = context;
         mPropertyModel = propertyModel;
@@ -154,7 +156,7 @@ public class HubToolbarMediator {
             Pane pane = paneManager.getPaneForId(paneId);
             if (pane == null) continue;
 
-            ObservableSupplier<@Nullable DisplayButtonData> supplier =
+            NullableObservableSupplier<DisplayButtonData> supplier =
                     pane.getReferenceButtonDataSupplier();
             Callback<@Nullable DisplayButtonData> observer =
                     (data) -> onReferenceButtonChange(paneId, data);
@@ -168,13 +170,13 @@ public class HubToolbarMediator {
 
             mRemoveReferenceButtonObservers.add(() -> supplier.removeObserver(observer));
 
-            pane.getHubSearchEnabledStateSupplier().addObserver(mOnHubSearchEnabledStateChange);
-            pane.getHubSearchBoxVisibilitySupplier().addObserver(mOnSearchBoxVisibilityChange);
+            pane.getHubSearchEnabledStateSupplier().addSyncObserver(mOnHubSearchEnabledStateChange);
+            pane.getHubSearchBoxVisibilitySupplier().addSyncObserver(mOnSearchBoxVisibilityChange);
         }
         mHairlineVisibilitySupplier =
                 paneManager
                         .getFocusedPaneSupplier()
-                        .createTransitive(Pane::getHairlineVisibilitySupplier);
+                        .createTransitiveNonNull(false, Pane::getHairlineVisibilitySupplier);
         mHairlineVisibilitySupplier.addObserver(mOnHairlineVisibilityChange);
         ObservableSupplier<Pane> focusedPaneSupplier = paneManager.getFocusedPaneSupplier();
         focusedPaneSupplier.addObserver(mOnFocusedPaneChange);
@@ -275,13 +277,23 @@ public class HubToolbarMediator {
             currentIndex++;
         }
         mPropertyModel.set(PANE_SWITCHER_INDEX, selectedIndex);
+
+        mIgnoreTabLayoutSelection = true;
         mPropertyModel.set(PANE_SWITCHER_BUTTON_DATA, buttonDataList);
+        mIgnoreTabLayoutSelection = false;
     }
 
     private FullButtonData wrapButtonData(
             @PaneId int paneId, DisplayButtonData referenceButtonData) {
         Runnable onPress =
                 () -> {
+                    if (mIgnoreTabLayoutSelection) {
+                        // When we rebuild the tab data, the selected tab layout will change, and
+                        // our Runnables will be invoked for the current tab. This isn't a real
+                        // input from the user, and can safely be ignored.
+                        return;
+                    }
+
                     // TODO(crbug.com/345492118): Move the event name into the tab group pane impl.
                     if (paneId == PaneId.TAB_GROUPS) {
                         mTracker.notifyEvent("tab_groups_surface_clicked");
@@ -311,8 +323,7 @@ public class HubToolbarMediator {
 
         // Reset the enabled state of hub search to the supplier value or true if uninitialized
         // when toggling panes to account for a potential disabled state from incognito reauth.
-        Boolean hubSearchEnabledState = focusedPane.getHubSearchEnabledStateSupplier().get();
-        boolean enabled = hubSearchEnabledState == null ? true : hubSearchEnabledState;
+        boolean enabled = focusedPane.getHubSearchEnabledStateSupplier().get();
         mPropertyModel.set(HUB_SEARCH_ENABLED_STATE, enabled);
 
         mPropertyModel.set(MENU_BUTTON_VISIBLE, focusedPane.getMenuButtonVisible());
@@ -354,7 +365,7 @@ public class HubToolbarMediator {
         mSearchActivityClient.requestOmniboxForResult(
                 mSearchActivityClient
                         .newIntentBuilder()
-                        .setPageUrl(new GURL(UrlConstants.NTP_NON_NATIVE_URL))
+                        .setPageUrl(new GURL(getOriginalNonNativeNtpUrl()))
                         .setIncognito(mPropertyModel.get(IS_INCOGNITO))
                         .setResolutionType(ResolutionType.OPEN_IN_CHROME)
                         .build());

@@ -38,9 +38,8 @@
 #         google google-0xffff google-0xc0de
 #         imagination
 #         imagination-technologies
-#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0xe20c
-#             intel-0x3e92 intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912
-#             intel-0x9bc5
+#         intel intel-gen-9 intel-gen-12 intel-0xa2e intel-0xa011 intel-0x3e92
+#             intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912 intel-0x9bc5
 #         microsoft microsoft-0xffff
 #         nvidia nvidia-0x1cb3 nvidia-0x2184 nvidia-0x2783
 #         qualcomm qualcomm-0x41333430 qualcomm-0x36333630 qualcomm-0x36334330 ]
@@ -67,6 +66,7 @@
 #         mesa_ge_23.2
 #         mesa_ge_24.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601
+#         nvidia_ge_32.0.15.8180 nvidia_lt_32.0.15.8180
 #         nvidia_ge_535.183.01 nvidia_lt_535.183.01 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -624,9 +624,6 @@ crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gle
 crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_points.html [ Failure ]
 crbug.com/41496274 [ win11 qualcomm-0x36334330 angle-d3d11 ] deqp/functional/gles3/transformfeedback/random_separate_triangles.html [ Failure ]
 
-# Win / Intel Arc B570
-crbug.com/462642964 [ win11 intel-0xe20c ] deqp/functional/gles3/transformfeedback/basic_types_interleaved_triangles.html [ RetryOnFailure ]
-
 # Graphite
 crbug.com/332745399 [ win graphite-enabled ] conformance2/extensions/webgl-shader-pixel-local-storage.html [ Failure ]
 
@@ -795,6 +792,18 @@ crbug.com/425671158 [ angle-metal intel-0x3e9b sequoia ] conformance2/textures/v
 
 # WebGL: INVALID_ENUM: getShaderParameter
 crbug.com/444250724 [ mac angle-metal graphite-enabled intel-0x3e9b ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
+
+# Angel Metal on Intel Sequoia
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance2/renderbuffers/multisample-draws-between-blits.html [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance2/rendering/framebuffer-to-texture.html [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance/textures/image_bitmap_from_video/* [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance/textures/misc/texture-corner-case-videos.html [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance/textures/misc/video-rotation.html [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] conformance2/textures/canvas_sub_rectangle/* [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] deqp/functional/gles3/fboinvalidate/* [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] deqp/functional/gles3/fborender/* [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] deqp/functional/gles3/framebufferblit/* [ Failure ]
+crbug.com/475181552 [ sequoia angle-metal graphite-enabled intel-0x3e9b ] deqp/functional/gles3/texturespecification/* [ Failure ]
 
 ## Mac / Apple Silicon ##
 

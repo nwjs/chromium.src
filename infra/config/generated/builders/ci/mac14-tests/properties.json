@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac Builder",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -35,7 +35,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "mac14-tests",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.mac",
@@ -55,7 +55,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Mac Builder",
-                "project": "chromium-m144"
+                "project": "chromium-m145"
               }
             }
           }
@@ -65,7 +65,7 @@
         {
           "bucket": "ci",
           "builder": "mac14-tests",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -75,8 +75,7 @@
         }
       ],
       "retry_failed_shards": true,
-      "targets_spec_directory": "infra/config/generated/builders/ci/mac14-tests/targets",
-      "targets_spec_directory_relative_to_source_dir": true
+      "targets_spec_directory": "infra/config/generated/builders/ci/mac14-tests/targets"
     }
   },
   "$recipe_engine/resultdb/test_presentation": {
@@ -87,11 +86,5 @@
     ]
   },
   "builder_group": "chromium.mac",
-  "gardener_rotations": [
-    "chrome_browser_release"
-  ],
-  "recipe": "chromium",
-  "sheriff_rotations": [
-    "chrome_browser_release"
-  ]
+  "recipe": "chromium"
 }

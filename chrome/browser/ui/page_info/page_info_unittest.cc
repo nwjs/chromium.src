@@ -37,13 +37,13 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_constraints.h"
 #include "components/content_settings/core/common/content_settings_types.h"
-#include "components/content_settings/core/common/cookie_blocking_3pcd_status.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
 #include "components/page_info/core/features.h"
 #include "components/page_info/page_info_ui.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_recovery_success_rate_tracker.h"
+#include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
@@ -685,7 +685,20 @@ TEST_F(PageInfoTest, StorageAccessGrantsDisplayedWhenDefaultBlocked) {
                            last_permission_info_list());
 }
 
-TEST_F(PageInfoTest, ShowAutograntedRWSPermissions) {
+// TODO(crbug.com/40145057): Remove deprecated RWS API including these tests.
+class PageInfoRelatedWebsiteSetsTest : public PageInfoTest {
+ public:
+  ~PageInfoRelatedWebsiteSetsTest() override = default;
+
+  void SetUp() override {
+    PageInfoTest::SetUp();
+    // Explicitly enable Related Website Sets.
+    profile()->GetPrefs()->SetBoolean(
+        prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
+  }
+};
+
+TEST_F(PageInfoRelatedWebsiteSetsTest, ShowAutograntedRWSPermissions) {
   std::set<ContentSettingsType> expected_visible_permissions;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
@@ -712,7 +725,7 @@ TEST_F(PageInfoTest, ShowAutograntedRWSPermissions) {
                            last_permission_info_list());
 }
 
-TEST_F(PageInfoTest, HideAutograntedRWSPermissions) {
+TEST_F(PageInfoRelatedWebsiteSetsTest, HideAutograntedRWSPermissions) {
   std::set<ContentSettingsType> expected_visible_permissions;
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(
@@ -1719,7 +1732,6 @@ TEST_F(PageInfoTest, ShowInfoBarWhenAllowingThirdPartyCookies) {
 
   page_info()->OnStatusChanged(CookieControlsState::kBlocked3pc,
                                CookieControlsEnforcement::kNoEnforcement,
-                               CookieBlocking3pcdStatus::kNotIn3pcd,
                                base::Time());
 
   EXPECT_EQ(0u, infobar_manager()->infobars().size());
@@ -1742,7 +1754,6 @@ TEST_F(PageInfoTest, ShowInfoBarWhenBlockingThirdPartyCookies) {
 
   page_info()->OnStatusChanged(CookieControlsState::kAllowed3pc,
                                CookieControlsEnforcement::kNoEnforcement,
-                               CookieBlocking3pcdStatus::kNotIn3pcd,
                                base::Time());
 
   EXPECT_EQ(0u, infobar_manager()->infobars().size());

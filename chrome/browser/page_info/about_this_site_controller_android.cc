@@ -22,8 +22,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/PageInfoAboutThisSiteController_jni.h"
 
-static jboolean JNI_PageInfoAboutThisSiteController_IsFeatureEnabled(
-    JNIEnv* env) {
+static bool JNI_PageInfoAboutThisSiteController_IsFeatureEnabled(JNIEnv* env) {
   return page_info::IsAboutThisSiteFeatureEnabled(
       g_browser_process->GetApplicationLocale());
 }
@@ -37,9 +36,9 @@ static jint JNI_PageInfoAboutThisSiteController_GetJavaDrawableIconId(
 static base::android::ScopedJavaLocalRef<jbyteArray>
 JNI_PageInfoAboutThisSiteController_GetSiteInfo(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& j_browserContext,
-    const base::android::JavaParamRef<jobject>& j_url,
-    const base::android::JavaParamRef<jobject>& j_webContents) {
+    const base::android::JavaRef<jobject>& j_browserContext,
+    const base::android::JavaRef<jobject>& j_url,
+    const base::android::JavaRef<jobject>& j_webContents) {
   Profile* profile = Profile::FromBrowserContext(
       content::BrowserContextFromJavaHandle(j_browserContext));
   auto* service = AboutThisSiteServiceFactory::GetForProfile(profile);
@@ -64,7 +63,7 @@ JNI_PageInfoAboutThisSiteController_GetSiteInfo(
 
 static void JNI_PageInfoAboutThisSiteController_OnAboutThisSiteRowClicked(
     JNIEnv* env,
-    jboolean j_withDescription) {
+    bool j_withDescription) {
   page_info::AboutThisSiteService::OnAboutThisSiteRowClicked(j_withDescription);
 }
 

@@ -44,6 +44,10 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsTest, AsyncMapDirective) {
   RunTest("extensions/async_map_directive_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrExtensionsTest, DragAndDropHandler) {
+  RunTest("extensions/drag_and_drop_handler_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrExtensionsTest, ToggleRow) {
   RunTest("extensions/toggle_row_test.js", "mocha.run()");
 }
@@ -274,6 +278,10 @@ class CrExtensionsDetailViewTest : public ExtensionsBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, Layout) {
   RunTestCase("Layout");
+}
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, BackButton) {
+  RunTestCase("BackButton");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, LayoutSource) {

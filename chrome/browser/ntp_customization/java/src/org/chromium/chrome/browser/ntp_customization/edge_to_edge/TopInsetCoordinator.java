@@ -14,7 +14,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.ObserverList;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -48,7 +48,7 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
     }
 
     private final ObserverList<Observer> mObservers = new ObserverList<>();
-    private final ObservableSupplier<@Nullable Tab> mTabSupplier;
+    private final NullableObservableSupplier<Tab> mTabSupplier;
     private final TabObserver mTabObserver;
     private final LayoutStateProvider.LayoutStateObserver mLayoutStateObserver;
     private final InsetObserver mInsetObserver;
@@ -83,7 +83,7 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
      */
     public TopInsetCoordinator(
             Context context,
-            ObservableSupplier<@Nullable Tab> tabSupplier,
+            NullableObservableSupplier<Tab> tabSupplier,
             InsetObserver insetObserver,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier) {
         mInsetObserver = insetObserver;
@@ -163,11 +163,17 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
                     }
 
                     @Override
+                    public void onBackgroundReset(@NtpBackgroundImageType int oldType) {
+                        onNtpBackgroundReset(oldType);
+                    }
+
+                    @Override
                     public void refreshWindowInsets(boolean consumeTopInset) {
                         TopInsetCoordinator.this.refreshWindowInsets(consumeTopInset);
                     }
                 };
-        NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener, context);
+        NtpCustomizationConfigManager.getInstance()
+                .addListener(mHomepageStateListener, context, /* skipNotify= */ false);
 
         mWindowInsetsConsumer = this::onApplyWindowInsets;
         mInsetObserver.addInsetsConsumer(
@@ -286,25 +292,32 @@ public class TopInsetCoordinator implements InsetObserver.WindowInsetsConsumer {
         NtpCustomizationConfigManager.getInstance().removeListener(mHomepageStateListener);
     }
 
-    // Called when a customized background of NTP is selected or removed. It initializes or removes
-    // observers which track the Tab and Layout transitions.
+    // Called when a customized background of NTP is selected. It initializes observers which track
+    // the Tab and Layout transitions.
     @VisibleForTesting
     void onNtpBackgroundChanged(
             boolean fromInitialization,
             @NtpBackgroundImageType int oldType,
             @NtpBackgroundImageType int newType) {
+        if (oldType == newType) return;
+
         boolean shouldRefreshWindowInsets = false;
-        if (oldType != newType && newType == NtpBackgroundImageType.DEFAULT) {
-            removeObservers();
-            shouldRefreshWindowInsets = true;
-        } else if (oldType != newType && oldType == NtpBackgroundImageType.DEFAULT) {
+        if (oldType == NtpBackgroundImageType.DEFAULT) {
             addObservers();
             shouldRefreshWindowInsets = true;
         }
 
         if (fromInitialization || !shouldRefreshWindowInsets) return;
 
-        refreshWindowInsets(newType != NtpBackgroundImageType.DEFAULT);
+        refreshWindowInsets(/* consumeTopInset= */ true);
+    }
+
+    @VisibleForTesting
+    void onNtpBackgroundReset(@NtpBackgroundImageType int oldType) {
+        if (oldType == NtpBackgroundImageType.DEFAULT) return;
+
+        removeObservers();
+        refreshWindowInsets(/* consumeTopInset= */ false);
     }
 
     /** Returns the system's top inset. */

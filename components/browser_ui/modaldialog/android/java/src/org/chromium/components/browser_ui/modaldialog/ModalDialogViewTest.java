@@ -245,9 +245,7 @@ public class ModalDialogViewTest {
         PropertyModel model =
                 createModel(
                         mModelBuilder.with(
-                                ModalDialogProperties.TITLE_ICON,
-                                sActivity,
-                                R.drawable.ic_business));
+                                ModalDialogProperties.TITLE_ICON, sActivity, R.drawable.ic_domain));
         onView(allOf(withId(R.id.title), withParent(withId(R.id.title_container))))
                 .check(matches(not(isDisplayed())));
         onView(allOf(withId(R.id.title_icon), withParent(withId(R.id.title_container))))
@@ -263,6 +261,49 @@ public class ModalDialogViewTest {
                 .check(matches(not(isDisplayed())));
         onView(withId(R.id.title_container)).check(matches(not(isDisplayed())));
         onView(withId(R.id.scrollable_title_container)).check(matches(not(isDisplayed())));
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"ModalDialog"})
+    public void testTitleButtons_Visibility() {
+        PropertyModel model =
+                createModel(
+                        mModelBuilder
+                                .with(ModalDialogProperties.TITLE, "Test Title")
+                                .with(ModalDialogProperties.TITLE_BACK_BUTTON_VISIBLE, true)
+                                .with(ModalDialogProperties.TITLE_MORE_BUTTON_VISIBLE, true));
+
+        onView(allOf(withId(R.id.title_back), isDisplayed())).check(matches(isDisplayed()));
+        onView(allOf(withId(R.id.title_more_button), isDisplayed())).check(matches(isDisplayed()));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    model.set(ModalDialogProperties.TITLE_BACK_BUTTON_VISIBLE, false);
+                    model.set(ModalDialogProperties.TITLE_MORE_BUTTON_VISIBLE, false);
+                });
+
+        onView(allOf(withId(R.id.title_back), withParent(withId(R.id.title_container))))
+                .check(matches(not(isDisplayed())));
+        onView(allOf(withId(R.id.title_more_button), withParent(withId(R.id.title_container))))
+                .check(matches(not(isDisplayed())));
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"ModalDialog"})
+    public void testTitleBackButton_ClickListener() throws Exception {
+        final CallbackHelper callbackHelper = new CallbackHelper();
+        createModel(
+                mModelBuilder
+                        .with(ModalDialogProperties.TITLE, "Test Title")
+                        .with(ModalDialogProperties.TITLE_BACK_BUTTON_VISIBLE, true)
+                        .with(
+                                ModalDialogProperties.TITLE_BACK_BUTTON_CLICK_LISTENER,
+                                (v) -> callbackHelper.notifyCalled()));
+
+        onView(allOf(withId(R.id.title_back), isDisplayed())).perform(click());
+        callbackHelper.waitForCallback(0);
     }
 
     @Test
@@ -1105,7 +1146,7 @@ public class ModalDialogViewTest {
     @Feature({"ModalDialog"})
     public void testMenuItem_Basic() {
         final String text1 = "Menu Item 1";
-        final Drawable icon1 = sActivity.getDrawable(R.drawable.ic_business);
+        final Drawable icon1 = sActivity.getDrawable(R.drawable.ic_domain);
         ArrayList<ModalDialogMenuItem> menuItems = new ArrayList<>();
         menuItems.add(new ModalDialogMenuItem(icon1, text1));
 
@@ -1129,9 +1170,9 @@ public class ModalDialogViewTest {
     @Feature({"ModalDialog"})
     public void testMenuItems_Dynamic() {
         final String text1 = "First Menu Item";
-        final Drawable icon1 = sActivity.getDrawable(R.drawable.ic_business);
+        final Drawable icon1 = sActivity.getDrawable(R.drawable.ic_domain);
         final String text2 = "Second Menu Item";
-        final Drawable icon2 = sActivity.getDrawable(R.drawable.ic_business);
+        final Drawable icon2 = sActivity.getDrawable(R.drawable.ic_domain);
         ArrayList<ModalDialogMenuItem> menuItems = new ArrayList<>();
         menuItems.add(new ModalDialogMenuItem(icon1, text1));
         menuItems.add(new ModalDialogMenuItem(icon2, text2));
@@ -1201,7 +1242,7 @@ public class ModalDialogViewTest {
     public void testMenuItem_Callback() throws Exception {
         final CallbackHelper callbackHelper = new CallbackHelper();
         final String text = "Menu Item with Callback";
-        final Drawable icon = sActivity.getDrawable(R.drawable.ic_business);
+        final Drawable icon = sActivity.getDrawable(R.drawable.ic_domain);
         ArrayList<ModalDialogMenuItem> menuItems = new ArrayList<>();
         menuItems.add(new ModalDialogMenuItem(icon, text, callbackHelper::notifyCalled));
 

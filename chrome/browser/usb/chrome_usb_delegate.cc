@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
@@ -96,7 +95,7 @@ bool IsDevicePermissionAutoGranted(
   // Note: The `DeviceHasInterfaceWithClass()` call is made after checking the
   // origin, since that method call is expensive.
   if (origin.scheme() == extensions::kExtensionScheme &&
-      base::Contains(kSmartCardPrivilegedExtensionIds, origin.host()) &&
+      kSmartCardPrivilegedExtensionIds.contains(origin.host()) &&
       DeviceHasInterfaceWithClass(device_info,
                                   device::mojom::kUsbSmartCardClass)) {
     return true;
@@ -192,65 +191,65 @@ void ChromeUsbDelegate::AdjustProtectedInterfaceClasses(
   }
   // Don't enforce protected interface classes for Chrome Apps since the
   // chrome.usb API has no such restriction.
-    auto* extension_registry =
-        extensions::ExtensionRegistry::Get(browser_context);
-    if (extension_registry) {
-      const extensions::Extension* extension =
-          extension_registry->enabled_extensions().GetByID(origin.host());
-      if (extension && extension->is_platform_app()) {
-        classes.clear();
-        return;
-      }
+  auto* extension_registry =
+      extensions::ExtensionRegistry::Get(browser_context);
+  if (extension_registry) {
+    const extensions::Extension* extension =
+        extension_registry->enabled_extensions().GetByID(origin.host());
+    if (extension && extension->is_platform_app()) {
+      classes.clear();
+      return;
     }
+  }
 
 #if BUILDFLAG(IS_CHROMEOS)
   // These extensions can claim the protected HID interface class (example: used
   // as badge readers)
-    static constexpr auto kHidPrivilegedExtensionIds =
-        base::MakeFixedFlatSet<std::string_view>({
-            // Imprivata Extensions, see crbug.com/1065112 and crbug.com/995294.
-            "baobpecgllpajfeojepgedjdlnlfffde",
-            "bnfoibgpjolimhppjmligmcgklpboloj",
-            "cdgickkdpbekbnalbmpgochbninibkko",
-            "cjakdianfealdjlapagfagpdpemoppba",
-            "cokoeepjbmmnhgdhlkpahohdaiedfjgn",
-            "dahgfgiifpnaoajmloofonkndaaafacp",
-            "dbknmmkopacopifbkgookcdbhfnggjjh",
-            "ddcjglpbfbibgepfffpklmpihphbcdco",
-            "dhodapiemamlmhlhblgcibabhdkohlen",
-            "dlahpllbhpbkfnoiedkgombmegnnjopi",
-            "egfpnfjeaopimgpiioeedbpmojdapaip",
-            "fnbibocngjnefolmcodjkkghijpdlnfm",
-            "jcnflhjcfjkplgkcinikhbgbhfldkadl",
-            "jkfjfbelolphkjckiolfcakgalloegek",
-            "kmhpgpnbglclbaccjjgoioogjlnfgbne",
-            "lpimkpkllnkdlcigdbgmabfplniahkgm",
-            "odehonhhkcjnbeaomlodfkjaecbmhklm",
-            "olnmflhcfkifkgbiegcoabineoknmbjc",
-            "omificdfgpipkkpdhbjmefgfgbppehke",
-            "phjobickjiififdadeoepbdaciefacfj",
-            "pkeacbojooejnjolgjdecbpnloibpafm",
-            "pllbepacblmgialkkpcceohmjakafnbb",
-            "plpogimmgnkkiflhpidbibfmgpkaofec",
-            "pmhiabnkkchjeaehcodceadhdpfejmmd",
+  static constexpr auto kHidPrivilegedExtensionIds =
+      base::MakeFixedFlatSet<std::string_view>({
+          // Imprivata Extensions, see crbug.com/1065112 and crbug.com/995294.
+          "baobpecgllpajfeojepgedjdlnlfffde",
+          "bnfoibgpjolimhppjmligmcgklpboloj",
+          "cdgickkdpbekbnalbmpgochbninibkko",
+          "cjakdianfealdjlapagfagpdpemoppba",
+          "cokoeepjbmmnhgdhlkpahohdaiedfjgn",
+          "dahgfgiifpnaoajmloofonkndaaafacp",
+          "dbknmmkopacopifbkgookcdbhfnggjjh",
+          "ddcjglpbfbibgepfffpklmpihphbcdco",
+          "dhodapiemamlmhlhblgcibabhdkohlen",
+          "dlahpllbhpbkfnoiedkgombmegnnjopi",
+          "egfpnfjeaopimgpiioeedbpmojdapaip",
+          "fnbibocngjnefolmcodjkkghijpdlnfm",
+          "jcnflhjcfjkplgkcinikhbgbhfldkadl",
+          "jkfjfbelolphkjckiolfcakgalloegek",
+          "kmhpgpnbglclbaccjjgoioogjlnfgbne",
+          "lpimkpkllnkdlcigdbgmabfplniahkgm",
+          "odehonhhkcjnbeaomlodfkjaecbmhklm",
+          "olnmflhcfkifkgbiegcoabineoknmbjc",
+          "omificdfgpipkkpdhbjmefgfgbppehke",
+          "phjobickjiififdadeoepbdaciefacfj",
+          "pkeacbojooejnjolgjdecbpnloibpafm",
+          "pllbepacblmgialkkpcceohmjakafnbb",
+          "plpogimmgnkkiflhpidbibfmgpkaofec",
+          "pmhiabnkkchjeaehcodceadhdpfejmmd",
 
-            // Hotrod Extensions, see crbug.com/1220165
-            "acdafoiapclbpdkhnighhilgampkglpc",
-            "denipklgekfpcdmbahmbpnmokgajnhma",
-            "hkamnlhnogggfddmjomgbdokdkgfelgg",
-            "ikfcpmgefdpheiiomgmhlmmkihchmdlj",
-            "jlgegmdnodfhciolbdjciihnlaljdbjo",
-            "ldmpofkllgeicjiihkimgeccbhghhmfj",
-            "lkbhffjfgpmpeppncnimiiikojibkhnm",
-            "moklfjoegmpoolceggbebbmgbddlhdgp",
-        });
+          // Hotrod Extensions, see crbug.com/1220165
+          "acdafoiapclbpdkhnighhilgampkglpc",
+          "denipklgekfpcdmbahmbpnmokgajnhma",
+          "hkamnlhnogggfddmjomgbdokdkgfelgg",
+          "ikfcpmgefdpheiiomgmhlmmkihchmdlj",
+          "jlgegmdnodfhciolbdjciihnlaljdbjo",
+          "ldmpofkllgeicjiihkimgeccbhghhmfj",
+          "lkbhffjfgpmpeppncnimiiikojibkhnm",
+          "moklfjoegmpoolceggbebbmgbddlhdgp",
+      });
 
-    if (base::Contains(kHidPrivilegedExtensionIds, origin.host())) {
-      std::erase(classes, device::mojom::kUsbHidClass);
+  if (kHidPrivilegedExtensionIds.contains(origin.host())) {
+    std::erase(classes, device::mojom::kUsbHidClass);
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  if (base::Contains(kSmartCardPrivilegedExtensionIds, origin.host())) {
+  if (kSmartCardPrivilegedExtensionIds.contains(origin.host())) {
     std::erase(classes, device::mojom::kUsbSmartCardClass);
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -393,7 +392,7 @@ void ChromeUsbDelegate::RemoveObserver(content::BrowserContext* browser_context,
 ChromeUsbDelegate::ContextObservation* ChromeUsbDelegate::GetContextObserver(
     content::BrowserContext* browser_context) {
   CHECK(browser_context);
-  if (!base::Contains(observations_, browser_context)) {
+  if (!observations_.contains(browser_context)) {
     observations_.emplace(browser_context, std::make_unique<ContextObservation>(
                                                this, browser_context));
   }

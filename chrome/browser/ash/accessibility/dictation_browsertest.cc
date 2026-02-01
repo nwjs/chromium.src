@@ -346,7 +346,7 @@ IN_PROC_BROWSER_TEST_P(DictationTest, GetAllSupportedLocales) {
       EXPECT_TRUE(installed);
     } else {
       EXPECT_FALSE(installed) << " for locale " << locale;
-      if (base::Contains(kOfflineNotSupportedLocaleSet, locale)) {
+      if (kOfflineNotSupportedLocaleSet.contains(locale)) {
         EXPECT_FALSE(works_offline) << " for locale " << locale;
       }
     }
@@ -372,7 +372,7 @@ IN_PROC_BROWSER_TEST_P(DictationTest, GetAllSupportedLocales) {
       EXPECT_FALSE(installed);
     } else {
       EXPECT_FALSE(installed) << " for locale " << locale;
-      if (base::Contains(kOfflineNotSupportedLocaleSet, locale)) {
+      if (kOfflineNotSupportedLocaleSet.contains(locale)) {
         EXPECT_FALSE(works_offline) << " for locale " << locale;
       }
     }
@@ -1537,8 +1537,9 @@ IN_PROC_BROWSER_TEST_P(DictationUITest, StandbyHints) {
 // Ensures that Search + D can be used to toggle Dictation when ChromeVox is
 // active. Also verifies that ChromeVox announces hints when they are shown in
 // the Dictation UI.
-// TODO(crbug.com/453928508): Flaky on Linux ChromiumOS MSan Tests.
-#if defined(MEMORY_SANITIZER)
+// TODO(crbug.com/453928508): Flaky on Linux ChromiumOS MSan Tests, and Debug
+// bots.
+#if defined(MEMORY_SANITIZER) || !defined(NDEBUG)
 #define MAYBE_ChromeVoxAnnouncesHints DISABLED_ChromeVoxAnnouncesHints
 #else
 #define MAYBE_ChromeVoxAnnouncesHints ChromeVoxAnnouncesHints

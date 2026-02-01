@@ -27,7 +27,6 @@
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
-#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "ui/android/window_android.h"
 
@@ -84,7 +83,8 @@ bool TouchToFillPaymentMethodControllerImpl::ShowPaymentMethods(
   }
 
   if (!view->ShowPaymentMethods(this, suggestions,
-                                delegate->ShouldShowScanCreditCard())) {
+                                delegate->ShouldShowScanCreditCard(),
+                                delegate->ShouldShowGPayLogo())) {
     ResetJavaObject();
     return false;
   }
@@ -117,7 +117,7 @@ bool TouchToFillPaymentMethodControllerImpl::ShowIbans(
   return true;
 }
 
-bool TouchToFillPaymentMethodControllerImpl::ShowLoyaltyCards(
+bool TouchToFillPaymentMethodControllerImpl::ShowAffiliatedLoyaltyCards(
     std::unique_ptr<TouchToFillPaymentMethodView> view,
     base::WeakPtr<TouchToFillDelegate> delegate,
     base::span<const LoyaltyCard> affiliated_loyalty_cards,
@@ -134,8 +134,27 @@ bool TouchToFillPaymentMethodControllerImpl::ShowLoyaltyCards(
     return false;
   }
 
-  if (!view->ShowLoyaltyCards(this, affiliated_loyalty_cards, all_loyalty_cards,
-                              first_time_usage)) {
+  if (!view->ShowAffiliatedLoyaltyCards(this, affiliated_loyalty_cards,
+                                        all_loyalty_cards, first_time_usage)) {
+    ResetJavaObject();
+    return false;
+  }
+
+  view_ = std::move(view);
+  delegate_ = std::move(delegate);
+  return true;
+}
+
+bool TouchToFillPaymentMethodControllerImpl::ShowAllLoyaltyCards(
+    std::unique_ptr<TouchToFillPaymentMethodView> view,
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const LoyaltyCard> all_loyalty_cards) {
+  // Abort if TTF surface is already shown.
+  if (view_) {
+    return false;
+  }
+
+  if (!view->ShowAllLoyaltyCards(this, all_loyalty_cards)) {
     ResetJavaObject();
     return false;
   }
@@ -153,7 +172,7 @@ bool TouchToFillPaymentMethodControllerImpl::OnPurchaseAmountExtracted(
     base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
     base::OnceClosure cancel_callback) {
   if (!view_ || !view_->OnPurchaseAmountExtracted(
-                    *this, bnpl_issuer_contexts, extracted_amount,
+                    bnpl_issuer_contexts, extracted_amount,
                     is_amount_supported_by_any_issuer, app_locale)) {
     return false;
   }
@@ -193,8 +212,7 @@ bool TouchToFillPaymentMethodControllerImpl::ShowBnplIssuers(
     const std::string& app_locale,
     base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
     base::OnceClosure cancel_callback) {
-  if (!view_ ||
-      !view_->ShowBnplIssuers(*this, bnpl_issuer_contexts, app_locale)) {
+  if (!view_ || !view_->ShowBnplIssuers(bnpl_issuer_contexts, app_locale)) {
     ResetJavaObject();
     return false;
   }
@@ -227,22 +245,13 @@ bool TouchToFillPaymentMethodControllerImpl::ShowErrorScreen(
 }
 
 bool TouchToFillPaymentMethodControllerImpl::ShowBnplIssuerTos(
-    BnplTosModel bnpl_tos_model,
+    payments::BnplTosModel bnpl_tos_model,
     base::OnceClosure accept_callback,
     base::OnceClosure cancel_callback) {
   if (!view_ ||
       !view_->ShowBnplIssuerTos(
-          *this,
           payments::BnplIssuerTosDetail(
               bnpl_tos_model.issuer.issuer_id(),
-              /*header_icon_id=*/
-              payments::AndroidBnplUiDelegate::GetDuoBrandedIconForBnplIssuer(
-                  bnpl_tos_model.issuer.issuer_id(),
-                  /*is_dark_mode=*/false),
-              /*header_icon_id_dark=*/
-              payments::AndroidBnplUiDelegate::GetDuoBrandedIconForBnplIssuer(
-                  bnpl_tos_model.issuer.issuer_id(),
-                  /*is_dark_mode=*/true),
               /*is_linked_issuer=*/
               bnpl_tos_model.issuer.payment_instrument().has_value(),
               bnpl_tos_model.issuer.GetDisplayName(),

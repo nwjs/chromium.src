@@ -18,14 +18,18 @@ DeviceOrientationAbsoluteController::DeviceOrientationAbsoluteController(
 DeviceOrientationAbsoluteController::~DeviceOrientationAbsoluteController() =
     default;
 
+const char DeviceOrientationAbsoluteController::kSupplementName[] =
+    "DeviceOrientationAbsoluteController";
+
 DeviceOrientationAbsoluteController& DeviceOrientationAbsoluteController::From(
     LocalDOMWindow& window) {
   DeviceOrientationAbsoluteController* controller =
-      window.GetDeviceOrientationAbsoluteController();
+      Supplement<LocalDOMWindow>::From<DeviceOrientationAbsoluteController>(
+          window);
   if (!controller) {
     controller =
         MakeGarbageCollected<DeviceOrientationAbsoluteController>(window);
-    window.SetDeviceOrientationAbsoluteController(controller);
+    Supplement<LocalDOMWindow>::ProvideTo(window, controller);
   }
   return *controller;
 }

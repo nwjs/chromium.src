@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.android",
@@ -41,7 +41,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-cronet-x86-dbg-10-tests",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.android",
@@ -69,7 +69,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "android-cronet-x86-dbg",
-                "project": "chromium-m144"
+                "project": "chromium-m145"
               }
             }
           }
@@ -79,14 +79,14 @@
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "android-cronet-x86-dbg-10-tests",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -97,8 +97,7 @@
       ],
       "retry_failed_shards": true,
       "retry_invalid_shards": true,
-      "targets_spec_directory": "infra/config/generated/builders/ci/android-cronet-x86-dbg/targets",
-      "targets_spec_directory_relative_to_source_dir": true
+      "targets_spec_directory": "infra/config/generated/builders/ci/android-cronet-x86-dbg/targets"
     }
   },
   "$build/siso": {
@@ -106,10 +105,9 @@
       "builder"
     ],
     "enable_cloud_monitoring": true,
-    "enable_cloud_profiler": true,
     "enable_cloud_trace": true,
     "experiments": [],
-    "metrics_project": "chromium-reclient-metrics",
+    "profile_mode": "cloud",
     "project": "rbe-chromium-trusted",
     "remote_jobs": 500
   },

@@ -23,11 +23,10 @@
 #include "chrome/browser/extensions/extension_action_test_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/extension_view_host.h"
-#include "chrome/browser/extensions/load_error_reporter.h"
 #include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/extensions/user_script_listener.h"
-#include "chrome/browser/ui/extensions/extension_action_platform_delegate.h"
+#include "chrome/browser/ui/extensions/extension_action_delegate.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/extensions/icon_with_badge_image_source.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -46,6 +45,7 @@
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/load_error_reporter.h"
 #include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions/site_permissions_helper.h"
@@ -127,7 +127,7 @@ class ExtensionActionViewModelBrowserTest : public InProcessBrowserTest {
     // It's safe to static cast here, because these tests only deal with
     // extensions.
     return static_cast<ExtensionActionViewModel*>(
-        container()->GetActionForId(action_id));
+        container()->GetToolbarViewModel()->GetActionForId(action_id));
   }
 
   scoped_refptr<const extensions::Extension> CreateAndAddExtension(
@@ -1265,9 +1265,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionActionViewModelFeatureRolloutBrowserTest,
   observer_called = false;
 }
 
-// A fake implementation of ExtensionActionPlatformDelegate that does nothing.
-class FakeExtensionActionPlatformDelegate
-    : public ExtensionActionPlatformDelegate {
+// A fake implementation of ExtensionActionDelegate that does nothing.
+class FakeExtensionActionDelegate : public ExtensionActionDelegate {
  public:
   void AttachToModel(ExtensionActionViewModel* model) override {}
   void DetachFromModel() override {}
@@ -1297,7 +1296,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionActionViewModelFeatureRolloutBrowserTest,
   // Create ExtensionActionViewModel that is not associated with the
   // lifetime of the view.
   auto action = ExtensionActionViewModel::Create(
-      id, browser(), std::make_unique<FakeExtensionActionPlatformDelegate>());
+      id, browser(), std::make_unique<FakeExtensionActionDelegate>());
 
   extension_registrar()->DisableExtension(
       id, {extensions::disable_reason::DISABLE_USER_ACTION});

@@ -8,7 +8,6 @@
 
 #include "ash/public/cpp/accelerator_actions.h"
 #include "ash/public/cpp/accelerators_util.h"
-#include "ash/public/mojom/accelerator_info.mojom-shared.h"
 #include "ash/public/mojom/accelerator_info.mojom.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/check_op.h"
@@ -311,6 +310,9 @@ const NonConfigurableActionsMap& GetNonConfigurableActionsMap() {
            NonConfigurableAcceleratorDetails(
                {ui::Accelerator(ui::VKEY_BROWSER_BACK,
                                 ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN)})},
+          {NonConfigurableActions::kBrowserNewSplitView,
+           NonConfigurableAcceleratorDetails({ui::Accelerator(
+               ui::VKEY_N, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN)})},
           {NonConfigurableActions::kAmbientOpenRightClickMenu,
            NonConfigurableAcceleratorDetails(
                {ui::Accelerator(ui::VKEY_F10, ui::EF_SHIFT_DOWN)})},
@@ -1367,6 +1369,14 @@ const AcceleratorLayoutMap& GetAcceleratorLayoutMap() {
             mojom::AcceleratorSubcategory::kDeveloperTools,
             /*locked=*/true, mojom::AcceleratorLayoutStyle::kDefault,
             mojom::AcceleratorSource::kAmbient)},
+       {NonConfigurableActions::kBrowserNewSplitView,
+        AcceleratorLayoutDetails(NonConfigurableActions::kBrowserNewSplitView,
+                                 IDS_ASH_ACCELERATOR_DESCRIPTION_NEW_SPLIT_VIEW,
+                                 mojom::AcceleratorCategory::kBrowser,
+                                 mojom::AcceleratorSubcategory::kTabs,
+                                 /*locked=*/true,
+                                 mojom::AcceleratorLayoutStyle::kDefault,
+                                 mojom::AcceleratorSource::kAmbient)},
 
        // Text
        {NonConfigurableActions::kAmbientGoToBeginningOfDocument,

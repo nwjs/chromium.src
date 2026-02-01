@@ -88,7 +88,7 @@ buildflag_header("media_buildflags") {
 
 config("media_config") {
   defines = []
-  if (current_cpu == "arm64" || (current_cpu == "arm" && arm_use_neon)) {
+  if (current_cpu == "arm64" || current_cpu == "arm") {
     defines += [ "USE_NEON" ]
   }
   if (use_pulseaudio) {

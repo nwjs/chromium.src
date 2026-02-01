@@ -13,7 +13,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/base_module_jni/UmaUtils_jni.h"
 
-using jni_zero::JavaParamRef;
+using jni_zero::JavaRef;
 
 class PrefService;
 
@@ -32,17 +32,16 @@ base::TimeTicks GetProcessStartTime() {
       Java_UmaUtils_getProcessStartTime(env));
 }
 
-static jboolean JNI_UmaUtils_IsClientInSampleForMetrics(JNIEnv* env) {
+static bool JNI_UmaUtils_IsClientInSampleForMetrics(JNIEnv* env) {
   return ChromeMetricsServicesManagerClient::IsClientInSampleForMetrics();
 }
 
-static jboolean JNI_UmaUtils_IsClientInSampleForCrashes(JNIEnv* env) {
+static bool JNI_UmaUtils_IsClientInSampleForCrashes(JNIEnv* env) {
   return ChromeMetricsServicesManagerClient::IsClientInSampleForCrashes();
 }
 
-static void JNI_UmaUtils_RecordMetricsReportingDefaultOptIn(
-    JNIEnv* env,
-    jboolean opt_in) {
+static void JNI_UmaUtils_RecordMetricsReportingDefaultOptIn(JNIEnv* env,
+                                                            bool opt_in) {
   DCHECK(g_browser_process);
   PrefService* local_state = g_browser_process->local_state();
 

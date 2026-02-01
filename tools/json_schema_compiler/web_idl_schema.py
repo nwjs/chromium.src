@@ -181,15 +181,29 @@ def _ExtractNodeComment(node: IDLNode) -> str:
   if ext_attribute_node is not None:
     return _ExtractNodeComment(ext_attribute_node)
 
-  # Look through the lines above the current node and extract every consecutive
-  # line that is a comment until a blank or non-comment line is found.
+  # Since we do the logic above for extended attributes, the 'parent' is
+  # actually the grandparent for them.
+  if node.GetClass() == 'ExtAttributes':
+    parent_node = node.GetParent().GetParent()
+  else:
+    parent_node = node.GetParent()
+
   filename, line_number = node.GetFileAndLine()
+  _, parent_line_number = parent_node.GetFileAndLine()
+
+  # If a definition is packed into a single line, we don't want to incorrectly
+  # attribute a comment meant for the parent node onto a child.
+  if line_number == parent_line_number:
+    return ''
 
   # In theory the IDL parser shouldn't annotate any of our nodes with line
   # number 0, but in case it does we throw an error to make it obvious.
   assert line_number > 0, node.GetLogLine(
       'Attempted to extract a description comment for an IDL node, but the line'
       ' number of the node was reported as 0: %s.' % (node.GetName()))
+
+  # Look through the lines above the current node and extract every consecutive
+  # line that is a comment until a blank or non-comment line is found.
   lines = []
   while line_number > 0:
     line = linecache.getline(filename, line_number - 1)
@@ -534,6 +548,8 @@ class FunctionReturn(TypedProperty):
   """Handles processing for function return values."""
 
   def Process(self) -> dict:
+    if self.type_node.GetProperty('NULLABLE'):
+      self.properties['optional'] = True
     # If the descriptions use the 'Returns' key, we use that to extract a
     # description to add to the return properties.
     if self.descriptions and 'Returns' in self.descriptions:
@@ -920,11 +936,11 @@ class Namespace:
       if node.GetClass() == 'Dictionary':
         # Manifest keys defined in the schema are separate from normal custom
         # types and instead get put into the manifest_keys property.
-        if node.GetName() == 'Manifest':
+        if node.GetName() == 'ExtensionManifest':
           if not node.GetProperty('PARTIAL'):
             raise SchemaCompilerError(
-                'If using a "Manifest" dictionary to define manifest keys, it'
-                ' must be declared "partial".',
+                'If using an "ExtensionManifest" dictionary to define manifest '
+                'keys, it must be declared "partial".',
                 node,
             )
           manifest_keys = Dictionary(node).process()['properties']
@@ -991,36 +1007,53 @@ class IDLSchema:
 
   def process(self) -> dict:
     namespaces = []
-    # TODO(crbug.com/340297705): Eventually this will need be changed to support
-    # processing "shared types", which are not exposed on a Browser interface.
     browser_node = GetChildWithName(self.idl, 'Browser')
-    if browser_node is None or browser_node.GetClass() != 'Interface':
-      raise SchemaCompilerError(
-          'Required partial Browser interface not found in schema.', self.idl)
 
-    # The 'Browser' Interface has one attribute describing the name this API is
-    # exposed on.
-    attributes = browser_node.GetListOf('Attribute')
-    if len(attributes) != 1:
-      raise SchemaCompilerError(
-          'The partial Browser interface should have exactly one attribute for'
-          ' the name the API will be exposed under.',
-          browser_node,
-      )
-    api_name = attributes[0].GetName()
-    idl_type = GetTypeName(attributes[0])
-
-    namespace_node = GetChildWithName(self.idl, idl_type)
-
-    # If the API interface is a partial interface, it means it's part of a
-    # nested interface (an API name with a dot in it) and we need to go another
-    # layer deeper.
-    while namespace_node.GetProperty('PARTIAL'):
-      attributes = namespace_node.GetListOf('Attribute')
-      api_name += '.' + attributes[0].GetName()
+    # TODO(crbug.com/340297705): Support "shared types" here, which do not use a
+    # browser node or an ExtensionManifest node.
+    if browser_node:
+      # The 'Browser' Interface has one attribute describing the name this API
+      # is exposed on.
+      attributes = browser_node.GetListOf('Attribute')
+      if len(attributes) != 1:
+        raise SchemaCompilerError(
+            'The partial Browser interface should have exactly one attribute '
+            'for the name the API will be exposed under.',
+            browser_node,
+        )
+      api_name = attributes[0].GetName()
       idl_type = GetTypeName(attributes[0])
 
       namespace_node = GetChildWithName(self.idl, idl_type)
+
+      # If the API interface is a partial interface, it means it's part of a
+      # nested interface (an API name with a dot in it) and we need to go
+      # another layer deeper.
+      while namespace_node.GetProperty('PARTIAL'):
+        attributes = namespace_node.GetListOf('Attribute')
+        api_name += '.' + attributes[0].GetName()
+        idl_type = GetTypeName(attributes[0])
+
+        namespace_node = GetChildWithName(self.idl, idl_type)
+
+    else:
+      # If there was no 'Browser' interface we look for an 'ExtensionManifest'
+      # dictionary, used in stub schemas which define manifest key types to use
+      # for validation purposes.
+      namespace_node = GetChildWithName(self.idl, 'ExtensionManifest')
+      if namespace_node is None or namespace_node.GetClass() != 'Dictionary':
+        raise SchemaCompilerError(
+            'Schema must contain either a paritial Browser interface (for '
+            'APIs) or a partial ExtensionManifest dictionary (for manifest '
+            'stubs).', self.idl)
+
+      # For manifest stub schemas, the namespace name is specified on an
+      # extended attribute.
+      api_name = GetExtendedAttributeValue(namespace_node, 'Namespace')
+      if not api_name:
+        raise SchemaCompilerError(
+            'ExtensionManifest stub schemas must specify a [Namespace=...] '
+            'extended attribute.', namespace_node)
 
     namespace = Namespace(
         api_name,

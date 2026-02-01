@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 
 #include <string_view>
+#include <utility>
 
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
@@ -12,7 +13,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/string_split.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
@@ -312,12 +312,12 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 
   // State of the AutofillAI-specific enterprise policy pref.
   constexpr int kAutofillPredictionSettingsAllowWithoutLogging =
-      base::to_underlying(
+      std::to_underlying(
           optimization_guide::model_execution::prefs::
               ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
   constexpr int kAutofillPredictionSettingsDisabled =
-      base::to_underlying(optimization_guide::model_execution::prefs::
-                              ModelExecutionEnterprisePolicyValue::kDisable);
+      std::to_underlying(optimization_guide::model_execution::prefs::
+                             ModelExecutionEnterprisePolicyValue::kDisable);
   static_assert(kAutofillPredictionSettingsAllowWithoutLogging == 1);
   static_assert(kAutofillPredictionSettingsDisabled == 2);
 
@@ -326,27 +326,30 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
           kAutofillPredictionImprovementsEnterprisePolicyAllowed);
   const bool policy_pref_enabled =
       policy_pref_state != kAutofillPredictionSettingsDisabled;
-  const bool user_opted_in = GetAutofillAiOptInStatus(client);
+  const bool autofill_ai_available =
+      GetAutofillAiOptInStatus(client) ||
+      base::FeatureList::IsEnabled(features::kAutofillAiAvailableByDefault);
   // Note that the policy can become disabled even after a user has opted in.
   switch (action) {
+    case AutofillAiAction::kLogToMqls:
+    case AutofillAiAction::kServerClassificationModel:
+      return policy_pref_enabled && GetAutofillAiOptInStatus(client);
     case AutofillAiAction::kAddLocalEntityInstanceInSettings:
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kLogToMqls:
-    case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
-      return policy_pref_enabled && user_opted_in;
+      return policy_pref_enabled && autofill_ai_available;
     case AutofillAiAction::kImportToWallet:
-      return policy_pref_enabled && user_opted_in &&
+      return policy_pref_enabled && autofill_ai_available &&
              client.IsWalletStorageEnabled();
     case AutofillAiAction::kIphForOptIn:
       // The IPH should only show if the user has not opted in yet.
-      return policy_pref_enabled && !user_opted_in;
+      return policy_pref_enabled && !autofill_ai_available;
     case AutofillAiAction::kOptIn:
       if (!policy_pref_enabled) {
-        MaybeOutputReason(debug_message, "Address Autofill is not enabled.");
+        MaybeOutputReason(debug_message, "Enterprise policy is not enabled.");
       }
       return policy_pref_enabled;
     case autofill::AutofillAiAction::kListEntityInstancesInSettings:
@@ -362,10 +365,6 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     bool has_entity_data_saved,
     AutofillAiAction action,
     std::string* debug_message) {
-  if (base::FeatureList::IsEnabled(features::kAutofillAiIgnoreSignInState)) {
-    return true;
-  }
-
   if (IsRelevantForDataTransparency(action) && has_entity_data_saved) {
     return true;
   }
@@ -569,21 +568,6 @@ bool GetAutofillAiOptInStatus(const PrefService* prefs,
     return true;
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillAiSetSyncablePrefFromAccountPref)) {
-    return prefs::IsAutofillAiSyncedOptInStatusEnabled(prefs);
-  }
-
-  return GetAutofillAiOptInStatusFromNonSyncingPref(prefs, identity_manager);
-}
-
-bool GetAutofillAiOptInStatusFromNonSyncingPref(
-    const PrefService* prefs,
-    const signin::IdentityManager* identity_manager) {
-  if (!prefs) {
-    return false;
-  }
-
   // Check the account-independent opt-in setting.
   if (const base::Value* value = syncer::GetAccountKeyedPrefValue(
           prefs, prefs::kAutofillAiOptInStatus, GetDefaultGaiaIdHash());
@@ -608,13 +592,6 @@ bool SetAutofillAiOptInStatus(AutofillClient& client,
     return false;
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillAiSetSyncablePrefFromAccountPref)) {
-    prefs::SetAutofillAiSyncedOptInStatus(
-        client.GetPrefs(), opt_in_status == AutofillAiOptInStatus::kOptedIn);
-  }
-
-  // Still set the old pref in case of a rollback.
   const std::optional<GaiaIdHash> signed_in_hash =
       GetAccountGaiaIdHash(client.GetIdentityManager());
   if (signed_in_hash) {

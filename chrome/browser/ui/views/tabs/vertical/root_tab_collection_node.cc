@@ -4,85 +4,249 @@
 
 #include "chrome/browser/ui/views/tabs/vertical/root_tab_collection_node.h"
 
-#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/utilities/tab_strip_api_utilities.h"
-#include "components/browser_apis/tab_strip/tab_strip_api_data_model.mojom.h"
+#include <algorithm>
 
-RootTabCollectionNode::RootTabCollectionNode(
-    tabs_api::TabStripService* tab_strip_service,
-    CustomAddChildViewCallback add_node_view_to_parent)
-    : RootTabCollectionNode(tab_strip_service,
-                            tab_strip_service->GetTabs().value(),
-                            add_node_view_to_parent) {}
+#include "base/stl_util.h"
+#include "base/types/pass_key.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_group_view.h"
+#include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_collection.h"
+#include "components/tabs/public/tab_collection_types.h"
+#include "components/tabs/public/tab_group.h"
+#include "components/tabs/public/tab_interface.h"
 
-RootTabCollectionNode::RootTabCollectionNode(
-    tabs_api::TabStripService* tab_strip_service,
-    tabs_api::mojom::ContainerPtr container,
-    CustomAddChildViewCallback add_node_view_to_parent)
-    : TabCollectionNode(std::move(container->data)) {
-  add_node_view_to_parent.Run(Initialize(std::move(container->children)));
-  service_observer_.Observe(tab_strip_service);
-}
+namespace {
 
-RootTabCollectionNode::~RootTabCollectionNode() = default;
-
-void RootTabCollectionNode::OnTabsCreated(
-    const tabs_api::mojom::OnTabsCreatedEventPtr& tabs_created_event) {
-  for (const auto& tab_created : tabs_created_event->tabs) {
-    TabCollectionNode* parent =
-        GetNodeForId(tab_created->position.parent_id().value());
-
-    tabs_api::mojom::ContainerPtr container = tabs_api::mojom::Container::New();
-    container->data =
-        tabs_api::mojom::Data::NewTab(std::move(tab_created->tab));
-
-    parent->AddNewChild(GetPassKey(), std::move(container),
-                        tab_created->position.index());
+tabs::ConstChildPtr GetNodeFromHandle(
+    const tabs::TabCollection::NodeHandle& handle) {
+  if (std::holds_alternative<tabs::TabCollection::Handle>(handle)) {
+    const tabs::TabCollection* collection =
+        std::get<tabs::TabCollection::Handle>(handle).Get();
+    return collection;
+  } else {
+    CHECK(std::holds_alternative<tabs::TabInterface::Handle>(handle));
+    const tabs::TabInterface* tab =
+        std::get<tabs::TabInterface::Handle>(handle).Get();
+    return tab;
   }
 }
 
-void RootTabCollectionNode::OnTabsClosed(
-    const tabs_api::mojom::OnTabsClosedEventPtr& tabs_closed_event) {
-  for (auto& node_id : tabs_closed_event->tabs) {
-    TabCollectionNode* parent_node = GetParentNodeForId(node_id);
-    auto removed_view_and_node =
-        parent_node->RemoveChild(GetPassKey(), node_id);
+}  // namespace
+
+RootTabCollectionNode::RootTabCollectionNode(
+    TabStripModel* tab_strip_model,
+    CustomAddChildViewCallback add_node_view_to_parent)
+    : TabCollectionNode(tab_strip_model->Root()),
+      tab_strip_model_(tab_strip_model) {
+  tab_strip_model_->Root()->AddObserver(this);
+  tab_strip_model_->AddObserver(this);
+  add_node_view_to_parent.Run(Initialize());
+}
+
+RootTabCollectionNode::~RootTabCollectionNode() {
+  if (tab_strip_model_) {
+    tab_strip_model_->Root()->RemoveObserver(this);
+    tab_strip_model_->RemoveObserver(this);
   }
 }
 
-void RootTabCollectionNode::OnNodeMoved(
-    const tabs_api::mojom::OnNodeMovedEventPtr& node_moved_event) {
-  auto node_id = node_moved_event->id;
-  auto from_position = node_moved_event->from;
-  auto to_position = node_moved_event->to;
+void RootTabCollectionNode::OnChildrenAdded(
+    const tabs::TabCollection::Position& position,
+    const tabs::TabCollectionNodes& handles,
+    bool insert_from_detached) {
+  for (auto handle : handles) {
+    tabs::ConstChildPtr child = GetNodeFromHandle(handle);
+    GetNodeForHandle(position.parent_handle)
+        ->AddNewChild(GetPassKey(), child, position.index,
+                      insert_from_detached);
+  }
+}
+
+void RootTabCollectionNode::OnChildrenRemoved(
+    const tabs::TabCollection::Position& position,
+    const tabs::TabCollectionNodes& handles) {
+  TabCollectionNode* parent_node = GetNodeForHandle(position.parent_handle);
+  if (!parent_node) {
+    return;
+  }
+
+  for (auto& handle : handles) {
+    parent_node->RemoveChild(GetPassKey(), handle);
+  }
+}
+
+void RootTabCollectionNode::OnChildMoved(
+    const tabs::TabCollection::Position& to_position,
+    const tabs::TabCollectionObserver::NodeData& node_data) {
+  const tabs::TabCollection::Position& from_position = node_data.position;
+  const tabs::TabCollection::NodeHandle& moved_node_handle = node_data.handle;
 
   TabCollectionNode* src_parent_node =
-      GetNodeForId(from_position.parent_id().value());
+      GetNodeForHandle(from_position.parent_handle);
   TabCollectionNode* dst_parent_node =
-      GetNodeForId(to_position.parent_id().value());
+      GetNodeForHandle(to_position.parent_handle);
 
-  auto [view, node] = src_parent_node->RemoveChild(GetPassKey(), node_id);
-  dst_parent_node->AddChild(std::move(view), std::move(node),
-                            to_position.index());
-}
+  bool pin_state_changed =
+      (src_parent_node->type() == TabCollectionNode::Type::PINNED &&
+       dst_parent_node->type() == TabCollectionNode::Type::UNPINNED) ||
+      (src_parent_node->type() == TabCollectionNode::Type::UNPINNED &&
+       dst_parent_node->type() == TabCollectionNode::Type::PINNED);
 
-void RootTabCollectionNode::OnDataChanged(
-    const tabs_api::mojom::OnDataChangedEventPtr& data_changed_event) {
-  TabCollectionNode* node =
-      GetNodeForId(tabs_api::utils::GetNodeId(*data_changed_event->data));
-  if (node) {
-    node->SetData(GetPassKey(), std::move(data_changed_event->data));
+  if (pin_state_changed) {
+    // Pin state change is treated as a remove and add instead of an attach and
+    // detach since we have separate concurrent animations in each container.
+    src_parent_node->RemoveChild(GetPassKey(), moved_node_handle);
+    dst_parent_node->AddNewChild(
+        GetPassKey(), GetNodeFromHandle(moved_node_handle), to_position.index,
+        /*perform_initialization=*/true);
+  } else if (src_parent_node == dst_parent_node) {
+    // Moves within the same container treated as a reorder of views e.g. within
+    // unpinned or group containers.
+    TabCollectionNode* parent_node =
+        GetNodeForHandle(to_position.parent_handle);
+    parent_node->MoveChild(GetPassKey(), moved_node_handle, to_position.index);
+  } else {
+    // Moves across different containers typically within the unpinned container
+    // e.g. unpinned to group, unpinned to split etc.
+    TabCollectionNode::MoveChild(GetPassKey(), moved_node_handle,
+                                 to_position.index, src_parent_node,
+                                 dst_parent_node);
   }
 }
 
-void RootTabCollectionNode::OnCollectionCreated(
-    const tabs_api::mojom::OnCollectionCreatedEventPtr&
-        collection_created_event) {
-  tabs_api::mojom::ContainerPtr container =
-      std::move(collection_created_event->collection);
-  TabCollectionNode* parent =
-      GetNodeForId(collection_created_event->position.parent_id().value());
+void RootTabCollectionNode::OnTabStripModelChanged(
+    TabStripModel* tab_strip_model,
+    const TabStripModelChange& change,
+    const TabStripSelectionChange& selection) {
+  if (tab_strip_model->closing_all()) {
+    return;
+  }
 
-  parent->AddNewChild(GetPassKey(), std::move(container),
-                      collection_created_event->position.index());
+  std::set<TabCollectionNode*> selection_changes;
+
+  if (selection.active_tab_changed()) {
+    if (selection.old_tab) {
+      TabCollectionNode* old_tab_node =
+          GetNodeForHandle(selection.old_tab->GetHandle());
+      if (old_tab_node) {
+        selection_changes.insert(old_tab_node);
+      }
+    }
+    if (selection.new_tab) {
+      TabCollectionNode* new_tab_node =
+          GetNodeForHandle(selection.new_tab->GetHandle());
+      if (new_tab_node) {
+        selection_changes.insert(new_tab_node);
+      }
+    }
+  }
+
+  if (selection.selection_changed()) {
+    SelectionHandles selected_tabs;
+    for (auto index : selection.new_model.selected_indices()) {
+      tabs::TabInterface* tab = tab_strip_model->GetTabAtIndex(index);
+      selected_tabs.insert(tab->GetHandle());
+    }
+    auto old_selections =
+        base::STLSetDifference<SelectionHandles>(selected_tabs_, selected_tabs);
+    auto new_selections =
+        base::STLSetDifference<SelectionHandles>(selected_tabs, selected_tabs_);
+
+    for (auto tab_handle :
+         base::STLSetUnion<SelectionHandles>(old_selections, new_selections)) {
+      TabCollectionNode* tab_node = GetNodeForHandle(tab_handle);
+      if (tab_node) {
+        selection_changes.insert(tab_node);
+      }
+    }
+    selected_tabs_ = selected_tabs;
+  }
+
+  for (auto* tab_node : selection_changes) {
+    tab_node->NotifyDataChanged();
+  }
+}
+
+void RootTabCollectionNode::OnTabGroupChanged(const TabGroupChange& change) {
+  if (tab_strip_model_->closing_all()) {
+    return;
+  }
+
+  if (change.type != TabGroupChange::kVisualsChanged) {
+    return;
+  }
+
+  TabCollectionNode* group_node =
+      GetNodeForHandle(change.model->group_model()
+                           ->GetTabGroup(change.group)
+                           ->GetCollectionHandle());
+  if (group_node) {
+    group_node->NotifyDataChanged();
+  }
+}
+
+void RootTabCollectionNode::OnTabChangedAt(tabs::TabInterface* tab,
+                                           int model_index,
+                                           TabChangeType change_type) {
+  if (tab_strip_model_->closing_all()) {
+    return;
+  }
+
+  UpdateTabData(tab);
+}
+
+void RootTabCollectionNode::OnTabPinnedStateChanged(tabs::TabInterface* tab,
+                                                    int model_index) {
+  UpdateTabData(tab);
+}
+
+void RootTabCollectionNode::OnTabBlockedStateChanged(tabs::TabInterface* tab,
+                                                     int model_index) {
+  UpdateTabData(tab);
+}
+
+void RootTabCollectionNode::OnSplitTabChanged(const SplitTabChange& change) {
+  if (tab_strip_model_->closing_all()) {
+    return;
+  }
+
+  std::set<tabs::TabInterface*> tabs_to_update;
+
+  switch (change.type) {
+    case SplitTabChange::Type::kAdded:
+      if (const auto* added = change.GetAddedChange()) {
+        for (const auto& pair : added->tabs()) {
+          tabs_to_update.insert(pair.first);
+        }
+      }
+      break;
+
+    case SplitTabChange::Type::kContentsChanged:
+      if (const auto* contents = change.GetContentsChange()) {
+        for (const auto& pair : contents->prev_tabs()) {
+          tabs_to_update.insert(pair.first);
+        }
+        for (const auto& pair : contents->new_tabs()) {
+          tabs_to_update.insert(pair.first);
+        }
+      }
+      break;
+
+    case SplitTabChange::Type::kRemoved:
+    case SplitTabChange::Type::kVisualsChanged:
+      break;
+  }
+
+  for (auto* tab : tabs_to_update) {
+    UpdateTabData(tab);
+  }
+}
+
+void RootTabCollectionNode::UpdateTabData(tabs::TabInterface* tab) {
+  TabCollectionNode* tab_node = GetNodeForHandle(tab->GetHandle());
+  if (tab_node) {
+    tab_node->NotifyDataChanged();
+  }
 }

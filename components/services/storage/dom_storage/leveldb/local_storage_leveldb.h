@@ -17,6 +17,7 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 
 namespace storage {
+class DomStorageBatchOperationLevelDB;
 class DomStorageDatabaseLevelDB;
 
 // The "METACCESS:" prefix.
@@ -62,6 +63,8 @@ class LocalStorageLevelDB : public DomStorageDatabase {
   using PassKey = base::PassKey<DomStorageDatabaseFactory>;
 
  public:
+  static const int kStaleBucketCutoffInDays = 400;
+
   // Use `DomStorageDatabaseFactory::Open()` to construct a
   // base::SequenceBound<DomStorageDatabase>.
   explicit LocalStorageLevelDB(PassKey);
@@ -78,47 +81,11 @@ class LocalStorageLevelDB : public DomStorageDatabase {
                 const std::optional<base::trace_event::MemoryAllocatorDumpGuid>&
                     memory_dump_id);
 
-  // TODO(crbug.com/377242771): Make private after fully adopting the
-  // `DomStorageDatabase` interface, which will make LevelDB and SQLite
-  // swappable.
-  //
-  // Returns "METAACCESS:<serialized `storage_key`>".
-  static Key CreateAccessMetaDataKey(const blink::StorageKey& storage_key);
-
-  // TODO(crbug.com/377242771): Make private after fully adopting the
-  // `DomStorageDatabase` interface, which will make LevelDB and SQLite
-  // swappable.
-  //
-  // Returns "META:<serialized `storage_key`>".
-  static Key CreateWriteMetaDataKey(const blink::StorageKey& storage_key);
-
-  // TODO(crbug.com/377242771): Make private after fully adopting the
-  // `DomStorageDatabase` interface, which will make LevelDB and SQLite
-  // swappable.
-  //
-  // Return the the serialized bytes for the `LocalStorageAreaAccessMetaData`
-  // protobuf with `last_accessed`.
-  static Value CreateAccessMetaDataValue(base::Time last_accessed);
-
-  // TODO(crbug.com/377242771): Make private after fully adopting the
-  // `DomStorageDatabase` interface, which will make LevelDB and SQLite
-  // swappable.
-  //
-  // Return the the serialized bytes for the `LocalStorageAreaWriteMetaData`
-  // protobuf with `last_modified` and `total_size`.
-  static Value CreateWriteMetaDataValue(base::Time last_modified,
-                                        base::ByteSize total_size);
-
-  // TODO(crbug.com/377242771): Make private after fully adopting the
-  // `DomStorageDatabase` interface, which will make LevelDB and SQLite
-  // swappable.
-  //
-  // Returns "_<storage key>\x00", which matches all of the map key/value pairs
-  // for `storage_key`.
-  static Key GetMapPrefix(const blink::StorageKey& storage_key);
-
   // Implement the `DomStorageDatabase` interface:
-  DomStorageDatabaseLevelDB& GetLevelDB() override;
+  StatusOr<std::map<Key, Value>> ReadMapKeyValues(
+      MapLocator map_locator) override;
+  DbStatus UpdateMaps(std::vector<MapBatchUpdate> map_updates) override;
+  DbStatus CloneMap(MapLocator source_map, MapLocator target_map) override;
 
   // Reads the "META:" and "METACCESS" entries from the LevelDB database
   // described above. Parses the following from each entry to create a
@@ -145,24 +112,46 @@ class LocalStorageLevelDB : public DomStorageDatabase {
 
   // Removes the following for each storage key:
   //
-  // (1) All of the map's key/value pairs using the prefix "_<storage key>\x00".
-  //
-  // (2) The "META:<storage key>" entry, containing the map's last modified time
+  // (1) The "META:<storage key>" entry, containing the map's last modified time
   //     and total size.
   //
-  // (3) The "METAACCESS:<storage key>" entry, containing the map's last
+  // (2) The "METAACCESS:<storage key>" entry, containing the map's last
   //     accessed time.
+  //
+  // Also removes the following for each `map_to_delete`:
+  //
+  // (1) All of the map's key/value pairs using the prefix "_<storage key>\x00".
   DbStatus DeleteStorageKeysFromSession(
       std::string session_id,
-      std::vector<blink::StorageKey> storage_keys,
-      absl::flat_hash_set<int64_t> excluded_cloned_map_ids) override;
+      std::vector<blink::StorageKey> metadata_to_delete,
+      std::vector<MapLocator> maps_to_delete) override;
+  DbStatus DeleteSessions(std::vector<std::string> session_ids,
+                          std::vector<MapLocator> maps_to_delete) override;
+  DbStatus PurgeOrigins(std::set<url::Origin> origins) override;
   DbStatus RewriteDB() override;
 
   // Test-only functions.
+  DbStatus PutVersionForTesting(int64_t version) override;
   void MakeAllCommitsFailForTesting() override;
   void SetDestructionCallbackForTesting(base::OnceClosure callback) override;
+  DomStorageDatabaseLevelDB& GetLevelDBForTesting();
 
  private:
+  // Adds the "METAACCESS:<storage key>" entry to `batch` when
+  // `last_accessed` exists.
+  //
+  // Adds the "META:<storage key>" entry to `batch` when `last_modified` and
+  // `total_size` exist.
+  void PutMapUsageMetadata(DomStorageBatchOperationLevelDB& batch,
+                           const blink::StorageKey& map_storage_key,
+                           std::optional<base::Time> last_accessed,
+                           std::optional<base::Time> last_modified,
+                           std::optional<base::ByteSize> total_size);
+
+  // Delete the "METAACCESS:" and "META:" entries for `map_storage_key`.
+  void DeleteMapUsageMetadata(DomStorageBatchOperationLevelDB& batch,
+                              const blink::StorageKey& map_storage_key);
+
   std::unique_ptr<DomStorageDatabaseLevelDB> leveldb_;
 };
 

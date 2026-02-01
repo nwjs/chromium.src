@@ -60,7 +60,6 @@ import("//third_party/blink/renderer/core/origin_trials/build.gni")
 import("//third_party/blink/renderer/core/overscroll/build.gni")
 import("//third_party/blink/renderer/core/page/build.gni")
 import("//third_party/blink/renderer/core/paint/build.gni")
-import("//third_party/blink/renderer/core/patching/build.gni")
 import("//third_party/blink/renderer/core/permissions_policy/build.gni")
 import("//third_party/blink/renderer/core/preferences/build.gni")
 import("//third_party/blink/renderer/core/resize_observer/build.gni")
@@ -111,12 +110,7 @@ declare_args() {
   # Use vectorization for fast path HTML parser.
   enable_vectorized_html_scanning = false
 
-  if (current_cpu == "arm" || current_cpu == "arm64") {
-    if (arm_use_neon) {
-      enable_vectorized_html_scanning = true
-    }
-  }
-  if (current_cpu == "x64") {
+  if (current_cpu == "arm" || current_cpu == "arm64" || current_cpu == "x64") {
     enable_vectorized_html_scanning = true
   }
 }
@@ -290,7 +284,6 @@ component("core") {
   sources +=
       rebase_path(blink_core_sources_view_transition, "", "view_transition")
   sources += rebase_path(blink_core_sources_script_tools, "", "script_tools")
-  sources += rebase_path(blink_core_sources_patching, "", "patching")
   sources += rebase_path(blink_core_sources_dom, "", "dom")
   sources += rebase_path(blink_core_sources_editing, "", "editing")
   sources += rebase_path(blink_core_sources_events, "", "events")
@@ -1136,6 +1129,11 @@ code_generator("make_core_generated_ax_utilities") {
   ]
 }
 
+make_names("make_core_generated_trusted_types_names") {
+  in_files = [ "trustedtypes/trusted_types_names.json5" ]
+  output_dir = "$blink_core_output_dir/trustedtypes"
+}
+
 # make_qualified_names ---------------------------------------------------------
 
 make_qualified_names("make_core_generated_xlink_names") {
@@ -1337,6 +1335,7 @@ targets_generating_sources = [
   ":make_core_generated_style_property_shorthand",
   ":make_core_generated_svg_element_type_helpers",
   ":make_core_generated_svg_names",
+  ":make_core_generated_trusted_types_names",
   ":make_core_generated_web_origin_trials",
   ":make_core_generated_xlink_names",
   ":make_core_generated_xml_names",
@@ -1514,6 +1513,7 @@ source_set("unit_tests") {
                          "",
                          "scheduler_integration_tests")
   sources += rebase_path(blink_core_tests_script, "", "script")
+  sources += rebase_path(blink_core_tests_script_tools, "", "script_tools")
   sources += rebase_path(blink_core_tests_scroll, "", "scroll")
   sources +=
       rebase_path(blink_core_tests_speculation_rules, "", "speculation_rules")
@@ -1563,10 +1563,8 @@ source_set("unit_tests") {
     "//skia:skcms",
     "//testing/gmock",
     "//testing/gtest",
-    "//third_party/blink/common/privacy_budget:test_support",
     "//third_party/blink/public:buildflags",
     "//third_party/blink/public:test_headers",
-    "//third_party/blink/public/common/privacy_budget:test_support",
     "//third_party/blink/public/strings:permission_element_generated_strings_grit",
     "//third_party/blink/public/strings:permission_element_strings_grit",
     "//third_party/blink/renderer/controller:blink_bindings_test_sources",

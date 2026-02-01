@@ -44,8 +44,11 @@ std::vector<FileInfo> TokensToFileInfos(
 
 ContextualSearchSessionHandle::ContextualSearchSessionHandle(
     base::WeakPtr<ContextualSearchService> service,
-    const base::UnguessableToken& session_id)
-    : service_(service), session_id_(session_id) {}
+    const base::UnguessableToken& session_id,
+    std::optional<lens::LensOverlayInvocationSource> invocation_source)
+    : service_(service),
+      session_id_(session_id),
+      invocation_source_(invocation_source) {}
 
 ContextualSearchSessionHandle::~ContextualSearchSessionHandle() {
   if (service_) {
@@ -105,12 +108,28 @@ ContextualSearchSessionHandle::GetSuggestInputs() const {
   return std::nullopt;
 }
 
-void ContextualSearchSessionHandle::AddFileContext(
+base::UnguessableToken ContextualSearchSessionHandle::CreateContextToken() {
+  CHECK(policy_checked_);
+  // Create the file token and add it to the list of uploaded context tokens so
+  // that it is referenced in the query.
+  base::UnguessableToken file_token = base::UnguessableToken::Create();
+  uploaded_context_tokens_.push_back(file_token);
+  return file_token;
+}
+
+void ContextualSearchSessionHandle::StartFileContextUploadFlow(
+    const base::UnguessableToken& file_token,
     std::string file_mime_type,
     mojo_base::BigBuffer file_bytes,
-    std::optional<lens::ImageEncodingOptions> image_options,
-    AddFileContextCallback callback) {
-  CHECK(policy_checked_);
+    std::optional<lens::ImageEncodingOptions> image_options) {
+  // Exit early if the file token is not in the list of uploaded context
+  // tokens, i.e. it was deleted before the upload flow could start.
+  auto it = std::find(uploaded_context_tokens_.begin(),
+                      uploaded_context_tokens_.end(), file_token);
+  if (it == uploaded_context_tokens_.end()) {
+    return;
+  }
+
   auto* context_controller = GetController();
   auto* metrics_recorder = GetMetricsRecorder();
   if (!context_controller) {
@@ -119,8 +138,6 @@ void ContextualSearchSessionHandle::AddFileContext(
   if (!metrics_recorder) {
     return;
   }
-  base::UnguessableToken file_token = base::UnguessableToken::Create();
-  uploaded_context_tokens_.push_back(file_token);
 
   lens::MimeType mime_type;
 
@@ -143,23 +160,9 @@ void ContextualSearchSessionHandle::AddFileContext(
   input_data->context_input->push_back(
       lens::ContextualInput(std::move(file_data_vector), mime_type));
 
-  std::move(callback).Run(file_token);
   metrics_recorder->RecordFileSizeMetric(mime_type, file_bytes.size());
   context_controller->StartFileUploadFlow(file_token, std::move(input_data),
                                           std::move(image_options));
-}
-
-void ContextualSearchSessionHandle::AddTabContext(
-    int32_t tab_id,
-    AddTabContextCallback callback) {
-  CHECK(policy_checked_);
-  // Create the file token and add it to the list of uploaded context tokens so
-  // that it is referenced in the search url.
-  base::UnguessableToken file_token = base::UnguessableToken::Create();
-  uploaded_context_tokens_.push_back(file_token);
-  // TODO(crbug.com/461869881): Store tab metadata in a list of attached tabs
-  // to be able to return the list of attached tabs.
-  std::move(callback).Run(file_token);
 }
 
 void ContextualSearchSessionHandle::StartTabContextUploadFlow(
@@ -275,6 +278,9 @@ void ContextualSearchSessionHandle::CreateSearchUrl(
   submitted_context_tokens_.insert(submitted_context_tokens_.end(),
                                    search_url_request_info->file_tokens.begin(),
                                    search_url_request_info->file_tokens.end());
+
+  // Set the invocation source on the search URL request info.
+  search_url_request_info->invocation_source = invocation_source_;
 
   context_controller->CreateSearchUrl(std::move(search_url_request_info),
                                       std::move(callback));

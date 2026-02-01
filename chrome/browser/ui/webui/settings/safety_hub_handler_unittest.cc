@@ -130,7 +130,8 @@ class SafetyHubHandlerTest : public testing::Test {
           {}},
          {features::kSafetyHubExtensionsUwSTrigger, {}},
          {features::kSafetyHubExtensionsOffStoreTrigger, {}},
-         {kMobilePromoOnDesktop, {{kMobilePromoOnDesktopPromoTypeParam, "2"}}},
+         {kMobilePromoOnDesktopWithReminder,
+          {{kMobilePromoOnDesktopPromoTypeParam, "2"}}},
          {sync_preferences::features::kEnableCrossDevicePrefTracker, {}}},
         /*disabled_features=*/{});
   }
@@ -1110,7 +1111,7 @@ TEST_F(SafetyHubHandlerTest, RevokeAllContentSettingTypes) {
     // Unless the permission in kNoNameTypes, it should be shown on the UI.
     const auto& revoked_permissions =
         handler()->PopulateUnusedSitePermissionsData();
-    if (base::Contains(kNoNameTypes, type)) {
+    if (kNoNameTypes.contains(type)) {
       EXPECT_EQ(revoked_permissions.size(), 0U);
     } else {
       EXPECT_EQ(revoked_permissions.size(), 1U);

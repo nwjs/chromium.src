@@ -11,7 +11,6 @@ import "mojo/public/mojom/base/big_buffer.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "gpu/ipc/common/exported_shared_image.mojom";
 import "gpu/ipc/common/shared_image_metadata.mojom";
-import "gpu/ipc/common/mailbox_holder.mojom";
 import "gpu/ipc/common/sync_token.mojom";
 import "ui/display/mojom/display.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
@@ -496,6 +495,14 @@ struct XRPlanePointData {
   float z;
 };
 
+enum XRSemanticLabel {
+  kOther = 0,
+  kFloor = 1,
+  kWall = 2,
+  kCeiling = 3,
+  kTable = 4,
+};
+
 // Struct containing plane-related information. A plane describes a flat surface
 // detected in the real world by the underlying system.
 struct XRPlaneData {
@@ -511,6 +518,11 @@ struct XRPlaneData {
   // Null if the device does not know where the plane is located in the world
   // space (tracking loss), but the tracking can still be recovered.
   Pose? mojo_from_plane;
+
+  // A description of what the runtime has determined the plane may actually
+  // represent. Null if the runtime does not support this, or does not know what
+  // the given plane may represent.
+  XRSemanticLabel? semantic_label;
 
   // Vertices of 2D convex polygon approximating the plane.
   array<XRPlanePointData> polygon;
@@ -762,11 +774,10 @@ union XRLayerSpecificData {
 };
 
 enum XRLayerLayout {
-  kDefault = 0,
-  kMono = 1,
-  kStereo = 2,
-  kStereoLeftRight = 3,
-  kStereoTopBottom = 4,
+  kMono = 0,
+  kStereo = 1,
+  kStereoLeftRight = 2,
+  kStereoTopBottom = 3,
 };
 
 // Read-only data is only used to create a layer,
@@ -1137,7 +1148,7 @@ interface XRPresentationProvider {
   SubmitFrameMissing(int16 frame_id, gpu.mojom.SyncToken sync_token);
 
   // XRPresentationTransportMethod SUBMIT_AS_MAILBOX_HOLDER
-  SubmitFrame(int16 frame_id, gpu.mojom.MailboxHolder mailbox_holder,
+  SubmitFrame(int16 frame_id,
               mojo_base.mojom.TimeDelta time_waited);
 
   // XRPresentationTransportMethod SUBMIT_AS_TEXTURE_HANDLE

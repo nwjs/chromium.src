@@ -90,9 +90,10 @@ class COMPONENT_EXPORT(GFX) IconUtil {
   static base::win::ScopedGDIObject<HICON> CreateHICONFromSkBitmap(
       const SkBitmap& bitmap);
 
-  static base::win::ScopedGDIObject<HICON> CreateHICONFromSkBitmapSizedTo(const SkBitmap& bitmap,
-    int width,
-    int height);
+  // Converts the `bitmap` to a Windows icon and returns the corresponding HICON
+  // handle. `bitmap` is resized to desired `width` and `height` if needed.
+  static base::win::ScopedGDIObject<HICON>
+  CreateHICONFromSkBitmapSizedTo(const SkBitmap& bitmap, int width, int height);
 
   // Given a valid HICON handle representing an icon, this function converts
   // the icon into an SkBitmap object containing an ARGB bitmap using the

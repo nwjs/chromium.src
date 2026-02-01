@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ui/webui/whats_new/whats_new_storage_service_impl.h"
 
-#include "base/containers/contains.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/common/chrome_version.h"
@@ -59,7 +58,7 @@ void WhatsNewStorageServiceImpl::SetModuleEnabled(
     std::string_view module_name) {
   // Ensure active feature is in local state.
   const base::Value::List& enabled_modules = ReadModuleData();
-  if (!base::Contains(enabled_modules, module_name)) {
+  if (!enabled_modules.contains(module_name)) {
     GetEnabledOrder()->Append(module_name);
   }
 }
@@ -98,20 +97,20 @@ void WhatsNewStorageServiceImpl::SetVersionUsed() {
 }
 
 void WhatsNewStorageServiceImpl::ClearModules(
-    std::set<std::string_view> modules_to_clear) {
+    std::set<std::string> modules_to_clear) {
   // Remove rolled feature from prefs. Order no longer matters for
   // rolled modules.
   auto enabled_modules = GetEnabledOrder();
-  for (const auto module : modules_to_clear) {
+  for (const std::string& module : modules_to_clear) {
     enabled_modules->EraseValue(base::Value(module));
   }
 }
 
 void WhatsNewStorageServiceImpl::ClearEditions(
-    std::set<std::string_view> editions_to_clear) {
+    std::set<std::string> editions_to_clear) {
   // Remove edition from prefs.
   auto used_editions = GetUsedEditions();
-  for (const auto edition : editions_to_clear) {
+  for (const std::string& edition : editions_to_clear) {
     used_editions->Remove(edition);
   }
 }

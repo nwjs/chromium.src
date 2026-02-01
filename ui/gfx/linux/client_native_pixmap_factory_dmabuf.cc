@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/notreached.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "components/viz/common/resources/shared_image_format.h"
@@ -43,6 +44,9 @@ class ClientNativePixmapOpaque : public ClientNativePixmap {
   }
   NativePixmapHandle CloneHandleForIPC() const override {
     return gfx::CloneHandleForIPC(pixmap_handle_);
+  }
+  uint64_t GetPlaneSize(size_t plane) const override {
+    return pixmap_handle_.planes[plane].size;
   }
 
  private:

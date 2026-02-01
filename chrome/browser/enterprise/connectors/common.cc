@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_downloads_delegate.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/util/affiliation.h"
@@ -25,9 +26,11 @@
 #endif
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "chrome/browser/enterprise/connectors/analysis/local_binary_upload_service_factory.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/cloud_binary_upload_service_factory.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 
-using safe_browsing::BinaryUploadService;
+using safe_browsing::CloudBinaryUploadServiceFactory;
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -198,14 +201,19 @@ bool ShouldAllowDeepScanOnLargeOrEncryptedFiles(
     ScanRequestUploadResult result,
     bool block_large_files,
     bool block_password_protected_files) {
-  return (result == ScanRequestUploadResult::FILE_TOO_LARGE &&
+  return (result == ScanRequestUploadResult::kFileTooLarge &&
           !block_large_files) ||
-         (result == ScanRequestUploadResult::FILE_ENCRYPTED &&
+         (result == ScanRequestUploadResult::kFileEncrypted &&
           !block_password_protected_files);
 }
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 }  // namespace
+
+policy::BrowserPolicyConnector* GetBrowserPolicyConnector() {
+  return g_browser_process ? g_browser_process->browser_policy_connector()
+                           : nullptr;
+}
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 RequestHandlerResult CalculateRequestHandlerResult(
@@ -240,9 +248,9 @@ RequestHandlerResult CalculateRequestHandlerResult(
     result.final_result = FinalContentAnalysisResult::WARNING;
   } else if (action == TriggeredRule::BLOCK) {
     result.final_result = FinalContentAnalysisResult::FAILURE;
-  } else if (upload_result == ScanRequestUploadResult::FILE_TOO_LARGE) {
+  } else if (upload_result == ScanRequestUploadResult::kFileTooLarge) {
     result.final_result = FinalContentAnalysisResult::LARGE_FILES;
-  } else if (upload_result == ScanRequestUploadResult::FILE_ENCRYPTED) {
+  } else if (upload_result == ScanRequestUploadResult::kFileEncrypted) {
     result.final_result = FinalContentAnalysisResult::ENCRYPTED_FILES;
   } else {
     result.final_result = FinalContentAnalysisResult::FAILURE;
@@ -351,8 +359,7 @@ google::protobuf::RepeatedPtrField<std::string> CollectFrameUrls(
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #if BUILDFLAG(FULL_SAFE_BROWSING)
-bool IsResumableUpload(
-    const safe_browsing::BinaryUploadService::Request& request) {
+bool IsResumableUpload(const BinaryUploadRequest& request) {
   if (safe_browsing::IsConsumerScanRequest(request) ||
       !request.cloud_or_local_settings().is_cloud_analysis()) {
     return false;
@@ -366,30 +373,30 @@ bool IsResumableUpload(
 #endif  // BUILDFLAG(FULL_SAFE_BROWSING)
 
 bool CloudMultipartResultIsFailure(ScanRequestUploadResult result) {
-  return result != ScanRequestUploadResult::SUCCESS;
+  return result != ScanRequestUploadResult::kSuccess;
 }
 
 bool CloudResumableResultIsFailure(ScanRequestUploadResult result,
                                    bool block_large_files,
                                    bool block_password_protected_files) {
-  return result != ScanRequestUploadResult::SUCCESS &&
+  return result != ScanRequestUploadResult::kSuccess &&
          !ShouldAllowDeepScanOnLargeOrEncryptedFiles(
              result, block_large_files, block_password_protected_files);
 }
 
 bool LocalResultIsFailure(ScanRequestUploadResult result) {
-  return result != ScanRequestUploadResult::SUCCESS &&
-         result != ScanRequestUploadResult::FILE_TOO_LARGE &&
-         result != ScanRequestUploadResult::FILE_ENCRYPTED;
+  return result != ScanRequestUploadResult::kSuccess &&
+         result != ScanRequestUploadResult::kFileTooLarge &&
+         result != ScanRequestUploadResult::kFileEncrypted;
 }
 
 bool ResultIsFailClosed(ScanRequestUploadResult result) {
-  return result == ScanRequestUploadResult::UPLOAD_FAILURE ||
-         result == ScanRequestUploadResult::TIMEOUT ||
-         result == ScanRequestUploadResult::FAILED_TO_GET_TOKEN ||
-         result == ScanRequestUploadResult::TOO_MANY_REQUESTS ||
-         result == ScanRequestUploadResult::UNKNOWN ||
-         result == ScanRequestUploadResult::INCOMPLETE_RESPONSE;
+  return result == ScanRequestUploadResult::kUploadFailure ||
+         result == ScanRequestUploadResult::kTimeout ||
+         result == ScanRequestUploadResult::kFailedToGetToken ||
+         result == ScanRequestUploadResult::kTooManyRequests ||
+         result == ScanRequestUploadResult::kUnknown ||
+         result == ScanRequestUploadResult::kIncompleteResponse;
 }
 
 bool ResultShouldAllowDataUse(const AnalysisSettings& settings,
@@ -400,30 +407,30 @@ bool ResultShouldAllowDataUse(const AnalysisSettings& settings,
   // Keep this implemented as a switch instead of a simpler if statement so that
   // new values added to ScanRequestUploadResult cause a compiler error.
   switch (upload_result) {
-    case ScanRequestUploadResult::SUCCESS:
+    case ScanRequestUploadResult::kSuccess:
     // UNAUTHORIZED allows data usage since it's a result only obtained if the
     // browser is not authorized to perform deep scanning. It does not make
     // sense to block data in this situation since no actual scanning of the
     // data was performed, so it's allowed.
-    case ScanRequestUploadResult::UNAUTHORIZED:
+    case ScanRequestUploadResult::kUnauthorized:
       return true;
 
-    case ScanRequestUploadResult::UPLOAD_FAILURE:
-    case ScanRequestUploadResult::TIMEOUT:
-    case ScanRequestUploadResult::FAILED_TO_GET_TOKEN:
-    case ScanRequestUploadResult::TOO_MANY_REQUESTS:
-    case ScanRequestUploadResult::UNKNOWN:
-    case ScanRequestUploadResult::INCOMPLETE_RESPONSE:
+    case ScanRequestUploadResult::kUploadFailure:
+    case ScanRequestUploadResult::kTimeout:
+    case ScanRequestUploadResult::kFailedToGetToken:
+    case ScanRequestUploadResult::kTooManyRequests:
+    case ScanRequestUploadResult::kUnknown:
+    case ScanRequestUploadResult::kIncompleteResponse:
       DVLOG(1) << __func__
                << ": handled by fail-closed settings, "
                   "default_action_allow_data_use="
                << default_action_allow_data_use;
       return default_action_allow_data_use;
 
-    case ScanRequestUploadResult::FILE_TOO_LARGE:
+    case ScanRequestUploadResult::kFileTooLarge:
       return !settings.block_large_files;
 
-    case ScanRequestUploadResult::FILE_ENCRYPTED:
+    case ScanRequestUploadResult::kFileEncrypted:
       return !settings.block_password_protected_files;
   }
 }
@@ -437,6 +444,22 @@ EventResult CalculateEventResult(const AnalysisSettings& settings,
              ? EventResult::ALLOWED
              : (should_warn ? EventResult::WARNED : EventResult::BLOCKED);
 }
+
+BinaryUploadService* GetBinaryUploadServiceForConnector(
+    Profile* profile,
+    const enterprise_connectors::AnalysisSettings& settings) {
+#if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
+  if (settings.cloud_or_local_settings.is_cloud_analysis()) {
+    return CloudBinaryUploadServiceFactory::GetForProfile(profile);
+  } else {
+    return LocalBinaryUploadServiceFactory::GetForProfile(profile);
+  }
+#else
+  DCHECK(settings.cloud_or_local_settings.is_cloud_analysis());
+  return CloudBinaryUploadServiceFactory::GetForProfile(profile);
+#endif
+}
+
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -529,8 +552,8 @@ void ReportDataMaskingEvent(
   std::optional<enterprise_connectors::ReportingSettings> settings =
       reporting_client->GetReportingSettings();
   if (!settings.has_value() ||
-      !base::Contains(settings->enabled_event_names,
-                      enterprise_connectors::kKeySensitiveDataEvent)) {
+      !settings->enabled_event_names.contains(
+          enterprise_connectors::kKeySensitiveDataEvent)) {
     return;
   }
 

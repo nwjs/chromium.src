@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "base/process/process_metrics.h"
 
 #include <stddef.h>
@@ -20,8 +15,9 @@
 #include <utility>
 #include <vector>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -47,6 +43,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 #if BUILDFLAG(IS_APPLE)
 #include <sys/mman.h>
@@ -341,6 +338,8 @@ TEST_F(SystemMetricsTest, IsValidDiskName) {
 }
 
 TEST_F(SystemMetricsTest, ParseMeminfo) {
+  constexpr uint64_t kOutOfRangeKB = ByteSize::Max().InKiB() + 1;
+
   SystemMemoryInfo meminfo;
   const char invalid_input1[] = "abc";
   const char invalid_input2[] = "MemTotal:";
@@ -354,9 +353,15 @@ TEST_F(SystemMetricsTest, ParseMeminfo) {
       "Inactive:       21221496 kB\n"
       "Active(anon):    5674352 kB\n"
       "Inactive(anon):   633992 kB\n";
+  // Files with out-of-range MemTotal
+  const char invalid_input4[] = "MemTotal: -4 kB\n";
+  const std::string invalid_input5 =
+      absl::StrFormat("MemTotal: %u kb\n", kOutOfRangeKB);
   EXPECT_FALSE(ParseProcMeminfo(invalid_input1, &meminfo));
   EXPECT_FALSE(ParseProcMeminfo(invalid_input2, &meminfo));
   EXPECT_FALSE(ParseProcMeminfo(invalid_input3, &meminfo));
+  EXPECT_FALSE(ParseProcMeminfo(invalid_input4, &meminfo));
+  EXPECT_FALSE(ParseProcMeminfo(invalid_input5, &meminfo));
 
   const char valid_input1[] =
       "MemTotal:        3981504 kB\n"
@@ -442,10 +447,10 @@ TEST_F(SystemMetricsTest, ParseMeminfo) {
   EXPECT_EQ(meminfo.shmem.InKiB(), 140204);
   EXPECT_EQ(meminfo.slab.InKiB(), 54212);
 #endif
-  EXPECT_EQ(355725,
+  EXPECT_EQ(355725u,
             base::SysInfo::AmountOfAvailablePhysicalMemory(meminfo).InKiB());
   // Simulate as if there is no MemAvailable.
-  meminfo.available = ByteCount(0);
+  meminfo.available = ByteSize(0);
   EXPECT_EQ(374448u,
             base::SysInfo::AmountOfAvailablePhysicalMemory(meminfo).InKiB());
   meminfo = {};
@@ -514,6 +519,22 @@ TEST_F(SystemMetricsTest, ParseMeminfo) {
   EXPECT_EQ(meminfo.buffers.InKiB(), 1524852);
   EXPECT_EQ(meminfo.cached.InKiB(), 12645260);
   EXPECT_EQ(GetSystemCommitChargeFromMeminfo(meminfo), 0u);
+
+  // output from a system that reports a valid MemTotal but out-of-range values
+  // for other entries.
+  const std::string out_of_range_input = absl::StrFormat(
+      "MemTotal:       18025572 kB\n"
+      "MemFree:              %u kB\n"
+      "MemAvailable:         -1 kB\n"
+      "Buffers:         1524852 kB\n",
+      kOutOfRangeKB);
+
+  meminfo = {};
+  EXPECT_TRUE(ParseProcMeminfo(out_of_range_input, &meminfo));
+  EXPECT_EQ(meminfo.total.InKiB(), 18025572);
+  EXPECT_EQ(meminfo.free, ByteSize());
+  EXPECT_EQ(meminfo.available, ByteSize());
+  EXPECT_EQ(meminfo.buffers.InKiB(), 1524852);
 }
 
 TEST_F(SystemMetricsTest, ParseVmstat) {
@@ -806,17 +827,17 @@ TEST(SystemMetrics2Test, GetSystemMemoryInfo) {
   EXPECT_TRUE(GetSystemMemoryInfo(&info));
 
   // Ensure each field received a value.
-  EXPECT_GT(info.total, ByteCount(0));
+  EXPECT_GT(info.total, ByteSize(0));
 #if BUILDFLAG(IS_WIN)
-  EXPECT_GT(info.avail_phys, ByteCount(0));
+  EXPECT_GT(info.avail_phys, ByteSize(0));
 #else
-  EXPECT_GT(info.free, ByteCount(0));
+  EXPECT_GT(info.free, ByteSize(0));
 #endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-  EXPECT_GT(info.buffers, ByteCount(0));
-  EXPECT_GT(info.cached, ByteCount(0));
-  EXPECT_GT(info.active_anon + info.inactive_anon, ByteCount(0));
-  EXPECT_GT(info.active_file + info.inactive_file, ByteCount(0));
+  EXPECT_GT(info.buffers, ByteSize(0));
+  EXPECT_GT(info.cached, ByteSize(0));
+  EXPECT_GT(info.active_anon + info.inactive_anon, ByteSize(0));
+  EXPECT_GT(info.active_file + info.inactive_file, ByteSize(0));
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID)
 
@@ -836,12 +857,12 @@ TEST(SystemMetrics2Test, GetSystemMemoryInfo) {
         // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_APPLE)
-  EXPECT_GT(info.file_backed, ByteCount(0));
+  EXPECT_GT(info.file_backed, ByteSize(0));
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Chrome OS exposes shmem.
-  EXPECT_GT(info.shmem, ByteCount(0));
+  EXPECT_GT(info.shmem, ByteSize(0));
   EXPECT_LT(info.shmem, info.total);
 #endif
 }
@@ -1048,7 +1069,7 @@ TEST(ProcessMetricsTestLinux, GetPageFaultCounts) {
     WritableSharedMemoryMapping mapping = region.Map();
     ASSERT_TRUE(mapping.IsValid());
 
-    memset(mapping.memory(), 42, kMappedSize);
+    UNSAFE_TODO(memset(mapping.memory(), 42, kMappedSize));
   }
 
   PageFaultCounts counts_after;

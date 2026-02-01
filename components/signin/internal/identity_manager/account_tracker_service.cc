@@ -231,7 +231,7 @@ void AccountTrackerService::StartTrackingAccount(
   // TODO(crbug.com/40283610): Change into a CHECK once there are no crash
   // reports for tracking empty account ids.
   DUMP_WILL_BE_CHECK(!account_id.empty());
-  if (!base::Contains(accounts_, account_id)) {
+  if (!accounts_.contains(account_id)) {
     DVLOG(1) << "StartTracking " << account_id;
     AccountInfo account_info;
     account_info.account_id = account_id;
@@ -240,13 +240,13 @@ void AccountTrackerService::StartTrackingAccount(
 }
 
 bool AccountTrackerService::IsTrackingAccount(const CoreAccountId& account_id) {
-  return base::Contains(accounts_, account_id);
+  return accounts_.contains(account_id);
 }
 
 void AccountTrackerService::StopTrackingAccount(
     const CoreAccountId& account_id) {
   DVLOG(1) << "StopTracking " << account_id;
-  if (base::Contains(accounts_, account_id)) {
+  if (accounts_.contains(account_id)) {
     AccountInfo account_info = std::move(accounts_[account_id]);
     RemoveFromPrefs(account_info);
     RemoveAccountImageFromDisk(account_id);
@@ -261,7 +261,7 @@ void AccountTrackerService::StopTrackingAccount(
 void AccountTrackerService::SetAccountInfoFromUserInfo(
     const CoreAccountId& account_id,
     const base::Value::Dict& user_info) {
-  DCHECK(base::Contains(accounts_, account_id));
+  DCHECK(accounts_.contains(account_id));
   AccountInfo& account_info = accounts_[account_id];
 
   AccountInPrefState state = AccountInPrefState::kValid;
@@ -309,12 +309,17 @@ void AccountTrackerService::SetAccountImage(
     const CoreAccountId& account_id,
     const std::string& image_url_with_size,
     const gfx::Image& image) {
-  if (!base::Contains(accounts_, account_id)) {
+  auto it = accounts_.find(account_id);
+  if (it == accounts_.end()) {
     return;
   }
-  AccountInfo& account_info = accounts_[account_id];
-  account_info.account_image = image;
-  account_info.last_downloaded_image_url_with_size = image_url_with_size;
+  // Update the avatar image value in `it->second` and save the updated
+  // account info to disk.
+  AccountInfo& account_info = it->second;
+  account_info = AccountInfo::Builder(account_info)
+                     .SetAvatarImage(image)
+                     .SetLastDownloadedAvatarUrlWithSize(image_url_with_size)
+                     .Build();
   SaveAccountImageToDisk(account_id, image, image_url_with_size);
   NotifyAccountUpdated(account_info);
 }
@@ -322,7 +327,7 @@ void AccountTrackerService::SetAccountImage(
 void AccountTrackerService::SetAccountCapabilities(
     const CoreAccountId& account_id,
     const AccountCapabilities& account_capabilities) {
-  DCHECK(base::Contains(accounts_, account_id));
+  DCHECK(accounts_.contains(account_id));
   AccountInfo& account_info = accounts_[account_id];
 
   bool modified = account_info.capabilities.UpdateWith(account_capabilities);
@@ -348,7 +353,7 @@ void AccountTrackerService::SetAccountCapabilities(
 
 void AccountTrackerService::SetIsChildAccount(const CoreAccountId& account_id,
                                               bool is_child_account) {
-  DCHECK(base::Contains(accounts_, account_id)) << account_id.ToString();
+  DCHECK(accounts_.contains(account_id)) << account_id.ToString();
   AccountInfo& account_info = accounts_[account_id];
   bool modified = UpdateAccountInfoChildStatus(account_info, is_child_account);
   if (!modified) {
@@ -363,7 +368,7 @@ void AccountTrackerService::SetIsChildAccount(const CoreAccountId& account_id,
 void AccountTrackerService::SetIsAdvancedProtectionAccount(
     const CoreAccountId& account_id,
     bool is_under_advanced_protection) {
-  DCHECK(base::Contains(accounts_, account_id)) << account_id.ToString();
+  DCHECK(accounts_.contains(account_id)) << account_id.ToString();
   AccountInfo& account_info = accounts_[account_id];
   if (account_info.is_under_advanced_protection ==
       is_under_advanced_protection) {
@@ -417,7 +422,7 @@ void AccountTrackerService::MigrateToGaiaId() {
     // If there is already an account keyed to the current account's gaia id,
     // assume this is the result of a partial migration and skip the account
     // that is currently inspected.
-    if (base::Contains(accounts_, new_account_id)) {
+    if (accounts_.contains(new_account_id)) {
       continue;
     }
 
@@ -439,7 +444,7 @@ void AccountTrackerService::MigrateToGaiaId() {
 
   // Remove any obsolete account.
   for (const auto& account_id : to_remove) {
-    DCHECK(base::Contains(accounts_, account_id));
+    DCHECK(accounts_.contains(account_id));
     AccountInfo& account_info = accounts_[account_id];
     RemoveAccountImageFromDisk(account_id);
     RemoveFromPrefs(account_info);
@@ -508,16 +513,35 @@ base::FilePath AccountTrackerService::GetImagePathFor(
 void AccountTrackerService::OnAccountImageLoaded(
     const CoreAccountId& account_id,
     gfx::Image image) {
-  if (base::Contains(accounts_, account_id) &&
-      accounts_[account_id].account_image.IsEmpty()) {
-    AccountInfo& account_info = accounts_[account_id];
-    account_info.account_image = image;
-    if (account_info.account_image.IsEmpty()) {
-      account_info.last_downloaded_image_url_with_size = std::string();
-      OnAccountImageUpdated(account_id, std::string(), true);
-    }
-    NotifyAccountUpdated(account_info);
+  auto it = accounts_.find(account_id);
+  if (it == accounts_.end()) {
+    return;
   }
+
+  AccountInfo& account_info = it->second;
+  if (account_info.GetAvatarImage().has_value()) {
+    // Don't do anything if `account_info` already has an avatar image.
+    return;
+  }
+
+  AccountInfo::Builder update_account_info_builder(account_info);
+  bool should_clear_last_downloaded_avatar_url = false;
+  if (!image.IsEmpty()) {
+    update_account_info_builder.SetAvatarImage(image);
+  } else {
+    // An image failed to load. We want to clear the last downloaded avatar URL
+    // so that an image can be downloaded again.
+    update_account_info_builder.SetLastDownloadedAvatarUrlWithSize("");
+    should_clear_last_downloaded_avatar_url = true;
+  }
+
+  account_info = update_account_info_builder.Build();
+  if (should_clear_last_downloaded_avatar_url) {
+    // Call `OnAccountImageUpdated()` to clear the last downloaded avatar URL.
+    OnAccountImageUpdated(account_id, /*image_url_with_size=*/std::string(),
+                          /*success=*/true);
+  }
+  NotifyAccountUpdated(account_info);
 }
 
 void AccountTrackerService::LoadAccountImagesFromDisk() {
@@ -757,7 +781,7 @@ CoreAccountId AccountTrackerService::SeedAccountInfo(AccountInfo info) {
     return CoreAccountId();
   }
 
-  const bool already_exists = base::Contains(accounts_, info.account_id);
+  const bool already_exists = accounts_.contains(info.account_id);
   StartTrackingAccount(info.account_id);
   AccountInfo& account_info = accounts_[info.account_id];
   DCHECK(!already_exists || account_info.gaia.empty() ||
@@ -772,10 +796,12 @@ CoreAccountId AccountTrackerService::SeedAccountInfo(AccountInfo info) {
     SaveToPrefs(account_info);
   }
 
-  if (!already_exists && !info.account_image.IsEmpty()) {
-    SetAccountImage(account_info.account_id,
-                    account_info.last_downloaded_image_url_with_size,
-                    info.account_image);
+  if (!already_exists && info.GetAvatarImage().has_value()) {
+    SetAccountImage(
+        account_info.account_id,
+        std::string(
+            account_info.GetLastDownloadedAvatarUrlWithSize().value_or("")),
+        *info.GetAvatarImage());
   }
 
   return info.account_id;
@@ -815,9 +841,10 @@ bool AccountTrackerService::UpdateAccountInfoChildStatus(
     bool is_child_account) {
   signin::Tribool new_status =
       is_child_account ? signin::Tribool::kTrue : signin::Tribool::kFalse;
-  if (account_info.is_child_account == new_status) {
+  if (account_info.IsChildAccount() == new_status) {
     return false;
   }
-  account_info.is_child_account = new_status;
+  account_info =
+      AccountInfo::Builder(account_info).SetIsChildAccount(new_status).Build();
   return true;
 }

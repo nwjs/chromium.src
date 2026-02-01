@@ -131,6 +131,30 @@ class TextfieldDestroyerController : public TextfieldController {
   std::unique_ptr<Textfield> target_;
 };
 
+// Controller that intercepts paste and optionally supplies text for insertion.
+// Used to verify TextfieldController::OnBeforePaste() and OnAfterPaste().
+class TextfieldPasteInterceptController : public TextfieldController {
+ public:
+  explicit TextfieldPasteInterceptController(std::u16string text_to_inject)
+      : text_to_inject_(std::move(text_to_inject)) {}
+
+  bool on_before_called() const { return on_before_called_; }
+  bool on_after_called() const { return on_after_called_; }
+
+  bool OnBeforePaste(Textfield* sender, std::u16string* text) override {
+    on_before_called_ = true;
+    *text = text_to_inject_;
+    return true;
+  }
+
+  void OnAfterPaste() override { on_after_called_ = true; }
+
+ private:
+  std::u16string text_to_inject_;
+  bool on_before_called_ = false;
+  bool on_after_called_ = false;
+};
+
 // Class that focuses a textfield when it sees a KeyDown event.
 class TextfieldFocuser : public View {
   METADATA_HEADER(TextfieldFocuser, View)
@@ -510,15 +534,6 @@ void TextfieldTest::OnAfterUserAction(Textfield* sender) {
 
 void TextfieldTest::OnAfterCutOrCopy(ui::ClipboardBuffer clipboard_type) {
   copied_to_clipboard_ = clipboard_type;
-}
-
-bool TextfieldTest::HandleWriteTextToClipboard(ui::ClipboardBuffer,
-                                               const std::u16string_view&) {
-  return handle_write_to_clipboard_;
-}
-
-bool TextfieldTest::AllowStartDragEvent(const std::u16string_view&) {
-  return allow_drag_event_;
 }
 
 void TextfieldTest::InitTextfield(int count) {
@@ -2308,10 +2323,6 @@ TEST_F(TextfieldTest, DragAndDrop_InitiateDrag) {
             textfield_->GetDragOperationsForView(nullptr, kStringPoint));
   EXPECT_TRUE(
       textfield_->CanStartDragForView(nullptr, kStringPoint, gfx::Point()));
-  allow_drag_event_ = false;
-  EXPECT_FALSE(
-      textfield_->CanStartDragForView(nullptr, kStringPoint, kStringPoint));
-  allow_drag_event_ = true;
   // Ensure that textfields support local moves.
   EXPECT_EQ(ui::DragDropTypes::DRAG_MOVE | ui::DragDropTypes::DRAG_COPY,
             textfield_->GetDragOperationsForView(textfield_, kStringPoint));
@@ -2938,11 +2949,6 @@ TEST_F(TextfieldTest, CutCopyPaste) {
 
   // Ensure clipboard buffer is unchanged if override is enabled
   textfield_->SetText(u"345");
-  textfield_->SelectAll(false);
-  SendAlternateCopy();
-  EXPECT_EQ(u"345", GetClipboardText(ui::ClipboardBuffer::kCopyPaste));
-  handle_write_to_clipboard_ = true;
-  textfield_->SetText(u"4242");
   textfield_->SelectAll(false);
   SendAlternateCopy();
   EXPECT_EQ(u"345", GetClipboardText(ui::ClipboardBuffer::kCopyPaste));
@@ -5743,8 +5749,6 @@ TEST_F(TextfieldTest, AccessibleGraphemeOffsetsIndependentOfDisplayOffset) {
 #endif  // BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
 
 TEST_F(TextfieldTest, DragOutsideSelectionModifiesSelection) {
-  allow_drag_event_ = false;
-
   InitTextfield();
   textfield_->SetText(u"Hello World");
   textfield_->SetSelectedRange(gfx::Range(0, 5));  // Selects "Hello"
@@ -5773,6 +5777,42 @@ TEST_F(TextfieldTest, DragOutsideSelectionModifiesSelection) {
   textfield_->OnMouseDragged(drag_event);
 
   EXPECT_EQ(u"World", textfield_->GetSelectedText());
+}
+
+// Intercept paste via controller, supplying text; trims whitespace and calls
+// both OnBeforePaste() and OnAfterPaste().
+TEST_F(TextfieldTest, OnBeforePasteIntercepts) {
+  InitTextfield();
+
+  textfield_->SetText(u"");
+  TextfieldPasteInterceptController controller(u" hello world ");
+  textfield_->set_controller(&controller);
+  SetClipboardText(ui::ClipboardBuffer::kCopyPaste, u"a");
+  textfield_->ExecuteCommand(Textfield::kPaste, 0);
+  EXPECT_TRUE(controller.on_before_called());
+  EXPECT_TRUE(controller.on_after_called());
+  EXPECT_EQ(textfield_->GetText(), u"hello world");
+
+  // Whitespace-only injection becomes a single space.
+  textfield_->SetText(u"");
+  TextfieldPasteInterceptController controller_space(u"  \t  ");
+  textfield_->set_controller(&controller_space);
+  SetClipboardText(ui::ClipboardBuffer::kCopyPaste, u"  hello world ");
+  textfield_->ExecuteCommand(Textfield::kPaste, 0);
+  EXPECT_TRUE(controller_space.on_before_called());
+  EXPECT_TRUE(controller_space.on_after_called());
+  EXPECT_EQ(textfield_->GetText(), u" ");
+}
+
+// When controller does not intercept, Textfield falls back to clipboard.
+TEST_F(TextfieldTest, OnBeforePasteFallbackToClipboard) {
+  InitTextfield();
+
+  textfield_->SetText(u"");
+  SetClipboardText(ui::ClipboardBuffer::kCopyPaste, u" hello world ");
+  textfield_->ExecuteCommand(Textfield::kPaste, 0);
+
+  EXPECT_EQ(textfield_->GetText(), u"hello world");
 }
 
 }  // namespace views::test

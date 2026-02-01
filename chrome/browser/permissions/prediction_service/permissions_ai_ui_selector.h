@@ -26,6 +26,7 @@
 #include "chrome/browser/permissions/prediction_service/language_detection_observer.h"
 #include "components/content_extraction/content/browser/inner_text.h"
 #include "components/passage_embeddings/passage_embeddings_types.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #endif
 
 class PredictionServiceRequest;
@@ -216,7 +217,7 @@ class PermissionsAiUiSelector : public permissions::PermissionUiSelector {
   void OnSnapshotTakenForOnDeviceModel(
       base::TimeTicks snapshot_inquire_start_time,
       ModelExecutionData model_data,
-      const SkBitmap& screenshot);
+      const SkBitmap* snapshot);
 
   // Callback for tflite based AivX model handlers.
   void OnDeviceTfliteAivXModelExecutionCallback(

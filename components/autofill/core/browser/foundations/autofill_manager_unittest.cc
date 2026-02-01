@@ -47,10 +47,10 @@ using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::ElementsAre;
 using ::testing::Eq;
-using ::testing::Field;
 using ::testing::IsEmpty;
 using ::testing::NiceMock;
 using ::testing::Pair;
+using ::testing::Pointee;
 using ::testing::Property;
 using ::testing::Ref;
 using ::testing::Return;
@@ -88,6 +88,7 @@ class MockFieldClassificationModelHandler
               GetModelPredictionsForForms,
               (std::vector<FormData>,
                const GeoIpCountryCode& client_country,
+               bool,
                base::OnceCallback<void(std::vector<ModelPredictions>)>),
               (override));
 };
@@ -111,20 +112,14 @@ std::vector<FormGlobalId> GetFormIds(const std::vector<FormData>& forms) {
 // Matches a std::map<FormGlobalId, std::unique_ptr<FormStructure>>::value_type
 // whose key is `form.global_id()`.
 auto HaveSameFormIdAs(const FormData& form) {
-  return Field(
-      "global_id",
-      &std::pair<const FormGlobalId, std::unique_ptr<FormStructure>>::first,
-      form.global_id());
+  return Pointee(
+      Property("global_id", &FormStructure::global_id, form.global_id()));
 }
 
 // Matches a std::map<FormGlobalId, std::unique_ptr<FormStructure>> whose
 // keys are the same the FormGlobalIds of the forms in |forms|.
 auto HaveSameFormIdsAs(const std::vector<FormData>& forms) {
-  std::vector<decltype(HaveSameFormIdAs(forms.front()))> matchers;
-  matchers.reserve(forms.size());
-  std::ranges::transform(forms, std::back_inserter(matchers),
-                         &HaveSameFormIdAs);
-  return UnorderedElementsAreArray(matchers);
+  return UnorderedElementsAreArray(base::ToVector(forms, &HaveSameFormIdAs));
 }
 
 // Expects the calls triggered by OnFormsSeen().
@@ -132,9 +127,10 @@ void OnFormsSeenWithExpectations(MockAutofillManager& autofill_manager,
                                  const std::vector<FormData>& updated_forms,
                                  const std::vector<FormGlobalId>& removed_forms,
                                  const std::vector<FormData>& expectation) {
-  const size_t num = std::min(updated_forms.size(),
-                              kAutofillManagerMaxFormCacheSize -
-                                  autofill_manager.form_structures().size());
+  const size_t num =
+      std::min(updated_forms.size(),
+               kAutofillManagerMaxFormCacheSize -
+                   test_api(autofill_manager).form_structures().size());
   EXPECT_CALL(autofill_manager, ShouldParseForms)
       .Times(1)
       .WillOnce(Return(true));
@@ -144,7 +140,7 @@ void OnFormsSeenWithExpectations(MockAutofillManager& autofill_manager,
                                    {AutofillManagerEvent::kFormsSeen});
   autofill_manager.OnFormsSeen(updated_forms, removed_forms);
   ASSERT_TRUE(waiter.Wait());
-  EXPECT_THAT(autofill_manager.form_structures(),
+  EXPECT_THAT(test_api(autofill_manager).form_structures(),
               HaveSameFormIdsAs(expectation));
 }
 
@@ -257,7 +253,8 @@ TEST_F(AutofillManagerTest, FormCacheUpdatesValue) {
   FormGlobalId form_id = form.global_id();
   auto current_cached_value = [this,
                                &form_id]() -> std::optional<std::u16string> {
-    FormStructure* cached_form = autofill_manager().FindCachedFormById(form_id);
+    const FormStructure* cached_form =
+        autofill_manager().FindCachedFormById(form_id);
     if (!cached_form || cached_form->fields().empty()) {
       return std::nullopt;
     }
@@ -591,7 +588,7 @@ class AutofillManagerTestForModelPredictions : public AutofillManagerTest {
     ON_CALL(*handler, GetModelPredictionsForForms)
         .WillByDefault(
             [](std::vector<FormData> forms,
-               const GeoIpCountryCode& client_country,
+               const GeoIpCountryCode& client_country, bool ignore_small_forms,
                base::OnceCallback<void(std::vector<ModelPredictions>)>
                    callback) {
               const ModelPredictions kEmptyPredictions = ModelPredictions(

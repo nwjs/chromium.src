@@ -16,7 +16,7 @@
 #include "chrome/common/extensions/api/web_authentication_proxy.h"
 #include "components/webauthn/json/value_conversions.h"
 #include "content/public/browser/browser_context.h"
-#include "device/fido/public_key_credential_rp_entity.h"
+#include "device/fido/public/public_key_credential_rp_entity.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/event_router_factory.h"
 #include "extensions/browser/extension_event_histogram_value.h"
@@ -28,7 +28,6 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
-#include "third_party/blink/public/mojom/webauthn/authenticator.mojom-shared.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "url/gurl.h"
 
@@ -449,7 +448,7 @@ WebAuthenticationProxyService::NewRequestId() {
   // Technically, this could spin forever if there are 4 billion active
   // requests. However, there's no real risk to this happening (no security or
   // DOS concerns).
-  while (base::Contains(pending_callbacks_, request_id)) {
+  while (pending_callbacks_.contains(request_id)) {
     request_id = base::RandGenerator(std::numeric_limits<uint32_t>::max()) + 1;
   }
   return request_id;

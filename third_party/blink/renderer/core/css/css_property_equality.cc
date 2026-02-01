@@ -508,9 +508,9 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kGridColumnStart:
       return a.GridColumnStart() == b.GridColumnStart();
     case CSSPropertyID::kGridLanesDirection:
-      return a.GridLanesDirection() == b.GridLanesDirection();
-    case CSSPropertyID::kGridLanesFill:
-      return a.GridLanesFill() == b.GridLanesFill();
+      return a.GetGridLanesDirection() == b.GetGridLanesDirection();
+    case CSSPropertyID::kGridLanesPack:
+      return a.GridLanesPack() == b.GridLanesPack();
     case CSSPropertyID::kGridRowEnd:
       return a.GridRowEnd() == b.GridRowEnd();
     case CSSPropertyID::kGridRowStart:
@@ -649,15 +649,10 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.OverflowX() == b.OverflowX();
     case CSSPropertyID::kOverflowY:
       return a.OverflowY() == b.OverflowY();
-    case CSSPropertyID::kOverscrollArea:
-      return base::ValuesEquivalent(a.OverscrollArea(), b.OverscrollArea());
     case CSSPropertyID::kOverscrollBehaviorX:
       return a.OverscrollBehaviorX() == b.OverscrollBehaviorX();
     case CSSPropertyID::kOverscrollBehaviorY:
       return a.OverscrollBehaviorY() == b.OverscrollBehaviorY();
-    case CSSPropertyID::kOverscrollPosition:
-      return base::ValuesEquivalent(a.OverscrollPosition(),
-                                    b.OverscrollPosition());
     case CSSPropertyID::kPaddingBottom:
       return a.PaddingBottom() == b.PaddingBottom();
     case CSSPropertyID::kPaddingLeft:
@@ -668,6 +663,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.PaddingTop() == b.PaddingTop();
     case CSSPropertyID::kPage:
       return a.Page() == b.Page();
+    case CSSPropertyID::kPageMarginSafety:
+      return a.GetPageMarginSafety() == b.GetPageMarginSafety();
     case CSSPropertyID::kPageOrientation:
       return a.GetPageOrientation() == b.GetPageOrientation();
     case CSSPropertyID::kPaintOrder:
@@ -836,6 +833,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.TransformBox() == b.TransformBox();
     case CSSPropertyID::kTransformStyle:
       return a.TransformStyle3D() == b.TransformStyle3D();
+    case CSSPropertyID::kTriggerScope:
+      return a.TriggerScope() == b.TriggerScope();
     case CSSPropertyID::kUserSelect:
       return a.UserSelect() == b.UserSelect();
     case CSSPropertyID::kVectorEffect:
@@ -870,23 +869,23 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.ColumnRuleBreak() == b.ColumnRuleBreak();
     case CSSPropertyID::kRowRuleBreak:
       return a.RowRuleBreak() == b.RowRuleBreak();
-    case CSSPropertyID::kColumnRuleEdgeEndInset:
-      return a.ColumnRuleEdgeEndInset() == b.ColumnRuleEdgeEndInset();
-    case CSSPropertyID::kRowRuleEdgeEndInset:
-      return a.RowRuleEdgeEndInset() == b.RowRuleEdgeEndInset();
-    case CSSPropertyID::kColumnRuleEdgeStartInset:
-      return a.ColumnRuleEdgeStartInset() == b.ColumnRuleEdgeStartInset();
-    case CSSPropertyID::kRowRuleEdgeStartInset:
-      return a.RowRuleEdgeStartInset() == b.RowRuleEdgeStartInset();
-    case CSSPropertyID::kColumnRuleInteriorEndInset:
-      return a.ColumnRuleInteriorEndInset() == b.ColumnRuleInteriorEndInset();
-    case CSSPropertyID::kRowRuleInteriorEndInset:
-      return a.RowRuleInteriorEndInset() == b.RowRuleInteriorEndInset();
-    case CSSPropertyID::kColumnRuleInteriorStartInset:
-      return a.ColumnRuleInteriorStartInset() ==
-             b.ColumnRuleInteriorStartInset();
-    case CSSPropertyID::kRowRuleInteriorStartInset:
-      return a.RowRuleInteriorStartInset() == b.RowRuleInteriorStartInset();
+    case CSSPropertyID::kColumnRuleEdgeInsetEnd:
+      return a.ColumnRuleEdgeInsetEnd() == b.ColumnRuleEdgeInsetEnd();
+    case CSSPropertyID::kRowRuleEdgeInsetEnd:
+      return a.RowRuleEdgeInsetEnd() == b.RowRuleEdgeInsetEnd();
+    case CSSPropertyID::kColumnRuleEdgeInsetStart:
+      return a.ColumnRuleEdgeInsetStart() == b.ColumnRuleEdgeInsetStart();
+    case CSSPropertyID::kRowRuleEdgeInsetStart:
+      return a.RowRuleEdgeInsetStart() == b.RowRuleEdgeInsetStart();
+    case CSSPropertyID::kColumnRuleInteriorInsetEnd:
+      return a.ColumnRuleInteriorInsetEnd() == b.ColumnRuleInteriorInsetEnd();
+    case CSSPropertyID::kRowRuleInteriorInsetEnd:
+      return a.RowRuleInteriorInsetEnd() == b.RowRuleInteriorInsetEnd();
+    case CSSPropertyID::kColumnRuleInteriorInsetStart:
+      return a.ColumnRuleInteriorInsetStart() ==
+             b.ColumnRuleInteriorInsetStart();
+    case CSSPropertyID::kRowRuleInteriorInsetStart:
+      return a.RowRuleInteriorInsetStart() == b.RowRuleInteriorInsetStart();
     case CSSPropertyID::kColumnRuleColor:
       return a.ColumnRuleColor() == b.ColumnRuleColor() &&
              a.InternalVisitedColumnRuleColor() ==
@@ -1051,10 +1050,10 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kScrollTimelineAxis:
     case CSSPropertyID::kScrollTimelineName:
     case CSSPropertyID::kTimelineTriggerName:
-    case CSSPropertyID::kTimelineTriggerRangeStart:
-    case CSSPropertyID::kTimelineTriggerRangeEnd:
-    case CSSPropertyID::kTimelineTriggerExitRangeStart:
-    case CSSPropertyID::kTimelineTriggerExitRangeEnd:
+    case CSSPropertyID::kTimelineTriggerEntryRangeStart:
+    case CSSPropertyID::kTimelineTriggerEntryRangeEnd:
+    case CSSPropertyID::kTimelineTriggerActiveRangeStart:
+    case CSSPropertyID::kTimelineTriggerActiveRangeEnd:
     case CSSPropertyID::kTimelineTriggerSource:
     case CSSPropertyID::kViewTimelineAxis:
     case CSSPropertyID::kViewTimelineInset:
@@ -1188,8 +1187,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
           << property.GetCSSPropertyName().ToAtomicString().Ascii();
 
     // Webkit prefixed properties which don't have non-aliased counterparts.
-    // TODO ensure that each of these are reachable since they supposedly aren't
-    // just aliases.
+    // TODO(crbug.com/40919412): Implement comparison for these properties. They
+    // are reachable via transitions now.
     case CSSPropertyID::kWebkitBorderImage:
     case CSSPropertyID::kWebkitBoxAlign:
     case CSSPropertyID::kWebkitBoxDecorationBreak:
@@ -1298,6 +1297,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kInternalForcedColor:
     case CSSPropertyID::kInternalForcedOutlineColor:
     case CSSPropertyID::kInternalForcedVisitedColor:
+    case CSSPropertyID::kInternalOverscrollArea:
+    case CSSPropertyID::kInternalOverscrollPosition:
     case CSSPropertyID::kInternalVisitedBackgroundColor:
     case CSSPropertyID::kInternalVisitedBorderBlockEndColor:
     case CSSPropertyID::kInternalVisitedBorderBlockStartColor:
@@ -1334,7 +1335,9 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kBorderTop:
     case CSSPropertyID::kBorderWidth:
     case CSSPropertyID::kColumnRule:
+    case CSSPropertyID::kColumnRuleEdgeInset:
     case CSSPropertyID::kColumnRuleInset:
+    case CSSPropertyID::kColumnRuleInteriorInset:
     case CSSPropertyID::kColumns:
     case CSSPropertyID::kContainIntrinsicSize:
     case CSSPropertyID::kContainer:
@@ -1360,7 +1363,6 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kGridArea:
     case CSSPropertyID::kGridColumn:
     case CSSPropertyID::kGridLanes:
-    case CSSPropertyID::kGridLanesFlow:
     case CSSPropertyID::kGridRow:
     case CSSPropertyID::kGridTemplate:
     case CSSPropertyID::kLineClamp:
@@ -1381,7 +1383,11 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kPlaceSelf:
     case CSSPropertyID::kPositionTry:
     case CSSPropertyID::kRowRule:
+    case CSSPropertyID::kRowRuleEdgeInset:
     case CSSPropertyID::kRowRuleInset:
+    case CSSPropertyID::kRowRuleInteriorInset:
+    case CSSPropertyID::kRuleEdgeInset:
+    case CSSPropertyID::kRuleInteriorInset:
     case CSSPropertyID::kRule:
     case CSSPropertyID::kRuleBreak:
     case CSSPropertyID::kRuleColor:
@@ -1397,8 +1403,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kTextSpacing:
     case CSSPropertyID::kTextWrap:
     case CSSPropertyID::kTimelineTrigger:
-    case CSSPropertyID::kTimelineTriggerRange:
-    case CSSPropertyID::kTimelineTriggerExitRange:
+    case CSSPropertyID::kTimelineTriggerEntryRange:
+    case CSSPropertyID::kTimelineTriggerActiveRange:
     case CSSPropertyID::kTransition:
     case CSSPropertyID::kViewTimeline:
     case CSSPropertyID::kWebkitColumnBreakAfter:
@@ -1444,14 +1450,16 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kWritingMode:
       NOTREACHED() << property.GetCSSPropertyName().ToAtomicString().Ascii();
 
-    // TODO(crbug.com/1459374): Implement comparison for these properties. They
-    // are reachable via transitions now.
+    // CSSPropertyIDs which are descriptors only
     case CSSPropertyID::kAdditiveSymbols:
     case CSSPropertyID::kAscentOverride:
     case CSSPropertyID::kBasePalette:
+    case CSSPropertyID::kBaseUrl:
     case CSSPropertyID::kDescentOverride:
     case CSSPropertyID::kFallback:
     case CSSPropertyID::kFontDisplay:
+    case CSSPropertyID::kHash:
+    case CSSPropertyID::kHostname:
     case CSSPropertyID::kInherits:
     case CSSPropertyID::kInitialValue:
     case CSSPropertyID::kLineGapOverride:
@@ -1459,9 +1467,14 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kNegative:
     case CSSPropertyID::kOverrideColors:
     case CSSPropertyID::kPad:
+    case CSSPropertyID::kPathname:
+    case CSSPropertyID::kPattern:
+    case CSSPropertyID::kPort:
     case CSSPropertyID::kPrefix:
+    case CSSPropertyID::kProtocol:
     case CSSPropertyID::kRange:
     case CSSPropertyID::kResult:
+    case CSSPropertyID::kSearch:
     case CSSPropertyID::kSpeakAs:
     case CSSPropertyID::kSrc:
     case CSSPropertyID::kSuffix:
@@ -1470,9 +1483,7 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kSystem:
     case CSSPropertyID::kTypes:
     case CSSPropertyID::kUnicodeRange:
-      return true;
-
-    // Invalid properties.
+    // Invalid properties
     case CSSPropertyID::kAll:
     case CSSPropertyID::kInvalid:
     case CSSPropertyID::kVariable:

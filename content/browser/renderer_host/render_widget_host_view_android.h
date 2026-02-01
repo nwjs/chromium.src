@@ -9,7 +9,6 @@
 #include <stdint.h>
 
 #include <deque>
-#include <map>
 #include <memory>
 
 #include "base/android/jni_android.h"
@@ -79,7 +78,6 @@ struct DidOverscrollParams;
 
 namespace viz {
 class RasterContextProvider;
-struct CopyOutputBitmapWithMetadata;
 }  // namespace viz
 
 namespace content {
@@ -178,20 +176,20 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void CopyFromSurface(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
-      base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
-          callback) override;
+      base::TimeDelta timeout,
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
+      override;
   ui::FilteredGestureProvider* GetFilteredGestureProviderForTesting() override;
   void CopyFromExactSurfaceWithIpcDelay(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
-      base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
-          callback,
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback,
       base::TimeDelta ipc_delay) override;
   void CopyFromExactSurface(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
-      base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
-          callback) override;
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
+      override;
   void CopySharedImageFromExactSurface(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
@@ -471,8 +469,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       JNIEnv* env,
       jint width,
       jint height,
-      const jni_zero::JavaParamRef<jstring>& jpath,
-      const jni_zero::JavaParamRef<jobject>& jcallback);
+      const jni_zero::JavaRef<jstring>& jpath,
+      const jni_zero::JavaRef<jobject>& jcallback);
 
   // Notifies that the parent activity has moved into the foreground.
   void OnResume(JNIEnv* env);
@@ -616,10 +614,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void OnDidUpdateVisualPropertiesComplete(
       const cc::RenderFrameMetadata& metadata);
 
-  void OnFinishGetContentBitmap(
-      const base::android::JavaRef<jobject>& callback,
-      const std::string& path,
-      const viz::CopyOutputBitmapWithMetadata& result);
+  void OnFinishGetContentBitmap(const base::android::JavaRef<jobject>& callback,
+                                const std::string& path,
+                                const content::CopyFromSurfaceResult& result);
 
   void ShowInternal();
   void HideInternal();
@@ -634,8 +631,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void SynchronousCopyContents(
       const gfx::Rect& src_subrect_dip,
       const gfx::Size& dst_size_in_pixel,
-      base::OnceCallback<void(const viz::CopyOutputBitmapWithMetadata&)>
-          callback);
+      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback);
 
   void MaybeCreateSynchronousCompositor();
   void ResetSynchronousCompositor();

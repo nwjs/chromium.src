@@ -15,7 +15,6 @@
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
-#include "base/sequence_checker.h"
 #include "base/types/expected.h"
 #include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
 #include "components/services/storage/public/cpp/buckets/bucket_info.h"
@@ -115,13 +114,6 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   void CloseAndReportForceClose(const std::string& message);
 
   int scheduling_priority() const { return scheduling_priority_; }
-
-  // Returns true if `this_one` should skip ahead of `other` when being added to
-  // the lock manager/scheduler. Two lock requests (which can be associated with
-  // transactions or new connection requests) will never be reordered if they
-  // come from the same client (window/worker context).
-  static bool HasHigherPriorityThan(const PartitionedLockHolder* this_one,
-                                    const PartitionedLockHolder& other);
 
   // Returns true if any of the connection's transactions is holding one of the
   // lock IDs.
@@ -276,8 +268,6 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   // that client to be ineligible for BFCache, this token is used to avoid
   // unnecessary calls to `DisallowInactiveClient()`.
   base::UnguessableToken client_token_;
-
-  SEQUENCE_CHECKER(sequence_checker_);
 
   // The priority for transactions made on this connection. This corresponds to
   // the renderer's scheduler throttling state. See `HasHigherPriorityThan()`

@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -30,6 +29,7 @@
 #include "base/observer_list.h"
 #include "base/process/process_handle.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/threading/sequence_bound.h"
 #include "base/timer/timer.h"
 #include "base/types/optional_ref.h"
 #include "base/unguessable_token.h"
@@ -603,6 +603,8 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::UseCounterFeature& feature) override;
   void DidObserveSoftNavigation(
       blink::SoftNavigationMetricsForReporting metrics) override;
+  void DidObserveSoftLargestContentfulPaint(
+      const blink::LargestContentfulPaintDetailsForReporting& lcp) override;
   void DidObserveLayoutShift(double score, bool after_input_or_scroll) override;
   void DidCreateScriptContext(v8::Local<v8::Context> context,
                               int world_id) override;
@@ -1601,6 +1603,11 @@ class CONTENT_EXPORT RenderFrameImpl
   // Used by DevTools to defer async client navigations for the duration of
   // handling a CDP command.
   ClientNavigationThrottler client_navigation_throttler_;
+
+  // Set to true if the RenderFrameImpl committed an initial WebUI, which is a
+  // subset of topchrome WebUIs that are loaded and shown from the initial
+  // browser startup, e.g. the reload button.
+  bool is_initial_webui_ = false;
 
   base::WeakPtrFactory<RenderFrameImpl> weak_factory_{this};
 };

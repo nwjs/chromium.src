@@ -13,12 +13,14 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -29,10 +31,13 @@ import org.chromium.chrome.browser.autofill.AutofillUiUtils;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
+import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider;
+import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillResourceProvider;
 import org.chromium.components.autofill.payments.BnplIssuerForSettings;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 
 /** Preferences fragment to allow users to manage Buy Now Pay Later application settings. */
 @NullMarked
@@ -73,7 +78,7 @@ public class AutofillBuyNowPayLaterFragment extends ChromeBaseSettingsFragment
         menu.clear();
         MenuItem help =
                 menu.add(Menu.NONE, R.id.menu_id_targeted_help, Menu.NONE, R.string.menu_help);
-        help.setIcon(R.drawable.ic_help_and_feedback);
+        help.setIcon(R.drawable.ic_help_24dp);
     }
 
     @Override
@@ -134,8 +139,16 @@ public class AutofillBuyNowPayLaterFragment extends ChromeBaseSettingsFragment
             issuerPref.setOnPreferenceClickListener(this);
 
             // Set BNPL issuer icon.
-            issuerPref.setIcon(
-                    AppCompatResources.getDrawable(getStyledContext(), issuer.getIconId()));
+            @Nullable
+            final TouchToFillResourceProvider resourceProvider =
+                    ServiceLoaderUtil.maybeCreate(TouchToFillResourceProvider.class);
+            @DrawableRes
+            final int issuerImageId =
+                    resourceProvider == null
+                            ? R.drawable.bnpl_icon_generic
+                            : resourceProvider.getBnplIssuerDrawableId(
+                                    /* issuerId= */ issuer.getIssuerId(), /* isLinked= */ true);
+            issuerPref.setIcon(AppCompatResources.getDrawable(getStyledContext(), issuerImageId));
 
             // Add GPay icon.
             issuerPref.setWidgetLayoutResource(R.layout.autofill_server_data_label);
@@ -198,4 +211,17 @@ public class AutofillBuyNowPayLaterFragment extends ChromeBaseSettingsFragment
     public @SettingsFragment.AnimationType int getAnimationType() {
         return SettingsFragment.AnimationType.PROPERTY;
     }
+
+    public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new ChromeBaseSearchIndexProvider(AutofillBuyNowPayLaterFragment.class.getName(), 0) {
+
+                @Override
+                public void updateDynamicPreferences(Context context, SettingsIndexData indexData) {
+                    indexData.addEntryForKey(
+                            AutofillBuyNowPayLaterFragment.class.getName(),
+                            PREF_KEY_ENABLE_BUY_NOW_PAY_LATER,
+                            R.string.autofill_bnpl_settings_label,
+                            R.string.autofill_bnpl_settings_toggle_sublabel);
+                }
+            };
 }

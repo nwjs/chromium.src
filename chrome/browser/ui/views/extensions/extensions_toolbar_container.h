@@ -15,6 +15,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/ui/extensions/extensions_toolbar_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_container_views.h"
 #include "chrome/browser/ui/views/extensions/extensions_request_access_button.h"
@@ -38,7 +39,9 @@ class ExtensionsMenuCoordinator;
 class ExtensionsToolbarContainer : public ToolbarIconContainerView,
                                    public ExtensionsContainerViews,
                                    public ToolbarActionView::Delegate,
-                                   public views::WidgetObserver {
+                                   public views::WidgetObserver,
+                                   public ExtensionsToolbarViewModel::Delegate,
+                                   public ExtensionsToolbarViewModel::Observer {
   METADATA_HEADER(ExtensionsToolbarContainer, ToolbarIconContainerView)
 
  public:
@@ -122,6 +125,11 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
 
   ToolbarActionViewModel* popup_owner_for_testing() { return popup_owner_; }
 
+  // Gets the view model.
+  ExtensionsToolbarViewModel* GetToolbarViewModel() {
+    return toolbar_view_model_.get();
+  }
+
   // Gets the extension menu button for the toolbar.
   ExtensionsToolbarButton* GetExtensionsButton() const {
     return extensions_button_;
@@ -163,7 +171,7 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
     return extension_with_open_context_menu_id_;
   }
 
-  int GetNumberOfActionsForTesting() { return actions_.size(); }
+  int GetNumberOfActionsForTesting() { return model_->action_ids().size(); }
 
   ToolbarButton* GetCloseSidePanelButtonForTesting() {
     return close_side_panel_button_;
@@ -187,20 +195,13 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   void OnMouseExited(const ui::MouseEvent& event) override;
   void OnMouseMoved(const ui::MouseEvent& event) override;
 
-  // ExtensionsContainer:
-  ToolbarActionViewModel* GetActionForId(const std::string& action_id) override;
+  // ExtensionsContainerViews:
   std::optional<extensions::ExtensionId> GetPoppedOutActionId() const override;
   bool IsActionVisibleOnToolbar(const std::string& action_id) const override;
   void UndoPopOut() override;
   void SetPopupOwner(ToolbarActionViewModel* popup_owner) override;
-  void HideActivePopup() override;
-  bool CloseOverflowMenuIfOpen() override;
   void PopOutAction(const extensions::ExtensionId& action_id,
                     base::OnceClosure closure) override;
-  bool ShowToolbarActionPopupForAPICall(const std::string& action_id,
-                                        ShowPopupCallback callback) override;
-  void ToggleExtensionsMenu() override;
-  bool HasAnyExtensions() const override;
   void CollapseConfirmation() override;
   void ShowContextMenuAsFallback(
       const extensions::ExtensionId& action_id) override;
@@ -227,6 +228,23 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   bool CanStartDragForView(View* sender,
                            const gfx::Point& press_pt,
                            const gfx::Point& p) override;
+
+  // ExtensionsToolbarViewModel::Delegate:
+  std::unique_ptr<ExtensionActionViewModel> CreateActionViewModel(
+      const ToolbarActionsModel::ActionId& action_id,
+      ExtensionsContainer* extensinos_container) override;
+  void HideActivePopup() override;
+  bool CloseOverflowMenuIfOpen() override;
+  bool CanShowToolbarActionPopupForAPICall(
+      const ToolbarActionsModel::ActionId&) override;
+  void ToggleExtensionsMenu() override;
+
+  // ExtensionsToolbarViewModel::Observer:
+  void OnActionsInitialized() override;
+  void OnActionAdded(const ToolbarActionsModel::ActionId& action_id) override;
+  void OnActionRemoved(const ToolbarActionsModel::ActionId& action_id) override;
+  void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id) override;
+  void OnPinnedActionsChanged() override;
 
  private:
   friend class ToolbarActionHoverCardBubbleViewUITest;
@@ -264,7 +282,7 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   void AnchorAndShowWidgetImmediately(MayBeDangling<views::Widget> widget);
 
   // Creates an action and toolbar button for the corresponding ID.
-  void CreateActionForId(const ToolbarActionsModel::ActionId& action_id);
+  void CreateActionViewForId(const ToolbarActionsModel::ActionId& action_id);
 
   // Sorts child views to display them in the correct order (pinned actions,
   // popped out actions, other buttons).
@@ -329,11 +347,9 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   std::unique_ptr<ToolbarActionHoverCardController>
       action_hover_card_controller_;
 
-  // TODO(pbos): Create actions and icons only for pinned / popped out actions
-  // (lazily). Currently code expects GetActionForId() to return actions for
-  // extensions that aren't visible.
-  // Actions for all extensions.
-  std::vector<std::unique_ptr<ToolbarActionViewModel>> actions_;
+  // The view model for this container.
+  std::unique_ptr<ExtensionsToolbarViewModel> toolbar_view_model_;
+
   // View for every action, does not imply pinned or currently shown.
   ToolbarIcons icons_;
 
@@ -359,6 +375,11 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
 
   // Observes and listens to side panel alignment changes.
   PrefChangeRegistrar pref_change_registrar_;
+
+  // Observes and listens to changes to the view model.
+  base::ScopedObservation<ExtensionsToolbarViewModel,
+                          ExtensionsToolbarViewModel::Observer>
+      toolbar_view_model_observation_{this};
 
   base::WeakPtrFactory<ExtensionsToolbarContainer> weak_ptr_factory_{this};
 

@@ -36,6 +36,7 @@
 #include "components/sync/service/data_type_controller.h"
 #include "components/sync/service/data_type_manager.h"
 #include "components/sync/service/data_type_manager_observer.h"
+#include "components/sync/service/device_statistics_tracker.h"
 #include "components/sync/service/local_data_migration_item_queue.h"
 #include "components/sync/service/sync_auth_manager.h"
 #include "components/sync/service/sync_client.h"
@@ -408,6 +409,8 @@ class SyncServiceImpl : public SyncService,
       base::OnceCallback<void(std::map<DataType, LocalDataDescription>)>
           callback);
 
+  void DeviceStatisticsTrackerDone();
+
   // This profile's SyncClient.
   const std::unique_ptr<SyncClient> sync_client_;
 
@@ -497,11 +500,10 @@ class SyncServiceImpl : public SyncService,
   // Note: This is an Optional so that we can control its destruction - in
   // particular, to trigger the "check_empty" test in Shutdown().
   std::optional<base::ObserverList<SyncServiceObserver,
-                                   /*check_empty=*/true>::Unchecked>
+                                   /*check_empty=*/true>>
       observers_;
 
-  base::ObserverList<ProtocolEventObserver>::Unchecked
-      protocol_event_observers_;
+  base::ObserverList<ProtocolEventObserver> protocol_event_observers_;
 
   std::unique_ptr<BackendMigrator> migrator_;
 
@@ -538,6 +540,8 @@ class SyncServiceImpl : public SyncService,
 
   // Tasks that should run after the engine is initialized.
   std::vector<base::OnceClosure> tasks_waiting_for_engine_initialization_;
+
+  std::unique_ptr<DeviceStatisticsTracker> device_statistics_tracker_;
 
 #if BUILDFLAG(IS_ANDROID)
   // Manage and fetch the java object that wraps this SyncService on

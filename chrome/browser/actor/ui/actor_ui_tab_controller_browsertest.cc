@@ -22,10 +22,9 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_view_interface.h"
+#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
-#include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
@@ -46,9 +45,9 @@ using base::test::TestFuture;
 class FutureTabStripModelObserver : public TabStripModelObserver {
  public:
   // TabStripModelObserver:
-  void TabChangedAt(content::WebContents* contents,
-                    int index,
-                    TabChangeType change_type) override {
+  void OnTabChangedAt(tabs::TabInterface* tab,
+                      int index,
+                      TabChangeType change_type) override {
     if (change_type == TabChangeType::kAll) {
       Reset();
       future_.SetValue();
@@ -68,9 +67,9 @@ class FutureTabStripModelObserver : public TabStripModelObserver {
 class BaseActorUiTabControllerTest : public InProcessBrowserTest {
  protected:
   views::AnimatedImageView* GetSpinner() {
-    TabStripViewInterface* tab_strip_view =
+    TabStripRegionView* tab_strip_view =
         browser()->window()->AsBrowserView()->tab_strip_view();
-    Tab* tab_specific = tab_strip_view->GetTabAnchorViewAt(
+    views::View* tab_specific = tab_strip_view->GetTabAnchorViewAt(
         browser()->tab_strip_model()->active_index());
     views::AnimatedImageView* spinner =
         views::AsViewClass<AlertIndicatorButton>(
@@ -81,7 +80,7 @@ class BaseActorUiTabControllerTest : public InProcessBrowserTest {
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
-    actor_keyed_service()->GetPolicyChecker().SetActOnWebForTesting(true);
+    actor_keyed_service()->GetPolicyChecker().set_act_on_web_for_testing(true);
   }
 
   ActorKeyedService* actor_keyed_service() {
@@ -151,7 +150,7 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
                        TabSpinnerNotVisibleWhenWaitingOnUser) {
   // Start task on tab.
   auto* actor_service = actor::ActorKeyedService::Get(browser()->GetProfile());
-  actor_service->GetPolicyChecker().SetActOnWebForTesting(true);
+  actor_service->GetPolicyChecker().set_act_on_web_for_testing(true);
   actor::TaskId task_id = actor_service->CreateTask();
   actor::ActorTask* task = actor_service->GetTask(task_id);
   actor::ui::StartTask start_task_event(task_id);
@@ -185,8 +184,8 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
 
   // Wait for user event.
   actor_service->GetActorUiStateManager()->OnUiEvent(
-      actor::ui::TaskStateChanged(
-          task_id, actor::ActorTask::State::kWaitingOnUser, /*title=*/""));
+      actor::ui::TaskStateChanged(task_id,
+                                  actor::ActorTask::State::kWaitingOnUser));
   // Need to wait for the AUSM to notify the GlicActorTaskIconManager.
   base::PlatformThread::Sleep(actor::ui::kProfileScopedUiUpdateDebounceDelay);
 
@@ -199,8 +198,7 @@ IN_PROC_BROWSER_TEST_F(ActorUiTabControllerTest,
 
   // Restart the task
   actor_service->GetActorUiStateManager()->OnUiEvent(
-      actor::ui::TaskStateChanged(task_id, actor::ActorTask::State::kActing,
-                                  /*title=*/""));
+      actor::ui::TaskStateChanged(task_id, actor::ActorTask::State::kActing));
   // Need to wait for the AUSM to notify the GlicActorTaskIconManager.
   base::PlatformThread::Sleep(actor::ui::kProfileScopedUiUpdateDebounceDelay);
 

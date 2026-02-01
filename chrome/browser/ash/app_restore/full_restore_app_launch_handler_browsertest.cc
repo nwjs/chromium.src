@@ -58,11 +58,11 @@
 #include "chrome/browser/ui/ash/device_scheduled_reboot/reboot_notification_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -415,7 +415,7 @@ class FullRestoreAppLaunchHandlerBrowserTest
 
 IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
                        NoBrowserOnLaunch) {
-  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+  EXPECT_TRUE(GlobalBrowserCollection::GetInstance()->IsEmpty());
 }
 
 IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
@@ -1346,7 +1346,7 @@ class FullRestoreAppLaunchHandlerArcAppBrowserTest
 
     const auto& app_id_to_launch_list =
         app_launch_handler()->restore_data()->app_id_to_launch_list();
-    EXPECT_FALSE(base::Contains(app_id_to_launch_list, app_id));
+    EXPECT_FALSE(app_id_to_launch_list.contains(app_id));
   }
 
   FullRestoreAppLaunchHandler* app_launch_handler() {
@@ -1939,7 +1939,7 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerArcAppBrowserTest,
   SaveAppLaunchInfo(app_id1, session_id3);
   arc_helper_.CreateTask(app_id1, kTaskId3, session_id3);
   ASSERT_FALSE(restore_data->app_id_to_launch_list().empty());
-  ASSERT_TRUE(base::Contains(restore_data->app_id_to_launch_list(), app_id1));
+  ASSERT_TRUE(restore_data->app_id_to_launch_list().contains(app_id1));
 
   arc_helper_.StopInstance();
 }
@@ -2921,15 +2921,8 @@ IN_PROC_BROWSER_TEST_P(FullRestoreAppLaunchHandlerSystemWebAppsBrowserTest,
 
 // Tests that apps maintain splitview snap status after being relaunched with
 // full restore.
-// TODO(crbug.com/452086032): Re-enable on "Linux Chromium OS ASan LSan Tests".
-#if BUILDFLAG(IS_CHROMEOS) && defined(ADDRESS_SANITIZER) && \
-    defined(LEAK_SANITIZER)
-#define MAYBE_TabletSplitView DISABLED_TabletSplitView
-#else
-#define MAYBE_TabletSplitView TabletSplitView
-#endif
 IN_PROC_BROWSER_TEST_P(FullRestoreAppLaunchHandlerSystemWebAppsBrowserTest,
-                       MAYBE_TabletSplitView) {
+                       TabletSplitView) {
   TabletMode::Get()->SetEnabledForTest(true);
 
   BrowserWindowInterface* const app1_browser = LaunchHelpSystemWebApp();

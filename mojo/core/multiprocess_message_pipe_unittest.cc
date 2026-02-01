@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -18,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_file.h"
@@ -61,22 +57,26 @@ MojoResult MojoReadMessage(MojoHandle pipe,
   std::vector<ScopedHandle> handles;
   MojoResult rv =
       ReadMessageRaw(MessagePipeHandle(pipe), &bytes, &handles, flags);
-  if (rv != MOJO_RESULT_OK)
+  if (rv != MOJO_RESULT_OK) {
     return rv;
-
-  if (num_bytes)
-    *num_bytes = static_cast<uint32_t>(bytes.size());
-  if (!bytes.empty()) {
-    CHECK(out_bytes && num_bytes && *num_bytes >= bytes.size());
-    memcpy(out_bytes, bytes.data(), bytes.size());
   }
 
-  if (num_handles)
+  if (num_bytes) {
+    *num_bytes = static_cast<uint32_t>(bytes.size());
+  }
+  if (!bytes.empty()) {
+    CHECK(out_bytes && num_bytes && *num_bytes >= bytes.size());
+    UNSAFE_TODO(memcpy(out_bytes, bytes.data(), bytes.size()));
+  }
+
+  if (num_handles) {
     *num_handles = static_cast<uint32_t>(handles.size());
+  }
   if (!handles.empty()) {
     CHECK(out_handles && num_handles && *num_handles >= handles.size());
-    for (size_t i = 0; i < handles.size(); ++i)
-      out_handles[i] = handles[i].release().value();
+    for (size_t i = 0; i < handles.size(); ++i) {
+      UNSAFE_TODO(out_handles[i]) = handles[i].release().value();
+    }
   }
   return MOJO_RESULT_OK;
 }
@@ -304,7 +304,7 @@ DEFINE_TEST_CLIENT_WITH_PIPE(CheckSharedBuffer,
 
   // Write some stuff to the shared buffer.
   static const char kHello[] = "hello";
-  memcpy(buffer, kHello, sizeof(kHello));
+  UNSAFE_TODO(memcpy(buffer, kHello, sizeof(kHello)));
 
   // We should be able to close the dispatcher now.
   MojoClose(handles[0]);
@@ -332,7 +332,7 @@ DEFINE_TEST_CLIENT_WITH_PIPE(CheckSharedBuffer,
 
   // It should have written something to the shared buffer.
   static const char kWorld[] = "world!!!";
-  CHECK_EQ(memcmp(buffer, kWorld, sizeof(kWorld)), 0);
+  UNSAFE_TODO(CHECK_EQ(memcmp(buffer, kWorld, sizeof(kWorld)), 0));
 
   // And we're done.
 
@@ -394,11 +394,11 @@ TEST_F(MultiprocessMessagePipeTest, SharedBufferPassing) {
     void* buffer;
     CHECK_EQ(MojoMapBuffer(shared_buffer, 0, 100, nullptr, &buffer),
              MOJO_RESULT_OK);
-    ASSERT_EQ(0, memcmp(buffer, kHello, sizeof(kHello)));
+    UNSAFE_TODO(ASSERT_EQ(0, memcmp(buffer, kHello, sizeof(kHello))));
 
     // Now we'll write some stuff to the shared buffer.
     static const char kWorld[] = "world!!!";
-    memcpy(buffer, kWorld, sizeof(kWorld));
+    UNSAFE_TODO(memcpy(buffer, kWorld, sizeof(kWorld)));
 
     // And send a message to signal that we've written stuff.
     const std::string go3("go 3");
@@ -437,7 +437,7 @@ DEFINE_TEST_CLIENT_WITH_PIPE(CheckPlatformHandleFile,
   read_buffer.resize(num_bytes);
   char hello[32];
   int num_handles = 0;
-  sscanf(read_buffer.c_str(), "%s %d", hello, &num_handles);
+  UNSAFE_TODO(sscanf(read_buffer.c_str(), "%s %d", hello, &num_handles));
   CHECK_EQ(std::string("hello"), std::string(hello));
   CHECK_GT(num_handles, 0);
 
@@ -450,7 +450,7 @@ DEFINE_TEST_CLIENT_WITH_PIPE(CheckPlatformHandleFile,
     CHECK(fp);
     std::string fread_buffer(100, '\0');
     size_t bytes_read =
-        fread(&fread_buffer[0], 1, fread_buffer.size(), fp.get());
+        UNSAFE_TODO(fread(&fread_buffer[0], 1, fread_buffer.size(), fp.get()));
     fread_buffer.resize(bytes_read);
     CHECK_EQ(fread_buffer, "world");
   }
@@ -476,7 +476,8 @@ TEST_P(MultiprocessMessagePipeTestWithPipeCount, PlatformHandlePassing) {
       base::ScopedFILE fp =
           CreateAndOpenTemporaryStreamInDir(temp_dir.GetPath(), &unused);
       const std::string world("world");
-      CHECK_EQ(fwrite(&world[0], 1, world.size(), fp.get()), world.size());
+      UNSAFE_TODO(
+          CHECK_EQ(fwrite(&world[0], 1, world.size(), fp.get()), world.size()));
       fflush(fp.get());
       rewind(fp.get());
       ScopedHandle handle =
@@ -758,8 +759,9 @@ DEFINE_TEST_CLIENT_WITH_PIPE(ChannelEchoClient,
                              h) {
   for (;;) {
     std::string message = ReadMessage(h);
-    if (message == "exit")
+    if (message == "exit") {
       break;
+    }
     WriteMessage(h, message);
   }
   return 0;
@@ -784,8 +786,9 @@ DEFINE_TEST_CLIENT_WITH_PIPE(EchoServiceClient,
   ReadMessageWithHandles(h, &p, 1);
   for (;;) {
     std::string message = ReadMessage(p);
-    if (message == "exit")
+    if (message == "exit") {
       break;
+    }
     WriteMessage(p, message);
   }
   CloseHandle(p);
@@ -843,8 +846,9 @@ DEFINE_TEST_CLIENT_WITH_PIPE(EchoServiceFactoryClient,
     }
   }
 
-  for (size_t i = 1; i < handles.size(); ++i)
+  for (size_t i = 1; i < handles.size(); ++i) {
     CloseHandle(handles[i].value());
+  }
 
   return 0;
 }
@@ -1027,8 +1031,9 @@ DEFINE_TEST_CLIENT_WITH_PIPE(CommandDrivenClient,
     }
   }
 
-  for (auto& pipe : named_pipes)
+  for (auto& pipe : named_pipes) {
     CloseHandle(pipe.second);
+  }
 
   return 0;
 }
@@ -1342,8 +1347,9 @@ DEFINE_TEST_CLIENT_TEST_WITH_PIPE(MessagePipeStatusChangeInTransitClient,
   } while (result == MOJO_RESULT_OK);
   EXPECT_EQ(MOJO_RESULT_FAILED_PRECONDITION, result);
 
-  for (size_t i = 0; i < 4; ++i)
-    CloseHandle(handles[i]);
+  for (size_t i = 0; i < 4; ++i) {
+    CloseHandle(UNSAFE_TODO(handles[i]));
+  }
   CloseHandle(parent);
 }
 
@@ -1390,16 +1396,18 @@ DEFINE_TEST_CLIENT_TEST_WITH_PIPE(SpotaneouslyDyingProcess,
 TEST_F(MultiprocessMessagePipeTest, MessagePipeStatusChangeInTransit) {
   std::array<MojoHandle, 4> local_handles;
   MojoHandle sent_handles[4];
-  for (size_t i = 0; i < 4; ++i)
-    CreateMessagePipe(&local_handles[i], &sent_handles[i]);
+  for (size_t i = 0; i < 4; ++i) {
+    CreateMessagePipe(&local_handles[i], UNSAFE_TODO(&sent_handles[i]));
+  }
 
   RunTestClient("MessagePipeStatusChangeInTransitClient",
                 [&](MojoHandle child) {
                   // Send 4 handles and let their transfer race with their
                   // peers' closure.
                   WriteMessageWithHandles(child, "o_O", sent_handles, 4);
-                  for (size_t i = 0; i < 4; ++i)
+                  for (size_t i = 0; i < 4; ++i) {
                     CloseHandle(local_handles[i]);
+                  }
                 });
 }
 

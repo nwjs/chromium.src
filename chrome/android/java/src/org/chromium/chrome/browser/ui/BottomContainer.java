@@ -14,14 +14,14 @@ import androidx.annotation.CallSuper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.ui.base.ApplicationViewportInsetSupplier;
+import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.ViewportInsets;
 
 /**
@@ -37,8 +37,8 @@ public class BottomContainer extends FrameLayout
     /** The {@link BrowserControlsStateProvider} to listen for controls offset changes. */
     private BrowserControlsStateProvider mBrowserControlsStateProvider;
 
-    /** {@link ApplicationViewportInsetSupplier} to listen for viewport-shrinking features. */
-    private ApplicationViewportInsetSupplier mViewportInsetSupplier;
+    /** {@link ApplicationViewportInsetTracker} to listen for viewport-shrinking features. */
+    private NonNullObservableSupplier<ViewportInsets> mViewportInsetSupplier;
 
     /** The desired Y offset if unaffected by other UI. */
     private float mBaseYOffset;
@@ -55,7 +55,7 @@ public class BottomContainer extends FrameLayout
     @Initializer
     public void initialize(
             BrowserControlsStateProvider browserControlsStateProvider,
-            ApplicationViewportInsetSupplier viewportInsetSupplier,
+            NonNullObservableSupplier<ViewportInsets> viewportInsetSupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier) {
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mBrowserControlsStateProvider.addObserver(this);
@@ -89,20 +89,13 @@ public class BottomContainer extends FrameLayout
                         - mBrowserControlsStateProvider.getBottomControlsHeight();
         offsetFromControls -= assumeNonNull(mViewportInsetSupplier.get()).viewVisibleHeightInset;
 
-        if (SnackbarManager.isFloatingSnackbarEnabled()) {
-            int bottomInset =
-                    mEdgeToEdgeControllerSupplier != null
-                                    && mEdgeToEdgeControllerSupplier.get() != null
-                            ? mEdgeToEdgeControllerSupplier.get().getBottomInsetPx()
-                            : 0;
+        int bottomInset =
+                mEdgeToEdgeControllerSupplier != null && mEdgeToEdgeControllerSupplier.get() != null
+                        ? mEdgeToEdgeControllerSupplier.get().getBottomInsetPx()
+                        : 0;
 
-            // The floating snackbar shouldn't scroll into the bottom inset.
-            super.setTranslationY(Math.min(mBaseYOffset + offsetFromControls + bottomInset, 0));
-        } else {
-            // Sit on top of either the bottom sheet or the bottom toolbar depending on which is
-            // larger (offsets are negative).
-            super.setTranslationY(mBaseYOffset + offsetFromControls);
-        }
+        // The floating snackbar shouldn't scroll into the bottom inset.
+        super.setTranslationY(Math.min(mBaseYOffset + offsetFromControls + bottomInset, 0));
     }
 
     @Override

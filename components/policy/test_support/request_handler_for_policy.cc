@@ -4,7 +4,6 @@
 
 #include "components/policy/test_support/request_handler_for_policy.h"
 
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -53,11 +52,19 @@ std::unique_ptr<HttpResponse> RequestHandlerForPolicy::HandleRequest(
       dm_protocol::GetChromeUserPolicyType(),
       dm_protocol::kGoogleUpdateMachineLevelAppsPolicyType,
       dm_protocol::kGoogleUpdateMachineLevelOmahaPolicyType,
+      dm_protocol::kChromeExtensionInstallUserCloudPolicyType,
+      dm_protocol::kChromeExtensionInstallMachineLevelCloudPolicyType,
   };
   const base::flat_set<std::string> kExtensionPolicyTypes{
       dm_protocol::kChromeExtensionPolicyType,
       dm_protocol::kChromeMachineLevelExtensionCloudPolicyType,
       dm_protocol::kChromeSigninExtensionPolicyType,
+      dm_protocol::kChromeExtensionInstallUserCloudPolicyType,
+      dm_protocol::kChromeExtensionInstallMachineLevelCloudPolicyType,
+  };
+  const base::flat_set<std::string> kExtensionInstallPolicyTypes{
+      dm_protocol::kChromeExtensionInstallUserCloudPolicyType,
+      dm_protocol::kChromeExtensionInstallMachineLevelCloudPolicyType,
   };
 
   std::string request_device_token;
@@ -113,14 +120,22 @@ std::unique_ptr<HttpResponse> RequestHandlerForPolicy::HandleRequest(
   for (const auto& fetch_request : fetch_requests) {
     const std::string& policy_type = fetch_request.policy_type();
     // TODO(crbug.com/40773420): Add other policy types as needed.
-    if (!base::Contains(kCloudPolicyTypes, policy_type)) {
+    if (!kCloudPolicyTypes.contains(policy_type)) {
       return CreateHttpResponse(
           net::HTTP_BAD_REQUEST,
           base::StringPrintf("Invalid policy_type: %s", policy_type.c_str()));
     }
 
     std::string error_msg;
-    if (base::Contains(kExtensionPolicyTypes, policy_type)) {
+    if (kExtensionInstallPolicyTypes.contains(policy_type) &&
+        fetch_request.extension_ids_and_version_size() > 0) {
+      if (!ProcessCloudPolicyForExtensionInstall(
+              fetch_request, *client_info,
+              device_management_response.mutable_policy_response(),
+              &error_msg)) {
+        return CreateHttpResponse(net::HTTP_BAD_REQUEST, error_msg);
+      }
+    } else if (kExtensionPolicyTypes.contains(policy_type)) {
       if (!ProcessCloudPolicyForExtensions(
               fetch_request, *client_info,
               device_management_response.mutable_policy_response(),
@@ -333,6 +348,51 @@ bool RequestHandlerForPolicy::ProcessCloudPolicyForExtensions(
     }
   }
 
+  return true;
+}
+
+bool RequestHandlerForPolicy::ProcessCloudPolicyForExtensionInstall(
+    const em::PolicyFetchRequest& fetch_request,
+    const ClientStorage::ClientInfo& client_info,
+    em::DevicePolicyResponse* response,
+    std::string* error_msg) {
+  em::ExtensionInstallPolicies result;
+  for (const auto& extension : fetch_request.extension_ids_and_version()) {
+    em::PolicyFetchRequest fetch_request_with_id;
+    fetch_request_with_id.CopyFrom(fetch_request);
+    fetch_request_with_id.set_settings_entity_id(
+        extension.extension_id() + "@" + extension.extension_version());
+    em::PolicyFetchResponse inner_response;
+    if (!ProcessCloudPolicy(fetch_request_with_id, client_info, &inner_response,
+                            error_msg)) {
+      return false;
+    }
+    // Get the payload from the inner response.
+    em::PolicyData policy_data;
+    policy_data.ParseFromString(inner_response.policy_data());
+    em::ExtensionInstallPolicies extension_install_policies;
+    if (!extension_install_policies.ParseFromString(
+            policy_data.policy_value())) {
+      *error_msg = "Failed to parse payload as ExtensionInstallPolicies.";
+      return false;
+    }
+    if (extension_install_policies.policies_size() > 1) {
+      *error_msg = "More than one extension install policy found.";
+      return false;
+    }
+    if (extension_install_policies.policies_size() == 1) {
+      result.add_policies()->CopyFrom(extension_install_policies.policies(0));
+    }
+  }
+  em::PolicyData policy_data;
+  policy_data.set_policy_type(fetch_request.policy_type());
+  policy_data.set_policy_value(result.SerializeAsString());
+  if (fetch_request.extension_ids_and_version_size() == 1) {
+    policy_data.set_settings_entity_id(
+        fetch_request.extension_ids_and_version(0).extension_id());
+  }
+  policy_data.SerializeToString(
+      response->add_responses()->mutable_policy_data());
   return true;
 }
 

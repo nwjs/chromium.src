@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_POLICY_CLOUD_EXTENSION_INSTALL_POLICY_SERVICE_H_
 #define CHROME_BROWSER_POLICY_CLOUD_EXTENSION_INSTALL_POLICY_SERVICE_H_
 
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -16,29 +17,40 @@
 class Profile;
 
 namespace policy {
+struct ExtensionIdAndVersion;
 
-// A keyed service that provides access to the extension install policy.
 class ExtensionInstallPolicyService : public KeyedService {
  public:
-  explicit ExtensionInstallPolicyService(Profile* profile);
-  ~ExtensionInstallPolicyService() override;
-
-  ExtensionInstallPolicyService(const ExtensionInstallPolicyService&) = delete;
-  ExtensionInstallPolicyService& operator=(
-      const ExtensionInstallPolicyService&) = delete;
+  ~ExtensionInstallPolicyService() override = default;
 
   // To call before installing an extension
   // `extension_id_and_version` is an extension ID and version pair formatted
   // as "id@version".
-  void CanInstallExtension(const std::string& extension_id_and_version,
-                           base::OnceCallback<void(bool)>);
+  virtual void CanInstallExtension(
+      const ExtensionIdAndVersion& extension_id_and_version,
+      base::OnceCallback<void(bool)>) = 0;
 
-  // To call at startup to get the disallowed extensions
-  // `extension_ids_and_versions` is a list of extension ID and version pairs
-  // formatted as "id@version".
-  void GetDisallowedExtensions(
-      const std::vector<std::string>& extension_ids_and_versions,
-      base::OnceCallback<void(std::set<std::string> /*disallowed_extension*/)>);
+  virtual std::optional<bool> IsExtensionAllowed(
+      const ExtensionIdAndVersion& extension_id_and_version) = 0;
+};
+
+// A keyed service that provides access to the extension install policy.
+class ExtensionInstallPolicyServiceImpl : public ExtensionInstallPolicyService {
+ public:
+  explicit ExtensionInstallPolicyServiceImpl(Profile* profile);
+  ~ExtensionInstallPolicyServiceImpl() override;
+
+  ExtensionInstallPolicyServiceImpl(const ExtensionInstallPolicyServiceImpl&) =
+      delete;
+  ExtensionInstallPolicyServiceImpl& operator=(
+      const ExtensionInstallPolicyServiceImpl&) = delete;
+
+  // ExtensionInstallPolicyService:
+  void CanInstallExtension(
+      const ExtensionIdAndVersion& extension_id_and_version,
+      base::OnceCallback<void(bool)>) override;
+  std::optional<bool> IsExtensionAllowed(
+      const ExtensionIdAndVersion& extension_id_and_version) override;
 
  private:
   raw_ptr<Profile> profile_;

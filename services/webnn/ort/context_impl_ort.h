@@ -29,14 +29,11 @@ class ContextImplOrt final : public WebNNContextImpl {
   static std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> Create(
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
       base::WeakPtr<WebNNContextProviderImpl> context_provider,
-      const EpWorkarounds& ep_workarounds,
       mojom::CreateContextOptionsPtr options,
-      mojom::Device device_type,
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       scoped_refptr<Environment> env,
-      gpu::CommandBufferId command_buffer_id,
-      std::unique_ptr<ScopedSequence> sequence,
+      std::unique_ptr<ScopedGpuSequence> gpu_sequence,
       scoped_refptr<gpu::MemoryTracker> memory_tracker,
       scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
       gpu::SharedImageManager* shared_image_manager,
@@ -47,12 +44,11 @@ class ContextImplOrt final : public WebNNContextImpl {
                  base::WeakPtr<WebNNContextProviderImpl> context_provider,
                  const EpWorkarounds& ep_workarounds,
                  mojom::CreateContextOptionsPtr options,
-                 mojom::Device device_type,
+                 scoped_refptr<SessionOptions> session_options,
                  mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
                  mojo::ScopedDataPipeProducerHandle read_tensor_producer,
                  scoped_refptr<Environment> env,
-                 gpu::CommandBufferId command_buffer_id,
-                 std::unique_ptr<ScopedSequence> sequence,
+                 std::unique_ptr<ScopedGpuSequence> gpu_sequence,
                  scoped_refptr<gpu::MemoryTracker> memory_tracker,
                  scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
                  gpu::SharedImageManager* shared_image_manager,
@@ -72,6 +68,9 @@ class ContextImplOrt final : public WebNNContextImpl {
   scoped_refptr<SessionOptions> session_options() const {
     return session_options_;
   }
+
+  void HandleContextLostOrCrash(const std::string& error_message,
+                                OrtErrorCode error_code);
 
  private:
   ~ContextImplOrt() override;

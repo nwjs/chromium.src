@@ -16,7 +16,6 @@
 #import "ios/chrome/browser/download/model/download_manager_tab_helper.h"
 #import "ios/chrome/browser/drive/model/drive_metrics.h"
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
-#import "ios/chrome/browser/drive/model/manage_storage_url_util.h"
 #import "ios/chrome/browser/google_one/shared/google_one_entry_point.h"
 #import "ios/chrome/browser/save_to_drive/ui_bundled/file_destination_picker_view_controller.h"
 #import "ios/chrome/browser/save_to_drive/ui_bundled/save_to_drive_mediator.h"
@@ -24,12 +23,12 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/account_picker_commands.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
 #import "ios/chrome/browser/shared/public/commands/manage_storage_alert_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/save_to_drive_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
@@ -230,24 +229,12 @@
   }
   [_mediator willShowManageStorage];
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
-  if (base::FeatureList::IsEnabled(kIOSManageAccountStorage)) {
-    id<GoogleOneCommands> googleOneHandler =
-        HandlerForProtocol(dispatcher, GoogleOneCommands);
-    [googleOneHandler
-        showGoogleOneForIdentity:identity
-                      entryPoint:GoogleOneEntryPoint::kSaveToDriveAlert
-              baseViewController:_accountPickerCoordinator.viewController];
-    return;
-  }
-  // The uploading identity's user email is used to switch to the uploading
-  // account before loading the "Manage Storage" web page.
-  GURL manageStorageURL = GenerateManageDriveStorageUrl(
-      base::SysNSStringToUTF8(identity.userEmail));
-  OpenNewTabCommand* newTabCommand =
-      [OpenNewTabCommand commandWithURLFromChrome:manageStorageURL];
-  id<ApplicationCommands> applicationHandler =
-      HandlerForProtocol(dispatcher, ApplicationCommands);
-  [applicationHandler openURLInNewTab:newTabCommand];
+  id<GoogleOneCommands> googleOneHandler =
+      HandlerForProtocol(dispatcher, GoogleOneCommands);
+  [googleOneHandler
+      showGoogleOneForIdentity:identity
+                    entryPoint:GoogleOneEntryPoint::kSaveToDriveAlert
+            baseViewController:_accountPickerCoordinator.viewController];
 }
 
 #pragma mark - AccountPickerCommands

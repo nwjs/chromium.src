@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/file_system_access/file_system_access_manager.h"
 
+#include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -11,22 +12,30 @@
 namespace blink {
 
 // static
+const char FileSystemAccessManager::kSupplementName[] =
+    "FileSystemAccessManager";
+
+// static
 FileSystemAccessManager& FileSystemAccessManager::From(
     ExecutionContext* context) {
-  FileSystemAccessManager* manager = context->GetFileSystemAccessManager();
+  FileSystemAccessManager* manager =
+      Supplement<ExecutionContext>::From<FileSystemAccessManager>(context);
   if (!manager) {
     manager = MakeGarbageCollected<FileSystemAccessManager>(context);
-    context->SetFileSystemAccessManager(manager);
+    Supplement<ExecutionContext>::ProvideTo(*context, manager);
   }
   manager->EnsureConnection();
   return *manager;
 }
 
 FileSystemAccessManager::FileSystemAccessManager(ExecutionContext* context)
-    : ExecutionContextClient(context), remote_(context) {}
+    : Supplement<ExecutionContext>(*context),
+      ExecutionContextClient(context),
+      remote_(context) {}
 
 void FileSystemAccessManager::Trace(Visitor* visitor) const {
   visitor->Trace(remote_);
+  Supplement<ExecutionContext>::Trace(visitor);
   ExecutionContextClient::Trace(visitor);
 }
 

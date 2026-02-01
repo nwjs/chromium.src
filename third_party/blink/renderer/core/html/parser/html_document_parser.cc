@@ -72,6 +72,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
@@ -114,14 +115,6 @@ bool ThreadedPreloadScannerEnabled(
   if (reset_mode == FeatureResetMode::kResetForTesting) {
     kEnabled = base::FeatureList::IsEnabled(features::kThreadedPreloadScanner);
   }
-  return kEnabled;
-}
-
-bool CheckParserBudgetLessOften() {
-  // Cache the feature value since checking for each parser regresses some micro
-  // benchmarks.
-  static const bool kEnabled =
-      base::FeatureList::IsEnabled(features::kCheckHTMLParserBudgetLessOften);
   return kEnabled;
 }
 
@@ -696,8 +689,7 @@ bool HTMLDocumentParser::PumpTokenizer() {
                                      task_runner_state_->IsSynchronous() ||
                                      task_runner_state_->InNestedPumpSession();
 
-  bool is_tracing;
-  TRACE_EVENT_CATEGORY_GROUP_ENABLED("blink", &is_tracing);
+  bool is_tracing = TRACE_EVENT_CATEGORY_ENABLED("blink");
   unsigned starting_bytes;
   if (is_tracing) {
     starting_bytes = input_.length();
@@ -736,7 +728,6 @@ bool HTMLDocumentParser::PumpTokenizer() {
   base::ElapsedTimer chunk_parsing_timer;
   base::TimeDelta elapsed_time;
   unsigned tokens_parsed = 0;
-  int characters_consumed_before_token = 0;
   base::TimeDelta time_executing_script;
   v8::Isolate* isolate = GetDocument()->GetAgent().isolate();
   while (true) {
@@ -783,23 +774,7 @@ bool HTMLDocumentParser::PumpTokenizer() {
       DCHECK_EQ(task_runner_state_->GetMode(), kAllowDeferredParsing);
       if (!RuntimeEnabledFeatures::
               HTMLParserYieldAndDelayOftenForTestingEnabled()) {
-        if (CheckParserBudgetLessOften()) {
-          int newly_consumed_characters =
-              input_.Current().NumberOfCharactersConsumed() -
-              characters_consumed_before_token;
-          characters_consumed_before_token =
-              input_.Current().NumberOfCharactersConsumed();
-          // On android calling chunk_parsing_timer.Elapsed seems fairly slow
-          // compared to the parsing time of small tokens. Only update the
-          // timer occasionally.
-          if (ShouldCheckTimeBudget(next_token_status,
-                                    atomic_html_token.GetHTMLTag(),
-                                    newly_consumed_characters, tokens_parsed)) {
-            elapsed_time = chunk_parsing_timer.Elapsed();
-          }
-        } else {
-          elapsed_time = chunk_parsing_timer.Elapsed();
-        }
+        elapsed_time = chunk_parsing_timer.Elapsed();
         should_yield = elapsed_time >= timed_budget;
       } else {
         should_yield = budget <= 0;
@@ -1609,7 +1584,18 @@ void HTMLDocumentParser::ProcessPreloadData(
 
   seen_csp_meta_tags_ += preload_data->csp_meta_tag_count;
   for (auto& request : preload_data->requests) {
+    // Check if this preload should be filtered before queueing it.
+    // This avoids queueing requests (e.g., in "html_only"
+    // kLightweightNoStatePrefetch mode) that the preloader would
+    // just discard later.
+    if (!HTMLResourcePreloader::ShouldPreload(
+            GetDocument(), request->GetResourceType(), request->IsPreconnect(),
+            request->DeferOption(), request->FetchPriorityHint())) {
+      continue;
+    }
+
     queued_preloads_.push_back(std::move(request));
+
     if (metrics_reporter_) {
       metrics_reporter_->IncrementPreloadRequestCount();
     }

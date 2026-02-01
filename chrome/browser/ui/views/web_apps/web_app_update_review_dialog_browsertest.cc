@@ -121,16 +121,20 @@ class WebAppUpdateReviewDialog : public DialogBrowserTest {
   // DialogBrowserTest:
   void ShowUi(const std::string& name) override {
     // Modify the update configuration based on the test name.
-    if (base::Contains(name, "NameChange")) {
+    if (name.contains("NameChange")) {
       update_.new_title =
           u"Definitely a longer title that is really really really really "
           u"long.";
     }
-    if (base::Contains(name, "IconChange")) {
+    if (name.contains("IconChange")) {
       update_.new_icon = gfx::Image::CreateFrom1xBitmap(new_icon_);
     }
-    if (base::Contains(name, "UrlChange")) {
+    if (name.contains("UrlChange")) {
       update_.new_start_url = GURL("http://other.test.com");
+    }
+    if (name.contains("ForcedMigration")) {
+      update_.new_start_url = GURL("http://other.test.com");
+      update_.is_forced_migration = true;
     }
 
     web_app::ShowWebAppReviewUpdateDialog(app_id_, update_, browser(),
@@ -194,6 +198,24 @@ IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
 
 IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog, InvokeUi_UrlChange) {
   ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,
+                       ForcedMigrationNoIgnoreButton) {
+  views::NamedWidgetShownWaiter update_dialog_waiter(
+      views::test::AnyWidgetTestPasskey(), "WebAppUpdateReviewDialog");
+  ShowUi("ForcedMigration");
+  views::Widget* dialog_widget = update_dialog_waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(dialog_widget != nullptr);
+  ASSERT_FALSE(dialog_widget->IsClosed());
+
+  views::ElementTrackerViews* tracker_views =
+      views::ElementTrackerViews::GetInstance();
+  ui::ElementContext context =
+      views::ElementTrackerViews::GetContextForWidget(dialog_widget);
+  views::Button* button = tracker_views->GetFirstMatchingViewAs<views::Button>(
+      kWebAppUpdateReviewIgnoreButton, context);
+  ASSERT_EQ(button, nullptr);
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppUpdateReviewDialog,

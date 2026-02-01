@@ -392,9 +392,6 @@ class PasswordFormMetricsRecorder
     kMaxValue = kWrong,
   };
 
-  // Called if the user could generate a password for this form.
-  void MarkGenerationAvailable();
-
   // Stores the user action associated with a generated password.
   void SetGeneratedPasswordStatus(GeneratedPasswordStatus status);
 
@@ -414,6 +411,9 @@ class PasswordFormMetricsRecorder
   // submission.
   void SetSubmissionIndicatorEvent(
       autofill::mojom::SubmissionIndicatorEvent event);
+
+  // Sets the timestamp when the Actor Login attempt was created.
+  void SetActorLoginStartTime(base::TimeTicks start_time);
 
   // Records the event that a password bubble was shown.
   void RecordPasswordBubbleShown(
@@ -652,6 +652,10 @@ class PasswordFormMetricsRecorder
   std::optional<JsOnlyInput> js_only_input_;
 
   bool is_mixed_content_form_ = false;
+
+  // Timestamp of when the Actor Login attempt started.
+  // nullopt if this form was not filled via Actor Login.
+  std::optional<base::TimeTicks> actor_login_start_time_;
 
   // Renderer ids of key password form elements, saved on form filling.
   // Needed to measure the difference in form parsing on filling and saving.

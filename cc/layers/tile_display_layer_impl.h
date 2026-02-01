@@ -175,6 +175,13 @@ class CC_EXPORT TileDisplayLayerImpl
       std::vector<float> proposed_tiling_scales) {
     proposed_tiling_scales_for_deletion_ = std::move(proposed_tiling_scales);
   }
+  const gfx::Rect& recorded_bounds_for_testing() const {
+    return recorded_bounds_;
+  }
+  const std::vector<float>& proposed_tiling_scales_for_deletion_for_testing()
+      const {
+    return proposed_tiling_scales_for_deletion_;
+  }
   bool nearest_neighbor() const { return nearest_neighbor_; }
 
   // LayerImpl overrides:
@@ -207,9 +214,6 @@ class CC_EXPORT TileDisplayLayerImpl
   std::optional<SkColor4f> solid_color_for_testing() const {
     return solid_color();
   }
-  std::vector<float>& LastAppendQuadsScalesForTesting() {
-    return last_append_quads_scales_;
-  }
 
  private:
   // TileBasedLayerImpl:
@@ -218,7 +222,8 @@ class CC_EXPORT TileDisplayLayerImpl
                                  AppendQuadsData* append_quads_data,
                                  viz::SharedQuadState* shared_quad_state,
                                  const Occlusion& scaled_occlusion,
-                                 const gfx::Vector2d& quad_offset) override;
+                                 const gfx::Vector2d& quad_offset,
+                                 float max_contents_scale) override;
   float GetMaximumContentsScaleForUseInAppendQuads() override;
   float GetIdealContentsScaleKey() const override;
   void AppendQuadsForResourcelessSoftwareDraw(
@@ -243,18 +248,6 @@ class CC_EXPORT TileDisplayLayerImpl
   // space.
   gfx::Rect damage_rect_;
   std::vector<std::unique_ptr<TileDisplayLayerTiling>> tilings_;
-
-  // List of tiling scales that were used last time we appended quads. This is
-  // used as an optimization not to remove tilings if they are still being
-  // drawn. The renderer will propose list of candidate tilings for deletion to
-  // Viz represented by |proposed_tiling_scales_for_deletion_|, and the
-  // Viz process will confirm which of those are safe to delete
-  // (i.e. not used in the last frame) before the renderer actually removes
-  // them. This keeps the renderer’s tile management logic close to its
-  // current behavior and prevents premature deletion of tiles still needed by
-  // Viz. Note that unlike PictureLayerImpl, we have last appended quads scales
-  // here instead of tiling ptr since its not needed in this case.
-  std::vector<float> last_append_quads_scales_;
 
   // A list of tiling scale keys that the client has nominated for deletion.
   // This allows the client to suggest cleanup, but Viz makes the final

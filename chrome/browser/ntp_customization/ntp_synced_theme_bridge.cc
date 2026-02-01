@@ -13,23 +13,21 @@
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "url/android/gurl_android.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
-static jlong JNI_NtpSyncedThemeBridge_Init(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& j_profile,
-    const JavaParamRef<jobject>& j_java_obj) {
+static jlong JNI_NtpSyncedThemeBridge_Init(JNIEnv* env,
+                                           const JavaRef<jobject>& j_profile,
+                                           const JavaRef<jobject>& j_java_obj) {
   Profile* profile = Profile::FromJavaObject(j_profile);
   NtpSyncedThemeBridge* ntp_customization_theme_bridge =
       new NtpSyncedThemeBridge(env, profile, j_java_obj);
   return reinterpret_cast<intptr_t>(ntp_customization_theme_bridge);
 }
 
-NtpSyncedThemeBridge::NtpSyncedThemeBridge(
-    JNIEnv* env,
-    Profile* profile,
-    const JavaParamRef<jobject>& j_java_obj)
+NtpSyncedThemeBridge::NtpSyncedThemeBridge(JNIEnv* env,
+                                           Profile* profile,
+                                           const JavaRef<jobject>& j_java_obj)
     : profile_(profile),
       ntp_custom_background_service_(
           NtpCustomBackgroundServiceFactory::GetForProfile(profile)),
@@ -46,6 +44,13 @@ void NtpSyncedThemeBridge::Destroy(JNIEnv* env) {
 }
 
 NtpSyncedThemeBridge::~NtpSyncedThemeBridge() = default;
+
+void NtpSyncedThemeBridge::FetchNextThemeCollectionImage(JNIEnv* env) {
+  if (!ntp_custom_background_service_) {
+    return;
+  }
+  ntp_custom_background_service_->RefreshBackgroundIfNeeded();
+}
 
 ScopedJavaLocalRef<jobject> NtpSyncedThemeBridge::GetCustomBackgroundInfo(
     JNIEnv* env) {

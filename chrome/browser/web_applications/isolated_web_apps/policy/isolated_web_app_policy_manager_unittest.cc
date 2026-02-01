@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/check_deref.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
@@ -39,6 +38,10 @@
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/features.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_histograms.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/proto/key_distribution.pb.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_test.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/iwa_test_server_configurator.h"
@@ -68,10 +71,6 @@
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/test_support/signed_web_bundles/ed25519_key_pair.h"
 #include "components/webapps/common/web_app_id.h"
-#include "components/webapps/isolated_web_apps/features.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_histograms.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
-#include "components/webapps/isolated_web_apps/proto/key_distribution.pb.h"
 #include "components/webapps/isolated_web_apps/test_support/signing_keys.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/common/content_features.h"
@@ -509,7 +508,7 @@ class IsolatedWebAppManagedAllowlistTest
 
   void SetUp() override {
     IsolatedWebAppPolicyManagerTestBase::SetUp();
-    IwaKeyDistributionInfoProvider::GetInstance()
+    IwaKeyDistributionInfoProvider::GetInstanceForTesting()
         .SkipManagedAllowlistChecksForTesting(false);
   }
 };
@@ -529,14 +528,13 @@ TEST_F(IsolatedWebAppManagedAllowlistTest, AllowedAppInstalled) {
       future.GetRepeatingCallback());
 
   // Update allowlist
-  EXPECT_THAT(test::UpdateKeyDistributionInfoWithAllowlist(
-                  base::Version("1.0.1"),
-                  /*managed_allowlist=*/{web_bundle_id_1()}),
-              HasValue());
+  EXPECT_OK(test::KeyDistributionComponentBuilder(base::Version("1.0.1"))
+                .AddToManagedAllowlist(web_bundle_id_1())
+                .Build()
+                .UploadFromComponentFolder());
 
-  EXPECT_TRUE(
-      IwaKeyDistributionInfoProvider::GetInstance().IsManagedInstallPermitted(
-          web_bundle_id_1().id()));
+  EXPECT_TRUE(IwaKeyDistributionInfoProvider::GetInstanceForTesting()
+                  .IsManagedInstallPermitted(web_bundle_id_1().id()));
 
   test::AddForceInstalledIwaToPolicy(
       profile()->GetPrefs(),
@@ -571,14 +569,13 @@ TEST_F(IsolatedWebAppManagedAllowlistTest, NotAllowedAppInstallationRefused) {
       future.GetRepeatingCallback());
 
   // Ensure allowlist is empty
-  EXPECT_THAT(
-      test::UpdateKeyDistributionInfoWithAllowlist(base::Version("1.0.1"),
-                                                   /*managed_allowlist=*/{}),
-      HasValue());
+  EXPECT_OK(test::KeyDistributionComponentBuilder(base::Version("1.0.1"))
+                .WithManagedAllowlist({})  // For clarity only
+                .Build()
+                .UploadFromComponentFolder());
 
-  EXPECT_FALSE(
-      IwaKeyDistributionInfoProvider::GetInstance().IsManagedInstallPermitted(
-          web_bundle_id_1().id()));
+  EXPECT_FALSE(IwaKeyDistributionInfoProvider::GetInstanceForTesting()
+                   .IsManagedInstallPermitted(web_bundle_id_1().id()));
 
   test::AddForceInstalledIwaToPolicy(
       profile()->GetPrefs(),
@@ -738,7 +735,7 @@ class UninstallWebAppCommandScheduler : public WebAppCommandScheduler {
       UninstallCallback callback,
       const base::Location& location) override {
     tried_to_uninstall_ = true;
-    EXPECT_TRUE(base::Contains(expected_apps_to_remove_, app_id));
+    EXPECT_TRUE(expected_apps_to_remove_.contains(app_id));
     EXPECT_EQ(management_type, expected_management_type_to_remove_.value_or(
                                    WebAppManagement::Type::kIwaPolicy));
     EXPECT_EQ(uninstall_source,

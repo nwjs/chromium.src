@@ -26,6 +26,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -34,6 +35,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -51,7 +53,7 @@ import org.chromium.ui.dragdrop.DragDropMetricUtils.DragDropResult;
 import org.chromium.ui.dragdrop.DragDropMetricUtils.DragDropType;
 
 import java.lang.ref.WeakReference;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @RunWith(org.chromium.base.test.BaseRobolectricTestRunner.class)
@@ -509,20 +511,26 @@ public class ChromeTabbedOnDragListenerUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testOnDrag_ActionDrop_DifferentModel_Fail_IncognitoAsNewWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         verifyDropToDifferentModelFailed(/* isGroupDrag= */ false, /* isMultiTabDrag= */ false);
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testOnDrag_ActionDrop_DifferentModel_Fail_TabGroup_IncognitoAsNewWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         verifyDropToDifferentModelFailed(/* isGroupDrag= */ true, /* isMultiTabDrag= */ false);
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testOnDrag_ActionDrop_DifferentModel_Fail_MultiTab_IncognitoAsNewWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         verifyDropToDifferentModelFailed(/* isGroupDrag= */ false, /* isMultiTabDrag= */ true);
     }
 
@@ -604,12 +612,13 @@ public class ChromeTabbedOnDragListenerUnitTest {
                     .thenReturn(
                             new ChromeTabGroupDropDataAndroid.Builder()
                                     .withTabGroupMetadata(mTabGroupMetadata)
+                                    .withTabs(Collections.singletonList(mTab))
                                     .build());
         } else if (isMultiTabDrag) {
             when(mDragDropGlobalState.getData())
                     .thenReturn(
                             new ChromeMultiTabDropDataAndroid.Builder()
-                                    .withTabs(Arrays.asList(mTab))
+                                    .withTabs(Collections.singletonList(mTab))
                                     .build());
         } else {
             when(mDragDropGlobalState.getData())

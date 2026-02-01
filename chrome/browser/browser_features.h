@@ -46,7 +46,6 @@ BASE_DECLARE_FEATURE(kDbusSecretPortal);
 #endif
 
 BASE_DECLARE_FEATURE(kDestroyProfileOnBrowserClose);
-BASE_DECLARE_FEATURE(kDestroySystemProfiles);
 
 BASE_DECLARE_FEATURE(kFlexOrgManagementDisclosure);
 BASE_DECLARE_FEATURE(kIncomingCallNotifications);
@@ -90,10 +89,6 @@ BASE_DECLARE_FEATURE(kSecretPortalKeyProviderUseForEncryption);
 #endif
 
 BASE_DECLARE_FEATURE(kTriggerNetworkDataMigration);
-
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_DECLARE_FEATURE(kTabCaptureBlueBorderCrOS);
-#endif
 
 BASE_DECLARE_FEATURE(kWebUsbDeviceDetection);
 

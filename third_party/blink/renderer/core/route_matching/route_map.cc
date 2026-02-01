@@ -4,11 +4,13 @@
 
 #include "third_party/blink/renderer/core/route_matching/route_map.h"
 
+#include "base/auto_reset.h"
 #include "base/check_is_test.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/route_matching/route.h"
+#include "third_party/blink/renderer/core/route_matching/route_event.h"
 #include "third_party/blink/renderer/core/url_pattern/url_pattern.h"
 #include "third_party/blink/renderer/core/url_pattern/url_pattern_utils.h"
 #include "third_party/blink/renderer/platform/json/json_parser.h"
@@ -18,32 +20,18 @@ namespace blink {
 
 namespace {
 
-RouteMap::ParseResult AddPatternToRoute(const Document& document,
-                                        Route& route,
-                                        const JSONValue& value) {
-  base::expected<URLPattern*, String> pattern =
-      ParseURLPatternFromJSON(document.GetExecutionContext()->GetIsolate(),
-                              value, document.Url(), IGNORE_EXCEPTION);
-  if (pattern.has_value()) {
-    DCHECK(*pattern);
-    route.AddPattern(*pattern);
-    return RouteMap::ParseResult(RouteMap::ParseResult::kSuccess);
-  }
-  return RouteMap::ParseResult(RouteMap::ParseResult::kSyntaxError,
-                               pattern.error());
-}
 
 }  // anonymous namespace
 
-RouteMap::RouteMap(Document& document) : document_(document) {}
-RouteMap::RouteMap() {
+RouteMap::RouteMap(Document& document) : Supplement<Document>(document) {}
+RouteMap::RouteMap() : Supplement<Document>(nullptr) {
   CHECK_IS_TEST();
 }
 
 void RouteMap::Trace(Visitor* v) const {
-  v->Trace(document_);
   v->Trace(routes_);
   v->Trace(anonymous_routes_);
+  Supplement<Document>::Trace(v);
   ScriptWrappable::Trace(v);
 }
 
@@ -55,37 +43,37 @@ Route* RouteMap::get(const String& route_name) {
   return it->value;
 }
 
+// BEGIN Supplement support:
+
+const char RouteMap::kSupplementName[] = "RouteMap";
+
 const RouteMap* RouteMap::Get(const Document* document) {
   if (!document) {
     return nullptr;
   }
-  return document->GetRouteMap();
+  return Supplement<Document>::From<RouteMap>(*document);
 }
 
 RouteMap* RouteMap::Get(Document* document) {
   if (!document) {
     return nullptr;
   }
-  return document->GetRouteMap();
+  return Supplement<Document>::From<RouteMap>(*document);
 }
 
 RouteMap& RouteMap::Ensure(Document& document) {
   RouteMap* route_map = Get(&document);
   if (!route_map) {
     route_map = MakeGarbageCollected<RouteMap>(document);
-    document.SetRouteMap(route_map);
+    Supplement<Document>::ProvideTo<RouteMap>(document, route_map);
   }
   return *route_map;
 }
 
+// END Supplement support
+
 RouteMap::ParseResult RouteMap::ParseAndApplyRoutes(
     const String& route_map_text) {
-  RouteMap::ParseResult result = ParseRoutes(route_map_text);
-  UpdateActiveRoutes();
-  return result;
-}
-
-RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
   constexpr char kPattern[] = "pattern";
   std::unique_ptr<JSONValue> value = ParseJSON(route_map_text);
   // TODO(crbug.com/436805487): Error reporting needs to be specced. Should we
@@ -119,6 +107,16 @@ RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
                            "Invalid data type or missing name entry for route");
       }
 
+      if (name.StartsWith("--")) {
+        // Don't clash with CSS @route rules.
+        //
+        // TODO(crbug.com/436805487): Add a test for this (if support for
+        // <script type="routemap"> (this code) actually won't end up getting
+        // removed).
+        return ParseResult(ParseResult::kTypeError,
+                           "Route names cannot start with '--'");
+      }
+
       auto it = routes_.find(name);
       Route* route;
       if (it == routes_.end()) {
@@ -136,8 +134,7 @@ RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
                              "Missing pattern in route entry");
         }
         for (const JSONValue& pattern : *patterns) {
-          ParseResult result =
-              AddPatternToRoute(GetDocument(), *route, pattern);
+          ParseResult result = AddPatternToRoute(*route, pattern);
           if (!result.IsSuccess()) {
             return result;
           }
@@ -149,7 +146,7 @@ RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
           return ParseResult(ParseResult::kTypeError,
                              "Missing pattern in route entry");
         }
-        ParseResult result = AddPatternToRoute(GetDocument(), *route, *pattern);
+        ParseResult result = AddPatternToRoute(*route, *pattern);
         if (!result.IsSuccess()) {
           return result;
         }
@@ -162,6 +159,20 @@ RouteMap::ParseResult RouteMap::ParseRoutes(const String& route_map_text) {
   }
 
   return ParseResult(ParseResult::kSuccess);
+}
+
+void RouteMap::AddRouteFromRule(const String& dashed_ident,
+                                URLPattern* url_pattern) {
+  DCHECK(dashed_ident.StartsWith("--"));
+
+  if (routes_.find(dashed_ident) != routes_.end()) {
+    // TODO(crbug.com/436805487): Handle route modificiation and removal.
+    return;
+  }
+  Route* route = MakeGarbageCollected<Route>(GetDocument());
+  route->AddPattern(url_pattern);
+  routes_.insert(dashed_ident, route);
+  route->UpdateMatchStatus(previous_url_, next_url_);
 }
 
 void RouteMap::AddAnonymousRoute(URLPattern* pattern) {
@@ -188,22 +199,37 @@ const Route* RouteMap::FindRoute(const URLPattern* pattern) const {
 }
 
 void RouteMap::UpdateActiveRoutes() {
+#if DCHECK_IS_ON()
+  DCHECK(!is_updating_active_routes_);
+  base::AutoReset<bool> is_updating(&is_updating_active_routes_, true);
+#endif
+
+  HeapVector<Member<Route>> routes_needing_event;
   bool changed = false;
   for (const auto& entry : routes_) {
     Route& route = *entry.value;
-    changed = route.UpdateMatchStatus(previous_url_, next_url_) || changed;
+    changed |= UpdateMatchStatus(route, &routes_needing_event);
   }
   for (const auto& entry : anonymous_routes_) {
     Route& route = *entry.value;
-    changed = route.UpdateMatchStatus(previous_url_, next_url_) || changed;
+    changed |= UpdateMatchStatus(route, &routes_needing_event);
   }
+
+  for (Route* route : routes_needing_event) {
+    bool matches_at = route->Matches(NavigationPreposition::kAt);
+    AtomicString type(matches_at ? "activate" : "deactivate");
+    auto* event = MakeGarbageCollected<RouteEvent>(type);
+    event->SetTarget(route);
+    route->DispatchEvent(*event);
+  }
+
   if (changed) {
-    GetDocument().GetStyleEngine().RoutesMayHaveChanged();
+    GetDocument().GetStyleEngine().NavigationsMayHaveChanged();
   }
 }
 
 void RouteMap::GetActiveRoutes(
-    RoutePreposition preposition,
+    NavigationPreposition preposition,
     RouteMatchState::MatchCollection* collection) const {
   collection->clear();
   for (const auto& entry : routes_) {
@@ -218,6 +244,38 @@ void RouteMap::GetActiveRoutes(
       collection->insert(&route);
     }
   }
+}
+
+RouteMap::ParseResult RouteMap::AddPatternToRoute(Route& route,
+                                                  const JSONValue& value) {
+  base::expected<URLPattern*, String> pattern =
+      ParseURLPatternFromJSON(GetDocument().GetExecutionContext()->GetIsolate(),
+                              value, GetDocument().Url(), IGNORE_EXCEPTION);
+  if (pattern.has_value()) {
+    DCHECK(*pattern);
+    route.AddPattern(*pattern);
+    // TODO(crbug.com/436805487): If we actually end up keeping support for
+    // <script type="routemap">, we're missing events here.
+    if (route.UpdateMatchStatus(previous_url_, next_url_)) {
+      GetDocument().GetStyleEngine().NavigationsMayHaveChanged();
+    }
+    return RouteMap::ParseResult(RouteMap::ParseResult::kSuccess);
+  }
+  return RouteMap::ParseResult(RouteMap::ParseResult::kSyntaxError,
+                               pattern.error());
+}
+
+bool RouteMap::UpdateMatchStatus(
+    Route& route,
+    HeapVector<Member<Route>>* routes_needing_event) {
+  bool matched_at = route.Matches(NavigationPreposition::kAt);
+  if (!route.UpdateMatchStatus(previous_url_, next_url_)) {
+    return false;
+  }
+  if (matched_at != route.Matches(NavigationPreposition::kAt)) {
+    routes_needing_event->push_back(&route);
+  }
+  return true;
 }
 
 }  // namespace blink

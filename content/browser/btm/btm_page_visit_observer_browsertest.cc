@@ -5,6 +5,7 @@
 #include "content/browser/btm/btm_page_visit_observer.h"
 
 #include "base/feature_list.h"
+#include "base/strings/to_string.h"
 #include "base/test/simple_test_clock.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/ukm/content/source_url_recorder.h"
@@ -1525,7 +1526,7 @@ IN_PROC_BROWSER_TEST_P(BtmPageVisitObserverSiteDataAccessBrowserTest,
 
   // Navigate to url1, and prerender a page that accesses storage.
   ASSERT_TRUE(NavigateToURL(web_contents, url1));
-  const FrameTreeNodeId host_id =
+  const PrerenderHostId host_id =
       prerender_test_helper()->AddPrerender(prerendering_url);
   prerender_test_helper()->WaitForPrerenderLoadCompletion(prerendering_url);
   test::PrerenderHostObserver observer(*web_contents, host_id);

@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tabbed_mode;
 
 import android.view.Window;
 
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -14,17 +15,13 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
-import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponentSupplier;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsVisualState;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
 import org.chromium.ui.insets.InsetObserver;
-
-import java.util.function.Supplier;
 
 /**
  * A UI coordinator that manages the system status bar and bottom navigation bar for
@@ -50,7 +47,6 @@ public class TabbedSystemUiCoordinator {
      *     checking the state of the bottom browser controls.
      * @param browserControlsStateProvider Supplies a {@link BrowserControlsStateProvider} for the
      *     browser controls.
-     * @param snackbarManagerSupplier Supplies a {@link SnackbarManager} for snackbar management.
      * @param contextualSearchManagerSupplier Supplies a {@link ContextualSearchManager} to watch
      *     for changes to contextual search and the overlay panel.
      * @param bottomSheetController A {@link BottomSheetController} to interact with and watch for
@@ -71,11 +67,10 @@ public class TabbedSystemUiCoordinator {
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             BottomControlsStacker bottomControlsStacker,
             BrowserControlsStateProvider browserControlsStateProvider,
-            Supplier<SnackbarManager> snackbarManagerSupplier,
-            ObservableSupplier<ContextualSearchManager> contextualSearchManagerSupplier,
+            NullableObservableSupplier<ContextualSearchManager> contextualSearchManagerSupplier,
             BottomSheetController bottomSheetController,
             @Nullable OmniboxSuggestionsVisualState omniboxSuggestionsVisualState,
-            ManualFillingComponentSupplier manualFillingComponentSupplier,
+            @Nullable ManualFillingComponent manualFillingComponent,
             ObservableSupplier<Integer> overviewColorSupplier,
             InsetObserver insetObserver,
             EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper) {
@@ -89,11 +84,10 @@ public class TabbedSystemUiCoordinator {
                         edgeToEdgeControllerSupplier,
                         bottomControlsStacker,
                         browserControlsStateProvider,
-                        snackbarManagerSupplier,
                         contextualSearchManagerSupplier,
                         bottomSheetController,
                         omniboxSuggestionsVisualState,
-                        manualFillingComponentSupplier,
+                        manualFillingComponent,
                         overviewColorSupplier,
                         insetObserver,
                         edgeToEdgeSystemBarColorHelper);

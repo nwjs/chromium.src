@@ -85,6 +85,10 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   // on |frame_sink_manager_remote_| is lost.
   void SetConnectionLostCallback(base::RepeatingClosure callback);
 
+  void SetViewTransitionResourcesCapturedCallback(
+      const blink::ViewTransitionToken& token,
+      base::OnceClosure callback);
+
   // Registers `frame_sink_id` so that a client can submit CompositorFrames
   // using it. This must be called before creating a CompositorFrameSink or
   // registering FrameSinkId hierarchy.
@@ -134,6 +138,18 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   void CreateRootCompositorFrameSink(
       mojom::RootCompositorFrameSinkParamsPtr params,
       bool maybe_wait_on_destruction = true);
+
+#if BUILDFLAG(IS_MAC)
+  // Creates a connection between Browser DisplayLinkMacMojoto and Viz
+  // ExternalBeginFrameSourceMojoMac. Provides the interface
+  // ExternalBeginFrameController and ExternalBeginFrameControllerClient that
+  // forwards the VSync event to Viz/Gpu and requests VSync from Browser. Only
+  // one channel is created for the whole GPU process and is shared among Viz
+  // RootCompositorFrameSinks and GPU ImageTransportSurfaceOverlayMacEGLs. The
+  // channel will be reconnected if the context is lost.
+  void CreateCompositorDisplayLink(
+      mojom::CompositorDisplayLinkParamsPtr params);
+#endif
 
   // Creates a connection from a client to viz, using |request| and |client|,
   // that allows the client to submit CompositorFrames. When no longer needed,
@@ -217,7 +233,8 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   // useful to take a snapshot of an old `Surface` post-navigation.
   void RequestCopyOfOutput(const SurfaceId& surface_id,
                            std::unique_ptr<CopyOutputRequest> request,
-                           bool capture_exact_surface_id = false);
+                           bool capture_exact_surface_id = false,
+                           base::TimeDelta timeout = base::TimeDelta());
 
   // Setup the connection between the Browser (at RenderWidgetHost level) and
   // the VizCompositor thread (at InputManager level) to allow transferring
@@ -391,6 +408,8 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
       std::unique_ptr<CopyOutputResult> copy_output_result) override;
   void OnVizTouchStateAvailable(
       base::ReadOnlySharedMemoryRegion region) override;
+  void OnViewTransitionResourcesCaptured(
+      const blink::ViewTransitionToken& transition_token) override;
 
   mojo::Remote<mojom::RendererInputRouterDelegateRegistry>
       rir_delegate_registry_;
@@ -419,6 +438,9 @@ class VIZ_HOST_EXPORT HostFrameSinkManager
   bool connection_was_lost_ = false;
 
   base::RepeatingClosure connection_lost_callback_;
+
+  base::flat_map<blink::ViewTransitionToken, base::OnceClosure>
+      view_transition_callbacks_;
 
   DisplayHitTestQueryMap display_hit_test_query_;
 

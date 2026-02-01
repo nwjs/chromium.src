@@ -32,8 +32,10 @@
 #include "chrome/browser/ui/views/new_tab_footer/footer_web_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ozone_buildflags.h"
 #include "ui/compositor/layer.h"
@@ -44,6 +46,10 @@
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/views/view_class_properties.h"
+
+namespace {
+constexpr int kSnapDistance = 15;
+}
 
 void MultiContentsView::ContentsSeparators::Reset() {
   top_separator = nullptr;
@@ -305,19 +311,6 @@ void MultiContentsView::OnSwap() {
   delegate_->ReverseWebContents();
 }
 
-int MultiContentsView::GetMinViewWidth() const {
-  if (!IsInSplitView()) {
-    return 0;
-  }
-
-  const int min_percentage =
-      kMinWebContentsWidthPercentage * browser_view_->GetBounds().width();
-  const int min_fixed_value = min_contents_width_for_testing_.has_value()
-                                  ? min_contents_width_for_testing_.value()
-                                  : kMinWebContentsWidth;
-  return std::min(min_fixed_value, min_percentage);
-}
-
 std::vector<views::View*> MultiContentsView::GetAccessiblePanes() {
   std::vector<views::View*> accessible_panes;
   for (auto* contents_container_view : contents_container_views_) {
@@ -357,8 +350,7 @@ double MultiContentsView::CalculateRatioWithSnapPoints(
     double total_width) const {
   for (const double& snap_point : snap_points_) {
     double dp_snap_point = snap_point * total_width;
-    if (std::abs(dp_snap_point - end_width) <
-        features::kSideBySideSnapDistance.Get()) {
+    if (std::abs(dp_snap_point - end_width) < kSnapDistance) {
       return snap_point;
     }
   }
@@ -594,10 +586,11 @@ MultiContentsView::ViewWidths MultiContentsView::GetViewWidths(
     CHECK(!contents_container_views_[1]->GetVisible());
     widths.start_width = available_space.width();
   }
-  return ClampToMinWidth(widths);
+  return ClampToMinWidth(available_space, widths);
 }
 
 MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
+    gfx::Rect available_space,
     ViewWidths widths) const {
   if (!IsInSplitView()) {
     // Don't clamp if in a single-view state, where other views should be 0
@@ -605,7 +598,7 @@ MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
     return widths;
   }
 
-  const int min_width = GetMinViewWidth();
+  const int min_width = GetMinViewWidth(available_space);
   if (widths.start_width < min_width) {
     const double diff = min_width - widths.start_width;
     widths.start_width += diff;
@@ -616,6 +609,21 @@ MultiContentsView::ViewWidths MultiContentsView::ClampToMinWidth(
     widths.start_width -= diff;
   }
   return widths;
+}
+
+int MultiContentsView::GetMinViewWidth(gfx::Rect available_space) const {
+  CHECK(IsInSplitView());
+
+  // The minimum width for a content view in a split should be the lesser of
+  // kMinWebContentsWidth, and kMinWebContentsWidthPercentage as a percentage of
+  // the MultiContentsView's available width with a lower bound of
+  // kConstrainedMinWebContentsWidth.
+  const int min_percentage =
+      kMinWebContentsWidthPercentage * available_space.width();
+  const int min_fixed_value =
+      min_contents_width_for_testing_.value_or(kMinWebContentsWidth);
+  return std::min(min_fixed_value,
+                  std::max(kConstrainedMinWebContentsWidth, min_percentage));
 }
 
 void MultiContentsView::UpdateContentsBorderAndOverlay() {
@@ -636,7 +644,23 @@ MultiContentsView::drop_target_controller() const {
 
 bool MultiContentsView::IsDragAndDropEnabled() const {
   // Split view drag and drop is only supported on normal browser types.
-  return browser_view_->GetIsNormalType() && is_drag_drop_pref_enabled_;
+  if (!browser_view_->GetIsNormalType() || !is_drag_drop_pref_enabled_) {
+    return false;
+  }
+
+  const auto* active_contents_view = GetActiveContentsView();
+  if (!active_contents_view) {
+    return true;
+  }
+
+  const auto* web_contents = active_contents_view->web_contents();
+  return !web_contents ||
+         web_contents->GetLastCommittedURL().spec() ==
+             chrome::kChromeUINewTabURL ||
+         web_contents->GetLastCommittedURL().spec() ==
+             chrome::kChromeUINewTabPageURL ||
+         !web_contents->GetLastCommittedURL().SchemeIs(
+             content::kChromeUIScheme);
 }
 
 void MultiContentsView::OnDragAndDropPrefStateChange() {

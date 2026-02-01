@@ -86,16 +86,10 @@ class NewTabPageUtilBrowserTest : public SigninBrowserTestBase,
     }
   }
 
-  void SetSync(bool sync_enabled) {
-    GetTestSyncService()->SetSignedIn(sync_enabled
-                                          ? signin::ConsentLevel::kSync
-                                          : signin::ConsentLevel::kSignin);
-  }
-
-  void SetHistorySync(bool sync_enabled) {
+  void SetHistorySync(bool history_sync_enabled) {
     GetTestSyncService()->SetSignedIn(signin::ConsentLevel::kSignin);
     GetTestSyncService()->GetUserSettings()->SetSelectedType(
-        syncer::UserSelectableType::kHistory, sync_enabled);
+        syncer::UserSelectableType::kHistory, history_sync_enabled);
   }
 
   void SetUpCommandLine(base::CommandLine* cmd) override {
@@ -487,6 +481,26 @@ IN_PROC_BROWSER_TEST_P(
           .FindBool(module_id)
           .value_or(false);
   EXPECT_TRUE(actual_value);
+}
+
+IN_PROC_BROWSER_TEST_P(NewTabPageUtilFeatureOptimizationModuleRemovalTest,
+                       DisableModuleListAutoRemoval) {
+  // Arrange.
+  const std::vector<std::string> module_ids = {
+      ntp_modules::kGoogleCalendarModuleId,
+      ntp_modules::kOutlookCalendarModuleId,
+      ntp_modules::kDriveModuleId,
+  };
+
+  // Act.
+  DisableModuleListAutoRemoval(browser()->profile(), module_ids);
+
+  // Assert.
+  const auto& dict_pref = browser()->profile()->GetPrefs()->GetDict(
+      ntp_prefs::kNtpModulesAutoRemovalDisabledDict);
+  for (const auto& module_id : module_ids) {
+    EXPECT_TRUE(dict_pref.FindBool(module_id).value_or(false));
+  }
 }
 
 class NewTabPageUtilStalenessUpdateBrowserTest

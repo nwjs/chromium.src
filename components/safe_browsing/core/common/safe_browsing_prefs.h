@@ -27,6 +27,10 @@ namespace prefs {
 inline constexpr char kSafeBrowsingCsdPingTimestamps[] =
     "safebrowsing.csd_ping_timestamps";
 
+// A list of times at which intelligent scans were sent.
+inline constexpr char kSafeBrowsingCsdIntelligentScanTimestamps[] =
+    "safebrowsing.csd_intelligent_scan_timestamps";
+
 // Boolean that is true when deep scanning is allowed.
 inline constexpr char kSafeBrowsingDeepScanningEnabled[] =
     "safebrowsing.deep_scanning_enabled";
@@ -203,6 +207,12 @@ inline constexpr char kTailoredSecuritySyncFlowObservedOutcomeUnsetTimestamp[] =
 inline constexpr char kAccountTailoredSecurityShownNotification[] =
     "safebrowsing.aesb_shown_notification";
 
+// Whether a profile has been checked as to whether it should be migrated to
+// the enhanced security bundle. The migration checking is triggered by the
+// kMigrateEnhancedSbUserToEnhancedBundle experiment.
+inline constexpr char kBundledSettingsCheckedMigrateUserToEnhancedBundle[] =
+    "safebrowsing.bundled_settings.checked_migrate_user_to_enhanced_bundle";
+
 // A boolean indicating if Enhanced Protection was enabled in sync with
 // account tailored security. This value will only ever be true if Enhanced
 // Protection is enabled and it was enabled through the Tailored Security flow.
@@ -284,9 +294,15 @@ inline constexpr char kHashPrefixRealTimeChecksAllowedByPolicy[] =
 inline constexpr char kExternalAppRedirectTimestamps[] =
     "safe_browsing.external_app_redirect_timestamps";
 
-// Integer that maps to SecuritySettingsBundleLevel. Indicates what bundle
+// Integer that maps to SecuritySettingsBundleSetting. Indicates what bundle
 // the user is in.
 inline constexpr char kSecuritySettingsBundle[] = "safebrowsing.bundle";
+
+// An enum indicating the state of the security settings bundling migration
+// toast. We show this toast to ESB users when migrated to the Enhanced group.
+// See SecuritySettingsBundleToastState for values.
+inline constexpr char kSecuritySettingsBundleMigrationToastState[] =
+    "safebrowsing.bundled_settings.migration_toast_state";
 
 // A boolean indicating whether the user selected on chrome://settings to
 // disable the JavaScript optimizer on unfamiliar sites for improved security.
@@ -295,18 +311,17 @@ inline constexpr char kSecuritySettingsBundle[] = "safebrowsing.bundle";
 inline constexpr char kJavascriptOptimizerBlockedForUnfamiliarSites[] =
     "safebrowsing.javascript_optimizer_blocked_for_unfamiliar_sites";
 
+// A boolean indicating whether this profile had the automatic JavaScript
+// optimizer control enabled by the kMigrateToBlockV8OptimizerOnUnfamiliarSites
+// feature. This preference value is used to ensure that a profile is only
+// migrated one time.
+inline constexpr char
+    kMigratedToJavascriptOptimizerBlockedForUnfamiliarSites[] =
+        "safebrowsing.javascript_optimizer_setting_migration_complete";
+
 }  // namespace prefs
 
 namespace safe_browsing {
-
-// Enumerates the possible bundle options for bundled security settings found
-// chrome://settings/security.
-enum SecuritySettingsBundleLevel {
-  // Standard bundle with default settings.
-  STANDARD = 0,
-  // Enhanced bundle with most secure settings selected.
-  ENHANCED = 1,
-};
 
 // Enumerates the level of Safe Browsing Extended Reporting that is currently
 // available.
@@ -342,6 +357,15 @@ enum TailoredSecurityRetryState {
   // to the user or the flow found a state that a notification is not shown for,
   // for example: if the account is controlled by a policy.
   NO_RETRY_NEEDED = 3
+};
+
+// Enumerates the state of the toast shown to users migrated to the Enhanced
+// Security Bundle.
+enum class SecuritySettingsBundleToastState {
+  kNone = 0,
+  kPending = 1,
+  kShown = 2,
+  kMaxValue = kShown,
 };
 
 // Enumerates all the places where the Safe Browsing Extended Reporting
@@ -381,7 +405,8 @@ enum PasswordProtectionTrigger {
 //
 // Must be kept in sync with the SafeBrowsingSetting enum located in
 // chrome/browser/resources/settings/privacy_page/security/security_page.ts
-// and chrome/browser/resources/settings/privacy_page/safe_browsing_types.ts
+// and
+// chrome/browser/resources/settings/privacy_page/security/safe_browsing_types.ts
 // LINT.IfChange(SafeBrowsingState)
 enum class SafeBrowsingState {
   // The user is not opted into Safe Browsing.
@@ -394,7 +419,7 @@ enum class SafeBrowsingState {
   kMaxValue = ENHANCED_PROTECTION,
 };
 
-// LINT.ThenChange(/chrome/browser/resources/settings/privacy_page/safe_browsing_types.ts:SafeBrowsingSetting)
+// LINT.ThenChange(/chrome/browser/resources/settings/privacy_page/security/safe_browsing_types.ts:SafeBrowsingSetting)
 
 // Must be kept in sync with the SecuritySettingsBundle enum located in
 // chrome/browser/resources/settings/privacy_page/security/security_page_v2.js.
@@ -404,10 +429,25 @@ enum class SecuritySettingsBundleSetting {
   STANDARD = 0,
   // Enhanced bundle with most secure settings selected.
   ENHANCED = 1,
+  kMaxValue = ENHANCED,
 };
 // LINT.ThenChange(/chrome/browser/resources/settings/privacy_page/security/security_page_v2.ts:SecuritySettingsBundleSetting)
 
+// Returns the user's security-settings-bundle. The user may have changed the
+// settings controlled by the bundle from the bundle defaults.
+SecuritySettingsBundleSetting GetSecurityBundleSetting(
+    const PrefService& prefs);
+
+// Set the user's security-settings-bundle.
+void SetSecurityBundleSetting(PrefService& prefs,
+                              SecuritySettingsBundleSetting bundle);
+
 SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs);
+
+// Returns the default safe-browsing setting for the passed-in security-bundle
+// type.
+SafeBrowsingState GetDefaultSafeBrowsingState(
+    SecuritySettingsBundleSetting bundle_setting);
 
 // Set the SafeBrowsing prefs.  Records whether ESB was enabled by Tailored
 // Security (through account integration).

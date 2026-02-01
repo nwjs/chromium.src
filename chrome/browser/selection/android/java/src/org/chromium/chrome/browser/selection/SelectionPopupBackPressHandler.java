@@ -6,8 +6,9 @@ package org.chromium.chrome.browser.selection;
 
 import org.chromium.base.Callback;
 import org.chromium.base.lifetime.Destroyable;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -20,25 +21,24 @@ import org.chromium.content_public.browser.SelectionPopupController;
 
 /**
  * {@link BackPressHandler} of {@link SelectionPopupController}. This listens to the change of tab
- * model and notifies whether the current selection popup controller is going to intercept the
- * back press.
+ * model and notifies whether the current selection popup controller is going to intercept the back
+ * press.
  */
 @NullMarked
 public class SelectionPopupBackPressHandler extends EmptyTabObserver
         implements BackPressHandler, TabModelObserver, Destroyable {
-    private final ObservableSupplierImpl<Boolean> mBackPressChangedSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mBackPressChangedSupplier =
+            ObservableSuppliers.createNonNull(false);
     private final Callback<Boolean> mCallback = this::onActionBarShowingChanged;
 
     private @Nullable SelectionPopupController mPopupController;
     private @Nullable Tab mTab;
 
     /**
-     * @param tabModelSelector A {@link TabModelSelector} which can provide {@link
-     *     org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider}.
+     * @param tabModelSelector A {@link TabModelSelector}.
      */
     public SelectionPopupBackPressHandler(TabModelSelector tabModelSelector) {
-        tabModelSelector.getTabGroupModelFilterProvider().addTabGroupModelFilterObserver(this);
+        tabModelSelector.addTabGroupModelFilterObserver(this);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class SelectionPopupBackPressHandler extends EmptyTabObserver
     }
 
     @Override
-    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+    public NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
         return mBackPressChangedSupplier;
     }
 

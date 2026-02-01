@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/version.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/platform/ax_platform_node_auralinux.h"
 #include "ui/accessibility/platform/ax_platform_tree_manager_delegate.h"
@@ -53,8 +54,12 @@ BrowserAccessibilityManagerAuraLinux::~BrowserAccessibilityManagerAuraLinux() {
     return;
   }
 
-  CHECK(!delegate() || delegate()->AccessibilityIsWebContentSource())
-      << "We should never get here in non-web content sourced managers.";
+  // When ViewsAX is enabled, it's possible to have a non-web content source
+  // delegate.
+  if (!features::IsAccessibilityTreeForViewsEnabled()) {
+    CHECK(!delegate() || delegate()->AccessibilityIsWebContentSource())
+        << "We should never get here in non-web content sourced managers.";
+  }
 
   DCHECK(GetBrowserAccessibilityRoot());
   gfx::NativeViewAccessible obj =
@@ -163,12 +168,12 @@ void BrowserAccessibilityManagerAuraLinux::FireEvent(BrowserAccessibility* node,
       event);
 }
 
-void BrowserAccessibilityManagerAuraLinux::FireBlinkEvent(
+void BrowserAccessibilityManagerAuraLinux::FireSourceEvent(
     ax::mojom::Event event_type,
     BrowserAccessibility* node,
     int action_request_id) {
-  BrowserAccessibilityManager::FireBlinkEvent(event_type, node,
-                                              action_request_id);
+  BrowserAccessibilityManager::FireSourceEvent(event_type, node,
+                                               action_request_id);
 
   switch (event_type) {
     case ax::mojom::Event::kScrolledToAnchor:

@@ -189,7 +189,7 @@ CreditCard GetVirtualCard();
 
 // Returns a randomly generated credit card of |record_type|. Note that the
 // card is not guaranteed to be valid/sane from a card validation standpoint.
-CreditCard GetRandomCreditCard(CreditCard::RecordType record_Type);
+CreditCard GetRandomCreditCard(CreditCard::RecordType record_type);
 
 // Returns a copy of `credit_card` with `cvc` set as specified.
 CreditCard WithCvc(CreditCard credit_card, std::u16string cvc = u"123");
@@ -532,12 +532,12 @@ void FillUploadField(AutofillUploadContents::Field* field,
 // Perhaps a neater way would be to move this to TestFormStructure.
 std::vector<FormSignature> GetEncodedSignatures(const FormStructure& form);
 std::vector<FormSignature> GetEncodedSignatures(
-    const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms);
+    const std::vector<raw_ref<FormStructure>>& forms);
 
 std::vector<FormSignature> GetEncodedAlternativeSignatures(
     const FormStructure& form);
 std::vector<FormSignature> GetEncodedAlternativeSignatures(
-    const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms);
+    const std::vector<raw_ref<FormStructure>>& forms);
 
 // Calls the required functions on the given external delegate to cause the
 // delegate to display a popup.

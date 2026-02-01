@@ -43,23 +43,50 @@ bool IsProcessRunningAtMediumOrLower(ProcessId process_id) {
   return level != INTEGRITY_UNKNOWN && level <= MEDIUM_INTEGRITY;
 }
 
+bool IsProcessRunningSplitToken(ProcessId process_id) {
+  auto process =
+      Process::OpenWithAccess(process_id, PROCESS_QUERY_LIMITED_INFORMATION);
+  if (!process.IsValid()) {
+    return false;
+  }
+  std::optional<win::AccessToken> token =
+      AccessToken::FromProcess(process.Handle());
+  return token && token->IsSplitToken();
+}
+
+expected<Process, DWORD> LaunchProcessDirectly(
+    const CommandLine& command_line) {
+  LaunchOptions options;
+  options.grant_foreground_privilege = true;
+  if (auto process = LaunchProcess(command_line, options); process.IsValid()) {
+    return ok(std::move(process));
+  }
+  return unexpected(::GetLastError());
+}
+
 // Based on
 // https://learn.microsoft.com/en-us/archive/blogs/aaron_margosis/faq-how-do-i-start-a-program-as-the-desktop-user-from-an-elevated-app.
-expected<Process, DWORD> RunDeElevated(const CommandLine& command_line) {
+expected<Process, DWORD> RunDeElevated(
+    const CommandLine& command_line,
+    std::optional<ProcessId> medium_process_id) {
   if (!::IsUserAnAdmin()) {
-    if (auto process = LaunchProcess(command_line, {}); process.IsValid()) {
-      return ok(std::move(process));
-    }
-    return unexpected(::GetLastError());
+    return LaunchProcessDirectly(command_line);
   }
 
-  ProcessId explorer_pid = GetExplorerPid();
-  if (!explorer_pid || !IsProcessRunningAtMediumOrLower(explorer_pid)) {
+  const ProcessId medium_pid =
+      medium_process_id ? *medium_process_id : GetExplorerPid();
+  if (!medium_pid) {
+    return unexpected(static_cast<DWORD>(ERROR_ACCESS_DENIED));
+  }
+  if (!IsProcessRunningSplitToken(medium_pid)) {
+    return LaunchProcessDirectly(command_line);
+  }
+  if (!IsProcessRunningAtMediumOrLower(medium_pid)) {
     return unexpected(static_cast<DWORD>(ERROR_ACCESS_DENIED));
   }
 
   auto shell_process =
-      Process::OpenWithAccess(explorer_pid, PROCESS_QUERY_LIMITED_INFORMATION);
+      Process::OpenWithAccess(medium_pid, PROCESS_QUERY_LIMITED_INFORMATION);
   if (!shell_process.IsValid()) {
     return unexpected(::GetLastError());
   }
@@ -177,9 +204,9 @@ HRESULT RunDeElevatedNoWait(const std::wstring& path,
     return hr;
   }
 
-  std::optional<base::FilePath> current_dir;
+  std::optional<FilePath> current_dir;
   if (!current_directory) {
-    current_dir = base::PathService::CheckedGet(base::DIR_CURRENT);
+    current_dir = PathService::CheckedGet(DIR_CURRENT);
     current_directory = current_dir->value();
   }
 

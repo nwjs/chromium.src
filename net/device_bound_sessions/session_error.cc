@@ -12,6 +12,8 @@ SessionError::SessionError(SessionError::ErrorType type) : type(type) {}
 
 SessionError::~SessionError() = default;
 
+SessionError::SessionError(const SessionError&) = default;
+SessionError& SessionError::operator=(const SessionError&) = default;
 SessionError::SessionError(SessionError&&) noexcept = default;
 SessionError& SessionError::operator=(SessionError&&) noexcept = default;
 
@@ -26,6 +28,7 @@ std::optional<DeletionReason> SessionError::GetDeletionReason() const {
     case kPersistentHttpError:
     case kInvalidChallenge:
     case kTooManyChallenges:
+    case kSessionDeletedDuringRefresh:
       return DeletionReason::kRefreshFatalError;
     case kInvalidConfigJson:
     case kInvalidSessionId:
@@ -102,6 +105,7 @@ bool SessionError::IsServerError() const {
     case kNetError:
     case kProxyError:
     case kSigningQuotaExceeded:
+    case kSessionDeletedDuringRefresh:
       return false;
     case kServerRequestedTermination:
     case kInvalidConfigJson:

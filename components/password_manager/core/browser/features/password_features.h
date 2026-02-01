@@ -16,7 +16,7 @@ namespace password_manager::features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
 // Filling on pageload is disabled if an actor task is active on the tab.
 BASE_DECLARE_FEATURE(kActorActiveDisablesFillingOnPageLoad);
 BASE_DECLARE_FEATURE(kActorLogin);
@@ -34,7 +34,7 @@ BASE_DECLARE_FEATURE(kActorLoginReauthTaskRefocus);
 BASE_DECLARE_FEATURE(kActorLoginQualityLogs);
 // Enables finding and filling forms in same-site iframes for actor login.
 BASE_DECLARE_FEATURE(kActorLoginSameSiteIframeSupport);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables filling of OTPs received via SMS on Android.
@@ -90,11 +90,6 @@ BASE_DECLARE_FEATURE(kClearUndecryptablePasswordsOnSync);
 // one-time-passwords. Only for OTP detection testing, not intended to be
 // launched.
 BASE_DECLARE_FEATURE(kDebugUiForOtps);
-
-// Updates password change flow to await for local ML model availability. The
-// model has a superior performance compared to existing password manager
-// classifications.
-BASE_DECLARE_FEATURE(kDownloadModelForPasswordChange);
 
 // This feature disables filling on page load for leaked credentials on some
 // sites. Filling on page load interferes with password change feature.
@@ -171,11 +166,15 @@ BASE_DECLARE_FEATURE(kPasswordManualFallbackAvailable);
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
 
+// Updates password change flow to await for local ML model availability. The
+// model has a superior performance compared to existing password manager
+// classifications.
+BASE_DECLARE_FEATURE(kProactivelyDownloadModelForPasswordChange);
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables "Needs access to keychain, restart chrome" bubble and banner.
 BASE_DECLARE_FEATURE(kRestartToGainAccessToKeychain);
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
 
 // Shows recovery password for the improved password change flow in the
 // management UI.
@@ -195,10 +194,6 @@ BASE_DECLARE_FEATURE(kStopLoginCheckOnFailedLogin);
 
 // Adds throttling logic to password change dialog.
 BASE_DECLARE_FEATURE(kThrottlePasswordChangeDialog);
-
-// Starts passwords resync after undecryptable passwords were removed. This flag
-// is enabled by default and should be treaded as a killswitch.
-BASE_DECLARE_FEATURE(kTriggerPasswordResyncAfterDeletingUndecryptablePasswords);
 
 // Starts passwords resync when undecryptable passwords are detected.
 BASE_DECLARE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected);
@@ -222,16 +217,6 @@ BASE_DECLARE_FEATURE(kRunPasswordChangeInBackgroundTab);
 // Removes country and language restrictions for password change. This allows to
 // control locale/country server side.
 BASE_DECLARE_FEATURE(kReduceRequirementsForPasswordChange);
-
-#if BUILDFLAG(IS_ANDROID)
-// The feature flag for reloading passwords when the trusted vault encryption
-// state changes.
-BASE_DECLARE_FEATURE(kReloadPasswordsOnTrustedVaultEncryptionChange);
-
-// The feature flag for showing an action to unlock passwords in case of a
-// trusted vault error in the keyboard accessory.
-BASE_DECLARE_FEATURE(kRetrieveTrustedVaultKeyKeyboardAccessoryAction);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 // Updates password change flow to use the refined prompt on Open form step. The
 // prompt uses the list of interactable actionables on the web page to identify

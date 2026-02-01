@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
-#include "base/gtest_prod_util.h"
 #include "base/time/time.h"
 #include "components/viz/common/quads/compositor_frame_transition_directive.h"
 #include "components/viz/common/quads/compositor_render_pass.h"
@@ -28,7 +27,7 @@ class SharedImageInterface;
 namespace viz {
 
 class Surface;
-struct ReturnedResource;
+struct ReturnedResourceViz;
 struct TransferableResource;
 
 // This class is responsible for managing a single transition sequence. Each
@@ -42,13 +41,17 @@ class VIZ_SERVICE_EXPORT SurfaceAnimationManager
  public:
   using SaveDirectiveCompleteCallback =
       base::OnceCallback<void(const CompositorFrameTransitionDirective&)>;
+  using ViewTransitionResourcesCapturedCallback =
+      base::OnceCallback<void(const blink::ViewTransitionToken&)>;
 
   static std::unique_ptr<SurfaceAnimationManager> CreateWithSave(
       const CompositorFrameTransitionDirective& directive,
       Surface* surface,
       gpu::SharedImageInterface* shared_image_interface,
       ReservedResourceIdTracker* id_tracker,
-      SaveDirectiveCompleteCallback sequence_id_finished_callback);
+      SaveDirectiveCompleteCallback sequence_id_finished_callback,
+      ViewTransitionResourcesCapturedCallback
+          view_transition_resources_captured_callback);
 
   // Replaces ViewTransitionElementResourceIds with corresponding ResourceIds if
   // necessary.
@@ -68,7 +71,8 @@ class VIZ_SERVICE_EXPORT SurfaceAnimationManager
       const std::vector<TransferableResource>& resources) override;
   void RefResources(
       const std::vector<TransferableResource>& resources) override;
-  void UnrefResources(const std::vector<ReturnedResource>& resources) override;
+  void UnrefResources(
+      const std::vector<ReturnedResourceViz>& resources) override;
 
  private:
   friend class SurfaceAnimationManagerTest;
@@ -89,7 +93,9 @@ class VIZ_SERVICE_EXPORT SurfaceAnimationManager
       Surface* surface,
       gpu::SharedImageInterface* shared_image_interface,
       ReservedResourceIdTracker* id_tracker,
-      SaveDirectiveCompleteCallback sequence_id_finished_callback);
+      SaveDirectiveCompleteCallback sequence_id_finished_callback,
+      ViewTransitionResourcesCapturedCallback
+          view_transition_resources_captured_callback);
 
   void OnSaveDirectiveProcessed(
       SaveDirectiveCompleteCallback callback,

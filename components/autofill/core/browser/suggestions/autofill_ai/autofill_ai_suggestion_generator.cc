@@ -43,14 +43,36 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/suggestions/suggestion_util.h"
+#include "components/autofill/core/common/autofill_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace autofill {
 namespace {
+
+std::u16string GetEntitySuggestionMainText(
+    const EntityInstance& entity,
+    const AutofillFieldWithAttributeType& trigger_field,
+    const AttributeInstance& trigger_attribute,
+    const AutofillClient& client) {
+  const bool should_obfuscate_main_text =
+      ShouldFieldBeObfuscated(entity, trigger_field, client.GetAppLocale(),
+                              CHECK_DEREF(client.GetPrefs()));
+
+  std::u16string main_text = trigger_attribute.GetInfo(
+      trigger_field.field->Type().GetAutofillAiType(
+          trigger_attribute.type().entity_type()),
+      client.GetAppLocale(), trigger_field.field->format_string());
+  if (should_obfuscate_main_text) {
+    main_text = GetObfuscatedValue(main_text);
+  }
+  return main_text;
+}
 
 // Holds an assignment of AutofillFields to AttributeTypes.
 //
@@ -352,16 +374,14 @@ Suggestion GetSuggestionForEntity(
     base::span<const AutofillFieldWithAttributeType> fields,
     const AutofillFieldWithAttributeType& trigger_field,
     std::u16string label,
-    const std::string& app_locale) {
+    const AutofillClient& client) {
   // The dereference is guaranteed by EntityShouldProduceSuggestion().
   const AttributeInstance& trigger_attribute =
       *entity.attribute(trigger_field.type);
-  std::u16string main_text = trigger_attribute.GetInfo(
-      trigger_field.field->Type().GetAutofillAiType(
-          trigger_attribute.type().entity_type()),
-      app_locale, trigger_field.field->format_string());
   Suggestion suggestion =
-      Suggestion(std::move(main_text), SuggestionType::kFillAutofillAi);
+      Suggestion(GetEntitySuggestionMainText(entity, trigger_field,
+                                             trigger_attribute, client),
+                 SuggestionType::kFillAutofillAi);
   suggestion.labels = {{Suggestion::Text(std::move(label))}};
   suggestion.payload = Suggestion::AutofillAiPayload(entity.guid());
   suggestion.icon = GetSuggestionIcon(entity.type());
@@ -434,7 +454,7 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
     base::span<const EntityInstance> entities_to_suggest,
     base::span<const EntityInstance> all_entities,
     const AttributeTypeAssignment& assignment,
-    const std::string& app_locale) {
+    const AutofillClient& client) {
   CHECK(!entities_to_suggest.empty());
   const AutofillField& trigger_field =
       CHECK_DEREF(form.GetFieldById(trigger_field_data.global_id()));
@@ -450,7 +470,8 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
   std::vector<const EntityInstance*> other_entities_that_can_fill_section;
   for (const EntityInstance& entity : all_entities) {
     if (!entities_to_suggest_ids.contains(entity.guid()) &&
-        CanFillSomeField(entity, assignment.Find(entity.type()), app_locale)) {
+        CanFillSomeField(entity, assignment.Find(entity.type()),
+                         client.GetAppLocale())) {
       other_entities_that_can_fill_section.push_back(&entity);
     }
   }
@@ -458,7 +479,7 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
   std::vector<std::u16string> labels = GetLabelsForSuggestions(
       entities_to_suggest, other_entities_that_can_fill_section,
       FindAttributesForField(assignment, trigger_field.global_id()),
-      app_locale);
+      client.GetAppLocale());
 
   std::vector<Suggestion> suggestions;
   suggestions.reserve(entities_to_suggest.size());
@@ -471,7 +492,7 @@ std::vector<Suggestion> CreateAutofillAiFillingSuggestions(
             FindField(fields_with_types, trigger_field.global_id());
     suggestions.push_back(GetSuggestionForEntity(entity, fields_with_types,
                                                  *trigger_field_with_type,
-                                                 std::move(label), app_locale));
+                                                 std::move(label), client));
   }
 
   base::Extend(suggestions, GetFooterSuggestions(trigger_field_data));
@@ -590,7 +611,7 @@ void AutofillAiSuggestionGenerator::GenerateSuggestions(
       entity_manager->GetEntityInstances(),
       AttributeTypeAssignment(form_structure->fields(),
                               trigger_autofill_field->section()),
-      client.GetAppLocale());
+      client);
   callback({FillingProduct::kAutofillAi, std::move(suggestions)});
 }
 

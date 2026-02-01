@@ -22,6 +22,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
+#include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_expected_support.h"
@@ -29,7 +30,7 @@
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
-#include "chrome/browser/web_applications/isolated_web_apps/install/pending_install_info.h"
+#include "chrome/browser/web_applications/isolated_web_apps/install/non_installed_bundle_inspection_context.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/test/mock_data_retriever.h"
 #include "chrome/browser/web_applications/test/test_web_app_url_loader.h"
@@ -289,8 +290,8 @@ TEST_F(IsolatedWebAppInstallCommandHelperLoadUrlTest,
       [&](const GURL& unused_url, content::WebContents* web_contents,
           webapps::WebAppUrlLoader::UrlComparison unused_url_comparison) {
         source =
-            IsolatedWebAppPendingInstallInfo::FromWebContents(*web_contents)
-                .source();
+            NonInstalledBundleInspectionContext::FromWebContents(web_contents)
+                ->source();
       }));
 
   base::test::TestFuture<base::expected<void, std::string>> future;
@@ -320,8 +321,8 @@ TEST_F(IsolatedWebAppInstallCommandHelperLoadUrlTest,
       [&](const GURL& unused_url, content::WebContents* web_contents,
           webapps::WebAppUrlLoader::UrlComparison unused_url_comparison) {
         source =
-            IsolatedWebAppPendingInstallInfo::FromWebContents(*web_contents)
-                .source();
+            NonInstalledBundleInspectionContext::FromWebContents(web_contents)
+                ->source();
       }));
 
   base::test::TestFuture<base::expected<void, std::string>> future;
@@ -575,12 +576,14 @@ class InstallIsolatedWebAppCommandHelperManifestIconsTest
 };
 
 TEST_F(InstallIsolatedWebAppCommandHelperManifestIconsTest,
-       ManifestIconIsDownloaded) {
+       ManifestIconIsDownloadedAndUpdateManifestIsParsed) {
   IsolatedWebAppUrlInfo url_info = CreateRandomIsolatedWebAppUrlInfo();
   GURL image_url = GetImageUrl(url_info);
 
   blink::mojom::ManifestPtr manifest = CreateManifest();
   manifest->icons = {CreateImageResourceForAnyPurpose(image_url)};
+  manifest->update_manifest_url =
+      GURL("https://otters.com/update_manifest.json");
 
   auto command_helper = std::make_unique<IsolatedWebAppInstallCommandHelper>(
       url_info, GetDataRetrieverForSuccessfulDownloads(url_info));
@@ -608,6 +611,9 @@ TEST_F(InstallIsolatedWebAppCommandHelperManifestIconsTest,
       ValueIs(Field(
           "manifest_icons", &WebAppInstallInfo::manifest_icons,
           UnorderedElementsAre(Field(&apps::IconInfo::url, Eq(image_url))))));
+
+  EXPECT_THAT(result->iwa_update_manifest_url,
+              Optional(Eq(manifest->update_manifest_url.value())));
 }
 
 TEST_F(InstallIsolatedWebAppCommandHelperManifestIconsTest,

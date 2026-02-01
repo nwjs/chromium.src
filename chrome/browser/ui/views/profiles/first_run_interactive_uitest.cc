@@ -4,6 +4,8 @@
 
 #include <optional>
 
+#include "base/strings/strcat.h"
+#include "base/strings/to_string.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -365,7 +367,8 @@ class FirstRunInteractiveUiTest
     {
       auto process_dice_header_delegate_impl =
           ProcessDiceHeaderDelegateImpl::Create(web_contents());
-      process_dice_header_delegate_impl->EnableSync(account_info);
+      process_dice_header_delegate_impl->CompleteChromeSignInAfterGaiaSignin(
+          account_info);
     }
   }
 

@@ -10,7 +10,6 @@
 #include "ash/constants/web_app_id_constants.h"
 #include "base/barrier_callback.h"
 #include "base/check_is_test.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -272,22 +271,22 @@ void WebAppInstallFinalizer::FinalizeInstall(
         (options.install_surface != webapps::WebappInstallSource::SUB_APP &&
          !web_app_info.parent_app_manifest_id.has_value()));
 
-  webapps::AppId app_id = GenerateAppIdFromManifestId(
-      manifest_id, web_app_info.parent_app_manifest_id);
   OnDidGetWebAppOriginAssociations origin_association_validated_callback =
       base::BindOnce(&WebAppInstallFinalizer::OnOriginAssociationValidated,
                      weak_ptr_factory_.GetWeakPtr(), web_app_info.Clone(),
-                     options, std::move(callback), app_id);
+                     options, std::move(callback));
 
   if (options.skip_origin_association_validation ||
       web_app_info.scope_extensions.empty() ||
       web_app_info.validated_scope_extensions.has_value()) {
-    std::move(origin_association_validated_callback).Run(ScopeExtensions());
+    std::move(origin_association_validated_callback).Run(OriginAssociations());
     return;
   }
 
+  OriginAssociations origin_associations;
+  origin_associations.scope_extensions = web_app_info.scope_extensions;
   provider_->origin_association_manager().GetWebAppOriginAssociations(
-      manifest_id, web_app_info.scope_extensions,
+      manifest_id, std::move(origin_associations),
       std::move(origin_association_validated_callback));
 }
 
@@ -295,21 +294,30 @@ void WebAppInstallFinalizer::OnOriginAssociationValidated(
     WebAppInstallInfo web_app_info,
     FinalizeOptions options,
     InstallFinalizedCallback callback,
-    webapps::AppId app_id,
-    ScopeExtensions validated_scope_extensions) {
+    OriginAssociations validated_origin_associations) {
+  webapps::AppId app_id = GenerateAppIdFromManifestId(
+      web_app_info.manifest_id(), web_app_info.parent_app_manifest_id);
+  ScopeExtensions validated_scope_extensions =
+      validated_origin_associations.scope_extensions;
   const WebApp* existing_web_app =
       provider_->registrar_unsafe().GetAppById(app_id);
   std::unique_ptr<WebApp> web_app;
   if (existing_web_app) {
     web_app = std::make_unique<WebApp>(*existing_web_app);
   } else {
+    // Must drop the fragments and queries per `scope` rules
+    // https://w3c.github.io/manifest/#scope-member
+    GURL::Replacements replacements;
+    replacements.ClearRef();
+    replacements.ClearQuery();
+    web_app_info.scope = web_app_info.scope.ReplaceComponents(replacements);
+
     // TODO(b/344718166): Ensure that manifest_id corresponds to app_id here.
-    web_app = std::make_unique<WebApp>(app_id);
+    web_app = std::make_unique<WebApp>(
+        web_app_info.manifest_id(), web_app_info.start_url(),
+        web_app_info.scope, web_app_info.parent_app_id,
+        web_app_info.parent_app_manifest_id);
     web_app->SetInstallState(proto::SUGGESTED_FROM_ANOTHER_DEVICE);
-    // Ensure `web_app` has a start_url and manifest_id set before other calls
-    // that depend on state being complete, eg. `WebApp::sync_proto()`.
-    web_app->SetStartUrl(web_app_info.start_url());
-    web_app->SetManifestId(web_app_info.manifest_id());
   }
 
   for (auto& scope_extension : validated_scope_extensions) {
@@ -350,6 +358,12 @@ void WebAppInstallFinalizer::OnOriginAssociationValidated(
           proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION) {
     web_app->SetInstallState(
         proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION);
+  }
+
+  // If the app install state is explicitly set to be suggested from migration,
+  // honor that over any existing values.
+  if (options.install_state == proto::InstallState::SUGGESTED_FROM_MIGRATION) {
+    web_app->SetInstallState(proto::InstallState::SUGGESTED_FROM_MIGRATION);
   }
 
   // Set |user_display_mode| and any user-controllable fields here if this
@@ -398,6 +412,7 @@ void WebAppInstallFinalizer::OnOriginAssociationValidated(
     UpdateIsolationDataAndResetPendingUpdateInfo(
         web_app.get(), options.iwa_options->location,
         web_app_info.isolated_web_app_version(),
+        web_app_info.iwa_update_manifest_url,
         options.iwa_options->integrity_block_data);
 
     HostContentSettingsMap* const host_content_settings_map =
@@ -448,6 +463,13 @@ void WebAppInstallFinalizer::OnOriginAssociationValidated(
       weak_ptr_factory_.GetWeakPtr(), std::move(callback), app_id, options,
       std::move(old_scope));
 
+  // Ensure that the pending update info is always reset whenever Finalize*() is
+  // called, to ensure that the state of icons on disk or new installs do not
+  // have left over pending updates.
+  if (options.overwrite_existing_manifest_fields) {
+    web_app->SetPendingUpdateInfo(std::nullopt);
+  }
+
   if (options.overwrite_existing_manifest_fields || !existing_web_app) {
     SetWebAppManifestFieldsAndWriteData(
         web_app_info, std::move(web_app), std::move(commit_callback),
@@ -479,16 +501,18 @@ void WebAppInstallFinalizer::FinalizeUpdate(const WebAppInstallInfo& web_app_inf
   // Remove this shortcut after the ManifestUpdateCheckCommand is deleted:
   if (web_app_info.validated_scope_extensions.has_value() &&
       !web_app_info.validated_scope_extensions->empty()) {
-    OnOriginAssociationValidatedForUpdate(web_app_info.Clone(),
-                                          std::move(callback), app_id, {});
+    OnOriginAssociationValidatedForUpdate(
+        web_app_info.Clone(), std::move(callback), OriginAssociations());
     return;
   }
+  OriginAssociations origin_associations;
+  origin_associations.scope_extensions = web_app_info.scope_extensions;
   provider_->origin_association_manager().GetWebAppOriginAssociations(
-      manifest_id, web_app_info.scope_extensions,
+      manifest_id, std::move(origin_associations),
       base::BindOnce(
           &WebAppInstallFinalizer::OnOriginAssociationValidatedForUpdate,
           weak_ptr_factory_.GetWeakPtr(), web_app_info.Clone(),
-          std::move(callback), app_id));
+          std::move(callback)));
 }
 
 void WebAppInstallFinalizer::SetProvider(base::PassKey<WebAppProvider>,
@@ -517,10 +541,16 @@ void WebAppInstallFinalizer::UpdateIsolationDataAndResetPendingUpdateInfo(
     WebApp* web_app,
     const IsolatedWebAppStorageLocation& location,
     const IwaVersion& version,
+    const std::optional<GURL>& iwa_update_manifest_url,
     std::optional<IsolatedWebAppIntegrityBlockData> integrity_block_data) {
   IsolationData::Builder builder(location, version);
+
   if (web_app->isolation_data()) {
     builder.PersistFieldsForUpdate(*web_app->isolation_data());
+  }
+
+  if (iwa_update_manifest_url) {
+    builder.SetUpdateManifestUrl(*iwa_update_manifest_url);
   }
 
   if (integrity_block_data) {
@@ -533,8 +563,11 @@ void WebAppInstallFinalizer::UpdateIsolationDataAndResetPendingUpdateInfo(
 void WebAppInstallFinalizer::OnOriginAssociationValidatedForUpdate(
     WebAppInstallInfo web_app_info,
     InstallFinalizedCallback callback,
-    webapps::AppId app_id,
-    ScopeExtensions validated_scope_extensions) {
+    OriginAssociations validated_origin_associations) {
+  webapps::AppId app_id = GenerateAppIdFromManifestId(
+      web_app_info.manifest_id(), web_app_info.parent_app_manifest_id);
+  ScopeExtensions validated_scope_extensions =
+      validated_origin_associations.scope_extensions;
   const WebApp* existing_web_app =
       provider_->registrar_unsafe().GetAppById(app_id);
 
@@ -567,7 +600,7 @@ void WebAppInstallFinalizer::OnOriginAssociationValidatedForUpdate(
              pending_update_info->version);
     UpdateIsolationDataAndResetPendingUpdateInfo(
         web_app.get(), pending_update_info->location,
-        pending_update_info->version,
+        pending_update_info->version, web_app_info.iwa_update_manifest_url,
         pending_update_info->integrity_block_data);
   }
 

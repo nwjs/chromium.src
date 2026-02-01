@@ -9,7 +9,6 @@
 
 #include "ash/system/audio/output_audio_sliders_view.h"
 #include "ash/system/cast/media_cast_list_view.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/observer_list.h"
 #include "base/strings/utf_string_conversions.h"
@@ -23,6 +22,7 @@
 #include "ui/views/background.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/box_layout_view.h"
+#include "ui/views/metadata/view_factory.h"
 
 namespace ash {
 

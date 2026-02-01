@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/ce_reactions_scope.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_construction_site.h"
@@ -83,17 +84,18 @@ String RustStrToWtfString(rust::Str str) {
 }
 
 AtomicString RustStrToAtomicString(rust::Str str) {
-  return AtomicString(RustStrToWtfString(str));
+  return AtomicString::FromUTF8(base::RustStrToStringView(str));
 }
 
 bool HandleNamespaceAttributes(
     Vector<Attribute, kAttributePrealloc>& prefixed_attributes,
     xml_ffi::NamespacesIterator& namespaces,
+    bool& encountered_namespace_reset,
     ExceptionState& exception_state) {
   rust::String prefix;
   rust::String uri;
 
-  while (namespaces_next(namespaces, prefix, uri) && uri.length()) {
+  while (namespaces_next(namespaces, prefix, uri)) {
     AtomicString namespace_q_name = g_xmlns_atom;
     if (prefix.length()) {
       namespace_q_name = AtomicString(
@@ -104,6 +106,9 @@ bool HandleNamespaceAttributes(
     if (!parsed_name) {
       DCHECK(exception_state.HadException());
       return false;
+    }
+    if (parsed_name->LocalName() == g_xmlns_atom) {
+      encountered_namespace_reset = uri.empty();
     }
     prefixed_attributes.push_back(
         Attribute(std::move(*parsed_name), RustStrToAtomicString(uri)));
@@ -165,7 +170,8 @@ XMLDocumentParserRs::XMLDocumentParserRs(Document& document,
       current_node_(&document),
       read_state_(xml_ffi::create_read_state(*this)),
       parsing_fragment_(false) {
-  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled());
+  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled() ||
+        RuntimeEnabledFeatures::XMLRustForNonXsltEnabled());
   // This is XML being used as a document resource.
   if (frame_view && IsA<XMLDocument>(document)) {
     UseCounter::Count(document, WebFeature::kXMLDocument);
@@ -184,7 +190,8 @@ XMLDocumentParserRs::XMLDocumentParserRs(
       current_node_(fragment),
       read_state_(xml_ffi::create_read_state(*this)),
       parsing_fragment_(true) {
-  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled());
+  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled() ||
+        RuntimeEnabledFeatures::XMLRustForNonXsltEnabled());
   // Step 2 of
   // https://html.spec.whatwg.org/C/#xml-fragment-parsing-algorithm
   // The following code collects prefix-namespace mapping in scope on
@@ -263,6 +270,7 @@ void XMLDocumentParserRs::ProcessEvents() {
 void XMLDocumentParserRs::ClearCurrentNodeStack() {
   current_node_ = nullptr;
   leaf_text_node_ = nullptr;
+  ancestor_resetting_namespace_ = nullptr;
 
   if (current_node_stack_.size()) {  // Aborted parsing.
     current_node_stack_.clear();
@@ -272,6 +280,7 @@ void XMLDocumentParserRs::ClearCurrentNodeStack() {
 void XMLDocumentParserRs::Trace(Visitor* visitor) const {
   visitor->Trace(current_node_);
   visitor->Trace(current_node_stack_);
+  visitor->Trace(ancestor_resetting_namespace_);
   visitor->Trace(leaf_text_node_);
   visitor->Trace(xml_errors_);
   visitor->Trace(document_);
@@ -357,13 +366,25 @@ void XMLDocumentParserRs::StartElementNs(
     return;
   }
 
+  bool is_first_element = !saw_first_element_;
+  saw_first_element_ = true;
+
+  Vector<Attribute, kAttributePrealloc> prefixed_attributes;
+  bool encountered_namespace_reset = false;
+  if (!HandleNamespaceAttributes(prefixed_attributes, namespaces,
+                                 encountered_namespace_reset,
+                                 IGNORE_EXCEPTION)) {
+    StopParsing();
+    return;
+  }
   // In fragment parsing, adjust namespace URI. If the parser library reports an
   // empty NS url, resolve it against the initially preserved namespace
   // hierarchy that is built when creating an XMLDocumentParser with the
   // fragment-parsing constructor.
-  const AtomicString prefix_a(RustStrToWtfString(prefix));
-  const AtomicString local_a(RustStrToWtfString(local_name));
-  AtomicString adjusted_ns_uri(has_ns ? RustStrToWtfString(ns) : g_null_atom);
+  const AtomicString prefix_a(RustStrToAtomicString(prefix));
+  const AtomicString local_a(RustStrToAtomicString(local_name));
+  AtomicString adjusted_ns_uri(has_ns ? RustStrToAtomicString(ns)
+                                      : g_null_atom);
   if (parsing_fragment_ && adjusted_ns_uri.IsNull()) {
     if (has_prefix) {
       auto it = prefix_to_namespace_map_.find(prefix_a);
@@ -371,18 +392,11 @@ void XMLDocumentParserRs::StartElementNs(
         adjusted_ns_uri = it->value;
       }
     } else {
-      adjusted_ns_uri = default_namespace_uri_;
+      adjusted_ns_uri =
+          encountered_namespace_reset || ancestor_resetting_namespace_
+              ? g_null_atom
+              : default_namespace_uri_;
     }
-  }
-
-  bool is_first_element = !saw_first_element_;
-  saw_first_element_ = true;
-  Vector<Attribute, kAttributePrealloc> prefixed_attributes;
-
-  if (!HandleNamespaceAttributes(prefixed_attributes, namespaces,
-                                 IGNORE_EXCEPTION)) {
-    StopParsing();
-    return;
   }
 
   v8::Isolate* isolate = document_->GetAgent().isolate();
@@ -440,7 +454,7 @@ void XMLDocumentParserRs::StartElementNs(
       q_name,
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser(document_)
                         : CreateElementFlags::ByParser(document_),
-      is, /*registry*/ nullptr);
+      is, CustomElementRegistry::DefaultRegistry(current_node_->GetDocument()));
 
   if (!new_element) {
     StopParsing();
@@ -448,6 +462,10 @@ void XMLDocumentParserRs::StartElementNs(
   }
 
   SetAttributes(new_element, prefixed_attributes, GetParserContentPolicy());
+
+  if (parsing_fragment_ && encountered_namespace_reset) {
+    ancestor_resetting_namespace_ = new_element;
+  }
 
   new_element->BeginParsingChildren();
 
@@ -494,6 +512,10 @@ void XMLDocumentParserRs::EndElementNs(rust::Str local_name,
   if (!element) {
     PopCurrentNode();
     return;
+  }
+
+  if (ancestor_resetting_namespace_ == n) {
+    ancestor_resetting_namespace_ = nullptr;
   }
 
   element->FinishParsingChildren();
@@ -822,7 +844,8 @@ void XMLDocumentParserRs::ResumeParsing() {
 
 HashMap<String, String> ParseAttributesRust(const String& attrs_string,
                                             bool& attrs_ok) {
-  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled());
+  CHECK(RuntimeEnabledFeatures::XMLParsingRustEnabled() ||
+        RuntimeEnabledFeatures::XMLRustForNonXsltEnabled());
   rust::Vec<xml_ffi::AttributeNameValue> attributes = xml_ffi::parse_attributes(
       base::StringViewToRustSlice(attrs_string.Utf8()), attrs_ok);
 

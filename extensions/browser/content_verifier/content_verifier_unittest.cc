@@ -11,6 +11,7 @@
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/with_feature_override.h"
 #include "base/values.h"
 #include "extensions/browser/content_verifier/content_verifier_utils.h"
 #include "extensions/browser/content_verifier/test_utils.h"
@@ -19,6 +20,7 @@
 #include "extensions/common/api/content_scripts.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_paths.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/common/manifest_constants.h"
@@ -116,6 +118,26 @@ struct FilePathVariants {
   std::set<base::FilePath> case_variants;
 };
 
+class TestContentHashWaiter : public ContentVerifier::TestObserver {
+ public:
+  TestContentHashWaiter() { ContentVerifier::SetObserverForTests(this); }
+
+  TestContentHashWaiter(const TestContentHashWaiter&) = delete;
+  TestContentHashWaiter& operator=(const TestContentHashWaiter&) = delete;
+
+  ~TestContentHashWaiter() { ContentVerifier::SetObserverForTests(nullptr); }
+
+  void WaitForHash() { run_loop_.Run(); }
+
+  void OnFetchComplete(const scoped_refptr<const ContentHash>& content_hash,
+                       bool did_hash_mismatch) override {
+    run_loop_.Quit();
+  }
+
+ private:
+  base::RunLoop run_loop_;
+};
+
 }  // namespace
 
 class ContentVerifierTest : public ExtensionsTest {
@@ -199,6 +221,14 @@ class ContentVerifierTest : public ExtensionsTest {
         << "for upper_path " << upper_path;
 
     UpdateBrowserImagePaths({});
+  }
+
+  scoped_refptr<ContentVerifier> content_verifier() {
+    return content_verifier_;
+  }
+  scoped_refptr<Extension> extension() { return extension_; }
+  raw_ptr<TestContentVerifierDelegate> content_verifier_delegate_raw() {
+    return content_verifier_delegate_raw_;
   }
 
  protected:
@@ -470,5 +500,86 @@ TEST_F(ContentVerifierTest, NeverVerifiedPaths) {
     }
   }
 }
+
+class ContentVerifierExtensionRootHashTest
+    : public base::test::WithFeatureOverride,
+      public ContentVerifierTest {
+ public:
+  ContentVerifierExtensionRootHashTest()
+      : base::test::WithFeatureOverride(
+            extensions_features::kContentVerifierCacheIncludesExtensionRoot) {}
+};
+
+// Tests that when multiple extension roots exist for the same extension version
+// we create different `ContentHash`es for them if the extension root feature is
+// enabled, otherwise the hashes are the same.
+TEST_P(ContentVerifierExtensionRootHashTest,
+       ContentHashesForDifferentExtensionRoots) {
+  content_verifier_delegate_raw()->SetVerifierSourceType(
+      ContentVerifierDelegate::VerifierSourceType::UNSIGNED_HASHES);
+
+  // 1. Setup Extension A (Root A).
+  base::FilePath root_a = extension()->path();
+  {
+    TestContentHashWaiter waiter;
+    content_verifier()->OnExtensionLoaded(browser_context(), extension().get());
+    waiter.WaitForHash();
+  }
+
+  // 2. Setup Extension B (Root B, Same ID, Same Version).
+  // We create a copy of the extension but with a different path.
+  base::FilePath root_b = root_a.ReplaceExtension(FILE_PATH_LITERAL("_1"));
+  scoped_refptr<const Extension> extension_b =
+      ExtensionBuilder()
+          .SetManifest(base::Value::Dict()
+                           .Set("name", "Dummy Extension")
+                           .Set("version", "1")
+                           .Set("manifest_version", 3))
+          .SetID(extension()->id())
+          .SetPath(root_b)
+          .Build();
+  content_verifier()->ResetIODataForTesting(extension_b.get());
+  {
+    TestContentHashWaiter waiter;
+    content_verifier()->OnExtensionLoaded(browser_context(), extension_b.get());
+    waiter.WaitForHash();
+  }
+
+  // 3. Verify that we have separate cache entries for both roots.
+  // We need to run this on the IO thread.
+  base::RunLoop run_loop;
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](scoped_refptr<ContentVerifier> verifier, ExtensionId id,
+             base::Version version, base::FilePath root_a,
+             base::FilePath root_b, bool is_feature_enabled,
+             base::RepeatingClosure quit_closure) {
+            auto hash_a = verifier->GetCachedContentHash(
+                id, version, root_a,
+                /*force_missing_computed_hashes_creation=*/false);
+            auto hash_b = verifier->GetCachedContentHash(
+                id, version, root_b,
+                /*force_missing_computed_hashes_creation=*/false);
+
+            if (is_feature_enabled) {
+              EXPECT_EQ(hash_a->extension_root(), root_a);
+              EXPECT_EQ(hash_b->extension_root(), root_b);
+              EXPECT_NE(hash_a, hash_b);
+            } else {
+              EXPECT_EQ(hash_a, hash_b);
+              // When the feature is disabled, the cache key ignores the root,
+              // so the second load (root_b) overwrites the first (root_a).
+              // Thus both lookups return the hash for root_b.
+              EXPECT_EQ(hash_a->extension_root(), root_b);
+            }
+            quit_closure.Run();
+          },
+          content_verifier(), extension()->id(), extension()->version(), root_a,
+          root_b, IsParamFeatureEnabled(), run_loop.QuitClosure()));
+  run_loop.Run();
+}
+
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(ContentVerifierExtensionRootHashTest);
 
 }  // namespace extensions

@@ -13,10 +13,8 @@ and smoothness.
 
 import argparse
 import logging
-import multiprocessing
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import time
@@ -106,7 +104,7 @@ def setup_test_environment(args, chrome_version):
     return driver, tunnel_proc
 
 # pylint: disable=too-many-locals
-def run_performance_test(video_file: str, framerate: int, driver: webdriver):
+def run_performance_test(video_file: str, driver: webdriver):
     """
     Runs a single video performance test by playing and recording the video.
 
@@ -116,7 +114,6 @@ def run_performance_test(video_file: str, framerate: int, driver: webdriver):
 
     Args:
         video_file (str): The name of the video file to be tested.
-        framerate (int): The framerate of the video.
         driver (webdriver.Remote): The Selenium WebDriver instance.
 
     Returns:
@@ -126,22 +123,29 @@ def run_performance_test(video_file: str, framerate: int, driver: webdriver):
     output_file = os.path.join(common.RECORDINGS_DIR,
                                video_file.replace('.webm', '.mp4'))
 
-    width, height, fps = common._query_v4l2_device('/dev/video1')
-
     host_recording_cmd = [
         'ffmpeg',
+        # Overwrite output files without asking.
         '-y',
+        # Set the input format to Video4Linux2.
         '-f', 'video4linux2',
-        '-framerate', str(fps),
-        '-video_size', f'{width}x{height}',
+        # Set the input pixel format.
         '-input_format', 'yuyv422',
+        # Specify the input file (video device).
         '-i', '/dev/video1',
+        # Set the size of the input buffer to help prevent dropped frames.
         '-thread_queue_size', '1024',
+        # Set the video codec to libx264 (H.264).
         '-c:v', 'libx264',
+        # Use the ultrafast preset for real-time encoding.
         '-preset', 'ultrafast',
+        # Set the Constant Rate Factor for quality (lower is better).
         '-crf', '28',
+        # Set the output pixel format for compatibility.
         '-pix_fmt', 'yuv420p',
+        # Set the Group of Pictures (GOP) size for better seeking.
         '-g', '60',
+        # Set the duration of the recording.
         '-t', '35',
         output_file
     ]
@@ -264,9 +268,7 @@ def main():
             logging.info("Starting test for video: %s", video['name'])
             rec_proc = None
             try:
-                rec_proc = run_performance_test(video['name'],
-                                                video['fps'],
-                                                driver)
+                rec_proc = run_performance_test(video['name'], driver)
             except Exception: # pylint: disable=broad-exception-caught
                 logging.exception("Error during video %s test", video['name'])
                 raise

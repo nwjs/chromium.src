@@ -6,7 +6,9 @@
 
 #include "base/containers/circular_deque.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/memory_pressure_listener.h"
+#include "base/memory/memory_pressure_listener_registry.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
@@ -63,6 +65,7 @@ class ApplicationBreadcrumbsLoggerTest : public PlatformTest {
   // have finished.
   base::ScopedTempDir temp_dir_;
 
+  base::MemoryPressureListenerRegistry memory_pressure_listener_registry_;
   base::test::TaskEnvironment task_environment_;
   std::unique_ptr<ApplicationBreadcrumbsLogger> logger_;
 };
@@ -103,11 +106,12 @@ TEST_F(ApplicationBreadcrumbsLoggerTest, SkipInProductHelpUserActions) {
 TEST_F(ApplicationBreadcrumbsLoggerTest, MemoryPressure) {
   ASSERT_TRUE(OnlyStartupEventLogged());
 
+  base::RunLoop run_loop;
   base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_MODERATE);
+      base::MEMORY_PRESSURE_LEVEL_MODERATE, base::DoNothing());
   base::MemoryPressureListener::SimulatePressureNotificationAsync(
-      base::MEMORY_PRESSURE_LEVEL_CRITICAL);
-  base::RunLoop().RunUntilIdle();
+      base::MEMORY_PRESSURE_LEVEL_CRITICAL, run_loop.QuitClosure());
+  run_loop.Run();
 
   EXPECT_FALSE(OnlyStartupEventLogged());
   auto events = GetEvents();

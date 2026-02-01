@@ -94,9 +94,9 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
@@ -164,12 +164,8 @@ class TestFunctionDispatcherDelegate
   ~TestFunctionDispatcherDelegate() override = default;
 
  private:
-  extensions::WindowController* GetExtensionWindowController() const override {
+  extensions::WindowController* GetExtensionWindowController() override {
     return BrowserExtensionWindowController::From(browser_);
-  }
-
-  content::WebContents* GetAssociatedWebContents() const override {
-    return nullptr;
   }
 
   raw_ptr<BrowserWindowInterface> browser_;
@@ -1268,7 +1264,7 @@ class ExtensionWindowCreateIwaTest
   }
 
   void TearDownOnMainThread() override {
-    if (BrowserList::GetInstance()->empty()) {
+    if (GlobalBrowserCollection::GetInstance()->IsEmpty()) {
       // Tests crash during teardown if no browser has opened combined with the
       // command line switches above. Open a browser to avoid the crash.
       CreateBrowser(profile());
@@ -1582,9 +1578,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, OnBoundsChanged) {
   ASSERT_TRUE(catcher.GetNextResult());
 }
 
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate) {
   ASSERT_TRUE(RunExtensionTest("windows/create")) << message_;
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, ExecuteScriptOnDevTools) {
   scoped_refptr<const Extension> extension =
@@ -1860,8 +1860,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
       browser()->tab_strip_model()->DetachTabGroupForInsertion(group);
 
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
-  EXPECT_TRUE(base::Contains(event_observer.events(),
-                             api::tabs::OnUpdated::kEventName));
+  EXPECT_TRUE(
+      event_observer.events().contains(api::tabs::OnUpdated::kEventName));
 
   event_observer.ClearEvents();
 
@@ -1870,22 +1870,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
 
   // Group added as well as the tab's group changed event should be sent.
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
-  EXPECT_TRUE(base::Contains(event_observer.events(),
-                             api::tabs::OnUpdated::kEventName));
+  EXPECT_TRUE(
+      event_observer.events().contains(api::tabs::OnUpdated::kEventName));
 }
 
-class ExtensionTabsWithSplitViewTest : public ExtensionTabsTest {
- public:
-  ExtensionTabsWithSplitViewTest() {
-    scoped_feature_list_.InitAndEnableFeature(features::kSideBySide);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(ExtensionTabsWithSplitViewTest,
-                       SplitViewAddedAndRemoved) {
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, SplitViewAddedAndRemoved) {
   // Create the `TabsEventRouter`, which is required to get a tab update event.
   TabsWindowsAPI::Get(profile())->InitTabsEventRouter();
 
@@ -1901,16 +1890,16 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsWithSplitViewTest,
       split_tabs::SplitTabCreatedSource());
 
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
-  EXPECT_TRUE(base::Contains(event_observer.events(),
-                             api::tabs::OnUpdated::kEventName));
+  EXPECT_TRUE(
+      event_observer.events().contains(api::tabs::OnUpdated::kEventName));
 
   event_observer.ClearEvents();
 
   browser()->tab_strip_model()->RemoveSplit(split);
 
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
-  EXPECT_TRUE(base::Contains(event_observer.events(),
-                             api::tabs::OnUpdated::kEventName));
+  EXPECT_TRUE(
+      event_observer.events().contains(api::tabs::OnUpdated::kEventName));
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, Freezing) {

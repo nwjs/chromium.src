@@ -17,7 +17,7 @@ import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
-import {assert} from 'chrome://resources/js/assert.js';
+import {assert, assertNotReached, assertNotReachedCase} from 'chrome://resources/js/assert.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -37,7 +37,7 @@ import {Router} from '../router.js';
 import {SettingsViewMixin} from '../settings_page/settings_view_mixin.js';
 
 import type {DataCategoryClickEvent, DataChipClickEvent} from './category_reference_card.js';
-import {SavedInfoHandlerImpl} from './saved_info_handler_proxy.js';
+import {DataManagementSurvey, SavedInfoHandlerImpl} from './saved_info_handler_proxy.js';
 import {getTemplate} from './your_saved_info_page.html.js';
 
 type AddressEntry = chrome.autofillPrivate.AddressEntry;
@@ -424,7 +424,7 @@ export class SettingsYourSavedInfoPageElement extends
         triggerId = 'travelManagerButton';
         break;
       default:
-        throw new Error(`Unrecognized child view ID: ${childViewId}`);
+        assertNotReached(`Unrecognized child view ID: ${childViewId}`);
     }
     const control =
         this.shadowRoot!.querySelector<HTMLElement>(`#${triggerId}`);
@@ -470,6 +470,8 @@ export class SettingsYourSavedInfoPageElement extends
         PasswordManagerImpl.getInstance().recordPasswordsPageAccessInSettings();
         PasswordManagerImpl.getInstance().showPasswordManager(
             PasswordManagerPage.PASSWORDS);
+        SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+            DataManagementSurvey.PASSWORDS, true);
         break;
       case YourSavedInfoDataCategory.PAYMENTS:
         Router.getInstance().navigateTo(routes.PAYMENTS);
@@ -483,6 +485,10 @@ export class SettingsYourSavedInfoPageElement extends
       case YourSavedInfoDataCategory.TRAVEL:
         Router.getInstance().navigateTo(routes.YOUR_SAVED_INFO_TRAVEL);
         break;
+      case YourSavedInfoDataCategory.MAX_VALUE:
+        assertNotReached();
+      default:
+        assertNotReachedCase(categoryId);
     }
   }
 
@@ -495,6 +501,8 @@ export class SettingsYourSavedInfoPageElement extends
     PasswordManagerImpl.getInstance().recordPasswordsPageAccessInSettings();
     PasswordManagerImpl.getInstance().showPasswordManager(
         PasswordManagerPage.PASSWORDS);
+    SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+        DataManagementSurvey.PASSWORDS, true);
   }
 
   /**

@@ -5,6 +5,7 @@
 #import "ios/chrome/app/main_controller.h"
 
 #import <memory>
+#import <utility>
 
 #import "base/apple/bundle_locations.h"
 #import "base/apple/foundation_util.h"
@@ -27,7 +28,6 @@
 #import "base/timer/timer.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/component_updater/component_updater_service.h"
-#import "components/component_updater/installer_policies/autofill_states_component_installer.h"
 #import "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
 #import "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #import "components/component_updater/installer_policies/plus_address_blocklist_component_installer.h"
@@ -84,14 +84,14 @@
 #import "ios/chrome/browser/crash_report/model/crash_loop_detection_util.h"
 #import "ios/chrome/browser/crash_report/model/crash_report_helper.h"
 #import "ios/chrome/browser/credential_provider/model/credential_provider_buildflags.h"
+#import "ios/chrome/browser/default_browser/install_attribution/model/install_attribution_helper.h"
 #import "ios/chrome/browser/default_browser/model/features.h"
-#import "ios/chrome/browser/default_browser/model/install_attribution/install_attribution_helper.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/device_orientation/ui_bundled/scoped_force_portrait_orientation.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_app_agent.h"
 #import "ios/chrome/browser/download/model/download_directory_util.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
-#import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
+#import "ios/chrome/browser/first_run/public/first_run_util.h"
 #import "ios/chrome/browser/main/ui_bundled/browser_view_wrangler.h"
 #import "ios/chrome/browser/memory/model/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/model/first_user_action_recorder.h"
@@ -170,7 +170,7 @@
 #endif
 
 #if !BUILDFLAG(IS_IOS_MACCATALYST)
-#import "ios/chrome/browser/default_browser/model/default_status/default_status_helper.h"
+#import "ios/chrome/browser/default_browser/default_status/model/default_status_helper.h"
 #endif  // !BUILDFLAG(IS_IOS_MACCATALYST)
 
 namespace {
@@ -242,8 +242,6 @@ void RegisterComponentsForUpdate() {
   RegisterOnDeviceHeadSuggestComponent(
       cus, GetApplicationContext()->GetApplicationLocaleStorage()->Get());
   RegisterSafetyTipsComponent(cus);
-  RegisterAutofillStatesComponent(cus,
-                                  GetApplicationContext()->GetLocalState());
   RegisterOptimizationHintsComponent(cus);
   RegisterPlusAddressBlocklistComponent(cus);
 }
@@ -1800,7 +1798,7 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 
     while (sceneState.activationLevel < savedLevel) {
       sceneState.activationLevel = static_cast<SceneActivationLevel>(
-          base::to_underlying(sceneState.activationLevel) + 1);
+          std::to_underlying(sceneState.activationLevel) + 1);
     }
   }
 
@@ -1970,8 +1968,8 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 // Update the kLastUsedProfile preference if needed.
 - (void)updateLastUsedProfilePref {
   PrefService* localState = GetApplicationContext()->GetLocalState();
-  if (base::Contains(_profileControllers,
-                     localState->GetString(prefs::kLastUsedProfile))) {
+  if (_profileControllers.contains(
+          localState->GetString(prefs::kLastUsedProfile))) {
     // The last used profile is still loaded, no need to update the pref.
     return;
   }

@@ -35,8 +35,7 @@ public class InterfaceControlMessagesHelper {
      * MessageReceiver that forwards a message containing a {@link RunResponseMessageParams} to a
      * callback.
      */
-    private static class RunResponseForwardToCallback extends SideEffectFreeCloseable
-            implements MessageReceiver {
+    private static class RunResponseForwardToCallback implements MessageReceiver {
         private final SendRunMessageCallback mCallback;
 
         RunResponseForwardToCallback(SendRunMessageCallback callback) {
@@ -53,6 +52,9 @@ public class InterfaceControlMessagesHelper {
             mCallback.call(response);
             return true;
         }
+
+        @Override
+        public void close() {}
     }
 
     /** Sends the given run message through the receiver, registering the callback. */
@@ -65,6 +67,7 @@ public class InterfaceControlMessagesHelper {
                 params.serializeWithHeader(
                         core,
                         new MessageHeader(
+                                MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                 InterfaceControlMessagesConstants.RUN_MESSAGE_ID,
                                 MessageHeader.MESSAGE_EXPECTS_RESPONSE_FLAG,
                                 0));
@@ -78,6 +81,7 @@ public class InterfaceControlMessagesHelper {
                 params.serializeWithHeader(
                         core,
                         new MessageHeader(
+                                MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                 InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID));
         receiver.accept(message);
     }
@@ -101,6 +105,7 @@ public class InterfaceControlMessagesHelper {
                 response.serializeWithHeader(
                         core,
                         new MessageHeader(
+                                MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                 InterfaceControlMessagesConstants.RUN_MESSAGE_ID,
                                 MessageHeader.MESSAGE_IS_RESPONSE_FLAG,
                                 message.getHeader().getRequestId())));

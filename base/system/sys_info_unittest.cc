@@ -6,11 +6,13 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -53,7 +55,7 @@ namespace base {
 // Some Android (Cast) test devices have a large portion of physical memory
 // reserved. During investigation, around 115-150 MB were seen reserved, so we
 // track this here with a factory of safety of 2.
-static constexpr ByteCount kReservedPhysicalMemory = MiB(300);
+static constexpr ByteSize kReservedPhysicalMemory = MiBU(300);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 using SysInfoTest = PlatformTest;
@@ -89,9 +91,9 @@ TEST_F(SysInfoTest, NumProcsWithSecurityMitigationEnabled) {
 
 TEST_F(SysInfoTest, AmountOfMem) {
   // We aren't actually testing that it's correct, just that it's sane.
-  EXPECT_GT(SysInfo::AmountOfPhysicalMemory(), ByteCount(0));
+  EXPECT_GT(SysInfo::AmountOfTotalPhysicalMemory(), ByteSize(0));
   // The maxmimal amount of virtual memory can be zero which means unlimited.
-  EXPECT_GE(SysInfo::AmountOfVirtualMemory(), ByteCount(0));
+  EXPECT_GE(SysInfo::AmountOfVirtualMemory(), ByteSize(0));
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
@@ -104,28 +106,29 @@ TEST_F(SysInfoTest, AmountOfMem) {
 TEST_F(SysInfoTest, MAYBE_AmountOfAvailablePhysicalMemory) {
   SystemMemoryInfo info;
   ASSERT_TRUE(GetSystemMemoryInfo(&info));
-  EXPECT_GT(info.free, ByteCount(0));
+  EXPECT_GT(info.free, ByteSize(0));
   if (!info.available.is_zero()) {
     // If there is MemAvailable from kernel.
     EXPECT_LT(info.available, info.total);
-    const ByteCount amount = SysInfo::AmountOfAvailablePhysicalMemory(info);
+    const ByteSize amount = SysInfo::AmountOfAvailablePhysicalMemory(info);
     // We aren't actually testing that it's correct, just that it's sane.
     // Available memory is |free - reserved + reclaimable (inactive, non-free)|.
     // On some android platforms, reserved is a substantial portion.
-    const ByteCount available =
+    const ByteSize available =
 #if BUILDFLAG(IS_ANDROID)
-        std::max(info.free - kReservedPhysicalMemory, ByteCount(0));
+        std::max(info.free - kReservedPhysicalMemory, ByteSizeDelta(0))
+            .AsByteSize();
 #else
         info.free;
 #endif  // BUILDFLAG(IS_ANDROID)
     EXPECT_GT(amount, available);
     EXPECT_LT(amount, info.available);
     // Simulate as if there is no MemAvailable.
-    info.available = ByteCount(0);
+    info.available = ByteSize(0);
   }
 
   // There is no MemAvailable. Check the fallback logic.
-  const ByteCount amount = SysInfo::AmountOfAvailablePhysicalMemory(info);
+  const ByteSize amount = SysInfo::AmountOfAvailablePhysicalMemory(info);
   // We aren't actually testing that it's correct, just that it's sane.
   EXPECT_GT(amount, info.free);
   EXPECT_LT(amount, info.total);
@@ -482,4 +485,47 @@ TEST_F(SysInfoTest, KernelVersionNumber) {
   EXPECT_LT(current_kernel_version, next_bugfix_kernel_version);
 }
 #endif  // BUILDFLAG(IS_POSIX)
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+TEST_F(SysInfoTest, NumberOfEfficientProcessors) {
+  std::vector<uint64_t> frequencies = SysInfo::MaxFrequencyPerProcessor();
+  if (frequencies.empty()) {
+    GTEST_SKIP() << "Cannot test, not able to detect max core frequency. "
+                 << "This is expected on VMs for instance";
+  }
+
+  EXPECT_EQ(static_cast<int>(frequencies.size()),
+            SysInfo::NumberOfProcessors());
+  // Can be 0, if this is not a big.LITTLE architecture.
+  EXPECT_LE(static_cast<int>(SysInfo::NumberOfEfficientProcessors()),
+            SysInfo::NumberOfProcessors());
+  uint64_t min_frequency =
+      *std::min_element(frequencies.begin(), frequencies.end());
+  size_t expected_count = SysInfo::NumberOfEfficientProcessors() == 0
+                              ? frequencies.size()
+                              : SysInfo::NumberOfEfficientProcessors();
+  EXPECT_EQ(std::count_if(frequencies.begin(), frequencies.end(),
+                          [min_frequency](uint64_t freq) {
+                            return freq == min_frequency;
+                          }),
+            expected_count);
+}
+
+TEST_F(SysInfoTest, MaxFrequencyPerProcessor) {
+  std::vector<uint64_t> frequencies = SysInfo::MaxFrequencyPerProcessor();
+  if (frequencies.empty()) {
+    GTEST_SKIP() << "Cannot test, not able to detect max core frequency. "
+                 << "This is expected on VMs for instance";
+  }
+
+  EXPECT_EQ(static_cast<int>(frequencies.size()),
+            SysInfo::NumberOfProcessors());
+  // Make sure that the frequency is correctly parsed. We could perhaps assert
+  // that it's somewhat realistic, but this might fail in e.g. VM environments.
+  EXPECT_TRUE(std::all_of(frequencies.begin(), frequencies.end(),
+                          [](uint64_t freq) { return freq > 0; }));
+}
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+        // BUILDFLAG(IS_ANDROID)
+
 }  // namespace base

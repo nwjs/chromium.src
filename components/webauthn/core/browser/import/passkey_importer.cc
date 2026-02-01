@@ -5,6 +5,7 @@
 #include "components/webauthn/core/browser/import/passkey_importer.h"
 
 #include "base/check_deref.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/webauthn/core/browser/import/import_processing_result.h"
 #include "components/webauthn/core/browser/import/imported_passkey_checker.h"
@@ -53,13 +54,22 @@ void PasskeyImporter::ProcessPasskeys(
     ProcessingCallback processing_callback) {
   ImportProcessingResult result;
   for (sync_pb::WebauthnCredentialSpecifics& passkey : passkeys) {
+    if (passkey_model_
+            ->GetPasskey(PasskeyModel::AnyRp(), passkey.credential_id(),
+                         PasskeyModel::ShadowedCredentials::kInclude)
+            .has_value()) {
+      duplicate_passkey_count_++;
+      continue;
+    }
+
     ImportedPasskeyStatus status = CheckImportedPasskey(passkey);
     if (status != ImportedPasskeyStatus::kOk) {
+      base::UmaHistogramEnumeration(
+          "WebAuthentication.CredentialExchange.PasskeyImportStatus", status);
       result.errors.push_back(SpecificsToImportedPasskeyInfo(passkey, status));
       continue;
     }
 
-    // TODO(crbug.com/458337350): Sanity check only matching credential ID.
     if (passkey_model_->GetPasskeyByUserId(passkey.rp_id(), passkey.user_id())
             .has_value()) {
       result.conflicts.push_back(
@@ -88,10 +98,24 @@ void PasskeyImporter::ImportPasskeys(
     passkey_model_->CreatePasskey(conflicting_passkeys_[incoming_passkey_id]);
   }
 
-  size_t imported_passkeys_count =
-      valid_passkeys_.size() + selected_conflicting_passkey_ids.size();
+  size_t imported_passkeys_count = valid_passkeys_.size() +
+                                   selected_conflicting_passkey_ids.size() +
+                                   duplicate_passkey_count_;
   std::move(passkeys_imported_callback)
       .Run(static_cast<int>(imported_passkeys_count));
+
+  base::UmaHistogramCounts1000(
+      "WebAuthentication.CredentialExchange.PasskeyConflictsCount",
+      static_cast<int>(conflicting_passkeys_.size()));
+  base::UmaHistogramCounts1000(
+      "WebAuthentication.CredentialExchange.PasskeyConflictsResolvedCount",
+      static_cast<int>(selected_conflicting_passkey_ids.size()));
+  base::UmaHistogramCounts1000(
+      "WebAuthentication.CredentialExchange.PasskeyDuplicatesCount",
+      static_cast<int>(duplicate_passkey_count_));
+  base::UmaHistogramCounts1000(
+      "WebAuthentication.CredentialExchange.PasskeysImportedCount",
+      static_cast<int>(imported_passkeys_count));
 }
 
 }  // namespace webauthn

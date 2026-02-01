@@ -11,6 +11,7 @@
 #import "ios/chrome/browser/composebox/coordinator/composebox_input_plate_coordinator.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_navigation_mediator.h"
+#import "ios/chrome/browser/composebox/debugger/composebox_debugger_coordinator.h"
 #import "ios/chrome/browser/composebox/public/composebox_animation_base.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_plate_position.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
@@ -20,6 +21,8 @@
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_view_controller.h"
 #import "ios/chrome/browser/composebox/ui/composebox_present_animator.h"
 #import "ios/chrome/browser/composebox/ui/composebox_view_controller.h"
+#import "ios/chrome/browser/composebox/ui/presentation/composebox_ipad_animator.h"
+#import "ios/chrome/browser/composebox/ui/presentation/composebox_ipad_presentation_controller.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
@@ -31,6 +34,8 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_util.h"
@@ -39,6 +44,7 @@
 @interface ComposeboxCoordinator () <ComposeboxViewControllerDelegate,
                                      ComposeboxNavigationMediatorDelegate,
                                      ComposeboxAnimationContext,
+                                     ComposeboxDebuggerCoordinatorDelegate,
                                      UIViewControllerTransitioningDelegate>
 
 @end
@@ -58,6 +64,8 @@
   __weak id<ComposeboxAnimationBase> _animationBase;
   // The holder for the composebox mode.
   ComposeboxModeHolder* _modeHolder;
+  // Coordinator for the debugging UI of the composebox.
+  ComposeboxDebuggerCoordinator* _debuggerCoordinator;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -120,6 +128,14 @@
     [self checkClipboardContent];
   }
 
+  if (experimental_flags::IsOmniboxDebuggingEnabled()) {
+    _debuggerCoordinator = [[ComposeboxDebuggerCoordinator alloc]
+        initWithBaseViewController:_viewController
+                           browser:self.browser];
+    _debuggerCoordinator.delegate = self;
+    [_debuggerCoordinator start];
+  }
+
   [self.baseViewController presentViewController:_viewController
                                         animated:YES
                                       completion:nil];
@@ -170,6 +186,13 @@
     animationControllerForPresentedController:(UIViewController*)presented
                          presentingController:(UIViewController*)presenting
                              sourceController:(UIViewController*)source {
+  if (IsComposeboxIpadEnabled() &&
+      [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    ComposeboxiPadAnimator* animator = [[ComposeboxiPadAnimator alloc] init];
+    animator.layoutGuideCenter = LayoutGuideCenterForBrowser(self.browser);
+    animator.presenting = YES;
+    return animator;
+  }
   ComposeboxPresentAnimator* animator =
       [[ComposeboxPresentAnimator alloc] initWithContext:self
                                            animationBase:_animationBase];
@@ -179,9 +202,37 @@
 
 - (id<UIViewControllerAnimatedTransitioning>)
     animationControllerForDismissedController:(UIViewController*)dismissed {
+  if (IsComposeboxIpadEnabled() &&
+      [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    ComposeboxiPadAnimator* animator = [[ComposeboxiPadAnimator alloc] init];
+    animator.layoutGuideCenter = LayoutGuideCenterForBrowser(self.browser);
+    animator.presenting = NO;
+    return animator;
+  }
   return [[ComposeboxDismissAnimator alloc]
       initWithContextProvider:self
                 animationBase:_animationBase];
+}
+
+- (UIPresentationController*)
+    presentationControllerForPresentedViewController:
+        (UIViewController*)presented
+                            presentingViewController:
+                                (UIViewController*)presenting
+                                sourceViewController:(UIViewController*)source {
+  if (IsComposeboxIpadEnabled() &&
+      [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    ComposeboxiPadPresentationController* controller =
+        [[ComposeboxiPadPresentationController alloc]
+            initWithPresentedViewController:presented
+                   presentingViewController:presenting];
+    controller.layoutGuideCenter = LayoutGuideCenterForBrowser(self.browser);
+    controller.browserCoordinatorHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), BrowserCoordinatorCommands);
+    controller.delegate = _viewController;
+    return controller;
+  }
+  return nil;
 }
 
 #pragma mark - ComposeboxViewControllerDelegate
@@ -239,6 +290,13 @@
 }
 
 - (ComposeboxInputPlatePosition)inputPlatePositionPreference {
+  if (IsComposeboxIpadEnabled() &&
+      [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    // TODO(crbug.com/469368394): Should only return this if regular horizontal
+    // size class.
+    return ComposeboxInputPlatePosition::kiPad;
+  }
+
   if (IsComposeboxForceTopEnabled()) {
     return ComposeboxInputPlatePosition::kTop;
   }
@@ -308,6 +366,12 @@
 
 - (BOOL)inputPlateIsCompact {
   return _aimComposeboxCoordinator.inputViewController.compact;
+}
+
+#pragma mark - ComposeboxDebuggerCoordinatorDelegate
+
+- (void)composeboxDebuggerDidRequestOmniboxDebugging {
+  [_aimComposeboxCoordinator showOmniboxDebugUI];
 }
 
 @end

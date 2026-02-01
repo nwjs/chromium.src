@@ -459,6 +459,8 @@ NavigationEntryImpl::NavigationEntryImpl(
       started_from_context_menu_(false),
       ssl_error_(false),
       should_skip_on_back_forward_ui_(false),
+      is_entry_created_by_ad_(false),
+      is_ad_entry_creator_(false),
       initial_navigation_entry_state_(
           is_initial_entry
               ? InitialNavigationEntryState::kInitialNotForSynchronousAboutBlank
@@ -797,6 +799,10 @@ int64_t NavigationEntryImpl::GetMainFrameDocumentSequenceNumber() const {
   return frame_tree_->frame_entry->document_sequence_number();
 }
 
+bool NavigationEntryImpl::IsPossiblySkippableAdEntryForTesting() const {
+  return is_possibly_skippable_ad_entry();
+}
+
 void NavigationEntryImpl::SetCanLoadLocalResources(bool allow) {
   can_load_local_resources_ = allow;
 }
@@ -886,6 +892,8 @@ NavigationEntryImpl::CloneAndReplaceInternal(
   copy->CloneDataFrom(*this);
   copy->replaced_entry_data_ = replaced_entry_data_;
   copy->should_skip_on_back_forward_ui_ = should_skip_on_back_forward_ui_;
+  copy->is_entry_created_by_ad_ = is_entry_created_by_ad_;
+  copy->is_ad_entry_creator_ = is_ad_entry_creator_;
   copy->initial_navigation_entry_state_ = initial_navigation_entry_state_;
 
   if (navigation_transition_data().cache_hit_or_miss_reason() ==
@@ -1036,7 +1044,14 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           /*should_skip_screenshot*/ false,
           /*force_new_document_sequence_number=*/false,
           /*navigation_metrics_token=*/base::UnguessableToken::Create(),
-          /*commit_target_frame_token=*/std::nullopt);
+          /*commit_target_frame_token=*/std::nullopt,
+  /*is_initial_webui=*/
+#if !BUILDFLAG(IS_ANDROID)
+          GetContentClient()->browser()->IsInitialWebUIURL(frame_entry.url())
+#else
+          false
+#endif
+      );
 #if BUILDFLAG(IS_ANDROID)
   // `data_url_as_string` is saved in NavigationEntry but should only be used by
   // main frames, because loadData* navigations can only happen on the main

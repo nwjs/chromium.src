@@ -44,7 +44,7 @@ class TestDragDropRequestHandler
   static std::unique_ptr<ClipboardRequestHandler> Create(
       enterprise_connectors::test::FakeContentAnalysisDelegate* delegate,
       enterprise_connectors::ContentAnalysisInfo* content_analysis_info,
-      safe_browsing::BinaryUploadService* upload_service,
+      enterprise_connectors::BinaryUploadService* upload_service,
       Profile* profile,
       GURL url,
       Type type,
@@ -74,10 +74,10 @@ class TestDragDropRequestHandler
     ASSERT_EQ(request->reason(),
               enterprise_connectors::ContentAnalysisRequest::DRAG_AND_DROP);
 
-    safe_browsing::BinaryUploadService::Request::Data data;
+    enterprise_connectors::BinaryUploadRequest::Data data;
     request->GetRequestData(base::BindLambdaForTesting(
         [&data](enterprise_connectors::ScanRequestUploadResult,
-                safe_browsing::BinaryUploadService::Request::Data data_arg) {
+                enterprise_connectors::BinaryUploadRequest::Data data_arg) {
           data = std::move(data_arg);
         }));
 
@@ -85,7 +85,7 @@ class TestDragDropRequestHandler
         FROM_HERE,
         base::BindOnce(&TestDragDropRequestHandler::OnContentAnalysisResponse,
                        base::Unretained(this),
-                       enterprise_connectors::ScanRequestUploadResult::SUCCESS,
+                       enterprise_connectors::ScanRequestUploadResult::kSuccess,
                        delegate_->GetStatus(data.contents, base::FilePath())));
   }
 };
@@ -131,7 +131,7 @@ class DragDropTestContentAnalysisDelegate
   void FakeUploadFileForDeepScanning(
       enterprise_connectors::ScanRequestUploadResult result,
       const base::FilePath& path,
-      std::unique_ptr<safe_browsing::BinaryUploadService::Request> request,
+      std::unique_ptr<enterprise_connectors::BinaryUploadRequest> request,
       enterprise_connectors::test::FakeFilesRequestHandler::
           FakeFileRequestCallback callback) override {
     ASSERT_EQ(request->reason(),
@@ -195,7 +195,7 @@ class ChromeWebContentsViewDelegateHandleOnPerformingDrop
           current_requests_count_++;
           bool scan_succeeds =
               (path.empty() && text_scan_succeeds_) ||
-              (!path.empty() && !base::Contains(failing_file_scans_, path));
+              (!path.empty() && !failing_file_scans_.contains(path));
           enterprise_connectors::ContentAnalysisResponse response =
               scan_succeeds
                   ? FakeDelegate::SuccessfulResponse(std::move(dlp_tag))

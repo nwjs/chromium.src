@@ -77,18 +77,22 @@ class FileSystemDispatcher::ReadDirectoryListener
 };
 
 FileSystemDispatcher::FileSystemDispatcher(ExecutionContext& context)
-    : execution_context_(context),
+    : Supplement<ExecutionContext>(context),
       file_system_manager_(&context),
       next_operation_id_(1),
       op_listeners_(&context) {}
 
 // static
+const char FileSystemDispatcher::kSupplementName[] = "FileSystemDispatcher";
+
+// static
 FileSystemDispatcher& FileSystemDispatcher::From(ExecutionContext* context) {
   DCHECK(context);
-  FileSystemDispatcher* dispatcher = context->GetFileSystemDispatcher();
+  FileSystemDispatcher* dispatcher =
+      Supplement<ExecutionContext>::From<FileSystemDispatcher>(context);
   if (!dispatcher) {
     dispatcher = MakeGarbageCollected<FileSystemDispatcher>(*context);
-    context->SetFileSystemDispatcher(dispatcher);
+    Supplement<ExecutionContext>::ProvideTo(*context, dispatcher);
   }
   return *dispatcher;
 }
@@ -100,10 +104,10 @@ mojom::blink::FileSystemManager& FileSystemDispatcher::GetFileSystemManager() {
     // See https://bit.ly/2S0zRAS for task types
     mojo::PendingReceiver<mojom::blink::FileSystemManager> receiver =
         file_system_manager_.BindNewPipeAndPassReceiver(
-            execution_context_->GetTaskRunner(
+            GetSupplementable()->GetTaskRunner(
                 blink::TaskType::kMiscPlatformAPI));
 
-    execution_context_->GetBrowserInterfaceBroker().GetInterface(
+    GetSupplementable()->GetBrowserInterfaceBroker().GetInterface(
         std::move(receiver));
   }
   DCHECK(file_system_manager_.is_bound());
@@ -293,7 +297,7 @@ void FileSystemDispatcher::ReadDirectory(
       std::make_unique<ReadDirectoryListener>(std::move(callbacks)),
       std::move(receiver),
       // See https://bit.ly/2S0zRAS for task types
-      execution_context_->GetTaskRunner(blink::TaskType::kMiscPlatformAPI));
+      GetSupplementable()->GetTaskRunner(blink::TaskType::kMiscPlatformAPI));
   GetFileSystemManager().ReadDirectory(path, std::move(listener));
 }
 
@@ -333,11 +337,12 @@ void FileSystemDispatcher::Truncate(const KURL& path,
                                     int* request_id_out,
                                     StatusCallback callback) {
   HeapMojoRemote<mojom::blink::FileSystemCancellableOperation> op_remote(
-      execution_context_);
+      GetSupplementable());
   // See https://bit.ly/2S0zRAS for task types
   mojo::PendingReceiver<mojom::blink::FileSystemCancellableOperation>
       op_receiver = op_remote.BindNewPipeAndPassReceiver(
-          execution_context_->GetTaskRunner(blink::TaskType::kMiscPlatformAPI));
+          GetSupplementable()->GetTaskRunner(
+              blink::TaskType::kMiscPlatformAPI));
   int operation_id = next_operation_id_++;
   op_remote.set_disconnect_handler(
       BindOnce(&FileSystemDispatcher::RemoveOperationRemote,
@@ -369,10 +374,10 @@ void FileSystemDispatcher::Write(const KURL& path,
                                  const WriteCallback& success_callback,
                                  StatusCallback error_callback) {
   HeapMojoRemote<mojom::blink::FileSystemCancellableOperation> op_remote(
-      execution_context_);
+      GetSupplementable());
   // See https://bit.ly/2S0zRAS for task types
   scoped_refptr<base::SequencedTaskRunner> task_runner =
-      execution_context_->GetTaskRunner(blink::TaskType::kMiscPlatformAPI);
+      GetSupplementable()->GetTaskRunner(blink::TaskType::kMiscPlatformAPI);
   mojo::PendingReceiver<mojom::blink::FileSystemCancellableOperation>
       op_receiver = op_remote.BindNewPipeAndPassReceiver(task_runner);
   int operation_id = next_operation_id_++;
@@ -419,7 +424,7 @@ void FileSystemDispatcher::WriteSync(const KURL& path,
 
 void FileSystemDispatcher::Cancel(int request_id_to_cancel,
                                   StatusCallback callback) {
-  if (!base::Contains(cancellable_operations_, request_id_to_cancel)) {
+  if (!cancellable_operations_.Contains(request_id_to_cancel)) {
     std::move(callback).Run(base::File::FILE_ERROR_INVALID_OPERATION);
     return;
   }
@@ -462,7 +467,7 @@ void FileSystemDispatcher::Trace(Visitor* visitor) const {
   visitor->Trace(file_system_manager_);
   visitor->Trace(cancellable_operations_);
   visitor->Trace(op_listeners_);
-  visitor->Trace(execution_context_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 void FileSystemDispatcher::DidOpenFileSystem(

@@ -42,8 +42,11 @@ class ResultInterface_Internal {
         }
 
         @Override
-        public Stub buildStub(org.chromium.mojo.system.Core core, ResultInterface impl) {
-            return new Stub(core, impl);
+        public org.chromium.mojo.bindings.Stub<ResultInterface> buildStub(
+                org.chromium.mojo.system.Core core,
+                ResultInterface impl,
+                int interfaceId) {
+            return new ResultInterfaceStub(core, impl, interfaceId);
         }
 
         @Override
@@ -80,6 +83,7 @@ Method_Response callback) {
                     _message.serializeWithHeader(
                             getProxyHandler().getCore(),
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     METHOD_ORDINAL,
                                     org.chromium.mojo.bindings.MessageHeader.MESSAGE_EXPECTS_RESPONSE_FLAG,
                                     0)),
@@ -102,6 +106,7 @@ SyncMethod_Response callback) {
                     _message.serializeWithHeader(
                             getProxyHandler().getCore(),
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     SYNC_METHOD_ORDINAL,
                                     org.chromium.mojo.bindings.MessageHeader.MESSAGE_EXPECTS_RESPONSE_FLAG,
                                     0)),
@@ -112,10 +117,10 @@ SyncMethod_Response callback) {
 
     }
 
-    static final class Stub extends org.chromium.mojo.bindings.Interface.Stub<ResultInterface> {
+    static final class ResultInterfaceStub extends org.chromium.mojo.bindings.Stub<ResultInterface> {
 
-        Stub(org.chromium.mojo.system.Core core, ResultInterface impl) {
-            super(core, impl);
+        ResultInterfaceStub(org.chromium.mojo.system.Core core, ResultInterface impl, int interfaceId) {
+            super(core, impl, interfaceId);
         }
 
         @Override
@@ -128,10 +133,10 @@ SyncMethod_Response callback) {
                 if (header.hasFlag(org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG)) {
                     flags = flags | org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG;
                 }
-                if (!header.validateHeader(flags)) {
+                if (!header.hasExactFlags(flags)) {
                     return false;
                 }
-                switch(header.getType()) {
+                switch(header.getMethodId()) {
 
                     case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_OR_CLOSE_PIPE_MESSAGE_ID:
                         return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRunOrClosePipe(
@@ -161,10 +166,10 @@ SyncMethod_Response callback) {
                 if (header.hasFlag(org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG)) {
                     flags = flags | org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG;
                 }
-                if (!header.validateHeader(flags)) {
+                if (!header.hasExactFlags(flags)) {
                     return false;
                 }
-                switch(header.getType()) {
+                switch(header.getMethodId()) {
 
                     case org.chromium.mojo.bindings.interfacecontrol.InterfaceControlMessagesConstants.RUN_MESSAGE_ID:
                         return org.chromium.mojo.bindings.InterfaceControlMessagesHelper.handleRun(
@@ -208,6 +213,11 @@ SyncMethod_Response callback) {
                 System.err.println(e.toString());
                 return false;
             }
+        }
+
+        @Override
+        public void close() {
+            getImpl().close();
         }
     }
 
@@ -354,8 +364,7 @@ SyncMethod_Response callback) {
         }
     }
 
-    static class ResultInterfaceMethodResponseParamsForwardToCallback extends org.chromium.mojo.bindings.SideEffectFreeCloseable
-            implements org.chromium.mojo.bindings.MessageReceiver {
+    static class ResultInterfaceMethodResponseParamsForwardToCallback implements org.chromium.mojo.bindings.MessageReceiver {
         private final ResultInterface.Method_Response mCallback;
 
         ResultInterfaceMethodResponseParamsForwardToCallback(ResultInterface.Method_Response callback) {
@@ -368,8 +377,10 @@ SyncMethod_Response callback) {
                 org.chromium.mojo.bindings.ServiceMessage messageWithHeader =
                         message.asServiceMessage();
                 org.chromium.mojo.bindings.MessageHeader header = messageWithHeader.getHeader();
-                if (!header.validateHeader(METHOD_ORDINAL,
-                                           org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG)) {
+                if (header.getMethodId() != METHOD_ORDINAL) {
+                    return false;
+                }
+                if (!header.hasExactFlags(org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG)) {
                     return false;
                 }
 
@@ -382,6 +393,9 @@ SyncMethod_Response callback) {
                 return false;
             }
         }
+
+        @Override
+        public void close() {}
     }
 
     static class ResultInterfaceMethodResponseParamsProxyToResponder implements ResultInterface.Method_Response {
@@ -407,6 +421,7 @@ SyncMethod_Response callback) {
                     _response.serializeWithHeader(
                             mCore,
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     METHOD_ORDINAL,
                                     org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG,
                                     mRequestId));
@@ -558,8 +573,7 @@ SyncMethod_Response callback) {
         }
     }
 
-    static class ResultInterfaceSyncMethodResponseParamsForwardToCallback extends org.chromium.mojo.bindings.SideEffectFreeCloseable
-            implements org.chromium.mojo.bindings.MessageReceiver {
+    static class ResultInterfaceSyncMethodResponseParamsForwardToCallback implements org.chromium.mojo.bindings.MessageReceiver {
         private final ResultInterface.SyncMethod_Response mCallback;
 
         ResultInterfaceSyncMethodResponseParamsForwardToCallback(ResultInterface.SyncMethod_Response callback) {
@@ -572,8 +586,10 @@ SyncMethod_Response callback) {
                 org.chromium.mojo.bindings.ServiceMessage messageWithHeader =
                         message.asServiceMessage();
                 org.chromium.mojo.bindings.MessageHeader header = messageWithHeader.getHeader();
-                if (!header.validateHeader(SYNC_METHOD_ORDINAL,
-                                           org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG| org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG)) {
+                if (header.getMethodId() != SYNC_METHOD_ORDINAL) {
+                    return false;
+                }
+                if (!header.hasExactFlags(org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG| org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG)) {
                     return false;
                 }
 
@@ -586,6 +602,9 @@ SyncMethod_Response callback) {
                 return false;
             }
         }
+
+        @Override
+        public void close() {}
     }
 
     static class ResultInterfaceSyncMethodResponseParamsProxyToResponder implements ResultInterface.SyncMethod_Response {
@@ -611,6 +630,7 @@ SyncMethod_Response callback) {
                     _response.serializeWithHeader(
                             mCore,
                             new org.chromium.mojo.bindings.MessageHeader(
+                                    org.chromium.mojo.bindings.MessageHeader.TEMPORARY_DEFAULT_INTERFACE_ID,
                                     SYNC_METHOD_ORDINAL,
                                     org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_RESPONSE_FLAG| org.chromium.mojo.bindings.MessageHeader.MESSAGE_IS_SYNC_FLAG,
                                     mRequestId));

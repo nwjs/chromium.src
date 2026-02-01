@@ -93,16 +93,17 @@
       shouldShowMigrateToAccountButton:_showMigrateToAccountButton
                              userEmail:[self userEmail]];
   _sharedViewController = [[AutofillProfileEditTableViewHelper alloc]
-      initWithDelegate:_mediator
-             userEmail:[self userEmail]
-            controller:_viewController
-        addressContext:SaveAddressContext::kEditingSavedAddress];
+       initWithDelegate:_mediator
+              userEmail:[self userEmail]
+             controller:_viewController
+      textFieldDelegate:_viewController
+         addressContext:SaveAddressContext::kEditingSavedAddress];
   _mediator.consumer = _sharedViewController;
   _viewController.handler = _sharedViewController;
   _viewController.snackbarCommandsHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SnackbarCommands);
-  _viewController.applicationHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ApplicationCommands);
+  _viewController.sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
 
   if (self.openInEditMode) {
     [_viewController editButtonPressed];

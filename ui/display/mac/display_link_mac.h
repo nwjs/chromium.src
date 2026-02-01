@@ -42,10 +42,13 @@ class DISPLAY_EXPORT VSyncCallbackMac {
   // extra CVDisplayLink VSync running before stopping CVDisplayLink.
   static constexpr int kMaxExtraVSyncs = 12;
 
+  base::WeakPtr<VSyncCallbackMac> GetWeakPtr();
+
  private:
   friend class CADisplayLinkMac;
-  friend struct ObjCState;
   friend class CVDisplayLinkMac;
+  friend class ExternalDisplayLinkMac;
+  friend struct ObjCState;
   friend class DisplayLinkMacSharedState;
   friend class gpu::ImageTransportSurfaceOverlayMacTest;
 
@@ -69,6 +72,13 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
   // only be accessed on the thread on which it was retrieved.
   static scoped_refptr<DisplayLinkMac> GetForDisplay(int64_t display_id);
 
+  static bool SupportsDisplayLinkMacInBrowser();
+
+  // For CADisplayLink and CVDisplayLink in GPU, always return true;
+  // For ExternalDisplayLinkMac, check whether the display id has been added in
+  // AddSupportedDisplayLinkId().
+  static bool IsDisplayLinkAllowed(int64_t display_id);
+
   // Register an observer callback.
   // * The specified callback will be called at every VSync tick, until the
   //   returned VSyncCallbackMac object is destroyed.
@@ -78,8 +88,8 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
   virtual std::unique_ptr<VSyncCallbackMac> RegisterCallback(
       VSyncCallbackMac::Callback callback) = 0;
 
-  // Get the panel/monitor refresh rate
-  virtual double GetRefreshRate() const = 0;
+  // Get the panel/monitor refresh interval
+  virtual base::TimeDelta GetRefreshInterval() const = 0;
   virtual void GetRefreshIntervalRange(base::TimeDelta& min_interval,
                                        base::TimeDelta& max_interval,
                                        base::TimeDelta& granularity) const = 0;
@@ -100,6 +110,12 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
   friend class CADisplayLinkMac;
 
   virtual ~DisplayLinkMac() = default;
+
+  // This histogram tracks the creation status of CVDisplayLink or
+  // CADisplayLink. ExternalDisplayLinkMac is excluded due to potential IPC
+  // delays; for instance, ExternalBeginFrameSourceMac::SetVSyncDisplayID()
+  // might be triggered before Viz receives the display addition IPC.
+  static void RecordDisplayLinkCreation(bool success);
 };
 
 }  // namespace ui

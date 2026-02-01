@@ -4,7 +4,9 @@
 
 #include "extensions/browser/blocklist_state_fetcher.h"
 
-#include "base/containers/contains.h"
+#include <optional>
+#include <string>
+
 #include "base/functional/bind.h"
 #include "base/strings/escape.h"
 #include "base/task/single_thread_task_runner.h"
@@ -50,7 +52,7 @@ void BlocklistStateFetcher::Request(const std::string& id,
     }
   }
 
-  bool request_already_sent = base::Contains(callbacks_, id);
+  bool request_already_sent = callbacks_.contains(id);
   callbacks_.insert(std::make_pair(id, std::move(callback)));
   if (request_already_sent) {
     return;
@@ -140,7 +142,7 @@ void BlocklistStateFetcher::SetSafeBrowsingConfig(
 
 void BlocklistStateFetcher::OnURLLoaderComplete(
     network::SimpleURLLoader* url_loader,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   int response_code = 0;
@@ -148,13 +150,8 @@ void BlocklistStateFetcher::OnURLLoaderComplete(
     response_code = url_loader->ResponseInfo()->headers->response_code();
   }
 
-  std::string response_body_str;
-  if (response_body.get()) {
-    response_body_str = std::move(*response_body.get());
-  }
-
-  OnURLLoaderCompleteInternal(url_loader, response_body_str, response_code,
-                              url_loader->NetError());
+  OnURLLoaderCompleteInternal(url_loader, std::move(response_body).value_or(""),
+                              response_code, url_loader->NetError());
 }
 
 void BlocklistStateFetcher::OnURLLoaderCompleteInternal(

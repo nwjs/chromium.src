@@ -14,6 +14,9 @@
 namespace contextual_tasks {
 
 BASE_DECLARE_FEATURE(kContextualTasks);
+// When enabled, it should instead request the kSearchResultsOAuth2Scope instead
+// of the kChromeSyncOAuth2Scope
+BASE_DECLARE_FEATURE(kContextualTasksScopeChange);
 BASE_DECLARE_FEATURE(kContextualTasksContext);
 BASE_DECLARE_FEATURE(kContextualTasksContextLibrary);
 BASE_DECLARE_FEATURE(kContextualTasksContextLogging);
@@ -31,6 +34,11 @@ BASE_DECLARE_FEATURE(kContextualTasksSuggestionsEnabled);
 // Force the application locale to US and the gl query parameter to us.
 BASE_DECLARE_FEATURE(kContextualTasksForceCountryCodeUS);
 
+// Remove tasks that have no tabs or threads associated with them on tab
+// disassociation.
+BASE_DECLARE_FEATURE(
+    kContextualTasksRemoveTasksWithoutThreadsOrTabAssociations);
+
 // Enum denoting which entry point can show when enabled.
 enum class EntryPointOption {
   kNoEntryPoint,
@@ -39,12 +47,10 @@ enum class EntryPointOption {
   kToolbarPermanent
 };
 
-// The minimum score required for two embeddings to be considered similar.
-extern const base::FeatureParam<double> kMinEmbeddingSimilarityScore;
 // Whether to only consider titles for similarity.
 extern const base::FeatureParam<bool> kOnlyUseTitlesForSimilarity;
-// Minimum score, computed using multiple signals, to consider a tab relevant.
-extern const base::FeatureParam<double> kMinMultiSignalScore;
+// Minimum score to consider a tab relevant.
+extern const base::FeatureParam<double> kTabSelectionScoreThreshold;
 // Minimum score required for a tab to be considered visible.
 extern const base::FeatureParam<double> kContentVisibilityThreshold;
 
@@ -70,10 +76,12 @@ extern const base::FeatureParam<bool> kOpenSidePanelOnLinkClicked;
 extern bool GetIsContextualTasksNextboxContextMenuEnabled();
 
 // The file types that can be attached to a Nextbox as images.
-extern const base::FeatureParam<std::string> kContextualTasksNextboxImageFileTypes;
+extern const base::FeatureParam<std::string>
+    kContextualTasksNextboxImageFileTypes;
 
 // The file types that can be attached to a Nextbox as attachments.
-extern const base::FeatureParam<std::string> kContextualTasksNextboxAttachmentFileTypes;
+extern const base::FeatureParam<std::string>
+    kContextualTasksNextboxAttachmentFileTypes;
 
 // The maximum size of a file that can be attached to a Nextbox.
 extern const base::FeatureParam<int> kContextualTasksNextboxMaxFileSize;
@@ -98,6 +106,9 @@ extern int GetContextualTasksShowOnboardingTooltipSessionImpressionCap();
 // The maximum number of times the onboarding tooltip can be dismissed by the
 // user before it no longer shows up.
 extern int GetContextualTasksOnboardingTooltipDismissedCap();
+
+// The delay in milliseconds before the onboarding tooltip is considered shown.
+extern int GetContextualTasksOnboardingTooltipImpressionDelay();
 
 // Returns if voice search is allowed in expanded composebox.
 extern bool GetIsExpandedComposeboxVoiceSearchEnabled();
@@ -147,6 +158,13 @@ extern std::string GetContextualTasksOnboardingTooltipHelpUrl();
 
 // Returns the help URL for the help center article from the toolbar.
 extern std::string GetContextualTasksHelpUrl();
+
+// Returns whether smart compose is enabled for Contextual Tasks.
+extern bool GetEnableContextualTasksSmartCompose();
+
+// Returns whether the kSearchResultsOAuth2Scope should be used instead of the
+// kChromeSyncOAuth2Scope.
+extern bool ShouldUseSearchResultsScope();
 
 namespace flag_descriptions {
 

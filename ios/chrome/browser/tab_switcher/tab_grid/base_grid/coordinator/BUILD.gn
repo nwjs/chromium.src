@@ -39,6 +39,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/transitions",
     "//ios/web/public",
     "//ui/base",
+    "//ui/strings",
   ]
 }
 
@@ -109,18 +110,6 @@ source_set("mediator") {
     "//ios/web/public",
     "//net",
     "//ui/gfx",
-  ]
-}
-
-source_set("scene_agent") {
-  sources = [
-    "tab_grid_observing.h",
-    "tab_grid_scene_agent.h",
-    "tab_grid_scene_agent.mm",
-  ]
-  deps = [
-    "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
-    "//ui/base",
   ]
 }
 

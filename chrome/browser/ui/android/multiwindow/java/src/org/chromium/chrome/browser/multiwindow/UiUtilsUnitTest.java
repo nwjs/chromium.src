@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowDialog;
 
 import org.chromium.base.Callback;
@@ -40,6 +41,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
 import org.chromium.components.favicon.LargeIconBridge;
 
@@ -229,8 +231,10 @@ public class UiUtilsUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testItemTitleWithIncognitoWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         testItemTitle(/* shouldOpenIncognitoAsWindow= */ true);
     }
 
@@ -241,11 +245,13 @@ public class UiUtilsUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures({
         ChromeFeatureList.INSTANCE_SWITCHER_V2,
         ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
     })
     public void testItemDescriptionWithIncognitoWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         // Empty window -> No tabs
         assertEquals(
                 "Instance with no tabs has a wrong description",
@@ -622,7 +628,7 @@ public class UiUtilsUnitTest {
                 incognitoTabCount,
                 isIncognito,
                 /* lastAccessedTime= */ 0,
-                /* closedByUser= */ false);
+                /* markedForDeletion= */ false);
     }
 
     private InstanceInfo mockInstance(
@@ -642,7 +648,7 @@ public class UiUtilsUnitTest {
                 incognitoTabCount,
                 isIncognito,
                 /* lastAccessedTime= */ 0,
-                /* closedByUser= */ false);
+                /* markedForDeletion= */ false);
     }
 
     private InstanceInfo mockInstance(int type) {
@@ -657,7 +663,7 @@ public class UiUtilsUnitTest {
                 /* incognitoTabCount= */ 1,
                 /* isIncognitoSelected= */ true,
                 /* lastAccessedTime= */ 0,
-                /* closedByUser= */ false);
+                /* markedForDeletion= */ false);
     }
 
     private InstanceInfo mockInstanceBeforeLoadingTab(int type) {
@@ -672,6 +678,6 @@ public class UiUtilsUnitTest {
                 /* incognitoTabCount= */ 0,
                 /* isIncognitoSelected= */ false,
                 /* lastAccessedTime= */ 0,
-                /* closedByUser= */ false);
+                /* markedForDeletion= */ false);
     }
 }

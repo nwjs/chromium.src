@@ -598,6 +598,7 @@ BASE_FEATURE(kEnableExternalKeyboardsInDiagnostics,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables setting the device hostname.
+// TODO(crbug.com/466903206): Remove this.
 BASE_FEATURE(kEnableHostnameSetting, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables OAuth support when printing via the IPP protocol.
@@ -693,9 +694,6 @@ BASE_FEATURE(kFastPairHandshakeLongTermRefactor,
 // Enables prototype support for Fast Pair for keyboards.
 BASE_FEATURE(kFastPairKeyboards, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables Saved Devices nicknames logic for Fast Pair.
-BASE_FEATURE(kFastPairSavedDevicesNicknames, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // The amount of minutes we should wait before allowing notifications for a
 // recently lost device.
 const base::FeatureParam<double> kFastPairDeviceLostNotificationTimeoutMinutes{
@@ -772,13 +770,6 @@ BASE_FEATURE(kFeatureManagementTimeOfDayWallpaper,
 // Enables the federated service. If enabled, launches federated service when
 // user first login.
 BASE_FEATURE(kFederatedService, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables the federated strings service.
-BASE_FEATURE(kFederatedStringsService, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the federated strings service to schedule tasks.
-BASE_FEATURE(kFederatedStringsServiceScheduleTasks,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables scheduling of launcher query federated analytics version 2 tasks.
 BASE_FEATURE(kFederatedLauncherQueryAnalyticsVersion2Task,
@@ -1101,9 +1092,6 @@ BASE_FEATURE(kImeRuleConfig, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables IME downloader experiment logic.
 BASE_FEATURE(kImeDownloaderExperiment, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled use the updated US English IME language models.
-BASE_FEATURE(kImeUsEnglishModelUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable or disable proto-based communication for IME Service.
 BASE_FEATURE(kImeServiceProto, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1326,20 +1314,16 @@ BASE_FEATURE(kModifierSplit, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables to split left and right modifiers in settings.
 BASE_FEATURE(kMouseImposterCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the Phone Hub recent apps loading and error views based on the
-// connection status with the phone.
-BASE_FEATURE(kEcheNetworkConnectionState, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Time limit before re-attempting a background connection to check if the
 // network is suitable.
 const base::FeatureParam<base::TimeDelta>
     kEcheBackgroundConnectionAttemptThrottleTimeout{
-        &kEcheNetworkConnectionState,
+        &kEcheSWA,
         "EcheBackgroundConnectionAttemptThrottleTimeout", base::Seconds(10)};
 
 // Time limit before requiring a new connection check to show apps UI.
 const base::FeatureParam<base::TimeDelta> kEcheConnectionStatusResetTimeout{
-    &kEcheNetworkConnectionState, "EcheConnectionStatusResetTimeout",
+    &kEcheSWA, "EcheConnectionStatusResetTimeout",
     base::Minutes(10)};
 
 BASE_FEATURE(kEcheShorterScanningDutyCycle, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1674,25 +1658,6 @@ BASE_FEATURE(kProjectorCustomThumbnail,
              "kProjectorCustomThumbnail",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether to ignore policy setting for enabling Projector for managed
-// users.
-BASE_FEATURE(kProjectorManagedUserIgnorePolicy,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls whether to show pseduo transcript that is shorter than the
-// threshold.
-BASE_FEATURE(kProjectorShowShortPseudoTranscript,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether to update the indexable text when metadata file gets
-// uploaded.
-BASE_FEATURE(kProjectorUpdateIndexableText, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether to enable features that are not ready to enable by
-// default but ready for internal testing.
-BASE_FEATURE(kProjectorBleedingEdgeExperience,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls whether the transcript muting feature is enabled.
 BASE_FEATURE(kProjectorMuting, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1709,9 +1674,6 @@ BASE_FEATURE(kProjectorUseUSMForS3, base::FEATURE_ENABLED_BY_DEFAULT);
 // playback urls.
 BASE_FEATURE(kProjectorUseDVSPlaybackEndpoint,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether to show promise icons during web app installations.
-BASE_FEATURE(kPromiseIconsForWebApps, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the quick dim prototype is enabled.
 BASE_FEATURE(kQuickDim, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1748,23 +1710,12 @@ BASE_FEATURE(kReleaseNotesNotificationAlwaysEligible,
 BASE_FEATURE(kRenderArcNotificationsByChrome,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Allows the OS to unpin apps that were pinned by PinnedLauncherApps policy
-// but are no longer a part of it from shelf under specific conditions.
-BASE_FEATURE(kRemoveStalePolicyPinnedAppsFromShelf,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Reset audio I/O selection improvement pref, used for testing purpose.
 BASE_FEATURE(kResetAudioSelectionImprovementPref,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, will reset all shortcut customizations on startup.
 BASE_FEATURE(kResetShortcutCustomizations, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Set all ScalableIph client side config to tracking only config.
-BASE_FEATURE(kScalableIphTrackingOnly, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Use client side config.
-BASE_FEATURE(kScalableIphClientConfig, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Adds a shelf pod button that appears whenever the shelf has limited space and
 // acts as an entrypoint to other shelf pod buttons to prevent overflow.
@@ -1872,6 +1823,14 @@ BASE_FEATURE(kShimlessRMAHardwareValidationSkip,
 BASE_FEATURE(kShimlessRMADynamicDeviceInfoInputs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables or disables the option to allow customized Serial Number namings.
+BASE_FEATURE(kShimlessRMAFlexibleSerialNumberName,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables the option to hide Google SKU on the device information
+// page.
+BASE_FEATURE(kShimlessRMAHideGoogleSKU, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, system shortcuts will utilize state machiens instead of
 // keeping track of entire history of keys pressed.
 BASE_FEATURE(kShortcutStateMachines, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1902,8 +1861,7 @@ BASE_FEATURE(kSingleCaCertVerificationPhase1, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use a single CA cert for the EAP network if CA cert was selected, no
 // fallback.
-BASE_FEATURE(kSingleCaCertVerificationPhase2,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kSingleCaCertVerificationPhase2, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls enabling/disabling the Sunfish feature.
 BASE_FEATURE(kSunfishFeature, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1926,10 +1884,6 @@ BASE_FEATURE(kDemoModeSecondaryGoogleAccountSigninAllowedFalse,
 // Controls whether to include the device info in the demo account setup request
 // to the demo server in signed-in experience.
 BASE_FEATURE(kSendDeviceInfoToDemoServer, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Moves toasts to the bottom-side corner where the status area is instead of
-// the center when enabled.
-BASE_FEATURE(kSideAlignedToasts, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Uses experimental component version for smart dim.
 BASE_FEATURE(kSmartDimExperimentalComponent, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2254,10 +2208,6 @@ BASE_FEATURE(kFwupdDeveloperMode, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool AreDesksTemplatesEnabled() {
   return base::FeatureList::IsEnabled(kDesksTemplates);
-}
-
-bool ArePromiseIconsForWebAppsEnabled() {
-  return base::FeatureList::IsEnabled(kPromiseIconsForWebApps);
 }
 
 bool ForceOnDeviceAppControlsForAllRegions() {
@@ -2662,10 +2612,6 @@ bool IsFastPairKeyboardsEnabled() {
   return base::FeatureList::IsEnabled(kFastPairKeyboards);
 }
 
-bool IsFastPairSavedDevicesNicknamesEnabled() {
-  return base::FeatureList::IsEnabled(kFastPairSavedDevicesNicknames);
-}
-
 bool IsFastPairPwaCompanionEnabled() {
   return base::FeatureList::IsEnabled(kFastPairPwaCompanion);
 }
@@ -2676,16 +2622,6 @@ bool IsFastPairSavedDevicesEnabled() {
 
 bool IsFastPairSavedDevicesStrictOptInEnabled() {
   return base::FeatureList::IsEnabled(kFastPairSavedDevicesStrictOptIn);
-}
-
-bool IsFederatedStringsServiceEnabled() {
-  return base::FeatureList::IsEnabled(kFederatedService) &&
-         base::FeatureList::IsEnabled(kFederatedStringsService);
-}
-
-bool IsFederatedStringsServiceScheduleTasksEnabled() {
-  return IsFederatedStringsServiceEnabled() &&
-         base::FeatureList::IsEnabled(kFederatedStringsServiceScheduleTasks);
 }
 
 bool IsFileManagerFuseBoxDebugEnabled() {
@@ -2889,15 +2825,13 @@ bool IsSnoopingProtectionEnabled() {
 
 bool IsInternalServerSideSpeechRecognitionEnabled() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  // TODO(b/245614967): Once ready, enable this feature under
-  // kProjectorBleedingEdgeExperience flag as well.
+
   return (ShouldForceEnableServerSideSpeechRecognition() ||
           base::FeatureList::IsEnabled(kInternalServerSideSpeechRecognition));
 #else
   return false;
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
-
 
 bool IsInternalServerSideSpeechRecognitionEnabledByFinch() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -3001,11 +2935,6 @@ bool IsMacAddressRandomizationEnabled() {
 
 bool IsMultiCalendarSupportEnabled() {
   return base::FeatureList::IsEnabled(kMultiCalendarSupport);
-}
-
-bool IsEcheNetworkConnectionStateEnabled() {
-  return base::FeatureList::IsEnabled(kEcheNetworkConnectionState) &&
-         base::FeatureList::IsEnabled(kEcheSWA);
 }
 
 bool IsEcheShorterScanningDutyCycleEnabled() {
@@ -3205,18 +3134,6 @@ bool IsProjectorCustomThumbnailEnabled() {
   return base::FeatureList::IsEnabled(kProjectorCustomThumbnail);
 }
 
-bool IsProjectorManagedUserIgnorePolicyEnabled() {
-  return base::FeatureList::IsEnabled(kProjectorManagedUserIgnorePolicy);
-}
-
-bool IsProjectorShowShortPseudoTranscript() {
-  return base::FeatureList::IsEnabled(kProjectorShowShortPseudoTranscript);
-}
-
-bool IsProjectorUpdateIndexableTextEnabled() {
-  return base::FeatureList::IsEnabled(kProjectorUpdateIndexableText);
-}
-
 bool IsProjectorServerSideRecognitionFallbackImplEnabled() {
   return base::FeatureList::IsEnabled(
       kProjectorServerSideRecognitionFallbackImpl);
@@ -3254,10 +3171,6 @@ bool IsRenderArcNotificationsByChromeEnabled() {
   return base::FeatureList::IsEnabled(kRenderArcNotificationsByChrome);
 }
 
-bool IsRemoveStalePolicyPinnedAppsFromShelfEnabled() {
-  return base::FeatureList::IsEnabled(kRemoveStalePolicyPinnedAppsFromShelf);
-}
-
 bool IsResetAudioSelectionImprovementPrefEnabled() {
   return base::FeatureList::IsEnabled(kResetAudioSelectionImprovementPref);
 }
@@ -3268,14 +3181,6 @@ bool IsResetShortcutCustomizationsEnabled() {
 
 bool IsSameAppWindowCycleEnabled() {
   return base::FeatureList::IsEnabled(kSameAppWindowCycle);
-}
-
-bool IsScalableIphTrackingOnlyEnabled() {
-  return base::FeatureList::IsEnabled(kScalableIphTrackingOnly);
-}
-
-bool IsScalableIphClientConfigEnabled() {
-  return base::FeatureList::IsEnabled(kScalableIphClientConfig);
 }
 
 bool IsScalableShelfPodsEnabled() {
@@ -3361,6 +3266,14 @@ bool IsShimlessRMAHardwareValidationSkipEnabled() {
 
 bool IsShimlessRMADynamicDeviceInfoInputsEnabled() {
   return base::FeatureList::IsEnabled(kShimlessRMADynamicDeviceInfoInputs);
+}
+
+bool IsShimlessRMAFlexibleSerialNumberNameEnabled() {
+  return base::FeatureList::IsEnabled(kShimlessRMAFlexibleSerialNumberName);
+}
+
+bool IsShimlessRMAHideGoogleSKUEnabled() {
+  return base::FeatureList::IsEnabled(kShimlessRMAHideGoogleSKU);
 }
 
 bool IsShowSharingUserInLauncherContinueSectionEnabled() {

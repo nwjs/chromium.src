@@ -142,6 +142,9 @@ public class ListUtils {
                 // Dangerous UI is handled by GenericViewHolder.
                 return ViewType.GENERIC;
             }
+            if (DownloadUtils.isBlockedSensitiveDownload(offlineItem.item)) {
+                return ViewType.GENERIC;
+            }
             if (offlineItem.isGrouped) return ViewType.GROUP_CARD_ITEM;
 
             boolean inProgress =
@@ -153,6 +156,11 @@ public class ListUtils {
 
             if (config.useGenericViewTypes) {
                 return inProgress ? ViewType.IN_PROGRESS : ViewType.GENERIC;
+            }
+
+            if (UiUtils.shouldShowScanningStateOnUI(offlineItem.item)) {
+                // Use InProgressViewHolder for scanning item.
+                return ViewType.IN_PROGRESS;
             }
 
             if (offlineItem.item.isSuggested) {

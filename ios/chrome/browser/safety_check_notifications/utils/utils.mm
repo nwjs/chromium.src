@@ -12,7 +12,6 @@
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
 #import "ios/chrome/browser/safety_check_notifications/utils/constants.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -119,7 +118,7 @@ base::TimeDelta InactiveThresholdForNotifications() {
     return base::Seconds(forced_threshold_seconds.value());
   }
 
-  return InactiveThresholdForSafetyCheckNotifications();
+  return kSafetyCheckNotificationDefaultDelay;
 }
 
 // Helper to create the final scheduled request if `content` is valid.
@@ -259,4 +258,29 @@ std::optional<SafetyCheckNotificationType> ParseSafetyCheckNotificationType(
   }
 
   return std::nullopt;
+}
+
+std::set<SafetyCheckNotificationType> GetResolvedSafetyCheckTypes(
+    UpdateChromeSafetyCheckState update_chrome_state,
+    SafeBrowsingSafetyCheckState safe_browsing_state,
+    PasswordSafetyCheckState password_state) {
+  std::set<SafetyCheckNotificationType> notification_types_to_remove;
+
+  if (password_state == PasswordSafetyCheckState::kSignedOut ||
+      password_state == PasswordSafetyCheckState::kSafe) {
+    notification_types_to_remove.insert(
+        SafetyCheckNotificationType::kPasswords);
+  }
+
+  if (safe_browsing_state == SafeBrowsingSafetyCheckState::kSafe) {
+    notification_types_to_remove.insert(
+        SafetyCheckNotificationType::kSafeBrowsing);
+  }
+
+  if (update_chrome_state == UpdateChromeSafetyCheckState::kUpToDate) {
+    notification_types_to_remove.insert(
+        SafetyCheckNotificationType::kUpdateChrome);
+  }
+
+  return notification_types_to_remove;
 }

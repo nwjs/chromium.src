@@ -5,6 +5,7 @@
 #include "components/wallet/core/browser/data_models/walletable_pass.h"
 
 #include "components/optimization_guide/proto/features/walletable_pass_extraction.pb.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace wallet {
 
@@ -88,19 +89,6 @@ TransitTicket::TransitTicket(TransitTicket&&) = default;
 TransitTicket& TransitTicket::operator=(TransitTicket&&) = default;
 TransitTicket::~TransitTicket() = default;
 
-// static
-std::optional<BoardingPass> BoardingPass::FromBCBP(
-    const WalletBarcode& barcode) {
-  // TODO(crbug.com/463515055): Decode BCBP barcode to boarding pass.
-  return std::nullopt;
-}
-
-BoardingPass::BoardingPass() = default;
-BoardingPass::BoardingPass(const BoardingPass&) = default;
-BoardingPass& BoardingPass::operator=(const BoardingPass&) = default;
-BoardingPass::BoardingPass(BoardingPass&&) = default;
-BoardingPass& BoardingPass::operator=(BoardingPass&&) = default;
-BoardingPass::~BoardingPass() = default;
 
 // static
 std::optional<WalletablePass> WalletablePass::FromProto(
@@ -131,7 +119,8 @@ std::optional<WalletablePass> WalletablePass::FromProto(
 // static
 std::optional<WalletablePass> WalletablePass::CreateBoardingPass(
     const WalletBarcode& barcode) {
-  std::optional<BoardingPass> boarding_pass = BoardingPass::FromBCBP(barcode);
+  std::optional<BoardingPass> boarding_pass =
+      BoardingPass::FromBarcode(barcode);
   if (boarding_pass) {
     WalletablePass pass;
     pass.pass_data = std::move(*boarding_pass);
@@ -146,5 +135,15 @@ WalletablePass& WalletablePass::operator=(const WalletablePass&) = default;
 WalletablePass::WalletablePass(WalletablePass&&) = default;
 WalletablePass& WalletablePass::operator=(WalletablePass&&) = default;
 WalletablePass::~WalletablePass() = default;
+
+PassCategory WalletablePass::GetPassCategory() const {
+  return std::visit(
+      absl::Overload(
+          [](const LoyaltyCard&) { return PassCategory::kLoyaltyCard; },
+          [](const EventPass&) { return PassCategory::kEventPass; },
+          [](const TransitTicket&) { return PassCategory::kTransitTicket; },
+          [](const BoardingPass&) { return PassCategory::kBoardingPass; }),
+      pass_data);
+}
 
 }  // namespace wallet

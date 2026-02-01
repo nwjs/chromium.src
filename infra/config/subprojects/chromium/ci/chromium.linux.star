@@ -264,7 +264,7 @@ ci.builder(
         "local": gn_args.config(
             configs = ["debug_builder", "linux", "x64"],
         ),
-        "reclient": gn_args.config(
+        "remoteexec": gn_args.config(
             configs = ["debug_builder", "remoteexec", "linux", "x64"],
         ),
     },
@@ -596,6 +596,11 @@ ci.thin_tester(
                     shards = 4,
                 ),
             ),
+            "headless_shell_wpt_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 26,
+                ),
+            ),
             "interactive_ui_tests": targets.mixin(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/ozone-linux.interactive_ui_tests.filter",
@@ -725,6 +730,9 @@ ci.thin_tester(
                     # running tests there.
                     "--disable-accelerated-subwindows-for-testing",
                 ],
+                swarming = targets.swarming(
+                    shards = 10,
+                ),
             ),
             "ozone_x11_unittests": targets.remove(
                 reason = "x11 tests don't make sense for wayland",
@@ -1155,7 +1163,7 @@ ci.builder(
     contact_team_email = "chrome-build-team@google.com",
     execution_timeout = 6 * time.hour,
     notifies = args.ignore_default([]),
-    siso_keep_going = True,
+    siso_keep_going = 0,
     siso_remote_linking = True,
 )
 

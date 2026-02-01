@@ -112,7 +112,7 @@ struct TabInfo {
 
 // LINT.IfChange(ToolMode)
 // See also:
-// https://crsrc.org/c/third_party/omnibox_proto/aim_tools_and_models.proto
+// https://crsrc.org/c/third_party/omnibox_proto/aim_tools.proto
 enum ToolMode {
   kDefault = 0,
   kDeepSearch = 1,
@@ -392,6 +392,9 @@ interface Page {
   // Notifies the page that the tab strip has changed.
   OnTabStripChanged();
 
+  // Notifies the page that the input state has changed.
+  OnInputStateChanged(composebox_query.mojom.InputState input_state);
+
   // Adds a contextual input to the UI.
   AddFileContext(mojo_base.mojom.UnguessableToken token,
                  SelectedFileInfo file_info);
@@ -403,6 +406,9 @@ interface Page {
 
   // Called when Lens search eligibility changes.
   UpdateLensSearchEligibility(bool eligible);
+
+  // Called when content sharing policy changes.
+  UpdateContentSharingPolicy(bool enabled);
 
   // Notifies the UI to show or hide AI features.
   UpdateAimEligibility(bool eligible);

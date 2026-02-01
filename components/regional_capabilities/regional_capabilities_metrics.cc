@@ -48,6 +48,89 @@ CountryMatchingStatus ComputeCountryMatchingStatus(
 
 }  // namespace
 
+std::string ToString(SearchEngineChoiceScreenConditions condition) {
+  switch (condition) {
+    case SearchEngineChoiceScreenConditions::kHasCustomSearchEngine:
+      return "HasCustomSearchEngine";
+    case SearchEngineChoiceScreenConditions::kSearchProviderOverride:
+      return "SearchProviderOverride";
+    case SearchEngineChoiceScreenConditions::kNotInRegionalScope:
+      return "NotInRegionalScope";
+    case SearchEngineChoiceScreenConditions::kControlledByPolicy:
+      return "ControlledByPolicy";
+    case SearchEngineChoiceScreenConditions::kExtensionControlled:
+      return "ExtensionControlled";
+    case SearchEngineChoiceScreenConditions::kEligible:
+      return "Eligible";
+    case SearchEngineChoiceScreenConditions::kAlreadyCompleted:
+      return "AlreadyCompleted";
+    case SearchEngineChoiceScreenConditions::kUnsupportedBrowserType:
+      return "UnsupportedBrowserType";
+    case SearchEngineChoiceScreenConditions::kFeatureSuppressed:
+      return "FeatureSuppressed";
+    case SearchEngineChoiceScreenConditions::kSuppressedByOtherDialog:
+      return "SuppressedByOtherDialog";
+    case SearchEngineChoiceScreenConditions::kBrowserWindowTooSmall:
+      return "BrowserWindowTooSmall";
+    case SearchEngineChoiceScreenConditions::kHasDistributionCustomSearchEngine:
+      return "HasDistributionCustomSearchEngine";
+    case SearchEngineChoiceScreenConditions::
+        kHasRemovedPrepopulatedSearchEngine:
+      return "HasRemovedPrepopulatedSearchEngine";
+    case SearchEngineChoiceScreenConditions::kHasNonGoogleSearchEngine:
+      return "HasNonGoogleSearchEngine";
+    case SearchEngineChoiceScreenConditions::kAppStartedByExternalIntent:
+      return "AppStartedByExternalIntent";
+    case SearchEngineChoiceScreenConditions::kAlreadyBeingShown:
+      return "AlreadyBeingShown";
+    case SearchEngineChoiceScreenConditions::kUsingPersistedGuestSessionChoice:
+      return "UsingPersistedGuestSessionChoice";
+    case SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation:
+      return "IncompatibleCurrentLocation";
+    case SearchEngineChoiceScreenConditions::kAccountNotEligible:
+      return "AccountNotEligible";
+    case SearchEngineChoiceScreenConditions::kIneligibleSurface:
+      return "IneligibleSurface";
+    case SearchEngineChoiceScreenConditions::kManaged:
+      return "Managed";
+    case search_engines::SearchEngineChoiceScreenConditions::
+        kEligibleForRestore:
+      return "EligibleForRestore";
+  }
+  NOTREACHED();
+}
+
+bool IsEligible(SearchEngineChoiceScreenConditions condition) {
+  switch (condition) {
+    case SearchEngineChoiceScreenConditions::kEligible:
+    case SearchEngineChoiceScreenConditions::kEligibleForRestore:
+      return true;
+    case SearchEngineChoiceScreenConditions::kHasCustomSearchEngine:
+    case SearchEngineChoiceScreenConditions::kSearchProviderOverride:
+    case SearchEngineChoiceScreenConditions::kNotInRegionalScope:
+    case SearchEngineChoiceScreenConditions::kControlledByPolicy:
+    case SearchEngineChoiceScreenConditions::kExtensionControlled:
+    case SearchEngineChoiceScreenConditions::kAlreadyCompleted:
+    case SearchEngineChoiceScreenConditions::kUnsupportedBrowserType:
+    case SearchEngineChoiceScreenConditions::kFeatureSuppressed:
+    case SearchEngineChoiceScreenConditions::kSuppressedByOtherDialog:
+    case SearchEngineChoiceScreenConditions::kBrowserWindowTooSmall:
+    case SearchEngineChoiceScreenConditions::kHasDistributionCustomSearchEngine:
+    case SearchEngineChoiceScreenConditions::
+        kHasRemovedPrepopulatedSearchEngine:
+    case SearchEngineChoiceScreenConditions::kHasNonGoogleSearchEngine:
+    case SearchEngineChoiceScreenConditions::kAppStartedByExternalIntent:
+    case SearchEngineChoiceScreenConditions::kAlreadyBeingShown:
+    case SearchEngineChoiceScreenConditions::kUsingPersistedGuestSessionChoice:
+    case SearchEngineChoiceScreenConditions::kIncompatibleCurrentLocation:
+    case SearchEngineChoiceScreenConditions::kAccountNotEligible:
+    case SearchEngineChoiceScreenConditions::kIneligibleSurface:
+    case SearchEngineChoiceScreenConditions::kManaged:
+      return false;
+  }
+  NOTREACHED();
+}
+
 void RecordLoadedCountrySource(LoadedCountrySource source) {
   base::UmaHistogramEnumeration("RegionalCapabilities.LoadedCountrySource",
                                 source);
@@ -75,6 +158,11 @@ void RecordProgramAndLocationMatch(
   base::UmaHistogramEnumeration(
       "RegionalCapabilities.FunnelStage.RegionalPresence",
       program_and_location_match);
+}
+
+void RecordAndroidProgramResolution(AndroidProgramResolution resolution) {
+  base::UmaHistogramEnumeration(
+      "RegionalCapabilities.Debug.AndroidProgramResolution", resolution);
 }
 
 void RecordFunnelStage(FunnelStage stage) {

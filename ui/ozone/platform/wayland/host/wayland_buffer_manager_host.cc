@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
 #include "base/posix/eintr_wrapper.h"
@@ -93,9 +94,9 @@ void WaylandBufferManagerHost::OnCommitOverlayError(
   TerminateGpuProcess();
 }
 
-wl::BufferFormatsWithModifiersMap
-WaylandBufferManagerHost::GetSupportedBufferFormats() const {
-  return connection_->buffer_factory()->GetSupportedBufferFormats();
+wl::SharedImageFormatsWithModifiersMap
+WaylandBufferManagerHost::GetSupportedSharedImageFormats() const {
+  return connection_->buffer_factory()->GetSupportedSharedImageFormats();
 }
 
 bool WaylandBufferManagerHost::SupportsDmabuf() const {

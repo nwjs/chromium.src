@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Win Builder",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.win",
@@ -35,12 +35,11 @@
         {
           "bucket": "ci",
           "builder": "Win Builder",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "is_compile_only": true,
-      "targets_spec_directory": "infra/config/generated/builders/try/win_chromium_compile_rel_ng/targets",
-      "targets_spec_directory_relative_to_source_dir": true
+      "targets_spec_directory": "infra/config/generated/builders/try/win_chromium_compile_rel_ng/targets"
     }
   },
   "$build/siso": {
@@ -49,11 +48,10 @@
       "remote-link"
     ],
     "enable_cloud_monitoring": true,
-    "enable_cloud_profiler": true,
     "enable_cloud_trace": true,
     "experiments": [],
-    "metrics_project": "chromium-reclient-metrics",
     "output_local_strategy": "greedy",
+    "profile_mode": "cloud",
     "project": "rbe-chromium-untrusted",
     "remote_jobs": 150
   },

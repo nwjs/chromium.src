@@ -7,7 +7,6 @@
 #include <string>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/media_galleries/fileapi/mtp_device_async_delegate.h"
 #include "content/public/browser/browser_thread.h"
@@ -30,13 +29,12 @@ void MTPDeviceMapService::RegisterMTPFileSystem(
     const base::FilePath::StringType& device_location,
     const std::string& filesystem_id,
     const bool read_only) {
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   DCHECK(!device_location.empty());
   DCHECK(!filesystem_id.empty());
 
   const AsyncDelegateKey key = GetAsyncDelegateKey(device_location, read_only);
-  if (!base::Contains(mtp_device_usage_map_, key)) {
+  if (!mtp_device_usage_map_.contains(key)) {
     // Note that this initializes the delegate asynchronously, but since
     // the delegate will only be used from the IO thread, it is guaranteed
     // to be created before use of it expects it to be there.
@@ -49,7 +47,6 @@ void MTPDeviceMapService::RegisterMTPFileSystem(
 
   mtp_device_usage_map_[key]++;
   mtp_device_map_[filesystem_id] = make_pair(device_location, read_only);
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 }
 
 void MTPDeviceMapService::RevokeMTPFileSystem(
@@ -86,8 +83,9 @@ void MTPDeviceMapService::AddAsyncDelegate(
   DCHECK(!device_location.empty());
 
   const AsyncDelegateKey key = GetAsyncDelegateKey(device_location, read_only);
-  if (base::Contains(async_delegate_map_, key))
+  if (async_delegate_map_.contains(key)) {
     return;
+  }
   async_delegate_map_[key] = delegate;
 }
 

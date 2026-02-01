@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.GROUP_SUGGESTION_SERVICE;
 import static org.chromium.chrome.browser.tab_ui.TabSwitcherGroupSuggestionService.recordGroupSuggestionHistogram;
 import static org.chromium.chrome.browser.tasks.tab_management.TabKeyEventHandler.onPageKeyEvent;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.ALL_KEYS;
@@ -46,10 +47,12 @@ import org.chromium.base.ValueChangedCallback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.LazyOneshotSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
@@ -166,8 +169,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             new TabModelObserver() {
                 @Override
                 public void didChangePinState(Tab tab) {
-                    if (mPinnedTabsCoordinator == null
-                            || mHubSearchBoxVisibilitySupplier.get() == null) {
+                    if (mPinnedTabsCoordinator == null) {
                         return;
                     }
                     if (isAnyTabPinned()) {
@@ -233,7 +235,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             new ObservableSupplierImpl<>();
     private final Callback<Boolean> mOnContextMenuFocusableChanged =
             this::onContextMenuFocusableChanged;
-    private final ObservableSupplierImpl<Boolean> mHubSearchBoxVisibilitySupplier;
+    private final NonNullObservableSupplier<Boolean> mHubSearchBoxVisibilitySupplier;
     private final @Nullable ImageView mPaneHairline;
     private @Nullable TabGridContextMenuCoordinator mContextMenuCoordinator;
     private @Nullable TabGroupListBottomSheetCoordinator mTabGroupListBottomSheetCoordinator;
@@ -308,7 +310,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             UndoBarThrottle undoBarThrottle,
             Callback<@Nullable View> setOverlayViewCallback,
             @Nullable TabSwitcherDragHandler tabSwitcherDragHandler,
-            ObservableSupplierImpl<Boolean> hubSearchBoxVisibilitySupplier) {
+            SettableNonNullObservableSupplier<Boolean> hubSearchBoxVisibilitySupplier) {
         try (TraceEvent e = TraceEvent.scoped("TabSwitcherPaneCoordinator.constructor")) {
             mProfileProvider = profileProvider;
             mIsVisibleSupplier = isVisibleSupplier;
@@ -445,7 +447,8 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             tabSwitcherDragHandler,
                             /* undoBarExplicitTrigger= */ null,
                             /* snackbarManager= */ null,
-                            TabListEditorCoordinator.UNLIMITED_SELECTION);
+                            TabListEditorCoordinator.UNLIMITED_SELECTION,
+                            false);
             mTabListCoordinator = tabListCoordinator;
             tabListCoordinator.setOnLongPressTabItemEventListener(mLongPressItemEventListener);
 
@@ -629,14 +632,17 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             tabListCoordinator.addDragObserver(mDragObserver);
 
             if (ChromeFeatureList.sTabSwitcherGroupSuggestionsAndroid.isEnabled()) {
-                mTabSwitcherGroupSuggestionService =
-                        TabSwitcherGroupSuggestionServiceFactory.build(
-                                activity,
-                                mTabGroupModelFilterSupplier,
-                                profile,
-                                mTabListCoordinator,
-                                assumeNonNull(
-                                        messageManager.getTabGroupSuggestionMessageService()));
+                assert ChromeFeatureList.isEnabled(GROUP_SUGGESTION_SERVICE);
+                if (ChromeFeatureList.isEnabled(GROUP_SUGGESTION_SERVICE)) {
+                    mTabSwitcherGroupSuggestionService =
+                            TabSwitcherGroupSuggestionServiceFactory.build(
+                                    activity,
+                                    mTabGroupModelFilterSupplier,
+                                    profile,
+                                    mTabListCoordinator,
+                                    assumeNonNull(
+                                            messageManager.getTabGroupSuggestionMessageService()));
+                }
             }
         }
     }
@@ -880,7 +886,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     }
 
     @Override
-    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+    public NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
         return mMediator.getHandleBackPressChangedSupplier();
     }
 
@@ -893,9 +899,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         TabGroupModelFilter filter = mTabGroupModelFilterSupplier.get();
         assumeNonNull(filter);
         Tab tab = filter.getTabModel().getTabById(tabId);
-        if (tab == null
-                || cardView == null
-                || !ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled()) {
+        if (tab == null || cardView == null) {
             return null;
         }
 
@@ -931,7 +935,8 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     }
 
     private void onTabSwitcherShown() {
-        if (ChromeFeatureList.sTabSwitcherGroupSuggestionsAndroid.isEnabled()) {
+        if (ChromeFeatureList.sTabSwitcherGroupSuggestionsAndroid.isEnabled()
+                && mTabSwitcherGroupSuggestionService != null) {
             recordGroupSuggestionHistogram(SuggestionUiEvent.TAB_SWITCHER_OPENED);
             showGroupSuggestionsAfterAnimations();
         }

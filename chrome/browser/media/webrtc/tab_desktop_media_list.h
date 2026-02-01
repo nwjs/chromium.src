@@ -10,10 +10,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/media/webrtc/desktop_media_list_base.h"
-
-namespace viz {
-struct CopyOutputBitmapWithMetadata;
-}  // namespace viz
+#include "content/public/browser/render_widget_host_view.h"
 
 // Implementation of DesktopMediaList that shows tab/WebContents.
 class TabDesktopMediaList : public DesktopMediaListBase {
@@ -41,9 +38,9 @@ class TabDesktopMediaList : public DesktopMediaListBase {
     base::WeakPtr<TabDesktopMediaList> list_;
   };
 
-  typedef std::map<content::DesktopMediaID, uint32_t> ImageHashesMap;
+  using ImageHashesMap = std::map<content::DesktopMediaID, uint32_t>;
 
-  void Refresh(bool update_thumnails) override;
+  void Refresh(bool update_thumbnails) override;
 
   // TODO(crbug.com/40187992): Combine the below logic for screenshotting with
   // the very similar behaviour in current_tab_desktop_media_list.h
@@ -66,7 +63,7 @@ class TabDesktopMediaList : public DesktopMediaListBase {
       int remaining_retries,
       const content::DesktopMediaID& id,
       std::unique_ptr<TabDesktopMediaList::RefreshCompleter> refresh_completer,
-      const viz::CopyOutputBitmapWithMetadata& result);
+      const content::CopyFromSurfaceResult& result);
   void CompleteRefreshAfterThumbnailProcessing();
 
   // The WebContents from which the media-picker was invoked, if such

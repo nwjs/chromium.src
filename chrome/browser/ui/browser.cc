@@ -30,7 +30,6 @@
 #include "base/base_paths.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -202,6 +201,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
@@ -209,6 +209,7 @@
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/split_tab_id.h"
 #include "components/tabs/public/split_tab_visual_data.h"
+#include "components/tabs/public/tab_collection.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -607,7 +608,11 @@ std::unique_ptr<Browser> Browser::DeprecatedCreateOwnedForTesting(
   // not possible, e.g. using the wrong profile or during shutdown. The caller
   // should handle this; see e.g. crbug.com/1141608 and crbug.com/1261628.
   CHECK_EQ(CreationStatus::kOk, GetCreationStatusForProfile(params.profile));
-  return base::WrapUnique(new Browser(params));
+
+  std::unique_ptr<Browser> browser = base::WrapUnique(new Browser(params));
+  BrowserManagerServiceFactory::GetForProfile(params.profile)
+      ->AddBrowserForTesting(browser.get());
+  return browser;
 }
 
 Browser::Browser(const CreateParams& params)
@@ -786,7 +791,7 @@ Browser::~Browser() {
   // The system incognito profile should not try be destroyed using
   // ProfileDestroyer::DestroyProfileWhenAppropriate(). This profile can be
   // used, at least, by the user manager window. This window is not a browser,
-  // therefore, BrowserList::IsOffTheRecordBrowserActiveForProfile(profile_)
+  // therefore, chrome::IsOffTheRecordBrowserActiveForProfile(profile_)
   // returns false, while the user manager window is still opened.
   // This cannot be fixed in ProfileDestroyer::DestroyProfileWhenAppropriate(),
   // because the ProfileManager needs to be able to destroy all profiles when
@@ -798,7 +803,7 @@ Browser::~Browser() {
   // TODO(crbug.com/40159237): Use ScopedProfileKeepAlive for Incognito too,
   // instead of separate logic for Incognito and regular profiles.
   if (profile_->IsIncognitoProfile() &&
-      !BrowserList::IsOffTheRecordBrowserInUse(profile_) &&
+      !chrome::IsOffTheRecordBrowserInUse(profile_) &&
       !profile_->IsSystemProfile()) {
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
     // The Printing Background Manager holds onto preview dialog WebContents
@@ -1619,6 +1624,15 @@ bool Browser::CanSaveContents(content::WebContents* web_contents) const {
 }
 
 bool Browser::ShouldDisplayFavicon(content::WebContents* web_contents) const {
+  // Don't show favicon when on an interstitial.
+  security_interstitials::SecurityInterstitialTabHelper*
+      security_interstitial_tab_helper = security_interstitials::
+          SecurityInterstitialTabHelper::FromWebContents(web_contents);
+  if (security_interstitial_tab_helper &&
+      security_interstitial_tab_helper->IsDisplayingInterstitial()) {
+    return false;
+  }
+
   // Remove for all other tabbed web apps.
   if (auto* const app_browser_controller = app_controller();
       app_browser_controller && app_browser_controller->has_tab_strip()) {
@@ -1797,17 +1811,15 @@ void Browser::OnTabGroupChanged(const TabGroupChange& change) {
   }
 }
 
-void Browser::TabPinnedStateChanged(TabStripModel* tab_strip_model,
-                                    WebContents* contents,
-                                    int index) {
+void Browser::OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) {
   // See comment in Browser::OnTabGroupChanged
   DCHECK(!IsRelevantToAppSessionService(type_));
   SessionService* session_service =
       SessionServiceFactory::GetForProfileIfExisting(profile());
   if (session_service) {
     session_service->SetPinnedState(
-        session_id(), sessions::SessionTabHelper::IdForTab(contents),
-        tab_strip_model_->IsTabPinned(index));
+        session_id(), sessions::SessionTabHelper::IdForTab(tab->GetContents()),
+        tab->IsPinned());
   }
 }
 
@@ -2352,7 +2364,7 @@ void Browser::LoadingStateChanged(WebContents* source,
   extensions::TabsEventRouter* tabs_event_router = tabs_window_api->tabs_event_router();
   if (!tabs_event_router)
     return;
-  tabs_event_router->NWStatusUpdated(source, nwstatus);
+  tabs_event_router->platform_delegate_.NWStatusUpdated(source, nwstatus);
 }
 
 void Browser::CloseContents(WebContents* source) {
@@ -2703,6 +2715,17 @@ content::WebContents* Browser::GetResponsibleWebContents(
     content::WebContents* web_contents) {
   // Tabs are the proper choice for modal scope.
   return web_contents;
+}
+
+std::optional<gfx::Rect> Browser::GetWindowBoundsInScreen() {
+  if (!window_) {
+    return std::nullopt;
+  }
+
+  // Note that `GetBounds` here returns the screen coordinate bounds
+  // from the browser widget. This is not to be confused with
+  // `views::View::bounds()` which returns parent-relative bounds.
+  return GetBrowserView().GetBounds();
 }
 
 void Browser::DidFinishNavigation(
@@ -3635,23 +3658,31 @@ void Browser::SyncHistoryWithTabs(int index) {
     return;
   }
 
-  for (int i = index; i < tab_strip_model_->count(); ++i) {
-    WebContents* web_contents = tab_strip_model_->GetWebContentsAt(i);
+  if (index >= GetTabStripModel()->count()) {
+    return;
+  }
+
+  int current_index = index;
+  for (tabs::TabCollection::TabIterator it(
+           GetTabStripModel()->GetTabAtIndex(index));
+       it != GetTabStripModel()->end(); ++it) {
+    WebContents* web_contents = it->GetContents();
     if (web_contents) {
       SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents);
       if (service) {
-        service->SetPinnedState(session_id(), tab_id,
-                                tab_strip_model_->IsTabPinned(i));
+        service->SetPinnedState(session_id(), tab_id, it->IsPinned());
       }
 
       if (!IsRelevantToAppSessionService(type_) && session_service) {
-        session_service->SetTabIndexInWindow(session_id(), tab_id, i);
+        session_service->SetTabIndexInWindow(session_id(), tab_id,
+                                             current_index);
 
         std::optional<tab_groups::TabGroupId> group_id =
-            tab_strip_model_->GetTabGroupForTab(i);
+            tab_strip_model_->GetTabGroupForTab(current_index);
         session_service->SetTabGroup(session_id(), tab_id, std::move(group_id));
       }
     }
+    current_index++;
   }
 }
 

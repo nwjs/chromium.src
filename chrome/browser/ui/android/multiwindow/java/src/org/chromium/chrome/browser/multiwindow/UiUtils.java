@@ -28,6 +28,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
 import org.chromium.components.browser_ui.widget.RoundedIconGenerator;
 import org.chromium.components.favicon.LargeIconBridge;
@@ -67,10 +68,12 @@ public class UiUtils {
         mMinIconSizeDp = (int) res.getDimension(R.dimen.default_favicon_min_size);
         mDisplayedIconSize = res.getDimensionPixelSize(R.dimen.default_favicon_size);
         mIncognitoFavicon =
-                isIncognitoAsWindowEnabled()
+                IncognitoUtils.shouldOpenIncognitoAsWindow()
                         ? mContext.getResources()
-                                .getDrawable(R.drawable.ic_incognito_24dp, mContext.getTheme())
-                        : getTintedIcon(R.drawable.incognito_simple);
+                                .getDrawable(
+                                        R.drawable.ic_incognito_circle_fill_24dp,
+                                        mContext.getTheme())
+                        : getTintedIcon(R.drawable.ic_incognito_fill_24dp);
         mGlobeFavicon = getTintedIcon(R.drawable.ic_globe_24dp);
         mIconGenerator = FaviconUtils.createRoundedRectangleIconGenerator(context);
     }
@@ -110,23 +113,7 @@ public class UiUtils {
      *     false} otherwise.
      */
     public static boolean isRecentlyClosedTabsAndWindowsEnabled() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.RECENTLY_CLOSED_TABS_AND_WINDOWS);
-    }
-
-    /**
-     * Checks whether the Android Open Incognito As Window feature is enabled.
-     *
-     * @deprecated Use {@link
-     *     org.chromium.chrome.browser.incognito.IncognitoUtils#isIncognitoAsWindowEnabled()}
-     *     instead.
-     * @return {@code true} if the Android Open Incognito As Window feature is enabled, {@code
-     *     false} otherwise.
-     */
-    // TODO(crbug.com/448671285): Shift away from isIncognitoAsWindowEnabled() to calling
-    // IncognitoUtils function
-    @Deprecated
-    public static boolean isIncognitoAsWindowEnabled() {
-        return ChromeFeatureList.sAndroidOpenIncognitoAsWindow.isEnabled();
+        return ChromeFeatureList.sRecentlyClosedTabsAndWindows.isEnabled();
     }
 
     /**
@@ -250,7 +237,7 @@ public class UiUtils {
         } else if (item.isIncognitoSelected && incognitoTabCount > 0) {
             // Show 'incognito tab' only when we have any restorable incognito tabs.
             title =
-                    isIncognitoAsWindowEnabled()
+                    IncognitoUtils.shouldOpenIncognitoAsWindow()
                             ? res.getString(R.string.instance_switcher_title_incognito_window)
                             : res.getString(R.string.notification_incognito_tab);
         } else {
@@ -275,7 +262,7 @@ public class UiUtils {
         } else if (totalTabCount == 0) { // <ex>No tabs</ex>
             desc = res.getString(R.string.instance_switcher_tab_count_zero);
         } else if (item.isIncognitoSelected && incognitoTabCount > 0) {
-            if (isIncognitoAsWindowEnabled()) { // <ex>2 tabs</ex>
+            if (IncognitoUtils.shouldOpenIncognitoAsWindow()) { // <ex>2 tabs</ex>
                 desc =
                         res.getQuantityString(
                                 R.plurals.instance_switcher_tab_count_nonzero,
@@ -419,7 +406,7 @@ public class UiUtils {
      * @return Whether a new Chrome instance has not yet started loading a URL on its tab.
      */
     private boolean isInitialNonIncognitoWindow(InstanceInfo item, int totalTabCount) {
-        if (isIncognitoAsWindowEnabled()) {
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
             return !item.isIncognitoSelected
                     && totalTabCount == 1
                     && TextUtils.isEmpty(item.url)

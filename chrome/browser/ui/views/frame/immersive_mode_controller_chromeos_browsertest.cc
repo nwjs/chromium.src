@@ -140,7 +140,7 @@ class ImmersiveModeControllerChromeosWebAppBrowserTest
 IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
                        Layout) {
   LaunchAppBrowser();
-  TabStrip* tabstrip = browser_view()->tabstrip();
+  TabStrip* tabstrip = browser_view()->horizontal_tab_strip_for_testing();
   ToolbarView* toolbar = browser_view()->toolbar();
   views::WebView* contents_web_view = browser_view()->contents_web_view();
   views::View* top_container = browser_view()->top_container();
@@ -150,7 +150,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
   ASSERT_FALSE(controller()->IsEnabled());
 
   // The tabstrip is not visible for web apps.
-  EXPECT_FALSE(tabstrip->GetVisible());
+  EXPECT_FALSE(tabstrip->IsDrawn());
   EXPECT_TRUE(toolbar->GetVisible());
 
   // The window header should be above the web contents.
@@ -162,10 +162,10 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
   EXPECT_FALSE(controller()->IsRevealed());
 
   // Entering immersive fullscreen should make the web contents flush with the
-  // top of the widget. The popup browser type doesn't support tabstrip and
-  // toolbar feature, thus invisible.
-  EXPECT_FALSE(tabstrip->GetVisible());
-  EXPECT_FALSE(toolbar->GetVisible());
+  // top of the widget. The popup browser type doesn't support tabstrip,
+  // thus invisible. toolbar is considered visible, but outside of the window.
+  EXPECT_FALSE(tabstrip->IsDrawn());
+  EXPECT_TRUE(toolbar->GetVisible());
   EXPECT_TRUE(top_container->GetVisibleBounds().IsEmpty());
   EXPECT_EQ(0, GetBoundsInWidget(contents_web_view).y());
 
@@ -174,7 +174,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
 
   // The tabstrip should still be hidden and the web contents should still be
   // flush with the top of the screen.
-  EXPECT_FALSE(tabstrip->GetVisible());
+  EXPECT_FALSE(tabstrip->IsDrawn());
   EXPECT_TRUE(toolbar->GetVisible());
   EXPECT_EQ(0, GetBoundsInWidget(contents_web_view).y());
 
@@ -190,7 +190,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerChromeosWebAppBrowserTest,
   ExitImmersiveFullscreenMode(browser());
   EXPECT_FALSE(browser_view()->GetWidget()->IsFullscreen());
   EXPECT_FALSE(controller()->IsEnabled());
-  EXPECT_FALSE(tabstrip->GetVisible());
+  EXPECT_FALSE(tabstrip->IsDrawn());
   EXPECT_TRUE(toolbar->GetVisible());
   EXPECT_EQ(header_height, GetBoundsInWidget(contents_web_view).y());
 }

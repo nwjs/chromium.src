@@ -105,8 +105,14 @@ allow_unsafe = false
 [crate.anstyle.extra_kv]
 allow_unsafe = true
 
+[crate.antlr4rust]
+extra_kv = { allow_unsafe = true }
+
 [crate.anyhow.extra_kv]
 allow_unsafe = true
+
+[crate.array-init]
+extra_kv = { allow_unsafe = true }
 
 [crate.arrayvec.extra_kv]
 allow_unsafe = true
@@ -116,6 +122,15 @@ allow_unsafe = false
 
 [crate.base64.extra_kv]
 allow_unsafe = false
+
+[crate.better_any]
+extra_kv = { allow_unsafe = true }
+
+[crate.bit-set]
+extra_kv = { allow_unsafe = true }
+
+[crate.bit-vec]
+extra_kv = { allow_unsafe = true }
 
 [crate.bitflags.extra_kv]
 allow_unsafe = false
@@ -128,6 +143,12 @@ allow_unstable_features = ["portable_simd"]
 
 [crate.bytemuck_derive.extra_kv]
 allow_unsafe = false
+
+[crate.byteorder]
+extra_kv = { allow_unsafe = true }
+
+[crate.byteorder-lite]
+extra_kv = { allow_unsafe = false }
 
 [crate.bytes.extra_kv]
 allow_unsafe = true
@@ -254,6 +275,18 @@ allow_unsafe = false
 group = 'test'
 extra_kv = { allow_unsafe = false }
 
+[crate.hmac-sha256.extra_kv]
+allow_unsafe = true
+# Limit visibility of the `hmac-sha256` crate, because in general Boring SSL
+# should be preferred for cryptographic algorithms.
+visibility = [
+  # Using `hmac-sha256` from `//build/rust/chromium_prelude` is an attempt to
+  # limit dependencies of `//build/rust` (`//third_party/rust` is likely to
+  # be used together with `//build/rust`, but we don't want to also require
+  # `//third_party/boringssl` for its SHA-256 imlementation).
+  '//build/rust/chromium_prelude:*',
+]
+
 [crate.icu_calendar.extra_kv]
 allow_unsafe = false
 
@@ -342,6 +375,10 @@ extra_kv = { allow_unsafe = false }
 [crate.icu_provider.extra_kv]
 allow_unsafe = true
 
+[crate.image]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = true }
+
 [crate.indexmap.extra_kv]
 allow_unsafe = true
 
@@ -354,6 +391,27 @@ allow_unsafe = true
 
 [crate.ixdtf.extra_kv]
 allow_unsafe = false
+
+[crate.jxl.extra_kv]
+allow_unsafe = true
+# JXL decoding requires optimizations even in Debug builds for reasonable performance.
+configs_to_remove = ['//build/config/compiler:default_optimization']
+configs_to_add = ['//build/config/compiler:optimize']
+
+[crate.jxl_macros]
+extra_kv = { allow_unsafe = false }
+
+[crate.jxl_simd.extra_kv]
+allow_unsafe = true
+# JXL decoding requires optimizations even in Debug builds for reasonable performance.
+configs_to_remove = ['//build/config/compiler:default_optimization']
+configs_to_add = ['//build/config/compiler:optimize']
+
+[crate.jxl_transforms.extra_kv]
+allow_unsafe = true
+# JXL decoding requires optimizations even in Debug builds for reasonable performance.
+configs_to_remove = ['//build/config/compiler:default_optimization']
+configs_to_add = ['//build/config/compiler:optimize']
 
 [crate.lazy_static.extra_kv]
 allow_unsafe = true
@@ -377,11 +435,17 @@ allow_unsafe = false
 [crate.llguidance.extra_kv]
 allow_unsafe = true
 
+[crate.lock_api]
+extra_kv = { allow_unsafe = true }
+
 [crate.log.extra_kv]
 allow_unsafe = true
 
 [crate.memchr.extra_kv]
 allow_unsafe = true
+
+[crate.minijinja]
+extra_kv = { allow_unsafe = true }
 
 [crate.miniz_oxide.extra_kv]
 # Web tests (aka WPT tests, also formerly known as Layout Tests) require fast
@@ -391,8 +455,17 @@ allow_unsafe = false
 configs_to_remove = ['//build/config/compiler:default_optimization']
 configs_to_add = ['//build/config/compiler:optimize']
 
+[crate.moxcms]
+extra_kv = { allow_unsafe = true }
+
+[crate.murmur3]
+extra_kv = { allow_unsafe = false }
+
 [crate.num-bigint.extra_kv]
 allow_unsafe = true
+
+[crate.num-derive]
+extra_kv = { allow_unsafe = false }
 
 [crate.num-integer.extra_kv]
 allow_unsafe = false
@@ -403,6 +476,15 @@ allow_unsafe = false
 [crate.num-traits]
 # Configures the has_total_cmp feature, not necessary
 remove_build_rs = true
+extra_kv = { allow_unsafe = true }
+
+[crate.once_cell]
+extra_kv = { allow_unsafe = true }
+
+[crate.parking_lot]
+extra_kv = { allow_unsafe = true }
+
+[crate.parking_lot_core]
 extra_kv = { allow_unsafe = true }
 
 [crate.png.extra_kv]
@@ -416,6 +498,12 @@ configs_to_add = ['//build/config/compiler:optimize']
 [crate.potential_utf.extra_kv]
 allow_unsafe = true
 
+[crate.proc-macro-error-attr2]
+extra_kv = { allow_unsafe = false }
+
+[crate.proc-macro-error2]
+extra_kv = { allow_unsafe = false }
+
 [crate.proc-macro2.extra_kv]
 allow_unsafe = true
 
@@ -427,6 +515,9 @@ group = 'test'
 [crate.prost-derive]
 extra_kv = { allow_unsafe = false }
 group = 'test'
+
+[crate.pxfm]
+extra_kv = { allow_unsafe = true }
 
 [crate.qr_code.extra_kv]
 allow_unsafe = false
@@ -456,6 +547,9 @@ shipped = false
 
 [crate.ryu.extra_kv]
 allow_unsafe = true
+
+[crate.scopeguard]
+extra_kv = { allow_unsafe = true }
 
 [crate.serde]
 build_script_outputs = [ "private.rs" ]
@@ -540,6 +634,13 @@ allow_unsafe = false
 [crate.termcolor.extra_kv]
 allow_unsafe = false
 
+[crate.thiserror]
+build_script_outputs = [ "private.rs" ]
+extra_kv = { allow_unsafe = false }
+
+[crate.thiserror-impl]
+extra_kv = { allow_unsafe = false }
+
 [crate.timezone_provider.extra_kv]
 allow_unsafe = true
 
@@ -549,14 +650,23 @@ allow_unsafe = true
 [crate.toktrie.extra_kv]
 allow_unsafe = false
 
+[crate.typed-arena]
+extra_kv = { allow_unsafe = true }
+
 [crate.unicode-ident.extra_kv]
 allow_unsafe = true
 
 [crate.unicode-width.extra_kv]
 allow_unsafe = false
 
+[crate.uuid]
+extra_kv = { allow_unsafe = true }
+
 [crate.winapi-util.extra_kv]
 allow_unsafe = true
+
+[crate.windows-link]
+extra_kv = { allow_unsafe = false }
 
 [crate.windows-sys.extra_kv]
 allow_unsafe = false
@@ -609,6 +719,9 @@ allow_unsafe = false
 
 [crate.zip.extra_kv]
 allow_unsafe = true
+
+[crate.zmij]
+extra_kv = { allow_unsafe = true }
 
 [crate.zoneinfo64.extra_kv]
 allow_unsafe = true

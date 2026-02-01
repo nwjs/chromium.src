@@ -66,7 +66,7 @@ void PaintedScrollbarLayerImpl::PushPropertiesTo(LayerImpl* layer) {
   scrollbar_layer->SetJumpOnTrackClick(jump_on_track_click_);
   scrollbar_layer->SetSupportsDragSnapBack(supports_drag_snap_back_);
   scrollbar_layer->SetThumbThickness(thumb_thickness_);
-  scrollbar_layer->SetThumbLength(thumb_length_);
+  scrollbar_layer->SetMinimumThumbLength(minimum_thumb_length_);
   scrollbar_layer->SetBackButtonRect(back_button_rect_);
   scrollbar_layer->SetForwardButtonRect(forward_button_rect_);
   scrollbar_layer->SetTrackRect(track_rect_);
@@ -167,16 +167,20 @@ void PaintedScrollbarLayerImpl::AppendThumbQuads(
     return;
   }
 
+  const gfx::Size resource_size =
+      layer_tree_impl()->GetUIResourceSize(thumb_ui_resource_id_);
+
   shared_quad_state->opacity *= painted_opacity_;
   auto* quad = render_pass->CreateAndAppendDrawQuad<viz::TextureDrawQuad>();
   quad->SetNew(shared_quad_state, scaled_thumb_quad_rect,
-               scaled_visible_thumb_quad_rect, /*needs_blending=*/true,
-               thumb_resource_id,
+               scaled_visible_thumb_quad_rect,
+               /*needs_blending=*/true, thumb_resource_id,
                /*top_left=*/gfx::PointF(0.f, 0.f),
-               /*bottom_right=*/gfx::PointF(1.f, 1.f),
+               gfx::PointF(resource_size.width(), resource_size.height()),
                /*background=*/SkColors::kTransparent,
                /*nearest=*/false, /*secure_output=*/false,
-               /*video_type=*/gfx::ProtectedVideoType::kClear);
+               /*video_type=*/gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
   ValidateQuadResources(quad);
 }
 
@@ -232,16 +236,22 @@ void PaintedScrollbarLayerImpl::AppendTrackAndButtonsQuads(
       gfx::ScaleToEnclosingRect(visible_track_and_buttons_quad_rect,
                                 internal_contents_scale_);
   bool needs_blending = !contents_opaque();
+
+  const gfx::Size resource_size =
+      layer_tree_impl()->GetUIResourceSize(track_and_buttons_ui_resource_id_);
+
   auto* quad = render_pass->CreateAndAppendDrawQuad<viz::TextureDrawQuad>();
   quad->SetNew(track_and_buttons_shared_quad_state,
                scaled_track_and_buttons_quad_rect,
                scaled_visible_track_and_buttons_quad_rect, needs_blending,
                track_and_buttons_resource_id,
                /*top_left=*/gfx::PointF(0.f, 0.f),
-               /*bottom_right=*/gfx::PointF(1.f, 1.f),
+               /*bottom_right=*/
+               gfx::PointF(resource_size.width(), resource_size.height()),
                /*background=*/SkColors::kTransparent,
                /*nearest=*/false, /*secure_output=*/false,
-               /*video_type=*/gfx::ProtectedVideoType::kClear);
+               /*video_type=*/gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
   ValidateQuadResources(quad);
 }
 
@@ -398,15 +408,17 @@ int PaintedScrollbarLayerImpl::ThumbThickness() const {
   return thumb_thickness_;
 }
 
-void PaintedScrollbarLayerImpl::SetThumbLength(int thumb_length) {
-  if (thumb_length_ == thumb_length)
+void PaintedScrollbarLayerImpl::SetMinimumThumbLength(
+    int minimum_thumb_length) {
+  if (minimum_thumb_length_ == minimum_thumb_length) {
     return;
-  thumb_length_ = thumb_length;
+  }
+  minimum_thumb_length_ = minimum_thumb_length;
   NoteLayerPropertyChanged();
 }
 
-int PaintedScrollbarLayerImpl::ThumbLength() const {
-  return thumb_length_;
+int PaintedScrollbarLayerImpl::MinimumThumbLength() const {
+  return minimum_thumb_length_;
 }
 
 int PaintedScrollbarLayerImpl::TrackStart() const {

@@ -9,6 +9,7 @@
 
 #include "base/files/file_util.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
@@ -29,7 +30,6 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/tpcd/metadata/browser/parser.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_paths.h"
@@ -75,11 +75,6 @@ Profile* CreateRegularProfile() {
   return profile_manager->GetProfile(new_path);
 }
 #endif
-
-const char kThirdPartyCookieAllowMechanismHistogram[] =
-    "PageLoad.Clients.TPCD.CookieAccess.ThirdPartyCookieAllowMechanism3";
-using ThirdPartyCookieAllowMechanism =
-    content_settings::CookieSettingsBase::ThirdPartyCookieAllowMechanism;
 }  // namespace
 
 class ManagerBrowserTest : public InProcessBrowserTest {
@@ -361,8 +356,6 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
       third_party_url_1, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
-
     content::CookieChangeObserver observer(GetWebContents(),
                                            /*num_expected_calls=*/2);
     NavigateToPageWithFrame(kFirstPartyHost);
@@ -371,27 +364,17 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
     observer.Wait();
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    histogram_tester.ExpectUniqueSample(
-        kThirdPartyCookieAllowMechanismHistogram,
-        ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource1pDt, 2);
   }
 
   EXPECT_FALSE(GetCookieSettings()->IsFullCookieAccessAllowed(
       third_party_url_1_sub, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
-
     NavigateToPageWithFrame(kFirstPartyHost);
     NavigateFrameTo(kThirdPartyHost1Sub, "/browsing_data/site_data.html");
     ExpectCookie(GetFrame(), /*expected=*/false);
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    EXPECT_EQ(
-        histogram_tester.GetTotalSum(kThirdPartyCookieAllowMechanismHistogram),
-        0);
   }
 }
 
@@ -443,25 +426,17 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
       third_party_url_1, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
-
     NavigateToPageWithFrame(kFirstPartyHost);
     NavigateFrameTo(kThirdPartyHost1, "/browsing_data/site_data.html");
     ExpectCookie(GetFrame(), /*expected=*/false);
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    EXPECT_EQ(
-        histogram_tester.GetTotalSum(kThirdPartyCookieAllowMechanismHistogram),
-        0);
   }
 
   EXPECT_TRUE(GetCookieSettings()->IsFullCookieAccessAllowed(
       third_party_url_1_sub, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
-
     content::CookieChangeObserver observer(GetWebContents(),
                                            /*num_expected_calls=*/2);
     NavigateToPageWithFrame(kFirstPartyHost);
@@ -470,10 +445,6 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
     observer.Wait();
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    histogram_tester.ExpectUniqueSample(
-        kThirdPartyCookieAllowMechanismHistogram,
-        ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource1pDt, 2);
   }
 }
 
@@ -523,7 +494,6 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
       third_party_url_1, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
     content::CookieChangeObserver observer(GetWebContents(),
                                            /*num_expected_calls=*/2);
     NavigateToPageWithFrame(kFirstPartyHost);
@@ -532,33 +502,23 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
     observer.Wait();
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    histogram_tester.ExpectUniqueSample(
-        kThirdPartyCookieAllowMechanismHistogram,
-        ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource1pDt, 2);
   }
 
   EXPECT_FALSE(GetCookieSettings()->IsFullCookieAccessAllowed(
       third_party_url_2, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
     NavigateToPageWithFrame(kFirstPartyHost);
     NavigateFrameTo(kThirdPartyHost2, "/browsing_data/site_data.html");
     ExpectCookie(GetFrame(), /*expected=*/false);
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    EXPECT_EQ(
-        histogram_tester.GetTotalSum(kThirdPartyCookieAllowMechanismHistogram),
-        0);
   }
 
   EXPECT_TRUE(GetCookieSettings()->IsFullCookieAccessAllowed(
       third_party_url_3, net::SiteForCookies(), embedder_origin, {},
       cookie_partition_key));
   {
-    base::HistogramTester histogram_tester;
     content::CookieChangeObserver observer(GetWebContents(),
                                            /*num_expected_calls=*/2);
     NavigateToPageWithFrame(kFirstPartyHost);
@@ -567,20 +527,13 @@ IN_PROC_BROWSER_TEST_F(ManagerBrowserTest,
     observer.Wait();
     EXPECT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
-
-    histogram_tester.ExpectUniqueSample(
-        kThirdPartyCookieAllowMechanismHistogram,
-        ThirdPartyCookieAllowMechanism::
-            kAllowBy3PCDMetadataSourceCriticalSector,
-        2);
   }
 }
 
 class ManagerPrefsBrowserTest
     : public ManagerBrowserTest,
       public testing::WithParamInterface<
-          std::tuple</*net::features::kThirdPartyStoragePartitioning*/ bool,
-                     /*prefs::kBlockAll3pcToggleEnabled*/ bool>> {
+          /*net::features::kThirdPartyStoragePartitioning*/ bool> {
  public:
   ManagerPrefsBrowserTest() {
     scoped_feature_list_.InitWithFeatureStates(
@@ -591,47 +544,19 @@ class ManagerPrefsBrowserTest
          {content_settings::features::kTrackingProtection3pcd, true}});
   }
 
-  bool BlockAll3pcToggleEnabled() { return std::get<1>(GetParam()); }
-
-  void SimulateTrackingProtectionSettings(Profile* profile = nullptr) {
-    GetPrefs(profile)->SetDefaultPrefValue(
-        prefs::kTrackingProtection3pcdEnabled, base::Value(true));
-    EXPECT_TRUE(GetCookieSettings()->ShouldBlockThirdPartyCookies());
-
-    GetPrefs(profile)->SetBoolean(prefs::kBlockAll3pcToggleEnabled,
-                                  BlockAll3pcToggleEnabled());
-  }
-
-  bool GetTrackingProtection3pcdEnabledPref(Profile* profile = nullptr) {
-    return GetPrefs(profile)->GetBoolean(prefs::kTrackingProtection3pcdEnabled);
-  }
-
-  bool GetBlockAll3pcToggleEnabledPref(Profile* profile = nullptr) {
-    return GetPrefs(profile)->GetBoolean(prefs::kBlockAll3pcToggleEnabled);
-  }
-
-  bool ThirdPartyStoragePartitioningEnabled() const {
-    return std::get<0>(GetParam());
-  }
+  bool ThirdPartyStoragePartitioningEnabled() const { return GetParam(); }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// The first Bool controls the enablement of
+// The Bool controls the enablement of
 // `net::features::kThirdPartyStoragePartitioning`.
-//
-// The first Bool controls the
-// enablement of `prefs::kBlockAll3pcToggleEnabled`.
-INSTANTIATE_TEST_SUITE_P(All,
-                         ManagerPrefsBrowserTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(All, ManagerPrefsBrowserTest, testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
                        RelevantUserCookieSpecsPrecede) {
   base::ScopedAllowBlockingForTesting allow_blocking;
-
-  SimulateTrackingProtectionSettings();
 
   GURL first_party_url = https_server()->GetURL(kFirstPartyHost, "/");
   GURL third_party_url = https_server()->GetURL(kThirdPartyHost1, "/");
@@ -664,8 +589,7 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
       ContentSettingsToString(ContentSettingsType::TPCD_METADATA_GRANTS),
       testing::ElementsAre("[*,*]:1"));
 
-  EXPECT_EQ(!BlockAll3pcToggleEnabled(),
-            GetCookieSettings()->MitigationsEnabledFor3pcd());
+  EXPECT_TRUE(GetCookieSettings()->MitigationsEnabledFor3pcd());
   EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
                 third_party_url, net::SiteForCookies(), first_party_url,
                 net::CookieSettingOverrides()),
@@ -680,8 +604,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest, NoSpecificBlockedCookieSpecs) {
   base::ScopedAllowBlockingForTesting allow_blocking;
-
-  SimulateTrackingProtectionSettings();
 
   {
     const GURL first_party_url = https_server()->GetURL(kFirstPartyHost, "/");
@@ -703,55 +625,16 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest, NoSpecificBlockedCookieSpecs) {
             {base::StringPrintf("[%s,%s]:%d", primary_pattern_spec.c_str(),
                                 secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected, GetCookieSettings()->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings()->MitigationsEnabledFor3pcd());
     EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
                   third_party_url, net::SiteForCookies(), first_party_url,
                   net::CookieSettingOverrides()),
-              expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                       : ContentSetting::CONTENT_SETTING_BLOCK);
+              ContentSetting::CONTENT_SETTING_ALLOW);
 
     NavigateToPageWithFrame(kFirstPartyHost);
     NavigateFrameTo(kThirdPartyHost1, "/browsing_data/site_data.html");
-    ExpectCookie(GetFrame(), expected);
-    ExpectStorage(GetFrame(), expected, false,
-                  ThirdPartyStoragePartitioningEnabled());
-  }
-
-  // Make sure changes get propagated accordingly:
-  {
-    GetPrefs()->SetBoolean(prefs::kBlockAll3pcToggleEnabled, true);
-
-    const GURL first_party_url = https_server()->GetURL(kFirstPartyHost, "/");
-    const GURL third_party_url = https_server()->GetURL(kThirdPartyHost2, "/");
-
-    const std::string primary_pattern_spec =
-        ContentSettingsPattern::FromURLNoWildcard(third_party_url).ToString();
-    const std::string secondary_pattern_spec =
-        ContentSettingsPattern::FromURLNoWildcard(first_party_url).ToString();
-    Metadata metadata;
-    tpcd::metadata::helpers::AddEntryToMetadata(metadata, primary_pattern_spec,
-                                                secondary_pattern_spec);
-    EXPECT_EQ(metadata.metadata_entries_size(), 1);
-    MockComponentInstallation(metadata);
-
-    EXPECT_THAT(
-        ContentSettingsToString(ContentSettingsType::TPCD_METADATA_GRANTS),
-        testing::UnorderedElementsAreArray(
-            {base::StringPrintf("[%s,%s]:%d", primary_pattern_spec.c_str(),
-                                secondary_pattern_spec.c_str(), 1)}));
-
-    bool expected = false;
-    EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
-                  third_party_url, net::SiteForCookies(), first_party_url,
-                  net::CookieSettingOverrides()),
-              expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                       : ContentSetting::CONTENT_SETTING_BLOCK);
-
-    NavigateToPageWithFrame(kFirstPartyHost);
-    NavigateFrameTo(kThirdPartyHost2, "/browsing_data/site_data.html");
-    ExpectCookie(GetFrame(), expected);
-    ExpectStorage(GetFrame(), expected, false,
+    ExpectCookie(GetFrame(), true);
+    ExpectStorage(GetFrame(), true, false,
                   ThirdPartyStoragePartitioningEnabled());
   }
 }
@@ -777,8 +660,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
 
   // Regular profile 1:
   {
-    SimulateTrackingProtectionSettings();
-
     // Expected to be updated by the TPCD metadata manager instance as soon as
     // the profiles are created.
     EXPECT_THAT(
@@ -787,13 +668,11 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
             {base::StringPrintf("[%s,%s]:%d", primary_pattern_spec.c_str(),
                                 secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected, GetCookieSettings()->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings()->MitigationsEnabledFor3pcd());
     EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
                   third_party_url, net::SiteForCookies(), first_party_url,
                   net::CookieSettingOverrides()),
-              expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                       : ContentSetting::CONTENT_SETTING_BLOCK);
+              ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   // Regular profile 2:
@@ -804,8 +683,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
     EXPECT_NE(profile->GetProfileKey(), alt_profile->GetProfileKey());
     Browser* browser = CreateBrowser(alt_profile);
 
-    SimulateTrackingProtectionSettings(alt_profile);
-
     // Expected to be updated by the TPCD metadata manager instance as soon as
     // the profiles are created.
     EXPECT_THAT(ContentSettingsToString(
@@ -814,20 +691,17 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
                     "[%s,%s]:%d", primary_pattern_spec.c_str(),
                     secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected,
-              GetCookieSettings(alt_profile)->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings(alt_profile)->MitigationsEnabledFor3pcd());
     EXPECT_EQ(
         GetCookieSettings(alt_profile)
             ->GetCookieSetting(third_party_url, net::SiteForCookies(),
                                first_party_url, net::CookieSettingOverrides()),
-        expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                 : ContentSetting::CONTENT_SETTING_BLOCK);
+        ContentSetting::CONTENT_SETTING_ALLOW);
 
     NavigateToPageWithFrame(kFirstPartyHost, browser);
     NavigateFrameTo(kThirdPartyHost1, "/browsing_data/site_data.html", browser);
-    ExpectCookie(GetFrame(browser), expected);
-    ExpectStorage(GetFrame(browser), expected, /*setting_source_user=*/false,
+    ExpectCookie(GetFrame(browser), true);
+    ExpectStorage(GetFrame(browser), true, /*setting_source_user=*/false,
                   ThirdPartyStoragePartitioningEnabled());
   }
 }
@@ -836,8 +710,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
 IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
                        NoSpecificBlockedCookieSpecs_IncognitoProfile) {
   base::ScopedAllowBlockingForTesting allow_blocking;
-
-  SimulateTrackingProtectionSettings();
 
   const GURL first_party_url = https_server()->GetURL(kFirstPartyHost, "/");
   const GURL third_party_url = https_server()->GetURL(kThirdPartyHost1, "/");
@@ -860,13 +732,11 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
             {base::StringPrintf("[%s,%s]:%d", primary_pattern_spec.c_str(),
                                 secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected, GetCookieSettings()->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings()->MitigationsEnabledFor3pcd());
     EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
                   third_party_url, net::SiteForCookies(), first_party_url,
                   net::CookieSettingOverrides()),
-              expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                       : ContentSetting::CONTENT_SETTING_BLOCK);
+              ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   // Incognito profile:
@@ -875,9 +745,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
         browser()->profile()->GetPrimaryOTRProfile(true);
     EXPECT_TRUE(incognito_profile->IsIncognitoProfile());
     EXPECT_TRUE(incognito_profile->IsOffTheRecord());
-    EXPECT_EQ(GetTrackingProtection3pcdEnabledPref(incognito_profile), true);
-    EXPECT_EQ(GetBlockAll3pcToggleEnabledPref(incognito_profile),
-              BlockAll3pcToggleEnabled());
     Browser* browser = CreateBrowser(incognito_profile);
 
     // Expected to be left unaffected by the TPCD metadata manager instance
@@ -890,18 +757,16 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
 
     EXPECT_FALSE(
         GetCookieSettings(incognito_profile)->MitigationsEnabledFor3pcd());
-    bool expected = false;
     EXPECT_EQ(
         GetCookieSettings(incognito_profile)
             ->GetCookieSetting(third_party_url, net::SiteForCookies(),
                                first_party_url, net::CookieSettingOverrides()),
-        expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                 : ContentSetting::CONTENT_SETTING_BLOCK);
+        ContentSetting::CONTENT_SETTING_BLOCK);
 
     NavigateToPageWithFrame(kFirstPartyHost, browser);
     NavigateFrameTo(kThirdPartyHost1, "/browsing_data/site_data.html", browser);
-    ExpectCookie(GetFrame(browser), expected);
-    ExpectStorage(GetFrame(browser), expected, /*setting_source_user=*/false,
+    ExpectCookie(GetFrame(browser), false);
+    ExpectStorage(GetFrame(browser), false, /*setting_source_user=*/false,
                   ThirdPartyStoragePartitioningEnabled());
   }
 }
@@ -911,8 +776,6 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
 IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
                        NoSpecificBlockedCookieSpecs_GuestProfile) {
   base::ScopedAllowBlockingForTesting allow_blocking;
-
-  SimulateTrackingProtectionSettings();
 
   const GURL first_party_url = https_server()->GetURL(kFirstPartyHost, "/");
   const GURL third_party_url = https_server()->GetURL(kThirdPartyHost1, "/");
@@ -935,29 +798,22 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
             {base::StringPrintf("[%s,%s]:%d", primary_pattern_spec.c_str(),
                                 secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected, GetCookieSettings()->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings()->MitigationsEnabledFor3pcd());
     EXPECT_EQ(GetCookieSettings()->GetCookieSetting(
                   third_party_url, net::SiteForCookies(), first_party_url,
                   net::CookieSettingOverrides()),
-              expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                       : ContentSetting::CONTENT_SETTING_BLOCK);
+              ContentSetting::CONTENT_SETTING_ALLOW);
   }
 
   // Guest profile:
   {
     auto& original_guest_profile = CreateOriginalGuestProfile();
-    SimulateTrackingProtectionSettings(&original_guest_profile);
-
     auto* guest_profile = original_guest_profile.GetPrimaryOTRProfile(
         /*create_if_needed=*/true);
     EXPECT_FALSE(guest_profile->IsRegularProfile());
     EXPECT_FALSE(guest_profile->IsIncognitoProfile());
     EXPECT_TRUE(guest_profile->IsOffTheRecord());
     EXPECT_TRUE(guest_profile->IsGuestSession());
-    EXPECT_EQ(GetTrackingProtection3pcdEnabledPref(guest_profile), true);
-    EXPECT_EQ(GetBlockAll3pcToggleEnabledPref(guest_profile),
-              BlockAll3pcToggleEnabled());
     Browser* browser = CreateBrowser(guest_profile);
 
     EXPECT_THAT(ContentSettingsToString(
@@ -966,20 +822,17 @@ IN_PROC_BROWSER_TEST_P(ManagerPrefsBrowserTest,
                     "[%s,%s]:%d", primary_pattern_spec.c_str(),
                     secondary_pattern_spec.c_str(), 1)}));
 
-    bool expected = !BlockAll3pcToggleEnabled();
-    EXPECT_EQ(expected,
-              GetCookieSettings(guest_profile)->MitigationsEnabledFor3pcd());
+    EXPECT_TRUE(GetCookieSettings(guest_profile)->MitigationsEnabledFor3pcd());
     EXPECT_EQ(
         GetCookieSettings(guest_profile)
             ->GetCookieSetting(third_party_url, net::SiteForCookies(),
                                first_party_url, net::CookieSettingOverrides()),
-        expected ? ContentSetting::CONTENT_SETTING_ALLOW
-                 : ContentSetting::CONTENT_SETTING_BLOCK);
+        ContentSetting::CONTENT_SETTING_ALLOW);
 
     NavigateToPageWithFrame(kFirstPartyHost, browser);
     NavigateFrameTo(kThirdPartyHost1, "/browsing_data/site_data.html", browser);
-    ExpectCookie(GetFrame(browser), expected);
-    ExpectStorage(GetFrame(browser), expected, /*setting_source_user=*/false,
+    ExpectCookie(GetFrame(browser), true);
+    ExpectStorage(GetFrame(browser), true, /*setting_source_user=*/false,
                   ThirdPartyStoragePartitioningEnabled());
   }
 }

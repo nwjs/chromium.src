@@ -47,6 +47,11 @@ BASE_FEATURE(kWebViewIgnoreDuplicateNavs, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebViewLazyFetchHandWritingIcon,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, cookie policy settings are captured at RestrictedCookieManager
+// creation time and used throughout its lifetime. This enables shared memory
+// cookie versioning to reduce IPC overhead.
+BASE_FEATURE(kWebViewLatchedCookiePolicy, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, passive mixed content (Audio/Video/Image subresources loaded
 // over HTTP on HTTPS sites) will be autoupgraded to HTTPS, and the load will be
 // blocked if the resource fails to load over HTTPS. This only affects apps that
@@ -182,6 +187,10 @@ BASE_FEATURE(kWebViewConnectToComponentProviderInBackground,
 // WebViewStartupTasksYieldToNative with minor differences.
 BASE_FEATURE(kWebViewUseStartupTasksLogicP2, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Stop browser startup in isMultiProcessEnabled.
+BASE_FEATURE(kWebViewStopBrowserStartupInIsMultiProcessEnabled,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables running native startup tasks asynchronously if WebView startup is
 // asynchronous.
 // Note:This also enables the same behaviour as WebViewUseStartupTasksLogic and
@@ -253,4 +262,11 @@ BASE_FEATURE(kPrerender2WarmUpCompositorForWebView,
 BASE_FEATURE(kWebViewFetchOriginTrialsComponent,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables recording user actions for API calls.
+BASE_FEATURE(kWebViewEnableApiCallUserActions,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Kill switch for reporting web performance metrics.
+BASE_FEATURE(kWebViewWebPerformanceMetricsReporting,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace android_webview::features

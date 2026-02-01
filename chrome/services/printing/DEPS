@@ -2,8 +2,10 @@ include_rules = [
   "+components/crash/core/common/crash_key.h",
   "+components/crash/core/common/crash_keys.h",
   "+components/discardable_memory/client/client_discardable_shared_memory_manager.h",
+  "+components/printing/common",
   "+components/pwg_encoder",
   "+content/public/child/child_thread.h",
+  "+content/public/common/content_switches.h",
   "+content/public/utility/utility_thread.h",
   "+pdf/pdf.h",
 ]

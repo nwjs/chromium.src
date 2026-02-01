@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ash/printing/cups_print_job_notification_manager.h"
 
-#include "base/containers/contains.h"
 #include "base/containers/map_util.h"
 #include "chrome/browser/ash/printing/cups_print_job.h"
 #include "chrome/browser/ash/printing/cups_print_job_manager.h"
@@ -30,8 +29,9 @@ void CupsPrintJobNotificationManager::OnPrintJobCreated(
     base::WeakPtr<CupsPrintJob> job) {
   if (!job)
     return;
-  if (base::Contains(notification_map_, job.get()))
+  if (notification_map_.contains(job.get())) {
     return;
+  }
   notification_map_[job.get()] =
       std::make_unique<CupsPrintJobNotification>(this, job, profile_);
 }

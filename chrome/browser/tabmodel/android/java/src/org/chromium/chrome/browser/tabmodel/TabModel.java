@@ -5,7 +5,8 @@
 package org.chromium.chrome.browser.tabmodel;
 
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -27,6 +28,7 @@ import java.util.Set;
  */
 @NullMarked
 public interface TabModel extends SupportsTabModelObserver, TabList {
+    static final long INVALID_TIMESTAMP = -1L;
     Map<Integer, Long> sTabPinTimestampMap = new HashMap<>();
 
     /** Returns the profile associated with the current model. */
@@ -98,6 +100,14 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
     void openMostRecentlyClosedEntry();
 
     /**
+     * Gets the timestamp of the most recent tab closure event. If a valid, non-zero timestamp is
+     * not available, this should return {@link TabModel#INVALID_TIMESTAMP}.
+     *
+     * @return The closure timestamp, in millis.
+     */
+    long getMostRecentClosureTime();
+
+    /**
      * @return The complete {@link TabList} this {@link TabModel} represents. Note that this may be
      *     different than this actual {@link TabModel} if it supports pending closures {@link
      *     #supportsPendingClosures()}, as this will include all pending closure tabs.
@@ -109,7 +119,7 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
      * the model or selected. The contained tab should always match the result of {@code
      * getTabAt(index())}.
      */
-    ObservableSupplier<@Nullable Tab> getCurrentTabSupplier();
+    NullableObservableSupplier<Tab> getCurrentTabSupplier();
 
     /**
      * Selects a tab by its index.
@@ -169,7 +179,7 @@ public interface TabModel extends SupportsTabModelObserver, TabList {
      * Returns a supplier for the number of tabs in this tab model. This does not count tabs that
      * are pending closure.
      */
-    ObservableSupplier<Integer> getTabCountSupplier();
+    NonNullObservableSupplier<Integer> getTabCountSupplier();
 
     /** Returns the tab creator for this tab model. */
     TabCreator getTabCreator();

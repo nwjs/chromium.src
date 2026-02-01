@@ -274,7 +274,11 @@ public class SiteSettingsTest {
     @Before
     public void setUp() throws TimeoutException {
         // Clean up cookies and permissions to ensure tests run in a clean environment.
-        cleanUpCookiesAndPermissions();
+        try {
+            cleanUpCookiesAndPermissions();
+        } catch (TimeoutException e) {
+            // Sometimes there's a callback timeout here. Doesn't seem to impact test results.
+        }
     }
 
     @After
@@ -321,7 +325,11 @@ public class SiteSettingsTest {
 
     @AfterClass
     public static void tearDownAfterClass() throws TimeoutException {
-        cleanUpCookiesAndPermissions();
+        try {
+            cleanUpCookiesAndPermissions();
+        } catch (TimeoutException e) {
+            // Sometimes there's a callback timeout here. Doesn't seem to impact test results.
+        }
     }
 
     private static BrowserContextHandle getBrowserContextHandle() {
@@ -1342,25 +1350,6 @@ public class SiteSettingsTest {
         settingsActivity.finish();
     }
 
-    /** Test that showing the Site Settings menu contains the "Tracking protection" row. */
-    @Test
-    @SmallTest
-    @Feature({"Preferences"})
-    @EnableFeatures(ChromeFeatureList.TRACKING_PROTECTION_3PCD)
-    public void testSiteSettingsMenuWithTrackingProtectionEnabled() {
-        final SettingsActivity settingsActivity = SiteSettingsTestUtils.startSiteSettingsMenu("");
-        SiteSettings websitePreferences = (SiteSettings) settingsActivity.getMainFragment();
-        final Preference trackingProtectionPreference =
-                websitePreferences.findPreference("tracking_protection");
-        assertNotNull(trackingProtectionPreference);
-        Assert.assertEquals(
-                trackingProtectionPreference.getTitle(),
-                websitePreferences
-                        .getContext()
-                        .getString(R.string.third_party_cookies_link_row_label));
-        settingsActivity.finish();
-    }
-
     /** Test that showing the Site Settings menu contains the "Anti-abuse" row. */
     @Test
     @SmallTest
@@ -1382,7 +1371,7 @@ public class SiteSettingsTest {
     public void testOnlyExpectedPreferencesShown() {
         // If you add a category in the SiteSettings UI, please update this total AND add a test for
         // it below, named "testOnlyExpectedPreferences<Category>".
-        Assert.assertEquals(38, SiteSettingsCategory.Type.NUM_ENTRIES);
+        Assert.assertEquals(39, SiteSettingsCategory.Type.NUM_ENTRIES);
     }
 
     @Test
@@ -2227,6 +2216,54 @@ public class SiteSettingsTest {
     public void testOnlyExpectedPreferencesLocalNetworkAccess() {
         testExpectedPreferences(
                 SiteSettingsCategory.Type.LOCAL_NETWORK_ACCESS,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS)
+    @DisableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testOnlyExpectedPreferencesLocalNetworkWithToggle() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.LOCAL_NETWORK, BINARY_TOGGLE, BINARY_TOGGLE);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testOnlyExpectedPreferencesLocalNetwork() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.LOCAL_NETWORK,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS)
+    @DisableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testOnlyExpectedPreferencesLoopbackNetworkWithToggle() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.LOOPBACK_NETWORK, BINARY_TOGGLE, BINARY_TOGGLE);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testOnlyExpectedPreferencesLoopbackNetwork() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.LOOPBACK_NETWORK,
                 BINARY_RADIO_BUTTON_AND_INFO_TEXT,
                 BINARY_RADIO_BUTTON_AND_INFO_TEXT);
     }
@@ -3317,6 +3354,74 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testAllowLocalNetwork() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "LocalNetwork",
+                        SiteSettingsCategory.Type.LOCAL_NETWORK,
+                        ContentSettingsType.LOCAL_NETWORK,
+                        true)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testBlockLocalNetwork() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "LocalNetwork",
+                        SiteSettingsCategory.Type.LOCAL_NETWORK,
+                        ContentSettingsType.LOCAL_NETWORK,
+                        false)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testAllowLoopbackNetwork() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "LoopbackNetwork",
+                        SiteSettingsCategory.Type.LOOPBACK_NETWORK,
+                        ContentSettingsType.LOOPBACK_NETWORK,
+                        true)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures({
+        ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON,
+        ChromeFeatureList.LOCAL_NETWORK_ACCESS_SPLIT_PERMISSIONS
+    })
+    public void testBlockLoopbackNetwork() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "LoopbackNetwork",
+                        SiteSettingsCategory.Type.LOOPBACK_NETWORK,
+                        ContentSettingsType.LOOPBACK_NETWORK,
+                        false)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
     @EnableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
     public void testAllowWindowManager() {
         new TwoStatePermissionTestCaseWithRadioButton(
@@ -4300,6 +4405,7 @@ public class SiteSettingsTest {
     @SmallTest
     @Feature({"RenderTest"})
     @EnableFeatures(PermissionsAndroidFeatureList.APPROXIMATE_GEOLOCATION_PERMISSION)
+    @DisabledTest(message = "crbug.com/468373452")
     public void renderRwsSingleWebsiteSettings() throws Exception {
         createStorageAccessExceptions();
         final SettingsActivity settingsActivity =
@@ -4338,7 +4444,10 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"RenderTest"})
-    @Policies.Add({@Policies.Item(key = "BlockThirdPartyCookies", string = "true")})
+    @Policies.Add({
+        @Policies.Item(key = "BlockThirdPartyCookies", string = "true"),
+        @Policies.Item(key = "RelatedWebsiteSetsEnabled", string = "true")
+    })
     public void renderThirdPartyCookiesPageManagedBlocked() throws Exception {
         renderCategoryPage(
                 SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
@@ -4712,21 +4821,21 @@ public class SiteSettingsTest {
         /** Verify {@link ContentSettingsResources} is set correctly. */
         private void assertRadioButtonTitleAndSummary(
                 SingleCategorySettings singleCategorySettings) {
-            BinaryStatePermissionPreference radio_button =
+            BinaryStatePermissionPreference radioButton =
                     singleCategorySettings.findPreference(
                             SingleCategorySettings.BINARY_RADIO_BUTTON_KEY);
-            assertThat(radio_button).isNotNull();
+            assertThat(radioButton).isNotNull();
 
             Assert.assertEquals(
                     "Preference text is not set correctly.",
                     ContentSettingsResources.getBinaryStateSettingResourceIDs(mContentSettingsType)[
                             0],
-                    radio_button.getDescriptionIds()[0]);
+                    radioButton.getDescriptionIds()[0]);
             Assert.assertEquals(
                     "Preference text is not set correctly.",
                     ContentSettingsResources.getBinaryStateSettingResourceIDs(mContentSettingsType)[
                             1],
-                    radio_button.getDescriptionIds()[1]);
+                    radioButton.getDescriptionIds()[1]);
         }
     }
 

@@ -33,7 +33,7 @@
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-forward.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom-data-view.h"
+#include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -98,7 +98,8 @@ class ManifestBuilder {
   //     cross-origin-isolated: ["self"]
   //   },
   // }
-  ManifestBuilder();
+  explicit ManifestBuilder(
+      bool include_cross_origin_isolated_permissions_policy = true);
   ManifestBuilder(const ManifestBuilder&);
 
   ~ManifestBuilder();
@@ -106,6 +107,7 @@ class ManifestBuilder {
   ManifestBuilder& SetName(std::string_view name);
   ManifestBuilder& SetVersion(std::string_view version);
   ManifestBuilder& SetStartUrl(std::string_view start_url);
+  ManifestBuilder& SetUpdateManifestUrl(const GURL& update_manifest_url);
   ManifestBuilder& SetDisplayMode(blink::mojom::DisplayMode display_mode);
   ManifestBuilder& SetLaunchHandlerClientMode(
       ClientMode launch_handler_client_mode);
@@ -134,6 +136,7 @@ class ManifestBuilder {
   ManifestBuilder& AddBorderlessUrlPattern(blink::SafeUrlPattern pattern);
 
   const std::string& start_url() const;
+  const std::optional<GURL>& update_manifest_url() const;
   const std::vector<IconMetadata>& icons() const;
   const IwaVersion& version() const;
 
@@ -145,6 +148,7 @@ class ManifestBuilder {
   std::string name_;
   IwaVersion version_;
   std::string start_url_;
+  std::optional<GURL> update_manifest_url_;
   blink::mojom::DisplayMode display_mode_ =
       blink::mojom::DisplayMode::kStandalone;
   std::vector<blink::mojom::DisplayMode> display_mode_override_;

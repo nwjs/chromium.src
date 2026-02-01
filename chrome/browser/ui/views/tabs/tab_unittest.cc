@@ -291,8 +291,7 @@ class TabContentsTest : public ChromeViewsTestBase {
                                      views::MaximumFlexSizeRule::kUnbounded));
     parent->AddChildViewRaw(tab_strip_.get());
 
-    widget_ =
-        CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+    widget_ = CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
     widget_->SetContentsView(std::move(parent));
   }
 
@@ -360,9 +359,9 @@ class TabContentsTest : public ChromeViewsTestBase {
 TEST_F(TabTest, HitTest) {
   auto tab_slot_controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab =
-      widget->SetContentsView(std::make_unique<Tab>(tab_slot_controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller.get()));
   tab->SizeToPreferredSize();
 
   // Attempt to click on the left curved extender. this is not a part of the
@@ -381,8 +380,8 @@ TEST_F(TabTest, HitTest) {
   int middle_x = tab->width() / 2;
   EXPECT_FALSE(tab->HitTestPoint(gfx::Point(middle_x, -1)));
 
-  int tab_starting_y =
-      GetLayoutConstant(TAB_STRIP_HEIGHT) - GetLayoutConstant(TAB_HEIGHT);
+  int tab_starting_y = GetLayoutConstant(LayoutConstant::kTabStripHeight) -
+                       GetLayoutConstant(LayoutConstant::kTabHeight);
 
   // Attempt to click on the top pixel of the tab. This should be part of the
   // hit target.
@@ -425,8 +424,9 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
 
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
 
   SkBitmap bitmap;
   bitmap.allocN32Pixels(16, 16);
@@ -468,7 +468,7 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
                   ? TabStyle::Get()->GetMinimumActiveWidth(/*is_split=*/false)
                   : TabStyle::Get()->GetMinimumInactiveWidth();
         }
-        const int height = GetLayoutConstant(TAB_HEIGHT);
+        const int height = GetLayoutConstant(LayoutConstant::kTabHeight);
         for (; width >= min_width; --width) {
           SCOPED_TRACE(::testing::Message() << "width=" << width);
           tab->SetBounds(0, 0, width, height);  // Invokes layout.
@@ -483,7 +483,7 @@ TEST_F(TabTest, LayoutAndVisibilityOfElements) {
 // shouldn't change the insets of the close button.
 TEST_F(TabTest, CloseButtonLayout) {
   FakeTabSlotController tab_slot_controller;
-  Tab tab(&tab_slot_controller);
+  Tab tab(tabs::TabHandle(1), &tab_slot_controller);
   tab.SetBounds(0, 0, 100, 50);
   LayoutTab(&tab);
   gfx::Insets close_button_insets = GetCloseButton(&tab)->GetInsets();
@@ -500,8 +500,9 @@ TEST_F(TabTest, CloseButtonLayout) {
 TEST_F(TabTest, CloseButtonFocus) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
 
   TabCloseButton* tab_close_button = GetCloseButton(tab);
 
@@ -520,8 +521,8 @@ TEST_F(TabTest, CloseButtonHiddenWhenLockedForOnTask) {
   tab_slot_controller->SetLockedForOnTask(true);
   const std::unique_ptr<views::Widget> widget =
       CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
-  Tab* const tab =
-      widget->SetContentsView(std::make_unique<Tab>(tab_slot_controller.get()));
+  Tab* const tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller.get()));
   TabCloseButton* const tab_close_button = GetCloseButton(tab);
   EXPECT_FALSE(tab_close_button->GetVisible());
 }
@@ -531,8 +532,8 @@ TEST_F(TabTest, CloseButtonShownWhenNotLockedForOnTask) {
   tab_slot_controller->SetLockedForOnTask(false);
   const std::unique_ptr<views::Widget> widget =
       CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
-  Tab* const tab =
-      widget->SetContentsView(std::make_unique<Tab>(tab_slot_controller.get()));
+  Tab* const tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller.get()));
   TabCloseButton* const tab_close_button = GetCloseButton(tab);
   EXPECT_TRUE(tab_close_button->GetVisible());
 }
@@ -543,9 +544,9 @@ TEST_F(TabTest, CloseButtonShownWhenNotLockedForOnTask) {
 TEST_F(TabTest, LayeredThrobber) {
   auto tab_slot_controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab =
-      widget->SetContentsView(std::make_unique<Tab>(tab_slot_controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller.get()));
   tab->SizeToPreferredSize();
 
   TabIcon* icon = GetTabIcon(tab);
@@ -640,7 +641,7 @@ TEST_F(TabTest, LayeredThrobber) {
 
 TEST_F(TabTest, TitleHiddenWhenSmall) {
   FakeTabSlotController tab_slot_controller;
-  Tab tab(&tab_slot_controller);
+  Tab tab(tabs::TabHandle(1), &tab_slot_controller);
   tab.SetBounds(0, 0, 100, 50);
   EXPECT_GT(GetTitleWidth(&tab), 0);
   tab.SetBounds(0, 0, 0, 50);
@@ -650,10 +651,11 @@ TEST_F(TabTest, TitleHiddenWhenSmall) {
 TEST_F(TabTest, FaviconDoesntMoveWhenShowingAlertIndicator) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   for (bool is_active_tab : {false, true}) {
-    Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+    Tab* tab = widget->SetContentsView(
+        std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
     controller->set_active_tab(is_active_tab ? tab : nullptr);
     tab->SizeToPreferredSize();
 
@@ -669,8 +671,9 @@ TEST_F(TabTest, FaviconDoesntMoveWhenShowingAlertIndicator) {
 TEST_F(TabTest, SmallTabsHideCloseButton) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
   const int width = tab->tab_style_views()->GetContentsInsets().width() +
                     Tab::kMinimumContentsWidthForCloseButtons;
   tab->SetBounds(0, 0, width, 50);
@@ -685,8 +688,9 @@ TEST_F(TabTest, SmallTabsHideCloseButton) {
 TEST_F(TabTest, ExtraLeftPaddingShownOnSiteWithoutFavicon) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
 
   tab->SizeToPreferredSize();
   const views::View* icon = GetTabIcon(tab);
@@ -705,8 +709,9 @@ TEST_F(TabTest, ExtraLeftPaddingShownOnSiteWithoutFavicon) {
 TEST_F(TabTest, ExtraAlertPaddingNotShownOnSmallActiveTab) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
   controller->set_active_tab(tab);
   TabRendererData data;
   data.alert_state = {tabs::TabAlert::kAudioPlaying};
@@ -766,8 +771,9 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
   // Create a tab inside a Widget, so it has a theme provider, so the call to
   // UpdateForegroundColors() below doesn't no-op.
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
 
   for (const auto& colors : color_schemes) {
     tab->GetColorProvider()->SetColorForTesting(
@@ -778,7 +784,14 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
         kColorTabBackgroundInactiveFrameActive, colors.bg_inactive);
     tab->GetColorProvider()->SetColorForTesting(
         kColorTabBackgroundInactiveFrameInactive, colors.bg_inactive);
-    controller->SetTabColors(colors.fg_active, colors.fg_inactive);
+    tab->GetColorProvider()->SetColorForTesting(
+        kColorTabForegroundActiveFrameActive, colors.fg_active);
+    tab->GetColorProvider()->SetColorForTesting(
+        kColorTabForegroundActiveFrameInactive, colors.fg_active);
+    tab->GetColorProvider()->SetColorForTesting(
+        kColorTabForegroundInactiveFrameActive, colors.fg_inactive);
+    tab->GetColorProvider()->SetColorForTesting(
+        kColorTabForegroundInactiveFrameInactive, colors.fg_inactive);
     for (TabActive active : {TabActive::kInactive, TabActive::kActive}) {
       controller->set_active_tab(active == TabActive::kActive ? tab : nullptr);
       tab->UpdateForegroundColors();
@@ -787,7 +800,7 @@ TEST_F(TabTest, TitleTextHasSufficientContrast) {
           active == TabActive::kActive ? TabStyle::TabSelectionState::kActive
                                        : TabStyle::TabSelectionState::kInactive,
           /*hovered=*/false, tab->GetWidget()->ShouldPaintAsActive(),
-          *tab->GetColorProvider());
+          tab->GetColorProvider());
       const float contrast = color_utils::GetContrastRatio(fg_color, bg_color);
       EXPECT_GE(contrast, color_utils::kMinimumReadableContrastRatio);
     }
@@ -905,8 +918,9 @@ TEST_F(TabContentsTest, 1SecondFadeoutAnimationTest) {
 TEST_F(TabTest, DiscardIndicatorResponsiveness) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
   const TabIcon* tab_icon = GetTabIcon(tab);
 
   struct TestCase {
@@ -927,8 +941,9 @@ TEST_F(TabTest, DiscardIndicatorResponsiveness) {
 TEST_F(TabTest, AccessibleProperties) {
   auto controller = std::make_unique<FakeTabSlotController>();
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
-  Tab* tab = widget->SetContentsView(std::make_unique<Tab>(controller.get()));
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
   ui::AXNodeData data;
 
   tab->GetViewAccessibility().GetAccessibleNodeData(&data);
@@ -1006,4 +1021,30 @@ TEST_F(TabContentsTest, AccessibleNameChangesWithCollaborationMessages) {
 
   EXPECT_FALSE(
       tab_strip_->tab_at(0)->ShouldUpdateAccessibleName(old_data, new_data));
+}
+
+TEST_F(TabTest, HideContentsWhenVeryNarrow) {
+  auto controller = std::make_unique<FakeTabSlotController>();
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  Tab* tab = widget->SetContentsView(
+      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
+
+  // Set tab width to 1px.
+  tab->SetBounds(0, 0, 1, 50);
+  LayoutTab(tab);
+
+  // Verify that all contents are hidden.
+  EXPECT_FALSE(tab->showing_icon());
+  EXPECT_FALSE(tab->showing_alert_indicator());
+  EXPECT_FALSE(tab->showing_close_button());
+
+  // Set tab width to 0px.
+  tab->SetBounds(0, 0, 0, 50);
+  LayoutTab(tab);
+
+  // Verify that all contents are still hidden.
+  EXPECT_FALSE(tab->showing_icon());
+  EXPECT_FALSE(tab->showing_alert_indicator());
+  EXPECT_FALSE(tab->showing_close_button());
 }

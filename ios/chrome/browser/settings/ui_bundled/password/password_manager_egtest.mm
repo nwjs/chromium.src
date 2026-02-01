@@ -93,6 +93,9 @@ using password_manager_test_utils::SaveExamplePasskeyToStore;
 using password_manager_test_utils::SaveHiddenPasskeyToStore;
 using password_manager_test_utils::SavePasswordFormToProfileStore;
 using password_manager_test_utils::TapNavigationBarEditButton;
+using password_manager_test_utils::TapToolbarSelectButton;
+using password_manager_test_utils::ToolbarEditDoneButton;
+using password_manager_test_utils::ToolbarSelectButton;
 using password_manager_test_utils::UsernameTextfieldForUsernameAndSites;
 using testing::ElementWithAccessibilityLabelSubstring;
 using testing::NavigationBarBackButton;
@@ -753,7 +756,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   OpenPasswordManager();
   [ChromeEarlGrey verifyAccessibilityForCurrentScreen];
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
   [ChromeEarlGrey verifyAccessibilityForCurrentScreen];
   [[EarlGrey selectElementWithMatcher:EditDoneButton()]
       performAction:grey_tap()];
@@ -1183,7 +1186,8 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // Checks that deleting a password from password details can be cancelled.
-- (void)testCancelDeletionInDetailView {
+// TODO(crbug.com/468309777): This test is flaky.
+- (void)FLAKY_testCancelDeletionInDetailView {
   // Save form to be deleted later.
   SavePasswordFormToProfileStore();
 
@@ -1235,7 +1239,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   OpenPasswordManager();
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   [[self interactionForSinglePasswordEntryWithDomain:@"example.com"]
       performAction:grey_tap()];
@@ -1696,7 +1700,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   OpenPasswordManager();
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // Select password entry to be removed.
   [[self interactionForSinglePasswordEntryWithDomain:@"example.com"]
@@ -1805,7 +1809,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   OpenPasswordManager();
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // Select password entry to be removed.
   [[self interactionForSinglePasswordEntryWithDomain:@"example.com"]
@@ -2002,7 +2006,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       selectElementWithMatcher:grey_accessibilityID(kPasswordsTableViewID)]
       performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // Select all.
   [[self interactionForSinglePasswordEntryWithDomain:@"example11.com"]
@@ -2031,7 +2035,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       assertWithMatcher:grey_nil()];
   [GetInteractionForPasswordEntry(@"exclude2.com")
       assertWithMatcher:grey_nil()];
-  [[EarlGrey selectElementWithMatcher:SettingsDoneButton()]
+  [[EarlGrey selectElementWithMatcher:NavigationBarBackButton()]
       performAction:grey_tap()];
 }
 
@@ -2040,7 +2044,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   SaveExamplePasswordForms();
 
   OpenPasswordManager();
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // Try to tap the search field and verify it doesn't get focus.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::SearchBar()]
@@ -2069,7 +2073,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::SearchBar()]
       performAction:grey_replaceText(@"2")];
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // Select password entry to be edited.
   [GetInteractionForPasswordEntry(@"example12.com") performAction:grey_tap()];
@@ -2087,7 +2091,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       assertWithMatcher:grey_nil()];
 
   // Get out of edit mode.
-  [[EarlGrey selectElementWithMatcher:EditDoneButton()]
+  [[EarlGrey selectElementWithMatcher:ToolbarEditDoneButton()]
       performAction:grey_tap()];
 
   // Remove filter search term.
@@ -2105,7 +2109,14 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // Edit a password with only incognito tab opened should work.
-- (void)testEditPasswordWithOnlyIncognitoTabOpen {
+#if !TARGET_OS_SIMULATOR
+#define MAYBE_testEditPasswordWithOnlyIncognitoTabOpen \
+  DISABLED_testEditPasswordWithOnlyIncognitoTabOpen
+#else
+#define MAYBE_testEditPasswordWithOnlyIncognitoTabOpen \
+  testEditPasswordWithOnlyIncognitoTabOpen
+#endif
+- (void)MAYBE_testEditPasswordWithOnlyIncognitoTabOpen {
   SavePasswordFormToProfileStore();
 
   [ChromeEarlGrey openNewIncognitoTab];
@@ -2489,7 +2500,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   OpenPasswordManager();
   [ChromeEarlGrey verifyAccessibilityForCurrentScreen];
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   [[GetInteractionForPasswordEntry(@"example.com, 4 accounts")
       assertWithMatcher:grey_notNil()] performAction:grey_tap()];
@@ -2532,7 +2543,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   SavePasswordFormToProfileStore();
   OpenPasswordManager();
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   [[EarlGrey selectElementWithMatcher:AddPasswordButton()]
       performAction:grey_tap()];
@@ -3647,7 +3658,9 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
 // Checks opening the password manager with a failed reauthentication does not
 // show passwords and closes the Password Manager.
-- (void)testOpenPasswordManagerWithFailedAuth {
+//
+// TODO(crbug.com/468305089): This test is flaky.
+- (void)FLAKY_testOpenPasswordManagerWithFailedAuth {
   [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
   // Delay the auth result to be able to validate that the passwords are not
@@ -3895,7 +3908,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 
   OpenPasswordManager();
 
-  TapNavigationBarEditButton();
+  TapToolbarSelectButton();
 
   // The Password Manager widget promo should be visible.
   [[EarlGrey selectElementWithMatcher:PasswordManagerWidgetPromo()]

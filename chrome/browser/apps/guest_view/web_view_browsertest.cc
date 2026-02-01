@@ -5766,6 +5766,8 @@ IN_PROC_BROWSER_TEST_P(WebViewGuestScrollTouchTest,
   }
 }
 
+#if BUILDFLAG(IS_WIN)
+
 // This runs the chrome://chrome-signin page which includes an OOPIF-<webview>
 // of accounts.google.com.
 class ChromeSignInWebViewTest : public WebViewTest {
@@ -5815,7 +5817,7 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
 
   // Navigate to a WebUI page that contains a WebView which loads
   // accounts.google.com.
-  const GURL signin_url{"chrome://chrome-signin/?reason=5"};
+  const GURL signin_url{"chrome://chrome-signin/?reason=6"};
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), signin_url));
   WaitForWebViewInDom();
 
@@ -5835,13 +5837,12 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
                   .empty());
 }
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // This verifies the fix for http://crbug.com/667708.
 IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
                        ClosingChromeSignInShouldNotCrash) {
   SKIP_FOR_MPARCH();  // TODO(crbug.com/40202416): Enable test for MPArch.
 
-  GURL signin_url{"chrome://chrome-signin/?reason=5"};
+  GURL signin_url{"chrome://chrome-signin/?reason=6"};
 
   ASSERT_TRUE(AddTabAtIndex(0, signin_url, ui::PAGE_TRANSITION_TYPED));
   ASSERT_TRUE(AddTabAtIndex(1, signin_url, ui::PAGE_TRANSITION_TYPED));
@@ -5849,7 +5850,6 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
 
   chrome::CloseTab(browser());
 }
-#endif
 
 // This test verifies that unattached guests are not included as the inner
 // WebContents. The test verifies this by triggering a find-in-page request on a
@@ -5860,7 +5860,7 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
                        NoFindInPageForUnattachedGuest) {
   SKIP_FOR_MPARCH();  // TODO(crbug.com/40202416): Enable test for MPArch.
 
-  GURL signin_url{"chrome://chrome-signin/?reason=5"};
+  GURL signin_url{"chrome://chrome-signin/?reason=6"};
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), signin_url));
 
   // Navigate a tab to a page with a <webview>.
@@ -5918,7 +5918,7 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
 
   // Load a WebUI with a webview. For testing convenience, we use the existing
   // chrome signin page.
-  const GURL signin_url{"chrome://chrome-signin/?reason=5"};
+  const GURL signin_url{"chrome://chrome-signin/?reason=6"};
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), signin_url));
   WaitForWebViewInDom();
   content::WebContents* tab_contents =
@@ -5944,6 +5944,8 @@ IN_PROC_BROWSER_TEST_P(ChromeSignInWebViewTest,
   // The WebUI should not see the events for the app's webview.
   EXPECT_EQ(false, content::EvalJs(tab_contents, "window.sawRequest;"));
 }
+
+#endif  // BUILDFLAG(IS_WIN)
 
 // This test class makes "isolated.com" an isolated origin, to be used in
 // testing isolated origins inside of a WebView.

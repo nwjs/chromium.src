@@ -27,6 +27,7 @@
 #include "base/test/task_environment.h"
 #include "base/version.h"
 #include "build/build_config.h"
+#include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/tag.h"
 #include "chrome/updater/test/test_scope.h"
@@ -34,6 +35,7 @@
 #include "chrome/updater/updater_branding.h"
 #include "chrome/updater/updater_scope.h"
 #include "chrome/updater/updater_version.h"
+#include "components/update_client/utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace updater {
@@ -299,10 +301,11 @@ TEST(Util, EnumerateUpdateClientTempDirectories) {
 
   base::FilePath dir;
   for (const auto& matcher :
-       {FILE_PATH_LITERAL("chrome_url_fetcher_"),
-        FILE_PATH_LITERAL("chrome_Unpacker_BeginUnzipping"),
-        FILE_PATH_LITERAL("chrome_BITS_"), FILE_PATH_LITERAL("BazBar")}) {
-    ASSERT_TRUE(base::CreateNewTempDirectory(matcher, &dir));
+       {"chrome_url_fetcher_", "chrome_Unpacker_BeginUnzipping", "chrome_BITS_",
+        "BazBar"}) {
+    ASSERT_TRUE(base::CreateNewTempDirectory(
+        update_client::UTF8ToStringType(base::StrCat({kProdId, "_", matcher})),
+        &dir));
   }
 
   int count = 0;

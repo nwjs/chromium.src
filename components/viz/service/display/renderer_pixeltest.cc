@@ -215,14 +215,11 @@ void CreateTestRenderPassDrawQuad(const SharedQuadState* shared_state,
   gfx::RectF tex_coords{static_cast<float>(rect.width()),
                         static_cast<float>(rect.height())};
   quad->SetNew(shared_state, rect, rect, pass_id,
-               kInvalidResourceId,    // mask_resource_id
-               gfx::RectF(),          // mask_uv_rect
-               gfx::Size(),           // mask_texture_size
-               gfx::Vector2dF(1, 1),  // filters scale
-               gfx::PointF(),         // filter origin
-               tex_coords,            // tex_coord_rect
-               false,                 // force_anti_aliasing_off
-               1.0f);                 // backdrop_filter_quality
+               kInvalidResourceId,  // mask_resource_id
+               gfx::RectF(),        // mask_uv_rect
+               gfx::Size(),         // mask_texture_size
+               tex_coords,          // tex_coord_rect
+               false);              // force_anti_aliasing_off
 }
 
 // Create a TextureDrawDrawQuad with two given colors.
@@ -325,13 +322,15 @@ void CreateTestTwoColoredTextureDrawQuad(
   ResourceId mapped_resource = resource_map[resource];
 
   bool needs_blending = true;
-  const gfx::PointF uv_top_left(0.0f, 0.0f);
-  const gfx::PointF uv_bottom_right(1.0f, 1.0f);
+  const gfx::PointF tex_coord_top_left(0.0f, 0.0f);
+  const gfx::PointF tex_coord_bottom_right(rect.width(), rect.height());
   const bool nearest_neighbor = false;
   auto* quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-               uv_top_left, uv_bottom_right, background_color, nearest_neighbor,
-               /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+               tex_coord_top_left, tex_coord_bottom_right, background_color,
+               nearest_neighbor,
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 }
 
 // TODO(crbug.com/40219248): Make this function use SkColor4f
@@ -397,13 +396,15 @@ void CreateTestTextureDrawQuad(
   ResourceId mapped_resource = resource_map[resource];
 
   bool needs_blending = true;
-  const gfx::PointF uv_top_left(0.0f, 0.0f);
-  const gfx::PointF uv_bottom_right(1.0f, 1.0f);
+  const gfx::PointF tex_coord_top_left(0.0f, 0.0f);
+  const gfx::PointF tex_coord_bottom_right(rect.width(), rect.height());
   const bool nearest_neighbor = false;
   auto* quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-               uv_top_left, uv_bottom_right, background_color, nearest_neighbor,
-               /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+               tex_coord_top_left, tex_coord_bottom_right, background_color,
+               nearest_neighbor,
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 }
 
 void CreateTestY16TextureDrawQuad_FromVideoFrame(
@@ -1044,8 +1045,7 @@ TEST_P(RendererPixelTest, BypassableTextureQuad_ClipRect) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, child_pass_rect, child_pass_rect, child_pass_id,
                         kInvalidResourceId, gfx::RectF(), gfx::Size(),
-                        gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(child_pass_rect), false, 1.0f);
+                        gfx::RectF(child_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1126,8 +1126,7 @@ TEST_P(RendererPixelTest, BypassableTextureQuad_Rotation_ClipRect) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, child_pass_rect, child_pass_rect, child_pass_id,
                         kInvalidResourceId, gfx::RectF(), gfx::Size(),
-                        gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(child_pass_rect), false, 1.0f);
+                        gfx::RectF(child_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1218,8 +1217,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad) {
         child_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
     pass_quad->SetNew(sqs, grand_child_pass_rect, grand_child_pass_rect,
                       grand_child_pass_id, kInvalidResourceId, gfx::RectF(),
-                      gfx::Size(), gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                      gfx::RectF(grand_child_pass_rect), false, 1.0f);
+                      gfx::Size(), gfx::RectF(grand_child_pass_rect), false);
     pass_list.push_back(std::move(child_pass));
   }
 
@@ -1235,8 +1233,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, child_pass_rect, child_pass_rect, child_pass_id,
                         kInvalidResourceId, gfx::RectF(), gfx::Size(),
-                        gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(child_pass_rect), false, 1.0f);
+                        gfx::RectF(child_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1317,8 +1314,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad_DoubleBypass) {
         child_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
     pass_quad->SetNew(sqs, grand_child_pass_rect, grand_child_pass_rect,
                       grand_child_pass_id, kInvalidResourceId, gfx::RectF(),
-                      gfx::Size(), gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                      gfx::RectF(grand_child_pass_rect), false, 1.0f);
+                      gfx::Size(), gfx::RectF(grand_child_pass_rect), false);
     pass_list.push_back(std::move(child_pass));
   }
 
@@ -1334,8 +1330,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad_DoubleBypass) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, child_pass_rect, child_pass_rect, child_pass_id,
                         kInvalidResourceId, gfx::RectF(), gfx::Size(),
-                        gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(child_pass_rect), false, 1.0f);
+                        gfx::RectF(child_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1418,8 +1413,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad_DoubleBypass_ScaledClip) {
         child_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
     pass_quad->SetNew(sqs, grand_child_pass_rect, grand_child_pass_rect,
                       grand_child_pass_id, kInvalidResourceId, gfx::RectF(),
-                      gfx::Size(), gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                      gfx::RectF(grand_child_pass_rect), false, 1.0f);
+                      gfx::Size(), gfx::RectF(grand_child_pass_rect), false);
     pass_list.push_back(std::move(child_pass));
   }
 
@@ -1435,8 +1429,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad_DoubleBypass_ScaledClip) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, child_pass_rect, child_pass_rect, child_pass_id,
                         kInvalidResourceId, gfx::RectF(), gfx::Size(),
-                        gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(child_pass_rect), false, 1.0f);
+                        gfx::RectF(child_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1528,8 +1521,7 @@ TEST_P(RendererPixelTest, BypassableRenderPassQuad_BackdropFilter_Extents) {
           root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
       pass_quad->SetNew(sqs, backdrop_pass_rect, backdrop_pass_rect,
                         backdrop_pass_id, kInvalidResourceId, gfx::RectF(),
-                        gfx::Size(), gfx::Vector2dF(1.0f, 1.0f), gfx::PointF(),
-                        gfx::RectF(backdrop_pass_rect), false, 1.0f);
+                        gfx::Size(), gfx::RectF(backdrop_pass_rect), false);
     }
     {
       auto* sqs =
@@ -1728,7 +1720,8 @@ TEST_P(GPURendererPixelTest, OverlayHintRequiredFallback) {
   quad->SetNew(texture_quad_state, gfx::Rect(this->device_viewport_size_),
                gfx::Rect(this->device_viewport_size_), false, ResourceId{1},
                gfx::PointF(), gfx::PointF(), SkColors::kTransparent, false,
-               false, gfx::ProtectedVideoType::kClear);
+               false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
   quad->overlay_priority_hint = OverlayPriority::kRequired;
 
   // Add a background that's not the expected fallback color.
@@ -1774,7 +1767,8 @@ TEST_P(GPURendererPixelTest, OverlayHintRequiredFallbackRPDQBypassCase) {
     quad->SetNew(sqs, gfx::Rect(this->device_viewport_size_),
                  gfx::Rect(this->device_viewport_size_), false, ResourceId{1},
                  gfx::PointF(), gfx::PointF(), SkColors::kTransparent, false,
-                 false, gfx::ProtectedVideoType::kClear);
+                 false, gfx::ProtectedVideoType::kClear,
+                 /*is_tex_coords_normalized=*/false);
     quad->overlay_priority_hint = OverlayPriority::kRequired;
 
     pass_list.push_back(std::move(pass));
@@ -3057,8 +3051,7 @@ TEST_P(RendererPixelTest, FastPassColorFilterAlpha) {
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   render_pass_quad->SetNew(pass_shared_state, pass_rect, pass_rect,
                            child_pass_id, kInvalidResourceId, gfx::RectF(),
-                           gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-                           gfx::PointF(), gfx::RectF(pass_rect), false, 1.0f);
+                           gfx::Size(), gfx::RectF(pass_rect), false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(child_pass));
@@ -3118,8 +3111,7 @@ TEST_P(RendererPixelTest, FastPassSaturateFilter) {
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   render_pass_quad->SetNew(pass_shared_state, pass_rect, pass_rect,
                            child_pass_id, kInvalidResourceId, gfx::RectF(),
-                           gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-                           gfx::PointF(), gfx::RectF(pass_rect), false, 1.0f);
+                           gfx::Size(), gfx::RectF(pass_rect), false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(child_pass));
@@ -3180,8 +3172,7 @@ TEST_P(RendererPixelTest, FastPassFilterChain) {
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   render_pass_quad->SetNew(pass_shared_state, pass_rect, pass_rect,
                            child_pass_id, kInvalidResourceId, gfx::RectF(),
-                           gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-                           gfx::PointF(), gfx::RectF(pass_rect), false, 1.0f);
+                           gfx::Size(), gfx::RectF(pass_rect), false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(child_pass));
@@ -3263,8 +3254,7 @@ TEST_P(RendererPixelTest, FastPassColorFilterAlphaTranslation) {
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   render_pass_quad->SetNew(pass_shared_state, pass_rect, pass_rect,
                            child_pass_id, kInvalidResourceId, gfx::RectF(),
-                           gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-                           gfx::PointF(), gfx::RectF(pass_rect), false, 1.0f);
+                           gfx::Size(), gfx::RectF(pass_rect), false);
 
   AggregatedRenderPassList pass_list;
 
@@ -3522,11 +3512,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad) {
       gfx::ScaleRect(gfx::RectF(sub_rect), 2.f / mask_rect.width(),
                      2.f / mask_rect.height()),  // mask_uv_rect
       gfx::Size(mask_rect.size()),               // mask_texture_size
-      gfx::Vector2dF(1.0f, 1.0f),                // filters scale
-      gfx::PointF(),                             // filter origin
       gfx::RectF(sub_rect),                      // tex_coord_rect
-      false,                                     // force_anti_aliasing_off
-      1.0f);                                     // backdrop_filter_quality
+      false);                                    // force_anti_aliasing_off
   // White background behind the masked render pass.
   auto* white = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   white->SetNew(root_pass_shared_state, viewport_rect, viewport_rect,
@@ -3620,11 +3607,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad2) {
       gfx::ScaleRect(gfx::RectF(sub_rect), 2.f / mask_rect.width(),
                      2.f / mask_rect.height()),  // mask_uv_rect
       gfx::Size(mask_rect.size()),               // mask_texture_size
-      gfx::Vector2dF(1.0f, 1.0f),                // filters scale
-      gfx::PointF(),                             // filter origin
       gfx::RectF(sub_rect),                      // tex_coord_rect
-      false,                                     // force_anti_aliasing_off
-      1.0f);                                     // backdrop_filter_quality
+      false);                                    // force_anti_aliasing_off
   // White background behind the masked render pass.
   auto* white = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   white->SetNew(root_pass_shared_state, viewport_rect, viewport_rect,
@@ -3705,11 +3689,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCorner) {
       gfx::ScaleRect(gfx::RectF(viewport_rect), 1.f / mask_rect.width(),
                      1.f / mask_rect.height()),  // mask_uv_rect
       gfx::Size(mask_rect.size()),               // mask_texture_size
-      gfx::Vector2dF(1.0f, 1.0f),                // filters scale
-      gfx::PointF(),                             // filter origin
       gfx::RectF(viewport_rect),                 // tex_coord_rect
-      false,                                     // force_anti_aliasing_off
-      1.0f);                                     // backdrop_filter_quality
+      false);                                    // force_anti_aliasing_off
   // White background behind the masked render pass.
   auto* white = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   white->SetNew(root_pass_shared_state, viewport_rect, viewport_rect,
@@ -3811,11 +3792,11 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCornerMultiRadii) {
       gfx::ScaleRect(gfx::RectF(viewport_rect), 1.f / mask_rect.width(),
                      1.f / mask_rect.height()),  // mask_uv_rect
       gfx::Size(mask_rect.size()),               // mask_texture_size
-      gfx::Vector2dF(),                          // filters scale
-      gfx::PointF(),                             // filter origin
       gfx::RectF(viewport_rect),                 // tex_coord_rect
-      false,                                     // force_anti_aliasing_off
-      1.0f);                                     // backdrop_filter_quality
+      false);                                    // force_anti_aliasing_off
+  mask_quad->SetFilters(/*scale=*/gfx::Vector2dF(),
+                        /*origin=*/gfx::PointF(),
+                        /*backdrop_quality=*/1.0f);
   // White background behind the masked render pass.
   auto* white = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   white->SetNew(root_pass_shared_state, viewport_rect, viewport_rect,
@@ -3935,11 +3916,8 @@ class RendererPixelTestWithBackdropFilter : public VizPixelTestWithParam {
                                filter_pass_layer_rect_, filter_pass_id,
                                mapped_mask_resource_id, mask_uv_rect,
                                mask_texture_size,
-                               gfx::Vector2dF(1.0f, 1.0f),  // filters_scale
-                               gfx::PointF(),               // filters_origin
-                               gfx::RectF(),                // tex_coord_rect
-                               false,  // force_anti_aliasing_off
-                               1.0f);  // backdrop_filter_quality
+                               gfx::RectF(),  // tex_coord_rect
+                               false);        // force_anti_aliasing_off
     }
 
     const int kColumnWidth = device_viewport_rect.width() / 3;
@@ -4414,10 +4392,10 @@ TEST_P(GPURendererPixelTest, TrilinearFiltering) {
       child_to_root_transform, child_pass_rect, root_pass.get(), gfx::MaskFilterInfo());
   auto* child_pass_quad =
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
-  child_pass_quad->SetNew(
-      child_pass_shared_state, child_pass_rect, child_pass_rect, child_pass_id,
-      kInvalidResourceId, gfx::RectF(), gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-      gfx::PointF(), gfx::RectF(child_pass_rect), false, 1.0f);
+  child_pass_quad->SetNew(child_pass_shared_state, child_pass_rect,
+                          child_pass_rect, child_pass_id, kInvalidResourceId,
+                          gfx::RectF(), gfx::Size(),
+                          gfx::RectF(child_pass_rect), false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(child_pass));
@@ -4897,9 +4875,10 @@ TEST_F(SoftwareRendererPixelTest, TextureDrawQuadNearestNeighbor) {
 
   auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, viewport, viewport, needs_blending,
-               mapped_resource, gfx::PointF(0, 0), gfx::PointF(1, 1),
+               mapped_resource, gfx::PointF(0, 0), gfx::PointF(2, 2),
                SkColors::kBlack, nearest_neighbor,
-               /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -4950,9 +4929,10 @@ TEST_F(SoftwareRendererPixelTest, TextureDrawQuadLinear) {
 
   auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, viewport, viewport, needs_blending,
-               mapped_resource, gfx::PointF(0, 0), gfx::PointF(1, 1),
+               mapped_resource, gfx::PointF(0, 0), gfx::PointF(2, 2),
                SkColors::kBlack, nearest_neighbor,
-               /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 
   AggregatedRenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -5325,14 +5305,15 @@ TEST_P(GPURendererPixelTest, TextureQuadBatching) {
       DCHECK_LE(y_end, rect.height());
 
       gfx::Rect layer_rect(x_start, y_start, x_end - x_start, y_end - y_start);
-      gfx::RectF uv_rect = gfx::ScaleRect(
-          gfx::RectF(layer_rect), 1.f / rect.width(), 1.f / rect.height());
+      gfx::RectF tex_coord_rect = gfx::RectF(layer_rect);
 
       auto* texture_quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
       texture_quad->SetNew(
           shared_state, layer_rect, layer_rect, needs_blending, mapped_resource,
-          uv_rect.origin(), uv_rect.bottom_right(), SkColors::kWhite, false,
-          /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
+          tex_coord_rect.origin(), tex_coord_rect.bottom_right(),
+          SkColors::kWhite, false,
+          /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+          /*is_tex_coords_normalized=*/false);
     }
   }
 
@@ -5491,14 +5472,15 @@ TEST_P(GPURendererPixelTest, RoundedCornerSimpleTextureDrawQuad) {
           this->child_context_provider_->SharedImageInterface());
   ResourceId mapped_resource = resource_map[resource];
   bool needs_blending = true;
-  const gfx::PointF uv_top_left(0.0f, 0.0f);
-  const gfx::PointF uv_bottom_right(1.0f, 1.0f);
+  const gfx::PointF tex_coord_top_left(0.0f, 0.0f);
+  const gfx::PointF tex_coord_bottom_right(2.0f, 2.0f);
   const bool nearest_neighbor = false;
   auto* blue = root_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   blue->SetNew(shared_state_rounded, blue_rect, blue_rect, needs_blending,
-               mapped_resource, uv_top_left, uv_bottom_right, SkColors::kBlack,
-               nearest_neighbor,
-               /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
+               mapped_resource, tex_coord_top_left, tex_coord_bottom_right,
+               SkColors::kBlack, nearest_neighbor,
+               /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+               /*is_tex_coords_normalized=*/false);
 
   SharedQuadState* shared_state_normal = CreateTestSharedQuadState(
       quad_to_target_transform, viewport_rect, root_pass.get(), gfx::MaskFilterInfo());
@@ -5876,8 +5858,7 @@ TEST_P(RendererPixelTest, BlurExpandsBounds) {
       root_pass->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
   render_pass_quad->SetNew(pass_shared_state, pass_rect, pass_rect,
                            child_pass_id, kInvalidResourceId, gfx::RectF(),
-                           gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
-                           gfx::PointF(), gfx::RectF(pass_rect), false, 1.0f);
+                           gfx::Size(), gfx::RectF(pass_rect), false);
 
   // White background underneath
   SharedQuadState* blank_state = CreateTestSharedQuadState(
@@ -6344,15 +6325,16 @@ class ColorTransformPixelTest
       ResourceId mapped_resource = resource_map[resource];
 
       bool needs_blending = true;
-      const gfx::PointF uv_top_left(0.0f, 0.0f);
-      const gfx::PointF uv_bottom_right(1.0f, 1.0f);
+      const gfx::PointF tex_coord_top_left(0.0f, 0.0f);
+      const gfx::PointF tex_coord_bottom_right(rect.width(), rect.height());
       const bool nearest_neighbor = false;
       auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
 
       quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-                   uv_top_left, uv_bottom_right, SkColors::kBlack,
+                   tex_coord_top_left, tex_coord_bottom_right, SkColors::kBlack,
                    nearest_neighbor,
-                   /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+                   /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+                   /*is_tex_coords_normalized=*/false);
 
       auto* color_quad = pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
       color_quad->SetNew(shared_state, rect, rect, SkColors::kBlack, false);

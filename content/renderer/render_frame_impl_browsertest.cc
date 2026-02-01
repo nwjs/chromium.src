@@ -106,8 +106,6 @@ class RenderFrameImplTest : public RenderViewTest {
   ~RenderFrameImplTest() override = default;
 
   void SetUp() override {
-    blink::WebRuntimeFeatures::EnableOverlayScrollbars(
-        ui::NativeTheme::GetInstanceForWeb()->use_overlay_scrollbar());
     RenderViewTest::SetUp();
     EXPECT_TRUE(GetMainRenderFrame()->is_main_frame_);
 
@@ -1191,7 +1189,7 @@ bool HasText(blink::WebLocalFrame* frame, const std::string& text) {
           frame, blink::TestWebFrameContentDumper::kLayoutAsTextNormal)
           .Utf8();
 
-  return base::Contains(layout_tree, text);
+  return layout_tree.contains(text);
 }
 
 // Waits for the navigation to finish.

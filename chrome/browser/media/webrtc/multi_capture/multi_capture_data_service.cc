@@ -5,26 +5,25 @@
 #include "chrome/browser/media/webrtc/multi_capture/multi_capture_data_service.h"
 
 #include "base/barrier_closure.h"
-#include "base/containers/contains.h"
 #include "base/memory/ptr_util.h"
 #include "base/types/expected_macros.h"
 #include "chrome/browser/media/webrtc/capture_policy_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
+#include "chrome/browser/web_applications/isolated_web_apps/runtime_data/chrome_iwa_runtime_data_provider.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_service.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 
 namespace multi_capture {
 
 MultiCaptureDataService::MultiCaptureDataService(
     web_app::WebAppProvider* provider,
     PrefService* prefs)
-    : info_provider_(web_app::IwaKeyDistributionInfoProvider::GetInstance()),
+    : data_provider_(web_app::ChromeIwaRuntimeDataProvider::GetInstance()),
       provider_(provider),
       prefs_(prefs) {
   CHECK(provider_);
@@ -127,7 +126,7 @@ void MultiCaptureDataService::Init() {
                          weak_ptr_factory_.GetWeakPtr()));
   provider_->on_registry_ready().Post(FROM_HERE,
                                       initialized_components_barrier);
-  info_provider_->OnBestEffortRuntimeDataReady().Post(
+  data_provider_->OnBestEffortRuntimeDataReady().Post(
       FROM_HERE, initialized_components_barrier);
 }
 
@@ -139,7 +138,7 @@ void MultiCaptureDataService::LoadData() {
           .Clone();
 
   const std::vector<std::string> app_without_notification_bundle_ids_vector =
-      info_provider_->GetSkipMultiCaptureNotificationBundleIds();
+      data_provider_->GetSkipMultiCaptureNotificationBundleIds();
   app_without_notification_bundle_ids_ = {
       app_without_notification_bundle_ids_vector.begin(),
       app_without_notification_bundle_ids_vector.end()};
@@ -167,8 +166,9 @@ void MultiCaptureDataService::LoadData() {
         base::BindOnce(&MultiCaptureDataService::OnIconReceived,
                        weak_ptr_factory_.GetWeakPtr(), *app_id));
 
-    const bool can_skip_active_notification = base::Contains(
-        app_without_notification_bundle_ids_, allowlisted_app_url.GetHost());
+    const bool can_skip_active_notification =
+        app_without_notification_bundle_ids_.contains(
+            allowlisted_app_url.GetHost());
     const std::string app_name = registrar.GetAppShortName(*app_id);
     if (can_skip_active_notification) {
       capture_apps_without_notification_[*app_id] = app_name;

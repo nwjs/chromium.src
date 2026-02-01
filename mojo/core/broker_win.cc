@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/core/broker.h"
 
 #include <windows.h>
@@ -14,6 +9,7 @@
 #include <limits>
 #include <utility>
 
+#include "base/compiler_specific.h"
 #include "base/debug/alias.h"
 #include "base/logging.h"
 #include "base/memory/platform_shared_memory_region.h"
@@ -44,8 +40,9 @@ bool TakeHandlesFromBrokerMessage(Channel::Message* message,
   DCHECK_EQ(handles.size(), num_handles);
   DCHECK(out_handles);
 
-  for (size_t i = 0; i < num_handles; ++i)
-    out_handles[i] = handles[i].TakeHandle();
+  for (size_t i = 0; i < num_handles; ++i) {
+    UNSAFE_TODO(out_handles[i]) = handles[i].TakeHandle();
+  }
   return true;
 }
 
@@ -92,16 +89,18 @@ Channel::MessagePtr WaitForBrokerMessage(HANDLE pipe_handle,
 Broker::Broker(PlatformHandle handle, bool wait_for_channel_handle)
     : sync_channel_(std::move(handle)) {
   CHECK(sync_channel_.is_valid());
-  if (!wait_for_channel_handle)
+  if (!wait_for_channel_handle) {
     return;
+  }
 
   Channel::MessagePtr message = WaitForBrokerMessage(
       sync_channel_.GetHandle().Get(), BrokerMessageType::INIT);
 
   // If we fail to read a message (broken pipe), just return early. The inviter
   // handle will be null and callers must handle this gracefully.
-  if (!message)
+  if (!message) {
     return;
+  }
 
   PlatformHandle endpoint_handle;
   if (TakeHandlesFromBrokerMessage(message.get(), 1, &endpoint_handle)) {
@@ -112,11 +111,12 @@ Broker::Broker(PlatformHandle handle, bool wait_for_channel_handle)
         static_cast<const BrokerMessageHeader*>(message->payload());
     CHECK_GE(message->payload_size(),
              sizeof(BrokerMessageHeader) + sizeof(InitData));
-    const InitData* data = reinterpret_cast<const InitData*>(header + 1);
+    const InitData* data =
+        reinterpret_cast<const InitData*>(UNSAFE_TODO(header + 1));
     CHECK_EQ(message->payload_size(),
              sizeof(BrokerMessageHeader) + sizeof(InitData) +
                  data->pipe_name_length * sizeof(char16_t));
-    auto* name_data = reinterpret_cast<const wchar_t*>(data + 1);
+    auto* name_data = reinterpret_cast<const wchar_t*>(UNSAFE_TODO(data + 1));
     CHECK(data->pipe_name_length);
     inviter_endpoint_ = NamedPlatformChannel::ConnectToServer(
         NamedPlatformChannel::ServerName(name_data, data->pipe_name_length));
@@ -152,8 +152,9 @@ base::WritableSharedMemoryRegion Broker::GetWritableSharedMemoryRegion(
       sync_channel_.GetHandle().Get(), BrokerMessageType::BUFFER_RESPONSE);
   if (response && TakeHandlesFromBrokerMessage(response.get(), 1, &handle)) {
     BufferResponseData* data;
-    if (!GetBrokerMessageData(response.get(), &data))
+    if (!GetBrokerMessageData(response.get(), &data)) {
       return base::WritableSharedMemoryRegion();
+    }
     std::optional<base::UnguessableToken> guid =
         base::UnguessableToken::Deserialize(data->guid_high, data->guid_low);
     if (!guid.has_value()) {

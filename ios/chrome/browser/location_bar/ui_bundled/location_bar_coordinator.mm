@@ -88,7 +88,6 @@
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_entry_point_commands.h"
 #import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/shared/public/prototypes/diamond/new_tab_prototype_view_controller.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
@@ -176,10 +175,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 @property(nonatomic, strong) URLDragDropHandler* dragDropHandler;
 @end
 
-@implementation LocationBarCoordinator {
-  // TODO(crbug.com/429955447): Remove when diamond prototype is cleaned.
-  SharingCoordinator* _sharingCoordinator;
-}
+@implementation LocationBarCoordinator
 
 #pragma mark - Accessors
 
@@ -222,7 +218,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
   // TODO(crbug.com/40670043): Use HandlerForProtocol after commands protocol
   // clean up.
   self.viewController.dispatcher =
-      static_cast<id<ActivityServiceCommands, ApplicationCommands,
+      static_cast<id<ActivityServiceCommands, SceneCommands,
                      BrowserCoordinatorCommands, LoadQueryCommands,
                      LensCommands, LensOverlayCommands, OmniboxCommands>>(
           self.browser->GetCommandDispatcher());
@@ -286,7 +282,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 
     [self.viewController
         addChildViewController:self.locationBarBadgeCoordinator.viewController];
-    // TODO(crbug.com/450006763): After migration, refactor to
+    // TODO(crbug.com/469528076): After migration, refactor to
     // setLocationBarBadgeView and set it in LocationBarSteadyView.
     [self.viewController
         setContextualPanelEntrypointView:self.locationBarBadgeCoordinator
@@ -433,9 +429,6 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
   [self.browser->GetCommandDispatcher()
       stopDispatchingToTarget:self.viewController
                                   .pageActionMenuEntryPointHandler];
-
-  [_sharingCoordinator stop];
-  _sharingCoordinator = nil;
 
   if (IsAskGeminiChipEnabled() || IsProactiveSuggestionsFrameworkEnabled() ||
       IsLocationBarBadgeMigrationEnabled()) {
@@ -656,42 +649,11 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 #pragma mark - LocationBarViewControllerDelegate
 
 - (void)locationBarSteadyViewTapped {
-  if (IsDiamondPrototypeEnabled()) {
-    NewTabPrototypeViewController* newTab =
-        [[NewTabPrototypeViewController alloc]
-            initWithBaseViewController:self.baseViewController
-                               browser:self.browser
-                          isNewTabPage:NO
-                     shouldExitTabGrid:NO];
-    [self.viewController presentViewController:newTab
-                                      animated:YES
-                                    completion:nil];
-  } else {
-    [self focusOmnibox];
-  }
+  [self focusOmnibox];
 }
 
 - (void)locationBarCopyTapped {
   StoreURLInPasteboard(self.webState->GetVisibleURL());
-}
-
-- (void)locationBarShareTapped {
-  CHECK(IsDiamondPrototypeEnabled());
-  const GURL visibleURL = self.webState->GetVisibleURL();
-  NSString* title = base::SysUTF16ToNSString(self.webState->GetTitle());
-
-  SharingScenario scenario = IsReaderModeActiveInWebState(self.webState)
-                                 ? SharingScenario::ShareInReaderMode
-                                 : SharingScenario::TabShareButton;
-  SharingParams* params = [[SharingParams alloc] initWithURL:visibleURL
-                                                       title:title
-                                                    scenario:scenario];
-  _sharingCoordinator = [[SharingCoordinator alloc]
-      initWithBaseViewController:self.viewController
-                         browser:self.browser
-                          params:params
-                      originView:self.viewController.view];
-  [_sharingCoordinator start];
 }
 
 - (void)locationBarRequestScribbleTargetFocus {
@@ -746,7 +708,7 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 }
 
 - (BOOL)shouldShowAIHubNewFeatureBadge {
-  if (!base::FeatureList::IsEnabled(kAIHubNewBadge)) {
+  if (!IsAIHubNewBadgeEnabled()) {
     return NO;
   }
   return _tracker->ShouldTriggerHelpUI(
@@ -763,18 +725,12 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
 
 - (BOOL)canShowLargeContextualPanelEntrypoint:
     (ContextualPanelEntrypointCoordinator*)coordinator {
-  if (IsDiamondPrototypeEnabled()) {
-    return NO;
-  }
   return [self.viewController canShowLargeContextualPanelEntrypoint];
 }
 
 - (void)setLocationBarLabelCenteredBetweenContent:
             (ContextualPanelEntrypointCoordinator*)coordinator
                                          centered:(BOOL)centered {
-  if (IsDiamondPrototypeEnabled()) {
-    return;
-  }
   [self.viewController setLocationBarLabelCenteredBetweenContent:centered];
 }
 

@@ -113,7 +113,20 @@
 #pragma mark - TabGridToolbarsGridDelegate
 
 - (void)closeAllButtonTapped:(id)sender {
+  if (base::FeatureList::IsEnabled(kTabSwitcherOverflowMenu)) {
+    [self.incognitoDelegate showCloseAllConfirmationFromSourceView:sender];
+    return;
+  }
   [self closeAllItems];
+}
+
+- (void)closeOtherTabsButtonTapped:(id)sender {
+  RecordTabGridCloseOtherTabs(/*incognito=*/true);
+  // There is no pinned tabs in incognito.
+  RecordTabGridCloseTabsCount(self.webStateList->count() - 1);
+  int indexToKeep = self.webStateList->active_index();
+  CloseOtherWebStates(*self.webStateList, indexToKeep,
+                      WebStateList::ClosingReason::kUserAction);
 }
 
 - (void)newTabButtonTapped:(id)sender {
@@ -174,6 +187,7 @@
   TabGridToolbarsConfiguration* toolbarsConfiguration =
       [[TabGridToolbarsConfiguration alloc]
           initWithPage:TabGridPageIncognitoTabs];
+  toolbarsConfiguration.overflowMenuButton = YES;
 
   if (self.modeHolder.mode == TabGridMode::kSelection) {
     [self configureButtonsInSelectionMode:toolbarsConfiguration];

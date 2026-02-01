@@ -36,8 +36,22 @@
 #include "ui/display/screen.h"
 #include "ui/display/tablet_state.h"
 #include "ui/views/controls/native/native_view_host.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
+
+// Handles the case where the layer may be in a transitional state during
+// layout. See crbug.com/470873053.
+void MaybeSetMasksToBounds(views::Widget* widget, bool masks_to_bounds) {
+  if (!widget) {
+    return;
+  }
+  ui::Layer* layer = widget->GetLayer();
+  if (!layer || !layer->GetCompositor()) {
+    return;
+  }
+  layer->SetMasksToBounds(masks_to_bounds);
+}
 
 bool IsSpokenFeedbackEnabled() {
   auto* accessibility_manager = ash::AccessibilityManager::Get();
@@ -294,8 +308,6 @@ TopControlsSlideControllerChromeOS::TopControlsSlideControllerChromeOS(
 
   browser_view_->browser()->tab_strip_model()->AddObserver(this);
 
-  browser_view->browser_widget()->GetLayer()->EnableLayerDestructionCheck();
-
   auto* accessibility_manager = ash::AccessibilityManager::Get();
   if (accessibility_manager) {
     accessibility_status_subscription_ =
@@ -512,7 +524,7 @@ void TopControlsSlideControllerChromeOS::OnTabStripModelChanged(
   UpdateBrowserControlsStateShown(new_active_contents, /*animate=*/true);
 }
 
-void TopControlsSlideControllerChromeOS::SetTabNeedsAttentionAt(
+void TopControlsSlideControllerChromeOS::OnTabNeedsAttentionChanged(
     int index,
     bool attention) {
   UpdateBrowserControlsStateShown(/*web_contents=*/nullptr, /*animate=*/true);
@@ -753,8 +765,6 @@ void TopControlsSlideControllerChromeOS::OnBeginSliding() {
   // native view's layer and cover it.
   browser_widget->ReorderNativeViews();
 
-  ui::Layer* widget_layer = browser_widget->GetLayer();
-
   // OnBeginSliding() means we are in a transient state (i.e. the top controls
   // didn't reach its final state of either fully shown or fully hidden). During
   // this state, we resize the widget's root view to be bigger in height so the
@@ -766,7 +776,8 @@ void TopControlsSlideControllerChromeOS::OnBeginSliding() {
   // but not in-between. Layers transforms handles the in-between.
   gfx::Rect root_bounds = root_view->bounds();
   const int top_container_height = browser_view_->top_container()->height();
-  const int new_height = widget_layer->bounds().height() + top_container_height;
+  const int new_height =
+      browser_widget->GetLayer()->bounds().height() + top_container_height;
   root_bounds.set_height(new_height);
   root_view->SetBoundsRect(root_bounds);
   // Changing the bounds will have triggered an InvalidateLayout() on
@@ -780,9 +791,8 @@ void TopControlsSlideControllerChromeOS::OnBeginSliding() {
   // deal with layout being performed during the slide.
   root_view->GetWidget()->LayoutRootViewIfNecessary();
 
-  // We don't want anything to show outside the browser window's bounds.  Get
-  // the layer again as the layer may be recreated. (crbug.com/443811562)
-  browser_widget->GetLayer()->SetMasksToBounds(true);
+  // We don't want anything to show outside the browser window's bounds.
+  MaybeSetMasksToBounds(browser_widget, true);
 }
 
 void TopControlsSlideControllerChromeOS::OnEndSliding() {
@@ -819,8 +829,6 @@ void TopControlsSlideControllerChromeOS::OnEndSliding() {
   views::View* root_view = browser_widget->GetRootView();
   root_view->DestroyLayer();
 
-  ui::Layer* widget_layer = browser_widget->GetLayer();
-
   // Note the difference between the below root view resize, and the
   // corresponding one in OnBeginSliding() above. Here we have reached a steady
   // terminal (|shown_ratio_| is either 1.f or 0.f) state, which means the
@@ -829,7 +837,7 @@ void TopControlsSlideControllerChromeOS::OnEndSliding() {
   // but not in-between. Layers transforms handles the in-between.
   auto root_bounds = root_view->bounds();
   const int original_height = root_bounds.height();
-  const int new_height = widget_layer->bounds().height();
+  const int new_height = browser_widget->GetLayer()->bounds().height();
 
   // This must be updated here **before** the browser is laid out, since the
   // renderer (as a result of the layout) may query this value, and hence it
@@ -851,7 +859,7 @@ void TopControlsSlideControllerChromeOS::OnEndSliding() {
   // If the top controls are fully hidden, then the top container is laid out
   // such that its bounds are outside the window. The window should continue to
   // mask anything outside its bounds.
-  widget_layer->SetMasksToBounds(shown_ratio_ < 1.f);
+  MaybeSetMasksToBounds(browser_widget, shown_ratio_ < 1.f);
 }
 
 void TopControlsSlideControllerChromeOS::

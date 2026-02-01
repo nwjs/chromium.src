@@ -14,11 +14,13 @@
 #include "base/version.h"
 #include "crypto/sha2.h"
 #include "net/base/net_export.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/boringssl/src/pki/trust_store.h"
 #include "third_party/boringssl/src/pki/trust_store_in_memory.h"
 
 namespace chrome_root_store {
 class RootStore;
+class MtcMetadata;
 }
 
 namespace net {
@@ -53,6 +55,13 @@ struct ChromeRootCertInfo {
   base::span<const uint8_t> trust_anchor_id;
 };
 
+struct ChromeMtcAnchorInfo {
+  base::span<const uint8_t> log_id;
+  base::span<const StaticChromeRootCertConstraints> constraints;
+  // Does not contain `tls_trust_anchor`, as MtcAnchors without that set to
+  // true are simply ignored.
+};
+
 struct NET_EXPORT ChromeRootCertConstraints {
   ChromeRootCertConstraints();
   ChromeRootCertConstraints(std::optional<base::Time> sct_not_after,
@@ -77,8 +86,8 @@ struct NET_EXPORT ChromeRootCertConstraints {
   std::vector<std::string> permitted_dns_names;
 };
 
-// ChromeRootStoreData is a container class that stores all of the Chrome Root
-// Store data in a single class.
+// ChromeRootStoreData is a container class that stores the Chrome Root Store
+// data which is updated by the RootStore and MtcMetadata protos.
 class NET_EXPORT ChromeRootStoreData {
  public:
   struct NET_EXPORT Anchor {
@@ -103,6 +112,20 @@ class NET_EXPORT ChromeRootStoreData {
     bool enforce_anchor_constraints;
   };
 
+  struct NET_EXPORT MtcAnchor {
+    MtcAnchor(std::vector<uint8_t> log_id,
+              std::vector<ChromeRootCertConstraints> constraints);
+    ~MtcAnchor();
+
+    MtcAnchor(const MtcAnchor& other);
+    MtcAnchor(MtcAnchor&& other);
+    MtcAnchor& operator=(const MtcAnchor& other);
+    MtcAnchor& operator=(MtcAnchor&& other);
+
+    std::vector<uint8_t> log_id;
+    std::vector<ChromeRootCertConstraints> constraints;
+  };
+
   // CreateFromRootStoreProto converts |proto| into a usable
   // ChromeRootStoreData object. Returns std::nullopt if the passed in
   // proto has errors in it (e.g. an unparsable DER-encoded certificate).
@@ -117,6 +140,7 @@ class NET_EXPORT ChromeRootStoreData {
   static ChromeRootStoreData CreateForTesting(
       base::span<const ChromeRootCertInfo> certs,
       base::span<const base::span<const uint8_t>> eutl_certs,
+      base::span<const ChromeMtcAnchorInfo> mtc_anchors,
       int64_t version);
 
   ~ChromeRootStoreData();
@@ -128,18 +152,76 @@ class NET_EXPORT ChromeRootStoreData {
 
   const std::vector<Anchor>& trust_anchors() const { return trust_anchors_; }
   const std::vector<Anchor>& eutl_certs() const { return eutl_certs_; }
+  const std::vector<MtcAnchor>& mtc_trust_anchors() const {
+    return mtc_trust_anchors_;
+  }
   int64_t version() const { return version_; }
 
  private:
   ChromeRootStoreData();
   ChromeRootStoreData(base::span<const ChromeRootCertInfo> certs,
                       base::span<const base::span<const uint8_t>> eutl_certs,
+                      base::span<const ChromeMtcAnchorInfo> mtc_anchors,
                       bool certs_are_static,
                       int64_t version);
 
   std::vector<Anchor> trust_anchors_;
   std::vector<Anchor> eutl_certs_;
+  std::vector<MtcAnchor> mtc_trust_anchors_;
   int64_t version_;
+};
+
+// ChromeRootStoreMtcMetadata is a container class that stores the Chrome Root
+// Store data which is updated by the MtcMetadata proto.
+class NET_EXPORT ChromeRootStoreMtcMetadata {
+ public:
+  struct MtcAnchorData {
+    MtcAnchorData();
+    ~MtcAnchorData();
+    MtcAnchorData(const MtcAnchorData& other);
+    MtcAnchorData(MtcAnchorData&& other);
+    MtcAnchorData& operator=(const MtcAnchorData& other);
+    MtcAnchorData& operator=(MtcAnchorData&& other);
+
+    std::vector<uint8_t> log_id;
+
+    // The landmark info isn't needed in the verifier, but keep track of it so
+    // that it can be displayed in the root store UI.
+    std::vector<uint8_t> landmark_base_id;
+    uint64_t landmark_min_inclusive;
+    uint64_t landmark_max_inclusive;
+
+    std::vector<bssl::TrustedSubtree> trusted_subtrees;
+
+    // TODO(crbug.com/452986179): include revoked_indices too
+  };
+
+  // CreateFromMtcMetadataProto converts |proto| into a usable
+  // ChromeRootStoreMtcMetadata object. Returns std::nullopt if the passed in
+  // proto has errors in it.
+  static std::optional<ChromeRootStoreMtcMetadata> CreateFromMtcMetadataProto(
+      const chrome_root_store::MtcMetadata& proto);
+
+  ~ChromeRootStoreMtcMetadata();
+
+  ChromeRootStoreMtcMetadata(const ChromeRootStoreMtcMetadata& other);
+  ChromeRootStoreMtcMetadata(ChromeRootStoreMtcMetadata&& other);
+  ChromeRootStoreMtcMetadata& operator=(
+      const ChromeRootStoreMtcMetadata& other);
+  ChromeRootStoreMtcMetadata& operator=(ChromeRootStoreMtcMetadata&& other);
+
+  const absl::flat_hash_map<std::vector<uint8_t>, MtcAnchorData>&
+  mtc_anchor_data() const {
+    return mtc_anchor_data_;
+  }
+  base::Time update_time() const { return update_time_; }
+
+ private:
+  ChromeRootStoreMtcMetadata();
+
+  // Map from a Merkle Tree Anchor log_id to the metadata for that anchor.
+  absl::flat_hash_map<std::vector<uint8_t>, MtcAnchorData> mtc_anchor_data_;
+  base::Time update_time_;
 };
 
 // TrustStoreChrome contains the Chrome Root Store, as described at
@@ -186,12 +268,22 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
   GetTrustAnchorIDsFromCompiledInRootStore(
       base::span<const ChromeRootCertInfo> cert_list_for_testing = {});
 
+  // Returns the list of MTC log IDs from the compiled-in root store.
+  // If |anchor_list_for_testing| is non-empty, it will override the
+  // compiled-in production root store.
+  static std::vector<std::vector<uint8_t>>
+  GetTrustedMtcLogIDsFromCompiledInRootStore(
+      base::span<const ChromeMtcAnchorInfo> anchor_list_for_testing = {});
+
   // Creates a TrustStoreChrome that uses the compiled in Chrome Root Store.
   TrustStoreChrome();
 
-  // Creates a TrustStoreChrome that uses the passed in anchors as
-  // the contents of the Chrome Root Store.
-  explicit TrustStoreChrome(const ChromeRootStoreData& anchors);
+  // Creates a TrustStoreChrome that uses the passed in `root_store_data` and
+  // `mtc_metadata` as the contents of the Chrome Root Store, if specified.
+  // Either or both of the arguments may be present or null.
+  TrustStoreChrome(const ChromeRootStoreData* root_store_data,
+                   const ChromeRootStoreMtcMetadata* mtc_metadata);
+
   ~TrustStoreChrome() override;
 
   TrustStoreChrome(const TrustStoreChrome& other) = delete;
@@ -201,10 +293,13 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
   void SyncGetIssuersOf(const bssl::ParsedCertificate* cert,
                         bssl::ParsedCertificateList* issuers) override;
   bssl::CertificateTrust GetTrust(const bssl::ParsedCertificate* cert) override;
+  std::shared_ptr<const bssl::MTCAnchor> GetTrustedMTCIssuerOf(
+      const bssl::ParsedCertificate* cert) override;
 
   // Returns true if the trust store contains the given bssl::ParsedCertificate
   // (matches by DER).
   bool Contains(const bssl::ParsedCertificate* cert) const;
+  bool ContainsMTCAnchor(const bssl::MTCAnchor* anchor) const;
 
   // Returns the root store constraints for `cert`, or an empty span if the
   // certificate is not constrained.
@@ -212,6 +307,9 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
       const bssl::ParsedCertificate* cert) const;
 
   int64_t version() const { return version_; }
+  std::optional<base::Time> mtc_metadata_update_time() const {
+    return mtc_metadata_update_time_;
+  }
 
   // Parses a string specifying constraint overrides, in the format expected by
   // the `kTestCrsConstraintsSwitch` command line switch.
@@ -222,6 +320,7 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
 
  private:
   TrustStoreChrome(const ChromeRootStoreData& root_store_data,
+                   const ChromeRootStoreMtcMetadata* mtc_metadata,
                    ConstraintOverrideMap override_constraints);
 
   static ConstraintOverrideMap InitializeConstraintsOverrides();
@@ -235,13 +334,23 @@ class NET_EXPORT TrustStoreChrome : public bssl::TrustStore {
   base::flat_map<std::string_view, std::vector<ChromeRootCertConstraints>>
       constraints_;
 
+  // Map from log_id to additional constraints for the MTC anchor with the
+  // matching id.
+  absl::flat_hash_map<std::vector<uint8_t>,
+                      std::vector<ChromeRootCertConstraints>>
+      mtc_constraints_;
+
   // Map from certificate SHA256 hash to constraints. If a certificate has an
   // entry in this map, it will override the entry in `constraints_` (if any).
   const ConstraintOverrideMap override_constraints_;
 
+  // TODO(crbug.com/452986180): support constraint overrides for MTC anchors.
+
   bssl::TrustStoreInMemory eutl_trust_store_;
 
   int64_t version_;
+
+  std::optional<base::Time> mtc_metadata_update_time_;
 };
 
 // Returns the version # of the Chrome Root Store that was compiled into the

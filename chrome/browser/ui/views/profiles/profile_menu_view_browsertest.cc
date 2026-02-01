@@ -30,6 +30,7 @@
 #include "base/version_info/version_info.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
@@ -48,9 +49,12 @@
 #include "chrome/browser/signin/signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/signin/signin_util.h"
+#include "chrome/browser/sync/account_bookmark_sync_service_factory.h"
+#include "chrome/browser/sync/local_or_syncable_bookmark_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/sync/test/integration/secondary_account_helper.h"
+#include "chrome/browser/sync/test/integration/single_client_status_change_checker.h"
 #include "chrome/browser/sync/test/integration/status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
@@ -92,6 +96,9 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/browser/bookmark_node.h"
+#include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/google/core/common/google_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -111,6 +118,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "components/sync_bookmarks/bookmark_sync_service.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "components/webapps/common/web_app_id.h"
@@ -118,7 +126,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
-#include "device/fido/features.h"
+#include "device/fido/public/features.h"
 #include "extensions/browser/extension_registry.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_switches.h"
@@ -1227,6 +1235,133 @@ class ProfileMenuClickTest : public SyncTest,
   PROFILE_MENU_CLICK_WITH_FEATURE_TEST(actionable_item_list, test_case_name, \
                                        {}, {})
 
+class BookmarksLimitExceededChecker : public StatusChangeChecker {
+ public:
+  explicit BookmarksLimitExceededChecker(syncer::SyncServiceImpl* service)
+      : service_(service) {}
+
+  bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for kBookmarksLimitExceeded error";
+    return service_->GetUserActionableError() ==
+           syncer::SyncService::UserActionableError::kBookmarksLimitExceeded;
+  }
+
+ private:
+  raw_ptr<syncer::SyncServiceImpl> service_;
+};
+
+// TODO(crbug.com/452968646): Consider migrating this test to an
+// InProcessBrowserTest to simplify the interaction with Sync.
+class ProfileMenuViewBookmarksLimitExceededTest
+    : public SyncTest,
+      public ProfileMenuViewTestBase,
+      public testing::WithParamInterface<SyncTest::SetupSyncMode> {
+ public:
+  ProfileMenuViewBookmarksLimitExceededTest() : SyncTest(SINGLE_CLIENT) {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{
+            syncer::kSyncShowBookmarksLimitExceededError,
+            // This is needed to be able to test bookmarks in transport-mode.
+            syncer::kReplaceSyncPromosWithSignInPromos},
+        /*disabled_features=*/{});
+  }
+
+  void SetUpOnMainThread() override {
+    SyncTest::SetUpOnMainThread();
+    ASSERT_TRUE(SetupClients());
+    if (GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly) {
+      bookmark_sync_service_ =
+          AccountBookmarkSyncServiceFactory::GetForProfile(GetProfile(0));
+    } else {
+      bookmark_sync_service_ =
+          LocalOrSyncableBookmarkSyncServiceFactory::GetForProfile(
+              GetProfile(0));
+    }
+  }
+
+  void TearDownOnMainThread() override {
+    bookmark_sync_service_ = nullptr;
+    ExcludeDataTypesFromCheckForDataTypeFailures({syncer::BOOKMARKS});
+    SyncTest::TearDownOnMainThread();
+  }
+
+  SyncTest::SetupSyncMode GetSetupSyncMode() const override {
+    return GetParam();
+  }
+
+  void EnableSync() {
+    ASSERT_TRUE(SetupSync());
+    SetTargetBrowser(GetBrowser(0));
+    GetBrowser(0)->window()->Show();
+    ProfileAttributesEntry* entry =
+        g_browser_process->profile_manager()
+            ->GetProfileAttributesStorage()
+            .GetProfileAttributesWithPath(GetProfile(0)->GetPath());
+    ASSERT_TRUE(entry);
+    entry->SetLocalProfileName(u"TestName", /*is_default_name=*/false);
+  }
+
+  void SimulateBookmarksLimitExceededError() {
+    bookmark_sync_service_->SetBookmarksLimitForTesting(0);
+
+    // Add a bookmark to trigger the check.
+    bookmarks::BookmarkModel* model =
+        BookmarkModelFactory::GetForBrowserContext(GetProfile(0));
+    const bookmarks::BookmarkNode* parent_node = model->bookmark_bar_node();
+    if (GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly) {
+      parent_node = model->account_bookmark_bar_node();
+      ASSERT_TRUE(parent_node);
+    }
+    bookmarks::test::AddNodesFromModelString(model, parent_node, "1 ");
+
+    // Wait for the error to appear in SyncService.
+    BookmarksLimitExceededChecker checker(GetSyncService(0));
+    checker.Wait();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  raw_ptr<sync_bookmarks::BookmarkSyncService> bookmark_sync_service_ = nullptr;
+};
+
+IN_PROC_BROWSER_TEST_P(ProfileMenuViewBookmarksLimitExceededTest,
+                       ResolveBookmarksLimitExceededError) {
+  EnableSync();
+  SimulateBookmarksLimitExceededError();
+
+  OpenProfileMenu();
+  ASSERT_TRUE(profile_menu_view());
+
+  // Find the error button in the menu.
+  profile_menu_view()->GetFocusManager()->AdvanceFocus(/*reverse=*/false);
+  views::View* focused_item =
+      profile_menu_view()->GetFocusManager()->GetFocusedView();
+  ASSERT_TRUE(focused_item);
+
+  // Store the tab count.
+  int tab_count = GetBrowser(0)->tab_strip_model()->count();
+
+  // Click the focused item (which should be the error button).
+  ui_test_utils::TabAddedWaiter tab_waiter(GetBrowser(0));
+  Click(focused_item);
+  tab_waiter.Wait();
+
+  // Check that a new tab was opened.
+  EXPECT_EQ(GetBrowser(0)->tab_strip_model()->count(), tab_count + 1);
+  EXPECT_EQ(
+      GetBrowser(0)->tab_strip_model()->GetActiveWebContents()->GetVisibleURL(),
+      GURL("https://support.google.com/chrome/answer/165139"));
+
+  // Check that the error is cleared.
+  EXPECT_NE(GetSyncService(0)->GetUserActionableError(),
+            syncer::SyncService::UserActionableError::kBookmarksLimitExceeded);
+}
+
+INSTANTIATE_TEST_SUITE_P(,
+                         ProfileMenuViewBookmarksLimitExceededTest,
+                         GetSyncTestModes(),
+                         testing::PrintToStringParamName());
+
 // List of actionable items in the correct order as they appear in the menu. If
 // a new button is added to the menu, it should also be added to this list.
 constexpr std::array kActionableItems_SingleProfileWithCustomName = {
@@ -1388,15 +1523,8 @@ constexpr std::array kActionableItems_SyncEnabled = {
     // there are no other buttons at the end.
     ProfileMenuViewBase::ActionableItem::kAutofillSettingsButton};
 
-// TODO(crbug.com/341975308): re-enable test.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_ProfileMenuClickTest_SyncEnabled \
-  DISABLED_ProfileMenuClickTest_SyncEnabled
-#else
-#define MAYBE_ProfileMenuClickTest_SyncEnabled ProfileMenuClickTest_SyncEnabled
-#endif
 PROFILE_MENU_CLICK_TEST(kActionableItems_SyncEnabled,
-                        MAYBE_ProfileMenuClickTest_SyncEnabled) {
+                        ProfileMenuClickTest_SyncEnabled) {
   EnableSync();
   RunTest();
 }
@@ -1450,15 +1578,8 @@ constexpr std::array kActionableItems_SyncPaused = {
     // there are no other buttons at the end.
     ProfileMenuViewBase::ActionableItem::kSyncErrorButton};
 
-// TODO(crbug.com/40822972): flaky on Windows and Mac
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#define MAYBE_ProfileMenuClickTest_SyncPaused \
-  DISABLED_ProfileMenuClickTest_SyncPaused
-#else
-#define MAYBE_ProfileMenuClickTest_SyncPaused ProfileMenuClickTest_SyncPaused
-#endif
 PROFILE_MENU_CLICK_TEST(kActionableItems_SyncPaused,
-                        MAYBE_ProfileMenuClickTest_SyncPaused) {
+                        ProfileMenuClickTest_SyncPaused) {
   EnableSync();
   sync_harness()->EnterSyncPausedStateForPrimaryAccount();
   // Check that the setup was successful.
@@ -2058,17 +2179,9 @@ constexpr std::array
         // there are no other buttons at the end.
         ProfileMenuViewBase::ActionableItem::kSigninReauthButton};
 
-// TODO(crbug.com/40822972): flaky on Windows and Mac
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#define MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled \
-  DISABLED_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled
-#else
-#define MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled \
-  ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled
-#endif
 PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     kActionableItems_WithPendingAccount_ReplaceSyncPromosEnabled,
-    MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled,
+    ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosEnabled,
     {syncer::kReplaceSyncPromosWithSignInPromos},
     {}) {
   AccountInfo account_info = signin::MakePrimaryAccountAvailable(
@@ -2107,17 +2220,9 @@ constexpr std::array
         // there are no other buttons at the end.
         ProfileMenuViewBase::ActionableItem::kSigninReauthButton};
 
-// TODO(crbug.com/40822972): flaky on Windows and Mac
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#define MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled \
-  DISABLED_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled
-#else
-#define MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled \
-  ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled
-#endif
 PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     kActionableItems_WithPendingAccount_ReplaceSyncPromosDisabled,
-    MAYBE_ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled,
+    ProfileMenuClickTest_WithPendingAccount_ReplaceSyncPromosDisabled,
     {},
     {syncer::kReplaceSyncPromosWithSignInPromos}) {
   AccountInfo account_info = signin::MakePrimaryAccountAvailable(

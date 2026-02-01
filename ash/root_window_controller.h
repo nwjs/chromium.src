@@ -14,6 +14,7 @@
 #include "ash/wm/overview/overview_metrics.h"
 #include "ash/wm/overview/overview_types.h"
 #include "ash/wm/wm_metrics.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
@@ -262,6 +263,11 @@ class ASH_EXPORT RootWindowController {
   // active.
   void EndSplitViewOverviewSession(
       SplitViewOverviewSessionExitPoint exit_point);
+
+  // When set to true, all tracked windows in the always on top container will
+  // be marked as occluded.
+  // TODO(crbug.com/476220853): Remove this once the right fix is landed.
+  void ForceOccludeWindowsInAlwaysOnTop(bool occlude);
 
   void SetScreenRotationAnimatorForTest(
       std::unique_ptr<ScreenRotationAnimator> animator);

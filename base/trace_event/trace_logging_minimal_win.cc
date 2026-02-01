@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/trace_event/trace_logging_minimal_win.h"
 
 #include <evntrace.h>
@@ -33,22 +28,22 @@ TlmProvider::TlmProvider(const char* provider_name,
 // Appends a nul-terminated string to a metadata block.
 // Returns new meta_data_index value, or -1 for overflow.
 uint16_t TlmProvider::AppendNameToMetadata(
-    char* metadata,
-    uint16_t metadata_size,
+    base::span<char> metadata,
     uint16_t metadata_index,
     std::string_view name) const noexcept {
-  uint16_t index = metadata_index;
-  DCHECK_LE(index, metadata_size);
-
+  auto remaining_metadata = metadata.subspan(metadata_index);
   const size_t cch = name.size();
-  if (cch + 1 > static_cast<unsigned>(metadata_size - index)) {
+
+  // 2. Ensure we have room for the string + the null terminator.
+  if (cch + 1 > remaining_metadata.size()) {
     return static_cast<uint16_t>(-1);
   }
 
-  memcpy(metadata + index, name.data(), cch);
-  metadata[index + cch] = 0;
-  index += static_cast<uint16_t>(cch) + 1;
-  return index;
+  remaining_metadata.first(cch).copy_from(base::span(name));
+
+  remaining_metadata[cch] = '\0';
+
+  return metadata_index + static_cast<uint16_t>(cch) + 1;
 }
 
 void TlmProvider::Unregister() noexcept {
@@ -75,8 +70,8 @@ ULONG TlmProvider::Register(const char* provider_name,
   //     ( + optional extension data, not used here)
 
   // Append the provider name starting at offset 2 (skip MetadataSize).
-  provider_metadata_size_ = AppendNameToMetadata(
-      provider_metadata_, kMaxProviderMetadataSize, 2, provider_name);
+  provider_metadata_size_ =
+      AppendNameToMetadata(base::span(provider_metadata_), 2, provider_name);
   if (provider_metadata_size_ > kMaxProviderMetadataSize) {
     return ERROR_BUFFER_OVERFLOW;
   }
@@ -145,7 +140,7 @@ void TlmProvider::StaticEnableCallback(const GUID* source_id,
   }
 }
 
-uint16_t TlmProvider::EventBegin(char* metadata,
+uint16_t TlmProvider::EventBegin(base::span<char> metadata,
                                  std::string_view event_name) const noexcept {
   // EventMetadata for tracelogging has the following format
   //     UINT16 MetadataSize;
@@ -158,12 +153,11 @@ uint16_t TlmProvider::EventBegin(char* metadata,
   metadata[index] = 0;  // Set SpecialFlags[0] = 0.
   index++;              // sizeof(SpecialFlags) == 1.
 
-  index =
-      AppendNameToMetadata(metadata, kMaxEventMetadataSize, index, event_name);
+  index = AppendNameToMetadata(metadata, index, event_name);
   return index;
 }
 
-char TlmProvider::EventAddField(char* metadata,
+char TlmProvider::EventAddField(base::span<char> metadata,
                                 uint16_t* metadata_index,
                                 uint8_t in_type,
                                 uint8_t out_type,
@@ -181,8 +175,7 @@ char TlmProvider::EventAddField(char* metadata,
     return 0;
   }
 
-  *metadata_index = AppendNameToMetadata(metadata, kMaxEventMetadataSize,
-                                         *metadata_index, field_name);
+  *metadata_index = AppendNameToMetadata(metadata, *metadata_index, field_name);
   if (*metadata_index >= kMaxEventMetadataSize) {
     return 0;
   }
@@ -213,28 +206,29 @@ char TlmProvider::EventAddField(char* metadata,
 }
 
 ULONG TlmProvider::EventEnd(
-    char* metadata,
+    base::span<char> metadata,
     uint16_t meta_data_index,
-    EVENT_DATA_DESCRIPTOR* descriptors,
+    base::span<EVENT_DATA_DESCRIPTOR> descriptors,
     uint32_t descriptors_index,
     const EVENT_DESCRIPTOR& event_descriptor) const noexcept {
-  if (meta_data_index > kMaxEventMetadataSize) {
+  if (meta_data_index > metadata.size()) {
     return ERROR_BUFFER_OVERFLOW;
   }
 
   // Fill in EventMetadata's MetadataSize field.
-  *reinterpret_cast<uint16_t*>(metadata) = meta_data_index;
+  base::as_writable_bytes(metadata).first<2>().copy_from(
+      base::byte_span_from_ref(meta_data_index));
 
   descriptors[0].Ptr = reinterpret_cast<ULONG_PTR>(provider_metadata_);
   descriptors[0].Size = provider_metadata_size_;
   descriptors[0].Reserved = EVENT_DATA_DESCRIPTOR_TYPE_PROVIDER_METADATA;
 
-  descriptors[1].Ptr = reinterpret_cast<ULONG_PTR>(metadata);
+  descriptors[1].Ptr = reinterpret_cast<ULONG_PTR>(metadata.data());
   descriptors[1].Size = meta_data_index;
   descriptors[1].Reserved = EVENT_DATA_DESCRIPTOR_TYPE_EVENT_METADATA;
 
   return EventWrite(reg_handle_, &event_descriptor, descriptors_index,
-                    descriptors);
+                    descriptors.data());
 }
 
 bool TlmProvider::KeywordEnabled(uint64_t keyword) const noexcept {

@@ -114,10 +114,12 @@ ChromeEnterpriseRealTimeUrlLookupServiceFactory::BuildServiceInstanceFor(
       /*is_guest_session=*/false,
       base::BindRepeating(&enterprise_connectors::GetProfileEmail,
                           identity_manager),
-      base::BindRepeating(&enterprise_connectors::GetActiveContentAreaUser,
-                          IdentityManagerFactory::GetForProfile(profile)),
+      base::BindRepeating(
+          &enterprise_connectors::GetNavigationActiveContentAreaUser,
+          IdentityManagerFactory::GetForProfile(profile)),
       base::BindRepeating(&IsProfileAffiliated, profile),
-      IsCommandLineSwitchEnabled());
+      IsCommandLineSwitchEnabled(),
+      /*intelligent_scan_delegate=*/nullptr);
 }
 
 }  // namespace safe_browsing

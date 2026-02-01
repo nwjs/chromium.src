@@ -221,13 +221,14 @@ WebAppSyncBridge::WebAppSyncBridge(
 
 WebAppSyncBridge::~WebAppSyncBridge() = default;
 
-void WebAppSyncBridge::SetProvider(base::PassKey<WebAppProvider>,
+void WebAppSyncBridge::SetProvider(base::PassKey<WebAppProvider> pass_key,
                                    WebAppProvider& provider) {
   database_ = std::make_unique<WebAppDatabase>(
       &(provider.database_factory()),
       base::BindRepeating(&WebAppSyncBridge::ReportErrorToChangeProcessor,
                           base::Unretained(this)));
   provider_ = &provider;
+  database_->SetProvider(pass_key, *provider_);
 }
 
 [[nodiscard]] ScopedRegistryUpdate WebAppSyncBridge::BeginUpdate(
@@ -695,9 +696,18 @@ ManifestIdParseResult WebAppSyncBridge::PrepareLocalUpdateFromSyncChange(
   if (!existing_web_app) {
     // Any remote entities that don’t exist locally must be written to local
     // storage.
-    web_app = std::make_unique<WebApp>(app_id);
-    web_app->SetStartUrl(GURL(specifics.start_url()));
-    web_app->SetManifestId(manifest_id.value());
+    // Validate scope, and fix it if it is incorrect.
+    GURL scope = GURL(specifics.scope());
+    GURL start_url = GURL(specifics.start_url());
+    if (!scope.is_valid() || !url::IsSameOriginWith(scope, start_url) ||
+        !base::StartsWith(start_url.spec(), scope.spec(),
+                          base::CompareCase::SENSITIVE)) {
+      scope = start_url.GetWithoutFilename();
+    }
+    web_app = std::make_unique<WebApp>(manifest_id.value(),
+                                       GURL(specifics.start_url()), scope,
+                                       /*parent_app_id=*/std::nullopt,
+                                       /*parent_manifest_id=*/std::nullopt);
 
     // Request a followup sync-initiated install for this stub app to fetch
     // full local data and all the icons.
@@ -943,6 +953,10 @@ bool WebAppSyncBridge::IsEntityDataValid(
   DLOG(ERROR) << "Cannot parse sync entity: "
               << base::ToString(manifest_id.error());
   return false;
+}
+
+const PersistableLog* WebAppSyncBridge::database_log() const {
+  return database_->log();
 }
 
 void WebAppSyncBridge::SetAppNotLocallyInstalledForTesting(

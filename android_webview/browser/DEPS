@@ -24,6 +24,7 @@ include_rules = [
   "+components/grit",
   "+components/heap_profiling",
   "+components/history/core/browser",
+  "+components/input",
   "+components/keyed_service/core",
   "+components/leveldb_proto/public",
   "+components/minidump_uploader",
@@ -55,7 +56,6 @@ include_rules = [
   "+components/spellcheck/common",
   "+components/strings",
   "+components/tracing/common",
-  "+components/translate/core/common",
   "+components/url_formatter",
   "+components/url_matcher",
   "+components/user_prefs",
@@ -137,6 +137,7 @@ include_rules = [
   "+ui/display",
   "+ui/gfx",
   "+ui/gl",
+  "+ui/events/features.h",
   "+ui/touch_selection/touch_handle.h",
 
   # Temporary until we bundle our own favicon. See

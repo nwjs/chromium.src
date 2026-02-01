@@ -7,19 +7,25 @@
 
 #import <UIKit/UIKit.h>
 
+#import "base/observer_list.h"
 #import "base/scoped_observation.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #import "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #import "components/optimization_guide/core/hints/optimization_metadata.h"
 #import "components/optimization_guide/proto/contextual_cueing_metadata.pb.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper_observer.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/optimization_guide/mojom/zero_state_suggestions_service.mojom.h"
+#import "ios/web/public/favicon/favicon_url.h"
 #import "ios/web/public/js_image_transcoder/java_script_image_transcoder.h"
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
 
 @protocol BWGCommands;
+@protocol HelpCommands;
 @protocol LocationBarBadgeCommands;
 @protocol SnackbarCommands;
+@class GeminiPageContext;
 
 namespace base {
 class Value;
@@ -33,6 +39,12 @@ class BwgTabHelper : public web::WebStateObserver,
   BwgTabHelper& operator=(const BwgTabHelper&) = delete;
 
   ~BwgTabHelper() override;
+
+  // Generate page Context (including snapshot and APC) and invokes the callback
+  // with the result.
+  void GeneratePageContext(
+      base::OnceCallback<void(PageContextWrapperCallbackResponse)> callback,
+      bool full_page_context = true);
 
   // Executes the zero-state suggestions flow.
   void ExecuteZeroStateSuggestions(
@@ -77,6 +89,9 @@ class BwgTabHelper : public web::WebStateObserver,
   // Set the BWG commands handler, used to show/hide the BWG UI.
   void SetBwgCommandsHandler(id<BWGCommands> handler);
 
+  // Set help commands handler, for showing in-product help UI.
+  void SetHelpCommandsHandler(id<HelpCommands> handler);
+
   // Set the snackbar commands handler for presenting snackbars.
   void SetSnackbarCommandsHandler(id<SnackbarCommands> handler);
 
@@ -93,6 +108,15 @@ class BwgTabHelper : public web::WebStateObserver,
   // criteria.
   bool ShouldPreventContextualPanelEntryPoint();
 
+  // Adds an observer.
+  void AddObserver(GeminiTabHelperObserver* observer);
+
+  // Removes an observer.
+  void RemoveObserver(GeminiTabHelperObserver* observer);
+
+  // Whether the observer exists in the observer list.
+  bool HasObserver(GeminiTabHelperObserver* observer);
+
   // Setter for `prevent_contextual_panel_entry_point_`.
   void SetPreventContextualPanelEntryPoint(bool should_prevent);
 
@@ -105,6 +129,10 @@ class BwgTabHelper : public web::WebStateObserver,
   // Setter for `contextual_cue_label_`.
   void SetContextualCueLabel(NSString* cue_label);
 
+  // Returns the partial PageContext for the current WebState, including URL,
+  // Title, and Favicon.
+  GeminiPageContext* GetPartialPageContext();
+
   // WebStateObserver:
   void WasShown(web::WebState* web_state) override;
   void WasHidden(web::WebState* web_state) override;
@@ -115,6 +143,10 @@ class BwgTabHelper : public web::WebStateObserver,
   void PageLoaded(
       web::WebState* web_state,
       web::PageLoadCompletionStatus load_completion_status) override;
+  void TitleWasSet(web::WebState* web_state) override;
+  void FaviconUrlUpdated(
+      web::WebState* web_state,
+      const std::vector<web::FaviconURL>& candidates) override;
   void WebStateDestroyed(web::WebState* web_state) override;
 
  private:
@@ -124,8 +156,14 @@ class BwgTabHelper : public web::WebStateObserver,
 
   friend class web::WebStateUserData<BwgTabHelper>;
 
+  // The PageContext wrapper used to provide context about a page.
+  __strong PageContextWrapper* page_context_wrapper_ = nil;
+
   // Clears the zero-state suggestions and resets the service.
   void ClearZeroStateSuggestions();
+
+  // Populates the page context fields if the wrapper exists.
+  void PopulatePageContextFields();
 
   // Callback for the OptimizationGuide with the result of whether the
   // zero-state suggestions should be shown for the current URL.
@@ -133,6 +171,14 @@ class BwgTabHelper : public web::WebStateObserver,
       const GURL& url,
       optimization_guide::OptimizationGuideDecision decision,
       const optimization_guide::OptimizationMetadata& metadata);
+
+  // Callback for the OptimizationGuide with the result to the on-demand call.
+  void OnCanApplyZeroStateSuggestionsOnDemandDecision(
+      const GURL& url,
+      const base::flat_map<
+          optimization_guide::proto::OptimizationType,
+          optimization_guide::OptimizationGuideDecisionWithMetadata>&
+          decisions);
 
   // Callback from OptimizationGuide metadata request.
   void OnCanApplyContextualCueingDecision(
@@ -183,6 +229,9 @@ class BwgTabHelper : public web::WebStateObserver,
 
   // Commands handler for BWG commands.
   __weak id<BWGCommands> bwg_commands_handler_ = nullptr;
+
+  // Commands handler for help commands.
+  __weak id<HelpCommands> help_commands_handler_ = nullptr;
 
   // Commands handler for snackbars.
   __weak id<SnackbarCommands> snackbar_commands_handler_ = nullptr;
@@ -238,6 +287,15 @@ class BwgTabHelper : public web::WebStateObserver,
   // Contextual cue label generated for Gemini contextual cue metadata.
   NSString* contextual_cue_label_;
 
+  // List of observers.
+  base::ObserverList<GeminiTabHelperObserver> observers_;
+
+  // Tracking variables for semantic event checks.
+  GURL current_url_;
+  std::u16string current_title_;
+  __strong UIImage* current_favicon_;
+
+  // Weak pointer factory.
   base::WeakPtrFactory<BwgTabHelper> weak_ptr_factory_{this};
 };
 

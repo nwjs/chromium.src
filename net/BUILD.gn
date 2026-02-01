@@ -473,18 +473,32 @@ component("net") {
     "cookies/static_cookie_policy.h",
     "cookies/unique_cookie_key.cc",
     "cookies/unique_cookie_key.h",
+    "device_bound_sessions/challenge_result.h",
+    "device_bound_sessions/cookie_craving_display.cc",
+    "device_bound_sessions/cookie_craving_display.h",
     "device_bound_sessions/deletion_reason.h",
+    "device_bound_sessions/inclusion_result.h",
     "device_bound_sessions/session_access.cc",
     "device_bound_sessions/session_access.h",
+    "device_bound_sessions/session_display.cc",
+    "device_bound_sessions/session_display.h",
+    "device_bound_sessions/session_event.cc",
+    "device_bound_sessions/session_event.h",
+    "device_bound_sessions/session_inclusion_rules_display.cc",
+    "device_bound_sessions/session_inclusion_rules_display.h",
     "device_bound_sessions/session_key.cc",
     "device_bound_sessions/session_key.h",
     "device_bound_sessions/session_params.cc",
     "device_bound_sessions/session_params.h",
     "device_bound_sessions/session_usage.h",
+    "device_bound_sessions/url_rule_display.cc",
+    "device_bound_sessions/url_rule_display.h",
     "disk_cache/backend_cleanup_tracker.cc",
     "disk_cache/backend_cleanup_tracker.h",
     "disk_cache/backend_experiment.cc",
     "disk_cache/backend_experiment.h",
+    "disk_cache/basic_cache_file.cc",
+    "disk_cache/basic_cache_file.h",
     "disk_cache/blockfile/addr.cc",
     "disk_cache/blockfile/addr.h",
     "disk_cache/blockfile/backend_impl.cc",
@@ -523,6 +537,7 @@ component("net") {
     "disk_cache/blockfile/storage_block.h",
     "disk_cache/blockfile/stress_support.h",
     "disk_cache/cache_encryption_delegate.h",
+    "disk_cache/cache_file.h",
     "disk_cache/cache_util.cc",
     "disk_cache/cache_util.h",
     "disk_cache/disk_cache.cc",
@@ -701,6 +716,8 @@ component("net") {
     "http/http_stream_parser.h",
     "http/http_stream_pool.cc",
     "http/http_stream_pool.h",
+    "http/http_stream_pool_attempt.cc",
+    "http/http_stream_pool_attempt.h",
     "http/http_stream_pool_attempt_manager.cc",
     "http/http_stream_pool_attempt_manager.h",
     "http/http_stream_pool_group.cc",
@@ -945,6 +962,7 @@ component("net") {
     "shared_dictionary/shared_dictionary_network_transaction.h",
     "shared_dictionary/shared_dictionary_network_transaction_factory.cc",
     "shared_dictionary/shared_dictionary_network_transaction_factory.h",
+    "shared_dictionary/shared_dictionary_transaction_outcome.h",
     "socket/client_socket_factory.cc",
     "socket/client_socket_factory.h",
     "socket/client_socket_handle.cc",
@@ -1256,10 +1274,13 @@ component("net") {
     sources += [
       "device_bound_sessions/cookie_craving.cc",
       "device_bound_sessions/cookie_craving.h",
+      "device_bound_sessions/dbsc_request.cc",
+      "device_bound_sessions/dbsc_request.h",
       "device_bound_sessions/host_patterns.cc",
       "device_bound_sessions/host_patterns.h",
       "device_bound_sessions/jwk_utils.cc",
       "device_bound_sessions/jwk_utils.h",
+      "device_bound_sessions/refresh_result.h",
       "device_bound_sessions/registration_fetcher.cc",
       "device_bound_sessions/registration_fetcher.h",
       "device_bound_sessions/registration_fetcher_param.cc",
@@ -1394,6 +1415,7 @@ component("net") {
       "cert/test_keychain_search_list_mac.cc",
       "cert/test_keychain_search_list_mac.h",
       "cert/test_root_certs_builtin.cc",
+      "proxy_resolution/mac/mac_proxy_resolution_status.h",
       "proxy_resolution/proxy_config_service_mac.cc",
       "proxy_resolution/proxy_config_service_mac.h",
       "ssl/client_cert_identity_mac.cc",
@@ -2327,6 +2349,10 @@ static_library("test_support") {
     "//third_party/zlib",
   ]
 
+  if (chrome_root_store_supported) {
+    deps += [ "//net/cert:root_store_proto_lite" ]
+  }
+
   allow_circular_includes_from = [ "//net/dns:test_support" ]
 
   # Data dependencies shared with suites other than net_unittests.
@@ -2900,6 +2926,7 @@ target(_test_target_type, "net_unittests") {
     "http/http_stream_key_unittest.cc",
     "http/http_stream_parser_unittest.cc",
     "http/http_stream_pool_attempt_manager_unittest.cc",
+    "http/http_stream_pool_attempt_unittest.cc",
     "http/http_stream_pool_group_unittest.cc",
     "http/http_stream_pool_ip_endpoint_state_tracker_unittest.cc",
     "http/http_stream_request_unittest.cc",
@@ -3750,6 +3777,7 @@ fuzzer_test("net_parse_proxy_list_pac_fuzzer") {
     ":net_fuzzer_test_support",
     "//net",
   ]
+  libfuzzer_options = [ "max_len=131072" ]
 }
 
 fuzzer_test("net_parse_proxy_host_matching_rules_fuzzer") {
@@ -4274,6 +4302,17 @@ fuzzer_test("net_quic_session_pool_fuzzer") {
     "//net",
     "//net/data/ssl/certificates:generate_fuzzer_cert_includes",
   ]
+}
+
+if (is_apple) {
+  fuzzer_test("net_url_conversions_fuzzer") {
+    sources = [ "base/apple/url_conversions_fuzzer.mm" ]
+    deps = [
+      "//base",
+      "//net",
+    ]
+    frameworks = [ "Foundation.framework" ]
+  }
 }
 
 if (is_linux || is_chromeos) {

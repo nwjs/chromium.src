@@ -84,7 +84,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ChildProcess.Launched.UtilityProcessHash"
-    enum="UtilityProcessNameHash" expires_after="2026-05-03">
+    enum="UtilityProcessNameHash" expires_after="2026-07-05">
   <owner>wfh@chromium.org</owner>
   <summary>
     Count of child utility process launches, bucketed by the hash of their
@@ -142,7 +142,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Android.KillSpareRendererAvailability.{KillType}"
-    enum="SpareRendererAvailabilityWhenKilled" expires_after="2026-04-05">
+    enum="SpareRendererAvailabilityWhenKilled" expires_after="2026-06-07">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -202,7 +202,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Android.RendererCrash" enum="Boolean"
-    expires_after="2026-05-03">
+    expires_after="2026-07-05">
   <owner>wnwen@chromium.org</owner>
   <summary>
     Counts renderer crashes including OOMs. Android only. Mirrors old stability
@@ -324,13 +324,27 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.ChildFrameCrash.PageEligibleToDiscard"
-    enum="Boolean" expires_after="2026-05-03">
+    enum="Boolean" expires_after="2026-07-05">
   <owner>kawasin@google.com</owner>
   <owner>boliu@chromium.org</owner>
   <summary>
     Logs whether a page with a crashed subframe is eligible to be discarded at
     DiscardPageWithCrashedSubframePolicy. Logged once per subframe process
     crash.
+  </summary>
+</histogram>
+
+<histogram name="Stability.ChildFrameCrash.PageWillReload" enum="Boolean"
+    expires_after="2026-05-03">
+  <owner>kawasin@google.com</owner>
+  <owner>boliu@chromium.org</owner>
+  <summary>
+    Logs whether a page with a crashed subframe will be marked for reload. The
+    logic is implemented as ReloadHiddenTabsWithCrashedSubframes feature but
+    DiscardPageWithCrashedSubframePolicy logs the result with the same logic.
+    This is a supplementary metrics to understand
+    Stability.ChildFrameCrash.PageEligibleToDiscard metrics better. Logged once
+    per subframe process crash.
   </summary>
 </histogram>
 
@@ -347,7 +361,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.ChildFrameCrash.TabMarkedForReload"
-    enum="BooleanMarkedForReload" expires_after="2026-04-19">
+    enum="BooleanMarkedForReload" expires_after="2026-06-21">
   <owner>alexmos@chromium.org</owner>
   <owner>boliu@chromium.org</owner>
   <summary>
@@ -357,7 +371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.ChildFrameCrash.TabMarkedForReload.Visibility"
-    enum="FrameVisibility" expires_after="2026-04-19">
+    enum="FrameVisibility" expires_after="2026-06-21">
   <owner>alexmos@chromium.org</owner>
   <owner>boliu@chromium.org</owner>
   <summary>
@@ -368,7 +382,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.ChildFrameCrash.Visibility" enum="CrashVisibility"
-    expires_after="2026-05-03">
+    expires_after="2026-07-05">
   <owner>alexmos@chromium.org</owner>
   <owner>boliu@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -481,25 +495,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Stability.IOS.Experimental.Counts2"
-    enum="IOSStabilityUserVisibleTerminationType" expires_after="2026-02-12">
-  <owner>justincohen@chromium.org</owner>
-  <owner>olivierrobin@chromium.org</owner>
-  <summary>
-    Recorded when iOS app has started after a crash caused by system signal or
-    hang. Not recorded when app has started after UTE / XTE or started after
-    Chrome update. See go/bling-stability-101 for information about signal
-    crashes, hangs, UTEs and XTEs. This metric intends to complement
-    Stability.Counts. Stability.Counts does include UTEs / XTEs and thus is a
-    noisy metric which significantly overcounts user-visible crashes.
-    Stability.IOS.Experimental.Counts2 is not recorded on OOM crashes, so it
-    does not represent all user-visible crashes, but OOMs are so rare in Chrome
-    for iOS that Stability.IOS.Experimental.Counts2 is still a good proxy for
-    user-visible crashes. IOS.MetricKit.ForegroundExitData includes OOM crashes
-    (iOS 14 and higher) and can be used in conjunction with this metric.
-  </summary>
-</histogram>
-
 <histogram name="Stability.IOS.PostCrashAction" enum="IOSPostCrashAction"
     expires_after="2026-12-14">
   <owner>justincohen@chromium.org</owner>
@@ -554,7 +549,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.iOS.UTE.HasPossibleExplanation"
-    enum="BooleanHasPossibleExplanation" expires_after="2025-11-30">
+    enum="BooleanHasPossibleExplanation" expires_after="2026-11-30">
   <owner>michaeldo@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -635,7 +630,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Media.{ProcessType}.Crash.ExitCode"
-    enum="WindowsExitCode" expires_after="2026-05-24">
+    enum="WindowsExitCode" expires_after="2026-12-09">
   <owner>sangbaekpark@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -646,7 +641,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Media.{ProcessType}.Launch" enum="Boolean"
-    expires_after="2026-05-24">
+    expires_after="2026-12-09">
   <owner>sangbaekpark@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -656,7 +651,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Media.{ProcessType}.Launch.LaunchErrorCode"
-    enum="LaunchErrorCodes" expires_after="2026-05-24">
+    enum="LaunchErrorCodes" expires_after="2026-12-09">
   <owner>sangbaekpark@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -667,7 +662,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Media.{ProcessType}.Launch.WinLastError"
-    enum="WinGetLastError" expires_after="2026-05-24">
+    enum="WinGetLastError" expires_after="2026-12-09">
   <owner>sangbaekpark@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -679,7 +674,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.MobileSessionShutdownType"
-    enum="MobileSessionShutdownType" expires_after="2026-04-12">
+    enum="MobileSessionShutdownType" expires_after="2026-06-14">
   <owner>michaeldo@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -696,7 +691,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.MobileSessionShutdownType2"
-    enum="MobileSessionShutdownType" expires_after="2026-05-03">
+    enum="MobileSessionShutdownType" expires_after="2026-07-05">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>

@@ -33,7 +33,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/HistoricalTabSaverImpl_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -43,7 +42,7 @@ namespace {
 
 std::vector<WebContentsStateByteBuffer> AllTabsWebContentsStateByteBuffer(
     JNIEnv* env,
-    const JavaParamRef<jobjectArray>& jbyte_buffers,
+    const JavaRef<jobjectArray>& jbyte_buffers,
     std::vector<int> saved_state_versions) {
   int jbyte_buffers_count = env->GetArrayLength(jbyte_buffers.obj());
   std::vector<WebContentsStateByteBuffer> web_contents_states;
@@ -89,6 +88,7 @@ std::vector<std::optional<base::Uuid>> StringsToUuids(
 
 void CreateHistoricalTab(
     TabAndroid* tab_android,
+    int index,
     WebContentsStateByteBuffer web_contents_state_byte_buffer) {
   if (!tab_android) {
     return;
@@ -111,10 +111,10 @@ void CreateHistoricalTab(
   // group data for single tabs when not closing an entire group to align with
   // desktop. Right now any individual tab closure is treated as not being in a
   // group.
-  // Index is unimportant on Android.
-  service->CreateHistoricalTab(sessions::ContentLiveTab::GetForWebContents(
-                                   scoped_web_contents->web_contents()),
-                               /*index=*/-1);
+  service->CreateHistoricalTab(
+      sessions::ContentLiveTab::GetOrCreateForWebContents(
+          scoped_web_contents->web_contents()),
+      index);
 }
 
 void CreateHistoricalGroup(
@@ -278,24 +278,26 @@ std::unique_ptr<ScopedWebContents> ScopedWebContents::CreateForTab(
 
 static void JNI_HistoricalTabSaverImpl_CreateHistoricalTab(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jtab_android,
-    const JavaParamRef<jobject>& state,
+    const JavaRef<jobject>& jtab_android,
+    jint index,
+    const JavaRef<jobject>& state,
     jint saved_state_version) {
-  WebContentsStateByteBuffer web_contents_state = WebContentsStateByteBuffer(
-      ScopedJavaLocalRef<jobject>(state), (int)saved_state_version);
+  WebContentsStateByteBuffer web_contents_state =
+      WebContentsStateByteBuffer(ScopedJavaLocalRef<jobject>(state),
+                                 static_cast<int>(saved_state_version));
   CreateHistoricalTab(TabAndroid::GetNativeTab(env, jtab_android),
-                      std::move(web_contents_state));
+                      static_cast<int>(index), std::move(web_contents_state));
 }
 
 static void JNI_HistoricalTabSaverImpl_CreateHistoricalGroup(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jtab_model,
+    const JavaRef<jobject>& jtab_model,
     base::Token& tab_group_id_token,
     std::u16string& serialized_saved_tab_group_id,
     std::u16string& title,
     jint jcolor,
     std::vector<TabAndroid*>& tabs_android,
-    const JavaParamRef<jobjectArray>& jbyte_buffers,
+    const JavaRef<jobjectArray>& jbyte_buffers,
     std::vector<int32_t>& saved_state_versions) {
   tab_groups::TabGroupId tab_group_id =
       tab_groups::TabGroupId::FromRawToken(tab_group_id_token);
@@ -316,7 +318,7 @@ static void JNI_HistoricalTabSaverImpl_CreateHistoricalGroup(
 
 static void JNI_HistoricalTabSaverImpl_CreateHistoricalBulkClosure(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jtab_model,
+    const JavaRef<jobject>& jtab_model,
     std::vector<std::optional<base::Token>>& tab_group_token_ids,
     std::vector<std::u16string>& serialized_saved_tab_group_ids,
     std::vector<std::u16string>& group_titles,
@@ -324,7 +326,7 @@ static void JNI_HistoricalTabSaverImpl_CreateHistoricalBulkClosure(
     std::vector<std::optional<base::Token>>&
         per_tab_optional_tab_group_token_ids,
     std::vector<TabAndroid*>& tabs,
-    const JavaParamRef<jobjectArray>& jbyte_buffers,
+    const JavaRef<jobjectArray>& jbyte_buffers,
     std::vector<int32_t>& saved_state_versions) {
   std::vector<std::optional<tab_groups::TabGroupId>> tab_group_ids =
       TokensToTabGroupIds(tab_group_token_ids);

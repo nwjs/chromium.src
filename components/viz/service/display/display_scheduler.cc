@@ -11,7 +11,6 @@
 #include "base/auto_reset.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
 #include "base/task/delay_policy.h"
 #include "base/task/single_thread_task_runner.h"
@@ -37,8 +36,7 @@ base::TimeDelta ComputeAdpfTarget(const BeginFrameArgs& args) {
 
 bool AdpfCanUseSetThreads() {
 #if BUILDFLAG(IS_ANDROID)
-  return android_get_device_api_level() >= __ANDROID_API_U__ &&
-         base::FeatureList::IsEnabled(features::kEnableADPFSetThreads);
+  return android_get_device_api_level() >= __ANDROID_API_U__;
 #else
   return false;
 #endif
@@ -251,9 +249,6 @@ void DisplayScheduler::ReportFrameTime(
     HintSession::BoostType boost_type) {
   MaybeCreateHintSessions(std::move(animation_thread_ids),
                           std::move(renderer_main_thread_ids));
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("Compositing.Display.AdpfHintUs",
-                                          frame_time, base::Microseconds(1),
-                                          base::Milliseconds(50), 50);
   for (const auto& state : session_states_) {
     if (state.hint_session) {
       state.hint_session->ReportCpuCompletionTime(frame_time, draw_start,

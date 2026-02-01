@@ -6,7 +6,7 @@
 
 #import "base/strings/string_util.h"
 #import "base/strings/sys_string_conversions.h"
-#import "ios/chrome/browser/intelligence/bwg/metrics/bwg_metrics.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/bwg_consent_mutator.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/bwg_ui_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
@@ -520,13 +520,13 @@ const CGFloat kSpacingPrimarySecondaryButtonsIOS18 = 0;
 // Did tap the primary button.
 - (void)didTapPrimaryButton:(UIButton*)sender {
   RecordFREConsentAction(IOSGeminiFREAction::kAccept);
-  [self.mutator didConsentBWG];
+  [self.mutator didConsentGemini];
 }
 
 // Did tap the secondary button.
 - (void)didTapSecondaryButton:(UIButton*)sender {
   RecordFREConsentAction(IOSGeminiFREAction::kDismiss);
-  [self.mutator didRefuseBWGConsent];
+  [self.mutator didRefuseGeminiConsent];
 }
 
 #pragma mark - UITextViewDelegate

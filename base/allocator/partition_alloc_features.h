@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef BASE_ALLOCATOR_PARTITION_ALLOC_FEATURES_H_
 #define BASE_ALLOCATOR_PARTITION_ALLOC_FEATURES_H_
 
@@ -86,6 +81,9 @@ using PartitionAllocWithAdvancedChecksEnabledProcesses =
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocLargeThreadCacheSize);
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocLargeEmptySlotSpanRing);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kPartitionAllocLargeEmptySlotSpanRingSize);
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocWithAdvancedChecks);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
@@ -201,6 +199,12 @@ BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
 // When set, partitions use a larger ring buffer and free memory less
 // aggressively when in the foreground.
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocAdjustSizeWhenInForeground);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kPartitionAllocForegroundEmptySlotSpanRingSize);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kPartitionAllocBackgroundEmptySlotSpanRingSize);
 
 // When enabled, uses a more nuanced heuristic to determine if slot
 // spans can be treated as "single-slot."
@@ -215,6 +219,11 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUsePriorityInheritanceLocks);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocFreeWithSize);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
                                        kPartitionAllocStrictFreeSizeCheck);
+
+#if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
+BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocLockTuneSpin);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kPartitionAllocLockSpinCount);
+#endif  // BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
 
 }  // namespace base::features
 

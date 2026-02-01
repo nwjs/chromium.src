@@ -66,6 +66,7 @@
 #include "chrome/browser/ui/views/new_tab_footer/footer_controller.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.h"
+#include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/ui/webui/webui_util_desktop.h"
@@ -101,6 +102,7 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/actions/actions.h"
+#include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
 #include "ui/color/color_provider.h"
@@ -154,7 +156,7 @@ bool ShouldForceDarkForegroundColorsForLogo(const ThemeService* theme_service) {
       });
 
   const std::string& extension_id = theme_supplier->extension_id();
-  return base::Contains(kPrideThemeExtensionIdsDarkForeground, extension_id);
+  return kPrideThemeExtensionIdsDarkForeground.contains(extension_id);
 }
 
 new_tab_page::mojom::ThemePtr MakeTheme(
@@ -174,6 +176,11 @@ new_tab_page::mojom::ThemePtr MakeTheme(
           : std::nullopt;
   theme->background_color = color_provider.GetColor(kColorNewTabPageBackground);
   theme->is_baseline = theme_service->GetIsBaseline();
+  // Theme is GM3 if there is a GM3 color set or the theme is baseline and no
+  // CWS theme is set.
+  theme->is_gm3 =
+      (theme_service->GetUserColor().has_value() || theme->is_baseline) &&
+      !theme_service->UsingExtensionTheme();
   const bool theme_has_custom_image =
       theme_provider->HasCustomImage(IDR_THEME_NTP_BACKGROUND);
   SkColor text_color;
@@ -455,14 +462,6 @@ const char NewTabPageHandler::kModuleDismissedHistogram[] =
     "NewTabPage.Modules.Dismissed";
 const char NewTabPageHandler::kModuleRestoredHistogram[] =
     "NewTabPage.Modules.Restored";
-const char NewTabPageHandler::kModuleAutoRemovalHistogram[] =
-    "NewTabPage.Modules.AutoRemoval";
-const char NewTabPageHandler::kModuleAutoRemovalUndoneHistogram[] =
-    "NewTabPage.Modules.AutoRemovalUndone";
-const char NewTabPageHandler::kModuleAutoRemovalModuleIdHistogram[] =
-    "NewTabPage.Modules.AutoRemovalModuleId";
-const char NewTabPageHandler::kModuleAutoRemovalUndoneModuleIdHistogram[] =
-    "NewTabPage.Modules.AutoRemovalUndoneModuleId";
 
 NewTabPageHandler::NewTabPageHandler(
     mojo::PendingReceiver<new_tab_page::mojom::PageHandler>
@@ -563,6 +562,17 @@ NewTabPageHandler::NewTabPageHandler(
       prefs::kNtpToolChipsVisible,
       base::BindRepeating(&NewTabPageHandler::UpdateActionChipsVisibility,
                           base::Unretained(this)));
+
+  if (base::FeatureList::IsEnabled(
+          feature_engagement::kIPHDesktopRealboxContextualSearchFeature)) {
+    searchbox_shown_subscription_ =
+        ui::ElementTracker::GetElementTracker()
+            ->AddElementShownInAnyContextCallback(
+                NewTabPageUI::kRealboxContextualEntrypointElementId,
+                base::BindRepeating(
+                    &NewTabPageHandler::TryShowRealboxContextualMenuIPH,
+                    weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
@@ -671,52 +681,36 @@ void NewTabPageHandler::SetModulesVisible(bool visible) {
   profile_->GetPrefs()->SetBoolean(prefs::kNtpModulesVisible, visible);
 }
 
-void NewTabPageHandler::SetModuleDisabled(const std::string& module_id,
-                                          bool disabled) {
-  ScopedListPrefUpdate update(profile_->GetPrefs(), prefs::kNtpDisabledModules);
-  base::Value::List& list = update.Get();
-  base::Value module_id_value(module_id);
-  if (disabled) {
-    if (!base::Contains(list, module_id_value)) {
-      list.Append(std::move(module_id_value));
-    }
-  } else {
-    list.EraseValue(module_id_value);
-  }
-
-  RecordModuleInteraction(module_id);
-  MaybeLaunchInteractionSurvey(kDisableInteraction, module_id);
-}
-
 void NewTabPageHandler::SetModulesDisabled(
     const std::vector<std::string>& module_ids,
-    bool disabled) {
+    bool disabled,
+    bool is_user_action) {
   if (module_ids.empty()) {
     return;
   }
 
   ScopedListPrefUpdate update(profile_->GetPrefs(), prefs::kNtpDisabledModules);
   base::Value::List& list = update.Get();
-  // Histogram for the total number of times auto removal/undo is triggered.
-  base::UmaHistogramExactLinear(disabled ? kModuleAutoRemovalHistogram
-                                         : kModuleAutoRemovalUndoneHistogram,
-                                1, 1);
-  // Sparse Histogram for the number of times auto removal/undo is triggered
-  // for each module.
-  const std::string sparse_histogram =
-      disabled ? kModuleAutoRemovalModuleIdHistogram
-               : kModuleAutoRemovalUndoneModuleIdHistogram;
   for (const auto& module_id : module_ids) {
-    base::Value module_id_value(module_id);
     if (disabled) {
-      if (!base::Contains(list, module_id_value)) {
-        list.Append(std::move(module_id_value));
-        DisableModuleAutoRemoval(profile_, module_id);
+      if (!list.contains(module_id)) {
+        list.Append(module_id);
       }
     } else {
-      list.EraseValue(module_id_value);
+      list.EraseValue(base::Value(module_id));
     }
-    base::UmaHistogramSparse(sparse_histogram, base::PersistentHash(module_id));
+  }
+
+  DisableModuleListAutoRemoval(profile_, module_ids);
+
+  // We're not recording a user interaction if the modules were disabled due to
+  // feature optimization auto removal.
+  if (is_user_action) {
+    for (const auto& module_id : module_ids) {
+      IncrementDictPrefKeyCount(prefs::kNtpModulesInteractedCountDict,
+                                module_id);
+      MaybeLaunchInteractionSurvey(kDisableInteraction, module_id);
+    }
   }
 }
 
@@ -1434,13 +1428,12 @@ void NewTabPageHandler::SetModuleHidden(const std::string& module_id,
                                         bool hidden) {
   ScopedListPrefUpdate update(profile_->GetPrefs(), prefs::kNtpHiddenModules);
   base::Value::List& list = update.Get();
-  base::Value module_id_value(module_id);
   if (hidden) {
-    if (!base::Contains(list, module_id_value)) {
-      list.Append(std::move(module_id_value));
+    if (!list.contains(module_id)) {
+      list.Append(module_id);
     }
   } else {
-    list.EraseValue(module_id_value);
+    list.EraseValue(base::Value(module_id));
   }
 }
 
@@ -1477,6 +1470,32 @@ bool NewTabPageHandler::SyncMicrosoftModulesWithAuth() {
   }
 
   return state != MicrosoftAuthService::AuthState::kNone;
+}
+
+void NewTabPageHandler::TryShowRealboxContextualMenuIPH(
+    ui::TrackedElement* element) {
+  if (!element) {
+    return;
+  }
+
+  // TODO(crbug.com/378475391): NTP should always load into a WebContents.
+  auto* browser = webui::GetBrowserWindowInterface(web_contents_);
+  if (!browser) {
+    return;
+  }
+
+  // If a sign-in dialog is being currently displayed, the promo should not be
+  // shown to avoid conflict. The sign-in dialog would be shown as soon as the
+  // browser is opened, before the promo.
+  bool is_signin_modal_dialog_open =
+      feature_promo_helper_->IsSigninModalDialogOpen(web_contents_.get());
+  if (is_signin_modal_dialog_open) {
+    return;
+  }
+
+  feature_promo_helper_->MaybeShowFeaturePromo(
+      feature_engagement::kIPHDesktopRealboxContextualSearchFeature,
+      web_contents_.get());
 }
 
 void NewTabPageHandler::ConnectToParentDocument(

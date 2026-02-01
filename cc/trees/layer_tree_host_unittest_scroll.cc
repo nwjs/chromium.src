@@ -75,7 +75,13 @@ ScrollState UpdateState(const gfx::Point& point, const gfx::Vector2dF& delta) {
 
 class LayerTreeHostScrollTest : public LayerTreeTest, public ScrollCallbacks {
  protected:
-  LayerTreeHostScrollTest() { SetUseLayerLists(); }
+  LayerTreeHostScrollTest() {
+    // This test has precise frame-by-frame assertions that are not playing well
+    // with throttling, as the simulated framerate is 200Hz (see
+    // LayertTreeTest::RequestNewLayerTreeFrameSink()), thus throttled.
+    feature_list_.InitAndDisableFeature(features::kThrottleMainFrameTo60Hz);
+    SetUseLayerLists();
+  }
 
   void SetupTree() override {
     LayerTreeTest::SetupTree();
@@ -124,6 +130,7 @@ class LayerTreeHostScrollTest : public LayerTreeTest, public ScrollCallbacks {
   int num_outer_viewport_scrolls_ = 0;
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   base::WeakPtrFactory<LayerTreeHostScrollTest> weak_ptr_factory_{this};
 };
 
@@ -2352,7 +2359,7 @@ class LayerTreeHostScrollTestElasticOverscroll
 
   void InitializeSettings(LayerTreeSettings* settings) override {
     LayerTreeHostScrollTest::InitializeSettings(settings);
-    settings->enable_elastic_overscroll = true;
+    settings->enable_elastic_overscroll_on_root = true;
   }
 
   void BeginTest() override {
@@ -2535,7 +2542,7 @@ class LayerTreeHostScrollTestSnapAfterElasticOverscroll
 
   void InitializeSettings(LayerTreeSettings* settings) override {
     LayerTreeHostScrollTest::InitializeSettings(settings);
-    settings->enable_elastic_overscroll = true;
+    settings->enable_elastic_overscroll_on_root = true;
   }
 
   void SetupTree() override {
@@ -2607,24 +2614,27 @@ class LayerTreeHostScrollTestSnapAfterElasticOverscroll
         EXPECT_POINTF_EQ(initial_scroll_, CurrentScrollOffset(scroll_layer));
         scroll_elasticity_helper_->SetStretchAmount(inner_viewport_element_id,
                                                     gfx::Vector2dF(0, -30));
+
         DoGestureScroll(host_impl, impl_thread_scroll_, scroller_element_id_);
         EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(scroll_layer));
         break;
       case 2:
         scroll_elasticity_helper_->SetStretchAmount(inner_viewport_element_id,
                                                     gfx::Vector2dF(0, -20));
+        EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(scroll_layer));
         break;
       case 3:
         scroll_elasticity_helper_->SetStretchAmount(inner_viewport_element_id,
                                                     gfx::Vector2dF(0, -10));
-        EXPECT_NE(0, CurrentScrollOffset(scroll_layer).y());
+        EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(scroll_layer));
         break;
       case 4:
         scroll_elasticity_helper_->SetStretchAmount(inner_viewport_element_id,
                                                     gfx::Vector2dF(0, 0));
-        EXPECT_NE(0, CurrentScrollOffset(scroll_layer).y());
+        EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(scroll_layer));
         scroll_elasticity_helper_->AnimationFinished(inner_viewport_element_id);
         break;
+
       default:
         break;
     }
@@ -2675,7 +2685,8 @@ class LayerTreeHostScrollTestSnapWhileOtherScrollerOverscrolls
 
   void InitializeSettings(LayerTreeSettings* settings) override {
     LayerTreeHostScrollTest::InitializeSettings(settings);
-    settings->enable_elastic_overscroll = true;
+    settings->enable_elastic_overscroll_on_root = true;
+    settings->enable_elastic_overscroll_for_subscroll = true;
   }
 
   void SetupTree() override {

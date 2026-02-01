@@ -7,6 +7,7 @@ package org.chromium.components.browser_ui.site_settings;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
 
+import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.VisibleForTesting;
@@ -14,13 +15,17 @@ import androidx.preference.Preference;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
 import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
+import org.chromium.components.browser_ui.settings.search.PreferenceParser;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory.Type;
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.CookieControlsMode;
@@ -48,7 +53,8 @@ public class SiteSettings extends BaseSiteSettingsFragment
     public static final String PERMISSION_AUTOREVOCATION_HISTOGRAM_NAME =
             "Settings.SafetyHub.AutorevokeUnusedSitePermissions.Changed";
 
-    private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
+    private final SettableObservableSupplier<String> mPageTitle =
+            ObservableSuppliers.createMonotonic();
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
@@ -80,13 +86,6 @@ public class SiteSettings extends BaseSiteSettingsFragment
             if (divider != null) {
                 getPreferenceScreen().removePreference(divider);
             }
-        }
-
-        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUi()) {
-            Preference thirdPartyCookiesPref = findPreference(Type.THIRD_PARTY_COOKIES);
-            thirdPartyCookiesPref.setVisible(false);
-            Preference trackingProtectionPref = findPreference(Type.TRACKING_PROTECTION);
-            trackingProtectionPref.setVisible(true);
         }
 
         // Remove unsupported settings categories.
@@ -213,23 +212,13 @@ public class SiteSettings extends BaseSiteSettingsFragment
         if (p != null) p.setOnPreferenceClickListener(this);
         p = findPreference(Type.ZOOM);
         if (p != null) p.setOnPreferenceClickListener(this);
-        // Handle Tracking Protection separately.
-        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUi()) {
-            p = findPreference(Type.TRACKING_PROTECTION);
-            if (p != null) {
-                p.setSummary(
-                        ContentSettingsResources.getTrackingProtectionListSummary(
-                                getSiteSettingsDelegate()
-                                        .isBlockAll3pcEnabledInTrackingProtection()));
-            }
-        }
 
         // For the permission autorevocation switch.
-        ChromeSwitchPreference switch_pref =
+        ChromeSwitchPreference switchPref =
                 (ChromeSwitchPreference) findPreference(PERMISSION_AUTOREVOCATION_PREF);
-        if (switch_pref != null) {
-            switch_pref.setChecked(getSiteSettingsDelegate().isPermissionAutorevocationEnabled());
-            switch_pref.setOnPreferenceChangeListener(
+        if (switchPref != null) {
+            switchPref.setChecked(getSiteSettingsDelegate().isPermissionAutorevocationEnabled());
+            switchPref.setOnPreferenceChangeListener(
                     (preference, newValue) -> {
                         boolean boolValue = (boolean) newValue;
                         getSiteSettingsDelegate().setPermissionAutorevocationEnabled(boolValue);
@@ -269,5 +258,36 @@ public class SiteSettings extends BaseSiteSettingsFragment
     @Override
     public @Nullable String getMainMenuKey() {
         return "content_settings";
+    }
+
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(
+                    SiteSettings.class.getName(), R.xml.site_settings_preferences);
+
+    /**
+     * Update dynamic preferences with an object of the interface {@link SiteSettingsDelegate}.
+     *
+     * <p>The implementation of the interface has dependencies outside //components, therefore
+     * cannot be instantiated in BaseSearchIndexProvider#updateDynamicPreferences. This is handled
+     * as an exception.
+     */
+    public static void updateDynamicPreferences(
+            Context context, SiteSettingsDelegate delegate, SettingsIndexData indexData) {
+        String prefFragment = SiteSettings.class.getName();
+
+        // Always remove the divider as the search is based on containment style.
+        indexData.removeEntry(PreferenceParser.createUniqueId(prefFragment, "divider"));
+
+        for (@Type int prefCategory = 0; prefCategory < Type.NUM_ENTRIES; prefCategory++) {
+            if (SiteSettingsCategory.contentSettingsType(prefCategory) < 0) continue;
+
+            String key = SiteSettingsCategory.preferenceKey(prefCategory);
+            if (!delegate.isCategoryVisible(prefCategory)) {
+                indexData.removeEntry(PreferenceParser.createUniqueId(prefFragment, key));
+                continue;
+            }
+            int titleId = ContentSettingsResources.getTitleForCategory(prefCategory);
+            indexData.updateEntryForKey(prefFragment, key, titleId);
+        }
     }
 }

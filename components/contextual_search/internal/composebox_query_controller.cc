@@ -390,7 +390,9 @@ void ComposeboxQueryController::CreateSearchUrl(
         if (search_url_request_info->lens_overlay_selection_type.has_value()) {
           auto interaction_request_id = request_id_generator_.GetNextRequestId(
               lens::RequestIdUpdateMode::kInteractionRequest,
-              last_active_file->request_id.media_type(),
+              search_url_request_info->image_crop.has_value()
+                  ? lens::LensOverlayRequestId::MEDIA_TYPE_DEFAULT_IMAGE
+                  : last_active_file->request_id.media_type(),
               std::make_optional<int64_t>(last_active_file->GetContextId()));
           SendInteractionRequest(
               std::move(interaction_request_id),
@@ -409,7 +411,9 @@ void ComposeboxQueryController::CreateSearchUrl(
           lens::LensOverlayRequestId* request_id_for_vsrid;
           search_url_request_id = request_id_generator_.GetNextRequestId(
               lens::RequestIdUpdateMode::kSearchUrl,
-              last_active_file->request_id.media_type());
+              search_url_request_info->image_crop.has_value()
+                  ? lens::LensOverlayRequestId::MEDIA_TYPE_DEFAULT_IMAGE
+                  : last_active_file->request_id.media_type());
           request_id_for_vsrid = search_url_request_id.get();
           std::string serialized_request_id;
           CHECK(
@@ -506,6 +510,7 @@ void ComposeboxQueryController::CreateSearchUrl(
       template_url_service_, search_url_request_info->aim_entry_point,
       search_url_request_info->query_start_time,
       base::UTF8ToUTF16(search_url_request_info->query_text),
+      search_url_request_info->invocation_source,
       std::move(search_url_request_info->additional_params)));
 }
 
@@ -529,6 +534,13 @@ lens::ClientToAimMessage ComposeboxQueryController::CreateClientToAimRequest(
        create_client_to_aim_request_info->additional_cgi_params) {
     (*submit_query->mutable_payload()
           ->mutable_additional_cgi_params())[param.first] = param.second;
+  }
+
+  // Add context turn metadata.
+  for (const auto& context_turn_metadata :
+       create_client_to_aim_request_info->context_turn_metadata) {
+    (*submit_query->mutable_payload()->add_context_turn_metadata()) =
+        context_turn_metadata;
   }
 
   // Add the request id data for each file token.
@@ -1241,6 +1253,8 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
     return;
   }
 
+  bool has_lens_usage_intent = contextual_input_data->has_lens_usage_intent;
+
   // If there is a viewport screenshot, create the viewport upload request body.
   // TODO(crbug.com/442685171): Pass the pdf page number to the viewport
   // upload request if available.
@@ -1257,9 +1271,14 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
                 AddPageIndexToImageUploadRequestAndContinue,
             weak_ptr_factory_.GetWeakPtr(),
             std::move(contextual_input_data->pdf_current_page),
-            base::BindOnce(&ComposeboxQueryController::OnUploadRequestBodyReady,
-                           weak_ptr_factory_.GetWeakPtr(), file_token,
-                           file_info->num_outstanding_network_requests_++)));
+            base::BindOnce(
+                &ComposeboxQueryController::
+                    AddLensUsageIntentToUploadRequestAndContinue,
+                weak_ptr_factory_.GetWeakPtr(), has_lens_usage_intent,
+                base::BindOnce(
+                    &ComposeboxQueryController::OnUploadRequestBodyReady,
+                    weak_ptr_factory_.GetWeakPtr(), file_token,
+                    file_info->num_outstanding_network_requests_++))));
   } else if (enable_viewport_images_ &&
              contextual_input_data->viewport_screenshot.has_value()) {
     CHECK(image_options.has_value());
@@ -1270,9 +1289,14 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
                 AddPageIndexToImageUploadRequestAndContinue,
             weak_ptr_factory_.GetWeakPtr(),
             std::move(contextual_input_data->pdf_current_page),
-            base::BindOnce(&ComposeboxQueryController::OnUploadRequestBodyReady,
-                           weak_ptr_factory_.GetWeakPtr(), file_token,
-                           file_info->num_outstanding_network_requests_++)),
+            base::BindOnce(
+                &ComposeboxQueryController::
+                    AddLensUsageIntentToUploadRequestAndContinue,
+                weak_ptr_factory_.GetWeakPtr(), has_lens_usage_intent,
+                base::BindOnce(
+                    &ComposeboxQueryController::OnUploadRequestBodyReady,
+                    weak_ptr_factory_.GetWeakPtr(), file_token,
+                    file_info->num_outstanding_network_requests_++))),
         // Pass ownership of the viewport screenshot to the
         // callback.
         std::move(*contextual_input_data->viewport_screenshot));
@@ -1301,9 +1325,13 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
               file_info->request_id, CreateClientContext(),
 
               base::BindOnce(
-                  &ComposeboxQueryController::OnUploadRequestBodyReady,
-                  weak_ptr_factory_.GetWeakPtr(), file_token,
-                  file_info->num_outstanding_network_requests_++)));
+                  &ComposeboxQueryController::
+                      AddLensUsageIntentToUploadRequestAndContinue,
+                  weak_ptr_factory_.GetWeakPtr(), has_lens_usage_intent,
+                  base::BindOnce(
+                      &ComposeboxQueryController::OnUploadRequestBodyReady,
+                      weak_ptr_factory_.GetWeakPtr(), file_token,
+                      file_info->num_outstanding_network_requests_++))));
       break;
     case lens::MimeType::kImage:
       CHECK(contextual_input_data->context_input.has_value() &&
@@ -1314,9 +1342,14 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
           // Pass ownership of the contextual input data to the callback.
           std::move(contextual_input_data->context_input->front().bytes_),
           std::move(image_options),
-          base::BindOnce(&ComposeboxQueryController::OnUploadRequestBodyReady,
-                         weak_ptr_factory_.GetWeakPtr(), file_token,
-                         file_info->num_outstanding_network_requests_++));
+          base::BindOnce(
+              &ComposeboxQueryController::
+                  AddLensUsageIntentToUploadRequestAndContinue,
+              weak_ptr_factory_.GetWeakPtr(), has_lens_usage_intent,
+              base::BindOnce(
+                  &ComposeboxQueryController::OnUploadRequestBodyReady,
+                  weak_ptr_factory_.GetWeakPtr(), file_token,
+                  file_info->num_outstanding_network_requests_++)));
       break;
     default:
       UpdateFileUploadStatus(
@@ -1325,6 +1358,18 @@ void ComposeboxQueryController::CreateUploadRequestBodiesAndContinue(
           contextual_search::FileUploadErrorType::kBrowserProcessingError);
       break;
   }
+}
+
+void ComposeboxQueryController::AddLensUsageIntentToUploadRequestAndContinue(
+    bool has_lens_usage_intent,
+    RequestBodyProtoCreatedCallback callback,
+    lens::LensOverlayServerRequest request,
+    std::optional<contextual_search::FileUploadErrorType> error_type) {
+  if (!error_type.has_value()) {
+    request.set_has_lens_intent(has_lens_usage_intent);
+  }
+
+  std::move(callback).Run(std::move(request), error_type);
 }
 
 void ComposeboxQueryController::AddPageIndexToImageUploadRequestAndContinue(
@@ -1738,11 +1783,13 @@ ComposeboxQueryController::ConstructVisualSearchInteractionData(
       media_type == lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE ||
       media_type == lens::LensOverlayRequestId::MEDIA_TYPE_PDF_AND_IMAGE;
 
-  // If there was an interaction request, then set the interaction data from
-  // the request.
+  // If there was an interaction request which has not been used to create a
+  // vsint yet, then set the interaction data from the request.
   if (latest_interaction_request_data_ &&
+      !latest_interaction_request_data_->interaction_details_used_in_vsint_ &&
       latest_interaction_request_data_->request_ &&
       latest_interaction_request_data_->request_->has_interaction_request()) {
+    latest_interaction_request_data_->interaction_details_used_in_vsint_ = true;
     auto sent_interaction_request =
         latest_interaction_request_data_->request_->interaction_request();
     interaction_data.set_interaction_type(

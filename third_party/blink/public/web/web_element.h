@@ -35,9 +35,10 @@
 
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/web/web_node.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "v8/include/v8-forward.h"
+
+class SkBitmap;
 
 namespace gfx {
 class Rect;
@@ -54,7 +55,9 @@ class WebLabelElement;
 // Provides access to some properties of a DOM element node.
 class BLINK_EXPORT WebElement : public WebNode {
  public:
-  WebElement() : WebNode() {}
+  explicit WebElement(
+      cppgc::SourceLocation loc = BLINK_WEB_NODE_LOCATION_FROM_HERE)
+      : WebNode(loc) {}
   WebElement(const WebElement& e) = default;
 
   // Returns the empty WebElement if the argument doesn't represent an Element.

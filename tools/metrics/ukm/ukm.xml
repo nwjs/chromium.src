@@ -261,8 +261,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Accessibility.CanvasHasNonTrivialFallback">
-  <owner>aleventhal@chromium.org</owner>
-  <owner>aleventhal@google.com</owner>
+  <owner>lucasradaelli@google.com</owner>
   <summary>
     Recorded once for any page that had a canvas element with non-trivial
     fallback content beyond plain text. Only recorded if a11y is turned on (~10%
@@ -484,7 +483,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Accessibility.Renderer">
-  <owner>aleventhal@chromium.org</owner>
+  <owner>lucasradaelli@google.com</owner>
   <owner>nektar@chromium.org</owner>
   <summary>
     Tracks the amount of time sending accessibility events from web renderers.
@@ -2389,6 +2388,105 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Autofill.AiAmountExtraction.ApcFetchResult" singular="true">
+  <owner>jamessun@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Records whether the Annotated Page Content (APC) fetch was successful. APC
+    fetching is triggered at the start of the AI-based amount extraction process
+    to generate the structured page data that will subsequently be analyzed by
+    the model to retrieve the checkout amount. Recorded once per page load when
+    the APC fetch attempt completes.
+  </summary>
+  <metric name="ApcFetchResult" enum="BooleanSuccess">
+    <summary>
+      The result of the APC fetch.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Autofill.AiAmountExtraction.Result" singular="true">
+  <owner>jamessun@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Records the final result of the AI-based checkout amount extraction process.
+    Recorded once per page load, either when the model execution completes
+    (successfully, with failure, or with invalid data) or when the client-side
+    timeout is reached.
+  </summary>
+  <metric name="FailureLatencyInMillis">
+    <summary>
+      Records duration in milliseconds from when the AI amount extraction is
+      initialized to when an empty response is received from the model.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InvalidResponseLatencyInMillis">
+    <summary>
+      Records duration in milliseconds from when the AI amount extraction is
+      initialized to when an invalid response is received from the model.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InvalidResponseReason"
+      enum="AiAmountExtractionInvalidResponseReason">
+    <summary>
+      The reason the AI amount extraction response was invalid.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Result" enum="AiAmountExtractionResult">
+    <summary>
+      The result of the AI amount extraction.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SuccessLatencyInMillis">
+    <summary>
+      Records duration in milliseconds from when the AI amount extraction is
+      initialized to when a non-empty valid response is received from the model.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="Autofill.AmountExtractionComplete" singular="true">
   <owner>jamessun@google.com</owner>
   <owner>longsheng@google.com</owner>
@@ -2436,6 +2534,41 @@ be describing additional metrics about the same event.
       <history>
         <statistics>
           <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Autofill.Bnpl.AiAmountExtraction.AmountInIssuerRange">
+  <owner>jamessun@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Records whether the AI-based checkout amount is within the issuer's
+    transaction range. Recorded once per page load when AI amount extraction
+    completes.
+  </summary>
+  <metric name="Issuer" enum="BnplIssuerId">
+    <summary>
+      The ID of the BNPL issuer.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="IsWithinRange" enum="Boolean">
+    <summary>
+      True if the amount is within the issuer's supported range, False
+      otherwise.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
         </statistics>
       </history>
     </aggregation>
@@ -12158,11 +12291,6 @@ be describing additional metrics about the same event.
     will be recorded once per visit to the HistoryClusters UI and logged when
     the UI is closed or navigated away from.
   </summary>
-  <metric name="FinalState" enum="HistoryClustersFinalState">
-    <summary>
-      The final state, or outcome, of an interaction on the HistoryClusters UI.
-    </summary>
-  </metric>
   <metric name="InitialState" enum="HistoryClustersInitialState">
     <summary>
       The initial state that describes how an interaction with the
@@ -13802,6 +13930,25 @@ be describing additional metrics about the same event.
 </event>
 
 <event
+    name="Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReason.BrowserInitiated">
+  <owner>bkeen@google.com</owner>
+  <owner>media-dev@chromium.org</owner>
+  <summary>
+    Recorded when browser-initiated automatic picture-in-picture is triggered.
+    This can be a dry run (the feature is enabled, but the action is not taken),
+    or it can result in entering picture-in-picture. This event allows analysis
+    of the feature impact.
+  </summary>
+  <metric name="IsDryRun" enum="Boolean">
+    <summary>
+      True if the event was a dry run, meaning the feature was enabled but the
+      action was not taken. False if the browser actually entered
+      picture-in-picture.
+    </summary>
+  </metric>
+</event>
+
+<event
     name="Media.AutoPictureInPicture.EnterPictureInPicture.AutomaticReason.PromptResultV2">
   <owner>bkeen@google.com</owner>
   <owner>media-dev@chromium.org</owner>
@@ -14261,6 +14408,45 @@ be describing additional metrics about the same event.
     <summary>
       The number of blocks that can bypass the decoder present in an encrypted
       playback.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="DecoderCheck1ErrorCount">
+    <summary>
+      The number of video frames that returned an error result when running
+      decoder check1 in an encrypted playback.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="DecoderCheck1SuccessCount">
+    <summary>
+      The number of video frames that returned a successful result when running
+      decoder check1 in an encrypted playback.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="DecoderCheck1WarningCount">
+    <summary>
+      The number of video frames that returned a warning result when running
+      decoder check1 in an encrypted playback.
     </summary>
     <aggregation>
       <history>
@@ -15244,11 +15430,12 @@ be describing additional metrics about the same event.
     screen capture or opening a webcam or microphone, and the result of that
     request.
   </summary>
-  <metric name="VideoCaptureGenerateStreamResult"
-      enum="MediaStreamRequestResult2">
+  <metric name="VideoCaptureGenerateStreamResult2"
+      enum="MediaStreamRequestResult">
     <summary>
       The result of a page's request to open a video capture device (e.g.,
-      webcam).
+      webcam). The suffix 2 was added when the MediaStreamRequestResult enum was
+      updated with new entries.
     </summary>
     <aggregation>
       <history>
@@ -16152,6 +16339,24 @@ be describing additional metrics about the same event.
       Whether the first redirect response is received yet.
     </summary>
   </metric>
+  <metric name="FirstRequestConnectDelayMs">
+    <summary>
+      The delay in milliseconds caused by connection setup for the first HTTP
+      request which is sent for the main resource of a main frame navigation.
+    </summary>
+  </metric>
+  <metric name="FirstRequestDomainLookupDelayMs">
+    <summary>
+      The delay in milliseconds caused by domain lookup for the first HTTP
+      request which is sent for the main resource of a main frame navigation.
+    </summary>
+  </metric>
+  <metric name="FirstRequestSslDelayMs">
+    <summary>
+      The delay in milliseconds caused by SSL handshake for the first HTTP
+      request which is sent for the main resource of a main frame navigation.
+    </summary>
+  </metric>
   <metric name="HasImpression" enum="Boolean">
     <summary>
       Whether the current navigation has any impression associated. This is set
@@ -16779,6 +16984,31 @@ be describing additional metrics about the same event.
       Recorded at the point when a navigation finishes committing, i.e. finishes
       processing the DidCommitNavigation message. A corresponding event is also
       emitted for tracing.
+    </summary>
+  </metric>
+  <metric name="InteractionToActualNavigationStartDurationMs">
+    <summary>
+      The duration in milliseconds from a) the OS-level timestamp of the user
+      input event that started a navigation to b) when the navigation starts.
+      This metric is recorded only for cross-document navigations where a user
+      interaction timestamp is available.
+    </summary>
+  </metric>
+  <metric name="InteractionToNavigationFinishedDurationMs">
+    <summary>
+      The duration in milliseconds from a) the OS-level timestamp of the user
+      input event that started a navigation to b) when the navigation finishes
+      committing. This metric is recorded only for cross-document navigations
+      where a user interaction timestamp is available.
+    </summary>
+  </metric>
+  <metric name="InteractionToNavigationFinishedExcludingBeforeUnloadDurationMs">
+    <summary>
+      The duration in milliseconds from a) the OS-level timestamp of the user
+      input event that started a navigation to b) when the navigation finishes,
+      excluding the time spent running beforeunload handlers/dialogs. This
+      metric is recorded only for cross-document navigations where a user
+      interaction timestamp is available.
     </summary>
   </metric>
   <metric name="LoaderStartToFetchStartDuration">
@@ -20270,6 +20500,17 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+  <metric name="InitialGeolocationAccuracySelection">
+    <summary>
+      An enum of type GeolocationAccuracy (see
+      https://source.chromium.org/search?q=class:%5CbGeolocationAccuracy%5Cb).
+      This is only emitted for geolocation permission prompts with
+      precise/approximate options (corresponding to
+      ContentSettingsType::GEOLOCATION_WITH_OPTIONS). In that case, it is either
+      0 (kPrecise) or 1 (kApproximate) and represents the preselected accuracy
+      option in the prompt.
+    </summary>
   </metric>
   <metric name="OsPromptScreen" enum="ElementAnchoredBubbleVariant">
     <summary>
@@ -26130,6 +26371,11 @@ be describing additional metrics about the same event.
       Allocation limit on golbal consumed memory used before the current full
       garbage collection cycle. This is rounded down to the nearest exponential
       bucket (with a bucket ratio of 1.3).
+    </summary>
+  </metric>
+  <metric name="IsInputHandling" enum="Boolean">
+    <summary>
+      Indicates whether the cycle started while input handling state was true.
     </summary>
   </metric>
   <metric name="IsLoading" enum="Boolean">

@@ -13,8 +13,8 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
@@ -298,6 +298,19 @@ constexpr CGFloat kEmojiCanvasPaddingRatio = 1.3;
   return action;
 }
 
+- (UIAction*)actionToDeleteBrowsingDataWithBlock:(ProceduralBlock)block {
+  UIImage* image =
+      DefaultSymbolWithPointSize(kDeleteActionSymbol, kSymbolActionPointSize);
+  UIAction* action =
+      [self actionWithTitle:l10n_util::GetNSString(
+                                IDS_IOS_TOOLS_MENU_CLEAR_BROWSING_DATA)
+                      image:image
+                       type:MenuActionType::DeleteBrowsingData
+                      block:block];
+  action.attributes = UIMenuElementAttributesDestructive;
+  return action;
+}
+
 - (UIAction*)actionSaveImageWithBlock:(ProceduralBlock)block {
   UIImage* image = DefaultSymbolWithPointSize(kSaveImageActionSymbol,
                                               kSymbolActionPointSize);
@@ -334,7 +347,12 @@ constexpr CGFloat kEmojiCanvasPaddingRatio = 1.3;
 - (UIAction*)actionToCloseAllTabsWithBlock:(ProceduralBlock)block {
   UIImage* image =
       DefaultSymbolWithPointSize(kXMarkSymbol, kSymbolActionPointSize);
-  int titleID = IDS_IOS_CONTENT_CONTEXT_CLOSEALLTABSANDGROUPS;
+  int titleID;
+  if (base::FeatureList::IsEnabled(kTabSwitcherOverflowMenu)) {
+    titleID = IDS_IOS_INACTIVE_TABS_CLOSE_ALL_CONFIRMATION_OPTION;
+  } else {
+    titleID = IDS_IOS_CONTENT_CONTEXT_CLOSEALLTABSANDGROUPS;
+  }
   UIAction* action = [self actionWithTitle:l10n_util::GetNSString(titleID)
                                      image:image
                                       type:MenuActionType::CloseAllTabs
@@ -374,6 +392,18 @@ constexpr CGFloat kEmojiCanvasPaddingRatio = 1.3;
       block();
     }
   };
+}
+
+- (UIAction*)actionToCreateEmptyTabGroupWithBlock:(ProceduralBlock)block {
+  UIImage* image = DefaultSymbolWithPointSize(kNewTabGroupActionSymbol,
+                                              kSymbolActionPointSize);
+  UIAction* action = [self
+      actionWithTitle:l10n_util::GetNSString(
+                          IDS_IOS_CONTENT_CONTEXT_ADDTABTONEWTABGROUP_SUBMENU)
+                image:image
+                 type:MenuActionType::CreateEmptyTabGroup
+                block:block];
+  return action;
 }
 
 - (UIAction*)actionToAddTabsToNewGroupWithTabsNumber:(int)tabsNumber

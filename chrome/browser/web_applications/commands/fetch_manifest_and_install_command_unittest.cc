@@ -7,13 +7,16 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -36,6 +39,7 @@
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
@@ -57,10 +61,9 @@
 #include "net/http/http_status_code.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/blink/public/common/manifest/manifest_util.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
-#include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -635,7 +638,7 @@ TEST_F(FetchManifestAndInstallCommandTest, WriteDataToDisk) {
 
     for (SquareSizePx size_px : purpose_info.sizes_px) {
       SCOPED_TRACE(size_px);
-      ASSERT_TRUE(base::Contains(pngs, size_px));
+      ASSERT_TRUE(pngs.contains(size_px));
 
       SkBitmap icon_bitmap = pngs[size_px];
       EXPECT_EQ(icon_bitmap.width(), icon_bitmap.height());
@@ -934,7 +937,7 @@ class UniversalInstallComboTest
     std::string icons_name_part = "Absent";
     if (std::get<5>(config)) {
       std::string filename = std::get<5>(config)->src.ExtractFileName();
-      if (base::Contains(filename, ".")) {
+      if (filename.contains(".")) {
         icons_name_part = filename.substr(0, filename.find('.'));
       }
     }
@@ -989,7 +992,7 @@ class UniversalInstallComboTest
 
   bool IsInstallableOtherThanDisplay() {
     return GetAppName() && GetStartUrl() && GetIcon() &&
-           !base::Contains(GetIcon()->src.spec(), "not_found");
+           !GetIcon()->src.spec().contains("not_found");
   }
 
   bool IsCraftedApp() {
@@ -1010,7 +1013,7 @@ class UniversalInstallComboTest
   }
 
   SkBitmap GenerateExpected256Icon() {
-    if (GetIcon() && !base::Contains(GetIcon()->src.spec(), "not_found")) {
+    if (GetIcon() && !GetIcon()->src.spec().contains("not_found")) {
       return CreateSquareIcon(icon_size::k256, kIconColor);
     } else if (IsDiyApp()) {
       if (GetFaviconColor()) {
@@ -1065,7 +1068,8 @@ class UniversalInstallComboTest
 
     if (GetDisplayMode()) {
       manifest->display = blink::mojom::DisplayMode::kBrowser;
-      manifest->display_override = {GetDisplayMode().value()};
+      manifest->display_override = {
+          blink::Manifest::DisplayOverride::Create(GetDisplayMode().value())};
     } else {
       page_state.error_code =
           webapps::InstallableStatusCode::MANIFEST_DISPLAY_NOT_SUPPORTED;
@@ -1075,7 +1079,7 @@ class UniversalInstallComboTest
       manifest->icons = {GetIcon().value()};
       GURL url = GetIcon()->src;
       auto& icon_state = web_contents_manager().GetOrCreateIconState(url);
-      if (base::Contains(url.spec(), "not_found")) {
+      if (url.spec().contains("not_found")) {
         icon_state.bitmaps = {};
         icon_state.http_status_code = 404;
       } else {
@@ -1136,8 +1140,7 @@ class UniversalInstallComboTest
 #endif
     // Note: These should be static test images instead of dynamically
     // generating these using the same production code.
-    if (GetIcon().has_value() &&
-        !base::Contains(GetIcon()->src.spec(), "not_found")) {
+    if (GetIcon().has_value() && !GetIcon()->src.spec().contains("not_found")) {
       return CreateSquareIcon(width, kIconColor);
     }
     if (GetFaviconColor()) {
@@ -1198,7 +1201,8 @@ TEST_P(UniversalInstallComboTest, InstallStateValid) {
   EXPECT_THAT(bitmaps[icon_size::k256],
               gfx::test::EqualsBitmap(GenerateExpected256Icon()));
 
-  EXPECT_EQ(IsDiyApp(), provider()->registrar_unsafe().IsDiyApp(app_id));
+  EXPECT_NE(IsDiyApp(), provider()->registrar_unsafe().AppMatches(
+                            app_id, WebAppFilter::IsCraftedApp()));
 
   // TODO(https://crbug.com/385198125): Improve GetShortcutIcon to take a size
   // that is actually respected across all platforms.

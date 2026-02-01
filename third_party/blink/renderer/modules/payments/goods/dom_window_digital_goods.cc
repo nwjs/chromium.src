@@ -46,8 +46,10 @@ void OnCreateDigitalGoodsResponse(
 
 }  // namespace
 
+const char DOMWindowDigitalGoods::kSupplementName[] = "DOMWindowDigitalGoods";
+
 DOMWindowDigitalGoods::DOMWindowDigitalGoods(LocalDOMWindow& window)
-    : mojo_service_(&window) {}
+    : Supplement(window), mojo_service_(&window) {}
 
 ScriptPromise<DigitalGoodsService>
 DOMWindowDigitalGoods::getDigitalGoodsService(ScriptState* script_state,
@@ -119,15 +121,17 @@ DOMWindowDigitalGoods::GetDigitalGoodsService(ScriptState* script_state,
 
 void DOMWindowDigitalGoods::Trace(Visitor* visitor) const {
   visitor->Trace(mojo_service_);
+  Supplement<LocalDOMWindow>::Trace(visitor);
 }
 
 // static
 DOMWindowDigitalGoods* DOMWindowDigitalGoods::FromState(
     LocalDOMWindow* window) {
-  DOMWindowDigitalGoods* supplement = window->GetDOMWindowDigitalGoods();
+  DOMWindowDigitalGoods* supplement =
+      Supplement<LocalDOMWindow>::From<DOMWindowDigitalGoods>(window);
   if (!supplement) {
     supplement = MakeGarbageCollected<DOMWindowDigitalGoods>(*window);
-    window->SetDOMWindowDigitalGoods(supplement);
+    ProvideTo(*window, supplement);
   }
 
   return supplement;

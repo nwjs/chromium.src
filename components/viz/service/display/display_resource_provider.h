@@ -7,7 +7,6 @@
 
 #include <stddef.h>
 
-#include <map>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -339,7 +338,7 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
       ChildMap::iterator child_it,
       DeleteStyle style,
       const std::vector<ResourceId>& unused);
-  virtual std::vector<ReturnedResource>
+  virtual std::vector<ReturnedResourceViz>
   DeleteAndReturnUnusedResourcesToChildImpl(
       Child& child_info,
       DeleteStyle style,

@@ -53,6 +53,7 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/model/app_installed_by.h"
+#include "chrome/browser/web_applications/model/display_override.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -89,6 +90,7 @@
 #include "components/web_package/signed_web_bundles/ecdsa_p256_sha256_signature.h"
 #include "components/web_package/signed_web_bundles/ed25519_public_key.h"
 #include "components/web_package/signed_web_bundles/ed25519_signature.h"
+#include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_signature_stack_entry.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
@@ -104,8 +106,8 @@
 #include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
-#include "third_party/blink/public/mojom/manifest/display_mode.mojom-data-view.h"
-#include "third_party/blink/public/mojom/manifest/manifest.mojom-data-view.h"
+#include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
+#include "third_party/blink/public/mojom/manifest/manifest.mojom-shared.h"
 #include "third_party/liburlpattern/part.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/size.h"
@@ -141,7 +143,7 @@ namespace {
 
 class RandomHelper {
  public:
-  explicit RandomHelper(const uint32_t seed, bool non_zero)
+  explicit RandomHelper(int seed, bool non_zero)
       :  // Seed of 0 and 1 generate the same sequence, so skip 0.
         generator_(seed + 1),
         distribution_(0u, UINT32_MAX),
@@ -274,6 +276,7 @@ network::ParsedPermissionsPolicy CreateRandomPermissionsPolicy(
   const auto& feature_name_map = blink::GetPermissionsPolicyNameToFeatureMap();
   for (int i = 0; i < num_permissions_policy_declarations; ++i) {
     permissions_policy[i].feature = feature_name_map.begin()->second;
+
     for (unsigned int j = 0; j < random.next_uint(5); ++j) {
       std::string suffix_str =
           base::NumberToString(suffix) + base::NumberToString(j);
@@ -581,20 +584,64 @@ proto::os_state::WebAppOsIntegration GenerateRandomWebAppOsIntegration(
   return state;
 }
 
-std::optional<IsolatedWebAppIntegrityBlockData> CreateIntegrityBlockData(
-    RandomHelper& random) {
+// Helper to create a single signature info based on type.
+web_package::SignedWebBundleSignatureInfo CreateSignatureInfo(
+    web_package::SignedWebBundleId::Type type) {
+  switch (type) {
+    case web_package::SignedWebBundleId::Type::kEd25519PublicKey: {
+      auto public_key = *web_package::Ed25519PublicKey::Create(
+          *base::Base64Decode(kEd25519PublicKeyBase64));
+      std::vector<uint8_t> data;
+      CHECK(base::HexStringToBytes(kEd25519SignatureHex, &data));
+      auto signature = *web_package::Ed25519Signature::Create(data);
+      return web_package::SignedWebBundleSignatureInfoEd25519(
+          std::move(public_key), std::move(signature));
+    }
+    case web_package::SignedWebBundleId::Type::kEcdsaP256PublicKey: {
+      auto public_key = *web_package::EcdsaP256PublicKey::Create(
+          *base::Base64Decode(kEcdsaP256PublicKeyBase64));
+      std::vector<uint8_t> data;
+      CHECK(base::HexStringToBytes(kEcdsaP256SHA256SignatureHex, &data));
+      auto signature = *web_package::EcdsaP256SHA256Signature::Create(data);
+      return web_package::SignedWebBundleSignatureInfoEcdsaP256SHA256(
+          std::move(public_key), std::move(signature));
+    }
+    default:
+      NOTREACHED() << "Unknown SignedWebBundleId::Type encountered.";
+  }
+}
+
+// Creates an IntegrityBlockData object with the primary key type guaranteed to
+// be present, and a random mix of other available key types.
+std::optional<IsolatedWebAppIntegrityBlockData> CreateRandomIntegrityBlockData(
+    RandomHelper& random,
+    web_package::SignedWebBundleId::Type primary_key_type) {
   if (!random.next_bool()) {
     return std::nullopt;
   }
+  std::vector<web_package::SignedWebBundleSignatureInfo> signatures;
+  signatures.push_back(CreateSignatureInfo(primary_key_type));
 
-  auto signatures = CreateSignatures();
+  std::vector<web_package::SignedWebBundleId::Type> available_secondary_types =
+      {web_package::SignedWebBundleId::Type::kEd25519PublicKey,
+       web_package::SignedWebBundleId::Type::kEcdsaP256PublicKey};
+
+  std::erase(available_secondary_types, primary_key_type);
+
+  // Randomly include secondary signature types.
+  for (const auto& secondary_type : available_secondary_types) {
+    if (random.next_bool()) {
+      signatures.push_back(CreateSignatureInfo(secondary_type));
+    }
+  }
+
+  // Randomly include an unknown signature type.
+  if (random.next_bool()) {
+    signatures.push_back(web_package::SignedWebBundleSignatureInfoUnknown());
+  }
 
   std::mt19937 rng(random.next_uint());
   std::ranges::shuffle(signatures, rng);
-
-  size_t signatures_count = random.next_uint(signatures.size()) + 1;
-  signatures.erase(signatures.begin() + signatures_count, signatures.end());
-
   return IsolatedWebAppIntegrityBlockData(std::move(signatures));
 }
 
@@ -649,15 +696,50 @@ std::vector<apps::IconInfo> CreateRandomIconMetadata(RandomHelper& random,
   return icons;
 }
 
+std::vector<proto::WebAppMigrationSource> CreateRandomMigrationSources(
+    RandomHelper& random) {
+  std::vector<proto::WebAppMigrationSource> sources;
+  int num_sources = random.next_uint(3);
+  for (int i = 0; i < num_sources; ++i) {
+    proto::WebAppMigrationSource source;
+    source.set_manifest_id("https://example.com/manifest_id_" +
+                           base::NumberToString(random.next_uint()));
+    source.set_behavior(random.next_bool()
+                            ? proto::WEB_APP_MIGRATION_BEHAVIOR_FORCE
+                            : proto::WEB_APP_MIGRATION_BEHAVIOR_SUGGEST);
+    if (random.next_bool()) {
+      source.set_install_url("https://example.com/install_url_" +
+                             base::NumberToString(random.next_uint()));
+    }
+    sources.push_back(std::move(source));
+  }
+  return sources;
+}
+
+std::vector<proto::PendingMigrationInfo> CreateRandomPendingMigrationInfos(
+    RandomHelper& random) {
+  std::vector<proto::PendingMigrationInfo> infos;
+  int num_infos = random.next_uint(3);
+  for (int i = 0; i < num_infos; ++i) {
+    proto::PendingMigrationInfo info;
+    info.set_manifest_id("https://example.com/manifest_id_" +
+                         base::NumberToString(random.next_uint()));
+    info.set_behavior(random.next_bool()
+                          ? proto::WEB_APP_MIGRATION_BEHAVIOR_FORCE
+                          : proto::WEB_APP_MIGRATION_BEHAVIOR_SUGGEST);
+    infos.push_back(std::move(info));
+  }
+  return infos;
+}
+
 }  // namespace
 
 std::unique_ptr<WebApp> CreateWebApp(const GURL& start_url,
-                                     WebAppManagement::Type source_type) {
-  auto web_app =
-      std::make_unique<WebApp>(GenerateManifestIdFromStartUrlOnly(start_url),
-                               start_url, start_url.GetWithoutFilename());
-  web_app->SetStartUrl(start_url);
-  web_app->SetScope(start_url.GetWithoutFilename());
+                                     WebAppManagement::Type source_type,
+                                     const GURL& scope) {
+  auto web_app = std::make_unique<WebApp>(
+      GenerateManifestIdFromStartUrlOnly(start_url), start_url,
+      scope.is_valid() ? scope : start_url.GetWithoutFilename());
   web_app->AddSource(source_type);
   web_app->SetDisplayMode(blink::mojom::DisplayMode::kStandalone);
   web_app->SetUserDisplayMode(mojom::UserDisplayMode::kStandalone);
@@ -673,13 +755,20 @@ std::unique_ptr<WebApp> CreateWebApp(const GURL& start_url,
   return web_app;
 }
 
-std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
+CreateRandomWebAppParams::CreateRandomWebAppParams() = default;
+CreateRandomWebAppParams::CreateRandomWebAppParams(
+    const CreateRandomWebAppParams& other) = default;
+CreateRandomWebAppParams& CreateRandomWebAppParams::operator=(
+    const CreateRandomWebAppParams& other) = default;
+CreateRandomWebAppParams::~CreateRandomWebAppParams() = default;
+
+std::unique_ptr<WebApp> CreateRandomWebApp(
+    const CreateRandomWebAppParams& params) {
   RandomHelper random(params.seed, params.non_zero);
 
-  bool is_iwa = !random.next_bool();
-  GURL base_iwa_url{"isolated-app://foo"};
-
+  const bool is_iwa = !random.next_bool();
   const std::string seed_str = base::NumberToString(params.seed);
+
   std::optional<std::string> relative_manifest_id;
   if (random.next_bool()) {
     std::string manifest_id_path = "manifest_id_" + seed_str;
@@ -689,16 +778,41 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
     relative_manifest_id = manifest_id_path;
   }
   std::string scope_path = "scope" + seed_str;
-  if (random.next_bool()) {
+  // Ensure scope ends with a slash for correct resolution.
+  if (!scope_path.ends_with("/")) {
     scope_path += "/";
   }
-  GURL scope;
+
+  GURL base_url = params.base_url;
+  std::optional<web_package::SignedWebBundleId::Type> primary_key_type;
+
   if (is_iwa) {
-    scope = base_iwa_url.Resolve(scope_path);
-  } else {
-    scope = params.base_url.Resolve(scope_path);
+    std::optional<web_package::SignedWebBundleId> web_bundle_id;
+
+    // Randomly select primary key type.
+    primary_key_type =
+        random.next_bool()
+            ? web_package::SignedWebBundleId::Type::kEd25519PublicKey
+            : web_package::SignedWebBundleId::Type::kEcdsaP256PublicKey;
+
+    // Generate SignedWebBundleId based on the primary key type.
+    if (*primary_key_type ==
+        web_package::SignedWebBundleId::Type::kEd25519PublicKey) {
+      auto public_key = *web_package::Ed25519PublicKey::Create(
+          *base::Base64Decode(kEd25519PublicKeyBase64));
+      web_bundle_id =
+          web_package::SignedWebBundleId::CreateForPublicKey(public_key);
+    } else {
+      auto public_key = *web_package::EcdsaP256PublicKey::Create(
+          *base::Base64Decode(kEcdsaP256PublicKeyBase64));
+      web_bundle_id =
+          web_package::SignedWebBundleId::CreateForPublicKey(public_key);
+    }
+    base_url = GURL("isolated-app://" + web_bundle_id->id());
   }
-  const GURL start_url = GURL(scope.spec() + "start" + seed_str);
+
+  GURL scope = base_url.Resolve(scope_path);
+  GURL start_url = scope.Resolve("start" + seed_str);
   const webapps::ManifestId manifest_id =
       relative_manifest_id
           ? GenerateManifestId(relative_manifest_id.value(), start_url)
@@ -782,8 +896,6 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
     app->SetManifestId(
         GenerateManifestId(relative_manifest_id.value(), start_url));
   }
-  app->SetStartUrl(GURL(start_url));
-  app->SetScope(GURL(scope));
 
   if (random.next_bool()) {
     app->SetThemeColor(SkColorSetA(random.next_uint(), SK_AlphaOPAQUE));
@@ -838,9 +950,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
   }
 
   app->SetLastBadgingTime(random.next_time());
-
   app->SetLastLaunchTime(random.next_time());
-
   app->SetFirstInstallTime(random.next_time());
 
   const std::array<DisplayMode, 4> display_modes = {
@@ -857,8 +967,14 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
   for (int i = 0; i < num_display_mode_override_tries; i++) {
     display_mode_override.insert(display_modes[random.next_uint(4)]);
   }
-  app->SetDisplayModeOverride(std::vector<DisplayMode>(
-      display_mode_override.begin(), display_mode_override.end()));
+  std::vector<DisplayOverride> override_items;
+  for (DisplayMode display_mode : display_mode_override) {
+    override_items.push_back(
+        display_mode == DisplayMode::kBorderless && random.next_bool()
+            ? DisplayOverride::CreateUnframed(CreateRandomUrlPatterns(random))
+            : DisplayOverride::Create(display_mode));
+  }
+  app->SetDisplayModeOverride(std::move(override_items));
 
   if (random.next_bool()) {
     app->SetLaunchQueryParams(base::NumberToString(random.next_uint()));
@@ -985,9 +1101,6 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
 
   app->SetManifestUpdateTime(random.next_time());
 
-  if (random.next_bool()) {
-    app->SetParentAppId(base::NumberToString(random.next_uint()));
-  }
 
   if (random.next_bool()) {
     app->SetPermissionsPolicy(CreateRandomPermissionsPolicy(random));
@@ -1084,10 +1197,13 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
   app->SetCurrentOsIntegrationStates(
       GenerateRandomWebAppOsIntegration(random, *app));
 
+  // Isolated Web App Isolation Data.
   if (is_iwa) {
-    bool dev_mode = random.next_bool();
+    CHECK(primary_key_type.has_value());
+    const bool dev_mode = random.next_bool();
+
     auto get_location_type = [&seed_str, &random,
-                              &dev_mode]() -> IsolatedWebAppStorageLocation {
+                              dev_mode]() -> IsolatedWebAppStorageLocation {
       if (!dev_mode) {
         return IwaStorageOwnedBundle{
             base32::Base32Encode(base::as_byte_span(seed_str),
@@ -1103,6 +1219,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
                         base::as_byte_span(seed_str),
                         base32::Base32EncodePolicy::OMIT_PADDING),
                     /*dev_mode=*/true},
+
                 IwaStorageUnownedBundle{
                     base::FilePath::FromUTF8Unsafe(seed_str)},
                 IwaStorageProxy{url::Origin::Create(
@@ -1118,9 +1235,9 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
         random.next_uint(),
     });
 
-    auto idb = IsolationData::Builder(get_location_type(), iwa_version);
+    IsolationData::Builder idb(get_location_type(), iwa_version);
     std::optional<IsolatedWebAppIntegrityBlockData> integrity_block_data =
-        CreateIntegrityBlockData(random);
+        CreateRandomIntegrityBlockData(random, *primary_key_type);
     if (integrity_block_data) {
       idb.SetIntegrityBlockData(std::move(*integrity_block_data));
     }
@@ -1129,7 +1246,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
       idb.SetControlledFramePartitions({"partition_name"});
     }
     if (random.next_bool()) {
-      IwaVersion pending_version = [&] {
+      IwaVersion pending_version = [&]() {
         if (random.next_bool()) {
           // Case where `pending_version == version`. Useful for validating key
           // rotation scenarios.
@@ -1144,6 +1261,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
             {major_version + delta, random.next_uint(), random.next_uint()});
       }();
       CHECK_GE(pending_version, iwa_version);
+
       IsolationData::PendingUpdateInfo pending_update_info(
           get_location_type(), pending_version, integrity_block_data);
       idb.SetPendingUpdateInfo(std::move(pending_update_info));
@@ -1274,6 +1392,16 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
         params.base_url.Resolve("installed_by2_" + seed_str + "/")));
   }
 
+  app->SetUnvalidatedMigrationSources(CreateRandomMigrationSources(random));
+  std::vector<proto::WebAppMigrationSource> validated_sources;
+  std::ranges::copy_if(app->unvalidated_migration_sources(),
+                       std::back_inserter(validated_sources),
+                       [&random](const proto::WebAppMigrationSource&) {
+                         return random.next_bool();
+                       });
+  app->SetValidatedMigrationSources(std::move(validated_sources));
+  app->SetPendingMigrationInfo(CreateRandomPendingMigrationInfos(random));
+
   return app;
 }
 
@@ -1375,35 +1503,17 @@ void SynchronizeOsIntegration(Profile* profile,
       app_id, sync_future.GetCallback(), options);
   EXPECT_TRUE(sync_future.Wait());
 }
-
 std::vector<web_package::SignedWebBundleSignatureInfo> CreateSignatures() {
   std::vector<web_package::SignedWebBundleSignatureInfo> signatures;
 
-  // EcdsaP256SHA256:
-  {
-    auto public_key = *web_package::EcdsaP256PublicKey::Create(
-        *base::Base64Decode(kEcdsaP256PublicKeyBase64));
-    std::vector<uint8_t> data;
-    CHECK(base::HexStringToBytes(kEcdsaP256SHA256SignatureHex, &data));
-    auto signature = *web_package::EcdsaP256SHA256Signature::Create(data);
-    signatures.push_back(
-        web_package::SignedWebBundleSignatureInfoEcdsaP256SHA256(
-            std::move(public_key), std::move(signature)));
-  }
+  signatures.push_back(CreateSignatureInfo(
+      web_package::SignedWebBundleId::Type::kEcdsaP256PublicKey));
 
-  // Ed25519:
-  {
-    auto public_key = *web_package::Ed25519PublicKey::Create(
-        *base::Base64Decode(kEd25519PublicKeyBase64));
-    std::vector<uint8_t> data;
-    CHECK(base::HexStringToBytes(kEd25519SignatureHex, &data));
-    auto signature = *web_package::Ed25519Signature::Create(data);
-    signatures.push_back(web_package::SignedWebBundleSignatureInfoEd25519(
-        std::move(public_key), std::move(signature)));
-  }
+  signatures.push_back(CreateSignatureInfo(
+      web_package::SignedWebBundleId::Type::kEd25519PublicKey));
 
-  // Unknown:
   signatures.push_back(web_package::SignedWebBundleSignatureInfoUnknown());
+
   return signatures;
 }
 

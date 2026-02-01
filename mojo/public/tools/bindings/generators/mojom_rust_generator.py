@@ -29,6 +29,10 @@ _mojom_primitive_type_to_rust_type = {
 
 def _MojomTypeToRustType(ty: mojom.Kind) -> str:
   '''Return the name of the input type in rust syntax'''
+  if mojom.IsNullableKind(ty):
+    inner_ty = _MojomTypeToRustType(ty.MakeUnnullableKind())
+    return f"Option<{inner_ty}>"
+
   # FOR_RELEASE: We don't support nested enums yet
   if mojom.IsStructKind(ty) or mojom.IsEnumKind(ty) or mojom.IsUnionKind(ty):
     return ty.name
@@ -39,6 +43,11 @@ def _MojomTypeToRustType(ty: mojom.Kind) -> str:
       return f"[{elt_ty}; {ty.length}]"
     else:
       return f"Vec<{elt_ty}>"
+
+  if mojom.IsMapKind(ty):
+    key_ty = _MojomTypeToRustType(ty.key_kind)
+    value_ty = _MojomTypeToRustType(ty.value_kind)
+    return f"HashMap<{key_ty}, {value_ty}>"
 
   if ty not in _mojom_primitive_type_to_rust_type:
     # Raising from a jinja2 call won't display the error message

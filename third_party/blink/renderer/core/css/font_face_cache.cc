@@ -27,9 +27,11 @@
 #include "third_party/blink/renderer/core/css/font_face_cache.h"
 
 #include <numeric>
-#include "base/atomic_sequence_num.h"
+
 #include "third_party/blink/renderer/core/css/css_segmented_font_face.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
+#include "third_party/blink/renderer/core/css/font_face.h"
+#include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/loader/resource/font_resource.h"
 #include "third_party/blink/renderer/platform/font_family_names.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
@@ -39,7 +41,7 @@
 
 namespace blink {
 
-FontFaceCache::FontFaceCache() : version_(0) {}
+FontFaceCache::FontFaceCache() = default;
 
 void FontFaceCache::Add(const StyleRuleFontFace* font_face_rule,
                         FontFace* font_face) {
@@ -72,7 +74,6 @@ void FontFaceCache::AddFontFace(FontFace* font_face, bool css_connected) {
   }
 
   font_selection_query_cache_.Remove(font_face->familyNameUnquoted());
-  IncrementVersion();
 }
 
 void FontFaceCache::FontSelectionQueryCache::Remove(
@@ -125,8 +126,6 @@ void FontFaceCache::RemoveFontFace(FontFace* font_face, bool css_connected) {
   if (css_connected) {
     css_connected_font_faces_.erase(font_face);
   }
-
-  IncrementVersion();
 }
 
 bool FontFaceCache::CapabilitiesSet::RemoveFontFace(FontFace* font_face) {
@@ -164,18 +163,10 @@ void FontFaceCache::ClearAll() {
   font_selection_query_cache_.Clear();
   style_rule_to_font_face_.clear();
   css_connected_font_faces_.clear();
-  IncrementVersion();
 }
 
 void FontFaceCache::FontSelectionQueryCache::Clear() {
   map_.clear();
-}
-
-void FontFaceCache::IncrementVersion() {
-  // Versions are guaranteed to be monotonically increasing, but not necessary
-  // sequential within a thread.
-  static base::AtomicSequenceNumber g_version;
-  version_ = g_version.GetNext();
 }
 
 FontFaceCache::CapabilitiesSet* FontFaceCache::SegmentedFacesByFamily::Find(

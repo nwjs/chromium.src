@@ -29,7 +29,6 @@
 #include "components/viz/common/surfaces/surface_range.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/compositor_frame_helpers.h"
-#include "gpu/ipc/common/mailbox_holder_mojom_traits.h"
 #include "gpu/ipc/common/mailbox_mojom_traits.h"
 #include "gpu/ipc/common/sync_token_mojom_traits.h"
 #include "ipc/param_traits_utils.h"
@@ -404,8 +403,8 @@ TEST_F(StructTraitsTest, CopyOutputRequest_CallbackRunsOnce) {
       std::move(result_sender_pending_remote));
   for (int i = 0; i < 10; i++)
     result_sender_remote->SendResult(std::make_unique<CopyOutputResult>(
-        request->result_format(), request->result_destination(), gfx::Rect(),
-        false));
+        request->result_format(), request->result_destination(),
+        gfx::Rect(10, 10), false));
   EXPECT_EQ(0, n_called);
   result_sender_remote.FlushForTesting();
   EXPECT_EQ(1, n_called);
@@ -616,7 +615,7 @@ TEST_F(StructTraitsTest, CompositorFrameTransitionDirective) {
   frame.metadata.transition_directives.push_back(
       CompositorFrameTransitionDirective::CreateSave(
           transition_token, /*maybe_cross_frame_sink=*/true, sequence_id,
-          {element}, {}));
+          {element}, {}, /*delay_layer_tree_view_deletion=*/false));
 
   // This ensures de-serialization succeeds if all passes are present.
   CompositorFrame output;
@@ -636,7 +635,7 @@ TEST_F(StructTraitsTest, CompositorFrameTransitionDirective) {
   frame.metadata.transition_directives.push_back(
       CompositorFrameTransitionDirective::CreateSave(
           transition_token, /*maybe_cross_frame_sink=*/true, sequence_id,
-          {element}, {}));
+          {element}, {}, /*delay_layer_tree_view_deletion=*/false));
 
   // This ensures de-serialization fails if a pass is missing.
   ASSERT_FALSE(mojo::test::SerializeAndDeserialize<mojom::CompositorFrame>(
@@ -692,17 +691,16 @@ TEST_F(StructTraitsTest, ReturnedResource) {
   const int count = 1234;
   const bool lost = true;
 
-  ReturnedResource input;
-  input.id = id;
-  input.sync_token = sync_token;
-  input.count = count;
-  input.lost = lost;
+  ReturnedResource input{
+      id, gpu::SharedImageExportResult::CreateForTesting(sync_token),
+      gfx::GpuFenceHandle(), count, lost};
 
   ReturnedResource output;
   mojo::test::SerializeAndDeserialize<mojom::ReturnedResource>(input, output);
 
   EXPECT_EQ(id, output.id);
-  EXPECT_EQ(sync_token, output.sync_token);
+  EXPECT_TRUE(input.shared_image_export_result.IsEqualForTesting(
+      output.shared_image_export_result));
   EXPECT_EQ(count, output.count);
   EXPECT_EQ(lost, output.lost);
 }
@@ -1121,8 +1119,8 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   const gfx::Rect rect5(123, 567, 91011, 13141);
   const ResourceId resource_id5(1337);
 
-  const gfx::PointF uv_top_left(12.1f, 34.2f);
-  const gfx::PointF uv_bottom_right(56.3f, 78.4f);
+  const gfx::PointF tex_coord_top_left(12.1f, 34.2f);
+  const gfx::PointF tex_coord_bottom_right(56.3f, 78.4f);
   const SkColor4f background_color = SkColors::kGreen;
   const bool nearest_neighbor = true;
   const bool secure_output_only = true;
@@ -1131,9 +1129,10 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   TextureDrawQuad* texture_draw_quad =
       render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   texture_draw_quad->SetAll(sqs, rect5, rect5, needs_blending, resource_id5,
-                            uv_top_left, uv_bottom_right, background_color,
-                            nearest_neighbor, secure_output_only,
-                            protected_video_type);
+                            tex_coord_top_left, tex_coord_bottom_right,
+                            background_color, nearest_neighbor,
+                            secure_output_only, protected_video_type,
+                            /*is_tex_coords_normalized=*/false);
 
   // Create a TextureDrawQuad with rounded-display masks.
   const gfx::Rect rect7(421, 865, 11109, 151413);
@@ -1145,10 +1144,11 @@ TEST_F(StructTraitsTest, QuadListBasic) {
 
   TextureDrawQuad* rounded_display_mask_quad =
       render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
-  rounded_display_mask_quad->SetAll(sqs, rect7, rect7, needs_blending7,
-                                    resource_id7, uv_top_left, uv_bottom_right,
-                                    SkColors::kTransparent, false, false,
-                                    protected_video_type);
+  rounded_display_mask_quad->SetAll(
+      sqs, rect7, rect7, needs_blending7, resource_id7, tex_coord_top_left,
+      tex_coord_bottom_right, SkColors::kTransparent, false, false,
+      protected_video_type,
+      /*is_tex_coords_normalized=*/false);
   rounded_display_mask_quad->rounded_display_masks_info =
       TextureDrawQuad::RoundedDisplayMasksInfo::CreateRoundedDisplayMasksInfo(
           origin_rounded_display_mask_radius, other_rounded_display_mask_radius,
@@ -1218,7 +1218,7 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   EXPECT_EQ(rect5, out_texture_draw_quad->visible_rect);
   EXPECT_EQ(needs_blending, out_texture_draw_quad->needs_blending);
   EXPECT_EQ(resource_id5, out_texture_draw_quad->resource_id);
-  EXPECT_EQ(gfx::BoundingRect(uv_top_left, uv_bottom_right),
+  EXPECT_EQ(gfx::BoundingRect(tex_coord_top_left, tex_coord_bottom_right),
             out_texture_draw_quad->GetNormalizedTexCoords(gfx::Size(1, 1)));
   EXPECT_EQ(background_color, out_texture_draw_quad->background_color);
   EXPECT_EQ(nearest_neighbor, out_texture_draw_quad->nearest_neighbor);
@@ -1231,7 +1231,7 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   EXPECT_EQ(needs_blending7, out_rounded_display_mask_quad->needs_blending);
   EXPECT_EQ(resource_id7, out_rounded_display_mask_quad->resource_id);
   EXPECT_EQ(
-      gfx::BoundingRect(uv_top_left, uv_bottom_right),
+      gfx::BoundingRect(tex_coord_top_left, tex_coord_bottom_right),
       out_rounded_display_mask_quad->GetNormalizedTexCoords(gfx::Size(1, 1)));
   EXPECT_EQ(origin_rounded_display_mask_radius,
             out_rounded_display_mask_quad->rounded_display_masks_info
@@ -1379,7 +1379,8 @@ TEST_F(StructTraitsTest, SharedImageFormatWithUnknownPlane) {
 TEST_F(StructTraitsTest, CopyOutputResult_EmptyBitmap) {
   auto input = std::make_unique<CopyOutputResult>(
       CopyOutputRequest::ResultFormat::RGBA,
-      CopyOutputRequest::ResultDestination::kSystemMemory, gfx::Rect(), false);
+      CopyOutputRequest::ResultDestination::kSystemMemory,
+      CopyOutputResult::Error::kUnknown);
   std::unique_ptr<CopyOutputResult> output;
   mojo::test::SerializeAndDeserialize<mojom::CopyOutputResult>(input, output);
 
@@ -1399,7 +1400,8 @@ TEST_F(StructTraitsTest, CopyOutputResult_EmptyTexture) {
 
   auto input = std::make_unique<CopyOutputResult>(
       CopyOutputRequest::ResultFormat::RGBA,
-      CopyOutputRequest::ResultDestination::kSharedImage, gfx::Rect(), false);
+      CopyOutputRequest::ResultDestination::kSharedImage,
+      CopyOutputResult::Error::kUnknown);
   EXPECT_TRUE(input->IsEmpty());
 
   std::unique_ptr<CopyOutputResult> output;

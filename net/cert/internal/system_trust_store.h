@@ -5,7 +5,10 @@
 #ifndef NET_CERT_INTERNAL_SYSTEM_TRUST_STORE_H_
 #define NET_CERT_INTERNAL_SYSTEM_TRUST_STORE_H_
 
+#include <optional>
+
 #include "base/containers/span.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "net/base/net_export.h"
 #include "net/cert/internal/platform_trust_store.h"
@@ -39,6 +42,7 @@ class SystemTrustStore {
   // that it is one of default trust anchors for the system, as opposed to a
   // user-installed one. (It may *also* be trusted as a user-installed root.)
   virtual bool IsKnownRoot(const bssl::ParsedCertificate* cert) const = 0;
+  virtual bool IsKnownMtcAnchor(const bssl::MTCAnchor* anchor) const = 0;
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   // Returns the PlatformTrustStore that can be used to look for
@@ -58,6 +62,10 @@ class SystemTrustStore {
   // Returns the current version of the Chrome Root Store being used. If
   // Chrome Root Store is not in use, returns 0.
   virtual int64_t chrome_root_store_version() const = 0;
+
+  // Returns the update timestamp for the Chrome Root Store MTC Metadata
+  // component, or nullopt if MTC Metadata is not available.
+  virtual std::optional<base::Time> mtc_metadata_update_time() const = 0;
 
   // Returns the Chrome Root Store constraints for `cert`, or nullptr if the
   // certificate is not constrained.

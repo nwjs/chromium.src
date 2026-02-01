@@ -17,6 +17,10 @@ namespace contextual_tasks {
 // Enables the contextual tasks side panel while browsing.
 BASE_FEATURE(kContextualTasks, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the use of the kSearchResultsOAuth2Scope instead of the
+// kChromeSyncOAuth2Scope.
+BASE_FEATURE(kContextualTasksScopeChange, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables relevant context determination for contextual tasks.
 BASE_FEATURE(kContextualTasksContext, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -49,17 +53,17 @@ BASE_FEATURE(kContextualTasksForceEntryPointEligibility,
 BASE_FEATURE(kContextualTasksForceCountryCodeUS,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<double> kMinEmbeddingSimilarityScore{
-    &kContextualTasksContext, "ContextualTasksContextEmbeddingSimilarityScore",
-    0.8};
+BASE_FEATURE(kContextualTasksRemoveTasksWithoutThreadsOrTabAssociations,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kOnlyUseTitlesForSimilarity(
     &kContextualTasksContext,
     "ContextualTasksContextOnlyUseTitles",
     false);
 
-const base::FeatureParam<double> kMinMultiSignalScore{
-    &kContextualTasksContext, "ContextualTasksContextMinMultiSignalScore", 0.8};
+const base::FeatureParam<double> kTabSelectionScoreThreshold{
+    &kContextualTasksContext,
+    "ContextualTasksContextTabSelectionScoreThreshold", 0.8};
 
 const base::FeatureParam<double> kContentVisibilityThreshold{
     &kContextualTasksContext,
@@ -91,7 +95,7 @@ constexpr base::FeatureParam<EntryPointOption>::Option kEntryPointOptions[] = {
 const base::FeatureParam<EntryPointOption> kShowEntryPoint(
     &kContextualTasks,
     "ContextualTasksEntryPoint",
-    EntryPointOption::kNoEntryPoint,
+    EntryPointOption::kToolbarPermanent,
     &kEntryPointOptions);
 
 const base::FeatureParam<bool> kTaskScopedSidePanel(&kContextualTasks,
@@ -110,7 +114,7 @@ const base::FeatureParam<bool> kEnableLensInContextualTasks(
 
 const base::FeatureParam<bool> kForceGscInTabMode(&kContextualTasks,
                                                   "ForceGscInTabMode",
-                                                  true);
+                                                  false);
 
 // The user agent suffix to use for requests from the contextual tasks UI.
 const base::FeatureParam<std::string> kContextualTasksUserAgentSuffix{
@@ -157,6 +161,16 @@ const base::FeatureParam<int> kContextualTasksOnboardingTooltipDismissedCap(
     "ContextualTasksOnboardingTooltipDismissedCap",
     1);
 
+const base::FeatureParam<int> kContextualTasksOnboardingTooltipImpressionDelay(
+    &kContextualTasksShowOnboardingTooltip,
+    "ContextualTasksOnboardingTooltipImpressionDelay",
+    3000);
+
+const base::FeatureParam<bool> kEnableContextualTasksSmartCompose(
+    &kContextualTasks,
+    "EnableContextualTasksSmartCompose",
+    true);
+
 int GetContextualTasksShowOnboardingTooltipSessionImpressionCap() {
   if (!base::FeatureList::IsEnabled(kContextualTasksShowOnboardingTooltip)) {
     return 0;
@@ -169,6 +183,10 @@ int GetContextualTasksOnboardingTooltipDismissedCap() {
     return 0;
   }
   return kContextualTasksOnboardingTooltipDismissedCap.Get();
+}
+
+int GetContextualTasksOnboardingTooltipImpressionDelay() {
+  return kContextualTasksOnboardingTooltipImpressionDelay.Get();
 }
 
 bool GetIsExpandedComposeboxVoiceSearchEnabled() {
@@ -204,7 +222,8 @@ std::string GetForcedEmbeddedPageHost() {
 
   // If there's a non-empty host, ensure that it is only ever going to a
   // google.com domain. If not, return the default empty string.
-  if (!host.empty() && !base::EndsWith(host, ".google.com")) {
+  if (!host.empty() && !(base::EndsWith(host, ".google.com") ||
+                         base::EndsWith(host, ".googlers.com"))) {
     return kContextualTasksForcedEmbeddedPageHost.default_value;
   }
 
@@ -224,16 +243,18 @@ const base::FeatureParam<std::string> kContextualTasksNextboxImageFileTypes{
     &kContextualTasksContextMenu, "ContextualTasksNextboxImageFileTypes",
     "image/jpeg,image/png"};
 
-const base::FeatureParam<std::string> kContextualTasksNextboxAttachmentFileTypes{
-    &kContextualTasksContextMenu, "ContextualTasksNextboxAttachmentFileTypes",
-    "text/plain,application/pdf"};
+const base::FeatureParam<std::string>
+    kContextualTasksNextboxAttachmentFileTypes{
+        &kContextualTasksContextMenu,
+        "ContextualTasksNextboxAttachmentFileTypes",
+        "text/plain,application/pdf"};
 
 const base::FeatureParam<int> kContextualTasksNextboxMaxFileSize{
     &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileSize",
     20 * 1024 * 1024};
 
 const base::FeatureParam<int> kContextualTasksNextboxMaxFileCount{
-    &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileCount", 4};
+    &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileCount", 10};
 
 bool GetIsContextualTasksSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksSuggestionsEnabled);
@@ -261,6 +282,15 @@ std::string GetContextualTasksOnboardingTooltipHelpUrl() {
 
 std::string GetContextualTasksHelpUrl() {
   return kContextualTasksHelpUrl.Get();
+}
+
+bool GetEnableContextualTasksSmartCompose() {
+  return base::FeatureList::IsEnabled(kContextualTasks) &&
+         kEnableContextualTasksSmartCompose.Get();
+}
+
+bool ShouldUseSearchResultsScope() {
+  return base::FeatureList::IsEnabled(kContextualTasksScopeChange);
 }
 
 namespace flag_descriptions {

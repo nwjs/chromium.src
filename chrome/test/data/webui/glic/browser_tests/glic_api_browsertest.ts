@@ -1,8 +1,8 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import {CaptureRegionErrorReason, ClientView, HostCapability, MetricUserInputReactionType, PanelStateKind, ResponseStopCause, ScrollToErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
-import type {CaptureRegionResult, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, OpenPanelInfo, PageMetadata, PanelOpeningData, ScrollToError, TabData, UserProfileInfo, ViewChangeRequest, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
+import {CaptureRegionErrorReason, HostCapability, MetricUserInputReactionType, PanelStateKind, ResponseStopCause, ScrollToErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {CancelActionsResult, CaptureRegionResult, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, OpenPanelInfo, PageMetadata, PanelOpeningData, ScrollToError, TabData, UserProfileInfo, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
 
 import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertNotEquals, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, readStream, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
 import type {SequencedSubscriber} from './browser_test_base.js';
@@ -41,7 +41,18 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testHibernateOnMemoryUsage() {}
 
+  async testCancelActions() {
+    assertDefined(this.host.cancelActions);
+    const taskId: number = this.testParams;
+    const result: CancelActionsResult = await this.host.cancelActions(taskId);
+    await this.advanceToNextStep(result);
+  }
+
   async testDoNothing() {}
+
+  async testWebClientReadyOnFullLoad() {}
+
+  async testWebClientReadyOnPreload() {}
 
   // This test should fail even if the ApiTestError is captured in a try-catch
   // block.
@@ -395,6 +406,31 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(suggestions);
     assertEquals(0, suggestions.suggestions.length);
     assertEquals(false, suggestions.isPending);
+  }
+
+  async testIsOnboardingCompleted() {
+    assertDefined(this.host.isOnboardingCompleted);
+    const completedSequence =
+        observeSequence(this.host.isOnboardingCompleted());
+    assertFalse(await completedSequence.next());
+
+    // Mark onboarding as completed.
+    await this.advanceToNextStep();
+
+    assertTrue(await completedSequence.next());
+  }
+
+  async testSetOnboardingCompleted() {
+    assertDefined(this.host.setOnboardingCompleted);
+
+    // Check that onboarding is not completed yet.
+    await this.advanceToNextStep();
+
+    // Call mojo to set onboarding completed.
+    await this.host.setOnboardingCompleted();
+
+    // Check that onboarding is completed.
+    await this.advanceToNextStep();
   }
 
   async testGetZeroStateSuggestionsMultipleNavigations() {
@@ -1080,20 +1116,6 @@ class ApiTests extends ApiTestFixtureBase {
     this.host.setSyntheticExperimentState('TestTrial', 'Group2');
   }
 
-  async testSetWindowDraggableAreas() {
-    const draggableAreas = [{x: 10, y: 20, width: 30, height: 40}];
-    assertDefined(this.host.setWindowDraggableAreas);
-    await this.host.setWindowDraggableAreas(
-        draggableAreas,
-    );
-    await this.advanceToNextStep(draggableAreas);
-  }
-
-  async testSetWindowDraggableAreasDefault() {
-    assertDefined(this.host.setWindowDraggableAreas);
-    await this.host.setWindowDraggableAreas([]);
-  }
-
   async testSetMinimumWidgetSize() {
     assertDefined(this.host.setMinimumWidgetSize);
     const minSize = {width: 200, height: 100};
@@ -1773,26 +1795,6 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
-  async testSendsViewChangeRequestOnTaskIconOrGlicButtonToggle() {
-    assertDefined(this.host.getViewChangeRequests);
-    assertDefined(this.host.onViewChanged);
-    // Set up observer before the request will be sent.
-    const viewChangeRequests =
-        observeSequence<ViewChangeRequest>(this.host.getViewChangeRequests());
-
-    await this.advanceToNextStep();
-    const actuationChangeRequest = await viewChangeRequests.next();
-    assertDefined(actuationChangeRequest.desiredView);
-    assertEquals(actuationChangeRequest.desiredView, ClientView.ACTUATION);
-    this.host.onViewChanged({currentView: actuationChangeRequest.desiredView});
-
-    await this.advanceToNextStep();
-    const conversationChangeRequest = await viewChangeRequests.next();
-    assertDefined(conversationChangeRequest.desiredView);
-    assertEquals(
-        conversationChangeRequest.desiredView, ClientView.CONVERSATION);
-  }
-
   async testRemoveBlankInstanceOnClose() {
     assertDefined(this.host.closePanel);
     await this.host.closePanel();
@@ -2188,7 +2190,7 @@ class ApiTests extends ApiTestFixtureBase {
         assertTrue(context.tabId!.length > 0);
         assertDefined(context.frameUrl);
         assertTrue(context.frameUrl!.length > 0);
-        assertEquals(context.parts.length, 6);
+        assertEquals(context.parts.length, 7);
 
         const part1 = context.parts[0]!;
         assertDefined(part1.data);
@@ -2227,6 +2229,14 @@ class ApiTests extends ApiTestFixtureBase {
         assertEquals(part6.tabContext!.tabData!.tabId, '1');
         assertEquals(part6.tabContext!.tabData!.windowId, '2');
         assertEquals(part6.tabContext!.tabData!.url, 'https://google.com/');
+
+        const part7 = context.parts[6]!;
+        assertDefined(part7.region);
+        assertDefined(part7.region!.rect);
+        assertEquals(part7.region!.rect!.x, 10);
+        assertEquals(part7.region!.rect!.y, 20);
+        assertEquals(part7.region!.rect!.width, 30);
+        assertEquals(part7.region!.rect!.height, 40);
         resolve();
       });
     });
@@ -2411,9 +2421,53 @@ class ApiTests extends ApiTestFixtureBase {
     await actOnWebCapabilitySequence.waitForValue(false);
   }
 
+  async testRegisterConversationWithEmptyId() {
+    assertDefined(this.host.registerConversation);
+    // Register an initial conversation with a valid ID.
+    await this.host.registerConversation(
+        {conversationId: '', conversationTitle: 'Empty Conversation'});
+  }
+
+  async testSwitchConversationWithEmptyId() {
+    assertDefined(this.host.registerConversation);
+    assertDefined(this.host.switchConversation);
+
+    if (this.testParams === 'initiateSwitch') {
+      // Register an initial conversation with a valid ID.
+      await this.host.registerConversation(
+          {conversationId: 'initial_id', conversationTitle: 'Initial Title'});
+
+      // Attempt to switch to a conversation with an empty ID.
+      // Wrap in a sleep to allow the current test's ExecuteJsTest() to complete
+      // before the instance is potentially deleted during switchConversation.
+      sleep(100).then(() => {
+        assertDefined(this.host.switchConversation);
+        this.host.switchConversation({
+          conversationId: '',
+          conversationTitle: 'Empty Switched Title',
+          clientData: 'test_client_data_from_ts',
+        });
+      });
+    } else if (this.testParams === 'verifyNewInstance') {
+      const openData = this.client.panelOpenData.getCurrentValue();
+      assertDefined(openData);
+      assertEquals(undefined, openData.conversationId);
+      assertEquals('', openData.conversationInfo?.conversationId);
+      assertEquals(
+          'Empty Switched Title', openData.conversationInfo?.conversationTitle);
+      assertEquals(
+          'test_client_data_from_ts', openData.conversationInfo?.clientData);
+    }
+  }
+
   async testPanelWillOpenBeforeClientReady() {
     const openData = await observeSequence(this.client.panelOpenData).next();
     assertEquals('test_conversation_id', openData.conversationId);
+    assertEquals(
+        'Test Conversation Title',
+        openData.conversationInfo?.conversationTitle);
+    assertEquals(
+        'test_client_data_from_cc', openData.conversationInfo?.clientData);
   }
 
   async testPanelWillOpenHasRecentlyActiveConversations() {
@@ -2455,6 +2509,54 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
+  async testPanelWillOpenHasPromptSuggestion() {
+    const openData = await observeSequence(this.client.panelOpenData).next();
+    assertEquals('Prompt Suggestion', openData.promptSuggestion);
+  }
+
+  async testGetTabById() {
+    assertDefined(this.host.getTabById);
+
+    // Observe an invalid tab id.
+    {
+      const seq = observeSequence(this.host.getTabById('notA_TabId'));
+      await seq.completed;
+      assertTrue(seq.isEmpty());
+    }
+
+    // Observe a valid tab id that is not found.
+    {
+      const seq = observeSequence(this.host.getTabById('31415926'));
+      await seq.completed;
+      assertTrue(seq.isEmpty());
+    }
+
+    // Observe a valid tab id.
+    {
+      const tabId = this.testParams as string;
+      const obs = this.host.getTabById(tabId);
+      assertUndefined(obs.getCurrentValue());
+      const sequence = observeSequence(obs);
+      const tabData = await sequence.next();
+      assertEquals(tabId, tabData.tabId);
+      assertTrue(
+          tabData.url.endsWith('test.html'), `unexpected url: ${tabData.url}`);
+
+      // Navigate the tab in C++.
+      await this.advanceToNextStep();
+      await sequence.waitFor(tabData => tabData.url.endsWith('test.html?q=hi'));
+
+      // Close the tab in C++.
+      await this.advanceToNextStep();
+      await sequence.waitForComplete();
+
+      // A new subscription should complete without receiving anything.
+      const newSeq = observeSequence(this.host.getTabById(tabId));
+      await newSeq.waitForComplete();
+      assertTrue(newSeq.isEmpty());
+    }
+  }
+
   private async closePanelAndWaitUntilInactive() {
     assertDefined(this.host.closePanel);
     await this.host.closePanel();
@@ -2475,6 +2577,10 @@ class ApiTests extends ApiTestFixtureBase {
         return 'GET_MODEL_QUALITY_CLIENT_ID';
       case HostCapability.MULTI_INSTANCE:
         return 'MULTI_INSTANCE';
+      case HostCapability.TRUST_FIRST_ONBOARDING_ARM1:
+        return 'TRUST_FIRST_ONBOARDING_ARM_1';
+      case HostCapability.TRUST_FIRST_ONBOARDING_ARM2:
+        return 'TRUST_FIRST_ONBOARDING_ARM_2';
       default:
         return 'NEW_ENUM_NOT_IMPLEMENTED';
     }
@@ -2697,6 +2803,9 @@ class DaisyChainApiTests extends ApiTestFixtureBase {
 
   // Helper to handle the daisy chain actions.
   async handleDaisyChainStep(action: string) {
+    await this.client.waitForInitialize();
+    await this.client.waitForFirstOpen();
+
     if (action === 'createTab') {
       await this.clickLinkInGlicUi();
     } else if (action === 'inputSubmitted') {
@@ -2711,6 +2820,10 @@ class DaisyChainApiTests extends ApiTestFixtureBase {
   }
 
   async testDaisyChainRecursiveAndInput() {
+    await this.handleDaisyChainStep(this.testParams);
+  }
+
+  async testNewTabMetrics() {
     await this.handleDaisyChainStep(this.testParams);
   }
 }

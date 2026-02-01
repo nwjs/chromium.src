@@ -4,8 +4,6 @@
 #ifndef COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_ACTOR_LOGIN_INTERNAL_ACTOR_LOGIN_CREDENTIAL_FILLER_H_
 #define COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_ACTOR_LOGIN_INTERNAL_ACTOR_LOGIN_CREDENTIAL_FILLER_H_
 
-#include <map>
-
 #include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
@@ -45,6 +43,7 @@ class ActorLoginCredentialFiller {
       bool should_store_permission,
       password_manager::PasswordManagerClient* client,
       base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
+      base::TimeTicks attempt_login_start_time,
       IsTaskInFocus is_task_in_focus,
       LoginStatusResultOrErrorReply callback);
   ~ActorLoginCredentialFiller();
@@ -171,6 +170,10 @@ class ActorLoginCredentialFiller {
 
   // Used to compute the request duration. Excludes reauth duration.
   base::TimeTicks start_time_;
+
+  // Used to compute the time it took from the tool creation
+  // until different actions in the filler.
+  const base::TimeTicks attempt_login_start_time_;
 
   // Used to compute the reauth duration if it was initiated. The duration is
   // subtracted from the request duration.

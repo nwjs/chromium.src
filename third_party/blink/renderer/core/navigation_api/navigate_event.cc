@@ -125,18 +125,19 @@ bool NavigateEvent::PerformSharedChecks(const String& function_name,
   if (!DomWindow()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        function_name + "() may not be called in a detached window.");
+        StrCat({function_name, "() may not be called in a detached window."}));
     return false;
   }
   if (!isTrusted()) {
     exception_state.ThrowSecurityError(
-        function_name + "() may only be called on a trusted event.");
+        StrCat({function_name, "() may only be called on a trusted event."}));
     return false;
   }
   if (defaultPrevented()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        function_name + "() may not be called if the event has been canceled.");
+        StrCat({function_name,
+                "() may not be called if the event has been canceled."}));
     return false;
   }
   return true;
@@ -150,10 +151,10 @@ void NavigateEvent::intercept(NavigationInterceptOptions* options,
 
   if (!can_intercept_) {
     exception_state.ThrowSecurityError(
-        "A navigation with URL '" + dispatch_params_->url.ElidedString() +
-        "' cannot be intercepted by in a window with origin '" +
-        DomWindow()->GetSecurityOrigin()->ToString() + "' and URL '" +
-        DomWindow()->Url().ElidedString() + "'.");
+        StrCat({"A navigation with URL '", dispatch_params_->url.ElidedString(),
+                "' cannot be intercepted by in a window with origin '",
+                DomWindow()->GetSecurityOrigin()->ToString(), "' and URL '",
+                DomWindow()->Url().ElidedString(), "'."}));
     return;
   }
 
@@ -244,17 +245,18 @@ void NavigateEvent::Redirect(const String& url_string,
 
   KURL url = KURL(DomWindow()->BaseURL(), url_string);
   if (!url.IsValid()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
-                                      "Invalid URL '" + url.GetString() + "'.");
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kSyntaxError,
+        StrCat({"Invalid URL '", url.GetString(), "'."}));
     return;
   }
   if (!CanChangeToUrlForHistoryApi(url, DomWindow()->GetSecurityOrigin(),
                                    DomWindow()->Url())) {
     exception_state.ThrowSecurityError(
-        "Cannot redirect to '" + url.ElidedString() +
-        "' in a document with origin '" +
-        DomWindow()->GetSecurityOrigin()->ToString() + "' and URL '" +
-        DomWindow()->Url().ElidedString() + "'.");
+        StrCat({"Cannot redirect to '", url.ElidedString(),
+                "' in a document with origin '",
+                DomWindow()->GetSecurityOrigin()->ToString(), "' and URL '",
+                DomWindow()->Url().ElidedString(), "'."}));
     return;
   }
 
@@ -296,6 +298,22 @@ void NavigateEvent::Redirect(const String& url_string,
   if (options->hasInfo()) {
     info_ = options->info();
   }
+}
+
+void NavigateEvent::AddHandlerDuringPrecommit(
+    V8NavigationInterceptHandler* handler,
+    ExceptionState& exception_state) {
+  if (!PerformSharedChecks("addHandler", exception_state)) {
+    return;
+  }
+
+  if (intercept_state_ > InterceptState::kIntercepted) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "navigation has already committed.");
+    return;
+  }
+
+  navigation_action_handlers_list_.push_back(handler);
 }
 
 void NavigateEvent::MaybeCommitImmediately(ScriptState* script_state) {
@@ -459,8 +477,17 @@ void NavigateEvent::Abort(ScriptState* script_state, ScriptValue error) {
   controller_->abort(script_state, error);
   navigation->ongoing_navigate_event_ = nullptr;
   delayed_load_start_task_handle_.Cancel();
-  if (!defaultPrevented() && intercept_state_ == InterceptState::kIntercepted) {
-    DomWindow()->GetFrame()->Client()->DidFailAsyncSameDocumentCommit();
+  if (!defaultPrevented()) {
+    switch (intercept_state_) {
+      case InterceptState::kIntercepted:
+        DomWindow()->GetFrame()->Client()->DidFailAsyncSameDocumentCommit();
+        break;
+      case InterceptState::kCommitted:
+        DomWindow()->GetFrame()->Loader().Progress().ProgressCompleted();
+        break;
+      default:
+        break;
+    }
   }
   navigation->DidAbort(error);
 }

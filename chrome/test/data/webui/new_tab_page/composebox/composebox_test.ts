@@ -10,6 +10,7 @@ import {FileUploadErrorType, FileUploadStatus} from 'chrome://resources/cr_compo
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
@@ -975,7 +976,7 @@ suite('NewTabPageComposeboxTest', () => {
         }));
     await searchboxCallbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
-    composeboxElement.$.submitOverlay.click();
+    composeboxElement.$.submitContainer.click();
     await microtasksFinished();
 
     // Assert call occurs.
@@ -999,7 +1000,7 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(submitButton.hasAttribute('disabled'));
 
     // Act.
-    composeboxElement.$.submitOverlay.click();
+    composeboxElement.$.submitContainer.click();
     await microtasksFinished();
 
     // Assert no calls were made.
@@ -1722,16 +1723,25 @@ suite('NewTabPageComposeboxTest', () => {
     createComposeboxElement();
 
     assertEquals(searchboxHandler.getCallCount('submitQuery'), 0);
-    const token = {low: BigInt(1), high: BigInt(2)};
     await uploadFileAndVerify(
-        token, new File(['foo'], 'foo.jpg', {type: 'image/jpeg'}));
+        FAKE_TOKEN_STRING, new File(['foo'], 'foo.jpg', {type: 'image/jpeg'}));
+    searchboxCallbackRouterRemote.onContextualInputStatusChanged(
+        FAKE_TOKEN_STRING,
+        FileUploadStatus.kUploadSuccessful,
+        /*error_type=*/ null,
+    );
+    await microtasksFinished();
 
-    composeboxElement.$.submitOverlay.click();
+    composeboxElement.$.submitContainer.click();
     await microtasksFinished();
 
     // Assert call occurs.
-    assertEquals(searchboxHandler.getCallCount('submitQuery'), 1);
-    assertEquals(searchboxHandler.getCallCount('openAutocompleteMatch'), 0);
+    assertEquals(
+        searchboxHandler.getCallCount('submitQuery'), 1,
+        'submitQuery count should be 1');
+    assertEquals(
+        searchboxHandler.getCallCount('openAutocompleteMatch'), 0,
+        'openAutocompleteMatch count should be 0');
   });
 
   test('composebox does not show when image is present', async () => {
@@ -2455,7 +2465,7 @@ suite('NewTabPageComposeboxTest', () => {
     await collapsibleBox.updateComplete;
 
     // Submit query.
-    collapsibleBox.$.submitOverlay.click();
+    collapsibleBox.$.submitContainer.click();
     await collapsibleBox.updateComplete;
     await microtasksFinished();
 
@@ -2494,6 +2504,7 @@ suite('NewTabPageComposeboxTest', () => {
         createComposeboxElement();
         await microtasksFinished();
         assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+        searchboxHandler.reset();
 
         const voiceQuery = 'hello';
         composeboxElement.$.voiceSearch.dispatchEvent(new CustomEvent(
@@ -2502,15 +2513,82 @@ suite('NewTabPageComposeboxTest', () => {
         await microtasksFinished();
 
         // Assertions.
-        assertEquals(searchboxHandler.getCallCount('submitQuery'), 0);
         assertEquals(composeboxElement.$.input.value, voiceQuery);
-        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 2);
+        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
+        assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 1);
         assertFalse(composeboxElement.$.input.hidden);
         assertEquals(
             composeboxElement.shadowRoot.activeElement,
             composeboxElement.$.input);
         assertTrue((composeboxElement as any).submitEnabled_);
+
+        // Simulate submit button click.
+        composeboxElement.$.submitContainer.dispatchEvent(
+            new FocusEvent('focusin'));
+        composeboxElement.$.submitContainer.click();
+        await searchboxHandler.whenCalled('submitQuery');
+        await microtasksFinished();
+
+        assertEquals(searchboxHandler.getCallCount('submitQuery'), 1);
+        assertEquals(searchboxHandler.getCallCount('openAutocompleteMatch'), 0);
+        const query = searchboxHandler.getArgs('submitQuery')[0][0];
+        assertEquals(query, voiceQuery);
       });
+
+  test('editing voice search result does not query autocomplete', async () => {
+    // Set loadTimeData so that voice search does not auto submit.
+    loadTimeData.overrideValues({
+      autoSubmitVoiceSearchQuery: false,
+      expandedComposeboxShowVoiceSearch: true,
+      steadyComposeboxShowVoiceSearch: true,
+      composeboxShowZps: true,  // For predictable queryAutocomplete count.
+    });
+    createComposeboxElement();
+    await microtasksFinished();
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+    searchboxHandler.reset();
+
+    const voiceQuery = 'hello';
+    composeboxElement.$.voiceSearch.dispatchEvent(new CustomEvent(
+        'voice-search-final-result',
+        {detail: voiceQuery, bubbles: true, composed: true}));
+    await microtasksFinished();
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
+
+    // Simulate editing the voice search result.
+    composeboxElement.$.input.value = `${voiceQuery} and edited`;
+    composeboxElement.$.input.dispatchEvent(new Event('input'));
+    await microtasksFinished();
+
+    // queryAutocomplete should not be called because the input might still have
+    // part or all of a voice search result.
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
+
+    // Clear the input.
+    composeboxElement.$.input.value = '';
+    composeboxElement.$.input.dispatchEvent(new Event('input'));
+    await microtasksFinished();
+
+    // Autocomplete can be queried again, since there's no voice search result in the input.
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+  });
+
+  test('onInputStateChanged updates inputState', async () => {
+    createComposeboxElement();
+    const inputState = {
+      allowedModels: [],
+      allowedTools: [],
+      allowedInputTypes: [],
+      activeModel: 0,
+      activeTool: 0,
+      disabledModels: [],
+      disabledTools: [],
+      disabledInputTypes: [],
+    } as InputState;
+    searchboxCallbackRouterRemote.onInputStateChanged(inputState);
+    await microtasksFinished();
+    assertDeepEquals((composeboxElement as any).inputState_, inputState);
+  });
 
   suite('Context menu', () => {
     suiteSetup(() => {

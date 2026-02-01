@@ -15,6 +15,8 @@
 #include "base/notimplemented.h"
 #include "base/profiler/sample_metadata.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_id_helper.h"
 #include "base/trace_event/traced_value.h"
@@ -25,6 +27,7 @@
 #include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
+#include "cc/scheduler/commit_earlyout_reason.h"
 #include "cc/trees/latency_info_swap_promise.h"
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "cc/trees/layer_tree_host.h"
@@ -37,6 +40,7 @@
 #include "cc/trees/trace_utils.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace cc {
@@ -91,12 +95,18 @@ void ProxyMain::BeginMainFrameNotExpectedSoon() {
 void ProxyMain::BeginMainFrameNotExpectedUntil(base::TimeTicks time) {
   TRACE_EVENT0("cc", "ProxyMain::BeginMainFrameNotExpectedUntil");
   DCHECK(IsMainThread());
+  did_notify_begin_main_frame_not_expected_until_ = true;
   layer_tree_host_->BeginMainFrameNotExpectedUntil(time);
 }
 
 void ProxyMain::DidCommitAndDrawFrame(int source_frame_number) {
   DCHECK(IsMainThread());
+  main_frames_in_flight_--;
+  begin_impl_frame_idle_ = true;
   layer_tree_host_->DidCommitAndDrawFrame(source_frame_number);
+
+  // After drawing the frame, the main thread might be able to go idle.
+  MaybeIdleMainThread();
 }
 
 void ProxyMain::DidLoseLayerTreeFrameSink() {
@@ -130,11 +140,40 @@ void ProxyMain::BeginMainFrame(
     std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state) {
   DCHECK(IsMainThread());
   DCHECK_EQ(NO_PIPELINE_STAGE, current_pipeline_stage_);
+  // Record the final status, subsampled. Use an RAII object as this function
+  // has many early returns.
+  CommitEarlyOutReason reason = CommitEarlyOutReason::kNoEarlyOut;
+  bool record_metrics = base::ShouldRecordSubsampledMetric(.01);
+  std::optional<base::ElapsedTimer> timer;
+  if (record_metrics) {
+    timer.emplace();
+  }
+  absl::Cleanup maybe_record_metrics_and_idle = [&] {
+    if (record_metrics) {
+      UMA_HISTOGRAM_ENUMERATION("Compositing.BeginMainFrame.MainResult",
+                                reason);
+      UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+          "Compositing.BeginMainFrame.TimeUs", timer->Elapsed(),
+          base::Microseconds(1), base::Seconds(10), 50);
+      if (reason == CommitEarlyOutReason::kFinishedNoUpdates) {
+        UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+            "Compositing.BeginMainFrame.TimeUs.NoUpdate", timer->Elapsed(),
+            base::Microseconds(1), base::Seconds(10), 50);
+      }
+    }
+    if (reason != CommitEarlyOutReason::kNoEarlyOut) {
+      main_frames_in_flight_--;
+    }
+    MaybeIdleMainThread();
+  };
 
   base::TimeTicks begin_main_frame_start_time = base::TimeTicks::Now();
+  main_frames_in_flight_++;
+  needs_begin_main_frame_ = false;
 
   const viz::BeginFrameArgs& frame_args =
       begin_main_frame_state->begin_frame_args;
+  last_begin_main_frame_args_ = frame_args;
   TRACE_EVENT("cc,benchmark", "ProxyMain::BeginMainFrame",
               // "begin_frame_id" is used by the rendering benchmarks in
               // Telemetry.
@@ -181,11 +220,11 @@ void ProxyMain::BeginMainFrame(
     // Discard event metrics.
     layer_tree_host_->ClearEventsMetrics();
     std::vector<std::unique_ptr<SwapPromise>> empty_swap_promises;
+    reason = CommitEarlyOutReason::kAbortedNotVisible;
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&ProxyImpl::BeginMainFrameAbortedOnImpl,
-                       base::Unretained(proxy_impl_.get()),
-                       CommitEarlyOutReason::kAbortedNotVisible,
+                       base::Unretained(proxy_impl_.get()), reason,
                        begin_main_frame_start_time,
                        std::move(empty_swap_promises),
                        false /* scroll_and_viewport_changes_synced */));
@@ -214,11 +253,11 @@ void ProxyMain::BeginMainFrame(
     // events metrics are not discarded so that they can be reported if the
     // commit happens in the future.
     std::vector<std::unique_ptr<SwapPromise>> empty_swap_promises;
+    reason = CommitEarlyOutReason::kAbortedDeferredMainFrameUpdate;
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&ProxyImpl::BeginMainFrameAbortedOnImpl,
-                       base::Unretained(proxy_impl_.get()),
-                       CommitEarlyOutReason::kAbortedDeferredMainFrameUpdate,
+                       base::Unretained(proxy_impl_.get()), reason,
                        begin_main_frame_start_time,
                        std::move(empty_swap_promises),
                        false /* scroll_and_viewport_changes_synced */));
@@ -327,10 +366,10 @@ void ProxyMain::BeginMainFrame(
     // events metrics are not discarded so that they can be reported if the
     // commit happens in the future.
     std::vector<std::unique_ptr<SwapPromise>> empty_swap_promises;
+    reason = CommitEarlyOutReason::kAbortedDeferredCommit;
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE, base::BindOnce(&ProxyImpl::BeginMainFrameAbortedOnImpl,
-                                  base::Unretained(proxy_impl_.get()),
-                                  CommitEarlyOutReason::kAbortedDeferredCommit,
+                                  base::Unretained(proxy_impl_.get()), reason,
                                   begin_main_frame_start_time,
                                   std::move(empty_swap_promises),
                                   scroll_and_viewport_changes_synced));
@@ -371,7 +410,8 @@ void ProxyMain::BeginMainFrame(
   // to corresponding  cc display list. An exception is for painted scrollbars,
   // which paint eagerly during layer update.
   bool updated = should_update_layers && layer_tree_host_->UpdateLayers();
-  if (synchronous_composite_for_test_callback_) {
+  if (layer_tree_host_->force_commit_for_propagation() ||
+      synchronous_composite_for_test_callback_) {
     updated = true;
   }
 
@@ -420,11 +460,11 @@ void ProxyMain::BeginMainFrame(
 
     // We can only be here if !skip_commits, so we did do a scroll and
     // viewport sync.
+    reason = CommitEarlyOutReason::kFinishedNoUpdates;
     ImplThreadTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&ProxyImpl::BeginMainFrameAbortedOnImpl,
-                       base::Unretained(proxy_impl_.get()),
-                       CommitEarlyOutReason::kFinishedNoUpdates,
+                       base::Unretained(proxy_impl_.get()), reason,
                        begin_main_frame_start_time, std::move(swap_promises),
                        true /* scroll_and_viewport_changes_synced */));
 
@@ -454,6 +494,7 @@ void ProxyMain::BeginMainFrame(
   // begin the commit process, which is blocking from the main thread's
   // point of view, but asynchronously performed on the impl thread,
   // coordinated by the Scheduler.
+  begin_impl_frame_idle_ = false;
   int source_frame_number = commit_state->source_frame_number;
   CommitTimestamps commit_timestamps;
   {
@@ -495,11 +536,11 @@ void ProxyMain::BeginMainFrame(
 
 void ProxyMain::DidChangeBeginFrameSourcePaused(bool paused) {
   DCHECK(IsMainThread());
-  if (paused_ == paused) {
+  if (begin_frame_source_paused_ == paused) {
     return;
   }
-  paused_ = paused;
-  if (paused_) {
+  begin_frame_source_paused_ = paused;
+  if (begin_frame_source_paused_) {
     TRACE_EVENT_BEGIN("cc", "ProxyMain::SetBeginFrameSourcePaused",
                       perfetto::Track::FromPointer(this));
   } else {
@@ -510,6 +551,9 @@ void ProxyMain::DidChangeBeginFrameSourcePaused(bool paused) {
 
 void ProxyMain::DidCompleteCommit(int source_frame_number,
                                   CommitTimestamps commit_timestamps) {
+  needs_begin_main_frame_ = false;
+  begin_impl_frame_idle_ = true;
+
   if (layer_tree_host_)
     layer_tree_host_->CommitComplete(source_frame_number, commit_timestamps);
 }
@@ -524,6 +568,7 @@ void ProxyMain::DidPresentCompositorFrame(
   layer_tree_host_->DidPresentCompositorFrame(
       frame_token, std::move(presentation_callbacks),
       std::move(sucessful_presentation_callbacks), frame_timing_details);
+  MaybeIdleMainThread();
 }
 
 void ProxyMain::NotifyCompositorMetricsTrackerResults(
@@ -582,6 +627,7 @@ void ProxyMain::SetShouldWarmUp() {
 
 void ProxyMain::SetNeedsAnimate(bool urgent) {
   DCHECK(IsMainThread());
+  needs_begin_main_frame_ = true;
   if (SendCommitRequestToImplThreadIfNeeded(ANIMATE_PIPELINE_STAGE, urgent)) {
     TRACE_EVENT_INSTANT1("cc", "ProxyMain::SetNeedsAnimate",
                          TRACE_EVENT_SCOPE_THREAD, "urgent", urgent);
@@ -590,6 +636,7 @@ void ProxyMain::SetNeedsAnimate(bool urgent) {
 
 void ProxyMain::SetNeedsUpdateLayers() {
   DCHECK(IsMainThread());
+  needs_begin_main_frame_ = true;
   // If we are currently animating, make sure we also update the layers.
   if (current_pipeline_stage_ == ANIMATE_PIPELINE_STAGE) {
     final_pipeline_stage_ =
@@ -623,6 +670,7 @@ void ProxyMain::SetNeedsCommit() {
 void ProxyMain::SetNeedsRedraw(const gfx::Rect& damage_rect) {
   TRACE_EVENT0("cc", "ProxyMain::SetNeedsRedraw");
   DCHECK(IsMainThread());
+  needs_begin_main_frame_ = true;
   ImplThreadTaskRunner()->PostTask(
       FROM_HERE,
       base::BindOnce(&ProxyImpl::SetNeedsRedrawOnImpl,
@@ -882,12 +930,106 @@ void ProxyMain::UpdateBrowserControlsState(
                      animate, offset_tag_modifications));
 }
 
+void ProxyMain::MaybeIdleMainThread() {
+  if (request_begin_main_frame_not_expected_ && !RequestedAnimatePending()) {
+    if (ShouldBeginMainFrameNotExpectedUntil()) {
+      base::TimeTicks deadline = base::TimeTicks::Now().SnappedToNextTick(
+          last_begin_main_frame_args_.frame_time,
+          last_begin_main_frame_args_.interval);
+      // TODO(crbug.com/467384421): Figure out if we can decrease
+      // the overhead by avoiding this call if the deadline is short.
+      BeginMainFrameNotExpectedUntil(deadline);
+    }
+    if (ShouldBeginMainFrameNotExpectedSoon()) {
+      BeginMainFrameNotExpectedSoon();
+    }
+  }
+}
+
+bool ProxyMain::ShouldSubscribeToBeginFrames() const {
+  if (layer_tree_host_->GetSettings()
+          .wait_for_all_pipeline_stages_before_draw) {
+    return true;
+  }
+
+  return (needs_begin_main_frame_ && !defer_main_frame_update_);
+}
+
+bool ProxyMain::BeginFrameNeeded() const {
+  if (!ShouldSubscribeToBeginFrames()) {
+    return false;
+  }
+
+  // Rendering being paused implies we expect more BeginMainFrames.
+  if (!pause_rendering_) {
+    return true;
+  }
+  // Drain any in-flight main frame updates before pausing frames.
+  if (main_frames_in_flight_ > 0) {
+    return true;
+  }
+  return false;
+}
+
+bool ProxyMain::ShouldBeginMainFrameNotExpectedUntil() const {
+  if (needs_begin_main_frame_ || (main_frames_in_flight_ > 0)) {
+    return false;
+  }
+  if (!layer_tree_host_->IsVisible()) {
+    return false;
+  }
+  if (begin_frame_source_paused_) {
+    return false;
+  }
+  // If we've gone idle and have stopped getting BeginFrames, we should send
+  // SendBeginMainFrameNotExpectedSoon instead.
+  if (!BeginFrameNeeded() && begin_impl_frame_idle_) {
+    return false;
+  }
+
+  // TODO(crbug.com/454038686): Figure out if did_commit_during_frame_
+  // signal should cause us to return false here.
+
+  // Do not notify too many times in a single frame.
+  if (did_notify_begin_main_frame_not_expected_until_) {
+    return false;
+  }
+
+  return true;
+}
+
+bool ProxyMain::ShouldBeginMainFrameNotExpectedSoon() const {
+  // Don't notify if a BeginMainFrame has already been requested or is in
+  // progress.
+  if (needs_begin_main_frame_ || (main_frames_in_flight_ > 0)) {
+    return false;
+  }
+
+  // Only send this when we've stopped getting BeginFrames and have gone idle.
+  if (BeginFrameNeeded() || !begin_impl_frame_idle_) {
+    return false;
+  }
+  return true;
+}
+
+// When kMainIdleBypassScheduler is enabled, requesting
+// BeginMainFrameNotExpected bypasses updating scheduler state and performs the
+// calculation in place.
 void ProxyMain::RequestBeginMainFrameNotExpected(bool new_state) {
+  TRACE_EVENT("cc", "ProxyMain::RequestBeginMainFrameNotExpected", "paused",
+              new_state);
   DCHECK(IsMainThread());
-  ImplThreadTaskRunner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ProxyImpl::RequestBeginMainFrameNotExpectedOnImpl,
-                     base::Unretained(proxy_impl_.get()), new_state));
+  if (!base::FeatureList::IsEnabled(features::kMainIdleBypassScheduler)) {
+    ImplThreadTaskRunner()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&ProxyImpl::RequestBeginMainFrameNotExpectedOnImpl,
+                       base::Unretained(proxy_impl_.get()), new_state));
+    return;
+  }
+  request_begin_main_frame_not_expected_ = new_state;
+  did_notify_begin_main_frame_not_expected_until_ = false;
+
+  MaybeIdleMainThread();
 }
 
 bool ProxyMain::SendCommitRequestToImplThreadIfNeeded(
@@ -959,7 +1101,7 @@ double ProxyMain::GetAverageThroughput() const {
 }
 
 bool ProxyMain::IsRenderingPaused() const {
-  return pause_rendering_ || paused_;
+  return pause_rendering_ || begin_frame_source_paused_;
 }
 
 void ProxyMain::NotifyNewLocalSurfaceIdExpectedWhilePaused() {

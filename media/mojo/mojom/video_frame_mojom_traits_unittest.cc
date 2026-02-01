@@ -20,7 +20,6 @@
 #include "build/build_config.h"
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "gpu/command_buffer/common/mailbox.h"
-#include "gpu/command_buffer/common/mailbox_holder.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "media/base/color_plane_layout.h"
 #include "media/base/video_frame.h"
@@ -670,8 +669,8 @@ TEST_F(VideoFrameStructTraitsTest, MappableSharedImageVideoFrame) {
   ASSERT_TRUE(frame);
   ASSERT_TRUE(RoundTrip(&frame));
   ASSERT_TRUE(frame);
-  ASSERT_EQ(frame->storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
-  EXPECT_TRUE(frame->HasMappableGpuBuffer());
+  ASSERT_EQ(frame->storage_type(), VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE);
+  EXPECT_TRUE(frame->HasMappableSharedImage());
   EXPECT_FALSE(frame->metadata().end_of_stream);
   EXPECT_EQ(frame->format(), PIXEL_FORMAT_ABGR);
   EXPECT_EQ(frame->coded_size(), coded_size);

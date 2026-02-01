@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/notreached.h"
 #include "media/capture/mojom/video_capture_types.mojom-shared.h"
 #include "media/capture/video_capture_types.h"
 #include "ui/gfx/geometry/mojom/geometry.mojom.h"
@@ -308,6 +309,8 @@ EnumTraits<media::mojom::VideoCaptureBufferType,
       return media::mojom::VideoCaptureBufferType::kMailboxHolder;
     case media::VideoCaptureBufferType::kGpuMemoryBuffer:
       return media::mojom::VideoCaptureBufferType::kGpuMemoryBuffer;
+    case media::VideoCaptureBufferType::kSharedImage:
+      return media::mojom::VideoCaptureBufferType::kSharedImage;
   }
   NOTREACHED();
 }
@@ -329,6 +332,9 @@ bool EnumTraits<media::mojom::VideoCaptureBufferType,
       return true;
     case media::mojom::VideoCaptureBufferType::kGpuMemoryBuffer:
       *output = media::VideoCaptureBufferType::kGpuMemoryBuffer;
+      return true;
+    case media::mojom::VideoCaptureBufferType::kSharedImage:
+      *output = media::VideoCaptureBufferType::kSharedImage;
       return true;
   }
   NOTREACHED();

@@ -10,6 +10,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "media/base/video_transformation.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_provider.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/skia/include/core/SkAlphaType.h"
@@ -34,7 +35,6 @@ class PaintFlags;
 }  // namespace cc
 
 namespace blink {
-class CanvasResourceProvider;
 class StaticBitmapImage;
 
 // Converts a media orientation into a blink one or vice versa.
@@ -45,29 +45,18 @@ ImageOrientationToVideoTransformation(ImageOrientationEnum orientation);
 
 // Returns true if CreateImageFromVideoFrame() expects to create an
 // AcceleratedStaticBitmapImage. Note: This may be overridden if a software
-// |resource_provider| is given to CreateImageFromVideoFrame().
-PLATFORM_EXPORT bool WillCreateAcceleratedImagesFromVideoFrame(
-    const media::VideoFrame* frame);
+// `snapshot_provider` is given to CreateImageFromVideoFrame().
+PLATFORM_EXPORT bool WillCreateAcceleratedImagesFromVideoFrame();
 
 // Returns a StaticBitmapImage for the given frame. Accelerated images will be
-// preferred if possible.
+// preferred if possible. `snapshot_provider` must be non-null and should have a
+// size equal to frame->natural_size() and color space equal to
+// frame->CompatRGBColorSpace().
 //
-// |video_renderer| may optionally be provided in cases where the same frame may
+// `video_renderer` may optionally be provided in cases where the same frame may
 // end up repeatedly converted.
 //
-// Likewise |resource_provider| may be provided to prevent thrashing when this
-// method is called with high frequency.
-//
-// The default resource provider size is the frame's visible size. The default
-// |dest_rect| is the visible size aligned to the origin. Callers may choose to
-// provide their own |resource_provider| and |dest_rect| for rendering to the
-// frame's natural size.
-//
-// When an external |resource_provider| is provided a |dest_rect| may also be
-// provided to control where in the canvas the VideoFrame will be drawn. A
-// non-empty |dest_rect| will disable zero copy image support.
-//
-// If |prefer_tagged_orientation| is true, CreateImageFromVideoFrame() will just
+// If `prefer_tagged_orientation` is true, CreateImageFromVideoFrame() will just
 // tag the StaticBitmapImage with the correct orientation ("soft flip") instead
 // of drawing the frame with the correct orientation ("hard flip").
 //
@@ -77,7 +66,7 @@ PLATFORM_EXPORT bool WillCreateAcceleratedImagesFromVideoFrame(
 // Returns nullptr if a StaticBitmapImage can't be created.
 PLATFORM_EXPORT scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
-    CanvasResourceProvider* resource_provider = nullptr,
+    CanvasSnapshotProvider* snapshot_provider,
     media::PaintCanvasVideoRenderer* video_renderer = nullptr,
     bool prefer_tagged_orientation = true,
     bool reinterpret_video_as_srgb = false);
@@ -85,24 +74,38 @@ PLATFORM_EXPORT scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
 PLATFORM_EXPORT void DrawVideoFrameIntoCanvas(
     scoped_refptr<media::VideoFrame> frame,
     cc::PaintCanvas* canvas,
-    cc::PaintFlags& flags,
+    const cc::PaintFlags& flags,
     bool ignore_video_transformation = false);
 
 // Extract a RasterContextProvider from the current SharedGpuContext.
 PLATFORM_EXPORT scoped_refptr<viz::RasterContextProvider>
 GetRasterContextProvider();
 
-// Creates a CanvasResourceProvider which is appropriate for drawing VideoFrame
+// Helper function for creating a CanvasSnapshotProvider from a VideoFrame. The
+// returned info structure will be filled as follows:
+//   alpha_type: kOpaque_SkAlphaType for opaque frames, kPremul_SkAlphaType
+//   otherwise.
+//
+//   color_space: If `reinterpret_video_as_srgb` was true, then this
+//   is sRGB, otherwise frame.CompatRGBColorSpace().
+//
+//   format: Always GetN32FormatForCanvas() at the time of writing.
+//
+//   size: Set to frame.natural_size() unless `scaled_size` is provided.
+PLATFORM_EXPORT CanvasSnapshotProvider::Info
+CreateSnapshotProviderInfoForVideoFrame(
+    const media::VideoFrame& frame,
+    std::optional<gfx::Size> scaled_size = std::nullopt,
+    bool reinterpret_video_as_srgb = false);
+
+// Creates a CanvasSnapshotProvider which is appropriate for drawing VideoFrame
 // objects into. Some callers to CreateImageFromVideoFrame() may choose to cache
-// their resource providers. If |raster_context_provider| is null a software
-// resource provider will be returned.
-PLATFORM_EXPORT std::unique_ptr<CanvasResourceProvider>
-CreateResourceProviderForVideoFrame(
-    gfx::Size size,
-    viz::SharedImageFormat format,
-    SkAlphaType alpha_type,
-    const gfx::ColorSpace& color_space,
-    viz::RasterContextProvider* raster_context_provider);
+// their snapshot providers. If `raster_context_provider` is null a software
+// snapshot provider will be returned.
+PLATFORM_EXPORT std::unique_ptr<CanvasSnapshotProvider>
+CreateSnapshotProviderForVideo(
+    const CanvasSnapshotProvider::Info& info,
+    viz::RasterContextProvider* raster_context_provider = nullptr);
 
 }  // namespace blink
 

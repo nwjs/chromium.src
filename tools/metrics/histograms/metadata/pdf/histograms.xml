@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="PDF.Actions" enum="ChromePDFViewerActions"
-    expires_after="2026-04-26">
+    expires_after="2026-06-28">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -49,7 +49,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.DefaultState" enum="DefaultBrowserState"
-    expires_after="2026-04-25">
+    expires_after="2026-06-28">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -90,7 +90,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.HasAttachment" enum="Boolean" expires_after="2026-04-05">
+<histogram name="PDF.HasAttachment" enum="Boolean" expires_after="2026-06-07">
   <owner>nigi@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -100,7 +100,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.InfoBar.SettingsResult" enum="PdfInfoBarSettingsResult"
-    expires_after="2026-04-25">
+    expires_after="2026-06-28">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -111,14 +111,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.InfoBar.Shown" enum="BooleanShown"
-    expires_after="2026-04-25">
+    expires_after="2026-06-28">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>Recorded every time the PDF infobar is shown.</summary>
 </histogram>
 
 <histogram name="PDF.InfoBar.UserInteraction" enum="PDFInfoBarUserInteraction"
-    expires_after="2026-04-25">
+    expires_after="2026-06-28">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -127,7 +127,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2StrokeBrushType" enum="PDFInk2StrokeBrushType"
-    expires_after="2026-04-05">
+    expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -141,7 +141,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2StrokeHighlighterColor"
-    enum="PDFInk2StrokeHighlighterColor" expires_after="2026-04-05">
+    enum="PDFInk2StrokeHighlighterColor" expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -153,7 +153,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2StrokeInputDeviceType"
-    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-04-05">
+    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -168,7 +168,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2StrokePenColor" enum="PDFInk2StrokePenColor"
-    expires_after="2026-04-05">
+    expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -179,7 +179,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2Stroke{Brush}Size" enum="PDFInk2StrokeBrushSize"
-    expires_after="2026-04-05">
+    expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -196,7 +196,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2TextHighlighterColor"
-    enum="PDFInk2StrokeHighlighterColor" expires_after="2026-04-05">
+    enum="PDFInk2StrokeHighlighterColor" expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -210,7 +210,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2TextHighlightInputDeviceType"
-    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-04-05">
+    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-06-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -235,7 +235,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.LoadStatus2" enum="ChromePDFViewerLoadStatus"
-    expires_after="2026-04-26">
+    expires_after="2026-06-28">
   <owner>kmoon@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -245,7 +245,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.PageCount" units="pages" expires_after="2026-04-26">
+<histogram name="PDF.PageCount" units="pages" expires_after="2026-06-28">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -263,7 +263,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.PostMessageDataType" enum="PDFPostMessageDataType"
-    expires_after="2026-04-19">
+    expires_after="2026-06-21">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -390,6 +390,15 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the status of a Save to Drive upload from the PDF viewer, and
     important intermediate steps. Recorded when status changes.
+  </summary>
+</histogram>
+
+<histogram name="PDF.SchemeIsFile" enum="Boolean" expires_after="2027-01-09">
+  <owner>thestig@chromium.org</owner>
+  <owner>andyphan@chromium.org</owner>
+  <summary>
+    When loading a full-page PDF in the PDF Viewer, records whether the PDF is
+    loaded from a file:// URL or not.
   </summary>
 </histogram>
 

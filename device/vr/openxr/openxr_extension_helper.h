@@ -71,10 +71,14 @@ struct OpenXrExtensionMethods {
   OPENXR_DECLARE_FN(xrEnumerateSpatialCapabilitiesEXT);
   OPENXR_DECLARE_FN(xrEnumerateSpatialCapabilityComponentTypesEXT);
   OPENXR_DECLARE_FN(xrQuerySpatialComponentDataEXT);
+  OPENXR_DECLARE_FN(xrGetSpatialBufferVector2fEXT);
 
   // Spatial Anchors
   OPENXR_DECLARE_FN(xrCreateSpatialAnchorEXT);
   OPENXR_DECLARE_FN(xrEnumerateSpatialAnchorAttachableComponentsANDROID);
+
+  // Spatial HitTest
+  OPENXR_DECLARE_FN(xrCreateSpatialRaycastSnapshotANDROID);
 
   // Visibility Mask
   OPENXR_DECLARE_FN(xrGetVisibilityMaskKHR);

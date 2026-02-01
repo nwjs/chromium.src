@@ -389,7 +389,7 @@ void ThemeService::UseDefaultTheme() {
     base::RecordAction(base::UserMetricsAction("Themes_Reset"));
   }
 
-  ClearThemeData(/*clear_ntp_background=*/true);
+  ClearThemeData(/*reset_all_settings=*/true);
   NotifyThemeChanged();
 }
 
@@ -615,10 +615,13 @@ bool ThemeService::BrowserUsesDarkColors() const {
 void ThemeService::SetUserColor(std::optional<SkColor> user_color) {
   {
     base::AutoReset<bool> resetter(&should_suppress_theme_updates_, true);
-    ClearThemeData(/*clear_ntp_background=*/false);
+    ClearThemeData(/*reset_all_settings=*/false);
     profile_->GetPrefs()->SetInteger(prefs::kUserColor,
                                      user_color.value_or(SK_ColorTRANSPARENT));
-    profile_->GetPrefs()->SetString(prefs::kCurrentThemeID, kUserColorThemeID);
+    if (user_color.has_value()) {
+      profile_->GetPrefs()->SetString(prefs::kCurrentThemeID,
+                                      kUserColorThemeID);
+    }
   }
   NotifyThemeChanged();
 }
@@ -647,7 +650,7 @@ void ThemeService::SetUserColorAndBrowserColorVariant(
     ui::mojom::BrowserColorVariant color_variant) {
   {
     base::AutoReset<bool> resetter(&should_suppress_theme_updates_, true);
-    ClearThemeData(/*clear_ntp_background=*/false);
+    ClearThemeData(/*reset_all_settings=*/false);
     profile_->GetPrefs()->SetInteger(prefs::kUserColor, user_color);
     profile_->GetPrefs()->SetString(prefs::kCurrentThemeID, kUserColorThemeID);
     profile_->GetPrefs()->SetInteger(prefs::kBrowserColorVariant,
@@ -659,7 +662,7 @@ void ThemeService::SetUserColorAndBrowserColorVariant(
 void ThemeService::SetIsGrayscale(bool is_grayscale) {
   {
     base::AutoReset<bool> resetter(&should_suppress_theme_updates_, true);
-    ClearThemeData(/*clear_ntp_background=*/false);
+    ClearThemeData(/*reset_all_settings=*/false);
     profile_->GetPrefs()->SetBoolean(prefs::kGrayscaleThemeEnabled,
                                      is_grayscale);
   }
@@ -735,7 +738,7 @@ void ThemeService::SetCustomDefaultTheme(
     return;
   }
 
-  ClearThemeData(/*clear_ntp_background=*/true);
+  ClearThemeData(/*reset_all_settings=*/true);
   SwapThemeSupplier(std::move(theme_supplier));
   NotifyThemeChanged();
 }
@@ -744,7 +747,7 @@ ui::SystemTheme ThemeService::GetDefaultSystemTheme() const {
   return ui::SystemTheme::kDefault;
 }
 
-void ThemeService::ClearThemeData(bool clear_ntp_background) {
+void ThemeService::ClearThemeData(bool reset_all_settings) {
   if (!ready_) {
     return;
   }
@@ -756,7 +759,12 @@ void ThemeService::ClearThemeData(bool clear_ntp_background) {
 
   SwapThemeSupplier(nullptr);
   ClearThemePrefs();
-  if (clear_ntp_background) {
+  if (reset_all_settings) {
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
+    // This toggle is currently supported on ChromeOS and Windows and we only
+    // want platforms to set the value if they have a visible toggle.
+    profile_->GetPrefs()->ClearPref(prefs::kBrowserFollowsSystemThemeColors);
+#endif
     NtpCustomBackgroundService::ResetNtpTheme(profile_);
   }
 
@@ -876,7 +884,7 @@ void ThemeService::MigrateTheme() {
     base::RecordAction(base::UserMetricsAction("Themes.Migrated"));
   } else {
     DLOG(ERROR) << "Theme is mysteriously gone.";
-    ClearThemeData(/*clear_ntp_background=*/true);
+    ClearThemeData(/*reset_all_settings=*/true);
     base::RecordAction(base::UserMetricsAction("Themes.Gone"));
   }
 }

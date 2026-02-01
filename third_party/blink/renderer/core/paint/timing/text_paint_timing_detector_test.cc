@@ -58,14 +58,24 @@ class TextPaintTimingDetectorTest : public testing::Test {
   }
   Document& GetDocument() { return *GetFrame()->GetDocument(); }
 
+  LocalFrameView& GetChildFrameView() {
+    return *To<LocalFrame>(GetFrame()->Tree().FirstChild())->View();
+  }
+
+  TextPaintTimingDetector& GetChildFrameTextPaintTimingDetector() {
+    return GetChildFrameView()
+        .GetPaintTimingDetector()
+        .GetTextPaintTimingDetector();
+  }
+
+  LargestTextPaintManager& GetLargestTextPaintManager() {
+    return GetTextPaintTimingDetector()->ltp_manager_;
+  }
+
   gfx::Rect GetViewportRect(LocalFrameView& view) {
     ScrollableArea* scrollable_area = view.GetScrollableArea();
     DCHECK(scrollable_area);
     return scrollable_area->VisibleContentRect();
-  }
-
-  LocalFrameView& GetChildFrameView() {
-    return *To<LocalFrame>(GetFrame()->Tree().FirstChild())->View();
   }
 
   Document* GetChildDocument() {
@@ -78,16 +88,6 @@ class TextPaintTimingDetectorTest : public testing::Test {
 
   TextPaintTimingDetector* GetTextPaintTimingDetector() {
     return &GetPaintTimingDetector().GetTextPaintTimingDetector();
-  }
-
-  TextPaintTimingDetector& GetChildFrameTextPaintTimingDetector() {
-    return GetChildFrameView()
-        .GetPaintTimingDetector()
-        .GetTextPaintTimingDetector();
-  }
-
-  LargestTextPaintManager& GetLargestTextPaintManager() {
-    return GetTextPaintTimingDetector()->ltp_manager_;
   }
 
   wtf_size_t CountRecordedSize() {
@@ -103,6 +103,10 @@ class TextPaintTimingDetectorTest : public testing::Test {
 
   wtf_size_t ContainerTotalSize() {
     return CountRecordedSize() + TextQueuedForPaintTimeSize(GetFrameView());
+  }
+
+  bool HasLargestIgnoredText() {
+    return !!GetLargestTextPaintManager().LargestIgnoredText();
   }
 
   void SimulateInputEvent() {
@@ -122,7 +126,9 @@ class TextPaintTimingDetectorTest : public testing::Test {
     InvokePresentationTimeCallback(mock_callback_manager_);
     // Outside the tests, this is invoked by
     // |PaintTimingCallbackManagerImpl::ReportPaintTime|.
-    GetLargestTextPaintManager().UpdateMetricsCandidate();
+    if (GetTextPaintTimingDetector()->IsRecordingLargestTextPaint()) {
+      GetTextPaintTimingDetector()->UpdateMetricsCandidate();
+    }
   }
 
   void ChildFramePresentationTimeCallBack() {
@@ -164,6 +170,8 @@ class TextPaintTimingDetectorTest : public testing::Test {
     mock_callback_manager_ =
         MakeGarbageCollected<MockPaintTimingCallbackManager>();
     GetTextPaintTimingDetector()->ResetCallbackManager(mock_callback_manager_);
+    main_frame_lcp_calculator_ =
+        GetPaintTimingDetector().GetLargestContentfulPaintCalculator();
     UpdateAllLifecyclePhases();
   }
 
@@ -175,6 +183,9 @@ class TextPaintTimingDetectorTest : public testing::Test {
         MakeGarbageCollected<MockPaintTimingCallbackManager>();
     GetChildFrameTextPaintTimingDetector().ResetCallbackManager(
         child_frame_mock_callback_manager_);
+    child_frame_lcp_calculator_ = GetChildFrameView()
+                                      .GetPaintTimingDetector()
+                                      .GetLargestContentfulPaintCalculator();
     UpdateAllLifecyclePhases();
   }
 
@@ -228,14 +239,11 @@ class TextPaintTimingDetectorTest : public testing::Test {
   }
 
   TextRecord* TextRecordOfLargestTextPaint() {
-    return GetLargestTextPaintManager().LargestText();
+    return main_frame_lcp_calculator_->LargestTextForTest();
   }
 
   TextRecord* ChildFrameTextRecordOfLargestTextPaint() {
-    return GetChildFrameView()
-        .GetPaintTimingDetector()
-        .GetTextPaintTimingDetector()
-        .ltp_manager_.LargestText();
+    return child_frame_lcp_calculator_->LargestTextForTest();
   }
 
   void SetFontSize(Element* font_element, uint16_t font_size) {
@@ -270,6 +278,9 @@ class TextPaintTimingDetectorTest : public testing::Test {
   scoped_refptr<base::TestMockTimeTaskRunner> test_task_runner_;
   Persistent<MockPaintTimingCallbackManager> mock_callback_manager_;
   Persistent<MockPaintTimingCallbackManager> child_frame_mock_callback_manager_;
+  // Cache the LCP calculators so they can still be accessed after input events.
+  Persistent<LargestContentfulPaintCalculator> main_frame_lcp_calculator_;
+  Persistent<LargestContentfulPaintCalculator> child_frame_lcp_calculator_;
 };
 
 constexpr base::TimeDelta TextPaintTimingDetectorTest::kQuantumOfTime;
@@ -867,12 +878,14 @@ TEST_F(TextPaintTimingDetectorTest, OpacityZeroHTML) {
     <div>Text</div>
   )HTML");
   CheckSizeOfTextQueuedForPaintTimeAfterUpdateLifecyclePhases(0u);
+  EXPECT_TRUE(HasLargestIgnoredText());
 
   // Change the opacity of documentElement, now the img should be a candidate.
   GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
                                                 AtomicString("opacity: 1"));
   UpdateAllLifecyclePhasesAndSimulatePresentationTime();
   EXPECT_TRUE(TextRecordOfLargestTextPaint());
+  EXPECT_FALSE(HasLargestIgnoredText());
 }
 
 TEST_F(TextPaintTimingDetectorTest, OpacityZeroHTML2) {
@@ -952,6 +965,27 @@ TEST_F(TextPaintTimingDetectorTest, OpacityZeroHTMLWithInput) {
       PaintTiming::From(GetDocument())
           .FirstContentfulPaintRenderedButNotPresentedAsMonotonicTime();
   EXPECT_FALSE(fcp_timestamp.is_null());
+}
+
+TEST_F(TextPaintTimingDetectorTest, OpacityZeroHTMLRemoveElement) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      :root {
+        opacity: 0;
+        will-change: opacity;
+      }
+    </style>
+    <div id="target">Text</div>
+  )HTML");
+  CheckSizeOfTextQueuedForPaintTimeAfterUpdateLifecyclePhases(0u);
+  EXPECT_TRUE(HasLargestIgnoredText());
+
+  RemoveElement(GetElement("target"));
+  EXPECT_FALSE(HasLargestIgnoredText());
+  GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
+                                                AtomicString("opacity: 1"));
+  UpdateAllLifecyclePhasesAndSimulatePresentationTime();
+  EXPECT_FALSE(TextRecordOfLargestTextPaint());
 }
 
 TEST_F(TextPaintTimingDetectorTest,

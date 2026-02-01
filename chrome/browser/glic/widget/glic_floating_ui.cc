@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "ui/base/base_window.h"
 #include "ui/views/widget/widget_delegate.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -40,6 +41,11 @@ BASE_FEATURE(kGlicFloatingUiReattachment, base::FEATURE_ENABLED_BY_DEFAULT);
 gfx::Size GlicFloatingUi::GetDefaultSize() {
   return {features::kGlicMultiInstanceFloatyWidth.Get(),
           features::kGlicMultiInstanceFloatyHeight.Get()};
+}
+
+gfx::Size GlicFloatingUi::GetCompositeViewDefaultSize() {
+  return {features::kGlicCompositeViewWidth.Get(),
+          features::kGlicCompositeViewHeight.Get()};
 }
 // end static
 
@@ -147,13 +153,6 @@ void GlicFloatingUi::Resize(const gfx::Size& size,
   }
 }
 
-void GlicFloatingUi::SetDraggableAreas(
-    const std::vector<gfx::Rect>& draggable_areas) {
-  if (auto* glic_view = GetGlicView()) {
-    glic_view->SetDraggableAreas(draggable_areas);
-  }
-}
-
 GlicWindowAnimator* GlicFloatingUi::window_animator() {
   return glic_window_animator_.get();
 }
@@ -237,8 +236,7 @@ void GlicFloatingUi::MaybeSetWidgetCanResize() {
 #endif  // BUILDFLAG(IS_WIN)
 }
 
-void GlicFloatingUi::OnSourceTabDestroyed(tabs::TabInterface* tab,
-                                          const InstanceId& instance_id) {
+void GlicFloatingUi::OnSourceTabDestroyed(tabs::TabInterface* tab) {
   FloatingPanelCanAttachChanged(false);
 }
 
@@ -247,6 +245,16 @@ void GlicFloatingUi::FloatingPanelCanAttachChanged(bool can_attach) {
     return;
   }
   delegate_->host().FloatingPanelCanAttachChanged(can_attach);
+}
+
+void GlicFloatingUi::ConfigureWebContentsModalDialogs() {
+  // Add capability to show web modal dialogs (e.g. Data Controls Dialogs for
+  // enterprise users) via constrained_window APIs.
+  web_modal::WebContentsModalDialogManager::CreateForWebContents(
+      delegate_->host().webui_contents());
+  web_modal::WebContentsModalDialogManager::FromWebContents(
+      delegate_->host().webui_contents())
+      ->SetDelegate(this);
 }
 
 void GlicFloatingUi::Attach() {
@@ -288,16 +296,10 @@ void GlicFloatingUi::Show(const ShowOptions& options) {
     window_event_observer_->SetDraggingAreasAndWatchForMouseEvents();
   }
 
-  // Add capability to show web modal dialogs (e.g. Data Controls Dialogs for
-  // enterprise users) via constrained_window APIs.
-  web_modal::WebContentsModalDialogManager::CreateForWebContents(
-      delegate_->host().webui_contents());
-  web_modal::WebContentsModalDialogManager::FromWebContents(
-      delegate_->host().webui_contents())
-      ->SetDelegate(this);
+  ConfigureWebContentsModalDialogs();
 }
 
-void GlicFloatingUi::Close() {
+void GlicFloatingUi::Close(const CloseOptions& options) {
   instance_metrics_->OnFloatyClosed();
   if (IsShowing()) {
     modal_dialog_host_observers_.Notify(
@@ -328,8 +330,11 @@ void GlicFloatingUi::ClearWebContentsDelegate() {
   }
 }
 
-void GlicFloatingUi::ClosePanel() {
-  Close();
+void GlicFloatingUi::OnReload() {
+  if (auto* glic_view = GetGlicView()) {
+    glic_view->SetWebContents(delegate_->host().webui_contents());
+    ConfigureWebContentsModalDialogs();
+  }
 }
 
 void GlicFloatingUi::Focus() {
@@ -355,7 +360,8 @@ void GlicFloatingUi::OnWidgetDestroyed(views::Widget* widget) {
   if (GetGlicWidget() == widget) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
-        base::BindOnce(&GlicFloatingUi::Close, weak_ptr_factory_.GetWeakPtr()));
+        base::BindOnce(&GlicFloatingUi::Close, weak_ptr_factory_.GetWeakPtr(),
+                       CloseOptions{}));
   }
 }
 
@@ -379,10 +385,6 @@ void GlicFloatingUi::OnWidgetUserResizeEnded() {
     client->ManualResizeChanged(false);
   }
 
-  if (GetGlicView()) {
-    GetGlicView()->UpdatePrimaryDraggableAreaOnResize();
-  }
-
   glic_window_animator_->ResetLastTargetSize();
   user_resizing_ = false;
 }
@@ -396,7 +398,14 @@ GlicFloatingUi::GetWebContentsModalDialogHost(
 }
 
 gfx::Size GlicFloatingUi::GetMaximumDialogSize() {
-  return GetGlicWidget()->GetClientAreaBoundsInScreen().size();
+  // Print preview might be the widest model dialog we support for now, use its
+  // min size if FLoaty is smaller than that.
+  gfx::Size floaty_size = GetGlicWidget()->GetClientAreaBoundsInScreen().size();
+  gfx::Size default_size = GetCompositeViewDefaultSize();
+  if (floaty_size.width() >= default_size.width()) {
+    return floaty_size;
+  }
+  return default_size;
 }
 
 gfx::NativeView GlicFloatingUi::GetHostView() const {
@@ -450,6 +459,10 @@ void GlicFloatingUi::CaptureScreenshot(
   }
   screenshot_capturer_->CaptureScreenshot(GetGlicWidget()->GetNativeWindow(),
                                           std::move(callback));
+}
+
+void GlicFloatingUi::ClosePanel() {
+  Close({});
 }
 
 std::string GlicFloatingUi::DescribeForTesting() {

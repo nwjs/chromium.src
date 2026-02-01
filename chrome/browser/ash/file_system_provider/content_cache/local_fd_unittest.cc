@@ -10,6 +10,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/rand_util.h"
+#include "base/strings/strcat.h"
 #include "base/task/thread_pool.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -93,7 +94,7 @@ TEST_F(FileSystemProviderLocalFDTest, BytesCanBeReadThenWrittenTo) {
   // write to the file, this should close that FD and re-open one that enables
   // writing
   base::test::TestFuture<base::File::Error> write_bytes_future;
-  file.WriteBytes(write_buffer, test_file_size_, /*length=*/15,
+  file.WriteBytes(write_buffer, test_file_size_, contents_to_append.size(),
                   write_bytes_future.GetCallback());
   EXPECT_EQ(write_bytes_future.Get(), base::File::FILE_OK);
 

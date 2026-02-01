@@ -22,8 +22,7 @@ namespace gpu {
 // This class is used on Android, and is responsible for tracking native
 // window surfaces exposed to the GPU process. Every surface gets registered to
 // this class, and gets a handle.  The handle can be passed to
-// CommandBufferProxyImpl::Create or to
-// GpuMemoryBufferManager::CreateGpuMemoryBuffer.
+// CommandBufferProxyImpl::Create.
 // On Android, the handle is used in the GPU process to get a reference to the
 // ScopedJavaSurface, using GpuSurfaceLookup (implemented by
 // ChildProcessSurfaceManager).
@@ -63,8 +62,8 @@ class GPU_IPC_COMMON_EXPORT GpuSurfaceTracker : public gpu::GpuSurfaceLookup {
   ~GpuSurfaceTracker() override;
 
   mutable base::Lock surface_map_lock_;
-  SurfaceMap surface_map_;
-  int next_surface_handle_;
+  SurfaceMap surface_map_ GUARDED_BY(surface_map_lock_);
+  int next_surface_handle_ GUARDED_BY(surface_map_lock_);
 };
 
 }  // namespace ui

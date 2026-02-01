@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/animation/timeline_offset.h"
 #include "third_party/blink/renderer/core/animation/view_timeline.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
 #include "third_party/blink/renderer/core/css/css_property_equality.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/scoped_css_name.h"
@@ -33,6 +32,7 @@ namespace blink {
 
 class Animation;
 class ComputedStyle;
+class StyleRuleKeyframes;
 
 class NewCSSAnimation {
   DISALLOW_NEW();
@@ -56,19 +56,15 @@ class NewCSSAnimation {
         effect(effect),
         timing(timing),
         style_rule(style_rule),
-        style_rule_version(this->style_rule->Version()),
         timeline(timeline),
         play_state_list(play_state_list),
         range_start(range_start),
         range_end(range_end),
-        trigger_attachments(trigger_attachments) {}
-
-  void Trace(Visitor* visitor) const {
-    visitor->Trace(effect);
-    visitor->Trace(style_rule);
-    visitor->Trace(timeline);
-    visitor->Trace(trigger_attachments);
+        trigger_attachments(trigger_attachments) {
+    UpdateVersion();
   }
+
+  void Trace(Visitor*) const;
 
   AtomicString name;
   size_t name_index;
@@ -82,6 +78,9 @@ class NewCSSAnimation {
   std::optional<TimelineOffset> range_start;
   std::optional<TimelineOffset> range_end;
   Member<const StyleTriggerAttachmentVector> trigger_attachments;
+
+ private:
+  void UpdateVersion();
 };
 
 class UpdatedCSSAnimation {
@@ -104,20 +103,15 @@ class UpdatedCSSAnimation {
         animation(animation),
         effect(&effect),
         style_rule(style_rule),
-        style_rule_version(this->style_rule->Version()),
         timeline(timeline),
         play_state_list(play_state_list),
         range_start(range_start),
         range_end(range_end),
-        trigger_attachments(trigger_attachments) {}
-
-  void Trace(Visitor* visitor) const {
-    visitor->Trace(animation);
-    visitor->Trace(effect);
-    visitor->Trace(style_rule);
-    visitor->Trace(timeline);
-    visitor->Trace(trigger_attachments);
+        trigger_attachments(trigger_attachments) {
+    UpdateVersion();
   }
+
+  void Trace(Visitor*) const;
 
   Timing specified_timing;
   wtf_size_t index;
@@ -130,6 +124,9 @@ class UpdatedCSSAnimation {
   std::optional<TimelineOffset> range_start;
   std::optional<TimelineOffset> range_end;
   Member<const StyleTriggerAttachmentVector> trigger_attachments;
+
+ private:
+  void UpdateVersion();
 };
 
 }  // namespace blink
@@ -227,6 +224,9 @@ class CORE_EXPORT CSSAnimationUpdate final {
   void SetChangedTimelineAttachments(TimelineAttachmentMap attachments) {
     changed_timeline_attachments_ = std::move(attachments);
   }
+
+  void SetNeedsNamedTriggerUpdate() { needs_named_trigger_update_ = true; }
+  bool NeedsNamedTriggerUpdate() { return needs_named_trigger_update_; }
 
   const HeapVector<NewCSSAnimation>& NewAnimations() const {
     return new_animations_;
@@ -338,7 +338,8 @@ class CORE_EXPORT CSSAnimationUpdate final {
            !changed_scroll_timelines_.empty() ||
            !changed_view_timelines_.empty() ||
            !changed_deferred_timelines_.empty() ||
-           !changed_timeline_attachments_.empty();
+           !changed_timeline_attachments_.empty() ||
+           needs_named_trigger_update_;
   }
 
   void Trace(Visitor* visitor) const {
@@ -383,6 +384,8 @@ class CORE_EXPORT CSSAnimationUpdate final {
 
   ActiveInterpolationsMap active_interpolations_for_animations_;
   ActiveInterpolationsMap active_interpolations_for_transitions_;
+
+  bool needs_named_trigger_update_ = false;
 
   friend class PendingAnimationUpdate;
 };

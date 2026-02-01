@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Viimeisin kuva <ph name="INDEX" />/<ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Tiivistä Google Tasks</translation>
 <translation id="2208323208084708176">Yhtenäisen työpöydän tila</translation>
+<translation id="2210311543574621570">Näet leikepöydän, kun painat pitkään Ctrl + V. Voit laittaa tämän pikanäppäimen pois päältä poistamalla #clipboard-history-longpress-merkinnän käytöstä osoitteessa chrome://flags.</translation>
 <translation id="2215920961700443347">Ei internetyhteyttä Muodosta internetyhteys ja yritä uudelleen.</translation>
 <translation id="2222841058024245321">Työpöytä 7</translation>
 <translation id="2223384056430485343">Jaetulla näytöllä</translation>
@@ -874,6 +875,7 @@ Yhdistä laite virtalähteeseen.</translation>
 <translation id="397105322502079400">Lasketaan...</translation>
 <translation id="397726367135689299">Akun lataus ei välttämättä toimi oikein.</translation>
 <translation id="3977512764614765090">Akkua ladataan, varaus nyt <ph name="PERCENTAGE" /> %</translation>
+<translation id="3978162107953847778">Lisää linkkejä esimerkiksi selaushistoriastasi ja Google Drivesta. Voit myös lisätä esimerkiksi emojeita ja kuvatiedostoja. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Vaihdetaanko äänen ulostuloa?</translation>
 <translation id="3984536049089846927">Seuraava sivu</translation>
 <translation id="3986082989454912832">Vastaa</translation>
@@ -1024,7 +1026,6 @@ Joitakin ominaisuuksia on rajoitettu akunkeston parantamiseksi.</translation>
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 tärkeä ilmoitus}other{# tärkeää ilmoitusta}}</translation>
 <translation id="4450893287417543264">Älä näytä uudelleen</translation>
 <translation id="4451374464530248585">Pikanäppäinyhdistelmä Alt + alanuoli on muuttunut. Jos haluat käyttää Page Down ‑näppäintä, paina <ph name="LAUNCHER_KEY_NAME" /> + alanuoli.</translation>
-<translation id="4453876312474547652">Näet leikepöydän, kun painat pitkään Ctrl + V. Voit laittaa tämän pikanäppäimen pois päältä poistamalla #clipboard-history-longpress-merkinnän käytöstä osoitteessa chrome://flags (jos käytössä on Lacros: os://flags).</translation>
 <translation id="445765352722456792">Muokkaa ehdotuksia</translation>
 <translation id="4458688154122353284">Lopeta näytön tallennus</translation>
 <translation id="445923051607553918">Yhdistä Wi-Fi-verkkoon</translation>
@@ -1600,6 +1601,7 @@ Ei liitettyjä laitteita.</translation>
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: aktivoidaan…</translation>
 <translation id="6274202259872570803">Ruutukaappausvideo</translation>
+<translation id="6274422179279280249">Lisää esimerkiksi linkkejä ja emojeita. Voit myös saada Googlen tekoälyltä apua kirjoittamiseen. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Näytä sivun lähdekoodi</translation>
 <translation id="6285871695023807425">Lisää kalenteriin</translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" /> voidaan lisätä myöhemmin uudelleen vanhemman luvalla.</translation>
@@ -2078,7 +2080,7 @@ Sammuta laite painamalla sen virtapainiketta pitkään uudelleen.</translation>
         <ph name="IME" />
         <ph name="LOCALE" /></translation>
 <translation id="7899977217122813285">Ilmoitukset on mykistetty klo <ph name="TIME" /> asti keskittymisen aikana</translation>
-<translation id="7901010467630324625">Vain laitteet, jotka ovat kirjautuneet tilille <ph name="EMAIL" /></translation>
+<translation id="7901010467630324625">Vain laitteet, joilla on kirjauduttu tilille <ph name="EMAIL" /></translation>
 <translation id="7901190436359881020">Vaihda ikkunoita</translation>
 <translation id="7901405293566323524">Phone Hub</translation>
 <translation id="7902625623987030061">Kosketa sormenjälkitunnistinta</translation>
@@ -2190,6 +2192,7 @@ Sammuta laite painamalla sen virtapainiketta pitkään uudelleen.</translation>
 <translation id="8237964652943995219">Seuraava työpöytä: <ph name="DESK_NAME" />. Työpöytä <ph name="DESK_INDEX" />/<ph name="DESK_COUNT" />.</translation>
 <translation id="8238817965863339552">Katso lyhyt esittely siitä, miten <ph name="PRODUCT_NAME" /> toimii. Aloita käyttö viisivaiheisilla ohjeilla.</translation>
 <translation id="8239034820133090126">Aktivoi oikealla oleva työpöytä</translation>
+<translation id="8241650983304689286">Lisää välilehti uuteen jaettuun näkymään</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, signaalin vahvuus <ph name="SIGNAL_STRENGTH" />, puhelimen akun varaus <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Näytä kaikki Google Driven sisältö</translation>
 <translation id="8257510091797044096">Ota laite käyttöön</translation>

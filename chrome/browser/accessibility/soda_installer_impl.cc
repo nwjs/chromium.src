@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
@@ -44,7 +43,7 @@ base::FilePath SodaInstallerImpl::GetSodaBinaryPath() const {
 }
 
 base::FilePath SodaInstallerImpl::GetLanguagePath(
-    const std::string& language) const {
+    std::string_view language) const {
   std::optional<speech::SodaLanguagePackComponentConfig> config =
       speech::GetLanguageComponentConfig(language);
   if (config.has_value() &&
@@ -76,7 +75,7 @@ void SodaInstallerImpl::InstallSoda(PrefService* global_prefs) {
   }
 }
 
-void SodaInstallerImpl::InstallLanguage(const std::string& language,
+void SodaInstallerImpl::InstallLanguage(std::string_view language,
                                         PrefService* global_prefs) {
   if (never_download_soda_for_testing_)
     return;
@@ -97,7 +96,7 @@ void SodaInstallerImpl::InstallLanguage(const std::string& language,
   }
 }
 
-void SodaInstallerImpl::UninstallLanguage(const std::string& language,
+void SodaInstallerImpl::UninstallLanguage(std::string_view language,
                                           PrefService* global_prefs) {
   speech::LanguageCode language_code = speech::GetLanguageCode(language);
   if (language_code != speech::LanguageCode::kNone) {
@@ -245,7 +244,7 @@ void SodaInstallerImpl::UpdateAndNotifyOnSodaProgress(
   int downloaded_bytes = 0;
   speech::LanguageCode soda_code = speech::LanguageCode::kNone;
 
-  if (base::Contains(downloading_components_, soda_code)) {
+  if (downloading_components_.contains(soda_code)) {
     total_bytes += downloading_components_[soda_code].total_bytes;
     downloaded_bytes += downloading_components_[soda_code].downloaded_bytes;
   }

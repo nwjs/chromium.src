@@ -13,10 +13,11 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
@@ -80,7 +81,6 @@ struct BrowserViewLayoutImplOld::ContentsContainerLayoutResult {
   bool side_panel_visible;
   bool side_panel_right_aligned;
   bool contents_container_after_side_panel;
-  gfx::Rect separator_bounds;
 };
 
 BrowserViewLayoutImplOld::BrowserViewLayoutImplOld(
@@ -168,9 +168,9 @@ gfx::Size BrowserViewLayoutImplOld::GetMinimumSize(
 
   // TODO(crbug.com/437917495): Verify all callers have the correct bounds in
   // vertical and horizontal tabstrip modes.
-  gfx::Size tabstrip_size(has_tabstrip
-                              ? views().tab_strip_region_view->GetMinimumSize()
-                              : gfx::Size());
+  gfx::Size tabstrip_size(
+      has_tabstrip ? views().horizontal_tab_strip_region_view->GetMinimumSize()
+                   : gfx::Size());
   gfx::Size toolbar_size((has_toolbar || has_location_bar)
                              ? views().toolbar->GetMinimumSize()
                              : gfx::Size());
@@ -212,7 +212,7 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
   gfx::Rect contents_container_bounds = available_bounds;
   int vertical_tab_offset = 0;
   if (delegate().ShouldDrawVerticalTabStrip()) {
-    vertical_tab_offset = kMinVerticalTabStripWidth;
+    vertical_tab_offset = views().vertical_tab_strip_region_view->width();
     contents_container_bounds.set_width(available_bounds.width() -
                                         vertical_tab_offset);
   }
@@ -229,24 +229,13 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
       views().contents_height_side_panel->GetVisible();
   if (!side_panel_visible) {
     // The contents container takes all available space, and we're done.
-    return ContentsContainerLayoutResult{contents_container_bounds,
-                                         gfx::Rect(),
-                                         false,
-                                         false,
-                                         false,
-                                         gfx::Rect()};
+    return ContentsContainerLayoutResult{contents_container_bounds, gfx::Rect(),
+                                         false, false, false};
   }
 
   SidePanel* const side_panel = views().contents_height_side_panel;
 
   const bool side_panel_right_aligned = side_panel->IsRightAligned();
-  views::View* side_panel_separator =
-      side_panel_right_aligned
-          ? views().right_aligned_side_panel_separator.get()
-          : views().left_aligned_side_panel_separator.get();
-  const int separator_width =
-      !side_panel_separator ? 0
-                            : side_panel_separator->GetPreferredSize().width();
 
   // Side panel occupies some of the container's space. The side panel should
   // never occupy more space than is available in the content window, and
@@ -262,10 +251,9 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
                           contents_container_bounds.width() * 2 / 3),
                  side_panel->GetMinimumSize().width()));
   } else {
-    side_panel_bounds.set_width(std::min(side_panel->GetPreferredSize().width(),
-                                         contents_container_bounds.width() -
-                                             GetMinWebContentsWidth() -
-                                             separator_width));
+    side_panel_bounds.set_width(
+        std::min(side_panel->GetPreferredSize().width(),
+                 contents_container_bounds.width() - GetMinWebContentsWidth()));
   }
 
   double side_panel_visible_width =
@@ -275,8 +263,7 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
 
   // Shrink container bounds to fit the side panel.
   contents_container_bounds.set_width(contents_container_bounds.width() -
-                                      side_panel_visible_width -
-                                      separator_width);
+                                      side_panel_visible_width);
 
   // In LTR, the point (0,0) represents the top left of the browser.
   // In RTL, the point (0,0) represents the top right of the browser.
@@ -288,7 +275,7 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
     // When the side panel should appear before the main content area relative
     // to the ui direction, move `contents_container_bounds` after the side
     // panel. Also leave space for the separator.
-    contents_container_bounds.set_x(side_panel_visible_width + separator_width +
+    contents_container_bounds.set_x(side_panel_visible_width +
                                     vertical_tab_offset);
     side_panel_bounds.set_x(side_panel_bounds.x() - (side_panel_bounds.width() -
                                                      side_panel_visible_width));
@@ -296,32 +283,12 @@ BrowserViewLayoutImplOld::CalculateContentsContainerLayout(
     // When the side panel should appear after the main content area relative to
     // the ui direction, move `side_panel_bounds` after the main content area.
     // Also leave space for the separator.
-    side_panel_bounds.set_x(contents_container_bounds.right() +
-                            separator_width);
+    side_panel_bounds.set_x(contents_container_bounds.right());
   }
 
-  // Adjust the side panel separator bounds based on the side panel bounds
-  // calculated above.
-  gfx::Rect separator_bounds = side_panel_bounds;
-  // TODO (https://crbug.com/389972209): Adding 1px to the width as a bandaid
-  // fix. This covers a case with subpixeling where a thin line of the
-  // background finds its way to the front.
-  separator_bounds.set_width(separator_width + 1);
-  // If the side panel appears before `contents_container_bounds`, place the
-  // separator immediately after the side panel but before the container
-  // bounds. If the side panel appears after `contents_container_bounds`,
-  // place the separator immediately after the contents bounds but before the
-  // side panel.
-  separator_bounds.set_x(contents_container_after_side_panel
-                             ? side_panel_bounds.right()
-                             : contents_container_bounds.right());
-
-  return ContentsContainerLayoutResult{contents_container_bounds,
-                                       side_panel_bounds,
-                                       side_panel_visible,
-                                       side_panel_right_aligned,
-                                       contents_container_after_side_panel,
-                                       separator_bounds};
+  return ContentsContainerLayoutResult{
+      contents_container_bounds, side_panel_bounds, side_panel_visible,
+      side_panel_right_aligned, contents_container_after_side_panel};
 }
 
 bool BrowserViewLayout::IsInfobarVisible() const {
@@ -394,12 +361,14 @@ void BrowserViewLayoutImplOld::LayoutTitleBarForWebApp(
 
 void BrowserViewLayoutImplOld::LayoutVerticalTabStrip(
     gfx::Rect& available_bounds) {
-  if (views().vertical_tab_strip_container &&
-      views().vertical_tab_strip_container->GetVisible()) {
-    views().vertical_tab_strip_container->SetBounds(
-        available_bounds.x(), available_bounds.y(), kMinVerticalTabStripWidth,
+  if (views().vertical_tab_strip_region_view &&
+      views().vertical_tab_strip_region_view->GetVisible()) {
+    const int width =
+        views().vertical_tab_strip_region_view->GetPreferredSize().width();
+    views().vertical_tab_strip_region_view->SetBounds(
+        available_bounds.x(), available_bounds.y(), width,
         available_bounds.height());
-    available_bounds.set_x(available_bounds.x() + kMinVerticalTabStripWidth);
+    available_bounds.set_x(available_bounds.x() + width);
   }
 }
 
@@ -407,8 +376,8 @@ void BrowserViewLayoutImplOld::LayoutTabStripRegion(
     gfx::Rect& available_bounds) {
   TRACE_EVENT0("ui", "BrowserViewLayout::LayoutTabStripRegion");
   if (!delegate().ShouldDrawTabStrip()) {
-    SetViewVisibility(views().tab_strip_region_view, false);
-    views().tab_strip_region_view->SetBounds(0, 0, 0, 0);
+    SetViewVisibility(views().horizontal_tab_strip_region_view, false);
+    views().horizontal_tab_strip_region_view->SetBounds(0, 0, 0, 0);
     return;
   }
   // This retrieves the bounds for the tab strip based on whether or not we show
@@ -422,12 +391,14 @@ void BrowserViewLayoutImplOld::LayoutTabStripRegion(
   }
 
   if (delegate().ShouldDrawVerticalTabStrip()) {
-    SetViewVisibility(views().tab_strip_region_view, false);
+    SetViewVisibility(views().horizontal_tab_strip_region_view, false);
   } else {
-    SetViewVisibility(views().tab_strip_region_view, true);
-    views().tab_strip_region_view->SetBoundsRect(tab_strip_region_bounds);
-    available_bounds.set_y(tab_strip_region_bounds.bottom() -
-                           GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP));
+    SetViewVisibility(views().horizontal_tab_strip_region_view, true);
+    views().horizontal_tab_strip_region_view->SetBoundsRect(
+        tab_strip_region_bounds);
+    available_bounds.set_y(
+        tab_strip_region_bounds.bottom() -
+        GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap));
   }
 }
 
@@ -457,7 +428,7 @@ void BrowserViewLayoutImplOld::LayoutToolbar(gfx::Rect& available_bounds) {
         delegate().GetBoundsForToolbarInVerticalTabBrowserView());
     toolbar_bounds.set_x(available_bounds.x());
     toolbar_bounds.set_width(toolbar_bounds.width() -
-                             kMinVerticalTabStripWidth);
+                             views().vertical_tab_strip_region_view->width());
     views().toolbar->SetBoundsRect(toolbar_bounds);
   } else {
     int height =
@@ -604,47 +575,13 @@ void BrowserViewLayoutImplOld::LayoutContentsContainerView(
         layout_result.side_panel_bounds);
   }
 
-  if (views().multi_contents_view) {
-    views().multi_contents_view->SetShouldShowLeadingSeparator(
-        layout_result.side_panel_visible &&
-        (layout_result.side_panel_right_aligned == base::i18n::IsRTL()));
+  views().multi_contents_view->SetShouldShowLeadingSeparator(
+      layout_result.side_panel_visible &&
+      (layout_result.side_panel_right_aligned == base::i18n::IsRTL()));
 
-    views().multi_contents_view->SetShouldShowTrailingSeparator(
-        layout_result.side_panel_visible &&
-        (layout_result.side_panel_right_aligned != base::i18n::IsRTL()));
-  } else {
-    SetViewVisibility(views().right_aligned_side_panel_separator,
-                      layout_result.side_panel_visible &&
-                          layout_result.side_panel_right_aligned);
-    views().right_aligned_side_panel_separator->SetBoundsRect(
-        layout_result.separator_bounds);
-    SetViewVisibility(views().left_aligned_side_panel_separator,
-                      layout_result.side_panel_visible &&
-                          !layout_result.side_panel_right_aligned);
-    views().left_aligned_side_panel_separator->SetBoundsRect(
-        layout_result.separator_bounds);
-
-    SetViewVisibility(views().side_panel_rounded_corner,
-                      layout_result.side_panel_visible);
-    if (layout_result.side_panel_visible) {
-      // Adjust the rounded corner bounds based on the side panel bounds.
-      const int corner_size =
-          views().side_panel_rounded_corner->GetPreferredSize().width();
-
-      const int top_separator_height = views::Separator::kThickness;
-      if (layout_result.contents_container_after_side_panel) {
-        views().side_panel_rounded_corner->SetBounds(
-            layout_result.side_panel_bounds.right(),
-            layout_result.side_panel_bounds.y() - top_separator_height,
-            corner_size, corner_size);
-      } else {
-        views().side_panel_rounded_corner->SetBounds(
-            layout_result.side_panel_bounds.x() - corner_size,
-            layout_result.side_panel_bounds.y() - top_separator_height,
-            corner_size, corner_size);
-      }
-    }
-  }
+  views().multi_contents_view->SetShouldShowTrailingSeparator(
+      layout_result.side_panel_visible &&
+      (layout_result.side_panel_right_aligned != base::i18n::IsRTL()));
 }
 
 void BrowserViewLayoutImplOld::UpdateTopContainerBounds(
@@ -687,20 +624,9 @@ void BrowserViewLayoutImplOld::UpdateTopContainerBounds(
 }
 
 int BrowserViewLayoutImplOld::GetMinWebContentsWidth() const {
-  int min_width =
+  const int min_width =
       kMainBrowserContentsMinimumWidth -
-      views().contents_height_side_panel->GetMinimumSize().width() -
-      (views().right_aligned_side_panel_separator
-           ? views()
-                 .right_aligned_side_panel_separator->GetPreferredSize()
-                 .width()
-           : 0);
-
-  // When in split view, the minimum width of the contents is higher.
-  if (views().multi_contents_view) {
-    min_width =
-        std::max(min_width, 2 * views().multi_contents_view->GetMinViewWidth());
-  }
+      views().contents_height_side_panel->GetMinimumSize().width();
   DCHECK_GE(min_width, 0);
   return min_width;
 }

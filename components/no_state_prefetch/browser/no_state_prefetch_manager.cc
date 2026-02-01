@@ -16,7 +16,6 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -262,18 +261,6 @@ NoStatePrefetchManager::StartPrefetchingFromLinkRelPrerender(
   return StartPrefetchingWithPreconnectFallback(
       origin, url, referrer, initiator_origin, gfx::Rect(size),
       session_storage_namespace, attempt ? attempt->GetWeakPtr() : nullptr);
-}
-
-std::unique_ptr<NoStatePrefetchHandle>
-NoStatePrefetchManager::AddSameOriginSpeculation(
-    const GURL& url,
-    content::SessionStorageNamespace* session_storage_namespace,
-    const gfx::Size& size,
-    const url::Origin& initiator_origin) {
-  // The preconnect fallback won't happen.
-  return StartPrefetchingWithPreconnectFallback(
-      ORIGIN_SAME_ORIGIN_SPECULATION, url, content::Referrer(),
-      initiator_origin, gfx::Rect(size), session_storage_namespace);
 }
 
 void NoStatePrefetchManager::CancelAllPrerenders() {
@@ -1001,13 +988,6 @@ void NoStatePrefetchManager::SkipNoStatePrefetchContentsAndMaybePreconnect(
   prefetch_history_->AddEntry(entry);
   histograms_->RecordFinalStatus(origin, final_status);
 
-  if (origin == ORIGIN_SAME_ORIGIN_SPECULATION) {
-    // Prefetch Proxy should not preconnect since that can't be done in a fully
-    // isolated way. Same origin speculation should already have an open
-    // connection.
-    return;
-  }
-
   if (origin == ORIGIN_LINK_REL_NEXT) {
     return;
   }
@@ -1036,7 +1016,7 @@ bool NoStatePrefetchManager::MayReuseProcessHost(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // Isolate prefetch processes to make the resource monitoring check more
   // accurate.
-  return !base::Contains(prerender_process_hosts_, process_host);
+  return !prerender_process_hosts_.contains(process_host);
 }
 
 void NoStatePrefetchManager::RenderProcessHostDestroyed(

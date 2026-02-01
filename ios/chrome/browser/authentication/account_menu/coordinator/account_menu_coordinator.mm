@@ -53,11 +53,11 @@
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
@@ -119,7 +119,11 @@ void maybeShowSettingsIPH(Browser* browser) {
   SyncEncryptionPassphraseTableViewController*
       _syncEncryptionPassphraseTableViewController;
   raw_ptr<ChromeAccountManagerService> _accountManagerService;
-  // The child signin coordinator if it’s open.
+
+  // The two coordinators below may be started while the view is gone up to
+  // iOS 18.  See crbug.com/395959814. This coordinator should be stopped before
+  // starting any other coordinator, in case they want to open their own add
+  // account coordinator. The child signin coordinator if it’s open.
   SigninCoordinator* _addAccountSigninCoordinator;
   // Reauth coordinator for the reauthentication flow if it's open.
   SigninReauthCoordinator* _reauthCoordinator;
@@ -160,6 +164,8 @@ void maybeShowSettingsIPH(Browser* browser) {
 - (void)dealloc {
   DCHECK(!_mediator);
 }
+
+#pragma mark - ChromeCoordinator
 
 - (void)start {
   ProfileIOS* profile = self.profile;
@@ -241,10 +247,8 @@ void maybeShowSettingsIPH(Browser* browser) {
   if (!_mediator) {
     return;
   }
-  [self stopTrustedVaultReauthenticationCoordinator];
+
   [self stopChildrenAndViewControllerAnimated:NO];
-  [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
-  _syncEncryptionPassphraseTableViewController = nil;
 
   // Sets to nil the account menu objects.
   [_mediator disconnect];
@@ -280,6 +284,7 @@ void maybeShowSettingsIPH(Browser* browser) {
 #pragma mark - AccountMenuMediatorDelegate
 
 - (void)didTapManageYourGoogleAccount {
+  [self stopAddAccountCoordinator];
   __weak __typeof(self) weakSelf = self;
   _accountDetailsControllerDismissCallback =
       GetApplicationContext()
@@ -298,6 +303,9 @@ void maybeShowSettingsIPH(Browser* browser) {
 
 - (void)didTapManageAccounts {
   CHECK(!_manageAccountsNavigationController);
+  // Manage Accounts allows to add an account, so we must be certain that the
+  // Account Menu’s Add Account and reauth account coordinator are stopped.
+  [self stopChildrenCoordinators];
   _manageAccountsNavigationController = [SettingsNavigationController
              accountsControllerForBrowser:self.browser
                        baseViewController:_navigationController
@@ -342,7 +350,7 @@ void maybeShowSettingsIPH(Browser* browser) {
   if (_addAccountSigninCoordinator.viewWillPersist) {
     return;
   }
-  [_addAccountSigninCoordinator stop];
+  [self stopChildrenCoordinators];
   _addAccountSigninCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:_navigationController
                                           browser:self.browser
@@ -418,6 +426,7 @@ void maybeShowSettingsIPH(Browser* browser) {
     // simultaneous taps. See crbug.com/368310663.
     return;
   }
+  [self stopChildrenCoordinators];
   // In case of double tap, close the first view before opening a second one.
   [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
   _syncEncryptionPassphraseTableViewController =
@@ -441,6 +450,7 @@ void maybeShowSettingsIPH(Browser* browser) {
     // time.
     return;
   }
+  [self stopChildrenCoordinators];
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
   trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
@@ -465,6 +475,7 @@ void maybeShowSettingsIPH(Browser* browser) {
     // time.
     return;
   }
+  [self stopChildrenCoordinators];
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
   trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
@@ -484,21 +495,20 @@ void maybeShowSettingsIPH(Browser* browser) {
 }
 
 - (void)openMDMErrodDialogWithSystemIdentity:(id<SystemIdentity>)identity {
+  [self stopChildrenCoordinators];
   _authenticationService->ShowMDMErrorDialogForIdentity(identity);
 }
 
 - (void)openPrimaryAccountReauthDialog {
-  if (base::FeatureList::IsEnabled(switches::kEnableIdentityInAuthError)) {
-    [self openReauthCoordinator];
-  } else {
-    [self openAddAccountReauthCoordinator];
-  }
+  [self stopChildrenCoordinators];
+  [self openReauthCoordinator];
 }
 
 - (void)openReauthCoordinator {
   if (_reauthCoordinator.viewWillPersist) {
     return;
   }
+  [self stopChildrenCoordinators];
   [_reauthCoordinator stop];
 
   CoreAccountInfo account =
@@ -515,34 +525,6 @@ void maybeShowSettingsIPH(Browser* browser) {
                                      kAccountMenu];
   _reauthCoordinator.delegate = self;
   [_reauthCoordinator start];
-}
-
-- (void)openAddAccountReauthCoordinator {
-  if (_addAccountSigninCoordinator.viewWillPersist) {
-    return;
-  }
-  [_addAccountSigninCoordinator stop];
-  signin_metrics::AccessPoint accessPoint =
-      signin_metrics::AccessPoint::kAccountMenuSwitchAccount;
-  signin_metrics::PromoAction promoAction =
-      signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
-  SigninContextStyle style = SigninContextStyle::kDefault;
-  _addAccountSigninCoordinator = [SigninCoordinator
-      primaryAccountReauthCoordinatorWithBaseViewController:
-          _navigationController
-                                                    browser:self.browser
-                                               contextStyle:style
-                                                accessPoint:accessPoint
-                                                promoAction:promoAction
-                                       continuationProvider:
-                                           DoNothingContinuationProvider()];
-  __weak __typeof(self) weakSelf = self;
-  _addAccountSigninCoordinator.signinCompletion =
-      ^(SigninCoordinator* coordinator, SigninCoordinatorResult signinResult,
-        id<SystemIdentity> signinCompletionIdentity) {
-        [weakSelf signinCoordinatorCompletionWithCoordinator:coordinator];
-      };
-  [_addAccountSigninCoordinator start];
 }
 
 #pragma mark - SettingsNavigationControllerDelegate
@@ -601,8 +583,7 @@ void maybeShowSettingsIPH(Browser* browser) {
 - (void)configureHandlersForRootViewController:
     (id<SettingsRootViewControlling>)controller {
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
-  controller.applicationHandler =
-      HandlerForProtocol(dispatcher, ApplicationCommands);
+  controller.sceneHandler = HandlerForProtocol(dispatcher, SceneCommands);
   controller.browserHandler = HandlerForProtocol(dispatcher, BrowserCommands);
   controller.settingsHandler = HandlerForProtocol(dispatcher, SettingsCommands);
   controller.snackbarHandler = HandlerForProtocol(dispatcher, SnackbarCommands);
@@ -616,17 +597,26 @@ void maybeShowSettingsIPH(Browser* browser) {
 // Stops all children, then dismiss the view controller. Executes
 // `completion` synchronously.
 - (void)stopChildrenAndViewControllerAnimated:(BOOL)animated {
+  [self stopChildrenCoordinators];
+  [self dismissViewControllerAnimated:animated completion:nil];
+}
+
+// Stops all children, then dismiss the view controller. Executes
+// `completion` synchronously.
+- (void)stopChildrenCoordinators {
   // Stopping all potentially open children views.
   if (!_accountDetailsControllerDismissCallback.is_null()) {
     std::move(_accountDetailsControllerDismissCallback).Run(/*animated=*/false);
   }
   [self stopSignoutActionSheetCoordinator];
   [self stopAddAccountCoordinator];
+  [self stopTrustedVaultReauthenticationCoordinator];
   [self stopReauthCoordinator];
   // Add Account coordinator should be stopped before the Manage Accounts
   // Coordinator, as the former may be presented by the latter.
   [self stopManageAccountsNavigationController];
-  [self dismissViewControllerAnimated:animated completion:nil];
+  [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
+  _syncEncryptionPassphraseTableViewController = nil;
 }
 
 // Unplugs the view and navigation controller. Dismisses the navigation

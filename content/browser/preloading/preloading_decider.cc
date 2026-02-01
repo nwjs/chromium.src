@@ -32,8 +32,7 @@
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/preloading/anchor_element_interaction_host.mojom.h"
-#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-data-view.h"
-#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-forward.h"
+#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-shared.h"
 
 namespace content {
 
@@ -135,7 +134,6 @@ class PreloadingDecider::BehaviorConfig {
                preloading_predictor::kPreloadingHeuristicsMLModel) {
       switch (action) {
         case blink::mojom::SpeculationAction::kPrefetch:
-        case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
           return ml_model_prefetch_moderate_threshold_;
         // TODO(https://crbug.com/428500219): Revisit the threshold for
         // prerender-until-script; it could be lower than the threshold for

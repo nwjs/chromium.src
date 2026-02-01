@@ -31,18 +31,11 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/cascade_layer.h"
 #include "third_party/blink/renderer/core/css/cascade_layered.h"
-#include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
-#include "third_party/blink/renderer/core/css/css_position_try_rule.h"
 #include "third_party/blink/renderer/core/css/media_query_evaluator.h"
-#include "third_party/blink/renderer/core/css/mixin_map.h"
 #include "third_party/blink/renderer/core/css/resolver/media_query_result.h"
 #include "third_party/blink/renderer/core/css/robin_hood_map.h"
 #include "third_party/blink/renderer/core/css/rule_feature_set.h"
-#include "third_party/blink/renderer/core/css/style_rule.h"
-#include "third_party/blink/renderer/core/css/style_rule_counter_style.h"
-#include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
-#include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
-#include "third_party/blink/renderer/core/css/style_rule_view_transition.h"
+#include "third_party/blink/renderer/core/css/valid_property_filter.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/route_matching/route_match_state.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
@@ -56,6 +49,13 @@
 namespace blink {
 
 class RuleSet;
+class StyleRuleCounterStyle;
+class StyleRuleFontFeatureValues;
+class StyleRuleFontPaletteValues;
+class StyleRuleKeyframes;
+class StyleRulePositionTry;
+class StyleRuleViewTransition;
+struct MixinMap;
 
 using AddRuleFlags = unsigned;
 
@@ -65,43 +65,6 @@ enum AddRuleFlag {
   kRuleIsStartingStyle = 1 << 1,
 };
 
-// Some CSS properties do not apply to certain pseudo-elements, and need to be
-// ignored when resolving styles. Be aware that these values are used in a
-// bitfield. Make sure that it's large enough to hold new values.
-// See MatchedProperties::Data::valid_property_filter.
-enum class ValidPropertyFilter : unsigned {
-  // All properties are valid. This is the common case.
-  kNoFilter,
-  // Defined in a ::cue pseudo-element scope. Only properties listed
-  // in https://w3c.github.io/webvtt/#the-cue-pseudo-element are valid.
-  kCue,
-  // Defined in a ::first-letter pseudo-element scope. Only properties listed in
-  // https://drafts.csswg.org/css-pseudo-4/#first-letter-styling are valid.
-  kFirstLetter,
-  // Defined in a ::first-line pseudo-element scope. Only properties listed in
-  // https://drafts.csswg.org/css-pseudo-4/#first-line-styling are valid.
-  kFirstLine,
-  // Defined in a ::marker pseudo-element scope. Only properties listed in
-  // https://drafts.csswg.org/css-pseudo-4/#marker-pseudo are valid.
-  kMarker,
-  // Defined in a highlight pseudo-element scope like ::selection and
-  // ::target-text. Theoretically only properties listed in
-  // https://drafts.csswg.org/css-pseudo-4/#highlight-styling should be valid,
-  // but for highlight pseudos using originating inheritance instead of
-  // highlight inheritance we allow a different set of rules for
-  // compatibility reasons.
-  kHighlightLegacy,
-  // Defined in a highlight pseudo-element scope like ::selection and
-  // ::target-text. Only properties listed in
-  // https://drafts.csswg.org/css-pseudo-4/#highlight-styling are valid.
-  kHighlight,
-  // Defined in a @position-try rule. Only properties listed in
-  // https://drafts.csswg.org/css-anchor-position-1/#fallback-rule are valid.
-  kPositionTry,
-  // Defined in an @page rule.
-  // See https://drafts.csswg.org/css-page-3/#page-property-list
-  kPageContext,
-};
 
 class CSSSelector;
 class MediaQueryEvaluator;
@@ -157,7 +120,7 @@ class CORE_EXPORT RuleData {
   // Member functions related to the descendant Bloom filter.
   const base::span<const uint16_t> DescendantSelectorIdentifierHashes(
       const Vector<uint16_t>& backing) const {
-    return UNSAFE_TODO({backing.data() + bloom_hash_pos_, bloom_hash_size_});
+    return UNSAFE_BUFFERS({backing.data() + bloom_hash_pos_, bloom_hash_size_});
   }
   void ComputeBloomFilterHashes(const StyleScope* style_scope,
                                 Vector<uint16_t>& backing);
@@ -286,7 +249,7 @@ class RuleMap {
     if (bucket == nullptr) {
       return {};
     } else {
-      return UNSAFE_TODO(
+      return UNSAFE_BUFFERS(
           {backing.begin() + bucket->value.start_index, bucket->value.length});
     }
   }
@@ -322,17 +285,19 @@ class RuleMap {
 
  private:
   base::span<RuleData> GetRulesFromExtent(Extent extent) {
-    return UNSAFE_TODO({backing.begin() + extent.start_index, extent.length});
+    return UNSAFE_BUFFERS(
+        {backing.begin() + extent.start_index, extent.length});
   }
   base::span<const RuleData> GetRulesFromExtent(Extent extent) const {
-    return UNSAFE_TODO({backing.begin() + extent.start_index, extent.length});
+    return UNSAFE_BUFFERS(
+        {backing.begin() + extent.start_index, extent.length});
   }
   base::span<unsigned> GetBucketNumberFromExtent(Extent extent) {
-    return UNSAFE_TODO(
+    return UNSAFE_BUFFERS(
         {bucket_number_.begin() + extent.start_index, extent.length});
   }
   base::span<const unsigned> GetBucketNumberFromExtent(Extent extent) const {
-    return UNSAFE_TODO(
+    return UNSAFE_BUFFERS(
         {bucket_number_.begin() + extent.start_index, extent.length});
   }
 
@@ -374,7 +339,7 @@ class RuleMap {
 // under consideration by ElementRuleCollector::CollectMatchingRules.
 class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
  public:
-  RuleSet() = default;
+  RuleSet();
   RuleSet(const RuleSet&) = delete;
   RuleSet& operator=(const RuleSet&) = delete;
 
@@ -509,11 +474,11 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
   base::span<const RuleData> ActiveViewTransitionRules() const {
     return active_view_transition_rules_;
   }
+  base::span<const RuleData> OverscrollTargetRules() const {
+    return overscroll_target_rules_;
+  }
   const HeapVector<CascadeLayered<StyleRulePage>>& PageRules() const {
     return page_rules_;
-  }
-  const HeapVector<Member<StyleRuleRoute>>& RouteRules() const {
-    return route_rules_;
   }
   const HeapVector<CascadeLayered<StyleRuleFontFace>>& FontFaceRules() const {
     return font_face_rules_;
@@ -671,7 +636,6 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
   void AddToBucket(const AtomicString& key, RuleMap&, const RuleData&);
   void AddToBucket(HeapVector<RuleData>&, const RuleData&);
   void AddPageRule(StyleRulePage*, const CascadeLayer*);
-  void AddRouteRule(StyleRuleRoute*);
   void AddFontFaceRule(StyleRuleFontFace*, const CascadeLayer*);
   void AddKeyframesRule(StyleRuleKeyframes*, const CascadeLayer*);
   void AddPropertyRule(StyleRuleProperty*, const CascadeLayer*);
@@ -797,10 +761,10 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
   // Separate bucket for :active-view-transition rules, to support a default
   // view-transition-name in user-agent style.
   HeapVector<RuleData> active_view_transition_rules_;
+  HeapVector<RuleData> overscroll_target_rules_;
   HeapVector<RuleData> root_element_rules_;
   RuleFeatureSet features_;
   HeapVector<CascadeLayered<StyleRulePage>> page_rules_;
-  HeapVector<Member<StyleRuleRoute>> route_rules_;
   HeapVector<CascadeLayered<StyleRuleFontFace>> font_face_rules_;
   HeapVector<Member<StyleRuleFontPaletteValues>> font_palette_values_rules_;
   HeapVector<CascadeLayered<StyleRuleFontFeatureValues>>

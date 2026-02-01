@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 
 #include <string>
@@ -17,7 +12,7 @@
 #include "ash/constants/ash_switches.h"
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
+#include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/feature_list.h"
 #include "base/time/time.h"
@@ -96,7 +91,7 @@ bool HasPolicyValue(const PrefService* pref_service,
     default:
       return false;
   }
-  return base::Contains(*factors, base::Value(value));
+  return factors->contains(value);
 }
 
 // Check if fingerprint is disabled for a specific purpose (so not including
@@ -128,9 +123,12 @@ TestApi::TestApi(bool override_quick_unlock)
   old_instance_ = g_instance;
   g_instance = this;
   std::fill(pin_purposes_enabled_by_policy_,
-            pin_purposes_enabled_by_policy_ + kNumOfPurposes, false);
-  std::fill(fingerprint_purposes_enabled_by_policy_,
-            fingerprint_purposes_enabled_by_policy_ + kNumOfPurposes, false);
+            UNSAFE_TODO(pin_purposes_enabled_by_policy_ + kNumOfPurposes),
+            false);
+  std::fill(
+      fingerprint_purposes_enabled_by_policy_,
+      UNSAFE_TODO(fingerprint_purposes_enabled_by_policy_ + kNumOfPurposes),
+      false);
 }
 
 TestApi::~TestApi() {
@@ -150,7 +148,8 @@ void TestApi::EnablePinByPolicy(Purpose purpose) {
   if (purpose != Purpose::kAny) {
     pin_purposes_enabled_by_policy_[static_cast<int>(Purpose::kAny)] = true;
   }
-  pin_purposes_enabled_by_policy_[static_cast<int>(purpose)] = true;
+  UNSAFE_TODO(pin_purposes_enabled_by_policy_[static_cast<int>(purpose)]) =
+      true;
 }
 
 void TestApi::EnableFingerprintByPolicy(Purpose purpose) {
@@ -158,15 +157,19 @@ void TestApi::EnableFingerprintByPolicy(Purpose purpose) {
     fingerprint_purposes_enabled_by_policy_[static_cast<int>(Purpose::kAny)] =
         true;
   }
-  fingerprint_purposes_enabled_by_policy_[static_cast<int>(purpose)] = true;
+  UNSAFE_TODO(
+      fingerprint_purposes_enabled_by_policy_[static_cast<int>(purpose)]) =
+      true;
 }
 
 bool TestApi::IsPinEnabledByPolicy(Purpose purpose) {
-  return pin_purposes_enabled_by_policy_[static_cast<int>(purpose)];
+  return UNSAFE_TODO(
+      pin_purposes_enabled_by_policy_[static_cast<int>(purpose)]);
 }
 
 bool TestApi::IsFingerprintEnabledByPolicy(Purpose purpose) {
-  return fingerprint_purposes_enabled_by_policy_[static_cast<int>(purpose)];
+  return UNSAFE_TODO(
+      fingerprint_purposes_enabled_by_policy_[static_cast<int>(purpose)]);
 }
 
 bool IsFingerprintDisabledByPolicy(const PrefService* pref_service,

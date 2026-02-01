@@ -63,7 +63,7 @@ bool GapGeometry::IsMultiColSpanner(wtf_size_t gap_index,
   return false;
 }
 
-LayoutUnit GapGeometry::ComputeEndInset(const ComputedStyle& style,
+LayoutUnit GapGeometry::ComputeInsetEnd(const ComputedStyle& style,
                                         wtf_size_t gap_index,
                                         wtf_size_t intersection_index,
                                         const Vector<LayoutUnit>& intersections,
@@ -76,17 +76,17 @@ LayoutUnit GapGeometry::ComputeEndInset(const ComputedStyle& style,
   // https://drafts.csswg.org/css-gaps-1/#propdef-column-rule-inset
   if (IsEdgeIntersection(gap_index, intersection_index, intersections.size(),
                          is_main, intersections)) {
-    return ValueForLength((is_column_gap ? style.ColumnRuleEdgeEndInset()
-                                         : style.RowRuleEdgeEndInset()),
+    return ValueForLength((is_column_gap ? style.ColumnRuleEdgeInsetEnd()
+                                         : style.RowRuleEdgeInsetEnd()),
                           cross_width);
   } else {
-    return ValueForLength((is_column_gap ? style.ColumnRuleInteriorEndInset()
-                                         : style.RowRuleInteriorEndInset()),
+    return ValueForLength((is_column_gap ? style.ColumnRuleInteriorInsetEnd()
+                                         : style.RowRuleInteriorInsetEnd()),
                           cross_width);
   }
 }
 
-LayoutUnit GapGeometry::ComputeStartInset(
+LayoutUnit GapGeometry::ComputeInsetStart(
     const ComputedStyle& style,
     wtf_size_t gap_index,
     wtf_size_t intersection_index,
@@ -100,12 +100,12 @@ LayoutUnit GapGeometry::ComputeStartInset(
   // https://drafts.csswg.org/css-gaps-1/#propdef-column-rule-inset
   if (IsEdgeIntersection(gap_index, intersection_index, intersections.size(),
                          is_main, intersections)) {
-    return ValueForLength((is_column_gap ? style.ColumnRuleEdgeStartInset()
-                                         : style.RowRuleEdgeStartInset()),
+    return ValueForLength((is_column_gap ? style.ColumnRuleEdgeInsetStart()
+                                         : style.RowRuleEdgeInsetStart()),
                           cross_width);
   } else {
-    return ValueForLength((is_column_gap ? style.ColumnRuleInteriorStartInset()
-                                         : style.RowRuleInteriorStartInset()),
+    return ValueForLength((is_column_gap ? style.ColumnRuleInteriorInsetStart()
+                                         : style.RowRuleInteriorInsetStart()),
                           cross_width);
   }
 }
@@ -350,17 +350,7 @@ void GapGeometry::GenerateCrossIntersectionListForMulticol(
   intersections.push_back(end_offset);
   if (main_gap_running_index_ < main_gaps_.size() &&
       main_gaps_[main_gap_running_index_].IsStartSpannerMainGap()) {
-    // The intersection at an end spanner main gap must still be added to
-    // the vector, so we can paint behind spanners with `rule-break: none`.
-    wtf_size_t spanner_index = main_gap_running_index_ + 1;
-    if (spanner_index < main_gaps_.size()) {
-      CHECK(main_gaps_[spanner_index].IsEndSpannerMainGap());
-      intersections.push_back(main_gaps_[spanner_index].GetGapOffset());
-    } else {
-      // If there is no column content after a spanner, there'll be no
-      // EndSpannerMainGap.
-      intersections.push_back(content_block_end_);
-    }
+    intersections.push_back(main_gaps_[main_gap_running_index_].GetGapOffset());
   }
 }
 
@@ -564,6 +554,20 @@ BlockedStatus GapGeometry::GetIntersectionBlockedStatus(
   }
 
   return status;
+}
+
+void GapGeometry::AdjustCrossGapsRangesForFragmentation(
+    wtf_size_t last_track_in_previous_fragment,
+    wtf_size_t first_track_in_next_fragment,
+    Vector<wtf_size_t>& column_gaps_segment_ranges_start_indices) {
+  for (wtf_size_t i = 0; i < cross_gaps_.size(); ++i) {
+    CrossGap& cross_gap = cross_gaps_[i];
+    if (cross_gap.HasGapSegmentStateRanges()) {
+      cross_gap.AdjustGapSegmentStateRangesForFragmentation(
+          last_track_in_previous_fragment, first_track_in_next_fragment,
+          column_gaps_segment_ranges_start_indices[i]);
+    }
+  }
 }
 
 bool GapGeometry::MulticolCrossGapIntersectionsEndAtSpanner(

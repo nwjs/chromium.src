@@ -2,7 +2,7 @@ Name: libdmg-hfsplus
 Short Name: libdmg-hfsplus
 URL: https://github.com/mozilla/libdmg-hfsplus
 Version: N/A
-Revision: dd3db70c0f36927471cd3582f3ab0c637b5f8e59
+Revision: 7fa480f6da5c8a987fe0940f1654e62db6f0b165
 Update Mechanism: Manual (https://crbug.com/461840788)
 License: GPL-3.0
 License File: src/LICENSE
@@ -59,9 +59,17 @@ not support HFS+ extended attributes at all.
 
 This target cannot be made to build in Chromium without modification due to
 some `#define` conflicts from Chromium's zlib. To support all features required
-for creating Chromium DMGs, symlink behavior must change (to copy symlinks
-as symlinks, rather than duplicating their contents) and a new HFS+ volume
-configuration feature must be added (setting a folder to be automatically
-opened on mount).
+for creating Chromium DMGs, LZMA compression must be ported from xz-utils to
+lzma_sdk and a new HFS+ volume configuration feature must be added (setting a
+folder to be automatically opened on mount).
 
-Local modifications: None
+Local modifications:
+  * patches/2026-01-08-omnibus.patch
+    * The upstream adopted many of the changes we had previously made locally.
+      This patch file aggregates the remaining differences originally written
+      in separate commits (and separate patch files) where the Chromium
+      version still deviates from upstream. Remaining differences include:
+      * Some additional whitespace cleanups
+      * Formatting tweaks to some comments in hfsplus.h
+      * Rename `compress` (compress.h, compress.c, io.c) to `compressFn` to
+        resolve a conflict with `#define`s transitive from Chromium's zlib.h

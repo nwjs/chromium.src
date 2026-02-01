@@ -19,6 +19,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -316,7 +317,9 @@ ResultType ResultTypeForInput(const AutocompleteInput& input) {
                        omnibox::kFocusTriggersWebAndSRPZeroSuggest))) {
       return ResultType::kRemoteSendURL;
     }
-    if (input.type() == OIT::EMPTY && !is_ios) {
+    if (input.type() == OIT::EMPTY &&
+        (!is_ios ||
+         base::FeatureList::IsEnabled(omnibox::kOnClobberSuggestIOS))) {
       return ResultType::kRemoteSendURL;
     }
   }

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/signin/header_modification_delegate_impl.h"
 
+#include <algorithm>
+
 #include "base/notreached.h"
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -27,6 +29,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "net/base/schemeful_site.h"
+#include "net/base/url_util.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "content/public/browser/site_instance.h"
@@ -77,17 +80,33 @@ void ProcessBoundSessionResponseHeaders(
   bound_session_cookie_refresh_service->MaybeTerminateSession(
       response_adapter->GetUrl(), headers);
 
+  std::vector<net::SchemefulSite> restricted_sites{
+      net::SchemefulSite(GURL("https://google.com")),
+      net::SchemefulSite(GURL("https://youtube.com"))};
+
   // If an equivalent standard DBSC session is going to be triggered by the same
   // response, ignore the session registration.
   base::flat_set<GURL> ignored_registration_endpoints;
   if (base::FeatureList::IsEnabled(net::features::kDeviceBoundSessions)) {
+    // Per the spec, a response with a WebSocket scheme should be
+    // rewritten to HTTP(S). See https://crbug.com/379241469.
+    const GURL& url = response_adapter->GetUrl();
+    GURL normalized_url = url.SchemeIsWSOrWSS()
+                              ? net::ChangeWebSocketSchemeToHttpScheme(url)
+                              : url;
+    // We don't need any restricted sites here because this code only
+    // runs on google.com, which is always restricted.
     std::vector<net::device_bound_sessions::RegistrationFetcherParam>
         standard_registrations =
             net::device_bound_sessions::RegistrationFetcherParam::CreateIfValid(
-                response_adapter->GetUrl(), headers);
-    for (const auto& standard_registration : standard_registrations) {
-      ignored_registration_endpoints.insert(
-          standard_registration.registration_endpoint());
+                normalized_url, headers, restricted_sites);
+    if (standard_registrations.size() > 0 &&
+        base::FeatureList::IsEnabled(
+            net::features::kDeviceBoundSessionsForRestrictedSites)) {
+      for (const auto& standard_registration : standard_registrations) {
+        ignored_registration_endpoints.insert(
+            standard_registration.registration_endpoint());
+      }
     }
   }
 
@@ -184,7 +203,7 @@ void HeaderModificationDelegateImpl::ProcessRequest(
       identity_manager->GetPrimaryAccountInfo(consent_level);
   signin::Tribool is_child_account =
       // Defaults to kUnknown if the account is not found.
-      identity_manager->FindExtendedAccountInfo(account).is_child_account;
+      identity_manager->FindExtendedAccountInfo(account).IsChildAccount();
 
   int incognito_mode_availability =
       prefs->GetInteger(policy::policy_prefs::kIncognitoModeAvailability);

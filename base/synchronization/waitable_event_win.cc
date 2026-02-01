@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/synchronization/waitable_event.h"
 
 #include <windows.h>
@@ -14,10 +9,12 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
@@ -132,17 +129,17 @@ bool WaitableEvent::TimedWaitImpl(TimeDelta wait_delta) {
 
 // static
 size_t WaitableEvent::WaitManyImpl(base::span<WaitableEvent*> events) {
-  HANDLE handles[MAXIMUM_WAIT_OBJECTS];
   CHECK_LE(events.size(), static_cast<size_t>(MAXIMUM_WAIT_OBJECTS))
       << "Can only wait on " << MAXIMUM_WAIT_OBJECTS << " with WaitMany";
 
+  std::array<HANDLE, MAXIMUM_WAIT_OBJECTS> handles;
   for (size_t i = 0; i < events.size(); ++i) {
     handles[i] = events[i]->handle();
   }
 
   // The cast is safe because count is small - see the CHECK above.
   DWORD result =
-      WaitForMultipleObjects(static_cast<DWORD>(events.size()), handles,
+      WaitForMultipleObjects(static_cast<DWORD>(events.size()), handles.data(),
                              FALSE,      // don't wait for all the objects
                              INFINITE);  // no timeout
   if (result >= WAIT_OBJECT_0 + events.size()) {

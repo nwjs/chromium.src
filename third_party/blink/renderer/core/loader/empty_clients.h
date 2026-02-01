@@ -101,9 +101,9 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void ChromeDestroyed() override {}
   void SetWindowRect(const gfx::Rect&, LocalFrame&) override {}
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  void Minimize(LocalFrame&) override {}
-  void Maximize(LocalFrame&) override {}
-  void Restore(LocalFrame&) override {}
+  void Minimize(LocalFrame&, WindowShowStateChangeCallback) override {}
+  void Maximize(LocalFrame&, WindowShowStateChangeCallback) override {}
+  void Restore(LocalFrame&, WindowShowStateChangeCallback) override {}
   void SetResizable(bool resizable, LocalFrame&) override {}
 #endif
   gfx::Rect RootWindowRect(LocalFrame&) override { return gfx::Rect(); }
@@ -135,8 +135,8 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void SetShouldThrottleFrameRate(bool flag, LocalFrame& main_frame) override {}
   void RequestMainFrameOnCompositorAnimation(
       LocalFrame&,
-      cc::PropertyChangeForcesCommitCriteria animation_forces_commit) override {
-  }
+      cc::PropertyChangeForcesCommitCriteria criteria,
+      bool force_propagation) override {}
   void StartDragging(LocalFrame*,
                      const WebDragData&,
                      DragOperationsMask,

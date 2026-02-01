@@ -49,6 +49,7 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
@@ -224,10 +225,7 @@ class InteractiveGlicTestMixin : public T {
     command_line->AppendSwitchASCII(switches::kGlicFreURL, fre_url.spec());
     LOG(INFO) << "InteractiveGlicTest: done setting up";
 
-    browser()
-        ->GetFeatures()
-        .side_panel_coordinator()
-        ->DisableAnimationsForTesting();
+    SidePanelCoordinator::From(browser())->DisableAnimationsForTesting();
   }
 
   void TearDownOnMainThread() override {
@@ -320,13 +318,23 @@ class InteractiveGlicTestMixin : public T {
     if (!use_element_identifiers_) {
       return WaitForGlic(instrument_mode);
     }
+
+    // NOTE: When the kGlicMultiInstance feature is enabled, the active tab is
+    // passed to the kGlicWindowControllerState observer so it observes the
+    // relevant GlicInstance.
+    tabs::TabInterface* active_tab = nullptr;
+    if (base::FeatureList::IsEnabled(features::kGlicMultiInstance)) {
+      active_tab = browser()->tab_strip_model()->GetActiveTab();
+    }
+
     switch (instrument_mode) {
       case GlicInstrumentMode::kHostAndContents:
         steps = Api::Steps(
             Api::UninstrumentWebContents(kGlicContentsElementId, false),
             Api::UninstrumentWebContents(kGlicHostElementId, false),
             Api::ObserveState(internal::kGlicWindowControllerState,
-                              std::ref(window_controller)),
+                              std::ref(window_controller),
+                              std::move(active_tab)),
             Api::InAnyContext(Api::Steps(
                 Api::InstrumentNonTabWebView(kGlicHostElementId,
                                              kGlicViewElementId),
@@ -342,7 +350,8 @@ class InteractiveGlicTestMixin : public T {
         steps = Api::Steps(
             Api::UninstrumentWebContents(kGlicHostElementId, false),
             Api::ObserveState(internal::kGlicWindowControllerState,
-                              std::ref(window_controller)),
+                              std::ref(window_controller),
+                              std::move(active_tab)),
             Api::InAnyContext(Api::InstrumentNonTabWebView(kGlicHostElementId,
                                                            kGlicViewElementId)),
             Api::WaitForState(
@@ -359,13 +368,32 @@ class InteractiveGlicTestMixin : public T {
     Api::AddDescriptionPrefix(steps, "WaitForAndInstrumentGlic");
     return steps;
   }
+
+  // Activate one of the glic entrypoints.
+  // In single-instance, this will open floaty, in multi-instance it will open
+  // side panel.
+  auto OpenGlic(GlicInstrumentMode instrument_mode =
+                    GlicInstrumentMode::kHostAndContents) {
+    // NOTE: The use of "Api::" here is required because this is a template
+    // class with weakly-specified base class; it is not necessary in derived
+    // test classes.
+    auto steps =
+        Api::Steps(Api::Log("Opening glic window"), CheckGlicIsClosed(),
+                   // Technically, this toggles the window, but we've
+                   // already ensured that it's closed.
+                   ToggleGlicWindow(GlicWindowMode::kDetached),
+                   WaitForAndInstrumentGlic(instrument_mode));
+    Api::AddDescriptionPrefix(steps, "OpenGlicWindow");
+    return steps;
+  }
+
   // Activate one of the glic entrypoints.
   // If `instrument_glic_contents` is true both the host and contents will be
   // instrumented (see `WaitForAndInstrumentGlic()`) else only the host will be
   // instrumented (`WaitForAndInstrumentGlicHostOnly()`).
-  auto OpenGlicWindow(GlicWindowMode window_mode,
-                      GlicInstrumentMode instrument_mode =
-                          GlicInstrumentMode::kHostAndContents) {
+  auto DeprecatedOpenGlicWindow(GlicWindowMode window_mode,
+                                GlicInstrumentMode instrument_mode =
+                                    GlicInstrumentMode::kHostAndContents) {
     // NOTE: The use of "Api::" here is required because this is a template
     // class with weakly-specified base class; it is not necessary in derived
     // test classes.
@@ -464,7 +492,7 @@ class InteractiveGlicTestMixin : public T {
       Api::AddDescriptionPrefix(steps, "OpenGlicFloatingWindow");
       return steps;
     } else {
-      return OpenGlicWindow(GlicWindowMode::kDetached, instrument_mode);
+      return OpenGlic(instrument_mode);
     }
   }
 
@@ -511,9 +539,9 @@ class InteractiveGlicTestMixin : public T {
         if (!instance) {
           return;
         }
-        instance->CloseAllEmbeddersForTesting();
+        instance->CloseAllEmbedders();
       } else {
-        window_controller().Close();
+        window_controller().Close(CloseOptions());
       }
     });
   }
@@ -746,18 +774,6 @@ class InteractiveGlicTestMixin : public T {
         mode, "CheckControllerWidgetMode");
   }
 
-  auto CheckPointIsWithinDraggableArea(const gfx::Point& point,
-                                       bool expect_within_area) {
-    return Api::CheckResult(
-        [this, point]() {
-          return GetWindowControllerImpl()
-              .GetGlicViewForTesting()
-              ->IsPointWithinDraggableArea(point);
-        },
-        expect_within_area,
-        "CheckPointIsWithinDraggableArea_" + point.ToString());
-  }
-
   auto CheckIfAttachedToBrowser(Browser* new_browser) {
     return Api::CheckResult(
         [this] { return window_controller().attached_browser(); }, new_browser,
@@ -766,7 +782,7 @@ class InteractiveGlicTestMixin : public T {
 
   auto CheckTabCount(int expected_count) {
     return Api::CheckResult(
-        [this] { return browser()->tab_strip_model()->GetTabCount(); },
+        [this] { return browser()->tab_strip_model()->count(); },
         expected_count, "CheckTabCount");
   }
 
@@ -774,11 +790,13 @@ class InteractiveGlicTestMixin : public T {
     return Api::CheckResult(
         [] {
           int popup_count = 0;
-          for (Browser* browser : *BrowserList::GetInstance()) {
-            if (browser && browser->is_type_popup()) {
-              popup_count++;
-            }
-          }
+          GlobalBrowserCollection::GetInstance()->ForEach(
+              [&popup_count](BrowserWindowInterface* browser) {
+                if (browser->GetType() == BrowserWindowInterface::TYPE_POPUP) {
+                  popup_count++;
+                }
+                return true;
+              });
           return popup_count;
         },
         expected_count, "CheckPopupCount");

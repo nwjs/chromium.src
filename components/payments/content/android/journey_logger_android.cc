@@ -15,7 +15,7 @@ namespace payments {
 namespace {
 
 using ::base::android::ConvertJavaStringToUTF8;
-using ::base::android::JavaParamRef;
+using ::base::android::JavaRef;
 using base::android::JavaRef;
 
 }  // namespace
@@ -33,7 +33,7 @@ void JourneyLoggerAndroid::SetNumberOfSuggestionsShown(
     JNIEnv* env,
     jint jsection,
     jint jnumber,
-    jboolean jhas_complete_suggestion) {
+    bool jhas_complete_suggestion) {
   DCHECK_GE(jsection, 0);
   DCHECK_LT(jsection, JourneyLogger::Section::SECTION_MAX);
   journey_logger_.SetNumberOfSuggestionsShown(
@@ -73,17 +73,17 @@ void JourneyLoggerAndroid::SetSelectedMethod(JNIEnv* env,
 }
 
 void JourneyLoggerAndroid::SetRequestedInformation(JNIEnv* env,
-                                                   jboolean requested_shipping,
-                                                   jboolean requested_email,
-                                                   jboolean requested_phone,
-                                                   jboolean requested_name) {
+                                                   bool requested_shipping,
+                                                   bool requested_email,
+                                                   bool requested_phone,
+                                                   bool requested_name) {
   journey_logger_.SetRequestedInformation(requested_shipping, requested_email,
                                           requested_phone, requested_name);
 }
 
 void JourneyLoggerAndroid::SetRequestedPaymentMethods(
     JNIEnv* env,
-    const base::android::JavaParamRef<jintArray>& jmethods) {
+    const base::android::JavaRef<jintArray>& jmethods) {
   std::vector<int> int_methods;
   base::android::JavaIntArrayToIntVector(env, jmethods, &int_methods);
   std::vector<JourneyLogger::PaymentMethodCategory> method_categories;
@@ -124,7 +124,7 @@ void JourneyLoggerAndroid::SetPaymentAppUkmSourceId(JNIEnv* env,
 
 static jlong JNI_JourneyLogger_InitJourneyLoggerAndroid(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jweb_contents) {
+    const JavaRef<jobject>& jweb_contents) {
   content::WebContents* web_contents =
       content::WebContents::FromJavaWebContents(jweb_contents);
   DCHECK(web_contents);  // Verified in Java before invoking this function.

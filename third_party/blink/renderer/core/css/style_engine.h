@@ -42,14 +42,13 @@
 #include "third_party/blink/public/web/web_css_origin.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/active_style_sheets.h"
-#include "third_party/blink/renderer/core/css/cascade_layer.h"
 #include "third_party/blink/renderer/core/css/color_scheme_flags.h"
 #include "third_party/blink/renderer/core/css/css_global_rule_set.h"
+#include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/invalidation/pending_invalidations.h"
 #include "third_party/blink/renderer/core/css/invalidation/style_invalidator.h"
 #include "third_party/blink/renderer/core/css/layout_tree_rebuild_root.h"
-#include "third_party/blink/renderer/core/css/mixin_map.h"
 #include "third_party/blink/renderer/core/css/pending_sheet_type.h"
 #include "third_party/blink/renderer/core/css/random_caching_key.h"
 #include "third_party/blink/renderer/core/css/resolver/match_request.h"
@@ -58,6 +57,7 @@
 #include "third_party/blink/renderer/core/css/style_image_cache.h"
 #include "third_party/blink/renderer/core/css/style_invalidation_root.h"
 #include "third_party/blink/renderer/core/css/style_recalc_root.h"
+#include "third_party/blink/renderer/core/css/style_rule_view_transition.h"
 #include "third_party/blink/renderer/core/css/try_value_flips.h"
 #include "third_party/blink/renderer/core/css/vision_deficiency.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -81,7 +81,6 @@ class AnchorEvaluator;
 class ComputedStyleBuilder;
 class CounterStyle;
 class CounterStyleMap;
-class StyleContainmentScopeTree;
 class CSSFontSelector;
 class CSSPropertyValueSet;
 class CSSStyleSheet;
@@ -91,6 +90,8 @@ class ElementRuleCollector;
 class Font;
 class FontSelector;
 class HTMLBodyElement;
+class LayoutQuote;
+class HTMLAnchorElement;
 class MediaQueryEvaluator;
 class MediaQuerySet;
 class Node;
@@ -114,6 +115,12 @@ class StyleSheetCollection;
 class ViewportStyleResolver;
 class SelectorFilter;
 struct LogicalSize;
+struct MixinMap;
+
+template <typename T>
+class OrderedScopeTree;
+using StyleContainmentScopeTree = OrderedScopeTree<LayoutQuote>;
+using ScrollTargetGroupScopeTree = OrderedScopeTree<HTMLAnchorElement>;
 
 enum InvalidationScope { kInvalidateCurrentScope, kInvalidateAllScopes };
 
@@ -143,15 +150,17 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
 
    public:
     explicit DetachLayoutTreeScope(StyleEngine& engine)
-        : engine_(engine), in_detach_scope_(&engine.in_detach_scope_, true) {}
+        : engine_(engine),
+          in_detach_scope_(std::in_place, &engine.in_detach_scope_, true) {}
     ~DetachLayoutTreeScope() {
       engine_.MarkForLayoutTreeChangesAfterDetach();
+      in_detach_scope_.reset();
       engine_.InvalidateSVGResourcesAfterDetach();
     }
 
    private:
     StyleEngine& engine_;
-    base::AutoReset<bool> in_detach_scope_;
+    std::optional<base::AutoReset<bool>> in_detach_scope_;
   };
 
   class AttachScrollMarkersScope {
@@ -395,6 +404,11 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
     return style_containment_scope_tree_.Get();
   }
 
+  ScrollTargetGroupScopeTree& EnsureScrollTargetGroupScopeTree();
+  ScrollTargetGroupScopeTree* GetScrollTargetGroupScopeTree() const {
+    return scroll_target_group_scope_tree_.Get();
+  }
+
   void SetRuleUsageTracker(StyleRuleUsageTracker*);
 
   const Font* ComputeFont(Element& element,
@@ -527,7 +541,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       TreeScope&,
       Element&,
       SelectorFilter&,
-      StyleScopeFrame& parent_style_scope_frame,
+      StyleRecalcContext& parent_style_recalc_context,
       const HeapHashSet<Member<RuleSet>>&,
       unsigned changed_rule_flags,
       InvalidationScope,
@@ -780,9 +794,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void RevisitStyleSheetForInspector(StyleSheetContents* contents,
                                      const RuleFeatureSet* features) const;
 
-  // Call when @route rules may need to be re-evaluated, because the current URL
-  // has changed.
-  void RoutesMayHaveChanged() { SetNeedsActiveStyleUpdate(GetDocument()); }
+  // Call when @navigation rules may need to be re-evaluated, because the
+  // current URL has changed.
+  void NavigationsMayHaveChanged();
 
   // Returns a random base value for CSS random() function.
   // @param random_value_sharing <random-value-sharing> parameter of CSS
@@ -796,10 +810,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // functions in the same property value. Only used if
   // RandomValueSharing::isAuto() returns true.
   // https://drafts.csswg.org/css-values-5/#random-caching
-  double GetCachedRandomBaseValue(RandomValueSharing random_value_sharing,
-                                  const Element* element,
-                                  AtomicString property_name,
-                                  size_t property_value_index);
+  double GetCachedRandomBaseValue(
+      const RandomValueSharing& random_value_sharing,
+      const Element* element);
 
  private:
   void UpdateCounters(const Element& element,
@@ -875,7 +888,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       const TreeScope& tree_scope,
       Element& element,
       SelectorFilter& selector_filter,
-      StyleScopeFrame& style_scope_frame,
+      StyleRecalcContext& style_recalc_context,
       const HeapHashSet<Member<RuleSet>>& rule_sets,
       unsigned changed_rule_flags,
       bool is_shadow_host);
@@ -995,6 +1008,10 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
 
   // Tree of style containment scopes. Is in charge of the document's quotes.
   Member<StyleContainmentScopeTree> style_containment_scope_tree_;
+
+  // Tree of scroll-target-group scopes. Manages scopes created by elements
+  // with scroll-target-group property and their descendant anchor elements.
+  Member<ScrollTargetGroupScopeTree> scroll_target_group_scope_tree_;
 
   // Tracks the number of currently loading top-level stylesheets. Sheets loaded
   // using the @import directive are not included in this count. We use this

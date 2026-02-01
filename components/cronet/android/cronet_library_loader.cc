@@ -56,7 +56,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/cronet/android/cronet_jni_headers/CronetLibraryLoader_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace cronet {
@@ -159,7 +159,7 @@ void InitializePerfetto() {
 }  // namespace
 
 static void JNI_CronetLibraryLoader_NativeInit(JNIEnv* env,
-                                               jboolean initializePerfetto) {
+                                               bool initializePerfetto) {
   logging::InitLogging(logging::LoggingSettings());
 
   if (!base::ThreadPoolInstance::Get()) {

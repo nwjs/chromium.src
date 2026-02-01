@@ -287,7 +287,10 @@ bool TabModel::IsInNormalWindow() const {
 }
 
 BrowserWindowInterface* TabModel::GetBrowserWindowInterface() {
-  return GetModelForTabInterface()->delegate()->GetBrowserWindowInterface();
+  if (soon_to_be_owning_model_ || owning_model_) {
+    return GetModelForTabInterface()->delegate()->GetBrowserWindowInterface();
+  }
+  return nullptr;
 }
 
 const BrowserWindowInterface* TabModel::GetBrowserWindowInterface() const {
@@ -304,6 +307,10 @@ const tabs::TabFeatures* TabModel::GetTabFeatures() const {
 
 bool TabModel::IsPinned() const {
   return pinned_;
+}
+
+bool TabModel::IsBlocked() const {
+  return blocked_;
 }
 
 bool TabModel::IsSplit() const {
@@ -425,7 +432,7 @@ void TabModel::WriteIntoTrace(perfetto::TracedValue context) const {
   dict.Add("web_contents", GetContents());
   dict.Add("pinned", IsPinned());
   dict.Add("split", IsSplit());
-  dict.Add("blocked", blocked());
+  dict.Add("blocked", IsBlocked());
 }
 
 std::unique_ptr<content::WebContents> TabModel::DiscardContents(

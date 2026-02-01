@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_ROUTE_RULE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_ROUTE_RULE_H_
 
-#include "third_party/blink/renderer/core/css/css_condition_rule.h"
+#include "third_party/blink/renderer/core/css/css_rule.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 
@@ -14,7 +14,7 @@ namespace blink {
 class CSSStyleSheet;
 class StyleRuleRoute;
 
-class CORE_EXPORT CSSRouteRule final : public CSSConditionRule {
+class CORE_EXPORT CSSRouteRule final : public CSSRule {
   DEFINE_WRAPPERTYPEINFO();
 
  public:

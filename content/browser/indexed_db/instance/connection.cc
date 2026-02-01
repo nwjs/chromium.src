@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -16,23 +17,22 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
-#include "base/sequence_checker.h"
 #include "base/stl_util.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/unguessable_token.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_id.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
 #include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
 #include "content/browser/indexed_db/instance/callback_helpers.h"
-#include "content/browser/indexed_db/instance/cursor.h"
 #include "content/browser/indexed_db/instance/database_callbacks.h"
 #include "content/browser/indexed_db/instance/lock_request_data.h"
 #include "content/browser/indexed_db/instance/transaction.h"
@@ -46,7 +46,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
-#include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-data-view.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
 
 using blink::IndexedDBIndexKeys;
@@ -86,9 +85,32 @@ std::optional<int64_t> IndexIsOptional(int64_t index_id) {
 // TODO(crbug.com/381086791): Remove after the bug is understood.
 std::atomic_int64_t g_num_connections = 0;
 
+// To investigate crashes and hangs on all platforms, see
+// crbug.com/384476946. Records an approximate (rounded down to the nearest 256)
+// number of connections as a crash key.
+void UpdateCrashKey(int64_t num_connections) {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "indexeddb_num_connections", base::debug::CrashKeySize::Size64);
+  static std::optional<int64_t> crash_key_value;
+
+  // Mask off the lowest byte to reduce precision and avoid spamming the crash
+  // key API, which can be costly. This mask is MAX_INT64 without the bottom
+  // byte.
+  const int64_t num_connections_rounded_down =
+      num_connections & 0x7fffffffffffff00;
+  if (!crash_key_value.has_value() ||
+      crash_key_value.value() < num_connections_rounded_down) {
+    base::debug::SetCrashKeyString(
+        crash_key, base::NumberToString(num_connections_rounded_down));
+    crash_key_value = num_connections_rounded_down;
+  }
+}
+
 void IncrementNumConnections() {
   int64_t new_connection_count =
       g_num_connections.fetch_add(1, std::memory_order_relaxed) + 1;
+
+  UpdateCrashKey(new_connection_count);
 
   // Report the number of connections when it's high. This will be used to
   // determine the proportion of clients with elevated number of connections and
@@ -101,7 +123,10 @@ void IncrementNumConnections() {
 }
 
 void DecrementNumConnections() {
-  g_num_connections.fetch_sub(1, std::memory_order_relaxed);
+  int64_t new_connection_count =
+      g_num_connections.fetch_sub(1, std::memory_order_relaxed);
+
+  UpdateCrashKey(new_connection_count);
 }
 
 }  // namespace
@@ -143,8 +168,6 @@ Connection::Connection(BucketContext& bucket_context,
 }
 
 Connection::~Connection() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   DecrementNumConnections();
 
   is_shutting_down_ = true;
@@ -157,7 +180,6 @@ Connection::~Connection() {
 }
 
 bool Connection::IsConnected() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return callbacks_.get();
 }
 
@@ -165,7 +187,6 @@ Transaction* Connection::CreateVersionChangeTransaction(
     int64_t id,
     const std::set<int64_t>& scope,
     std::unique_ptr<BackingStore::Transaction> backing_store_transaction) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK_EQ(GetTransaction(id), nullptr) << "Duplicate transaction id." << id;
 
   RecordCreateTransactionHistograms(
@@ -187,7 +208,7 @@ void Connection::DisallowInactiveClient(
     return;
   }
 
-  size_t reason_index = base::to_underlying(reason);
+  size_t reason_index = std::to_underlying(reason);
 
   if (client_keep_active_remotes_[reason_index].is_bound()) {
     // Since the keep_active remote is found in client_keep_active_remotes_,
@@ -215,8 +236,6 @@ void Connection::DisallowInactiveClient(
 }
 
 void Connection::RemoveTransaction(int64_t id) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   size_t removed = transactions_.erase(id);
   if (!removed) {
     return;
@@ -229,8 +248,7 @@ void Connection::RemoveTransaction(int64_t id) {
   // alive.
   for (const auto& [_, transaction] : transactions_) {
     if (transaction->state() == Transaction::State::STARTED &&
-        transaction->IsTransactionBlockingOtherClients(
-            /*consider_priority=*/true)) {
+        transaction->IsTransactionBlockingOtherClients()) {
       can_go_inactive = false;
       break;
     }
@@ -256,7 +274,6 @@ void Connection::RemoveTransaction(int64_t id) {
 void Connection::AbortTransactionAndTearDownOnError(
     Transaction* transaction,
     const DatabaseError& error) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "txn.id",
                transaction->id());
   Status status = transaction->Abort(error);
@@ -266,7 +283,6 @@ void Connection::AbortTransactionAndTearDownOnError(
 }
 
 void Connection::CloseAndReportForceClose(const std::string& message) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return;
   }
@@ -279,8 +295,6 @@ void Connection::CloseAndReportForceClose(const std::string& message) {
 void Connection::RenameObjectStore(int64_t transaction_id,
                                    int64_t object_store_id,
                                    const std::u16string& new_name) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(
           transaction_id, blink::mojom::IDBTransactionMode::VersionChange);
@@ -308,7 +322,6 @@ void Connection::CreateTransaction(
     const std::vector<int64_t>& object_store_ids,
     blink::mojom::IDBTransactionMode mode,
     blink::mojom::IDBTransactionDurability durability) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return;
   }
@@ -349,7 +362,6 @@ void Connection::CreateTransaction(
 }
 
 void Connection::VersionChangeIgnored() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return;
   }
@@ -363,8 +375,6 @@ void Connection::Get(int64_t transaction_id,
                      IndexedDBKeyRange key_range,
                      bool key_only,
                      blink::mojom::IDBDatabase::GetCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   TRACE_EVENT0("IndexedDB", "Connection::Get");
 
   base::expected<Transaction*, DatabaseError> transaction =
@@ -386,9 +396,7 @@ void Connection::Get(int64_t transaction_id,
       ->ScheduleTask(
           "GetRecord",
           BindWeakOperation(&Database::GetOperation, database_, object_store_id,
-                            index_id, std::move(key_range),
-                            key_only ? indexed_db::CursorType::kKeyOnly
-                                     : indexed_db::CursorType::kKeyAndValue,
+                            index_id, std::move(key_range), key_only,
                             std::move(aborting_callback)),
           Transaction::ObjectStoreAndIndexMustExist(object_store_id,
                                                     IndexIsOptional(index_id)));
@@ -402,8 +410,6 @@ void Connection::GetAll(int64_t transaction_id,
                         uint32_t max_count,
                         blink::mojom::IDBCursorDirection direction,
                         blink::mojom::IDBDatabase::GetAllCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   if (max_count == 0) {
     receiver_->ReportBadMessage("max_count must be greater than 0.");
     return;
@@ -440,8 +446,6 @@ void Connection::OpenCursor(
     bool key_only,
     blink::mojom::IDBTaskType task_type,
     blink::mojom::IDBDatabase::OpenCursorCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(transaction_id);
   if (!transaction.has_value()) {
@@ -467,14 +471,21 @@ void Connection::OpenCursor(
     return;
   }
 
+  if (task_type == blink::mojom::IDBTaskType::Preemptive &&
+      (index_id != IndexedDBIndexMetadata::kInvalidId || key_only)) {
+    receiver_->ReportBadMessage(
+        "OpenCursor with |Preemptive| task type can only be called when "
+        "iterating over object store values (to populate an index).");
+    return;
+  }
+
   std::unique_ptr<Database::OpenCursorOperationParams> params(
       std::make_unique<Database::OpenCursorOperationParams>());
   params->object_store_id = object_store_id;
   params->index_id = index_id;
   params->key_range = std::move(key_range);
   params->direction = direction;
-  params->cursor_type = key_only ? indexed_db::CursorType::kKeyOnly
-                                 : indexed_db::CursorType::kKeyAndValue;
+  params->key_only = key_only;
   params->task_type = task_type;
   params->callback = std::move(aborting_callback);
   (*transaction)
@@ -491,8 +502,6 @@ void Connection::Count(int64_t transaction_id,
                        int64_t index_id,
                        IndexedDBKeyRange key_range,
                        CountCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), /*success=*/false, 0);
 
@@ -516,8 +525,6 @@ void Connection::DeleteRange(int64_t transaction_id,
                              int64_t object_store_id,
                              IndexedDBKeyRange key_range,
                              DeleteRangeCallback success_callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(success_callback), /*success=*/false);
 
@@ -540,8 +547,6 @@ void Connection::GetKeyGeneratorCurrentNumber(
     int64_t transaction_id,
     int64_t object_store_id,
     GetKeyGeneratorCurrentNumberCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(transaction_id);
   if (!transaction.has_value()) {
@@ -569,8 +574,6 @@ void Connection::GetKeyGeneratorCurrentNumber(
 void Connection::Clear(int64_t transaction_id,
                        int64_t object_store_id,
                        ClearCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), /*success=*/false);
   base::expected<Transaction*, DatabaseError> transaction =
@@ -590,8 +593,6 @@ void Connection::Clear(int64_t transaction_id,
 void Connection::CreateIndex(int64_t transaction_id,
                              int64_t object_store_id,
                              const IndexedDBIndexMetadata& index) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(
           transaction_id, blink::mojom::IDBTransactionMode::VersionChange);
@@ -638,8 +639,6 @@ void Connection::CreateIndex(int64_t transaction_id,
 void Connection::DeleteIndex(int64_t transaction_id,
                              int64_t object_store_id,
                              int64_t index_id) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(
           transaction_id, blink::mojom::IDBTransactionMode::VersionChange);
@@ -664,8 +663,6 @@ void Connection::RenameIndex(int64_t transaction_id,
                              int64_t object_store_id,
                              int64_t index_id,
                              const std::u16string& new_name) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   base::expected<Transaction*, DatabaseError> transaction =
       GetTransactionAndVerifyState(
           transaction_id, blink::mojom::IDBTransactionMode::VersionChange);
@@ -687,7 +684,6 @@ void Connection::RenameIndex(int64_t transaction_id,
 }
 
 void Connection::Abort(int64_t transaction_id) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return;
   }
@@ -703,7 +699,6 @@ void Connection::Abort(int64_t transaction_id) {
 }
 
 void Connection::DidBecomeInactive() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return;
   }
@@ -741,7 +736,6 @@ storage::BucketLocator Connection::GetBucketLocator() {
 }
 
 Transaction* Connection::GetTransaction(int64_t id) const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto it = transactions_.find(id);
   if (it == transactions_.end()) {
     return nullptr;
@@ -796,7 +790,6 @@ Connection::GetTransactionAndVerifyState(
 std::unique_ptr<DatabaseCallbacks> Connection::AbortTransactionsAndClose(
     CloseErrorHandling error_handling,
     const std::string& message) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!IsConnected()) {
     return {};
   }
@@ -832,7 +825,6 @@ std::unique_ptr<DatabaseCallbacks> Connection::AbortTransactionsAndClose(
 
 Status Connection::AbortAllTransactionsAndIgnoreErrors(
     const DatabaseError& error) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   Status last_error;
   for (const auto& pair : transactions_) {
     auto& transaction = pair.second;
@@ -849,7 +841,6 @@ Status Connection::AbortAllTransactionsAndIgnoreErrors(
 }
 
 Status Connection::AbortAllTransactions(const DatabaseError& error) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   for (auto& [_, transaction] : transactions_) {
     if (transaction->state() != Transaction::FINISHED) {
       TRACE_EVENT1("IndexedDB", "Database::Abort(error)", "transaction.id",
@@ -858,35 +849,6 @@ Status Connection::AbortAllTransactions(const DatabaseError& error) {
     }
   }
   return Status::OK();
-}
-
-// static
-bool Connection::HasHigherPriorityThan(const PartitionedLockHolder* this_one,
-                                       const PartitionedLockHolder& other) {
-  if (!base::FeatureList::IsEnabled(
-          features::kIdbPrioritizeForegroundClients)) {
-    return false;
-  }
-
-  auto* this_lock_request_data = static_cast<LockRequestData*>(
-      this_one->GetUserData(LockRequestData::kKey));
-  if (!this_lock_request_data) {
-    return false;
-  }
-
-  auto* other_lock_request_data =
-      static_cast<LockRequestData*>(other.GetUserData(LockRequestData::kKey));
-  if (!other_lock_request_data) {
-    return false;
-  }
-
-  if (this_lock_request_data->client_token ==
-      other_lock_request_data->client_token) {
-    return false;
-  }
-
-  return this_lock_request_data->scheduling_priority <
-         other_lock_request_data->scheduling_priority;
 }
 
 bool Connection::IsHoldingLocks(

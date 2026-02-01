@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="vi">
 <translation id="1076643793026027628">Chrome tự động mở các đường liên kết ẩn danh của YouTube ở chế độ ẩn danh.</translation>
+<translation id="1081114897601629648">Những mật khẩu sau đây không được nhập vào Trình quản lý mật khẩu của Google vì không đáp ứng được các yêu cầu.</translation>
 <translation id="1086486568852410168">Tìm bằng Google Ống kính</translation>
 <translation id="1088490543924960890">Bắt đầu lưu khoá truy cập bằng Trình quản lý mật khẩu của Google</translation>
 <translation id="1143896152279775643">Mật khẩu của bạn sẽ được lưu vào Trình quản lý mật khẩu của Google cho <ph name="EMAIL" />.</translation>
@@ -16,6 +17,7 @@
 <translation id="124228879633599436">Phiên bản Chrome bạn đang sử dụng đã lỗi thời. Hãy cập nhật để đảm bảo an toàn.</translation>
 <translation id="1258531953614971819">Mẹo khi dùng Chrome: Đưa Chrome vào màn hình chính</translation>
 <translation id="1333745675627230582">Chơi Trò chơi khủng long trên Chrome</translation>
+<translation id="1343830902827845050">Đăng nhập vào Chrome</translation>
 <translation id="1352919863522755794">Trình quản lý mật khẩu của Google không thể kiểm tra mật khẩu của bạn. Hãy thử kiểm tra kết nối Internet.</translation>
 <translation id="1394995526009609883">Bạn có thể thay đổi lựa chọn của mình bất cứ lúc nào trong phần cài đặt Chrome.</translation>
 <translation id="1407843355326180937">Đăng nhập vào trang web này và Chrome để sử dụng dấu trang và các nội dung khác trên tất cả thiết bị của bạn.</translation>
@@ -103,7 +105,6 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="3167189358072330585">Tài khoản của bạn không hoạt động trên Google Chrome. Vui lòng liên hệ với quản trị viên miền của bạn hoặc sử dụng Tài khoản Google thông thường để đăng nhập.</translation>
 <translation id="320747600144551583">Mẹo khi dùng Chrome: Chế độ Duyệt web an toàn có tăng cường bảo vệ sẽ giúp bạn an tâm</translation>
 <translation id="322254490661677575">Để sử dụng và lưu dữ liệu Chrome trong Tài khoản Google, hãy nhập cụm mật khẩu của bạn.</translation>
-<translation id="3282568296779691940">Đăng nhập vào Chrome</translation>
 <translation id="3303503998967553377">Sử dụng Thao tác trên Chrome trên iOS</translation>
 <translation id="3348862487678490430">Thêm mục trong danh sách đọc vào Chrome</translation>
 <translation id="3357827134511189025">Đăng nhập bằng mật khẩu và khoá truy cập đã lưu từ mọi ứng dụng bằng cách sử dụng Chrome làm dịch vụ tự động điền</translation>
@@ -115,6 +116,7 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="3460369101684070455">Để dễ dàng sử dụng mật khẩu đã lưu trong các ứng dụng khác, hãy chọn Chrome làm dịch vụ tự động điền</translation>
 <translation id="3472587960215700950">Chrome sử dụng Google Maps để chỉ đường và cung cấp cho bạn thông tin địa phương về các địa chỉ phát hiện được.</translation>
 <translation id="3482807551645716768">Truy cập Chrome nhanh hơn từ màn hình chính của iPad.</translation>
+<translation id="3491067552520121605">Bạn đã có mật khẩu hoặc khoá truy cập trong Trình quản lý mật khẩu của Google cho các trang web được hiển thị. Chọn một tài khoản để giữ lại thông tin đăng nhập đã hiển thị, ghi đè thông tin trong Trình quản lý mật khẩu của Google.</translation>
 <translation id="3503014945441706099">Bạn có thể dùng tính năng Duyệt web an toàn có tăng cường bảo vệ cho cả hồ sơ Chrome này</translation>
 <translation id="3522659714780527202">Để xem các thẻ của bạn trên bất cứ thiết bị nào mà bạn có dùng Chrome, hãy bật tính năng đồng bộ hóa</translation>
 <translation id="364480321352456989">Chrome của bạn đã lỗi thời.</translation>
@@ -134,6 +136,7 @@ Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xu�
 <translation id="4167555379306984168">Khám phá các tính năng mới trong Chrome</translation>
 <translation id="417201473131094001">Chưa hỗ trợ trên Chrome Canary</translation>
 <translation id="424864128008805179">Đăng xuất khỏi Chrome?</translation>
+<translation id="4409545895715116037">Các khoá truy cập sau đây không được nhập vào Trình quản lý mật khẩu của Google vì không đáp ứng được các yêu cầu.</translation>
 <translation id="4430797724889237570">Mở đường liên kết từ Gmail, Maps, YouTube và các ứng dụng khác trong Chrome</translation>
 <translation id="447252321002412580">Giúp cải thiện hiệu suất và các tính năng của Chrome</translation>
 <translation id="4523886039239821078">Một số tiện ích bổ sung khiến Chrome trục trặc. Hãy gỡ cài đặt:</translation>
@@ -272,6 +275,7 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="7284245284340063465">Nếu bạn quên cụm mật khẩu hoặc muốn thay đổi chế độ cài đặt này, hãy <ph name="BEGIN_LINK" />xoá dữ liệu trên Chrome khỏi tài khoản của bạn<ph name="END_LINK" />.</translation>
 <translation id="7296102444587051536">Chrome cho iOS</translation>
 <translation id="7299681342915173313">Giờ đây, bạn có thể dùng Chrome mỗi khi nhấn vào các đường liên kết trong email, tài liệu và các ứng dụng khác.</translation>
+<translation id="7334364820047587268">Bạn đã có mật khẩu cho các tài khoản này trong Trình quản lý mật khẩu của Google. Nếu bạn chọn nhập một trong các mật khẩu dưới đây, mật khẩu đó sẽ thay thế mật khẩu hiện tại.</translation>
 <translation id="7344094882820374540">Bảo vệ bạn khỏi các trang web nguy hiểm với chế độ bảo mật mạnh nhất của Chrome</translation>
 <translation id="7349129508108954623">Cho phép Chrome sử dụng Google Maps để chỉ đường và cung cấp thông tin ở địa phương về các địa chỉ phát hiện được.</translation>
 <translation id="7371674917547846460">Luôn cập nhật các mẹo hữu ích về Chrome và nhiều thông tin khác.</translation>
@@ -300,11 +304,11 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="7787205077729386167">Mở phần cài đặt Chrome trong iOS, sau đó nhấn vào "Ứng dụng trình duyệt mặc định" và chọn Chrome.</translation>
 <translation id="778855399387580014">Bắt đầu tìm kiếm trong thẻ Chrome mới.</translation>
 <translation id="7792140019572081272">Chrome bảo vệ dữ liệu nhạy cảm của bạn bằng Face ID.</translation>
+<translation id="7825648984449922731">Chỉnh sửa hình ảnh bằng Gemini trong Chrome</translation>
 <translation id="7855730255114109580">Google Chrome đã được cập nhật</translation>
 <translation id="787226752901403048">Đăng nhập vào Chrome để chia sẻ và tham gia nhóm thẻ, cũng như cùng nhau phát triển ý tưởng</translation>
 <translation id="7897703007638178753">Xem các thẻ gần đây trong Chrome</translation>
 <translation id="7948283758957877064">Tính năng mới trong Chrome</translation>
-<translation id="7996707498590516621">Tạo hình ảnh bằng Gemini trong Chrome</translation>
 <translation id="8000174216052461231">Mẹo dùng Chrome: Sở hữu chế độ bảo mật mạnh nhất của Chrome</translation>
 <translation id="8006014511203279255">Dùng Chrome mỗi khi bạn nhấn vào đường liên kết trong thư/tin nhắn hoặc các ứng dụng khác.</translation>
 <translation id="8014670471808569312">Chrome sẽ đề xuất lưu mật khẩu của bạn.</translation>

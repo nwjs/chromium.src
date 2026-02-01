@@ -54,6 +54,11 @@
 #include "ui/gfx/win/rendering_window_manager.h"
 #endif
 
+#if BUILDFLAG(IS_MAC)
+#include "ui/compositor/display_link_mac_mojo.h"
+#include "ui/display/mac/display_link_mac.h"
+#endif
+
 namespace content {
 namespace {
 
@@ -64,7 +69,6 @@ constexpr uint32_t kBrowserClientId = 0u;
 scoped_refptr<viz::ContextProviderCommandBuffer> CreateContextProvider(
     scoped_refptr<gpu::GpuChannelHost> gpu_channel_host,
     bool supports_locking,
-    bool supports_gpu_rasterization,
     viz::command_buffer_metrics::ContextType type) {
   constexpr bool kAutomaticFlushes = false;
 
@@ -75,7 +79,6 @@ scoped_refptr<viz::ContextProviderCommandBuffer> CreateContextProvider(
   return viz::ContextProviderCommandBuffer::CreateForRaster(
       std::move(gpu_channel_host), kGpuStreamIdDefault, kGpuStreamPriorityUI,
       std::move(url), kAutomaticFlushes, supports_locking, memory_limits, type,
-      /*enable_gpu_rasterization=*/supports_gpu_rasterization,
       /*lose_context_when_out_of_memory=*/true);
 }
 
@@ -188,6 +191,22 @@ void VizProcessTransportFactory::CreateLayerTreeFrameSink(
 #if BUILDFLAG(IS_WIN)
   gfx::RenderingWindowManager::GetInstance()->UnregisterParent(
       compositor->widget());
+#endif
+
+#if BUILDFLAG(IS_MAC)
+  // Create DisplayLinkMacMojo only after FrameSinkManager and display::Screen
+  // are available. FrameSinkManager is established in
+  // ConnectHostFrameSinkManager(), but display::Screen is not available in that
+  // function in Content Shell. (Note: display::Screen is available and not an
+  // issue there when running on Chrome.)
+  // CADisplayLink is not used in headless mode
+  // (use_external_begin_frame_control()).
+  if (!compositor->use_external_begin_frame_control() &&
+      !display_link_mac_mojo_ &&
+      ui::DisplayLinkMac::SupportsDisplayLinkMacInBrowser()) {
+    display_link_mac_mojo_ =
+        std::make_unique<ui::DisplayLinkMacMojo>(GetHostFrameSinkManager());
+  }
 #endif
 
   gpu_channel_establish_factory_->EstablishGpuChannel(
@@ -318,6 +337,12 @@ void VizProcessTransportFactory::DisableGpuCompositing(
 void VizProcessTransportFactory::OnGpuProcessLost() {
   // Reconnect HostFrameSinkManager to new GPU process.
   ConnectHostFrameSinkManager();
+
+#if BUILDFLAG(IS_MAC)
+  if (display_link_mac_mojo_) {
+    display_link_mac_mojo_->OnGpuProcessLost(GetHostFrameSinkManager());
+  }
+#endif
 }
 
 void VizProcessTransportFactory::OnEstablishedGpuChannel(
@@ -511,17 +536,11 @@ VizProcessTransportFactory::TryCreateContextsForGpuCompositing(
     worker_context_provider_.reset();
   }
 
-  const bool enable_gpu_rasterization =
-      features::IsUiGpuRasterizationEnabled() &&
-      gpu_feature_info
-              .status_values[gpu::GPU_FEATURE_TYPE_GPU_TILE_RASTERIZATION] ==
-          gpu::kGpuFeatureStatusEnabled;
-
   if (!worker_context_provider_) {
     // If the worker context supports GPU rasterization then UI tiles will be
     // rasterized on the GPU.
     auto worker_context_provider = CreateContextProvider(
-        gpu_channel_host, /*supports_locking=*/true, enable_gpu_rasterization,
+        gpu_channel_host, /*supports_locking=*/true,
         viz::command_buffer_metrics::ContextType::BROWSER_RASTER_WORKER);
 
     // Don't observer context loss on |worker_context_provider_| here,
@@ -544,7 +563,6 @@ VizProcessTransportFactory::TryCreateContextsForGpuCompositing(
     // enabled for tiles.
     main_context_provider_ = CreateContextProvider(
         std::move(gpu_channel_host), /*supports_locking=*/false,
-        enable_gpu_rasterization,
         viz::command_buffer_metrics::ContextType::BROWSER_MAIN_THREAD);
     main_context_provider_->SetDefaultTaskRunner(resize_task_runner_);
 

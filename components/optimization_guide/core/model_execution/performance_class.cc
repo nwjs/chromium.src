@@ -4,13 +4,15 @@
 
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 
+#include <utility>
+
 #include "base/containers/contains.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/to_string.h"
 #include "base/trace_event/trace_event.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/version_info/version_info.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
@@ -20,6 +22,7 @@
 #include "components/variations/synthetic_trials.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/on_device_model/public/cpp/cpu.h"
+#include "services/on_device_model/public/cpp/features.h"
 
 namespace optimization_guide {
 
@@ -165,7 +168,7 @@ void UpdatePerformanceClassPref(
   // TODO(crbug.com/437807121): Check performance info before setting prefs.
   local_state->SetInteger(
       model_execution::prefs::localstate::kOnDevicePerformanceClass,
-      base::to_underlying(performance_class));
+      std::to_underlying(performance_class));
   local_state->SetString(
       model_execution::prefs::localstate::kOnDevicePerformanceClassVersion,
       version_info::GetVersionNumber());
@@ -285,8 +288,10 @@ bool PerformanceClassifier::SupportsAudioInput() const {
 
 std::vector<proto::OnDeviceModelPerformanceHint>
 PerformanceClassifier::GetPossibleHints() const {
+  bool force_cpu_backend = base::FeatureList::IsEnabled(
+      on_device_model::features::kOnDeviceModelForceCpuBackend);
   std::vector<proto::OnDeviceModelPerformanceHint> hints;
-  if (IsDeviceGPUCapable()) {
+  if (IsDeviceGPUCapable() && !force_cpu_backend) {
     // Best option is highest quality for GPU device that is not low tier.
     if (!IsLowTierDevice()) {
       hints.push_back(proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_HIGHEST_QUALITY);

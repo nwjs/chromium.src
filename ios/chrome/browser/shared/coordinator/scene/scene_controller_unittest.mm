@@ -191,8 +191,8 @@ class SceneControllerTest : public PlatformTest {
   variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
 
-  std::unique_ptr<Browser> browser_;
   std::unique_ptr<TestProfileIOS> profile_;
+  std::unique_ptr<Browser> browser_;
   InternalFakeSceneController* scene_controller_;
   SceneState* scene_state_;
   ProfileState* profile_state_;
@@ -209,7 +209,7 @@ class SceneControllerTest : public PlatformTest {
 // unknown.
 
 // Tests that scene controller updates scene state's incognitoContentVisible
-// when the relevant application command is called.
+// when the relevant scene commands is called.
 TEST_F(SceneControllerTest, UpdatesIncognitoContentVisibility) {
   [scene_controller_ setIncognitoContentVisible:NO];
   EXPECT_FALSE(scene_state_.incognitoContentVisible);

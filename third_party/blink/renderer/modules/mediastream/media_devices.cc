@@ -411,19 +411,22 @@ void RecordUma(EnumerateDevicesFirstStateOnContextDestroyed value) {
 
 }  // namespace
 
+const char MediaDevices::kSupplementName[] = "MediaDevices";
+
 MediaDevices* MediaDevices::mediaDevices(Navigator& navigator) {
-  MediaDevices* supplement = navigator.GetMediaDevices();
+  MediaDevices* supplement =
+      Supplement<Navigator>::From<MediaDevices>(navigator);
   if (!supplement) {
     supplement = MakeGarbageCollected<MediaDevices>(navigator);
-    navigator.SetMediaDevices(supplement);
+    ProvideTo(navigator, supplement);
   }
   return supplement;
 }
 
 MediaDevices::MediaDevices(Navigator& navigator)
     : ActiveScriptWrappable<MediaDevices>({}),
+      Supplement<Navigator>(navigator),
       ExecutionContextLifecycleObserver(navigator.DomWindow()),
-      navigator_(navigator),
       is_execution_context_active_(!!navigator.DomWindow()),
       dispatcher_host_(navigator.GetExecutionContext()),
       receiver_(this, navigator.DomWindow()) {}
@@ -482,7 +485,7 @@ ScriptPromise<MediaStream> MediaDevices::getUserMedia(
   auto* resolver = MakeGarbageCollected<
       ScriptPromiseResolverWithTracker<UserMediaRequestResult, MediaStream>>(
       script_state, "Media.MediaDevices.GetUserMedia", base::Seconds(8));
-  resolver->SetResultSuffix("Result2");
+  resolver->SetResultSuffix("Result3");
   const auto promise = resolver->Promise();
 
   DCHECK(options);  // Guaranteed by the default value in the IDL.
@@ -495,7 +498,7 @@ ScriptPromise<MediaStream> MediaDevices::getUserMedia(
     return promise;
   }
 
-  LocalDOMWindow* window = navigator_->DomWindow();
+  LocalDOMWindow* window = GetSupplementable()->DomWindow();
   LocalFrame* local_frame = window ? window->GetFrame() : nullptr;
   if (local_frame && local_frame->IsAdScriptInStack()) {
     if (constraints->hasAudio()) {
@@ -608,7 +611,7 @@ ScriptPromise<IDLSequence<MediaStream>> MediaDevices::getAllScreensMedia(
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolverWithTracker<
       UserMediaRequestResult, IDLSequence<MediaStream>>>(
       script_state, "Media.MediaDevices.GetAllScreensMedia", base::Seconds(6));
-  resolver->SetResultSuffix("Result2");
+  resolver->SetResultSuffix("Result3");
   auto promise = resolver->Promise();
 
   ExecutionContext* const context = GetExecutionContext();
@@ -666,7 +669,7 @@ ScriptPromise<MediaStream> MediaDevices::getDisplayMedia(
       script_state, "Media.MediaDevices.GetDisplayMedia", base::Seconds(30),
       /*min_latency_bucket=*/base::Seconds(1),
       /*max_latency_bucket*/ base::Seconds(60), /*n_buckets=*/100);
-  resolver->SetResultSuffix("Result2");
+  resolver->SetResultSuffix("Result3");
   resolver->SetLatencySuffix("Latency2");
 
   auto promise = resolver->Promise();
@@ -1405,7 +1408,7 @@ void MediaDevices::Trace(Visitor* visitor) const {
   visitor->Trace(crop_target_resolvers_);
   visitor->Trace(restriction_target_resolvers_);
 
-  visitor->Trace(navigator_);
+  Supplement<Navigator>::Trace(visitor);
   EventTarget::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
 }

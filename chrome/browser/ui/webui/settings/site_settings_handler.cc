@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/barrier_closure.h"
+#include "base/byte_size.h"
 #include "base/check_deref.h"
 #include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
@@ -556,7 +557,7 @@ void ConvertSiteGroupMapToList(
       origin_object.Set(kIsInstalled, is_installed);
 
       origin_object.Set(kHasPermissionSettings,
-                        base::Contains(origin_permission_set, origin));
+                        origin_permission_set.contains(origin));
       origin_list.Append(std::move(origin_object));
     }
     site_group.Set(kHasInstalledPWA, has_installed_pwa);
@@ -926,7 +927,8 @@ void SiteSettingsHandler::OnGetUsageInfo() {
   }
 
   if (size > 0) {
-    usage_string = base::UTF16ToUTF8(ui::FormatBytes(base::ByteCount(size)));
+    usage_string = base::UTF16ToUTF8(
+        ui::FormatBytes(base::ByteSize(base::checked_cast<uint64_t>(size))));
   }
 
   auto* privacy_sandbox_service =
@@ -1422,7 +1424,8 @@ void SiteSettingsHandler::HandleGetFormattedBytes(
     const base::Value::List& args) {
   AllowJavascript();
   CHECK_EQ(2U, args.size());
-  base::ByteCount num_bytes = base::ByteCount(args[1].GetDouble());
+  base::ByteSize num_bytes =
+      base::ByteSize(base::checked_cast<uint64_t>(args[1].GetDouble()));
   ResolveJavascriptCallback(/*callback_id=*/args[0],
                             base::Value(ui::FormatBytes(num_bytes)));
 }

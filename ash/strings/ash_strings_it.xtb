@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Foto recente <ph name="INDEX" /> di <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Comprimi Google Tasks</translation>
 <translation id="2208323208084708176">Modalità desktop unificato</translation>
+<translation id="2210311543574621570">Vedrai gli appunti quando tieni premuto Ctrl + V. Puoi disabilitare questa scorciatoia disattivando il flag #clipboard-history-longpress in chrome://flags.</translation>
 <translation id="2215920961700443347">Nessuna connessione a internet. Connettiti a internet e riprova.</translation>
 <translation id="2222841058024245321">Scrivania 7</translation>
 <translation id="2223384056430485343">In uno schermo diviso</translation>
@@ -871,6 +872,7 @@ Collega il dispositivo all'alimentazione.</translation>
 <translation id="397105322502079400">Calcolo in corso...</translation>
 <translation id="397726367135689299">La ricarica della batteria potrebbe non essere affidabile.</translation>
 <translation id="3977512764614765090">Percentuale di carica della batteria: <ph name="PERCENTAGE" />%. La batteria è in carica.</translation>
+<translation id="3978162107953847778">Inserisci link da vari posti, ad esempio la tua cronologia di navigazione e Google Drive. Puoi anche inserire emoji, file immagine e altro ancora. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Vuoi cambiare il dispositivo di output audio?</translation>
 <translation id="3984536049089846927">Pagina successiva</translation>
 <translation id="3986082989454912832">Rispondi</translation>
@@ -1021,7 +1023,6 @@ Alcune funzionalità sono limitate per aumentare la durata della batteria.</tran
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 notifica importante}other{# notifiche importanti}}</translation>
 <translation id="4450893287417543264">Non mostrare più</translation>
 <translation id="4451374464530248585">La scorciatoia da tastiera Alt + Freccia giù è cambiata. Per usare il tasto Pagina giù, premi il tasto <ph name="LAUNCHER_KEY_NAME" /> + Freccia giù.</translation>
-<translation id="4453876312474547652">Vedrai gli Appunti quando tieni premuto Ctrl + V. Puoi disattivare questa scorciatoia disattivando il flag #clipboard-history-longpress in chrome://flags (os://flags se usi Lacros).</translation>
 <translation id="445765352722456792">Personalizza i suggerimenti</translation>
 <translation id="4458688154122353284">Interrompi registrazione dello schermo</translation>
 <translation id="445923051607553918">Connetti a rete Wi-Fi</translation>
@@ -1597,6 +1598,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: attivazione in corso...</translation>
 <translation id="6274202259872570803">Screencast</translation>
+<translation id="6274422179279280249">Inserisci link, emoji e altro ancora. Puoi anche ricevere aiuto con la scrittura con Google AI. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Visualizza il codice sorgente della pagina</translation>
 <translation id="6285871695023807425">Aggiungi a Calendar</translation>
 <translation id="6288235558961782912">L'indirizzo <ph name="USER_EMAIL_ADDRESS" /> potrà essere aggiunto di nuovo in un secondo momento con l'autorizzazione di un genitore.</translation>
@@ -1742,7 +1744,7 @@ Nuova installazione</translation>
 <translation id="6739144137573853180">VAI A IMPOSTAZIONI</translation>
 <translation id="6747985245839783873">Livello batteria: <ph name="PERCENTAGE" />%. Risparmio energetico attivo.</translation>
 <translation id="6751052314767925245">Applicata dall'amministratore</translation>
-<translation id="6751826523481687655">La traccia delle prestazioni è attiva</translation>
+<translation id="6751826523481687655">Il tracciamento delle prestazioni è attivo</translation>
 <translation id="6752912906630585008">Scrivania <ph name="REMOVED_DESK" /> rimossa e unita alla scrivania <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">schede</translation>
 <translation id="6754918760968695779">Inserimento rapido</translation>
@@ -2187,6 +2189,7 @@ Per arrestare il dispositivo, tieni di nuovo premuto il relativo tasto di accens
 <translation id="8237964652943995219">Scrivania successiva: <ph name="DESK_NAME" />. Scrivania <ph name="DESK_INDEX" /> di <ph name="DESK_COUNT" />.</translation>
 <translation id="8238817965863339552">Fai un rapido tour per scoprire come usare il tuo <ph name="PRODUCT_NAME" />. Puoi iniziare a usarlo in 5 passaggi.</translation>
 <translation id="8239034820133090126">Attiva scrivania a destra</translation>
+<translation id="8241650983304689286">Aggiungi scheda alla nuova visualizzazione divisa</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, intensità del segnale <ph name="SIGNAL_STRENGTH" />, batteria del telefono <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Mostra tutti i contenuti di Google Drive</translation>
 <translation id="8257510091797044096">Configura il tuo dispositivo</translation>
@@ -2298,7 +2301,7 @@ Per arrestare il dispositivo, tieni di nuovo premuto il relativo tasto di accens
 <translation id="8664282223139913403">Premi invio per acquisire uno screenshot parziale</translation>
 <translation id="8676770494376880701">Caricabatterie a basso consumo collegato</translation>
 <translation id="8679158879996532670">Mostra le impostazioni della modalità Niente distrazioni. La modalità Niente distrazioni è attiva, mancano <ph name="REMAINING_TIME" />.</translation>
-<translation id="8683506306463609433">Traccia delle prestazioni attiva</translation>
+<translation id="8683506306463609433">Tracciamento prestazioni attivo</translation>
 <translation id="8703634754197148428">Avvia registrazione. Dopo aver avviato la registrazione, utilizza i tasti Alt + Maiusc + L per accedere alla barra delle app e individuare il pulsante per interrompere la registrazione</translation>
 <translation id="8704155109538237473">Imposta lo stato attivo sulla finestra Picture in picture</translation>
 <translation id="870917907284186124">Attiva/disattiva la dettatura (digitazione con la voce)</translation>

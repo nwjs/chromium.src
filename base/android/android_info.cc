@@ -81,8 +81,7 @@ void Set(const IAndroidInfo& info) {
   holder.emplace(info);
 }
 
-static void JNI_AndroidInfo_FillFields(JNIEnv* env,
-                                       std::string& brand,
+static void JNI_AndroidInfo_FillFields(std::string& brand,
                                        std::string& device,
                                        std::string& buildId,
                                        std::string& manufacturer,
@@ -96,7 +95,7 @@ static void JNI_AndroidInfo_FillFields(JNIEnv* env,
                                        std::string& socManufacturer,
                                        std::string& supportedAbis,
                                        jint sdkInt,
-                                       jboolean isDebugAndroid,
+                                       bool isDebugAndroid,
                                        std::string& securityPatch) {
   Set(IAndroidInfo{.abiName = supportedAbis,
                    .androidBuildFp = androidBuildFingerprint,
@@ -107,7 +106,7 @@ static void JNI_AndroidInfo_FillFields(JNIEnv* env,
                    .codename = codename,
                    .device = device,
                    .hardware = hardware,
-                   .isDebugAndroid = static_cast<bool>(isDebugAndroid),
+                   .isDebugAndroid = isDebugAndroid,
                    .manufacturer = manufacturer,
                    .model = model,
                    .sdkInt = sdkInt,

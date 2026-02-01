@@ -11,7 +11,6 @@
 #include <string_view>
 
 #include "base/functional/bind.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_id.h"
@@ -43,6 +42,7 @@ namespace views {
 
 class InkDropContainerView;
 class LabelButtonBorder;
+enum class PropertyEffects;
 
 // LabelButton is a button with text and an icon.
 class VIEWS_EXPORT LabelButton : public Button,

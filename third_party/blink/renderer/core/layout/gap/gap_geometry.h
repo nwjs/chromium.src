@@ -189,6 +189,18 @@ class CORE_EXPORT GapGeometry : public GarbageCollected<GapGeometry> {
                       wtf_size_t primary_index,
                       wtf_size_t secondary_index) const;
 
+  // Adjusts ranges of cross gaps for this GapGeometry such that they are
+  // fragmentation-aware and relative to the current fragment.
+  // `last_track_in_previous_fragment` points to the last track that has been
+  // fully processed in the previous fragment. `first_track_in_next_fragment`
+  // points to the first track that has not been fully processed in the current
+  // fragment. If a track starts in the current fragment but continues to
+  // subsequent fragments, it is considered "unprocessed".
+  void AdjustCrossGapsRangesForFragmentation(
+      wtf_size_t last_track_in_previous_fragment,
+      wtf_size_t first_track_in_next_fragment,
+      Vector<wtf_size_t>& column_gaps_segment_ranges_start_indices);
+
   // Determines the blocked status of a specific intersection within a grid.
   // `primary_index` represents the gap index along the track direction and
   // `secondary_index` identifies the specific intersection within that gap.
@@ -203,7 +215,7 @@ class CORE_EXPORT GapGeometry : public GarbageCollected<GapGeometry> {
   bool IsMultiColSpanner(wtf_size_t gap_index,
                          GridTrackSizingDirection direction = kForRows) const;
 
-  LayoutUnit ComputeEndInset(const ComputedStyle& style,
+  LayoutUnit ComputeInsetEnd(const ComputedStyle& style,
                              wtf_size_t gap_index,
                              wtf_size_t intersection_index,
                              const Vector<LayoutUnit>& intersections,
@@ -211,7 +223,7 @@ class CORE_EXPORT GapGeometry : public GarbageCollected<GapGeometry> {
                              bool is_main,
                              LayoutUnit cross_width) const;
 
-  LayoutUnit ComputeStartInset(const ComputedStyle& style,
+  LayoutUnit ComputeInsetStart(const ComputedStyle& style,
                                wtf_size_t gap_index,
                                wtf_size_t intersection_index,
                                const Vector<LayoutUnit>& intersections,

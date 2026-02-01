@@ -18,9 +18,9 @@
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/mini_map_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/test/providers/mini_map/test_mini_map.h"
@@ -72,8 +72,7 @@ class MiniMapCoordinatorTest : public PlatformTest {
     builder.SetPrefService(CreatePrefService());
     profile_ = std::move(builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
-    mock_application_command_handler_ =
-        OCMStrictProtocolMock(@protocol(ApplicationCommands));
+    mock_scene_handler_ = OCMStrictProtocolMock(@protocol(SceneCommands));
     mock_application_settings_command_handler_ =
         OCMStrictProtocolMock(@protocol(SettingsCommands));
     mock_mini_map_command_handler_ =
@@ -82,8 +81,8 @@ class MiniMapCoordinatorTest : public PlatformTest {
         OCMStrictProtocolMock(@protocol(SnackbarCommands));
 
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
-    [dispatcher startDispatchingToTarget:mock_application_command_handler_
-                             forProtocol:@protocol(ApplicationCommands)];
+    [dispatcher startDispatchingToTarget:mock_scene_handler_
+                             forProtocol:@protocol(SceneCommands)];
     [dispatcher
         startDispatchingToTarget:mock_application_settings_command_handler_
                      forProtocol:@protocol(SettingsCommands)];
@@ -101,7 +100,7 @@ class MiniMapCoordinatorTest : public PlatformTest {
 
   void TearDown() override {
     [coordinator_ stop];
-    EXPECT_OCMOCK_VERIFY(mock_application_command_handler_);
+    EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
     EXPECT_OCMOCK_VERIFY(mock_application_settings_command_handler_);
     EXPECT_OCMOCK_VERIFY(mock_mini_map_command_handler_);
     EXPECT_OCMOCK_VERIFY(mock_snackbar_command_handler_);
@@ -109,18 +108,12 @@ class MiniMapCoordinatorTest : public PlatformTest {
     PlatformTest::TearDown();
   }
 
-  void SetupCoordinator(BOOL iph,
-                        MiniMapMode type,
-                        MiniMapQueryType query_type) {
-    NSString* text = query_type == MiniMapQueryType::kText ? @"Address" : nil;
-    NSURL* url = query_type == MiniMapQueryType::kURL
-                     ? [NSURL URLWithString:@"https://www.test.test"]
-                     : nil;
+  void SetupCoordinator(BOOL iph, MiniMapMode type) {
+    NSString* text = @"Address";
     coordinator_ = [[MiniMapCoordinator alloc]
         initWithBaseViewController:root_view_controller_
                            browser:browser_.get()
                               text:text
-                               url:url
                            withIPH:iph
                               mode:type];
     [coordinator_ start];
@@ -141,7 +134,7 @@ class MiniMapCoordinatorTest : public PlatformTest {
   std::unique_ptr<Browser> browser_;
   MiniMapCoordinator* coordinator_;
   TestMiniMapControllerFactory* factory_;
-  id mock_application_command_handler_;
+  id mock_scene_handler_;
   id mock_application_settings_command_handler_;
   id mock_mini_map_command_handler_;
   id mock_snackbar_command_handler_;
@@ -173,7 +166,7 @@ TEST_F(MiniMapCoordinatorTest, TestIPH) {
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
 
-  SetupCoordinator(YES, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(YES, MiniMapMode::kMap);
   environment_.RunUntilIdle();
   EXPECT_TRUE(
       profile_->GetPrefs()->GetBoolean(prefs::kDetectAddressesAccepted));
@@ -198,7 +191,7 @@ TEST_F(MiniMapCoordinatorTest, TestIPHSecondLaunch) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(YES, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(YES, MiniMapMode::kMap);
   EXPECT_OCMOCK_VERIFY(mini_map_controller);
 }
 
@@ -225,7 +218,7 @@ TEST_F(MiniMapCoordinatorTest, TestDismissMap) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(NO, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(NO, MiniMapMode::kMap);
 
   OCMExpect([mock_mini_map_command_handler_ hideMiniMap]);
   ASSERT_NE(nil, completion_block);
@@ -246,7 +239,7 @@ TEST_F(MiniMapCoordinatorTest, TestLinkDismissMap) {
 
   __block MiniMapControllerCompletionWithURL completion_block;
 
-  OCMExpect([mini_map_controller configureURL:[OCMArg any]]);
+  OCMExpect([mini_map_controller configureAddress:[OCMArg any]]);
   OCMExpect([mini_map_controller
       configureCompletion:AssignValueToVariable(completion_block)]);
   OCMExpect(
@@ -259,14 +252,13 @@ TEST_F(MiniMapCoordinatorTest, TestLinkDismissMap) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(NO, MiniMapMode::kMap, MiniMapQueryType::kURL);
+  SetupCoordinator(NO, MiniMapMode::kMap);
 
   OCMExpect([mock_mini_map_command_handler_ hideMiniMap]);
   ASSERT_NE(nil, completion_block);
   completion_block(nil);
   // Expect normal outcome.
-  histogram_tester.ExpectTotalCount("IOS.MiniMap.Outcome", 0);
-  histogram_tester.ExpectBucketCount("IOS.MiniMap.Link.Outcome", 0, 1);
+  histogram_tester.ExpectBucketCount("IOS.MiniMap.Outcome", 0, 1);
   EXPECT_OCMOCK_VERIFY(mini_map_controller);
 }
 
@@ -293,9 +285,9 @@ TEST_F(MiniMapCoordinatorTest, TestOpenURL) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(NO, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(NO, MiniMapMode::kMap);
   OCMExpect([mock_mini_map_command_handler_ hideMiniMap]);
-  OCMExpect([mock_application_command_handler_ openURLInNewTab:[OCMArg any]]);
+  OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
 
   ASSERT_NE(nil, completion_block);
   completion_block([NSURL URLWithString:@"https://www.example.org"]);
@@ -327,9 +319,9 @@ TEST_F(MiniMapCoordinatorTest, TestOpenQuery) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(NO, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(NO, MiniMapMode::kMap);
   OCMExpect([mock_mini_map_command_handler_ hideMiniMap]);
-  OCMExpect([mock_application_command_handler_ openURLInNewTab:[OCMArg any]]);
+  OCMExpect([mock_scene_handler_ openURLInNewTab:[OCMArg any]]);
 
   ASSERT_NE(nil, completion_block);
   completion_block(@"Query test");
@@ -365,7 +357,7 @@ TEST_F(MiniMapCoordinatorTest, TestFooterButtons) {
 
   OCMExpect([mini_map_controller
       presentMapsWithPresentingViewController:[OCMArg any]]);
-  SetupCoordinator(NO, MiniMapMode::kMap, MiniMapQueryType::kText);
+  SetupCoordinator(NO, MiniMapMode::kMap);
 
   OCMExpect([mock_snackbar_command_handler_
       showSnackbarWithMessage:[OCMArg any]
@@ -379,7 +371,7 @@ TEST_F(MiniMapCoordinatorTest, TestFooterButtons) {
   EXPECT_FALSE(
       profile_->GetPrefs()->GetBoolean(prefs::kDetectAddressesEnabled));
 
-  OCMExpect([mock_application_command_handler_
+  OCMExpect([mock_scene_handler_
       showReportAnIssueFromViewController:[OCMArg any]
                                    sender:UserFeedbackSender::MiniMap]);
   histogram_tester.ExpectBucketCount("IOS.MiniMap.Outcome", 2, 0);

@@ -281,12 +281,11 @@ void PictureLayerImpl::AppendQuadsSpecialization(
     AppendQuadsData* append_quads_data,
     viz::SharedQuadState* shared_quad_state,
     const Occlusion& scaled_occlusion,
-    const gfx::Vector2d& quad_offset) {
-  float max_contents_scale = GetMaximumContentsScaleForUseInAppendQuads();
-
+    const gfx::Vector2d& quad_offset,
+    float max_contents_scale) {
   // Keep track of the tilings that were used so that tilings that are
   // unused can be considered for removal.
-  last_append_quads_tilings_.clear();
+  ClearLastAppendQuadsScales();
 
   // Ignore missing tiles outside of viewport for tile priority. This is
   // normally the same as draw viewport but can be independently overridden by
@@ -294,20 +293,11 @@ void PictureLayerImpl::AppendQuadsSpecialization(
   gfx::Rect scaled_viewport_for_tile_priority = gfx::ScaleToEnclosingRect(
       viewport_rect_for_tile_priority_in_content_space_, max_contents_scale);
 
-  std::optional<gfx::Rect> scaled_cull_rect;
+  std::optional<gfx::Rect> scaled_cull_rect =
+      CalculateScaledCullRect(max_contents_scale);
+
   const ScrollTree& scroll_tree =
       layer_tree_impl()->property_trees()->scroll_tree();
-  if (const ScrollNode* scroll_node = scroll_tree.Node(scroll_tree_index())) {
-    if (transform_tree_index() == scroll_node->transform_id) {
-      if (const gfx::Rect* cull_rect =
-              scroll_tree.ScrollingContentsCullRect(scroll_node->element_id)) {
-        scaled_cull_rect = gfx::ToEnclosingRect(gfx::ScaleRect(
-            // Convert into layer space.
-            gfx::RectF(*cull_rect) - offset_to_transform_parent(),
-            max_contents_scale));
-      }
-    }
-  }
 
   if (const auto& display_list = raster_source_->GetDisplayItemList()) {
     for (auto& [element_id, info] : display_list->raster_inducing_scrolls()) {
@@ -343,19 +333,11 @@ void PictureLayerImpl::AppendQuadsSpecialization(
                          max_contents_scale, GetIdealContentsScaleKey());
        iter; ++iter) {
     gfx::Rect geometry_rect = iter.geometry_rect();
-    if (!scaled_recorded_bounds.Intersects(geometry_rect)) {
-      // This happens when the tiling rect is snapped to be bigger than the
-      // recorded bounds, and CoverageIterator returns a "missing" tile
-      // to cover some of the empty area. The tile should be ignored, otherwise
-      // it would be mistakenly treated as checkerboarded and drawn with the
-      // safe background color.
-      // TODO(crbug.com/328677988): Ideally we should check intersection with
-      // visible_geometry_rect and remove the visible_geometry_rect.IsEmpty()
-      // condition below.
+    gfx::Rect visible_geometry_rect;
+    if (ShouldSkipTile(geometry_rect, scaled_recorded_bounds, scaled_occlusion,
+                       visible_geometry_rect)) {
       continue;
     }
-    gfx::Rect visible_geometry_rect =
-        scaled_occlusion.GetUnoccludedContentRect(geometry_rect);
 
     gfx::Rect offset_geometry_rect = geometry_rect;
     offset_geometry_rect.Offset(quad_offset);
@@ -363,8 +345,6 @@ void PictureLayerImpl::AppendQuadsSpecialization(
     offset_visible_geometry_rect.Offset(quad_offset);
 
     bool needs_blending = !contents_opaque();
-    if (visible_geometry_rect.IsEmpty())
-      continue;
 
     uint64_t visible_geometry_area = visible_geometry_rect.size().Area64();
     append_quads_data->visible_layer_area += visible_geometry_area;
@@ -463,10 +443,7 @@ void PictureLayerImpl::AppendQuadsSpecialization(
 
     produced_tile_last_append_quads_ = true;
 
-    if (last_append_quads_tilings_.empty() ||
-        last_append_quads_tilings_.back() != iter.CurrentTiling()) {
-      last_append_quads_tilings_.push_back(iter.CurrentTiling());
-    }
+    AddScaleToLastAppendQuadsScales(iter.CurrentTiling()->contents_scale_key());
   }
 
   if (missing_tile_count) {
@@ -477,11 +454,6 @@ void PictureLayerImpl::AppendQuadsSpecialization(
                          missing_tile_count);
   }
 
-  // Aggressively remove any tilings that are not seen to save memory. Note
-  // that this is at the expense of doing cause more frequent re-painting. A
-  // better scheme would be to maintain a tighter visible_layer_rect for the
-  // finer tilings.
-  CleanUpTilingsOnActiveLayer();
   SanityCheckTilingState();
 }
 
@@ -855,19 +827,39 @@ void PictureLayerImpl::NotifyTileStateChanged(const Tile* tile,
 
   if (layer_tree_impl()->settings().TreesInVizInClientProcess() &&
       should_batch_updated_tiles_) {
+    bool update_damage_in_viz = false;
+    if (update_damage && layer_tree_impl()->IsActiveTree()) {
+      update_damage_in_viz = true;
+    }
     // This layer's tile updates are being batched. For a pending layer, this is
     // always true. For an active layer, this means it was just activated and is
     // waiting for its state to be sent to Viz via UpdateDisplayTree. The
     // accumulated updates are pushed to the active tree on activation and
     // active layer can continue to accumulate the tile updates until
     // UpdateDisplayTree.
-    updated_tiles_[tile->contents_scale_key()].emplace(tile->tiling_i_index(),
-                                                       tile->tiling_j_index());
+    auto result = updated_tiles_[tile->contents_scale_key()].emplace(
+        tile->tiling_i_index(), tile->tiling_j_index(), update_damage_in_viz);
+    // If there is {i,j,false} in the set already, we want to switch it to
+    // true if |update_damage_in_viz| is true.
+    if (!result.second && update_damage_in_viz) {
+      result.first->update_damage = true;
+    }
   }
 }
 
 gfx::Rect PictureLayerImpl::GetDamageRect() const {
   return damage_rect_;
+}
+
+void PictureLayerImpl::DidDraw(viz::ClientResourceProvider* resource_provider) {
+  LayerImpl::DidDraw(resource_provider);
+
+  // Aggressively remove any tilings that are not seen to save memory. Note
+  // that this is at the expense of doing cause more frequent re-painting. A
+  // better scheme would be to maintain a tighter visible_layer_rect for the
+  // finer tilings.
+  CleanUpTilingsOnActiveLayer();
+  SanityCheckTilingState();
 }
 
 void PictureLayerImpl::ResetChangeTracking() {
@@ -1605,15 +1597,16 @@ void PictureLayerImpl::CleanUpTilingsOnActiveLayer() {
          twin->GetIdealContentsScaleKey()});
   }
 
-  // TODO(crbug.com/7107398): Ideally |last_append_quads_tilings_| here should
+  // TODO(crbug.com/7107398): Ideally |last_append_quads_scales_| here should
   // be empty for TreesInViz mode since it's not populated in PictureLayerImpl
   // for that mode. But many cc_unittests currently calls AppendQuads() directly
   // on PictureLayerImpl via FakePictureLayerImpl resulting in non empty
-  // |last_append_quads_tilings_| in this mode. Hence not enabling the CHECK for
+  // |last_append_quads_scales_| in this mode. Hence not enabling the CHECK for
   // now. CHECK(!layer_tree_impl()->settings().TreesInVizInClientProcess() ||
-  //      last_append_quads_tilings_.empty());
+  //      last_append_quads_scales_.empty());
 
   std::vector<PictureLayerTiling*> to_remove;
+  bool needs_push = false;
   for (size_t i = 0; i < tilings_->num_tilings(); ++i) {
     PictureLayerTiling* tiling = tilings_->tiling_at(i);
     // Keep all tilings within the min/max scales.
@@ -1623,7 +1616,7 @@ void PictureLayerImpl::CleanUpTilingsOnActiveLayer() {
     }
 
     // Don't remove tilings that are required based on most recent draw.
-    if (base::Contains(last_append_quads_tilings_, tiling)) {
+    if (LastAppendQuadsScalesContains(tiling->contents_scale_key())) {
       continue;
     }
 
@@ -1632,12 +1625,16 @@ void PictureLayerImpl::CleanUpTilingsOnActiveLayer() {
     // sent to Viz to check if those are safe to delete.
     if (layer_tree_impl()->settings().TreesInVizInClientProcess()) {
       proposed_tiling_scales_for_deletion_.insert(tiling->contents_scale_key());
+      needs_push = true;
     } else {
       to_remove.push_back(tiling);
     }
   }
 
   if (layer_tree_impl()->settings().TreesInVizInClientProcess()) {
+    if (needs_push) {
+      SetNeedsPushProperties(kChangedGeneralProperty);
+    }
     return;
   }
 
@@ -2052,7 +2049,7 @@ void PictureLayerImpl::InvalidateRasterInducingScrolls(
 void PictureLayerImpl::SetPaintWorkletRecord(
     scoped_refptr<const PaintWorkletInput> input,
     PaintRecord record) {
-  DCHECK(base::Contains(paint_worklet_records_, input));
+  DCHECK(paint_worklet_records_.contains(input));
   paint_worklet_records_[input].second = std::move(record);
 }
 
@@ -2168,8 +2165,10 @@ PictureLayerImpl::TileUpdateSet PictureLayerImpl::TakeAllTiles() {
     PictureLayerTiling::TileIterator iter(tilings_->tiling_at(ii));
     for (; !iter.AtEnd(); iter.Next()) {
       Tile* tile = iter.GetCurrent();
+      // TODO(zmo): Should |update_damage| be faise here?
       updates[tile->contents_scale_key()].emplace(tile->tiling_i_index(),
-                                                  tile->tiling_j_index());
+                                                  tile->tiling_j_index(),
+                                                  /*update_damage=*/false);
     }
   }
 

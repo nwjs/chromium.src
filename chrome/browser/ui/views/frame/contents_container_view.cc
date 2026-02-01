@@ -13,7 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/read_anything/immersive_read_anything_overlay_view.h"
+#include "chrome/browser/ui/read_anything/read_anything_immersive_overlay_view.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -39,6 +39,7 @@
 #include "ui/views/layout/delegating_layout_manager.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/proposed_layout.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
@@ -104,10 +105,10 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
       AddChildView(std::make_unique<enterprise_watermark::WatermarkView>());
 
   if (features::IsImmersiveReadAnythingEnabled()) {
-    auto immersive_read_anything_overlay_view =
-        std::make_unique<ImmersiveReadAnythingOverlayView>();
-    immersive_read_anything_overlay_view_ =
-        AddChildView(std::move(immersive_read_anything_overlay_view));
+    auto read_anything_immersive_overlay_view =
+        std::make_unique<ReadAnythingImmersiveOverlayView>();
+    read_anything_immersive_overlay_view_ =
+        AddChildView(std::move(read_anything_immersive_overlay_view));
   }
 
   contents_scrim_view_ = AddChildView(std::make_unique<ScrimView>());
@@ -134,13 +135,11 @@ ContentsContainerView::ContentsContainerView(BrowserView* browser_view)
   }
 #endif
 
-  if (base::FeatureList::IsEnabled(features::kSideBySide)) {
-    mini_toolbar_ = AddChildView(std::make_unique<MultiContentsViewMiniToolbar>(
-        browser_view, contents_view_));
+  mini_toolbar_ = AddChildView(std::make_unique<MultiContentsViewMiniToolbar>(
+      browser_view, contents_view_));
 
-    container_outline_ =
-        AddChildView(std::make_unique<ContentsContainerOutline>(mini_toolbar_));
-  }
+  container_outline_ =
+      AddChildView(std::make_unique<ContentsContainerOutline>(mini_toolbar_));
 
   view_bounds_observer_.Observe(contents_view_);
 }
@@ -173,6 +172,11 @@ void ContentsContainerView::UpdateBorderAndOverlay(bool is_in_split,
     ClearBorderRoundedCorners();
     mini_toolbar_->SetVisible(false);
     container_outline_->SetVisible(false);
+    if (capture_contents_border_widget_) {
+      static_cast<ContentsCaptureBorderView*>(
+          capture_contents_border_widget_->GetContentsView())
+          ->SetIsInSplit(false);
+    }
     return;
   }
 
@@ -184,6 +188,11 @@ void ContentsContainerView::UpdateBorderAndOverlay(bool is_in_split,
   // Mini toolbar should only be visible for the inactive contents
   // container view or both depending on configuration.
   mini_toolbar_->UpdateState(is_active, is_highlighted);
+  if (capture_contents_border_widget_) {
+    static_cast<ContentsCaptureBorderView*>(
+        capture_contents_border_widget_->GetContentsView())
+        ->SetIsInSplit(true);
+  }
 }
 
 void ContentsContainerView::UpdateBorderRoundedCorners() {
@@ -406,7 +415,7 @@ void ContentsContainerView::CreateCaptureContentsBorder() {
 
   capture_contents_border_widget_->Init(std::move(params));
   auto contents_capture_border_view =
-      std::make_unique<ContentsCaptureBorderView>();
+      std::make_unique<ContentsCaptureBorderView>(mini_toolbar_);
   capture_contents_border_widget_->SetContentsView(
       std::move(contents_capture_border_view));
   capture_contents_border_widget_->SetVisibilityChangedAnimationsEnabled(false);
@@ -553,10 +562,10 @@ views::ProposedLayout ContentsContainerView::CalculateProposedLayout(
 
   // Reading Mode overlay view bounds are the same as the contents view.
   if (features::IsImmersiveReadAnythingEnabled() &&
-      immersive_read_anything_overlay_view_) {
+      read_anything_immersive_overlay_view_) {
     layouts.child_layouts.emplace_back(
-        immersive_read_anything_overlay_view_.get(),
-        immersive_read_anything_overlay_view_->GetVisible(),
+        read_anything_immersive_overlay_view_.get(),
+        read_anything_immersive_overlay_view_->GetVisible(),
         non_devtools_contents_bounds, size_bounds);
   }
 

@@ -34,13 +34,6 @@ void FakeUnexportableKeyService::
             callback) {
   std::move(callback).Run(base::unexpected(ServiceError::kKeyNotFound));
 }
-void FakeUnexportableKeyService::CopyKeyFromOtherService(
-    const UnexportableKeyService& other_service,
-    UnexportableKeyId key_id_from_other_service,
-    BackgroundTaskPriority priority,
-    base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback) {
-  std::move(callback).Run(base::unexpected(ServiceError::kKeyNotFound));
-}
 void FakeUnexportableKeyService::SignSlowlyAsync(
     UnexportableKeyId key_id,
     base::span<const uint8_t> data,
@@ -70,6 +63,16 @@ ServiceErrorOr<std::vector<uint8_t>> FakeUnexportableKeyService::GetWrappedKey(
 }
 ServiceErrorOr<crypto::SignatureVerifier::SignatureAlgorithm>
 FakeUnexportableKeyService::GetAlgorithm(UnexportableKeyId key_id) const {
+  return base::unexpected(ServiceError::kKeyNotFound);
+}
+
+ServiceErrorOr<std::string> FakeUnexportableKeyService::GetKeyTag(
+    UnexportableKeyId key_id) const {
+  return base::unexpected(ServiceError::kKeyNotFound);
+}
+
+ServiceErrorOr<base::Time> FakeUnexportableKeyService::GetCreationTime(
+    UnexportableKeyId key_id) const {
   return base::unexpected(ServiceError::kKeyNotFound);
 }
 

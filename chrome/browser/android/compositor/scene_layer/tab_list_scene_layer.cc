@@ -16,7 +16,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/TabListSceneLayer_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 
 namespace android {
@@ -75,9 +74,9 @@ void TabListSceneLayer::PutTabLayer(JNIEnv* env,
                                     jint contour_resource_id,
                                     jint border_resource_id,
                                     jint border_inner_shadow_resource_id,
-                                    jboolean can_use_live_layer,
+                                    bool can_use_live_layer,
                                     jint tab_background_color,
-                                    jboolean incognito,
+                                    bool incognito,
                                     jfloat x,
                                     jfloat y,
                                     jfloat width,
@@ -94,10 +93,10 @@ void TabListSceneLayer::PutTabLayer(JNIEnv* env,
                                     jfloat static_to_view_blend,
                                     jfloat border_scale,
                                     jfloat saturation,
-                                    jboolean show_toolbar,
+                                    bool show_toolbar,
                                     jint default_theme_color,
                                     jint toolbar_background_color,
-                                    jboolean anonymize_toolbar,
+                                    bool anonymize_toolbar,
                                     jint toolbar_textbox_resource_id,
                                     jint toolbar_textbox_background_color,
                                     jfloat content_offset) {
@@ -170,8 +169,8 @@ void TabListSceneLayer::PutBackgroundLayer(
 
 void TabListSceneLayer::SetDependencies(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& jtab_content_manager,
-    const base::android::JavaParamRef<jobject>& jresource_manager) {
+    const base::android::JavaRef<jobject>& jtab_content_manager,
+    const base::android::JavaRef<jobject>& jresource_manager) {
   if (!tab_content_manager_) {
     tab_content_manager_ =
         TabContentManager::FromJavaObject(jtab_content_manager);
@@ -199,7 +198,7 @@ SkColor TabListSceneLayer::GetBackgroundColor() {
 }
 
 static jlong JNI_TabListSceneLayer_Init(JNIEnv* env,
-                                        const JavaParamRef<jobject>& jobj) {
+                                        const JavaRef<jobject>& jobj) {
   // This will automatically bind to the Java object and pass ownership there.
   TabListSceneLayer* scene_layer = new TabListSceneLayer(env, jobj);
   return reinterpret_cast<intptr_t>(scene_layer);

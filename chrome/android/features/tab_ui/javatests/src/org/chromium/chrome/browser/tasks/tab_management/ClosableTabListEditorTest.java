@@ -83,9 +83,7 @@ public class ClosableTabListEditorTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     var currentTabGroupModelFilterSupplier =
-                            mTabModelSelector
-                                    .getTabGroupModelFilterProvider()
-                                    .getCurrentTabGroupModelFilterSupplier();
+                            mTabModelSelector.getCurrentTabGroupModelFilterSupplier();
                     mEdgeToEdgeSupplier = new ObservableSupplierImpl<>();
                     mTabListEditorCoordinator =
                             new TabListEditorCoordinator(
@@ -110,7 +108,8 @@ public class ClosableTabListEditorTest {
                                     CreationMode.FULL_SCREEN,
                                     /* undoBarExplicitTrigger= */ null,
                                     /* componentName= */ null,
-                                    TabListEditorCoordinator.UNLIMITED_SELECTION);
+                                    TabListEditorCoordinator.UNLIMITED_SELECTION,
+                                    false);
 
                     mTabListEditorController = mTabListEditorCoordinator.getController();
                     mTabListEditorLayout =

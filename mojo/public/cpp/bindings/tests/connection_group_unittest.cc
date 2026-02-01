@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "mojo/public/cpp/bindings/connection_group.h"
+
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
@@ -51,8 +53,9 @@ class TestInterfaceImpl : public mojom::TestInterface {
 
  private:
   void OnDisconnect() {
-    if (wait_for_disconnect_closure_)
+    if (wait_for_disconnect_closure_) {
       std::move(wait_for_disconnect_closure_).Run();
+    }
   }
 
   // mojom::TestInterface:
@@ -66,8 +69,7 @@ class TestInterfaceImpl : public mojom::TestInterface {
 };
 
 TEST_P(ConnectionGroupBindingsTest, RefCounting) {
-  ConnectionGroup::Ref ref =
-      ConnectionGroup::Create(base::DoNothing(), nullptr);
+  ConnectionGroupRef ref = ConnectionGroup::Create(base::DoNothing(), nullptr);
   auto group = ref.GetGroupForTesting();
 
   // The initial ref is valid but does not increase the ref-count.
@@ -75,7 +77,7 @@ TEST_P(ConnectionGroupBindingsTest, RefCounting) {
   EXPECT_EQ(0u, group->GetNumRefsForTesting());
 
   // Moving the initial ref preserves its weak type.
-  ConnectionGroup::Ref moved_ref = std::move(ref);
+  ConnectionGroupRef moved_ref = std::move(ref);
   EXPECT_FALSE(ref);
   EXPECT_TRUE(moved_ref);
   EXPECT_EQ(0u, group->GetNumRefsForTesting());
@@ -85,7 +87,7 @@ TEST_P(ConnectionGroupBindingsTest, RefCounting) {
   EXPECT_EQ(0u, group->GetNumRefsForTesting());
 
   // Any copy of the initial ref does increase ref-count.
-  ConnectionGroup::Ref copy = ref;
+  ConnectionGroupRef copy = ref;
   EXPECT_TRUE(ref);
   EXPECT_TRUE(copy);
   EXPECT_EQ(1u, group->GetNumRefsForTesting());
@@ -100,8 +102,7 @@ TEST_P(ConnectionGroupBindingsTest, PassedEndpointsInheritFromReceiver) {
   Remote<mojom::TestInterface> remote;
   auto pending_receiver = remote.BindNewPipeAndPassReceiver();
 
-  ConnectionGroup::Ref ref =
-      ConnectionGroup::Create(base::DoNothing(), nullptr);
+  ConnectionGroupRef ref = ConnectionGroup::Create(base::DoNothing(), nullptr);
 
   auto group = ref.GetGroupForTesting();
   pending_receiver.set_connection_group(std::move(ref));
@@ -155,12 +156,12 @@ TEST_P(ConnectionGroupBindingsTest, PassedEndpointsInheritFromReceiver) {
 
 TEST_F(ConnectionGroupTest, NotifyOnDecrementToZero) {
   base::RunLoop loop;
-  ConnectionGroup::Ref ref = ConnectionGroup::Create(
+  ConnectionGroupRef ref = ConnectionGroup::Create(
       loop.QuitClosure(), base::SequencedTaskRunner::GetCurrentDefault());
   auto group = ref.GetGroupForTesting();
 
   EXPECT_EQ(0u, group->GetNumRefsForTesting());
-  ConnectionGroup::Ref copy = ref;
+  ConnectionGroupRef copy = ref;
   EXPECT_EQ(1u, group->GetNumRefsForTesting());
   copy.reset();
   EXPECT_EQ(0u, group->GetNumRefsForTesting());
@@ -170,7 +171,7 @@ TEST_F(ConnectionGroupTest, NotifyOnDecrementToZero) {
 
 TEST_F(ConnectionGroupTest, NotifyOnDecrementToZeroMultipleTimes) {
   std::optional<base::RunLoop> loop;
-  ConnectionGroup::Ref ref =
+  ConnectionGroupRef ref =
       ConnectionGroup::Create(base::BindLambdaForTesting([&] {
                                 ASSERT_TRUE(loop.has_value());
                                 loop->Quit();
@@ -179,7 +180,7 @@ TEST_F(ConnectionGroupTest, NotifyOnDecrementToZeroMultipleTimes) {
 
   auto group = ref.GetGroupForTesting();
 
-  ConnectionGroup::Ref copy = ref;
+  ConnectionGroupRef copy = ref;
   EXPECT_EQ(1u, group->GetNumRefsForTesting());
   copy.reset();
   EXPECT_EQ(0u, group->GetNumRefsForTesting());

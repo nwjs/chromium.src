@@ -71,8 +71,7 @@ class PrivacySandboxTestUtilTest {
         &prefs_, false /* is_off_the_record */, false /* store_last_modified */,
         false /* restore_session */, false /* should_record_metrics */);
     cookie_settings_ = new content_settings::CookieSettings(
-        host_content_settings_map_.get(), &prefs_,
-        /*tracking_protection_settings=*/nullptr, false,
+        host_content_settings_map_.get(), &prefs_, false,
         content_settings::CookieSettings::NoFedCmSharingPermissionsCallback(),
         /*tpcd_metadata_manager=*/nullptr, "chrome-extension");
   }
@@ -174,23 +173,6 @@ TEST_P(PrivacySandboxTestUtilBoolTest, VerifyM1TopicsEnabledStateKeySetsPref) {
   ApplyTestState(StateKey::kM1TopicsEnabledUserPrefValue, state);
   EXPECT_EQ(
       prefs()->GetUserPref(prefs::kPrivacySandboxM1TopicsEnabled)->GetBool(),
-      state);
-}
-
-TEST_P(PrivacySandboxTestUtilBoolTest,
-       VerifykBlockAll3pcToggleEnabledStateKeySetsPref) {
-  bool state = GetParam();
-  ApplyTestState(StateKey::kBlockAll3pcToggleEnabledUserPrefValue, state);
-  EXPECT_EQ(prefs()->GetUserPref(prefs::kBlockAll3pcToggleEnabled)->GetBool(),
-            state);
-}
-
-TEST_P(PrivacySandboxTestUtilBoolTest,
-       VerifykTrackingProtection3pcdEnabledStateKeySetsPref) {
-  bool state = GetParam();
-  ApplyTestState(StateKey::kTrackingProtection3pcdEnabledUserPrefValue, state);
-  EXPECT_EQ(
-      prefs()->GetUserPref(prefs::kTrackingProtection3pcdEnabled)->GetBool(),
       state);
 }
 

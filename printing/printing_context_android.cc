@@ -28,7 +28,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "printing/printing_jni_headers/PrintingContext_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -118,7 +117,7 @@ void PrintingContextAndroid::AskUserForSettings(
 }
 
 void PrintingContextAndroid::AskUserForSettingsReply(JNIEnv* env,
-                                                     jboolean success) {
+                                                     bool success) {
   DCHECK(callback_);
   if (!success) {
     // TODO(cimamoglu): Differentiate between `kFailed` And `kCancel`.

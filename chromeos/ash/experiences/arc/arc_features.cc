@@ -88,32 +88,6 @@ BASE_FEATURE(kEnableArcAttestation,
              "ArcAttestation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether we automatically send ARCVM into Doze mode
-// when it is mostly idle - even if Chrome is still active.
-BASE_FEATURE(kEnableArcIdleManager,
-             "ArcIdleManager",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// For test purposes, ignore battery status changes, allowing Doze mode to
-// kick in even if we do not receive powerd changes related to battery.
-BASE_FEATURE_PARAM(bool,
-                   kEnableArcIdleManagerIgnoreBatteryForPLT,
-                   &kEnableArcIdleManager,
-                   "ignore_battery_for_test",
-                   true);
-
-BASE_FEATURE_PARAM(int,
-                   kEnableArcIdleManagerDelayMs,
-                   &kEnableArcIdleManager,
-                   "delay_ms",
-                   360 * 1000);
-
-BASE_FEATURE_PARAM(bool,
-                   kEnableArcIdleManagerPendingIdleReactivate,
-                   &kEnableArcIdleManager,
-                   "pending_idle_reactivate",
-                   false);
-
 // Controls whether to enable support for s2idle in ARCVM.
 BASE_FEATURE(kEnableArcS2Idle, "ArcS2Idle", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -303,9 +277,6 @@ BASE_FEATURE(kUnthrottleOnActiveAudioV2,
 BASE_FEATURE(kVideoDecoder,
              "ArcVideoDecoder",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether ARC uses MappableSharedImage for video encoding.
-BASE_FEATURE(kVideoEncodeUseMappableSI, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature to continuously log PSI memory pressure data to Chrome.
 BASE_FEATURE(kVmMemoryPSIReports,

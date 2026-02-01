@@ -7,12 +7,12 @@ package org.chromium.chrome.browser.multiwindow;
 import android.app.Activity;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
-import android.util.Pair;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CommandLine;
+import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -39,7 +39,7 @@ import java.util.List;
 public abstract class MultiInstanceManager {
     public static final int INVALID_TASK_ID = -1; // Defined in android.app.ActivityTaskManager.
     public static final String NEW_WINDOW_APP_SOURCE_HISTOGRAM =
-            "Android.MultiWindowMode.NewWindow.AppSource";
+            "Android.MultiWindowMode.NewWindow.AppSource2";
 
     @VisibleForTesting
     static final String CLOSE_WINDOW_APP_SOURCE_HISTOGRAM =
@@ -47,29 +47,33 @@ public abstract class MultiInstanceManager {
 
     // These values are persisted to logs. Entries should not be renumbered and numeric values
     // should never be reused.
+    // LINT.IfChange(NewWindowAppSource)
     @IntDef({
         NewWindowAppSource.OTHER,
         NewWindowAppSource.MENU,
         NewWindowAppSource.WINDOW_MANAGER,
-        NewWindowAppSource.KEYBOARD_SHORTCUT
+        NewWindowAppSource.KEYBOARD_SHORTCUT,
+        NewWindowAppSource.RECENT_TABS
     })
     public @interface NewWindowAppSource {
         int OTHER = 0;
         int MENU = 1;
         int WINDOW_MANAGER = 2;
         int KEYBOARD_SHORTCUT = 3;
-
-        // Be sure to also update enums.xml when updating these values.
-        int NUM_ENTRIES = 4;
+        int RECENT_TABS = 4;
+        int NUM_ENTRIES = 5;
     }
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml)
 
     // These values are persisted to logs. Entries should not be renumbered and
     // numeric values should never be reused.
+    // LINT.IfChange(CloseWindowAppSource)
     @IntDef({
         CloseWindowAppSource.OTHER,
         CloseWindowAppSource.WINDOW_MANAGER,
         CloseWindowAppSource.RETENTION_PERIOD_EXPIRATION,
-        CloseWindowAppSource.NO_TABS_IN_WINDOW
+        CloseWindowAppSource.NO_TABS_IN_WINDOW,
+        CloseWindowAppSource.RECENT_TABS
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface CloseWindowAppSource {
@@ -77,9 +81,47 @@ public abstract class MultiInstanceManager {
         int WINDOW_MANAGER = 1;
         int RETENTION_PERIOD_EXPIRATION = 2;
         int NO_TABS_IN_WINDOW = 3;
+        int RECENT_TABS = 4;
+        int NUM_ENTRIES = 5;
+    }
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml)
 
-        // Update enums.xml when updating these values.
-        int NUM_ENTRIES = 4;
+    @IntDef({
+        InstanceAllocationType.DEFAULT,
+        InstanceAllocationType.EXISTING_INSTANCE_UNMAPPED_TASK,
+        InstanceAllocationType.EXISTING_INSTANCE_MAPPED_TASK,
+        InstanceAllocationType.PREFER_NEW_INSTANCE_NEW_TASK,
+        InstanceAllocationType.PREFER_NEW_INVALID_INSTANCE,
+        InstanceAllocationType.NEW_INSTANCE_NEW_TASK,
+        InstanceAllocationType.EXISTING_INSTANCE_NEW_TASK,
+        InstanceAllocationType.INVALID_INSTANCE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface InstanceAllocationType {
+        int DEFAULT = 0;
+        int EXISTING_INSTANCE_UNMAPPED_TASK = 1;
+        int EXISTING_INSTANCE_MAPPED_TASK = 2;
+        int PREFER_NEW_INSTANCE_NEW_TASK = 3;
+        int PREFER_NEW_INVALID_INSTANCE = 4;
+        int NEW_INSTANCE_NEW_TASK = 5;
+        int EXISTING_INSTANCE_NEW_TASK = 6;
+        int INVALID_INSTANCE = 7;
+    }
+
+    /** A class that holds information about an allocated instance ID. */
+    public static class AllocatedIdInfo {
+        public final int instanceId;
+        public final @InstanceAllocationType int allocationType;
+        public final @SupportedProfileType int profileType;
+
+        public AllocatedIdInfo(
+                int instanceId,
+                @InstanceAllocationType int allocationType,
+                @SupportedProfileType int profileType) {
+            this.instanceId = instanceId;
+            this.allocationType = allocationType;
+            this.profileType = profileType;
+        }
     }
 
     /** Should be called when multi-instance mode is started. */
@@ -304,14 +346,6 @@ public abstract class MultiInstanceManager {
     }
 
     /**
-     * @return List of {@link InstanceInfo} structs for an activity that can be switched to, or
-     *     newly launched.
-     */
-    public List<InstanceInfo> getInstanceInfo() {
-        return getInstanceInfo(PersistedInstanceType.ANY);
-    }
-
-    /**
      * @return List of {@link InstanceInfo} structs with {@link PersistedInstanceType} {@param type}
      *     for an activity that can be switched to, or newly launched.
      */
@@ -326,18 +360,19 @@ public abstract class MultiInstanceManager {
      * @param taskId Task ID of the activity.
      * @param preferNew Boolean indicating a fresh new instance is preferred over the one that will
      *     load previous tab files from disk.
-     * @param profileType The type of tab/profile the activity supports.
+     * @param isIncognitoIntent Whether the allocated id is for an Incognito window.
      */
-    public abstract Pair<Integer, Integer> allocInstanceId(
-            int windowId, int taskId, boolean preferNew, @SupportedProfileType int profileType);
+    public abstract AllocatedIdInfo allocInstanceId(
+            int windowId, int taskId, boolean preferNew, boolean isIncognitoIntent);
 
     /**
      * Initialize the manager with the allocated instance ID.
      *
      * @param instanceId Instance ID of the activity.
      * @param taskId Task ID of the activity.
+     * @param profileType The type of tab/profile the activity supports
      */
-    public void initialize(int instanceId, int taskId) {}
+    public void initialize(int instanceId, int taskId, @SupportedProfileType int profileType) {}
 
     /** Perform initialization tasks for the manager after the tab state is initialized. */
     public void onTabStateInitialized() {}
@@ -365,13 +400,24 @@ public abstract class MultiInstanceManager {
     }
 
     /**
-     * Close the window associated with a given task / activity. This will permanently and
-     * irreversibly delete persisted instance and tab state data.
+     * Open the window for the specified instance. If a live activity exists for the instance, it
+     * will be brought to the foreground. If the instance is inactive, it will be restored in a new
+     * activity in a new task.
      *
-     * @param instanceId ID of the activity instance.
+     * @param instanceId ID of the instance whose window should be brought to the foreground.
+     * @param source The {@link NewWindowAppSource} that reflects the source of new activity
+     *     creation for an inactive instance, used for metrics.
+     */
+    public void openWindow(int instanceId, @NewWindowAppSource int source) {}
+
+    /**
+     * Close the windows associated with a given task / activity. This will permanently and
+     * irreversibly delete persisted instances and tab state data.
+     *
+     * @param instanceIds A list of IDs of the activity instance.
      * @param source The {@link CloseWindowAppSource} that reflects the source of instance closure.
      */
-    public void closeWindow(int instanceId, @CloseWindowAppSource int source) {}
+    public void closeWindows(List<Integer> instanceIds, @CloseWindowAppSource int source) {}
 
     /**
      * Intended to be called on initialization. If there's only one window at the moment that has
@@ -430,6 +476,46 @@ public abstract class MultiInstanceManager {
 
     public abstract void setTabModelObserverForTesting(
             TabModelSelectorTabModelObserver tabModelObserver);
+
+    protected ObserverList<InstanceStateObserver> mInstanceStateObservers = new ObserverList<>();
+
+    /** Observer interface to notify about instance closure and restoration events. */
+    public interface InstanceStateObserver {
+        /**
+         * Notifies when an instance is closed. Closure can be system-initiated (for e.g. low-memory
+         * kill), app-initiated (for e.g. instance retention expiration) or user-initiated (for e.g.
+         * window manager closure).
+         *
+         * @param instanceInfo The {@link InstanceInfo} for the closed instance.
+         * @param isPermanentDeletion Whether the closed instance is permanently deleted.
+         */
+        void onInstanceClosed(InstanceInfo instanceInfo, boolean isPermanentDeletion);
+
+        /**
+         * Notifies when an inactive instance is restored.
+         *
+         * @param instanceId The id for the restored instance.
+         */
+        void onInstanceRestored(int instanceId);
+    }
+
+    /**
+     * Registers an observer to receive notifications about changes to the instance state.
+     *
+     * @param instanceStateObserver The observer to be added.
+     */
+    public void addInstanceStateObserver(InstanceStateObserver instanceStateObserver) {
+        mInstanceStateObservers.addObserver(instanceStateObserver);
+    }
+
+    /**
+     * Unregisters an observer, stopping notifications about changes to the instance state.
+     *
+     * @param instanceStateObserver The observer to be removed.
+     */
+    public void removeInstanceStateObserver(InstanceStateObserver instanceStateObserver) {
+        mInstanceStateObservers.removeObserver(instanceStateObserver);
+    }
 
     // The instance types are defined as bit flags, so they can be or-ed to reflect
     // more than one value. Or-ed values should be validated at points of access.

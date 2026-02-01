@@ -4,34 +4,29 @@
 
 #include "third_party/blink/renderer/core/css/css_route_rule.h"
 
-#include "third_party/blink/renderer/core/css/conditional_exp_node.h"
-#include "third_party/blink/renderer/core/css/route_query.h"
-#include "third_party/blink/renderer/core/css/style_rule.h"
+#include "third_party/blink/renderer/core/css/style_rule_route.h"
 
 namespace blink {
 
 CSSRouteRule::CSSRouteRule(StyleRuleRoute* route_rule, CSSStyleSheet* parent)
-    : CSSConditionRule(route_rule, parent), route_rule_(route_rule) {}
+    : CSSRule(parent), route_rule_(route_rule) {}
 
 CSSRouteRule::~CSSRouteRule() = default;
 
 String CSSRouteRule::cssText() const {
   StringBuilder result;
   result.Append("@route ");
-  route_rule_->GetRouteQuery().GetRootExp()->SerializeTo(result);
-  AppendCSSTextForItems(result);
-  return result.ToString();
+  NOTREACHED() << "Not implemented.";
 }
 
 void CSSRouteRule::Reattach(StyleRuleBase* rule) {
   DCHECK(rule);
   route_rule_ = To<StyleRuleRoute>(rule);
-  CSSConditionRule::Reattach(rule);
 }
 
 void CSSRouteRule::Trace(Visitor* visitor) const {
   visitor->Trace(route_rule_);
-  CSSConditionRule::Trace(visitor);
+  CSSRule::Trace(visitor);
 }
 
 }  // namespace blink

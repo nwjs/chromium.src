@@ -10,6 +10,7 @@
 #include "base/check_is_test.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
 #include "base/run_loop.h"
@@ -58,6 +59,14 @@ namespace content {
 
 namespace {
 
+// Returns the map from PrerenderHostId to FrameTreeNodeId. Entries are added in
+// the PrerenderHost constructor and removed in the destructor.
+base::flat_map<PrerenderHostId, FrameTreeNodeId>& GetPrerenderHostIdMap() {
+  static base::NoDestructor<base::flat_map<PrerenderHostId, FrameTreeNodeId>>
+      g_prerender_host_id_map;
+  return *g_prerender_host_id_map;
+}
+
 // When enabled, the SiteInstance used to initialize a prerender frame tree is
 // associated with a SiteInfo derived from the prerendering URL, rather than an
 // empty SiteInfo. This ensures that RenderProcessHost selection for a prerender
@@ -91,10 +100,17 @@ namespace {
 // RenderProcessHost as the 1st SiteInstance is what makes it important to
 // carefully choose the RenderProcessHost for the 1st SiteInstance.
 BASE_FEATURE(kCreatePrerenderSiteInstanceWithURL,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             // TODO(crbug.com/444530329): Fix incompatibility with the
+             // Android-only `kProcessReuseOnPrerenderCOOPSwap` feature.
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
-base::OnceCallback<void(FrameTreeNodeId)>& GetHostCreationCallback() {
-  static base::NoDestructor<base::OnceCallback<void(FrameTreeNodeId)>>
+base::OnceCallback<void(PrerenderHostId)>& GetHostCreationCallback() {
+  static base::NoDestructor<base::OnceCallback<void(PrerenderHostId)>>
       host_creation_callback;
   return *host_creation_callback;
 }
@@ -221,6 +237,11 @@ bool PrerenderHost::PrerenderFrameTreeDelegate::
   return false;
 }
 
+PrerenderHostId
+PrerenderHost::PrerenderFrameTreeDelegate::GetPrerenderHostId() {
+  return prerender_host_->prerender_host_id();
+}
+
 void PrerenderHost::PrerenderFrameTreeDelegate::
     ActivateAndShowRepostFormWarningDialog() {
   // Not supported, cancel pending reload.
@@ -315,6 +336,16 @@ PrerenderHost& PrerenderHost::GetFromFrameTree(FrameTree* frame_tree) {
 }
 
 // static
+FrameTreeNodeId PrerenderHost::GetFrameTreeNodeIdForId(PrerenderHostId id) {
+  auto& map = GetPrerenderHostIdMap();
+  auto it = map.find(id);
+  if (it == map.end()) {
+    return FrameTreeNodeId();
+  }
+  return it->second;
+}
+
+// static
 bool PrerenderHost::AreHttpRequestHeadersCompatible(
     const std::string& potential_activation_headers_str,
 #if BUILDFLAG(IS_ANDROID)
@@ -405,7 +436,7 @@ bool PrerenderHost::AreHttpRequestHeadersCompatible(
 
 // static
 void PrerenderHost::SetHostCreationCallbackForTesting(
-    base::OnceCallback<void(FrameTreeNodeId host_id)> callback) {
+    base::OnceCallback<void(PrerenderHostId host_id)> callback) {
   GetHostCreationCallback() = std::move(callback);
 }
 
@@ -477,10 +508,11 @@ PrerenderHost::PrerenderHost(
   }
 
   frame_tree_node_id_ = GetFrameTree()->root()->frame_tree_node_id();
+  GetPrerenderHostIdMap()[prerender_host_id_] = frame_tree_node_id_;
 
   if (GetHostCreationCallback()) {
     CHECK_IS_TEST();
-    std::move(GetHostCreationCallback()).Run(frame_tree_node_id_);
+    std::move(GetHostCreationCallback()).Run(prerender_host_id_);
   }
 }
 
@@ -561,6 +593,7 @@ bool PrerenderHost::IsActivationHeaderMatch(
 }
 
 PrerenderHost::~PrerenderHost() {
+  GetPrerenderHostIdMap().erase(prerender_host_id_);
   if (!final_status_.has_value()) {
     RecordFailedFinalStatusImpl(
         PrerenderCancellationReason(PrerenderFinalStatus::kDestroyed));
@@ -1586,7 +1619,7 @@ void PrerenderHost::Cancel(PrerenderFinalStatus status) {
   PrerenderHostRegistry* registry =
       host->delegate()->GetPrerenderHostRegistry();
   CHECK(registry);
-  registry->CancelHost(frame_tree_node_id_, status);
+  registry->CancelHost(prerender_host_id_, status);
 }
 
 void PrerenderHost::MaybeSetNoVarySearch(
@@ -1841,12 +1874,6 @@ void PrerenderHost::AddAdditionalRequestHeaders(
       !GetInitialNavigationId().has_value() && tags.has_value()) {
     headers.SetHeader(blink::kSecSpeculationTagsHeaderName,
                       tags->ConvertStringToHeaderString().value());
-  }
-}
-
-void PrerenderHost::NotifyReused() {
-  for (auto& observer : observers_) {
-    observer.OnHostReused();
   }
 }
 

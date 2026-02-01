@@ -41,7 +41,19 @@ pub enum ParsingErrorType {
     WrongSize { expected_size: usize, actual_size: usize },
     /// Indicates that the message contained an invalid discriminant for a
     /// non-extensible enum or union type
+    /// We don't carry the expected values because there isn't an easy way to
+    /// show them to the user
     InvalidDiscriminant { value: u32 },
+    /// Indicates that a sized array had an incorrect number of elements
+    WrongArraySize { expected: usize, actual: usize },
+    /// Indicates that the bytes in a string weren't UTF-8 encoded
+    NonUTF8String { err: std::string::FromUtf8Error },
+    /// Indicates that a map had a duplicate key
+    DuplicateMapKey { dup: crate::ast::MojomValue },
+    /// Indicates that the key and value arrays for a map were different lengths
+    MismatchedMap { key_len: usize, value_len: usize },
+    /// Indicates that the corresponding mojom feature has yet to be implemented
+    NotImplemented { feature_name: String },
 }
 
 impl ParsingError {
@@ -88,6 +100,26 @@ impl ParsingError {
     pub fn invalid_discriminant(offset: usize, value: u32) -> ParsingError {
         ParsingError { offset, ty: ParsingErrorType::InvalidDiscriminant { value } }
     }
+
+    pub fn wrong_array_size(offset: usize, expected: usize, actual: usize) -> ParsingError {
+        ParsingError { offset, ty: ParsingErrorType::WrongArraySize { expected, actual } }
+    }
+
+    pub fn non_utf8_string(offset: usize, err: std::string::FromUtf8Error) -> ParsingError {
+        ParsingError { offset, ty: ParsingErrorType::NonUTF8String { err } }
+    }
+
+    pub fn duplicate_map_key(offset: usize, dup: crate::ast::MojomValue) -> ParsingError {
+        ParsingError { offset, ty: ParsingErrorType::DuplicateMapKey { dup } }
+    }
+
+    pub fn mismatched_map(offset: usize, key_len: usize, value_len: usize) -> ParsingError {
+        ParsingError { offset, ty: ParsingErrorType::MismatchedMap { key_len, value_len } }
+    }
+
+    pub fn not_implemented(offset: usize, feature_name: String) -> ParsingError {
+        ParsingError { offset, ty: ParsingErrorType::NotImplemented { feature_name } }
+    }
 }
 
 // These messages necessarily refer to details of the binary format, and so they
@@ -96,9 +128,9 @@ impl ParsingError {
 // deparser is misbehaving).
 impl std::fmt::Display for ParsingError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
+        writeln!(
             f,
-            "An error occurred at byte {} when parsing the message. Details:\n",
+            "An error occurred at byte {} when parsing the message. Details:",
             self.offset
         )?;
         match &self.ty {
@@ -150,6 +182,22 @@ impl std::fmt::Display for ParsingError {
             }
             ParsingErrorType::InvalidDiscriminant { value } => {
                 write!(f, "Enum/Union value {value} is not a valid discriminant for its type.")
+            }
+            ParsingErrorType::WrongArraySize { expected, actual } => write!(
+                f,
+                "Expected array to have {expected} elements, but it had {actual} elements."
+            ),
+            ParsingErrorType::NonUTF8String { err } => {
+                write!(f, "A string in the mojom message wasn't UTF-8 encoded!\n{err}")
+            }
+            ParsingErrorType::DuplicateMapKey { dup } => {
+                write!(f, "The following map key appeared more than once: {dup:?}")
+            }
+            ParsingErrorType::MismatchedMap { key_len, value_len } => {
+                write!(f, "Map had {key_len} keys and {value_len} values.")
+            }
+            ParsingErrorType::NotImplemented { feature_name } => {
+                write!(f, "The rust bindings do not yet support {feature_name}")
             }
         }
     }

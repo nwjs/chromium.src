@@ -18,9 +18,9 @@ import type {Origin} from '//resources/mojo/url/mojom/origin.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import type {PageMetadata as PageMetadataMojo} from '../../ai_page_content_metadata.mojom-webui.js';
-import type {AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, HostCapability as HostCapabilityMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, Platform as PlatformMojo, Screenshot as ScreenshotMojo, TabContext as TabContextMojo, TabData as TabDataMojo, WebPageData as WebPageDataMojo} from '../../glic.mojom-webui.js';
-import {WebClientMode as WebClientModeMojo} from '../../glic.mojom-webui.js';
-import type {CaptureRegionResult, ConversationInfo, GetPinCandidatesOptions, HostCapability, PageMetadata, PanelOpeningData, PanelState, Platform, Screenshot, TabContextOptions, TaskOptions, WebPageData} from '../../glic_api/glic_api.js';
+import type {AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, GetTabContextOptions as TabContextOptionsMojo, HostCapability as HostCapabilityMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, PinTabsOptions as PinTabsOptionsMojo, Platform as PlatformMojo, Screenshot as ScreenshotMojo, TabContext as TabContextMojo, TabData as TabDataMojo, UnpinTabsOptions as UnpinTabsOptionsMojo, WebPageData as WebPageDataMojo} from '../../glic.mojom-webui.js';
+import {PinTrigger as PinTriggerMojo, UnpinTrigger as UnpinTriggerMojo, WebClientMode as WebClientModeMojo} from '../../glic.mojom-webui.js';
+import type {CaptureRegionResult, ConversationInfo, GetPinCandidatesOptions, HostCapability, PageMetadata, PanelOpeningData, PanelState, PinTabsOptions, PinTrigger, Platform, Screenshot, TabContextOptions, TaskOptions, UnpinTabsOptions, UnpinTrigger, WebPageData} from '../../glic_api/glic_api.js';
 import {DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, WebClientMode} from '../../glic_api/glic_api.js';
 
 import type {ConfirmationRequestErrorReason as ConfirmationRequestErrorReasonMojo, NavigationConfirmationRequest as NavigationConfirmationRequestMojo, NavigationConfirmationResponse as NavigationConfirmationResponseMojo, SelectAutofillSuggestionsDialogErrorReason as SelectAutofillSuggestionsDialogErrorReasonMojo, SelectAutofillSuggestionsDialogRequest as SelectAutofillSuggestionsDialogRequestMojo, SelectAutofillSuggestionsDialogResponse as SelectAutofillSuggestionsDialogResponseMojo, SelectCredentialDialogErrorReason as SelectCredentialDialogErrorReasonMojo, SelectCredentialDialogRequest as SelectCredentialDialogRequestMojo, SelectCredentialDialogResponse as SelectCredentialDialogResponseMojo, TaskOptions as TaskOptionsMojo, UserConfirmationDialogRequest as UserConfirmationDialogRequestMojo, UserConfirmationDialogResponse as UserConfirmationDialogResponseMojo, UserGrantedPermissionDuration as UserGrantedPermissionDurationMojo} from './../../actor_webui.mojom-webui.js';
@@ -282,15 +282,18 @@ export function bitmapN32ToRGBAImage(bitmap: BitmapN32): RgbaImage|undefined {
 
 export function panelOpeningDataToClient(
     panelOpeningData: PanelOpeningDataMojo): PanelOpeningData {
+  const conversationInfo =
+      conversationInfoToClient(panelOpeningData.conversationInfo);
   return {
     panelState: panelStateToClient(panelOpeningData.panelState),
     invocationSource: panelOpeningData.invocationSource as number,
-    conversationId: optionalToClient(panelOpeningData.conversationId),
+    conversationId: conversationInfo?.conversationId || undefined,
     promptSuggestion: optionalToClient(panelOpeningData.promptSuggestion),
     recentlyActiveConversations: panelOpeningData.recentlyActiveConversations ?
         panelOpeningData.recentlyActiveConversations.map(
             conversationInfoToClient) :
         undefined,
+    conversationInfo,
   };
 }
 
@@ -299,6 +302,22 @@ export function conversationInfoToClient(
   return {
     conversationId: conversationInfo.conversationId,
     conversationTitle: conversationInfo.conversationTitle,
+    clientData: conversationInfo.clientData ?
+        new TextDecoder().decode(
+            new Uint8Array(conversationInfo.clientData.data)) :
+        undefined,
+  };
+}
+
+export function conversationInfoFromClient(conversationInfo: ConversationInfo):
+    ConversationInfoMojo {
+  return {
+    conversationId: conversationInfo.conversationId,
+    conversationTitle: conversationInfo.conversationTitle,
+    clientData: conversationInfo.clientData ? {
+      data: Array.from(new TextEncoder().encode(conversationInfo.clientData)),
+    } :
+                                              null,
   };
 }
 
@@ -396,6 +415,36 @@ export function getPinCandidatesOptionsFromClient(
   return {
     maxCandidates: options.maxCandidates,
     query: options.query ?? null,
+  };
+}
+
+export function pinTriggerToMojo(trigger: PinTrigger|undefined):
+    PinTriggerMojo {
+  return (trigger ?? PinTriggerMojo.kWebClientUnknown) as PinTriggerMojo;
+}
+
+export function pinTabsOptionsToMojo(options: PinTabsOptions|undefined):
+    PinTabsOptionsMojo|null {
+  if (!options) {
+    return null;
+  }
+  return {
+    pinTrigger: pinTriggerToMojo(options.pinTrigger),
+  };
+}
+
+export function unpinTriggerToMojo(trigger: UnpinTrigger|undefined):
+    UnpinTriggerMojo {
+  return (trigger ?? UnpinTriggerMojo.kWebClientUnknown) as UnpinTriggerMojo;
+}
+
+export function unpinTabsOptionsToMojo(options: UnpinTabsOptions|undefined):
+    UnpinTabsOptionsMojo|null {
+  if (!options) {
+    return null;
+  }
+  return {
+    unpinTrigger: unpinTriggerToMojo(options.unpinTrigger),
   };
 }
 
@@ -567,8 +616,9 @@ export function webClientModeToMojo(mode: WebClientMode|undefined):
       return WebClientModeMojo.kAudio;
     case WebClientMode.TEXT:
       return WebClientModeMojo.kText;
+    default:
+      return WebClientModeMojo.kUnknown;
   }
-  return WebClientModeMojo.kUnknown;
 }
 
 export function captureRegionResultToClient(

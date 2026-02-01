@@ -54,7 +54,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <variants name="SecurityInterstitialSBWithSourceSubtype">
-  <variant name=".scam_experiment_catch_all_enforcement"/>
+  <variant name=".scam_experiment_catch_all"/>
   <variant name=".scam_experiment_verdict_1"
       summary="scam detection verdict 1"/>
   <variant name=".scam_experiment_verdict_2"
@@ -84,7 +84,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="interstitial.captive_portal"
-    enum="CaptivePortalBlockingPageEvent" expires_after="2026-01-18">
+    enum="CaptivePortalBlockingPageEvent" expires_after="2027-01-18">
   <owner>meacer@chromium.org</owner>
   <owner>michaeldo@chromium.org</owner>
   <summary>
@@ -106,7 +106,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_block.decision"
-    enum="SecurityInterstitialDecision" expires_after="2026-01-21">
+    enum="SecurityInterstitialDecision" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -116,7 +116,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_block.decision.repeat_visit"
-    enum="SecurityInterstitialDecision" expires_after="2026-01-21">
+    enum="SecurityInterstitialDecision" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -126,7 +126,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_block.interaction"
-    enum="SecurityInterstitialInteraction" expires_after="2026-01-21">
+    enum="SecurityInterstitialInteraction" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -136,7 +136,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_warn.decision"
-    enum="SecurityInterstitialDecision" expires_after="2026-01-21">
+    enum="SecurityInterstitialDecision" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -146,7 +146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_warn.decision.repeat_visit"
-    enum="SecurityInterstitialDecision" expires_after="2026-01-21">
+    enum="SecurityInterstitialDecision" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -156,7 +156,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="interstitial.enterprise_warn.interaction"
-    enum="SecurityInterstitialInteraction" expires_after="2026-01-21">
+    enum="SecurityInterstitialInteraction" expires_after="2027-01-21">
   <owner>domfc@chromium.org</owner>
   <owner>cbe-cep-eng@google.com</owner>
   <summary>
@@ -394,7 +394,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="interstitial.{SecurityInterstitialSBType}decision{RepeatVisit}{IsPostCommitInterstitialSuffix}"
-    enum="SecurityInterstitialDecision" expires_after="2026-05-03">
+    enum="SecurityInterstitialDecision" expires_after="2026-07-05">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -445,7 +445,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="interstitial.{SecurityInterstitialSBType}interaction{IsPostCommitInterstitialSuffix}"
-    enum="SecurityInterstitialInteraction" expires_after="2025-12-28">
+    enum="SecurityInterstitialInteraction" expires_after="2026-12-22">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -486,7 +486,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="interstitial.{SecurityInterstitialSBType}show_delay{TimeRange}{SecurityInterstitialSBWithSourceType}"
-    units="ms" expires_after="2026-05-03">
+    units="ms" expires_after="2026-07-05">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>

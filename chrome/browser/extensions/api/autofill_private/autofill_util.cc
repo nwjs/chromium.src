@@ -62,8 +62,7 @@ bool ShouldUseNewFopDisplay() {
 #if BUILDFLAG(IS_ANDROID)
   return false;
 #else
-  return base::FeatureList::IsEnabled(
-      autofill::features::kAutofillEnableNewFopDisplayDesktop);
+  return true;
 #endif
 }
 
@@ -99,9 +98,9 @@ autofill_private::AddressEntry ProfileToAddressEntry(
   // Add all address fields to the entry.
   address.guid = profile.guid();
 
-  std::ranges::transform(
+  address.fields = base::ToVector(
       autofill::AutofillProfile::kDatabaseStoredTypes,
-      back_inserter(address.fields), [&profile](auto field_type) {
+      [&profile](auto field_type) {
         autofill_private::AddressField field;
         field.type =
             autofill_private::ParseFieldType(FieldTypeToStringView(field_type));

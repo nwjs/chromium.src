@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "components/webui/flags/flags_state.h"
 
 #include <algorithm>
@@ -14,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
@@ -211,7 +207,7 @@ std::string CombineAndSanitizeOriginLists(const std::string& value1,
   std::vector<std::string> origin_vector;
   for (const std::string& list : {value1, value2}) {
     for (const std::string& origin : TokenizeOriginList(list)) {
-      if (!base::Contains(seen_origins, origin)) {
+      if (!seen_origins.contains(origin)) {
         origin_vector.push_back(origin);
         seen_origins.insert(origin);
       }
@@ -492,7 +488,7 @@ void FlagsState::SetOriginListFlag(const std::string& internal_name,
 
   std::set<std::string> enabled_entries;
   GetSanitizedEnabledFlags(flags_storage, &enabled_entries);
-  const bool enabled = base::Contains(enabled_entries, entry->internal_name);
+  const bool enabled = enabled_entries.contains(entry->internal_name);
   if (enabled) {
     DidModifyOriginListFlag(*flags_storage, *entry);
   }
@@ -510,7 +506,7 @@ void FlagsState::SetStringFlag(const std::string& internal_name,
 
   std::set<std::string> enabled_entries;
   GetSanitizedEnabledFlags(flags_storage, &enabled_entries);
-  const bool enabled = base::Contains(enabled_entries, entry->internal_name);
+  const bool enabled = enabled_entries.contains(entry->internal_name);
   if (enabled) {
     DidModifyStringFlag(*flags_storage, *entry);
   }
@@ -543,7 +539,7 @@ void FlagsState::RemoveFlagsSwitches(
     // For any featrue name in |features| that is not in |switch_added_values| -
     // i.e. it wasn't added by about_flags code, add it to |remaining_features|.
     for (const auto& feature : features) {
-      if (!base::Contains(switch_added_values, std::string(feature))) {
+      if (!switch_added_values.contains(std::string(feature))) {
         remaining_features.push_back(feature);
       }
     }
@@ -636,11 +632,11 @@ std::vector<std::string> FlagsState::RegisterEnabledFeatureVariationParameters(
 
           for (int i = 0; i < variation->num_params; ++i) {
             auto insert_result = params_by_trial_name[trial_name].insert(
-                std::make_pair(variation->params[i].param_name,
-                               variation->params[i].param_value));
+                std::make_pair(UNSAFE_TODO(variation->params[i]).param_name,
+                               UNSAFE_TODO(variation->params[i]).param_value));
             DCHECK(insert_result.second)
                 << "Multiple values for the same parameter '"
-                << variation->params[i].param_name
+                << UNSAFE_TODO(variation->params[i]).param_name
                 << "' are specified in chrome://flags!";
           }
           if (variation->variation_id) {
@@ -798,7 +794,7 @@ void FlagsState::AddSwitchMapping(
     const std::string& switch_name,
     const std::string& switch_value,
     std::map<std::string, SwitchEntry>* name_to_switch_map) const {
-  DCHECK(!base::Contains(*name_to_switch_map, key));
+  DCHECK(!name_to_switch_map->contains(key));
 
   SwitchEntry* entry = &(*name_to_switch_map)[key];
   entry->switch_name = switch_name;
@@ -811,7 +807,7 @@ void FlagsState::AddFeatureMapping(
     bool feature_state,
     const std::string& variation_id,
     std::map<std::string, SwitchEntry>* name_to_switch_map) const {
-  DCHECK(!base::Contains(*name_to_switch_map, key));
+  DCHECK(!name_to_switch_map->contains(key));
 
   SwitchEntry* entry = &(*name_to_switch_map)[key];
   entry->feature_name = feature_name;
@@ -847,8 +843,23 @@ void FlagsState::AddSwitchesToCommandLine(
         variation_ids.push_back(entry.variation_id);
       }
     } else if (!entry.switch_name.empty()) {
-      command_line->AppendSwitchASCII(entry.switch_name, entry.switch_value);
-      flags_switches_[entry.switch_name] = entry.switch_value;
+      if (entry.switch_name == enable_features_flag_name ||
+          entry.switch_name == disable_features_flag_name) {
+        // Make sure we don't overwrite the existing `enable_features_flag_name`
+        // or `disable_features_flag_name` switch.
+        const bool feature_state =
+            entry.switch_name == enable_features_flag_name;
+        std::map<std::string, bool> features;
+        for (std::string_view feature :
+             base::FeatureList::SplitFeatureListString(entry.switch_value)) {
+          features[std::string(feature)] = feature_state;
+        }
+        MergeFeatureCommandLineSwitch(features, entry.switch_name.c_str(),
+                                      feature_state, command_line);
+      } else {
+        command_line->AppendSwitchASCII(entry.switch_name, entry.switch_value);
+        flags_switches_[entry.switch_name] = entry.switch_value;
+      }
     }
     // If an entry doesn't match either of the above, then it is likely the
     // default entry for a FEATURE_VALUE entry. Safe to ignore.
@@ -1057,10 +1068,10 @@ void FlagsState::GenerateFlagsToSwitchesMapping(
             if (variation) {
               feature_name.append(":");
               for (int i = 0; i < variation->num_params; ++i) {
-                std::string param_name =
-                    variations::EscapeValue(variation->params[i].param_name);
-                std::string param_value =
-                    variations::EscapeValue(variation->params[i].param_value);
+                std::string param_name = variations::EscapeValue(
+                    UNSAFE_TODO(variation->params[i]).param_name);
+                std::string param_value = variations::EscapeValue(
+                    UNSAFE_TODO(variation->params[i]).param_value);
                 params_value.push_back(
                     param_name.append("/").append(param_value));
               }
@@ -1162,7 +1173,7 @@ void FlagsState::SetFlags(
         }
         for (int i = 0; i < feature_variations->num_params; i++) {
           FeatureEntry::FeatureParam feature_param =
-              feature_variations->params[i];
+              UNSAFE_TODO(feature_variations->params[i]);
           std::string param_name = std::string(feature_param.param_name);
           std::string param_value = std::string(feature_param.param_value);
           cur_feature_params[param_name] = param_value;

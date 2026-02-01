@@ -14,7 +14,6 @@
 #include "base/logging.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/trace_event/trace_event.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_usage_util.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/linux/drm_util_linux.h"
@@ -254,7 +253,7 @@ void GbmPixmapWayland::CreateDmabufBasedWlBuffer(
   buffer_manager_->CreateDmabufBasedBuffer(
       std::move(fd), visible_area_size_, strides, offsets, modifiers,
       gbm_bo_->GetFormat(), plane_count, overlay_plane_data.color_space,
-      overlay_plane_data.hdr_metadata.value_or(gfx::HDRMetadata()), buffer_id_);
+      overlay_plane_data.hdr_metadata, buffer_id_);
 }
 
 }  // namespace ui

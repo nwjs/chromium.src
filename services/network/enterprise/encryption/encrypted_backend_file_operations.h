@@ -9,9 +9,10 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
+#include "net/disk_cache/cache_file.h"
 #include "net/disk_cache/disk_cache.h"
 
-namespace network::enterprise {
+namespace network::enterprise_encryption {
 
 class UnboundEncryptedBackendFileOperations final
     : public disk_cache::UnboundBackendFileOperations {
@@ -41,7 +42,8 @@ class EncryptedBackendFileOperations final
   bool CreateDirectory(const base::FilePath& path) override;
   bool PathExists(const base::FilePath& path) override;
   bool DirectoryExists(const base::FilePath& path) override;
-  base::File OpenFile(const base::FilePath& path, uint32_t flags) override;
+  std::unique_ptr<disk_cache::CacheFile> OpenFile(const base::FilePath& path,
+                                                  uint32_t flags) override;
   bool DeleteFile(const base::FilePath& path, DeleteFileMode mode) override;
   bool ReplaceFile(const base::FilePath& from_path,
                    const base::FilePath& to_path,
@@ -59,6 +61,6 @@ class EncryptedBackendFileOperations final
   std::unique_ptr<disk_cache::BackendFileOperations> decorated_backend_;
 };
 
-}  // namespace network::enterprise
+}  // namespace network::enterprise_encryption
 
 #endif  // SERVICES_NETWORK_ENTERPRISE_ENCRYPTION_ENCRYPTED_BACKEND_FILE_OPERATIONS_H_

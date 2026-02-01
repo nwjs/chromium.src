@@ -117,15 +117,15 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
-#import "ios/chrome/browser/shared/ui/symbols/buildflags.h"
+#import "ios/chrome/browser/shared/ui/buildflags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
@@ -170,7 +170,7 @@ NSString* const kDevViewSourceKey = @"DevViewSource";
 
 // Returns the branded version of the Google Services symbol.
 UIImage* GetBrandedGoogleServicesSymbol() {
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   return CustomSettingsRootMulticolorSymbol(kGoogleIconSymbol);
 #else
   return DefaultSettingsRootSymbol(kGearshape2Symbol);
@@ -179,10 +179,10 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
 // Returns the branded version of the Gemini symbol.
 UIImage* GetBrandedGeminiSymbol() {
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
-  return CustomSettingsRootSymbol(kGeminiBrandedLogoImage);
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
+  return CustomSettingsRootSymbol(kGeminiBrandedLogoSymbol);
 #else
-  return DefaultSettingsRootSymbol(kGeminiNonBrandedLogoImage);
+  return DefaultSettingsRootSymbol(kGeminiNonBrandedLogoSymbol);
 #endif
 }
 
@@ -449,6 +449,9 @@ struct EnhancedSafeBrowsingActivePromoData
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  if (_settingsAreDismissed) {
+    return;
+  }
 
   self.tableView.accessibilityIdentifier = kSettingsTableViewId;
 
@@ -479,9 +482,7 @@ struct EnhancedSafeBrowsingActivePromoData
     [self updateBWGNewIPHBadge];
   }
 
-  if ([self shouldShowNotificationsSettings]) {
-    [self updateNotificationsDetailText];
-  }
+  [self updateNotificationsDetailText];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -533,11 +534,9 @@ struct EnhancedSafeBrowsingActivePromoData
     [model addItem:[self BWGSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   }
-  if ([self shouldShowNotificationsSettings]) {
-    _notificationsItem = [self notificationsItem];
-    [model addItem:_notificationsItem
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-  }
+  _notificationsItem = [self notificationsItem];
+  [model addItem:_notificationsItem
+      toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   [model addItem:[self voiceSearchDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   [model addItem:[self safetyCheckDetailItem]
@@ -600,11 +599,14 @@ struct EnhancedSafeBrowsingActivePromoData
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
   [model addItem:[self viewSourceSwitchItem]
       toSectionWithIdentifier:SettingsSectionIdentifierDebug];
-  [model addItem:[self tableViewCatalogDetailItem]
-      toSectionWithIdentifier:SettingsSectionIdentifierDebug];
-  [model addItem:[self buttonCatalogDetailItem]
-      toSectionWithIdentifier:SettingsSectionIdentifierDebug];
 #endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
+
+  if (experimental_flags::ShouldShowCatalogItems()) {
+    [model addItem:[self tableViewCatalogDetailItem]
+        toSectionWithIdentifier:SettingsSectionIdentifierDebug];
+    [model addItem:[self buttonCatalogDetailItem]
+        toSectionWithIdentifier:SettingsSectionIdentifierDebug];
+  }
 }
 
 - (void)updateSigninSection {
@@ -930,8 +932,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _safetyCheckItem.leadingIconBackgroundColor =
       [UIColor colorNamed:kBlue500Color];
   _safetyCheckItem.leadingIconTintColor = UIColor.whiteColor;
-  _safetyCheckItem.leadingIconCornerRadius =
-      kColorfulBackgroundSymbolCornerRadius;
   _safetyCheckItem.accessibilityIdentifier = kSettingsSafetyCheckCellId;
   // Check if an issue state should be shown for updates.
   if (!IsAppUpToDate() && PreviousSafetyCheckIssueFound()) {
@@ -1125,6 +1125,8 @@ struct EnhancedSafeBrowsingActivePromoData
   return viewSourceItem;
 }
 
+#endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
+
 - (TableViewDetailIconItem*)tableViewCatalogDetailItem {
   return [self detailItemWithType:SettingsItemTypeTableCellCatalog
                              text:@"TableView Cell Catalog"
@@ -1142,8 +1144,6 @@ struct EnhancedSafeBrowsingActivePromoData
             symbolBackgroundColor:[UIColor colorNamed:kGrey400Color]
           accessibilityIdentifier:nil];
 }
-
-#endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
 
 #pragma mark Item Constructors
 
@@ -1298,7 +1298,6 @@ struct EnhancedSafeBrowsingActivePromoData
           [[AutofillProfileTableViewController alloc] initWithBrowser:_browser];
       break;
     case SettingsItemTypeNotifications:
-      CHECK([self shouldShowNotificationsSettings]);
       base::RecordAction(base::UserMetricsAction("Settings.Notifications"));
       [self showNotifications];
       break;
@@ -1345,8 +1344,8 @@ struct EnhancedSafeBrowsingActivePromoData
     case SettingsItemTypeSafariDataImport: {
       CHECK(ShouldShowSafariDataImportEntryPoint(_profile->GetPrefs()));
       base::RecordAction(base::UserMetricsAction("Settings.SafariImport"));
-      id<ApplicationCommands> handler = HandlerForProtocol(
-          _browser->GetCommandDispatcher(), ApplicationCommands);
+      id<SceneCommands> handler =
+          HandlerForProtocol(_browser->GetCommandDispatcher(), SceneCommands);
       [handler displaySafariDataImportFromEntryPoint:
                    SafariDataImportEntryPoint::kSetting
                                        withUIHandler:self];
@@ -1723,10 +1722,8 @@ struct EnhancedSafeBrowsingActivePromoData
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
   return YES;
 #else
-  if (experimental_flags::IsMemoryDebuggingEnabled()) {
-    return YES;
-  }
-  return NO;
+  return experimental_flags::IsMemoryDebuggingEnabled() ||
+         experimental_flags::ShouldShowCatalogItems();
 #endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
 }
 
@@ -1749,8 +1746,9 @@ struct EnhancedSafeBrowsingActivePromoData
   syncer::SyncService* syncService =
       SyncServiceFactory::GetForProfile(_profile);
   CHECK(syncService, base::NotFatalUntil::M151);
-  identityAccountItem.shouldDisplayError =
-      GetAccountErrorUIInfo(syncService) != nil;
+  if (GetAccountErrorUIInfo(syncService) != nil) {
+    identityAccountItem.detailImage = TableViewAccountDetailImage::kError;
+  }
 }
 
 - (void)reloadAccountCell {
@@ -1782,9 +1780,11 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 
   UITableViewCell* accountCell = nil;
-  for (UITableViewCell* cell in [self.tableView visibleCells]) {
-    if ([cell isKindOfClass:[TableViewAccountCell class]]) {
-      accountCell = cell;
+  for (NSIndexPath* visibleIndexPath in self.tableView
+           .indexPathsForVisibleRows) {
+    if ([self.tableViewModel itemTypeForIndexPath:visibleIndexPath] ==
+        SettingsItemTypeAccount) {
+      accountCell = [self.tableView cellForRowAtIndexPath:visibleIndexPath];
       break;
     }
   }
@@ -1931,8 +1931,6 @@ struct EnhancedSafeBrowsingActivePromoData
 // Updates the state of the Safety Check notifications button based on whether
 // the user has Safety Check notifications enabled.
 - (void)updateSafetyCheckNotificationsButtonState {
-  CHECK(IsSafetyCheckNotificationsEnabled());
-
   // Safety Check notifications are controlled by app-wide notification
   // settings, not profile-specific ones. No Gaia ID is required below in
   // `GetMobileNotificationPermissionStatusForClient()`.
@@ -1984,11 +1982,6 @@ struct EnhancedSafeBrowsingActivePromoData
                                browser:_browser];
   _downloadsSettingsCoordinator.delegate = self;
   [_downloadsSettingsCoordinator start];
-}
-
-// Returns YES if the Notifications settings should show.
-- (BOOL)shouldShowNotificationsSettings {
-  return base::FeatureList::IsEnabled(kNotificationSettingsMenuItem);
 }
 
 // Records that the user has reached the impression limit for the enhanced safe
@@ -2627,8 +2620,7 @@ struct EnhancedSafeBrowsingActivePromoData
     (PushNotificationClientId)clientID {
   [self updateNotificationsDetailText];
 
-  if (IsSafetyCheckNotificationsEnabled() &&
-      clientID == PushNotificationClientId::kSafetyCheck) {
+  if (clientID == PushNotificationClientId::kSafetyCheck) {
     [self updateSafetyCheckNotificationsButtonState];
   }
 }

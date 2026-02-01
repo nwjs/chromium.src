@@ -17,6 +17,7 @@
 #include "components/supervised_user/core/browser/supervised_user_metrics_service.h"
 #include "components/supervised_user/core/browser/supervised_user_pref_store.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
+#include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/supervised_user/test_support/supervised_user_url_filter_test_utils.h"
 #include "components/sync/base/data_type.h"
@@ -24,6 +25,7 @@
 #include "components/sync/model/sync_data.h"
 #include "components/sync/test/fake_sync_change_processor.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 
 namespace supervised_user {
 
@@ -87,21 +89,6 @@ void SetManualFilter(std::string_view content_pack_setting,
   settings_service.SetLocalSetting(content_pack_setting,
                                    std::move(dict_to_insert));
 }
-
-#if BUILDFLAG(IS_ANDROID)
-std::unique_ptr<ContentFiltersObserverBridge>
-CreateFakeContentFiltersObserverBridge(
-    InitialSupervisionState initial_state,
-    std::string_view setting_name,
-    base::RepeatingClosure on_enabled,
-    base::RepeatingClosure on_disabled,
-    base::RepeatingCallback<bool()> is_subject_to_parental_controls) {
-  return std::make_unique<FakeContentFiltersObserverBridge>(
-      setting_name, on_enabled, on_disabled, is_subject_to_parental_controls,
-      /*enabled=*/initial_state ==
-          InitialSupervisionState::kSupervisedWithAllContentFilters);
-}
-#endif
 }  // namespace
 
 SupervisedUserSettingsService* InitializeSettingsServiceForTesting(
@@ -169,17 +156,14 @@ void SupervisedUserPrefStoreTestEnvironment::ConfigureInitialValues(
       break;
     case InitialSupervisionState::kFamilyLinkAllowAllSites:
       EnableParentalControls(*syncable_pref_service_);
-      settings_service_.SetLocalSetting(supervised_user::kSafeSitesEnabled,
-                                        base::Value(false));
+      settings_service_.SetLocalSetting(kSafeSitesEnabled, base::Value(false));
       break;
     case InitialSupervisionState::kFamilyLinkCertainSites:
       EnableParentalControls(*syncable_pref_service_);
-      settings_service_.SetLocalSetting(supervised_user::kSafeSitesEnabled,
-                                        base::Value(false));
+      settings_service_.SetLocalSetting(kSafeSitesEnabled, base::Value(false));
       settings_service_.SetLocalSetting(
           supervised_user::kContentPackDefaultFilteringBehavior,
-          base::Value(
-              static_cast<int>(supervised_user::FilteringBehavior::kBlock)));
+          base::Value(static_cast<int>(FilteringBehavior::kBlock)));
       break;
     default:
       break;
@@ -207,33 +191,44 @@ PrefService* SupervisedUserPrefStoreTestEnvironment::pref_service() {
 SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
     InitialSupervisionState initial_state)
     : SupervisedUserTestEnvironment(
-          std::make_unique<MetricsServiceAccessorDelegateMock>(),
+          std::make_unique<SynteticFieldTrialDelegateMock>(),
           initial_state) {}
 
 SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
-    std::unique_ptr<MetricsServiceAccessorDelegateMock>
-        metrics_service_accessor_delegate,
+    std::unique_ptr<SynteticFieldTrialDelegateMock>
+        synthetic_field_trial_delegate,
     InitialSupervisionState initial_state) {
+#if BUILDFLAG(IS_ANDROID)
+  if (initial_state ==
+      InitialSupervisionState::kSupervisedWithAllContentFilters) {
+    device_parental_controls_.SetBrowserContentFiltersEnabledForTesting(true);
+    device_parental_controls_.SetSearchContentFiltersEnabledForTesting(true);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   std::unique_ptr<safe_search_api::FakeURLCheckerClient> client =
       std::make_unique<safe_search_api::FakeURLCheckerClient>();
   url_checker_client_ = client.get();
-
   pref_store_environment_.ConfigureInitialValues(initial_state);
-
-  service_ = std::make_unique<TestSupervisedUserService>(
+  service_ = std::make_unique<SupervisedUserService>(
       identity_test_env_.identity_manager(),
-      test_url_loader_factory_.GetSafeWeakWrapper(),
+      base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
+          &test_url_loader_factory_),
       *pref_store_environment_.pref_service(),
       *pref_store_environment_.settings_service(),
       pref_store_environment_.content_filters_service(), &sync_service_,
       std::make_unique<SupervisedUserURLFilter>(
           *pref_store_environment_.pref_service(),
           std::make_unique<FakeURLFilterDelegate>(), std::move(client)),
-      std::make_unique<FakePlatformDelegate>(), initial_state);
+      std::make_unique<FakePlatformDelegate>(), device_parental_controls_);
+
+  url_filtering_service_ = std::make_unique<SupervisedUserUrlFilteringService>(
+      *service_.get(), *pref_store_environment_.settings_service());
   metrics_service_ = std::make_unique<SupervisedUserMetricsService>(
       pref_store_environment_.pref_service(), *service_.get(),
+      *url_filtering_service_.get(), device_parental_controls_,
       std::make_unique<SupervisedUserMetricsServiceExtensionDelegateFake>(),
-      std::move(metrics_service_accessor_delegate));
+      std::move(synthetic_field_trial_delegate));
 }
 
 SupervisedUserTestEnvironment::~SupervisedUserTestEnvironment() = default;
@@ -252,34 +247,29 @@ void SupervisedUserTestEnvironment::SetWebFilterType(
     WebFilterType web_filter_type,
     SupervisedUserSettingsService& settings_service) {
   switch (web_filter_type) {
-    case supervised_user::WebFilterType::kAllowAllSites:
+    case WebFilterType::kAllowAllSites:
       settings_service.SetLocalSetting(
-          supervised_user::kContentPackDefaultFilteringBehavior,
-          base::Value(
-              static_cast<int>(supervised_user::FilteringBehavior::kAllow)));
-      settings_service.SetLocalSetting(supervised_user::kSafeSitesEnabled,
-                                       base::Value(false));
+          kContentPackDefaultFilteringBehavior,
+          base::Value(static_cast<int>(FilteringBehavior::kAllow)));
+      settings_service.SetLocalSetting(kSafeSitesEnabled, base::Value(false));
       break;
-    case supervised_user::WebFilterType::kTryToBlockMatureSites:
+    case WebFilterType::kTryToBlockMatureSites:
       settings_service.SetLocalSetting(
-          supervised_user::kContentPackDefaultFilteringBehavior,
-          base::Value(
-              static_cast<int>(supervised_user::FilteringBehavior::kAllow)));
-      settings_service.SetLocalSetting(supervised_user::kSafeSitesEnabled,
-                                       base::Value(true));
+          kContentPackDefaultFilteringBehavior,
+          base::Value(static_cast<int>(FilteringBehavior::kAllow)));
+      settings_service.SetLocalSetting(kSafeSitesEnabled, base::Value(true));
       break;
-    case supervised_user::WebFilterType::kCertainSites:
+    case WebFilterType::kCertainSites:
       settings_service.SetLocalSetting(
-          supervised_user::kContentPackDefaultFilteringBehavior,
-          base::Value(
-              static_cast<int>(supervised_user::FilteringBehavior::kBlock)));
+          kContentPackDefaultFilteringBehavior,
+          base::Value(static_cast<int>(FilteringBehavior::kBlock)));
 
       // Value of kSupervisedUserSafeSites is not important here.
       break;
-    case supervised_user::WebFilterType::kDisabled:
+    case WebFilterType::kDisabled:
       NOTREACHED() << "To disable the URL filter, use "
                       "supervised_user::DisableParentalControls(.)";
-    case supervised_user::WebFilterType::kMixed:
+    case WebFilterType::kMixed:
       NOTREACHED() << "That value is not intended to be set, but is rather "
                       "used to indicate multiple settings used in profiles "
                       "in metrics.";
@@ -303,8 +293,7 @@ void SupervisedUserTestEnvironment::SetManualFilterForHost(
     std::string_view host,
     bool allowlist,
     SupervisedUserSettingsService& service) {
-  SetManualFilter(supervised_user::kContentPackManualBehaviorHosts, host,
-                  allowlist, service);
+  SetManualFilter(kContentPackManualBehaviorHosts, host, allowlist, service);
 }
 
 void SupervisedUserTestEnvironment::SetManualFilterForUrl(std::string_view url,
@@ -316,15 +305,18 @@ void SupervisedUserTestEnvironment::SetManualFilterForUrl(
     std::string_view url,
     bool allowlist,
     SupervisedUserSettingsService& service) {
-  SetManualFilter(supervised_user::kContentPackManualBehaviorURLs, url,
-                  allowlist, service);
+  SetManualFilter(kContentPackManualBehaviorURLs, url, allowlist, service);
 }
 
 SupervisedUserURLFilter* SupervisedUserTestEnvironment::url_filter() const {
   return service()->GetURLFilter();
 }
-TestSupervisedUserService* SupervisedUserTestEnvironment::service() const {
+SupervisedUserService* SupervisedUserTestEnvironment::service() const {
   return service_.get();
+}
+SupervisedUserUrlFilteringService*
+SupervisedUserTestEnvironment::url_filtering_service() const {
+  return url_filtering_service_.get();
 }
 PrefService* SupervisedUserTestEnvironment::pref_service() {
   return pref_store_environment_.pref_service();
@@ -339,135 +331,11 @@ SupervisedUserTestEnvironment::url_checker_client() {
   return url_checker_client_.get();
 }
 
-#if BUILDFLAG(IS_ANDROID)
-
-base::WeakPtr<FakeContentFiltersObserverBridge>
-SupervisedUserTestEnvironment::browser_content_filters_observer() {
-  return service_->browser_content_filters_observer_weak_ptr();
-}
-base::WeakPtr<FakeContentFiltersObserverBridge>
-SupervisedUserTestEnvironment::search_content_filters_observer() {
-  return service_->search_content_filters_observer_weak_ptr();
+DeviceParentalControlsTestImpl&
+SupervisedUserTestEnvironment::device_parental_controls() {
+  return device_parental_controls_;
 }
 
-FakeContentFiltersObserverBridge::FakeContentFiltersObserverBridge(
-    std::string_view setting_name,
-    base::RepeatingClosure on_enabled,
-    base::RepeatingClosure on_disabled,
-    base::RepeatingCallback<bool()> is_subject_to_parental_controls,
-    bool initial_value)
-    : ContentFiltersObserverBridge(setting_name,
-                                   on_enabled,
-                                   on_disabled,
-                                   is_subject_to_parental_controls) {
-  initial_value_ = initial_value;
-}
-
-FakeContentFiltersObserverBridge::~FakeContentFiltersObserverBridge() = default;
-
-void FakeContentFiltersObserverBridge::Init() {
-  // Imitates behavior of the real bridge: it always notifies on creation.
-  SetEnabled(initial_value_);
-  OnChange(/*env=*/nullptr, initial_value_);
-}
-
-void FakeContentFiltersObserverBridge::Shutdown() {
-  // Do nothing, specifically do not destroy the java bridge from super.
-}
-
-void FakeContentFiltersObserverBridge::SetEnabled(bool enabled) {
-  // Imitates behavior of the real bridge: it does not notify if the value
-  // did not change.
-  if (enabled == IsEnabled()) {
-    return;
-  }
-
-  ContentFiltersObserverBridge::SetEnabled(enabled);
-  // This is fine: JNIEnv is not used, because OnChange notifies native code.
-  OnChange(/*env=*/nullptr, enabled);
-}
-
-base::WeakPtr<FakeContentFiltersObserverBridge>
-FakeContentFiltersObserverBridge::GetWeakPtr() {
-  return weak_ptr_factory_.GetWeakPtr();
-}
-#endif  // BUILDFLAG(IS_ANDROID)
-
-MetricsServiceAccessorDelegateMock::MetricsServiceAccessorDelegateMock() =
-    default;
-MetricsServiceAccessorDelegateMock::~MetricsServiceAccessorDelegateMock() =
-    default;
-
-TestSupervisedUserService::TestSupervisedUserService(
-    signin::IdentityManager* identity_manager,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    PrefService& user_prefs,
-    SupervisedUserSettingsService& settings_service,
-    SupervisedUserContentFiltersService* content_filters_service,
-    syncer::SyncService* sync_service,
-    std::unique_ptr<SupervisedUserURLFilter> url_filter,
-    std::unique_ptr<SupervisedUserService::PlatformDelegate> platform_delegate
-#if BUILDFLAG(IS_ANDROID)
-    ,
-    ContentFiltersObserverBridge::Factory
-        content_filters_observer_bridge_factory
-#endif
-    )
-    : SupervisedUserService(identity_manager,
-                            url_loader_factory,
-                            user_prefs,
-                            settings_service,
-                            content_filters_service,
-                            sync_service,
-                            std::move(url_filter),
-                            std::move(platform_delegate)
-#if BUILDFLAG(IS_ANDROID)
-                                ,
-                            content_filters_observer_bridge_factory
-#endif
-      ) {
-}
-
-TestSupervisedUserService::TestSupervisedUserService(
-    signin::IdentityManager* identity_manager,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    PrefService& user_prefs,
-    SupervisedUserSettingsService& settings_service,
-    SupervisedUserContentFiltersService* content_filters_service,
-    syncer::SyncService* sync_service,
-    std::unique_ptr<SupervisedUserURLFilter> url_filter,
-    std::unique_ptr<SupervisedUserService::PlatformDelegate> platform_delegate,
-    InitialSupervisionState initial_state)
-    : SupervisedUserService(
-          identity_manager,
-          url_loader_factory,
-          user_prefs,
-          settings_service,
-          content_filters_service,
-          sync_service,
-          std::move(url_filter),
-          std::move(platform_delegate)
-#if BUILDFLAG(IS_ANDROID)
-              ,
-          base::BindRepeating(&CreateFakeContentFiltersObserverBridge,
-                              initial_state)
-#endif
-      ) {
-}
-
-#if BUILDFLAG(IS_ANDROID)
-base::WeakPtr<FakeContentFiltersObserverBridge>
-TestSupervisedUserService::browser_content_filters_observer_weak_ptr() {
-  return static_cast<FakeContentFiltersObserverBridge*>(
-             browser_content_filters_observer())
-      ->GetWeakPtr();
-}
-base::WeakPtr<FakeContentFiltersObserverBridge>
-TestSupervisedUserService::search_content_filters_observer_weak_ptr() {
-  return static_cast<FakeContentFiltersObserverBridge*>(
-             search_content_filters_observer())
-      ->GetWeakPtr();
-}
-#endif  // BUILDFLAG(
-
+SynteticFieldTrialDelegateMock::SynteticFieldTrialDelegateMock() = default;
+SynteticFieldTrialDelegateMock::~SynteticFieldTrialDelegateMock() = default;
 }  // namespace supervised_user

@@ -29,10 +29,11 @@ class MockScrollElasticityHelper : public cc::ScrollElasticityHelper {
   Size ScrollBounds(cc::ElementId element_id) const override {
     return Size(1000, 1000);
   }
-  bool IsUserScrollableHorizontal(cc::ElementId element_id) const override {
-    return true;
+  Vector2dF ConstrainOverscrollDelta(cc::ElementId element_id,
+                                     const Vector2dF& delta) const override {
+    return delta;
   }
-  bool IsUserScrollableVertical(cc::ElementId element_id) const override {
+  bool IsUserOverscrollable(cc::ElementId element_id) const override {
     return true;
   }
   Vector2dF StretchAmount(cc::ElementId element_id) const override {
@@ -43,7 +44,8 @@ class MockScrollElasticityHelper : public cc::ScrollElasticityHelper {
     stretch_amount_ = stretch_amount;
   }
   void ResetStretchAmounts() override { stretch_amount_ = gfx::Vector2dF(); }
-  void ForceApplyStretchAmounts() override {}
+  void ApplyStretchAmountsToPending() override {}
+  void ApplyStretchAmountsToActive() override {}
   void ScrollBy(cc::ElementId element_id, const Vector2dF& delta) override {
     scroll_offset_ += delta;
   }

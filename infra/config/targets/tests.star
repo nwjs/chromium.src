@@ -1298,10 +1298,6 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "fuchsia_sizes",
-    args = [
-        "--sizes-path",
-        "tools/fuchsia/size_tests/fyi_sizes_smoketest.json",
-    ],
 )
 
 targets.tests.gtest_test(
@@ -1704,6 +1700,10 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "ios_net_unittests",
+)
+
+targets.tests.isolated_script_test(
+    name = "ios_swift_interop_xcuitests_module",
 )
 
 targets.tests.isolated_script_test(
@@ -2587,6 +2587,24 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.gtest_test(
+    name = "trees_in_viz_blink_platform_unittests",
+    args = [
+        "--enable-features=TreesInViz",
+        "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
+    ],
+    binary = "blink_platform_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "trees_in_viz_cc_unittests",
+    args = [
+        "--enable-features=TreesInViz",
+        "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.cc_unittests.filter",
+    ],
+    binary = "cc_unittests",
+)
+
+targets.tests.gtest_test(
     name = "test_cpp_including_rust_unittests",
 )
 
@@ -3281,6 +3299,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3289,6 +3308,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3297,6 +3317,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3305,6 +3326,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3313,6 +3335,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3324,23 +3347,11 @@ targets.tests.gpu_telemetry_test(
     args = [
         "--use-worker=service",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
     name = "webgpu_cts_dedicated_worker_tests",
-    telemetry_test_name = "webgpu_cts",
-    mixins = [
-        "has_native_resultdb_integration",
-    ],
-    args = [
-        "--use-worker=dedicated",
-    ],
-)
-
-# A copy of webgpu_cts_worker_tests but with the module_scheme turned on.
-# This target can be removed after the webgpu_cts module schemes are enabled.
-targets.tests.gpu_telemetry_test(
-    name = "webgpu_cts_structured_test_id_dedicated_worker_tests",
     telemetry_test_name = "webgpu_cts",
     mixins = [
         "has_native_resultdb_integration",
@@ -3360,6 +3371,7 @@ targets.tests.gpu_telemetry_test(
     args = [
         "--use-worker=shared",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3368,6 +3380,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.isolated_script_test(
@@ -3392,6 +3405,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -3400,6 +3414,7 @@ targets.tests.gpu_telemetry_test(
     mixins = [
         "has_native_resultdb_integration",
     ],
+    module_scheme = "webgpucts",
 )
 
 targets.tests.script_test(
@@ -3448,42 +3463,28 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "webview_trichrome_cts_tests",
+    name = "webview_64_32_cts_tests",
     mixins = [
         "webview_cts_archive",
     ],
 )
 
 targets.tests.gtest_test(
-    name = "webview_trichrome_64_32_cts_tests",
+    name = "webview_64_cts_hostside_tests",
     mixins = [
         "webview_cts_archive",
     ],
 )
 
 targets.tests.gtest_test(
-    name = "webview_trichrome_64_cts_tests",
-    mixins = [
-        "webview_cts_archive",
-    ],
-)
-
-targets.tests.gtest_test(
-    name = "webview_trichrome_64_cts_hostside_tests",
-    mixins = [
-        "webview_cts_archive",
-    ],
-)
-
-targets.tests.gtest_test(
-    name = "webview_trichrome_64_cts_tests_no_field_trial",
+    name = "webview_64_cts_tests_no_field_trial",
     mixins = [
         "webview_cts_archive",
     ],
     args = [
         "--disable-field-trial-config",
     ],
-    binary = "webview_trichrome_64_cts_tests",
+    binary = "webview_64_cts_tests",
 )
 
 targets.tests.gtest_test(

@@ -87,6 +87,8 @@ DesktopMediaPickerController::Params MakeDesktopPickerParams(
   params.select_only_screen = true;
   params.request_audio = true;
   params.force_audio_checkboxes_to_default_checked = true;
+  params.includable_web_contents_filter =
+      base::BindRepeating([](content::WebContents* wc) { return true; });
 
   return params;
 }
@@ -203,7 +205,6 @@ void MediaRouterDesktop::CreateRoute(const MediaSource::Id& source_id,
     desktop_picker_->Show(
         MakeDesktopPickerParams(web_contents),
         {DesktopMediaList::Type::kScreen},
-        base::BindRepeating([](content::WebContents* wc) { return true; }),
         base::BindOnce(&MediaRouterDesktop::CreateRouteWithSelectedDesktop,
                        weak_factory_.GetWeakPtr(), provider_id, sink_id,
                        presentation_id, origin, web_contents, timeout,
@@ -523,7 +524,7 @@ void MediaRouterDesktop::RegisterMediaRouteProvider(
     mojo::PendingRemote<mojom::MediaRouteProvider>
         media_route_provider_remote) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(!base::Contains(media_route_providers_, provider_id));
+  DCHECK(!media_route_providers_.contains(provider_id));
   mojo::Remote<mojom::MediaRouteProvider> bound_remote(
       std::move(media_route_provider_remote));
   bound_remote.set_disconnect_handler(

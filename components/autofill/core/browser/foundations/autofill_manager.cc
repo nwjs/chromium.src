@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <ranges>
 
@@ -12,7 +13,6 @@
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
@@ -26,6 +26,7 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_encoding.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/determine_regex_types.h"
 #include "components/autofill/core/browser/form_qualifiers.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -183,24 +184,13 @@ void AutofillManager::OnLanguageDetermined(
 
   NotifyObservers(&Observer::OnBeforeLanguageDetermined);
 
-  // Wait for ongoing parsing operations to finish, so `form_structures_` is
-  // up to date.
-  AfterParsingFinishesDeprecated(base::BindOnce([](base::WeakPtr<
-                                                    AutofillManager> self) {
-    if (!self) {
-      return;
-    }
-    std::vector<FormData> forms;
-    forms.reserve(self->form_structures_.size());
-    for (const auto& [id, form_structure] : self->form_structures_) {
-      forms.push_back(form_structure->ToFormData());
-    }
-    self->ParseFormsAsync(
-        forms, base::BindOnce([](AutofillManager& self,
-                                 const std::vector<FormData>& parsed_forms) {
-          self.NotifyObservers(&Observer::OnAfterLanguageDetermined);
-        }));
-  })).Run(GetWeakPtr());
+  ParseFormsAsync(
+      base::ToVector(form_structures_,
+                     [](const auto& p) { return p.second->ToFormData(); }),
+      base::BindOnce(
+          [](AutofillManager& self, const std::vector<FormData>& parsed_forms) {
+            self.NotifyObservers(&Observer::OnAfterLanguageDetermined);
+          }));
 }
 
 void AutofillManager::OnTranslateDriverDestroyed(
@@ -225,6 +215,14 @@ void AutofillManager::OnDidAutofillForm(const FormData& form) {
       form, ParsingCallback(&AutofillManager::OnDidAutofillFormImpl)
                 .Then(NotifyObserversCallback(&Observer::OnAfterDidAutofillForm,
                                               form.global_id())));
+}
+
+void AutofillManager::SuppressAutomaticRefills(const FillId& fill_id) {
+  SuppressAutomaticRefillsImpl(fill_id);
+}
+
+void AutofillManager::RequestRefill(const FillId& fill_id) {
+  RequestRefillImpl(fill_id);
 }
 
 void AutofillManager::OnFormSubmitted(const FormData& form,
@@ -281,11 +279,13 @@ void AutofillManager::OnFormsParsed(const std::vector<FormData>& forms) {
   DCHECK(!forms.empty());
   OnBeforeProcessParsedForms();
 
-  std::vector<raw_ptr<const FormStructure, VectorExperimental>> queryable_forms;
+  std::vector<FormData> queryable_forms;
   for (const FormData& form : forms) {
     // The FormStructure might not exist if the form cache hit its capacity of
     // `kAutofillManagerMaxFormCacheSize` and due to race conditions the initial
     // check in ParseFormsAsync() was passed.
+    // TODO(crbug.com/470949499): Remove this check behind a feature
+    // flag.
     const FormStructure* form_structure = FindCachedFormById(form.global_id());
     if (!form_structure) {
       continue;
@@ -293,8 +293,8 @@ void AutofillManager::OnFormsParsed(const std::vector<FormData>& forms) {
 
     // Configure the query encoding for this form and add it to the appropriate
     // collection of forms: queryable vs non-queryable.
-    if (ShouldBeQueried(*form_structure)) {
-      queryable_forms.push_back(form_structure);
+    if (ShouldBeQueried(form)) {
+      queryable_forms.push_back(form);
     }
 
     OnFormProcessed(form, *form_structure);
@@ -311,8 +311,8 @@ void AutofillManager::OnFormsParsed(const std::vector<FormData>& forms) {
     // server response is processed, to ensure server predictions are not lost.
     client().GetCrowdsourcingManager().StartQueryRequest(
         queryable_forms, driver().GetIsolationInfo(),
-        AfterParsingFinishesDeprecated(base::BindOnce(
-            &AutofillManager::OnLoadedServerPredictions, GetWeakPtr())));
+        base::BindOnce(&AutofillManager::OnLoadedServerPredictions,
+                       GetWeakPtr()));
   }
 }
 
@@ -470,43 +470,40 @@ void AutofillManager::OnJavaScriptChangedAutofilledValue(
               form.global_id(), field_id)));
 }
 
-bool AutofillManager::GetCachedFormAndField(
-    const FormGlobalId& form_id,
-    const FieldGlobalId& field_id,
-    FormStructure** form_structure,
-    AutofillField** autofill_field) const {
-  FormStructure* cached_form = FindCachedFormById(form_id);
-  if (!cached_form) {
-    return false;
+std::vector<raw_ref<const FormStructure>>
+AutofillManager::FindCachedFormsBySignature(
+    FormSignature form_signature) const {
+  std::vector<raw_ref<const FormStructure>> form_structures;
+  for (const auto& [form_id, form_structure] : form_structures_) {
+    if (form_structure->form_signature() == form_signature) {
+      form_structures.emplace_back(*form_structure);
+    }
   }
-  *form_structure = cached_form;
-  *autofill_field = cached_form->GetFieldById(field_id);
-  return *autofill_field != nullptr;
+  return form_structures;
 }
 
 size_t AutofillManager::FindCachedFormsBySignature(
     FormSignature form_signature,
-    std::vector<raw_ptr<FormStructure, VectorExperimental>>* form_structures)
-    const {
+    std::vector<raw_ref<FormStructure>>* form_structures) const {
+  DCHECK(form_structures);
   size_t hits_num = 0;
   for (const auto& [form_id, form_structure] : form_structures_) {
     if (form_structure->form_signature() == form_signature) {
       ++hits_num;
-      if (form_structures) {
-        form_structures->push_back(form_structure.get());
-      }
+      form_structures->emplace_back(*form_structure);
     }
   }
   return hits_num;
 }
 
-FormStructure* AutofillManager::FindCachedFormById(FormGlobalId form_id) const {
+const FormStructure* AutofillManager::FindCachedFormById(
+    const FormGlobalId& form_id) const {
   auto it = form_structures_.find(form_id);
   return it != form_structures_.end() ? it->second.get() : nullptr;
 }
 
-FormStructure* AutofillManager::FindCachedFormById(
-    FieldGlobalId field_id) const {
+const FormStructure* AutofillManager::FindCachedFormById(
+    const FieldGlobalId& field_id) const {
   for (const auto& [form_id, form_structure] : form_structures_) {
     if (std::ranges::any_of(*form_structure, [&](const auto& field) {
           return field->global_id() == field_id;
@@ -515,6 +512,20 @@ FormStructure* AutofillManager::FindCachedFormById(
     }
   }
   return nullptr;
+}
+
+FormStructure* AutofillManager::FindCachedFormById(
+    const FormGlobalId& form_id,
+    const FormMutationPassKey& pass_key) {
+  return const_cast<FormStructure*>(
+      std::as_const(*this).FindCachedFormById(form_id));
+}
+
+void AutofillManager::ForEachCachedForm(
+    base::FunctionRef<void(const FormStructure&)> fun) const {
+  for (const auto& [form_id, form_structure] : form_structures_) {
+    fun(*form_structure);
+  }
 }
 
 bool AutofillManager::CanShowAutofillUi() const {
@@ -528,25 +539,23 @@ void AutofillManager::TriggerFormExtractionInAllFrames(
 }
 
 void AutofillManager::ReparseKnownForms() {
-  std::vector<FormData> forms;
-  forms.reserve(form_structures_.size());
-  for (const auto& [id, form_structure] : form_structures_) {
-    forms.push_back(form_structure->ToFormData());
-  }
   auto ProcessParsedForms = [](AutofillManager& self,
                                const std::vector<FormData>& parsed_forms) {
     if (!parsed_forms.empty()) {
       self.OnFormsParsed(parsed_forms);
     }
   };
-  ParseFormsAsync(forms, base::BindOnce(ProcessParsedForms));
+  ParseFormsAsync(
+      base::ToVector(form_structures_,
+                     [](const auto& p) { return p.second->ToFormData(); }),
+      base::BindOnce(ProcessParsedForms));
 }
 
 base::flat_map<FieldGlobalId, AutofillServerPrediction>
 AutofillManager::GetServerPredictionsForForm(
     FormGlobalId form_id,
-    const std::vector<FieldGlobalId>& field_ids) const {
-  FormStructure* cached_form = FindCachedFormById(form_id);
+    base::span<const FieldGlobalId> field_ids) const {
+  const FormStructure* cached_form = FindCachedFormById(form_id);
   if (!cached_form) {
     return {};
   }
@@ -557,7 +566,7 @@ base::flat_map<FieldGlobalId, FieldType>
 AutofillManager::GetHeuristicPredictionForForm(
     HeuristicSource source,
     FormGlobalId form_id,
-    const std::vector<FieldGlobalId>& field_ids) const {
+    base::span<const FieldGlobalId> field_ids) const {
   const FormStructure* const cached_form = FindCachedFormById(form_id);
   if (!cached_form) {
     return {};
@@ -580,7 +589,7 @@ void AutofillManager::ParseFormsAsync(
   std::vector<FormData> parseable_forms;
   parseable_forms.reserve(forms.size());
   for (const FormData& form : forms) {
-    bool is_new_form = !base::Contains(form_structures_, form.global_id());
+    bool is_new_form = !form_structures_.contains(form.global_id());
     if (num_managed_forms + is_new_form > kAutofillManagerMaxFormCacheSize) {
       LOG_AF(log_manager()) << LoggingScope::kAbortParsing
                             << LogMessage::kAbortParsingTooManyForms << form;
@@ -606,7 +615,7 @@ void AutofillManager::ParseFormAsync(
     base::OnceCallback<void(AutofillManager&, const FormData&)> callback) {
   SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormAsync");
 
-  bool is_new_form = !base::Contains(form_structures_, form.global_id());
+  bool is_new_form = !form_structures_.contains(form.global_id());
   if (form_structures_.size() + is_new_form >
       kAutofillManagerMaxFormCacheSize) {
     LOG_AF(log_manager()) << LoggingScope::kAbortParsing
@@ -655,13 +664,13 @@ void AutofillManager::ParseFormsAsyncCommon(
         callback) {
   // To be run on a different task (must not access global or member
   // variables).
-  auto run_heuristics = [](AsyncContext context) {
+  auto run_heuristics = [](AsyncContext context, bool ignore_small_forms) {
     SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormsAsync.RunHeuristics");
     context.regex_predictions.reserve(context.forms.size());
     for (const FormData& form : context.forms) {
       context.regex_predictions.push_back(DetermineRegexTypes(
           context.country_code, context.current_page_language, form,
-          context.log_manager.get()));
+          context.log_manager.get(), ignore_small_forms));
     }
     return context;
   };
@@ -700,18 +709,21 @@ void AutofillManager::ParseFormsAsyncCommon(
   // To be run on the main thread (accesses member variables).
   auto run_heuristics_and_update_cache = base::BindOnce(
       [](base::WeakPtr<AutofillManager> self,
-         AsyncContext (*run_heuristics)(AsyncContext),
+         AsyncContext (*run_heuristics)(AsyncContext, bool),
          base::OnceCallback<void(AsyncContext)> update_cache,
-         AsyncContext context) {
+         bool ignore_small_forms, AsyncContext context) {
         if (!self) {
           return;
         }
         self->parsing_task_runner_->PostTaskAndReplyWithResult(
-            FROM_HERE, base::BindOnce(run_heuristics, std::move(context)),
+            FROM_HERE,
+            base::BindOnce(run_heuristics, std::move(context),
+                           ignore_small_forms),
             std::move(update_cache));
       },
       parsing_weak_ptr_factory_.GetWeakPtr(), run_heuristics,
-      std::move(update_cache));
+      std::move(update_cache),
+      /*ignore_small_forms=*/!client().IsTabInActorMode());
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   // Parsing happens in the following order:
@@ -770,6 +782,7 @@ void AutofillManager::RunMlModels(
     std::vector<FormData> forms = context.forms;
     ml_handler->GetModelPredictionsForForms(
         std::move(forms), country_code,
+        /*ignore_small_forms=*/!manager->client().IsTabInActorMode(),
         base::BindOnce(std::move(receive_predictions), std::move(context)));
   };
 
@@ -816,28 +829,6 @@ void AutofillManager::RunMlModels(
 }
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 
-// TODO(crbug.com/448144129): Remove once `kAutofillSynchronousAfterParsing`
-// can be cleaned up.
-template <typename... Args>
-base::OnceCallback<void(Args...)>
-AutofillManager::AfterParsingFinishesDeprecated(
-    base::OnceCallback<void(Args...)> callback) {
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillSynchronousAfterParsing)) {
-    return callback;
-  }
-  return base::BindOnce(
-      [](base::WeakPtr<AutofillManager> self,
-         base::OnceCallback<void(Args...)> callback, Args... args) {
-        if (self) {
-          self->parsing_task_runner_->PostTaskAndReply(
-              FROM_HERE, base::DoNothing(),
-              base::BindOnce(std::move(callback), std::forward<Args>(args)...));
-        }
-      },
-      GetWeakPtr(), std::move(callback));
-}
-
 void AutofillManager::OnLoadedServerPredictions(
     std::optional<AutofillCrowdsourcingManager::QueryResponse> response) {
   absl::Cleanup on_after_loaded_server_predictions = [this] {
@@ -850,7 +841,7 @@ void AutofillManager::OnLoadedServerPredictions(
 
   // Get the current valid FormStructures represented by
   // `response->queried_form_signatures`.
-  std::vector<raw_ptr<FormStructure, VectorExperimental>> queried_forms;
+  std::vector<raw_ref<FormStructure>> queried_forms;
   queried_forms.reserve(response->queried_form_signatures.size());
   for (const auto& form_signature : response->queried_form_signatures) {
     FindCachedFormsBySignature(form_signature, &queried_forms);
@@ -863,7 +854,8 @@ void AutofillManager::OnLoadedServerPredictions(
   // TODO(crbug.com/40123827): |queried_forms| could be a set data structure;
   // their order should be irrelevant.
   DCHECK_EQ(queried_forms.size(),
-            std::set<FormStructure*>(queried_forms.begin(), queried_forms.end())
+            std::set<raw_ref<FormStructure>>(queried_forms.begin(),
+                                             queried_forms.end())
                 .size());
 
   // If there are no current forms corresponding to the queried signatures, drop
@@ -882,14 +874,14 @@ void AutofillManager::OnLoadedServerPredictions(
     driver().ExposeDomNodeIdsInAllFrames();
   }
 
-  for (const raw_ptr<FormStructure, VectorExperimental> form : queried_forms) {
+  for (const raw_ref<FormStructure>& form : queried_forms) {
     form->RationalizeAndAssignSections(client().GetVariationConfigCountryCode(),
                                        GetCurrentPageLanguage(), log_manager());
 
     autofill_metrics::LogQualityMetricsBasedOnAutocomplete(
         *form, client().GetFormInteractionsUkmLogger(),
         driver().GetPageUkmSourceId());
-    LogCurrentFieldTypes(form.get());
+    LogCurrentFieldTypes(&*form);
 
     NotifyObservers(&Observer::OnFieldTypesDetermined, form->global_id(),
                     Observer::FieldTypeSource::kAutofillServer);
@@ -902,6 +894,23 @@ void AutofillManager::UpdateFormCache(
     FormStructure::RetrieveFromCacheReason reason,
     bool preserve_signatures) {
   SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormsAsync.UpdateCache");
+
+  auto reset_predictions = [](FormStructure& form_structure) {
+    for (const std::unique_ptr<AutofillField>& field :
+         form_structure.fields()) {
+      // This is set by running field classification heuristics and the ML
+      // model.
+      for (int i = 0; i <= static_cast<int>(HeuristicSource::kMaxValue); ++i) {
+        HeuristicSource s = static_cast<HeuristicSource>(i);
+        // Resetting all `HeuristicSource`s also resets the
+        // `GetActiveHeuristicSource()`, which in turn resets
+        // AutofillField::overall_type_.
+        field->set_heuristic_type(s, NO_SERVER_DATA);
+      }
+      // This is set by running the ML model.
+      field->set_ml_supported_types({});
+    }
+  };
 
   auto apply_predictions = [](FormStructure& form_structure,
                               const AsyncContext& context, size_t i) {
@@ -920,8 +929,8 @@ void AutofillManager::UpdateFormCache(
   };
 
   for (size_t i = 0; i < forms.size(); ++i) {
-    const FormStructure* const cached_form_structure =
-        FindCachedFormById(forms[i].global_id());
+    FormStructure* cached_form_structure =
+        FindCachedFormById(forms[i].global_id(), /*pass_key=*/{});
     const bool is_new_form = !cached_form_structure;
     if (form_structures_.size() + is_new_form >
         kAutofillManagerMaxFormCacheSize) {
@@ -942,26 +951,49 @@ void AutofillManager::UpdateFormCache(
       continue;
     }
 
-    auto form_structure = std::make_unique<FormStructure>(forms[i]);
-    form_structure->RetrieveFromCache(*cached_form_structure, reason);
-    if (context) {
-      apply_predictions(*form_structure, *context, i);
-    }
+    if (base::FeatureList::IsEnabled(features::kAutofillOptimizeCacheUpdates)) {
+      FormSignature form_signature = cached_form_structure->form_signature();
+      FormSignature structural_form_signature =
+          cached_form_structure->structural_form_signature();
+      cached_form_structure->UpdateFormData(forms[i], /*pass_key=*/{});
+      if (context) {
+        reset_predictions(*cached_form_structure);
+        apply_predictions(*cached_form_structure, *context, i);
+      }
+      if (preserve_signatures ||
+          IsCreditCardFormForSignaturePurposes(*cached_form_structure)) {
+        // Not updating signatures of credit card forms is legacy behaviour. We
+        // believe that the signatures are kept stable for voting purposes.
+        // Credit card forms are those which contain only credit card fields.
+        // TODO(crbug.com/431754194): Investigate making the behavior consistent
+        // across all form types.
+        cached_form_structure->set_form_signature(form_signature);
+        cached_form_structure->set_structural_form_signature(
+            structural_form_signature);
+      }
+    } else {
+      auto form_structure = std::make_unique<FormStructure>(forms[i]);
+      form_structure->RetrieveFromCache(*cached_form_structure, reason);
+      if (context) {
+        apply_predictions(*form_structure, *context, i);
+      }
 
-    if (!preserve_signatures &&
-        !IsCreditCardFormForSignaturePurposes(*cached_form_structure)) {
-      // Not updating signatures of credit card forms is legacy behaviour. We
-      // believe that the signatures are kept stable for voting purposes.
-      // Credit card forms are those which contain only credit card fields.
-      // TODO(crbug.com/431754194): Investigate making the behavior consistent
-      // across all form types.
-      form_structure->set_form_signature(CalculateFormSignature(forms[i]));
-      form_structure->set_alternative_form_signature(
-          CalculateAlternativeFormSignature(forms[i]));
-      form_structure->set_structural_form_signature(
-          CalculateStructuralFormSignature(forms[i]));
+      if (!preserve_signatures &&
+          !IsCreditCardFormForSignaturePurposes(*cached_form_structure)) {
+        // Not updating signatures of credit card forms is legacy behaviour. We
+        // believe that the signatures are kept stable for voting purposes.
+        // Credit card forms are those which contain only credit card fields.
+        // TODO(crbug.com/431754194): Investigate making the behavior consistent
+        // across all form types.
+        form_structure->set_form_signature(CalculateFormSignature(forms[i]));
+        form_structure->set_alternative_form_signature(
+            CalculateAlternativeFormSignature(forms[i]));
+        form_structure->set_structural_form_signature(
+            CalculateStructuralFormSignature(forms[i]));
+      }
+
+      form_structures_[forms[i].global_id()] = std::move(form_structure);
     }
-    form_structures_[forms[i].global_id()] = std::move(form_structure);
   }
 }
 

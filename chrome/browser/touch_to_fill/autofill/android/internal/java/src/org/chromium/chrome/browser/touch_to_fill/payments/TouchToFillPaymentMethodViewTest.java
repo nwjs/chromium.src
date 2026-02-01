@@ -54,6 +54,8 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSuggestionProperties.ON_BNPL_CLICK_ACTION;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSuggestionProperties.PRIMARY_TEXT;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSuggestionProperties.SECONDARY_TEXT;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties.ISSUER_IMAGE_DRAWABLE_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties.ISSUER_TITLE_STRING;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.ON_CLICK_ACTION;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.TEXT_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CURRENT_SCREEN;
@@ -91,6 +93,7 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.TERMS_LABEL;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.TEXT_BUTTON;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.TOS_FOOTER;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.TOS_HEADER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.LOYALTY_CARD_NUMBER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.MERCHANT_NAME;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.NON_TRANSFORMING_LOYALTY_CARD_KEYS;
@@ -145,7 +148,6 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.ScalableTimeout;
@@ -159,6 +161,7 @@ import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillResourceProvi
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.AllLoyaltyCardsItemProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSelectionProgressHeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSelectionProgressTermsProperties;
+import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ErrorDescriptionProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.HeaderProperties;
@@ -191,7 +194,6 @@ import java.util.function.Consumer;
 
 /** Tests for {@link TouchToFillPaymentMethodView} */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@DoNotBatch(reason = "The methods of ChromeAccessibilityUtil don't seem to work with batching.")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class TouchToFillPaymentMethodViewTest {
     /** An observer used to record events that occur with respect to the bottom sheet. */
@@ -270,8 +272,7 @@ public class TouchToFillPaymentMethodViewTest {
                     VISA.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    VISA.getGUID(),
-                    VISA.getIsLocal());
+                    VISA.getGUID());
     private static final AutofillSuggestion VISA_SUGGESTION_WITH_CARD_BENEFITS =
             createCreditCardSuggestion(
                     VISA.getCardNameForAutofillDisplay(),
@@ -284,8 +285,7 @@ public class TouchToFillPaymentMethodViewTest {
                     VISA.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ true,
-                    VISA.getGUID(),
-                    VISA.getIsLocal());
+                    VISA.getGUID());
     private static final AutofillSuggestion NICKNAMED_VISA_SUGGESTION =
             createCreditCardSuggestion(
                     NICKNAMED_VISA.getCardNameForAutofillDisplay(),
@@ -301,8 +301,7 @@ public class TouchToFillPaymentMethodViewTest {
                     NICKNAMED_VISA.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    NICKNAMED_VISA.getGUID(),
-                    NICKNAMED_VISA.getIsLocal());
+                    NICKNAMED_VISA.getGUID());
     private static final AutofillSuggestion MASTERCARD_SUGGESTION =
             createCreditCardSuggestion(
                     MASTERCARD.getName(),
@@ -315,8 +314,7 @@ public class TouchToFillPaymentMethodViewTest {
                     MASTERCARD.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    MASTERCARD.getGUID(),
-                    MASTERCARD.getIsLocal());
+                    MASTERCARD.getGUID());
     private static final AutofillSuggestion VIRTUAL_CARD_SUGGESTION =
             createCreditCardSuggestion(
                     VIRTUAL_CARD.getCardNameForAutofillDisplay(),
@@ -329,8 +327,7 @@ public class TouchToFillPaymentMethodViewTest {
                     VIRTUAL_CARD.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    VIRTUAL_CARD.getGUID(),
-                    VIRTUAL_CARD.getIsLocal());
+                    VIRTUAL_CARD.getGUID());
     private static final AutofillSuggestion VIRTUAL_CARD_SUGGESTION_WITH_CARD_BENEFITS =
             createCreditCardSuggestion(
                     VIRTUAL_CARD.getCardNameForAutofillDisplay(),
@@ -343,8 +340,7 @@ public class TouchToFillPaymentMethodViewTest {
                     VIRTUAL_CARD.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ true,
-                    VIRTUAL_CARD.getGUID(),
-                    VIRTUAL_CARD.getIsLocal());
+                    VIRTUAL_CARD.getGUID());
     private static final AutofillSuggestion NON_ACCEPTABLE_VIRTUAL_CARD_SUGGESTION =
             createCreditCardSuggestion(
                     VIRTUAL_CARD.getCardNameForAutofillDisplay(),
@@ -357,8 +353,7 @@ public class TouchToFillPaymentMethodViewTest {
                     VIRTUAL_CARD.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ true,
                     /* shouldDisplayTermsAvailable= */ false,
-                    VIRTUAL_CARD.getGUID(),
-                    VIRTUAL_CARD.getIsLocal());
+                    VIRTUAL_CARD.getGUID());
     private static final AutofillSuggestion LONG_CARD_NAME_CARD_SUGGESTION =
             createCreditCardSuggestion(
                     LONG_CARD_NAME_CARD.getCardNameForAutofillDisplay(),
@@ -372,8 +367,7 @@ public class TouchToFillPaymentMethodViewTest {
                     LONG_CARD_NAME_CARD.getIssuerIconDrawableId(),
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    LONG_CARD_NAME_CARD.getGUID(),
-                    LONG_CARD_NAME_CARD.getIsLocal());
+                    LONG_CARD_NAME_CARD.getGUID());
     private static final AutofillSuggestion BNPL_SUGGESTION =
             createCreditCardSuggestion(
                     /* label= */ "Pay later options",
@@ -386,8 +380,7 @@ public class TouchToFillPaymentMethodViewTest {
                     /* iconId= */ R.drawable.bnpl_icon_generic,
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false,
-                    /* guid= */ "",
-                    /* isLocalPaymentsMethod= */ false);
+                    /* guid= */ "");
     private static final AutofillSuggestion DEACTIVATED_BNPL_SUGGESTION =
             createCreditCardSuggestion(
                     /* label= */ "Pay later options",
@@ -400,8 +393,7 @@ public class TouchToFillPaymentMethodViewTest {
                     /* iconId= */ R.drawable.bnpl_icon_generic,
                     /* applyDeactivatedStyle= */ true,
                     /* shouldDisplayTermsAvailable= */ false,
-                    /* guid= */ "",
-                    /* isLocalPaymentsMethod= */ false);
+                    /* guid= */ "");
     private static final Iban LOCAL_IBAN =
             Iban.createLocal(
                     /* guid= */ "000000111111",
@@ -424,7 +416,6 @@ public class TouchToFillPaymentMethodViewTest {
                     /* merchantDomains= */ Collections.emptyList());
     private static final BnplIssuerContext BNPL_ISSUER_CONTEXT_AFFIRM_LINKED =
             new BnplIssuerContext(
-                    /* iconId= */ R.drawable.affirm_linked,
                     /* issuerId= */ "affirm",
                     /* displayName= */ "Affirm",
                     /* selectionText= */ "Monthly or 4 installments",
@@ -432,7 +423,6 @@ public class TouchToFillPaymentMethodViewTest {
                     /* isEligible= */ true);
     private static final BnplIssuerContext BNPL_ISSUER_CONTEXT_AFFIRM_UNLINKED =
             new BnplIssuerContext(
-                    /* iconId= */ R.drawable.affirm_unlinked,
                     /* issuerId= */ "affirm",
                     /* displayName= */ "Affirm",
                     /* selectionText= */ "Monthly or 4 installments",
@@ -441,7 +431,6 @@ public class TouchToFillPaymentMethodViewTest {
     private static final BnplIssuerContext
             BNPL_ISSUER_CONTEXT_INELIGIBLE_NOT_SUPPORTED_BY_MERCHANT =
                     new BnplIssuerContext(
-                            /* iconId= */ R.drawable.affirm_linked,
                             /* issuerId= */ "affirm",
                             /* displayName= */ "Affirm",
                             /* selectionText= */ "Not supported by merchant",
@@ -451,6 +440,7 @@ public class TouchToFillPaymentMethodViewTest {
     private static final String TITLE_TEXT = "test title string";
     private static final String LEGAL_MESSAGE_LINE = "legal message";
     private static final Consumer<String> MOCK_LINK_OPENER = mock(Consumer.class);
+    private static final String ISSUER_TITLE_TEXT = "Link account and pay with Affirm?";
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -1438,7 +1428,7 @@ public class TouchToFillPaymentMethodViewTest {
 
     /**
      * Verifies that the bottom sheet doesn't crash when it contains a lot of items, see
-     * crrbug.com/429676830.
+     * crbug.com/429676830.
      */
     @Test
     @MediumTest
@@ -1515,6 +1505,28 @@ public class TouchToFillPaymentMethodViewTest {
         assertTrue(imageView.isShown());
         imageView = bnplTosScreen.getChildAt(1).findViewById(R.id.bnpl_tos_icon);
         assertTrue(imageView.isShown());
+    }
+
+    @Test
+    @MediumTest
+    public void testBnplIssuerTosHeader() {
+        runOnUiThreadBlocking(
+                () -> {
+                    mTouchToFillPaymentMethodModel
+                            .get(SHEET_ITEMS)
+                            .add(new ListItem(TOS_HEADER, createTosHeaderModel()));
+                    mTouchToFillPaymentMethodModel.set(VISIBLE, true);
+                });
+        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
+
+        ImageView bnplTosBrandingIcon =
+                mTouchToFillPaymentMethodView
+                        .getContentView()
+                        .findViewById(R.id.bnpl_tos_branding_icon);
+        assertThat(bnplTosBrandingIcon.isShown(), is(true));
+        TextView bnplTosTitle =
+                mTouchToFillPaymentMethodView.getContentView().findViewById(R.id.bnpl_tos_title);
+        assertThat(bnplTosTitle.getText().toString(), is(ISSUER_TITLE_TEXT));
     }
 
     @Test
@@ -2170,6 +2182,13 @@ public class TouchToFillPaymentMethodViewTest {
                 .build();
     }
 
+    private static PropertyModel createTosHeaderModel() {
+        return new PropertyModel.Builder(BnplTosHeaderProperties.ALL_KEYS)
+                .with(ISSUER_IMAGE_DRAWABLE_ID, R.drawable.bnpl_icon_generic)
+                .with(ISSUER_TITLE_STRING, ISSUER_TITLE_TEXT)
+                .build();
+    }
+
     private static PropertyModel createTosFooterModel() {
         return new PropertyModel.Builder(TosFooterProperties.ALL_KEYS)
                 .with(LEGAL_MESSAGE_LINES, Arrays.asList(new LegalMessageLine(LEGAL_MESSAGE_LINE)))
@@ -2292,7 +2311,7 @@ public class TouchToFillPaymentMethodViewTest {
         return new PropertyModel.Builder(NON_TRANSFORMING_BNPL_ISSUER_CONTEXT_KEYS)
                 .with(ISSUER_NAME, issuerContext.getDisplayName())
                 .with(ISSUER_SELECTION_TEXT, issuerContext.getSelectionText())
-                .with(ISSUER_ICON_ID, issuerContext.getIconId())
+                .with(ISSUER_ICON_ID, R.drawable.bnpl_icon_generic)
                 .with(ISSUER_LINKED, issuerContext.isLinked())
                 .with(APPLY_ISSUER_DEACTIVATED_STYLE, !issuerContext.isEligible())
                 .with(ON_ISSUER_CLICK_ACTION, actionCallback)

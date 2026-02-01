@@ -6,7 +6,6 @@
 #include <utility>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/notreached.h"
@@ -145,8 +144,9 @@ void ServiceWatcherImpl::OnRecordUpdate(
     return;
   }
 
-  if (!base::Contains(services_, record->name()))
+  if (!services_.contains(record->name())) {
     return;
+  }
 
   DCHECK(record->type() == net::dns_protocol::kTypeSRV ||
          record->type() == net::dns_protocol::kTypeTXT);

@@ -58,10 +58,12 @@ class SharedWorker;
 // the connection gets lost.
 //
 // SharedWorkerClientHolder is a per-LocalDOMWindow object and owned by
-// LocalDOMWindow.
+// LocalDOMWindow via Supplement<LocalDOMWindow>.
 class CORE_EXPORT SharedWorkerClientHolder final
-    : public GarbageCollected<SharedWorkerClientHolder> {
+    : public GarbageCollected<SharedWorkerClientHolder>,
+      public Supplement<LocalDOMWindow> {
  public:
+  static const char kSupplementName[];
   static SharedWorkerClientHolder* From(LocalDOMWindow&);
 
   explicit SharedWorkerClientHolder(LocalDOMWindow&);
@@ -83,7 +85,7 @@ class CORE_EXPORT SharedWorkerClientHolder final
                bool extended_lifetime,
    	       bool);
 
-  void Trace(Visitor* visitor) const;
+  void Trace(Visitor* visitor) const override;
 
  private:
   HeapMojoRemote<mojom::blink::SharedWorkerConnector> connector_;

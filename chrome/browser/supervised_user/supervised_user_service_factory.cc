@@ -4,6 +4,8 @@
 
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 
+#include <memory>
+
 #include "base/functional/bind.h"
 #include "base/version_info/channel.h"
 #include "chrome/browser/browser_process.h"
@@ -14,6 +16,7 @@
 #include "chrome/browser/supervised_user/supervised_user_content_filters_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "components/supervised_user/core/browser/device_parental_controls.h"
 #include "components/supervised_user/core/browser/kids_chrome_management_url_checker_client.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
@@ -95,13 +98,8 @@ std::unique_ptr<KeyedService> SupervisedUserServiceFactory::BuildInstanceFor(
               identity_manager, url_loader_factory, *profile->GetPrefs(),
               platform_delegate->GetCountryCode(),
               platform_delegate->GetChannel())),
-      std::move(platform_delegate)
-#if BUILDFLAG(IS_ANDROID)
-          ,
-      base::BindRepeating(
-          &supervised_user::ContentFiltersObserverBridge::Create)
-#endif  // BUILDFLAG(IS_ANDROID)
-  );
+      std::move(platform_delegate),
+      g_browser_process->device_parental_controls());
 }
 
 SupervisedUserServiceFactory::SupervisedUserServiceFactory()

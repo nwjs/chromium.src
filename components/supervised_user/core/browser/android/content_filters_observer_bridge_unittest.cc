@@ -6,6 +6,7 @@
 
 #include "base/test/scoped_feature_list.h"
 #include "components/supervised_user/core/common/features.h"
+#include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -14,22 +15,44 @@ namespace {
 
 class ContentFiltersObserverBridgeTest : public testing::Test {};
 
+class MockObserver : public ContentFiltersObserverBridge::Observer {
+ public:
+  MOCK_METHOD(void,
+              OnContentFiltersObserverChanged,
+              (std::string_view),
+              (override));
+};
+
 TEST_F(ContentFiltersObserverBridgeTest,
        WithFeatureDisabledCallbacksAreNotCalled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(
       kPropagateDeviceContentFiltersToSupervisedUser);
 
-  ContentFiltersObserverBridge bridge(
-      "test_setting", base::BindRepeating([]() {
-        CHECK(false) << "Callback called when feature is disabled";
-      }),
-      base::BindRepeating(
-          []() { CHECK(false) << "Callback called when feature is disabled"; }),
-      base::BindRepeating([]() { return false; }));
+  MockObserver observer;
+  EXPECT_CALL(observer, OnContentFiltersObserverChanged(
+                            kBrowserContentFiltersSettingName))
+      .Times(0);
 
+  ContentFiltersObserverBridge bridge(kBrowserContentFiltersSettingName);
+
+  bridge.AddObserver(&observer);
   bridge.Init();
   bridge.Shutdown();
+}
+
+TEST_F(ContentFiltersObserverBridgeTest, NotificationsAreSent) {
+  MockObserver observer;
+  EXPECT_CALL(observer, OnContentFiltersObserverChanged(
+                            kBrowserContentFiltersSettingName))
+      .Times(2);
+
+  ContentFiltersObserverBridge bridge(kBrowserContentFiltersSettingName);
+
+  bridge.AddObserver(&observer);
+  // Both settings will trigger notifications.
+  bridge.SetEnabledForTesting(true);
+  bridge.SetEnabledForTesting(false);
 }
 
 }  // namespace

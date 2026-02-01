@@ -4,8 +4,10 @@
 
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 
+#include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
@@ -17,6 +19,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -95,11 +98,12 @@ void BrowserActivator::SetActivePrivate(
   }
 }
 
-GlicInstanceTracker::GlicInstanceTracker(Profile* profile)
-    : profile_(profile) {}
+GlicInstanceTracker::GlicInstanceTracker(Profile* profile) {
+  SetProfile(profile);
+}
 GlicInstanceTracker::~GlicInstanceTracker() = default;
 void GlicInstanceTracker::SetProfile(Profile* profile) {
-  profile_ = profile;
+  profile_ = profile ? profile->GetWeakPtr() : nullptr;
 }
 
 Host* GlicInstanceTracker::GetHost() {
@@ -112,9 +116,13 @@ Host* GlicInstanceTracker::GetHost() {
 
 GlicInstance* GlicInstanceTracker::GetGlicInstance() {
   if (!profile_) {
+    if (profile_.WasInvalidated()) {
+      LOG(ERROR) << "GlicInstanceTracker: Profile invalidated,"
+                 << " returning no instance.";
+    }
     return nullptr;
   }
-  auto* service = GlicKeyedService::Get(profile_);
+  auto* service = GlicKeyedService::Get(profile_.get());
   if (!service) {
     return nullptr;
   }
@@ -166,7 +174,7 @@ BrowserWindowInterface* GlicInstanceTracker::GetBrowser() {
   BrowserWindowInterface* found = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [this, &found](BrowserWindowInterface* browser) {
-        if (browser->GetProfile() == profile_) {
+        if (browser->GetProfile() == profile_.get()) {
           found = browser;
         }
         return !found;
@@ -223,10 +231,10 @@ void GlicInstanceTracker::Clear() {
   });
 }
 
-void ForceSigninAndModelExecutionCapability(Profile* profile) {
+void ForceSigninAndGlicCapability(Profile* profile) {
   SetFRECompletion(profile, prefs::FreStatus::kCompleted);
   SigninWithPrimaryAccount(profile);
-  SetModelExecutionCapability(profile, true);
+  SetGlicCapability(profile, true);
 }
 
 void SigninWithPrimaryAccount(Profile* profile) {
@@ -241,7 +249,7 @@ void SigninWithPrimaryAccount(Profile* profile) {
   signin::UpdateAccountInfoForAccount(identity_manager, account_info);
 }
 
-void SetModelExecutionCapability(Profile* profile, bool enabled) {
+void SetGlicCapability(Profile* profile, bool enabled) {
   auto* const identity_manager = IdentityManagerFactory::GetForProfile(profile);
   AccountInfo primary_account =
       identity_manager->FindExtendedAccountInfoByAccountId(
@@ -249,8 +257,16 @@ void SetModelExecutionCapability(Profile* profile, bool enabled) {
   ASSERT_FALSE(primary_account.IsEmpty());
 
   AccountCapabilitiesTestMutator mutator(&primary_account.capabilities);
-  mutator.set_can_use_model_execution_features(enabled);
+  SetGlicCapability(mutator, enabled);
+
   signin::UpdateAccountInfoForAccount(identity_manager, primary_account);
+}
+
+void SetGlicCapability(AccountCapabilitiesTestMutator& mutator, bool enabled) {
+  base::FeatureList::IsEnabled(
+      switches::kGlicEligibilitySeparateAccountCapability)
+      ? mutator.set_can_use_gemini_in_chrome(enabled)
+      : mutator.set_can_use_model_execution_features(enabled);
 }
 
 void SetFRECompletion(Profile* profile, prefs::FreStatus fre_status) {

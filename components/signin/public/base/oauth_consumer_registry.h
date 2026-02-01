@@ -10,6 +10,12 @@
 
 namespace signin {
 
+// Get OAuthConsumer for consumers that use dynamic scopes when requesting an
+// access token.
+OAuthConsumer GetOAuthConsumerForDynamicScopes(
+    OAuthConsumerId oauth_consumer_id,
+    const signin::ScopeSet& scopes);
+
 // Registry for oauth consumers. Provides a way to get an OAuthConsumer
 // instance from its OAuthConsumerId. This class already supports conversions
 // for most consumers. Consumers that are not straight-forward to convert
@@ -30,9 +36,8 @@ class OAuthConsumerRegistry {
   OAuthConsumer GetOAuthConsumerFromId(OAuthConsumerId oauth_consumer_id) const;
 
  protected:
-  // TODO(crbug.com/425896213): Add method per feature instead of a single one.
-  virtual OAuthConsumer GetOAuthConsumerFromIdInternal(
-      OAuthConsumerId oauth_consumer_id) const = 0;
+  virtual OAuthConsumer GetOAuthConsumerForEnterprisePlusAddress() const = 0;
+  virtual OAuthConsumer GetOAuthConsumerForGlicUserStatus() const = 0;
 };
 
 }  // namespace signin

@@ -83,9 +83,7 @@ public class RecentlyClosedBridge implements RecentlyClosedTabManager {
 
         assert mTabModelSelector.getModel(tabModel.isIncognito()) == tabModel;
         TabGroupModelFilter filter =
-                mTabModelSelector
-                        .getTabGroupModelFilterProvider()
-                        .getTabGroupModelFilter(tabModel.isIncognito());
+                mTabModelSelector.getTabGroupModelFilter(tabModel.isIncognito());
         assumeNonNull(filter);
 
         // TODO(b/336589861): Use savedTabGroupId to reassociate this tab group with a sync entity.
@@ -157,9 +155,12 @@ public class RecentlyClosedBridge implements RecentlyClosedTabManager {
 
     @Override
     public boolean openRecentlyClosedEntry(TabModel tabModel, RecentlyClosedEntry recentEntry) {
-        assert mTabModelSelector.getModel(tabModel.isIncognito()) == tabModel;
+        assert mTabModelSelector.getModel(tabModel.isIncognitoBranded()) == tabModel
+                && recentEntry instanceof SessionRecentlyClosedEntry;
+        SessionRecentlyClosedEntry sessionRecentEntry = (SessionRecentlyClosedEntry) recentEntry;
         return RecentlyClosedBridgeJni.get()
-                .openRecentlyClosedEntry(mNativeBridge, tabModel, recentEntry.getSessionId());
+                .openRecentlyClosedEntry(
+                        mNativeBridge, tabModel, sessionRecentEntry.getSessionId());
     }
 
     @Override
@@ -171,6 +172,13 @@ public class RecentlyClosedBridge implements RecentlyClosedTabManager {
     @Override
     public void clearRecentlyClosedEntries() {
         RecentlyClosedBridgeJni.get().clearRecentlyClosedEntries(mNativeBridge);
+    }
+
+    @Override
+    public void clearLeastRecentlyUsedClosedEntries(int numToRemove) {
+        if (numToRemove == 0) return;
+        RecentlyClosedBridgeJni.get()
+                .clearLeastRecentlyUsedClosedEntries(mNativeBridge, numToRemove);
     }
 
     /** This method will be called every time the list of recently closed tabs is updated. */
@@ -203,5 +211,8 @@ public class RecentlyClosedBridge implements RecentlyClosedTabManager {
         boolean openMostRecentlyClosedEntry(long nativeRecentlyClosedTabsBridge, TabModel tabModel);
 
         void clearRecentlyClosedEntries(long nativeRecentlyClosedTabsBridge);
+
+        void clearLeastRecentlyUsedClosedEntries(
+                long nativeRecentlyClosedTabsBridge, int numToRemove);
     }
 }

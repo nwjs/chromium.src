@@ -133,14 +133,6 @@ source_set("password_controller_delegate") {
   sources = [ "password_controller_delegate.h" ]
 }
 
-source_set("save_passwords_consumer") {
-  sources = [
-    "save_passwords_consumer.h",
-    "save_passwords_consumer.mm",
-  ]
-  deps = [ "//components/password_manager/core/browser" ]
-}
-
 source_set("store_factory") {
   sources = [
     "credentials_cleaner_runner_factory.cc",
@@ -284,7 +276,6 @@ source_set("unit_tests") {
     "//components/autofill/ios/browser:util",
     "//components/autofill/ios/common",
     "//components/autofill/ios/form_util",
-    "//components/autofill/ios/form_util:form_util_feature",
     "//components/enterprise/connectors/core",
     "//components/infobars/core",
     "//components/password_manager/core/browser",
@@ -299,14 +290,15 @@ source_set("unit_tests") {
     "//components/safe_browsing/core/browser/password_protection:test_support",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/sync_preferences:test_support",
+    "//components/test/ios",
     "//components/ukm:test_support",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/affiliations/model",
+    "//ios/chrome/browser/autofill/form_input_accessory/coordinator",
     "//ios/chrome/browser/autofill/model",
     "//ios/chrome/browser/autofill/model:features",
     "//ios/chrome/browser/autofill/model/bottom_sheet",
     "//ios/chrome/browser/autofill/ui_bundled:coordinator",
-    "//ios/chrome/browser/autofill/ui_bundled/form_input_accessory",
     "//ios/chrome/browser/enterprise/connectors/reporting",
     "//ios/chrome/browser/infobars/model",
     "//ios/chrome/browser/passwords/model:store_factory",

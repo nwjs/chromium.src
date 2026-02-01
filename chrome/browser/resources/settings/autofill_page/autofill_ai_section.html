@@ -5,6 +5,10 @@
     border-bottom: var(--cr-separator-line);
   }
 
+  #lastSection {
+    border-top: var(--cr-separator-line);
+  }
+
 </style>
 <settings-subpage page-title="$i18n{autofillAiPageTitle}">
 <div id="topSection">
@@ -61,8 +65,28 @@
   </div>
 </div>
 
+<template is="dom-if" if="[[autofillAiReauthOnViewingSensitiveDataEnabled_]]"
+    restamp>
+  <settings-toggle-button id="optInAuthenticationToggle"
+      disabled="[[ineligibleUser]]"
+      pref="{{prefs.autofill.autofill_ai.reauth_before_viewing_sensitive_data}}"
+      no-extension-indicator
+      label="$i18n{autofillAiAuthenticationToggleTitle}"
+      sub-label="$i18n{autofillAiAuthenticationToggleSubtitle}">
+  </settings-toggle-button>
+</template>
+
 <settings-autofill-ai-entries-list
     list-title="$i18n{autofillAiEntityInstancesHeader}"
     prefs="{{prefs}}">
 </settings-autofill-ai-entries-list>
+
+<template is="dom-if"
+    if="[[isUserEligibleForWalletablePassDetection_]]" restamp>
+  <div id="lastSection">
+    <settings-walletable-pass-detection-toggle
+        id="walletablePassDetectionToggle">
+    </settings-walletable-pass-detection-toggle>
+  </div>
+</template>
 </settings-subpage>

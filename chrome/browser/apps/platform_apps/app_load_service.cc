@@ -10,7 +10,6 @@
 #include "apps/launcher.h"
 #include "base/notreached.h"
 #include "chrome/browser/apps/platform_apps/app_load_service_factory.h"
-#include "chrome/browser/extensions/unpacked_installer.h"
 #include "content/public/browser/browser_context.h"
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/browser/extension_host.h"
@@ -18,6 +17,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/unpacked_installer.h"
 #include "extensions/common/extension.h"
 
 using extensions::Extension;

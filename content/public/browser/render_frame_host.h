@@ -13,7 +13,7 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
-#include "base/memory/safety_checks.h"
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -152,6 +152,8 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   // Returns nullptr if the IDs do not correspond to a live RenderFrameHost.
   static RenderFrameHost* FromID(const GlobalRenderFrameHostId& id);
   static RenderFrameHost* FromID(int render_process_id, int render_frame_id);
+  static RenderFrameHost* FromID(ChildProcessId render_process_id,
+                                 int render_frame_id);
 
   // Returns the RenderFrameHost given its global frame token. Returns nullptr
   // if the frame token does not correspond to a live RenderFrameHost.

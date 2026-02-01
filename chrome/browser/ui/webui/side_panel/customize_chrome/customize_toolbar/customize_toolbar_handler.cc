@@ -14,12 +14,12 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_toolbar/customize_toolbar.mojom-data-view.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_toolbar/customize_toolbar.mojom.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/prefs/pref_service.h"
@@ -238,19 +238,17 @@ void CustomizeToolbarHandler::ListActions(ListActionsCallback callback) {
   actions.push_back(std::move(home_action));
   actions.push_back(std::move(forward_action));
 
-  if (base::FeatureList::IsEnabled(features::kSideBySide)) {
-    auto split_tab_action = side_panel::customize_chrome::mojom::Action::New(
-        MojoActionForChromeAction(kActionSplitTab).value(),
-        base::UTF16ToUTF8(l10n_util::GetStringUTF16(IDS_PIN_SPLIT_TAB_TOGGLE)),
-        prefs()->GetBoolean(prefs::kPinSplitTabButton), false,
-        side_panel::customize_chrome::mojom::CategoryId::kNavigation,
-        GURL(webui::EncodePNGAndMakeDataURI(
-            ui::ImageModel::FromVectorIcon(kSplitSceneIcon, icon_color_id)
-                .Rasterize(&provider),
-            scale_factor)));
+  auto split_tab_action = side_panel::customize_chrome::mojom::Action::New(
+      MojoActionForChromeAction(kActionSplitTab).value(),
+      base::UTF16ToUTF8(l10n_util::GetStringUTF16(IDS_PIN_SPLIT_TAB_TOGGLE)),
+      prefs()->GetBoolean(prefs::kPinSplitTabButton), false,
+      side_panel::customize_chrome::mojom::CategoryId::kNavigation,
+      GURL(webui::EncodePNGAndMakeDataURI(
+          ui::ImageModel::FromVectorIcon(kSplitSceneIcon, icon_color_id)
+              .Rasterize(&provider),
+          scale_factor)));
 
-    actions.push_back(std::move(split_tab_action));
-  }
+  actions.push_back(std::move(split_tab_action));
 
   if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks) &&
       (contextual_tasks::kShowEntryPoint.Get() ==

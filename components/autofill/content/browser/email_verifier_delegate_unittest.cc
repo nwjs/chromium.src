@@ -106,12 +106,14 @@ class EmailVerifierDelegateTest : public testing::Test {
 // all requirements, the user autofills an email field and the
 // renderer is notified with the presentation token to dispatch an event.
 TEST_F(EmailVerifierDelegateTest, VerificationTriggered) {
-  base::test::ScopedFeatureList feature_list{::features::kFedCmDelegation};
+  base::test::ScopedFeatureList feature_list{
+      ::features::kEmailVerificationProtocol};
 
   FormData form_data = ValidForm();
 
   manager_->AddSeenForm(form_data, {EMAIL_ADDRESS});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  FormStructure* form =
+      test_api(*manager_).FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
   form->field(0)->set_autofilled_type(EMAIL_ADDRESS);
 
@@ -135,12 +137,13 @@ TEST_F(EmailVerifierDelegateTest, VerificationTriggered) {
 // Verifies that if the feature is disabled, no verification is triggered.
 TEST_F(EmailVerifierDelegateTest, FeatureDisabled) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(::features::kFedCmDelegation);
+  feature_list.InitAndDisableFeature(::features::kEmailVerificationProtocol);
 
   FormData form_data = ValidForm();
 
   manager_->AddSeenForm(form_data, {EMAIL_ADDRESS});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  const FormStructure* form =
+      manager_->FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
 
   EXPECT_CALL(*email_verifier_, Verify).Times(0);
@@ -156,12 +159,14 @@ TEST_F(EmailVerifierDelegateTest, FeatureDisabled) {
 
 // Verifies that if the action is not "fill", no verification is triggered.
 TEST_F(EmailVerifierDelegateTest, NotFillAction) {
-  base::test::ScopedFeatureList feature_list{::features::kFedCmDelegation};
+  base::test::ScopedFeatureList feature_list{
+      ::features::kEmailVerificationProtocol};
 
   FormData form_data = ValidForm();
 
   manager_->AddSeenForm(form_data, {EMAIL_ADDRESS});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  const FormStructure* form =
+      manager_->FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
 
   EXPECT_CALL(*email_verifier_, Verify).Times(0);
@@ -179,7 +184,8 @@ TEST_F(EmailVerifierDelegateTest, NotFillAction) {
 // Verifies that if the form isn't comformant (no nonce), no verification is
 // triggered.
 TEST_F(EmailVerifierDelegateTest, NoNonce) {
-  base::test::ScopedFeatureList feature_list{::features::kFedCmDelegation};
+  base::test::ScopedFeatureList feature_list{
+      ::features::kEmailVerificationProtocol};
 
   FormData form_data = test::GetFormData(
       {.fields = {
@@ -191,7 +197,8 @@ TEST_F(EmailVerifierDelegateTest, NoNonce) {
        }});
 
   manager_->AddSeenForm(form_data, {EMAIL_ADDRESS});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  const FormStructure* form =
+      manager_->FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
 
   EXPECT_CALL(*email_verifier_, Verify).Times(0);
@@ -210,7 +217,8 @@ TEST_F(EmailVerifierDelegateTest, NoNonce) {
 // Verifies that if the filled field is not an email field, no verification is
 // triggered.
 TEST_F(EmailVerifierDelegateTest, NotEmailField) {
-  base::test::ScopedFeatureList feature_list{::features::kFedCmDelegation};
+  base::test::ScopedFeatureList feature_list{
+      ::features::kEmailVerificationProtocol};
 
   FormData form_data =
       test::GetFormData({.fields = {
@@ -221,7 +229,8 @@ TEST_F(EmailVerifierDelegateTest, NotEmailField) {
                          }});
 
   manager_->AddSeenForm(form_data, {NAME_FULL});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  const FormStructure* form =
+      manager_->FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
 
   EXPECT_CALL(*email_verifier_, Verify).Times(0);
@@ -240,12 +249,14 @@ TEST_F(EmailVerifierDelegateTest, NotEmailField) {
 // Verifies that if the verification fails, no event is dispatched to the
 // renderer.
 TEST_F(EmailVerifierDelegateTest, VerificationFails) {
-  base::test::ScopedFeatureList feature_list{::features::kFedCmDelegation};
+  base::test::ScopedFeatureList feature_list{
+      ::features::kEmailVerificationProtocol};
 
   FormData form_data = ValidForm();
 
   manager_->AddSeenForm(form_data, {EMAIL_ADDRESS});
-  FormStructure* form = manager_->FindCachedFormById(form_data.global_id());
+  FormStructure* form =
+      test_api(*manager_).FindCachedFormById(form_data.global_id());
   ASSERT_TRUE(form);
   form->field(0)->set_autofilled_type(EMAIL_ADDRESS);
 

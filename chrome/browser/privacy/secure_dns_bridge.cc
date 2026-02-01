@@ -36,7 +36,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/privacy/jni_headers/SecureDnsBridge_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 using chrome_browser_net::DnsProbeRunner;
 
@@ -95,7 +95,7 @@ static void JNI_SecureDnsBridge_SetMode(JNIEnv* env, jint mode) {
       SecureDnsConfig::ModeToString(static_cast<net::SecureDnsMode>(mode)));
 }
 
-static jboolean JNI_SecureDnsBridge_IsModeManaged(JNIEnv* env) {
+static bool JNI_SecureDnsBridge_IsModeManaged(JNIEnv* env) {
   PrefService* local_state = g_browser_process->local_state();
   return local_state->IsManagedPreference(prefs::kDnsOverHttpsMode);
 }
@@ -122,9 +122,8 @@ static ScopedJavaLocalRef<jstring> JNI_SecureDnsBridge_GetConfig(JNIEnv* env) {
       env, local_state->GetString(prefs::kDnsOverHttpsTemplates));
 }
 
-static jboolean JNI_SecureDnsBridge_SetConfig(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& jconfig) {
+static bool JNI_SecureDnsBridge_SetConfig(JNIEnv* env,
+                                          const JavaRef<jstring>& jconfig) {
   PrefService* local_state = g_browser_process->local_state();
   std::string config = base::android::ConvertJavaStringToUTF8(jconfig);
   if (config.empty()) {
@@ -149,13 +148,13 @@ static jint JNI_SecureDnsBridge_GetManagementMode(JNIEnv* env) {
 }
 
 static void JNI_SecureDnsBridge_UpdateValidationHistogram(JNIEnv* env,
-                                                          jboolean valid) {
+                                                          bool valid) {
   secure_dns::UpdateValidationHistogram(valid);
 }
 
-static jboolean JNI_SecureDnsBridge_ProbeConfig(
+static bool JNI_SecureDnsBridge_ProbeConfig(
     JNIEnv* env,
-    const JavaParamRef<jstring>& doh_config) {
+    const JavaRef<jstring>& doh_config) {
   // Android recommends converting async functions to blocking when using JNI:
   // https://developer.android.com/training/articles/perf-jni.
   // This function converts the DnsProbeRunner, which can only be created and

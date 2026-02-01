@@ -4,6 +4,7 @@
 
 #include "components/performance_manager/graph/policies/bfcache_policy.h"
 
+#include "base/memory/memory_pressure_listener_registry.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/time/time.h"
@@ -63,6 +64,8 @@ class BFCachePolicyTest : public GraphTestHarness {
   }
 
  protected:
+  base::MemoryPressureListenerRegistry memory_pressure_listener_registry_;
+
   performance_manager::TestNodeWrapper<performance_manager::PageNodeImpl>
       page_node_;
   performance_manager::TestNodeWrapper<performance_manager::ProcessNodeImpl>
@@ -84,10 +87,9 @@ TEST_F(BFCachePolicyTest, BFCacheFlushedOnMemoryPressure) {
     base::RunLoop run_loop;
     EXPECT_CALL(*policy_,
                 MaybeFlushBFCache(page_node_.get(),
-                                  base::MEMORY_PRESSURE_LEVEL_MODERATE))
-        .WillOnce(::testing::Invoke(&run_loop, &base::RunLoop::Quit));
+                                  base::MEMORY_PRESSURE_LEVEL_MODERATE));
     base::MemoryPressureListener::SimulatePressureNotificationAsync(
-        base::MEMORY_PRESSURE_LEVEL_MODERATE);
+        base::MEMORY_PRESSURE_LEVEL_MODERATE, run_loop.QuitClosure());
     run_loop.Run();
     ::testing::Mock::VerifyAndClearExpectations(policy_);
   }
@@ -96,10 +98,9 @@ TEST_F(BFCachePolicyTest, BFCacheFlushedOnMemoryPressure) {
     base::RunLoop run_loop;
     EXPECT_CALL(*policy_,
                 MaybeFlushBFCache(page_node_.get(),
-                                  base::MEMORY_PRESSURE_LEVEL_CRITICAL))
-        .WillOnce(::testing::Invoke(&run_loop, &base::RunLoop::Quit));
+                                  base::MEMORY_PRESSURE_LEVEL_CRITICAL));
     base::MemoryPressureListener::SimulatePressureNotificationAsync(
-        base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+        base::MEMORY_PRESSURE_LEVEL_CRITICAL, run_loop.QuitClosure());
     run_loop.Run();
     ::testing::Mock::VerifyAndClearExpectations(policy_);
   }

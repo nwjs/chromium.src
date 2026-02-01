@@ -28,6 +28,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.view.ContextThemeWrapper;
@@ -84,12 +86,11 @@ import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
+import org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.pdf.PdfPage;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -100,7 +101,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
@@ -127,7 +127,6 @@ import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtilsJni;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
@@ -170,15 +169,11 @@ import java.util.List;
     DomDistillerFeatures.READER_MODE_DISTILL_IN_APP
 })
 @EnableFeatures({
-    ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID,
-    ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
     ChromeFeatureList.SUBMENUS_IN_APP_MENU,
     ChromeFeatureList.RECENTLY_CLOSED_TABS_AND_WINDOWS
 })
 public class TabbedAppMenuPropertiesDelegateUnitTest {
     // Constants defining flags that determines multi-window menu items visibility.
-    private static final boolean TAB_M = true; // multiple tabs
-    private static final boolean TAB_S = false;
     private static final boolean WIN_M = true; // in multi-window mode
     private static final boolean WIN_S = false;
     private static final boolean INST_M = true; // in multi-instance mode
@@ -207,7 +202,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     public FakeExtensionUiBackendRule mFakeExtensionUiBackendRule =
             new FakeExtensionUiBackendRule();
 
-    @Mock private ActivityTabProvider mActivityTabProvider;
     @Mock private Tab mTab;
     @Mock private WebContents mWebContents;
     @Mock private NativePage mNativePage;
@@ -230,7 +224,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private SigninManager mSigninManager;
     @Mock private IdentityManager mIdentityManager;
     @Mock private IdentityServicesProvider mIdentityService;
-    @Mock private TabGroupModelFilterProvider mTabGroupModelFilterProvider;
     @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private IncognitoUtils.Natives mIncognitoUtilsJniMock;
     @Mock public WebsitePreferenceBridge.Natives mWebsitePreferenceBridgeJniMock;
@@ -252,6 +245,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     private ShadowPackageManager mShadowPackageManager;
 
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
     private final OneshotSupplierImpl<IncognitoReauthController>
@@ -295,10 +289,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(mTabModelSelector.getModel(true)).thenReturn(mIncognitoTabModel);
         when(mTabModel.isIncognito()).thenReturn(false);
         when(mIncognitoTabModel.isIncognito()).thenReturn(true);
-        when(mTabModelSelector.getTabGroupModelFilterProvider())
-                .thenReturn(mTabGroupModelFilterProvider);
-        when(mTabGroupModelFilterProvider.getCurrentTabGroupModelFilter())
-                .thenReturn(mTabGroupModelFilter);
+        when(mTabModelSelector.getCurrentTabGroupModelFilter()).thenReturn(mTabGroupModelFilter);
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabModel.getProfile()).thenReturn(mProfile);
         ManagedBrowserUtilsJni.setInstanceForTesting(mManagedBrowserUtilsJniMock);
@@ -367,10 +358,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         BaseRobolectricTestRule.runAllBackgroundAndUi();
         mTabbedAppMenuPropertiesDelegate = Mockito.spy(delegate);
 
-        ChromeSharedPreferences.getInstance()
-                .removeKeysWithPrefix(ChromePreferenceKeys.MULTI_INSTANCE_URL);
-        ChromeSharedPreferences.getInstance()
-                .removeKeysWithPrefix(ChromePreferenceKeys.MULTI_INSTANCE_TAB_COUNT);
+        MultiWindowTestUtils.resetInstanceInfo();
 
         CommerceFeatureUtilsJni.setInstanceForTesting(mCommerceFeatureUtilsJniMock);
         ShoppingServiceFactory.setShoppingServiceForTesting(mShoppingService);
@@ -644,13 +632,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         assertMenuItemsAreEqual(modelList, expectedItems.toArray(new Integer[0]));
     }
 
-    private void testPageMenuItems_RegularPage(boolean shouldShowNewIncognitoTab) {
+    private void testPageMenuItems_RegularPage() {
         setUpMocksForPageMenu();
         setMenuOptions(
                 new MenuOptions()
                         .withShowTranslate()
                         .withShowAddToHomeScreen()
                         .withAutoDarkEnabled());
+        when(mTabModel.getCount()).thenReturn(1);
 
         assertEquals(MenuGroup.PAGE_MENU, mTabbedAppMenuPropertiesDelegate.getMenuGroup());
         MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
@@ -662,12 +651,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedTitles.add(0);
         expectedItems.add(R.id.new_tab_menu_id);
         expectedTitles.add(R.string.menu_new_tab);
-
-        if (shouldShowNewIncognitoTab) {
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()) {
             expectedItems.add(R.id.new_incognito_tab_menu_id);
             expectedTitles.add(R.string.menu_new_incognito_tab);
         }
-
         expectedItems.add(R.id.add_to_group_menu_id);
         expectedTitles.add(R.string.menu_add_tab_to_new_group);
         expectedItems.add(R.id.divider_line_id);
@@ -725,21 +712,20 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testPageMenuItems_Phone_RegularPage() {
-        testPageMenuItems_RegularPage(/* shouldShowNewIncognitoTab= */ true);
+        testPageMenuItems_RegularPage();
     }
 
     @Test
-    @Config(qualifiers = "sw320dp")
-    @EnableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
-    public void testPageMenuItems_Phone_RegularPage_incognitoWindowEnabled() {
-        testPageMenuItems_RegularPage(/* shouldShowNewIncognitoTab= */ false);
+    @Config(qualifiers = "sw600dp")
+    public void testPageMenuItems_Tablet_RegularPage() {
+        testPageMenuItems_RegularPage();
     }
 
-    private void testPageMenuItems_IncognitoPage(boolean isIncognitoWindow) {
+    private void testPageMenuItems_IncognitoPage() {
         setUpMocksForPageMenu();
         when(mTab.isIncognito()).thenReturn(true);
+        when(mIncognitoTabModel.getCount()).thenReturn(1);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
         setMenuOptions(new MenuOptions().withShowTranslate().withAutoDarkEnabled());
 
@@ -752,7 +738,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedItems.add(R.id.icon_row_menu_id);
         expectedTitles.add(0);
 
-        if (!isIncognitoWindow) {
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()) {
             expectedItems.add(R.id.new_tab_menu_id);
             expectedTitles.add(R.string.menu_new_tab);
         }
@@ -763,7 +749,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedTitles.add(R.string.menu_add_tab_to_new_group);
         expectedItems.add(R.id.divider_line_id);
         expectedTitles.add(0);
-        if (!isIncognitoWindow) {
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()) {
             expectedItems.add(R.id.open_history_menu_id);
             expectedTitles.add(R.string.menu_history);
         }
@@ -810,16 +796,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @DisableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testPageMenuItems_Phone_IncognitoPage() {
-        testPageMenuItems_IncognitoPage(/* isIncognitoWindow= */ false);
+        testPageMenuItems_IncognitoPage();
     }
 
     @Test
-    @Config(qualifiers = "sw320dp")
-    @EnableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
-    public void testPageMenuItems_Phone_IncognitoPage_incognitoWindowEnabled() {
-        testPageMenuItems_IncognitoPage(/* isIncognitoWindow= */ true);
+    @Config(qualifiers = "sw600dp")
+    public void testPageMenuItems_Tablet_IncognitoPage() {
+        testPageMenuItems_IncognitoPage();
     }
 
     @Test
@@ -1002,35 +986,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    @Config(qualifiers = "sw320dp")
-    @DisableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
-    })
-    public void testOverviewMenuItems_Phone_SelectTabs() {
-        setUpMocksForOverviewMenu();
-        when(mIncognitoTabModel.getCount()).thenReturn(0);
-        Assert.assertFalse(mTabbedAppMenuPropertiesDelegate.shouldShowPageMenu());
-        assertEquals(MenuGroup.OVERVIEW_MODE_MENU, mTabbedAppMenuPropertiesDelegate.getMenuGroup());
-
-        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
-
-        Integer[] expectedItems = {
-            R.id.new_tab_menu_id,
-            R.id.new_incognito_tab_menu_id,
-            R.id.close_all_tabs_menu_id,
-            R.id.menu_select_tabs,
-            R.id.quick_delete_menu_id,
-            R.id.preferences_id
-        };
-        assertMenuItemsAreEqual(modelList, expectedItems);
-    }
-
-    @Test
     @Config(qualifiers = "sw600dp")
-    @DisableFeatures({ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID})
     @EnableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testOverviewMenuItems_Tablet_SelectTabs_incognitoWindowEnabled() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         when(mTabModel.getCount()).thenReturn(1);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
         when(mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)).thenReturn(true);
@@ -1045,6 +1004,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
 
         Integer[] expectedItems = {
+            R.id.new_tab_group_menu_id,
             R.id.new_tab_menu_id,
             R.id.new_window_menu_id,
             R.id.new_incognito_window_menu_id,
@@ -1058,10 +1018,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @DisableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
-    })
+    @DisableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testOverviewMenuItems_Phone_IncognitoWindow() {
         when(mIncognitoTabModel.getCount()).thenReturn(1);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
@@ -1078,6 +1035,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         Integer[] expectedItems = {
             R.id.new_tab_menu_id,
             R.id.new_incognito_tab_menu_id,
+            R.id.new_tab_group_menu_id,
             R.id.close_all_incognito_tabs_menu_id,
             R.id.menu_select_tabs,
             R.id.preferences_id
@@ -1087,9 +1045,9 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @DisableFeatures({ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID})
     @EnableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testOverviewMenuItems_Tablet_IncognitoWindow_incognitoWindowEnabled() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         when(mIncognitoTabModel.getCount()).thenReturn(1);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
         when(mIncognitoTabModel.isIncognito()).thenReturn(true);
@@ -1106,6 +1064,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
         Integer[] expectedItems = {
             R.id.new_incognito_tab_menu_id,
+            R.id.new_tab_group_menu_id,
             R.id.new_window_menu_id,
             R.id.new_incognito_window_menu_id,
             R.id.close_all_incognito_tabs_menu_id,
@@ -1117,10 +1076,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @DisableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
-    })
+    @DisableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testOverviewMenuItems_Phone_NoTabs() {
         setUpMocksForOverviewMenu();
         when(mTabModelSelector.getTotalTabCount()).thenReturn(0);
@@ -1132,6 +1088,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
         Integer[] expectedItems = {
             R.id.new_tab_menu_id,
+            R.id.new_tab_group_menu_id,
             R.id.new_incognito_tab_menu_id,
             R.id.close_all_tabs_menu_id,
             R.id.menu_select_tabs,
@@ -1139,7 +1096,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
             R.id.preferences_id
         };
         assertMenuItemsAreEqual(modelList, expectedItems);
-        PropertyModel closeAllTabsModel = modelList.get(2).model;
+        PropertyModel closeAllTabsModel = modelList.get(3).model;
         assertEquals(
                 R.id.close_all_tabs_menu_id,
                 closeAllTabsModel.get(AppMenuItemProperties.MENU_ITEM_ID));
@@ -1148,10 +1105,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @DisableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
-    })
+    @DisableFeatures({ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW})
     public void testOverviewMenuItems_Phone_NoIncognitoTabs() {
         setUpMocksForOverviewMenu();
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
@@ -1165,12 +1119,13 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         Integer[] expectedItems = {
             R.id.new_tab_menu_id,
             R.id.new_incognito_tab_menu_id,
+            R.id.new_tab_group_menu_id,
             R.id.close_all_incognito_tabs_menu_id,
             R.id.menu_select_tabs,
             R.id.preferences_id
         };
         assertMenuItemsAreEqual(modelList, expectedItems);
-        PropertyModel closeAllTabsModel = modelList.get(2).model;
+        PropertyModel closeAllTabsModel = modelList.get(3).model;
         assertEquals(
                 R.id.close_all_incognito_tabs_menu_id,
                 closeAllTabsModel.get(AppMenuItemProperties.MENU_ITEM_ID));
@@ -1179,9 +1134,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     @Test
     @Config(qualifiers = "sw320dp")
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
-    public void testOverviewMenuItems_Phone_SelectTabs_tabGroupEntryPointsFeatureEnabled() {
+    public void testOverviewMenuItems_Phone_SelectTabs() {
         setUpMocksForOverviewMenu();
         when(mIncognitoTabModel.getCount()).thenReturn(0);
         Assert.assertFalse(mTabbedAppMenuPropertiesDelegate.shouldShowPageMenu());
@@ -1239,6 +1193,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testOverviewMenuItems_Tablet_NoTabs_withNewIncognitoWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         checkOverviewMenuItems(/* newIncognitoWindowEnabled= */ true);
     }
 
@@ -1469,7 +1424,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                 .when(mTabbedAppMenuPropertiesDelegate)
                 .instanceSwitcherWithMultiInstanceEnabled();
 
-        createInstance(0, "https://url0");
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 0,
+                /* url= */ "https://url0",
+                /* tabCount= */ 1,
+                /* taskId= */ 123);
 
         // On phone, we do not show 'New Window'.
         mIsTabletScreen = false;
@@ -1491,7 +1450,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         assertTrue(isMenuVisible(modelList, R.id.new_window_menu_id));
 
         for (int i = 0; i < MultiWindowUtils.getMaxInstances(); ++i) {
-            createInstance(i, "https://url" + i);
+            MultiWindowTestUtils.createInstance(
+                    /* instanceId= */ i,
+                    /* url= */ "https://url" + i,
+                    /* tabCount= */ 1,
+                    /* taskId= */ i);
         }
 
         MVCListAdapter.ModelList modelList2 = createMenuForMultiWindow();
@@ -1521,12 +1484,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                 .when(mTabbedAppMenuPropertiesDelegate)
                 .instanceSwitcherWithMultiInstanceEnabled();
 
-        createInstance(0, "https://url0");
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 0, /* url= */ "https://url0", /* tabCount= */ 1, /* taskId= */ 0);
 
         MVCListAdapter.ModelList modelList = createMenuForMultiWindow();
         assertFalse(isMenuVisible(modelList, R.id.manage_all_windows_menu_id));
 
-        createInstance(1, "https://url1");
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 1, /* url= */ "https://url1", /* tabCount= */ 1, /* taskId= */ 1);
 
         MVCListAdapter.ModelList modelList2 = createMenuForMultiWindow();
         assertTrue(isMenuVisible(modelList2, R.id.manage_all_windows_menu_id));
@@ -1671,7 +1636,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures(DomDistillerFeatures.READER_MODE_DISTILL_IN_APP)
     public void readerModeEntryPointEnabled_chromePage() {
         setUpMocksForPageMenu();
-        when(mTab.getUrl()).thenReturn(new GURL(UrlConstants.NTP_URL));
+        when(mTab.getUrl()).thenReturn(new GURL(getOriginalNativeNtpUrl()));
 
         MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
 
@@ -1785,11 +1750,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION})
     public void testCustomizeNewTabPageOption() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        mActivityTabProvider.setForTesting(ntpTab);
 
         MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
 
@@ -1801,11 +1766,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
     public void testListenToFeedMenuItem_available() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        mActivityTabProvider.setForTesting(ntpTab);
         when(mReadAloudController.isAvailable()).thenReturn(true);
         when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
@@ -1819,11 +1784,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
     public void testListenToFeedMenuItem_unavailableWhenNotNtp() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(mTab);
+        mActivityTabProvider.setForTesting(mTab);
         when(mReadAloudController.isAvailable()).thenReturn(true);
         when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
@@ -1837,11 +1802,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
     public void testListenToFeedMenuItem_unavailableWhenFeedDisabled() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        mActivityTabProvider.setForTesting(ntpTab);
         when(mReadAloudController.isAvailable()).thenReturn(true);
         when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(false);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
@@ -1855,11 +1820,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
     public void testListenToFeedMenuItem_unavailableWhenFeedHidden() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        mActivityTabProvider.setForTesting(ntpTab);
         when(mReadAloudController.isAvailable()).thenReturn(true);
         when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
@@ -1873,11 +1838,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
     public void testListenToFeedMenuItem_unavailableWhenReadAloudNotAvailable() {
         MockTab ntpTab = new MockTab(1, mProfile);
-        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        ntpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
 
         setUpMocksForPageMenu();
         setMenuOptions(new MenuOptions());
-        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        mActivityTabProvider.setForTesting(ntpTab);
         when(mReadAloudController.isAvailable()).thenReturn(false);
         when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
@@ -1898,7 +1863,11 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
             boolean isInMultiDisplayMode,
             boolean isMultiInstanceRunning) {
         for (int i = 0; i < currentWindowInstances; ++i) {
-            createInstance(i, "https://url" + i);
+            MultiWindowTestUtils.createInstance(
+                    /* instanceId= */ i,
+                    /* url= */ "https://url" + i,
+                    /* tabCount= */ 1,
+                    /* taskId= */ i);
         }
         mShadowPackageManager.setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, isAutomotive);
         doReturn(isInstanceSwitcherEnabled)
@@ -1987,8 +1956,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testShouldShowNewMenu_isTabletSizedScreen_returnsTrue_withNewIncognitoWindow() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         assertTrue(
                 doTestShouldShowNewMenu(
                         /* isAutomotive= */ false,
@@ -2487,7 +2458,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
     public void testAddToGroup() {
         setUpMocksForPageMenu();
         when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
@@ -2496,16 +2466,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
-    public void testAddToGroup_noParity() {
-        setUpMocksForPageMenu();
-        when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
-        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
-        assertFalse(isMenuVisible(modelList, R.id.add_to_group_menu_id));
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
     @DisableFeatures(ChromeFeatureList.TAB_MODEL_INIT_FIXES)
     public void testAddToGroup_preInitNoFixes() {
         setUpMocksForPageMenu();
@@ -2516,10 +2476,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID,
-        ChromeFeatureList.TAB_MODEL_INIT_FIXES
-    })
+    @EnableFeatures({ChromeFeatureList.TAB_MODEL_INIT_FIXES})
     public void testAddToGroup_preInit() {
         setUpMocksForPageMenu();
         when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
@@ -2529,7 +2486,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     private void setUpMocksForWebFeedFooter() {
-        when(mActivityTabProvider.get()).thenReturn(mTab);
+        mActivityTabProvider.setForTesting(mTab);
         when(mTab.isIncognito()).thenReturn(false);
         when(mTab.getOriginalUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         when(mOfflinePageUtils.isOfflinePage(mTab)).thenReturn(false);
@@ -2538,7 +2495,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     private void setUpMocksForPageMenu() {
-        when(mActivityTabProvider.get()).thenReturn(mTab);
+        mActivityTabProvider.setForTesting(mTab);
         when(mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)).thenReturn(false);
         doReturn(false)
                 .when(mTabbedAppMenuPropertiesDelegate)
@@ -2716,18 +2673,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                     .append(item.model.get(AppMenuItemProperties.MENU_ITEM_ID));
         }
         return items.toString();
-    }
-
-    private static void createInstance(int index, String url) {
-        String urlKey = ChromePreferenceKeys.MULTI_INSTANCE_URL.createKey(String.valueOf(index));
-        ChromeSharedPreferences.getInstance().writeString(urlKey, url);
-        String tabCountKey =
-                ChromePreferenceKeys.MULTI_INSTANCE_TAB_COUNT.createKey(String.valueOf(index));
-        ChromeSharedPreferences.getInstance().writeInt(tabCountKey, 1);
-        String accessTimeKey =
-                ChromePreferenceKeys.MULTI_INSTANCE_LAST_ACCESSED_TIME.createKey(
-                        String.valueOf(index));
-        ChromeSharedPreferences.getInstance().writeLong(accessTimeKey, System.currentTimeMillis());
     }
 
     /** Options for tests that control how Menu is being rendered. */

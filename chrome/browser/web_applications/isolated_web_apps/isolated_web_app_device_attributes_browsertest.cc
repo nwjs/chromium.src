@@ -12,6 +12,8 @@
 #include "chrome/browser/ash/test/regular_logged_in_browser_test_mixin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
+#include "chrome/browser/web_applications/isolated_web_apps/runtime_data/chrome_iwa_runtime_data_provider.h"
+#include "chrome/browser/web_applications/isolated_web_apps/test/fake_iwa_runtime_data_provider_mixin.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_test_update_server.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/policy_test_utils.h"
@@ -25,7 +27,6 @@
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/policy_constants.h"
 #include "components/user_manager/scoped_user_manager.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 #include "components/webapps/isolated_web_apps/test_support/signing_keys.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -140,8 +141,6 @@ class IsolatedWebAppDeviceAttributesBrowserTest
 
   void SetUpOnMainThread() override {
     IsolatedWebAppBrowserTestHarness::SetUpOnMainThread();
-    IwaKeyDistributionInfoProvider::GetInstance()
-        .SkipManagedAllowlistChecksForTesting(true);
     ash::system::StatisticsProvider::SetTestProvider(
         &fake_statistics_provider_);
 
@@ -149,17 +148,14 @@ class IsolatedWebAppDeviceAttributesBrowserTest
                                                   kDeviceSerialNumber);
   }
 
-  void TearDownOnMainThread() override {
-    IwaKeyDistributionInfoProvider::GetInstance()
-        .SkipManagedAllowlistChecksForTesting(false);
-    IsolatedWebAppBrowserTestHarness::TearDownOnMainThread();
-  }
-
   IsolatedWebAppUrlInfo InstallApp() {
     auto web_bundle_id = test::GetDefaultEd25519WebBundleId();
     auto iwa_url_info =
         web_app::IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
             web_bundle_id);
+
+    data_provider_->Update(
+        [&](auto& update) { update.AddToManagedAllowlist(web_bundle_id); });
 
     web_app::WebAppTestInstallObserver observer(profile());
     observer.BeginListening({iwa_url_info.app_id()});
@@ -233,6 +229,7 @@ class IsolatedWebAppDeviceAttributesBrowserTest
   policy::DevicePolicyCrosTestHelper policy_helper_;
   web_app::IsolatedWebAppTestUpdateServer
       isolated_web_app_iwa_test_update_server_;
+  FakeIwaRuntimeDataProviderMixin data_provider_{&mixin_host_};
 };
 
 IN_PROC_BROWSER_TEST_P(IsolatedWebAppDeviceAttributesBrowserTest,

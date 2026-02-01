@@ -18,7 +18,6 @@
 #include "base/metrics/user_metrics.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/optional_ref.h"
 #include "base/uuid.h"
 #include "base/values.h"
@@ -778,7 +777,7 @@ AutofillPrivateGetPayOverTimeIssuerListFunction::Run() {
 
 ExtensionFunction::ResponseAction
 AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::Run() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   PaymentsDataManager* paydm = payments_data_manager();
   if (!paydm || !paydm->is_payments_data_loaded()) {
     return RespondNow(Error(kErrorDataUnavailable));
@@ -810,14 +809,14 @@ AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::Run() {
   return RespondNow(NoArguments());
 #else
   return RespondNow(Error(kErrorDeviceAuthUnavailable));
-#endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 }
 
 // Update the Mandatory auth toggle pref and log whether the auth was successful
 // or not.
 void AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::
     UpdateMandatoryAuthTogglePref(bool reauth_succeeded) {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   PaymentsDataManager* paydm = payments_data_manager();
   if (!paydm) {
     return;
@@ -855,7 +854,7 @@ ExtensionFunction::ResponseAction AutofillPrivateGetLocalCardFunction::Run() {
     LogMandatoryReauthSettingsPageEditCardEvent(
         MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
     // Based on the result of the auth, we will be asynchronously returning the
     // card if the user can edit the local card.
     autofill_client()
@@ -920,14 +919,17 @@ void AutofillPrivateGetLocalCardFunction::ReturnCreditCard() {
 
 ExtensionFunction::ResponseAction
 AutofillPrivateCheckIfDeviceAuthAvailableFunction::Run() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  // TODO(crbug.com/467173735): Check with ChromeOS team on the implementation
+  // details. It is still in active discussion with the ChromeOS team on how to
+  // implement this.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   autofill::ContentAutofillClient* client =
       autofill::ContentAutofillClient::FromWebContents(GetSenderWebContents());
   if (client) {
     return RespondNow(WithArguments(autofill::IsDeviceAuthAvailable(
         client->GetDeviceAuthenticator().get())));
   }
-#endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   return RespondNow(Error(kErrorDeviceAuthUnavailable));
 }
 
@@ -1122,7 +1124,7 @@ AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction::Run() {
       [](const autofill::AttributeType& attribute_type) {
         autofill_private::AttributeType private_api_attribute_type;
         private_api_attribute_type.type_name =
-            base::to_underlying(attribute_type.name());
+            std::to_underlying(attribute_type.name());
         private_api_attribute_type.type_name_as_string =
             base::UTF16ToUTF8(attribute_type.GetNameForI18n());
         private_api_attribute_type.data_type = autofill_ai_util::
@@ -1189,10 +1191,13 @@ AutofillPrivateSetWalletablePassDetectionOptInStatusFunction::Run() {
       params = autofill_private::SetWalletablePassDetectionOptInStatus::Params::
           Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
-  wallet::SetWalletablePassDetectionOptInStatus(
+
+  const bool success = wallet::SetWalletablePassDetectionOptInStatus(
       autofill_client()->GetPrefs(), autofill_client()->GetIdentityManager(),
+      wallet::GeoIpCountryCode(
+          autofill_client()->GetVariationConfigCountryCode().value()),
       params->opted_in);
-  return RespondNow(NoArguments());
+  return RespondNow(WithArguments(success));
 }
 
 }  // namespace extensions

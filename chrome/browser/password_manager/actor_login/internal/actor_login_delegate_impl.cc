@@ -133,6 +133,7 @@ void ActorLoginDelegateImpl::AttemptLogin(
     const Credential& credential,
     bool should_store_permission,
     base::WeakPtr<ActorLoginQualityLoggerInterface> mqls_logger,
+    base::TimeTicks attempt_login_tool_start_time,
     LoginStatusResultOrErrorReply callback) {
   CHECK(callback);
 
@@ -172,6 +173,7 @@ void ActorLoginDelegateImpl::AttemptLogin(
 
   credential_filler_ = std::make_unique<ActorLoginCredentialFiller>(
       origin, credential, should_store_permission, client_, mqls_logger,
+      attempt_login_tool_start_time,
       base::BindRepeating(&ActorLoginDelegateImpl::IsTaskInFocus,
                           base::Unretained(this)),
       base::BindPostTaskToCurrentDefault(

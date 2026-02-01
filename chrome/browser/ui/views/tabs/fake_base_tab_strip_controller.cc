@@ -27,13 +27,14 @@ void FakeBaseTabStripController::AddTab(int index,
   num_tabs_++;
   tab_groups_.insert(tab_groups_.begin() + index, std::nullopt);
 
-  std::vector<std::pair<int, TabRendererData>> data_list;
+  std::vector<TabStrip::AddTabData> data_list;
   TabRendererData data;
   if (is_pinned == TabPinned::kPinned) {
     num_pinned_tabs_++;
     data.pinned = true;
   }
-  data_list.emplace_back(index, std::move(data));
+  data_list.push_back(
+      {.index = index, .handle = tabs::TabHandle(index), .data = data});
   if (tab_strip_) {
     tab_strip_->AddTabsAt(std::move(data_list));
   }
@@ -195,8 +196,7 @@ gfx::Range FakeBaseTabStripController::ListTabsInGroup(
   return first_tab > -1 ? gfx::Range(first_tab, last_tab) : gfx::Range();
 }
 
-const ui::ListSelectionModel& FakeBaseTabStripController::GetSelectionModel()
-    const {
+ui::ListSelectionModel FakeBaseTabStripController::GetSelectionModel() const {
   return selection_model_;
 }
 
@@ -277,10 +277,7 @@ void FakeBaseTabStripController::CreateNewTab(NewTabTypes context) {
   AddTab(num_tabs_, TabActive::kActive);
 }
 
-void FakeBaseTabStripController::CreateNewTabWithLocation(
-    const std::u16string& location) {}
-
-void FakeBaseTabStripController::OnStartedDragging(bool dragging_window) {}
+void FakeBaseTabStripController::OnStartedDragging() {}
 
 void FakeBaseTabStripController::OnStoppedDragging() {}
 
@@ -291,21 +288,8 @@ bool FakeBaseTabStripController::IsFrameCondensed() const {
   return false;
 }
 
-bool FakeBaseTabStripController::HasVisibleBackgroundTabShapes() const {
-  return false;
-}
-
 bool FakeBaseTabStripController::EverHasVisibleBackgroundTabShapes() const {
   return false;
-}
-
-bool FakeBaseTabStripController::CanDrawStrokes() const {
-  return false;
-}
-
-SkColor FakeBaseTabStripController::GetFrameColor(
-    BrowserFrameActiveState active_state) const {
-  return gfx::kPlaceholderColor;
 }
 
 std::optional<int> FakeBaseTabStripController::GetCustomBackgroundId(
@@ -328,16 +312,8 @@ void FakeBaseTabStripController::SetFocusedGroup(
   focused_group_ = group;
 }
 
-Profile* FakeBaseTabStripController::GetProfile() const {
-  return nullptr;
-}
-
 BrowserWindowInterface*
 FakeBaseTabStripController::GetBrowserWindowInterface() {
-  return nullptr;
-}
-
-Browser* FakeBaseTabStripController::GetBrowser() {
   return nullptr;
 }
 

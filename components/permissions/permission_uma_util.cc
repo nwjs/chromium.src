@@ -82,6 +82,42 @@ namespace {
 
 const int kPriorCountCap = 10;
 
+// This enum backs the UKM Permission.PromptOptions, so it must be treated as
+// append-only.
+enum class UkmPromptOptions {
+  APPROXIMATE_LOCATION = 1,
+  PRECISE_LOCATION = 2,
+};
+
+struct PermissionActionUkmParams {
+  PermissionAction action;
+  PermissionRequestGestureType gesture_type;
+  ContentSettingsType permission;
+  int dismiss_count;
+  int ignore_count;
+  PermissionSourceUI source_ui;
+  base::TimeDelta time_to_action;
+  PermissionPromptDisposition ui_disposition;
+  std::optional<PermissionPromptDispositionReason> ui_reason;
+  std::optional<std::vector<ElementAnchoredBubbleVariant>> variants;
+  std::optional<bool> has_three_consecutive_denies;
+  std::optional<bool> has_previously_revoked_permission;
+  std::optional<PermissionUiSelector::PredictionGrantLikelihood>
+      predicted_grant_likelihood;
+  std::optional<PermissionRequestRelevance> permission_request_relevance;
+  std::optional<permissions::PermissionAiRelevanceModel>
+      permission_ai_relevance_model;
+  PredictionRequestFeatures::ActionCounts
+      loud_ui_actions_counts_for_request_type;
+  PredictionRequestFeatures::ActionCounts loud_ui_actions_counts;
+  PredictionRequestFeatures::ActionCounts actions_counts_for_request_type;
+  PredictionRequestFeatures::ActionCounts actions_counts;
+  std::optional<bool> prediction_decision_held_back;
+  std::optional<UkmPromptOptions> prompt_options;
+  std::optional<GeolocationAccuracy> initial_geolocation_accuracy_selection;
+};
+
+// LINT.IfChange(GetPermissionRequestString)
 std::string GetPermissionRequestString(RequestTypeForUma type) {
   switch (type) {
     case RequestTypeForUma::MULTIPLE_AUDIO_AND_VIDEO_CAPTURE:
@@ -148,6 +184,10 @@ std::string GetPermissionRequestString(RequestTypeForUma type) {
       return "WebAppInstallation";
     case RequestTypeForUma::PERMISSION_LOCAL_NETWORK_ACCESS:
       return "LocalNetworkAccess";
+    case RequestTypeForUma::PERMISSION_LOCAL_NETWORK:
+      return "LocalNetwork";
+    case RequestTypeForUma::PERMISSION_LOOPBACK_NETWORK:
+      return "LoopbackNetwork";
 
     case RequestTypeForUma::UNKNOWN:
     case RequestTypeForUma::PERMISSION_FLASH:
@@ -156,6 +196,7 @@ std::string GetPermissionRequestString(RequestTypeForUma type) {
       NOTREACHED();
   }
 }
+// LINT.ThenChange(//components/permissions/permission_uma_util.h:RequestTypeForUma)
 
 // Helper to check if the current render frame host is cross-origin with top
 // level frame. Note: in case of nested frames like A(B(A)), the bottom frame A
@@ -221,7 +262,7 @@ PermissionHeaderPolicyForUMA GetTopLevelPermissionHeaderPolicyForUMA(
 
 void RecordEngagementMetric(
     const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-    content::WebContents* web_contents,
+    content::BrowserContext* browser_context,
     const std::string& action) {
   CHECK(!requests.empty());
 
@@ -233,7 +274,7 @@ void RecordEngagementMetric(
                                    GetPermissionRequestString(type)});
 
   double engagement_score = PermissionsClient::Get()->GetSiteEngagementScore(
-      web_contents->GetBrowserContext(), requests[0]->requesting_origin());
+      browser_context, requests[0]->requesting_origin());
   base::UmaHistogramPercentageObsoleteDoNotUse(name, engagement_score);
 }
 
@@ -302,13 +343,6 @@ void RecordPermissionUsageNotificationShownUkm(
   builder.Record(ukm::UkmRecorder::Get());
 }
 
-// This enum backs the UKM Permission.PromptOptions, so it must be treated as
-// append-only.
-enum class UkmPromptOptions {
-  APPROXIMATE_LOCATION = 1,
-  PRECISE_LOCATION = 2,
-};
-
 UkmPromptOptions ToUkmPromptOptions(GeolocationAccuracy accuracy) {
   switch (accuracy) {
     case GeolocationAccuracy::kPrecise:
@@ -319,33 +353,10 @@ UkmPromptOptions ToUkmPromptOptions(GeolocationAccuracy accuracy) {
 }
 
 void RecordPermissionActionUkm(
-    PermissionAction action,
-    PermissionRequestGestureType gesture_type,
-    ContentSettingsType permission,
-    int dismiss_count,
-    int ignore_count,
-    PermissionSourceUI source_ui,
-    base::TimeDelta time_to_action,
-    PermissionPromptDisposition ui_disposition,
-    std::optional<PermissionPromptDispositionReason> ui_reason,
-    std::optional<std::vector<ElementAnchoredBubbleVariant>> variants,
-    std::optional<bool> has_three_consecutive_denies,
-    std::optional<bool> has_previously_revoked_permission,
-    std::optional<PermissionUiSelector::PredictionGrantLikelihood>
-        predicted_grant_likelihood,
-    std::optional<PermissionRequestRelevance> permission_request_relevance,
-    std::optional<permissions::PermissionAiRelevanceModel>
-        permission_ai_relevance_model,
-    PredictionRequestFeatures::ActionCounts
-        loud_ui_actions_counts_for_request_type,
-    PredictionRequestFeatures::ActionCounts loud_ui_actions_counts,
-    PredictionRequestFeatures::ActionCounts actions_counts_for_request_type,
-    PredictionRequestFeatures::ActionCounts actions_counts,
-    std::optional<bool> prediction_decision_held_back,
-    std::optional<UkmPromptOptions> prompt_options,
+    std::unique_ptr<PermissionActionUkmParams> params,
     std::optional<ukm::SourceId> source_id) {
-  if (action == PermissionAction::REVOKED) {
-    RecordUmaForWhetherRevocationUkmWasRecorded(permission,
+  if (params->action == PermissionAction::REVOKED) {
+    RecordUmaForWhetherRevocationUkmWasRecorded(params->permission,
                                                 source_id.has_value());
   }
 
@@ -355,130 +366,138 @@ void RecordPermissionActionUkm(
   }
 
   const int loud_ui_prompts_count_for_request_type =
-      loud_ui_actions_counts_for_request_type.total();
-  const int loud_ui_prompts_count = loud_ui_actions_counts.total();
+      params->loud_ui_actions_counts_for_request_type.total();
+  const int loud_ui_prompts_count = params->loud_ui_actions_counts.total();
   const int prompts_count_for_request_type =
-      actions_counts_for_request_type.total();
-  const int prompts_count = actions_counts.total();
+      params->actions_counts_for_request_type.total();
+  const int prompts_count = params->actions_counts.total();
   ukm::builders::Permission builder(source_id.value());
-  builder.SetAction(static_cast<int64_t>(action))
-      .SetGesture(static_cast<int64_t>(gesture_type))
+  builder.SetAction(static_cast<int64_t>(params->action))
+      .SetGesture(static_cast<int64_t>(params->gesture_type))
       .SetPermissionType(static_cast<int64_t>(
           content_settings_uma_util::ContentSettingTypeToHistogramValue(
-              permission)))
-      .SetPriorDismissals(std::min(kPriorCountCap, dismiss_count))
-      .SetPriorIgnores(std::min(kPriorCountCap, ignore_count))
-      .SetSource(static_cast<int64_t>(source_ui))
-      .SetPromptDisposition(static_cast<int64_t>(ui_disposition));
+              params->permission)))
+      .SetPriorDismissals(std::min(kPriorCountCap, params->dismiss_count))
+      .SetPriorIgnores(std::min(kPriorCountCap, params->ignore_count))
+      .SetSource(static_cast<int64_t>(params->source_ui))
+      .SetPromptDisposition(static_cast<int64_t>(params->ui_disposition));
 
-  if (prompt_options) {
-    builder.SetPromptOptions(static_cast<int64_t>(prompt_options.value()));
+  if (params->prompt_options) {
+    builder.SetPromptOptions(
+        static_cast<int64_t>(params->prompt_options.value()));
+  }
+
+  if (params->initial_geolocation_accuracy_selection) {
+    builder.SetInitialGeolocationAccuracySelection(static_cast<int64_t>(
+        params->initial_geolocation_accuracy_selection.value()));
   }
 
   builder
-      .SetStats_LoudPromptsOfType_DenyRate(
-          GetRoundedRatioForUkm(loud_ui_actions_counts_for_request_type.denies,
-                                loud_ui_prompts_count_for_request_type))
-      .SetStats_LoudPromptsOfType_DismissRate(GetRoundedRatioForUkm(
-          loud_ui_actions_counts_for_request_type.dismissals,
+      .SetStats_LoudPromptsOfType_DenyRate(GetRoundedRatioForUkm(
+          params->loud_ui_actions_counts_for_request_type.denies,
           loud_ui_prompts_count_for_request_type))
-      .SetStats_LoudPromptsOfType_GrantRate(
-          GetRoundedRatioForUkm(loud_ui_actions_counts_for_request_type.grants,
-                                loud_ui_prompts_count_for_request_type))
-      .SetStats_LoudPromptsOfType_IgnoreRate(
-          GetRoundedRatioForUkm(loud_ui_actions_counts_for_request_type.ignores,
-                                loud_ui_prompts_count_for_request_type))
+      .SetStats_LoudPromptsOfType_DismissRate(GetRoundedRatioForUkm(
+          params->loud_ui_actions_counts_for_request_type.dismissals,
+          loud_ui_prompts_count_for_request_type))
+      .SetStats_LoudPromptsOfType_GrantRate(GetRoundedRatioForUkm(
+          params->loud_ui_actions_counts_for_request_type.grants,
+          loud_ui_prompts_count_for_request_type))
+      .SetStats_LoudPromptsOfType_IgnoreRate(GetRoundedRatioForUkm(
+          params->loud_ui_actions_counts_for_request_type.ignores,
+          loud_ui_prompts_count_for_request_type))
       .SetStats_LoudPromptsOfType_Count(
           BucketizeValue(loud_ui_prompts_count_for_request_type));
 
   builder
       .SetStats_LoudPrompts_DenyRate(GetRoundedRatioForUkm(
-          loud_ui_actions_counts.denies, loud_ui_prompts_count))
+          params->loud_ui_actions_counts.denies, loud_ui_prompts_count))
       .SetStats_LoudPrompts_DismissRate(GetRoundedRatioForUkm(
-          loud_ui_actions_counts.dismissals, loud_ui_prompts_count))
+          params->loud_ui_actions_counts.dismissals, loud_ui_prompts_count))
       .SetStats_LoudPrompts_GrantRate(GetRoundedRatioForUkm(
-          loud_ui_actions_counts.grants, loud_ui_prompts_count))
+          params->loud_ui_actions_counts.grants, loud_ui_prompts_count))
       .SetStats_LoudPrompts_IgnoreRate(GetRoundedRatioForUkm(
-          loud_ui_actions_counts.ignores, loud_ui_prompts_count))
+          params->loud_ui_actions_counts.ignores, loud_ui_prompts_count))
       .SetStats_LoudPrompts_Count(BucketizeValue(loud_ui_prompts_count));
 
   builder
       .SetStats_AllPromptsOfType_DenyRate(
-          GetRoundedRatioForUkm(actions_counts_for_request_type.denies,
+          GetRoundedRatioForUkm(params->actions_counts_for_request_type.denies,
                                 prompts_count_for_request_type))
-      .SetStats_AllPromptsOfType_DismissRate(
-          GetRoundedRatioForUkm(actions_counts_for_request_type.dismissals,
-                                prompts_count_for_request_type))
+      .SetStats_AllPromptsOfType_DismissRate(GetRoundedRatioForUkm(
+          params->actions_counts_for_request_type.dismissals,
+          prompts_count_for_request_type))
       .SetStats_AllPromptsOfType_GrantRate(
-          GetRoundedRatioForUkm(actions_counts_for_request_type.grants,
+          GetRoundedRatioForUkm(params->actions_counts_for_request_type.grants,
                                 prompts_count_for_request_type))
       .SetStats_AllPromptsOfType_IgnoreRate(
-          GetRoundedRatioForUkm(actions_counts_for_request_type.ignores,
+          GetRoundedRatioForUkm(params->actions_counts_for_request_type.ignores,
                                 prompts_count_for_request_type))
       .SetStats_AllPromptsOfType_Count(
           BucketizeValue(prompts_count_for_request_type));
 
   builder
       .SetStats_AllPrompts_DenyRate(
-          GetRoundedRatioForUkm(actions_counts.denies, prompts_count))
-      .SetStats_AllPrompts_DismissRate(
-          GetRoundedRatioForUkm(actions_counts.dismissals, prompts_count))
+          GetRoundedRatioForUkm(params->actions_counts.denies, prompts_count))
+      .SetStats_AllPrompts_DismissRate(GetRoundedRatioForUkm(
+          params->actions_counts.dismissals, prompts_count))
       .SetStats_AllPrompts_GrantRate(
-          GetRoundedRatioForUkm(actions_counts.grants, prompts_count))
+          GetRoundedRatioForUkm(params->actions_counts.grants, prompts_count))
       .SetStats_AllPrompts_IgnoreRate(
-          GetRoundedRatioForUkm(actions_counts.ignores, prompts_count))
+          GetRoundedRatioForUkm(params->actions_counts.ignores, prompts_count))
       .SetStats_AllPrompts_Count(BucketizeValue(prompts_count));
 
-  if (ui_reason.has_value()) {
-    builder.SetPromptDispositionReason(static_cast<int64_t>(ui_reason.value()));
+  if (params->ui_reason.has_value()) {
+    builder.SetPromptDispositionReason(
+        static_cast<int64_t>(params->ui_reason.value()));
   }
 
-  if (predicted_grant_likelihood.has_value()) {
+  if (params->predicted_grant_likelihood.has_value()) {
     builder.SetPredictionsApiResponse_GrantLikelihood(
-        static_cast<int64_t>(predicted_grant_likelihood.value()));
+        static_cast<int64_t>(params->predicted_grant_likelihood.value()));
   }
 
-  if (permission_request_relevance.has_value()) {
+  if (params->permission_request_relevance.has_value()) {
     builder.SetPermissionRequestRelevance(
-        static_cast<int64_t>(permission_request_relevance.value()));
+        static_cast<int64_t>(params->permission_request_relevance.value()));
   }
 
-  if (permission_ai_relevance_model.has_value()) {
+  if (params->permission_ai_relevance_model.has_value()) {
     builder.SetPermissionAiRelevanceModel(
-        static_cast<int64_t>(permission_ai_relevance_model.value()));
+        static_cast<int64_t>(params->permission_ai_relevance_model.value()));
   }
 
-  if (prediction_decision_held_back.has_value()) {
+  if (params->prediction_decision_held_back.has_value()) {
     builder.SetPredictionsApiResponse_Heldback(
-        prediction_decision_held_back.value());
+        params->prediction_decision_held_back.value());
   }
 
-  if (has_three_consecutive_denies.has_value()) {
+  if (params->has_three_consecutive_denies.has_value()) {
     int64_t satisfied_adaptive_triggers = 0;
-    if (has_three_consecutive_denies.value()) {
+    if (params->has_three_consecutive_denies.value()) {
       satisfied_adaptive_triggers |=
           static_cast<int64_t>(AdaptiveTriggers::THREE_CONSECUTIVE_DENIES);
     }
     builder.SetSatisfiedAdaptiveTriggers(satisfied_adaptive_triggers);
   }
 
-  if (has_previously_revoked_permission.has_value()) {
+  if (params->has_previously_revoked_permission.has_value()) {
     int64_t previously_revoked_permission = 0;
-    if (has_previously_revoked_permission.value()) {
+    if (params->has_previously_revoked_permission.value()) {
       previously_revoked_permission = static_cast<int64_t>(
           PermissionAutoRevocationHistory::PREVIOUSLY_AUTO_REVOKED);
     }
     builder.SetPermissionAutoRevocationHistory(previously_revoked_permission);
   }
 
-  if (ui_disposition == PermissionPromptDisposition::ELEMENT_ANCHORED_BUBBLE &&
-      variants.has_value()) {
+  if (params->ui_disposition ==
+          PermissionPromptDisposition::ELEMENT_ANCHORED_BUBBLE &&
+      params->variants.has_value()) {
     // Variant can have a maximum of 3 values, one per site level and 2 for OS
     // level.
-    CHECK_LE(variants->size(), 3U);
+    CHECK_LE(params->variants->size(), 3U);
 
     const std::vector<ElementAnchoredBubbleVariant>& variant_array =
-        variants.value();
+        params->variants.value();
 
     for (ElementAnchoredBubbleVariant variant : variant_array) {
       switch (variant) {
@@ -501,9 +520,9 @@ void RecordPermissionActionUkm(
       }
     }
   }
-  if (!time_to_action.is_zero()) {
+  if (!params->time_to_action.is_zero()) {
     builder.SetTimeToDecision(ukm::GetExponentialBucketMinForUserTiming(
-        time_to_action.InMilliseconds()));
+        params->time_to_action.InMilliseconds()));
   }
 
   builder.Record(ukm::UkmRecorder::Get());
@@ -719,6 +738,10 @@ std::string GetPermissionStringForUma(
       return "WebAppInstallation";
     case ContentSettingsType::LOCAL_NETWORK_ACCESS:
       return "LocalNetworkAccess";
+    case ContentSettingsType::LOCAL_NETWORK:
+      return "LocalNetwork";
+    case ContentSettingsType::LOOPBACK_NETWORK:
+      return "LoopbackNetwork";
     default:
       break;
   }
@@ -944,12 +967,14 @@ void PermissionUmaUtil::PermissionRevoked(
       /*time_to_action=*/base::TimeDelta(),
       PermissionPromptDisposition::NOT_APPLICABLE,
       /*ui_reason=*/std::nullopt, /*variants=*/std::nullopt, revoked_origin,
-      /*web_contents=*/nullptr, browser_context,
+      browser_context,
       /*render_frame_host*/ nullptr,
       /*predicted_grant_likelihood=*/std::nullopt,
       /*permission_request_relevance=*/std::nullopt,
       /*permission_ai_relevance_model=*/std::nullopt,
-      /*prediction_decision_held_back=*/std::nullopt, std::monostate());
+      /*prediction_decision_held_back=*/std::nullopt, std::monostate(),
+      /*initial_geolocation_accuracy_selection=*/std::nullopt,
+      /*source_id=*/std::nullopt);
 }
 
 void PermissionUmaUtil::RecordEmbargoPromptSuppression(
@@ -1071,7 +1096,7 @@ void PermissionUmaUtil::PermissionPromptShown(
 
 void PermissionUmaUtil::PermissionPromptResolved(
     const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-    content::WebContents* web_contents,
+    content::BrowserContext* browser_context,
     PermissionAction permission_action,
     base::TimeDelta time_to_action,
     PermissionPromptDisposition ui_disposition,
@@ -1086,7 +1111,8 @@ void PermissionUmaUtil::PermissionPromptResolved(
     std::optional<permissions::PermissionIgnoredReason> ignored_reason,
     bool did_show_prompt,
     bool did_click_managed,
-    bool did_click_learn_more) {
+    bool did_click_learn_more,
+    std::optional<GeolocationAccuracy> initial_geolocation_accuracy_selection) {
   switch (permission_action) {
     case PermissionAction::GRANTED:
       RecordPromptDecided(requests, /*accepted=*/true, /*is_one_time=*/false);
@@ -1107,11 +1133,11 @@ void PermissionUmaUtil::PermissionPromptResolved(
       NOTREACHED();
   }
   std::string action_string = GetPermissionActionString(permission_action);
-  RecordEngagementMetric(requests, web_contents, action_string);
+  RecordEngagementMetric(requests, browser_context, action_string);
 
   PermissionDecisionAutoBlocker* autoblocker =
       PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
-          web_contents->GetBrowserContext());
+          browser_context);
 
   for (const auto& request : requests) {
     ContentSettingsType permission = request->GetContentSettingsType();
@@ -1127,11 +1153,12 @@ void PermissionUmaUtil::PermissionPromptResolved(
     RecordPermissionAction(
         permission, permission_action, PermissionSourceUI::PROMPT, gesture_type,
         time_to_action, ui_disposition, ui_reason, variants, requesting_origin,
-        web_contents, web_contents->GetBrowserContext(),
+        browser_context,
         content::RenderFrameHost::FromID(request->get_requesting_frame_id()),
         predicted_grant_likelihood, permission_request_relevance,
         permission_ai_relevance_model, prediction_decision_held_back,
-        request->prompt_options());
+        request->prompt_options(), initial_geolocation_accuracy_selection,
+        request->get_ukm_source_id());
 
     std::string priorDismissPrefix = base::StrCat(
         {"Permissions.Prompt.", action_string, ".PriorDismissCount2."});
@@ -1247,8 +1274,7 @@ void PermissionUmaUtil::PermissionPromptResolved(
         gesture_suffix = ".NoGesture";
       }
 
-      PrefService* prefs =
-          user_prefs::UserPrefs::Get(web_contents->GetBrowserContext());
+      PrefService* prefs = user_prefs::UserPrefs::Get(browser_context);
       const bool is_msbb_enabled = prefs->GetBoolean(
           unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled);
 
@@ -1430,10 +1456,10 @@ bool PermissionUmaUtil::ScopedRevocationReporter::IsInstanceInScope() {
 void PermissionUmaUtil::RecordPermissionUsage(
     ContentSettingsType permission_type,
     content::BrowserContext* browser_context,
-    content::WebContents* web_contents,
+    content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin) {
   PermissionsClient::Get()->GetUkmSourceId(
-      permission_type, browser_context, web_contents, requesting_origin,
+      permission_type, browser_context, render_frame_host, requesting_origin,
       base::BindOnce(&RecordPermissionUsageUkm, permission_type));
 }
 
@@ -1462,7 +1488,6 @@ void PermissionUmaUtil::RecordPermissionAction(
     std::optional<PermissionPromptDispositionReason> ui_reason,
     std::optional<std::vector<ElementAnchoredBubbleVariant>> variants,
     const GURL& requesting_origin,
-    content::WebContents* web_contents,
     content::BrowserContext* browser_context,
     content::RenderFrameHost* render_frame_host,
     std::optional<PermissionUiSelector::PredictionGrantLikelihood>
@@ -1471,7 +1496,9 @@ void PermissionUmaUtil::RecordPermissionAction(
     std::optional<permissions::PermissionAiRelevanceModel>
         permission_ai_relevance_model,
     std::optional<bool> prediction_decision_held_back,
-    const PromptOptions& prompt_options) {
+    const PromptOptions& prompt_options,
+    std::optional<GeolocationAccuracy> initial_geolocation_accuracy_selection,
+    std::optional<ukm::SourceId> source_id) {
   DCHECK(PermissionUtil::IsPermission(permission));
   PermissionDecisionAutoBlocker* autoblocker =
       PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
@@ -1529,24 +1556,48 @@ void PermissionUmaUtil::RecordPermissionAction(
     }
   }
 
-  PermissionsClient::Get()->GetUkmSourceId(
-      permission, browser_context, web_contents, requesting_origin,
-      base::BindOnce(
-          &RecordPermissionActionUkm, action, gesture_type, permission,
-          dismiss_count, ignore_count, source_ui, time_to_action,
-          ui_disposition, ui_reason, variants,
-          permission == ContentSettingsType::NOTIFICATIONS
-              ? PermissionsClient::Get()
-                    ->HadThreeConsecutiveNotificationPermissionDenies(
-                        browser_context)
-              : std::nullopt,
-          PermissionsClient::Get()->HasPreviouslyAutoRevokedPermission(
-              browser_context, requesting_origin, permission),
-          predicted_grant_likelihood, permission_request_relevance,
-          permission_ai_relevance_model,
-          loud_ui_actions_counts_per_request_type, loud_ui_actions_counts,
-          actions_counts_per_request_type, actions_counts,
-          prediction_decision_held_back, ukm_prompt_options));
+  std::unique_ptr<PermissionActionUkmParams> params =
+      std::make_unique<PermissionActionUkmParams>(PermissionActionUkmParams{
+          .action = action,
+          .gesture_type = gesture_type,
+          .permission = permission,
+          .dismiss_count = dismiss_count,
+          .ignore_count = ignore_count,
+          .source_ui = source_ui,
+          .time_to_action = time_to_action,
+          .ui_disposition = ui_disposition,
+          .ui_reason = ui_reason,
+          .variants = variants,
+          .has_three_consecutive_denies =
+              permission == ContentSettingsType::NOTIFICATIONS
+                  ? PermissionsClient::Get()
+                        ->HadThreeConsecutiveNotificationPermissionDenies(
+                            browser_context)
+                  : std::nullopt,
+          .has_previously_revoked_permission =
+              PermissionsClient::Get()->HasPreviouslyAutoRevokedPermission(
+                  browser_context, requesting_origin, permission),
+          .predicted_grant_likelihood = predicted_grant_likelihood,
+          .permission_request_relevance = permission_request_relevance,
+          .permission_ai_relevance_model = permission_ai_relevance_model,
+          .loud_ui_actions_counts_for_request_type =
+              loud_ui_actions_counts_per_request_type,
+          .loud_ui_actions_counts = loud_ui_actions_counts,
+          .actions_counts_for_request_type = actions_counts_per_request_type,
+          .actions_counts = actions_counts,
+          .prediction_decision_held_back = prediction_decision_held_back,
+          .prompt_options = ukm_prompt_options,
+          .initial_geolocation_accuracy_selection =
+              initial_geolocation_accuracy_selection,
+      });
+
+  if (source_id.has_value() && source_id.value() != ukm::kInvalidSourceId) {
+    RecordPermissionActionUkm(std::move(params), source_id);
+  } else {
+    PermissionsClient::Get()->GetUkmSourceId(
+        permission, browser_context, render_frame_host, requesting_origin,
+        base::BindOnce(&RecordPermissionActionUkm, std::move(params)));
+  }
 
   if (render_frame_host && IsCrossOriginSubframe(render_frame_host)) {
     RecordCrossOriginFrameActionAndPolicyConfiguration(permission, action,
@@ -1906,6 +1957,8 @@ std::string PermissionUmaUtil::GetPromptDispositionString(
       return "MacOsPrompt";
     case PermissionPromptDisposition::MESSAGE_UI_LOUD:
       return "MessageUILoud";
+    case PermissionPromptDisposition::LOCATION_BAR_LEFT_CLAPPER_QUIET_ICON:
+      return "LocationBarLeftClapperQuietIcon";
   }
 
   NOTREACHED();
@@ -1946,6 +1999,7 @@ bool PermissionUmaUtil::IsPromptDispositionQuiet(
     case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_ABUSIVE_CHIP:
     case PermissionPromptDisposition::MINI_INFOBAR:
     case PermissionPromptDisposition::MESSAGE_UI:
+    case PermissionPromptDisposition::LOCATION_BAR_LEFT_CLAPPER_QUIET_ICON:
       return true;
     case PermissionPromptDisposition::ANCHORED_BUBBLE:
     case PermissionPromptDisposition::ELEMENT_ANCHORED_BUBBLE:
@@ -1980,6 +2034,7 @@ bool PermissionUmaUtil::IsPromptDispositionLoud(
     case PermissionPromptDisposition::MESSAGE_UI:
     case PermissionPromptDisposition::NONE_VISIBLE:
     case PermissionPromptDisposition::NOT_APPLICABLE:
+    case PermissionPromptDisposition::LOCATION_BAR_LEFT_CLAPPER_QUIET_ICON:
       return false;
   }
 }
@@ -2234,14 +2289,14 @@ void PermissionUmaUtil::RecordElementAnchoredPermissionPromptAction(
     ElementAnchoredBubbleVariant variant,
     int screen_counter,
     const GURL& requesting_origin,
-    content::WebContents* web_contents,
     content::BrowserContext* browser_context) {
   CHECK(requests.size());
   CHECK(screen_requests.size());
   auto first_request_type =
       RequestTypeToContentSettingsType(requests[0]->request_type());
   PermissionsClient::Get()->GetUkmSourceId(
-      first_request_type.value(), browser_context, web_contents,
+      first_request_type.value(), browser_context,
+      content::RenderFrameHost::FromID(requests[0]->get_requesting_frame_id()),
       requesting_origin,
       base::BindOnce(&RecordElementAnchoredPermissionPromptActionUkm,
                      PermissionUtil::GetUmaValueForRequests(requests),
@@ -2513,7 +2568,7 @@ void PermissionUmaUtil::RecordPostPromptSessionDuration(
                     ".PostPromptSessionDuration"}),
       duration);
 
-      // UmaHistogramCustomTimes(name, sample, Milliseconds(1), Hours(1), 100);
+  // UmaHistogramCustomTimes(name, sample, Milliseconds(1), Hours(1), 100);
 
   // Record finer-grained histograms for the first minute.
   if (duration <= base::Seconds(10)) {

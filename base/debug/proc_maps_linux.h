@@ -9,10 +9,11 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/base_export.h"
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 
 namespace base::debug {
 
@@ -99,18 +100,18 @@ BASE_EXPORT bool ReadProcMaps(std::string* proc_maps);
 
 // Parses /proc/<pid>/maps input data and stores in |regions|. Returns true
 // and updates |regions| if and only if all of |input| was successfully parsed.
-BASE_EXPORT bool ParseProcMaps(const std::string& input,
+BASE_EXPORT bool ParseProcMaps(std::string_view input,
                                std::vector<MappedMemoryRegion>* regions);
 
 struct SmapsRollup {
-  ByteCount rss = ByteCount(0);
-  ByteCount pss = ByteCount(0);
-  ByteCount pss_anon = ByteCount(0);
-  ByteCount pss_file = ByteCount(0);
-  ByteCount pss_shmem = ByteCount(0);
-  ByteCount private_dirty = ByteCount(0);
-  ByteCount swap = ByteCount(0);
-  ByteCount swap_pss = ByteCount(0);
+  ByteSize rss;
+  ByteSize pss;
+  ByteSize pss_anon;
+  ByteSize pss_file;
+  ByteSize pss_shmem;
+  ByteSize private_dirty;
+  ByteSize swap;
+  ByteSize swap_pss;
 };
 
 // Attempts to read /proc/self/smaps_rollup. Returns nullopt on error.

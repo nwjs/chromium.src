@@ -23,9 +23,9 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/create_tab_group_mediator_delegate.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_creation_consumer.h"
@@ -227,9 +227,10 @@
     if (_createNewTabForGroup) {
       CHECK(_identifiers.empty());
       // Insert a new tab before creating the group to prevent empty groups.
-      id<ApplicationCommands> dispatcher = HandlerForProtocol(
-          _browser->GetCommandDispatcher(), ApplicationCommands);
-      OpenNewTabCommand* command = [OpenNewTabCommand command];
+      id<SceneCommands> dispatcher =
+          HandlerForProtocol(_browser->GetCommandDispatcher(), SceneCommands);
+      OpenNewTabCommand* command = [OpenNewTabCommand
+          commandWithIncognito:_browser->GetProfile()->IsOffTheRecord()];
       [dispatcher openURLInNewTab:command];
 
       web::WebState* activeWebState = _webStateList->GetActiveWebState();

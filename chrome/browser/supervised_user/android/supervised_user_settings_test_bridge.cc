@@ -19,7 +19,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/supervised_user/test_support_jni_headers/SupervisedUserSettingsTestBridge_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 
 static void JNI_SupervisedUserSettingsTestBridge_SetFilteringBehavior(
     JNIEnv* env,
@@ -37,8 +37,8 @@ static void JNI_SupervisedUserSettingsTestBridge_SetFilteringBehavior(
 static void JNI_SupervisedUserSettingsTestBridge_SetManualFilterForHost(
     JNIEnv* env,
     Profile* profile,
-    const JavaParamRef<jstring>& host,
-    jboolean allowlist) {
+    const JavaRef<jstring>& host,
+    bool allowlist) {
   std::string host_string(base::android::ConvertJavaStringToUTF8(env, host));
   supervised_user_test_util::SetManualFilterForHost(profile, host_string,
                                                     allowlist);
@@ -63,7 +63,7 @@ static void
 JNI_SupervisedUserSettingsTestBridge_SetKidsManagementResponseForTesting(  // IN-TEST
     JNIEnv* env,
     Profile* profile,
-    jboolean is_allowed) {
+    bool is_allowed) {
   SupervisedUserServiceFactory::GetInstance()
       ->GetForProfile(profile)
       ->GetURLFilter()

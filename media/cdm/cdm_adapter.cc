@@ -558,9 +558,7 @@ void CdmAdapter::InitializeVideoDecoder(const VideoDecoderConfig& config,
                                         DecoderInitCB init_cb) {
   DVLOG(2) << __func__ << ": " << config.AsHumanReadableString();
   CHECK(task_runner_->BelongsToCurrentThread());
-  // TODO(crbug.com/412213310): This is currently crashing on ChromeOS,
-  // when converted to a CHECK.
-  DCHECK(!video_init_cb_);
+  CHECK(!video_init_cb_, base::NotFatalUntil::M155);
   TRACE_EVENT0("media", "CdmAdapter::InitializeVideoDecoder");
 
   // Alpha decoding is not supported by the CDM.
@@ -707,9 +705,13 @@ void CdmAdapter::DeinitializeDecoder(StreamType stream_type) {
     case Decryptor::kAudio:
       audio_samples_per_second_ = 0;
       audio_channel_layout_ = CHANNEL_LAYOUT_NONE;
+      // Drop any pending audio decoder initialization callback.
+      audio_init_cb_.Reset();
       break;
     case Decryptor::kVideo:
       aspect_ratio_ = VideoAspectRatio();
+      // Drop any pending video decoder initialization callback.
+      video_init_cb_.Reset();
       break;
   }
 }
@@ -1145,6 +1147,18 @@ void CdmAdapter::ReportMetrics(cdm::MetricName metric_name, uint64_t value) {
       cdm_metrics_data_.decoder_bypass_block_count =
           cdm_metrics_data_.decoder_bypass_block_count.value_or(0) + value;
       ReportDecoderBypassBlockCountUMA(value, frames_processed_);
+      return;
+    case cdm::kDecoderCheck1SuccessCount:
+      cdm_metrics_data_.decoder_check1_success_count =
+          cdm_metrics_data_.decoder_check1_success_count.value_or(0) + value;
+      return;
+    case cdm::kDecoderCheck1WarningCount:
+      cdm_metrics_data_.decoder_check1_warning_count =
+          cdm_metrics_data_.decoder_check1_warning_count.value_or(0) + value;
+      return;
+    case cdm::kDecoderCheck1ErrorCount:
+      cdm_metrics_data_.decoder_check1_error_count =
+          cdm_metrics_data_.decoder_check1_error_count.value_or(0) + value;
       return;
   }
 }

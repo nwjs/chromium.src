@@ -17,7 +17,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
-#include "base/threading/sequence_bound.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -243,7 +242,6 @@ class ProfileNetworkContextService
   void OnThirdPartyCookieBlockingChanged(
       bool block_third_party_cookies) override;
   void OnMitigationsEnabledFor3pcdChanged(bool enable) override;
-  void OnTrackingProtectionEnabledFor3pcdChanged(bool enable) override;
 
   // KeyedService:
   void Shutdown() override;

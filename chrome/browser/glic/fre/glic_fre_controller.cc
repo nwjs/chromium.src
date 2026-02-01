@@ -19,7 +19,6 @@
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/fre/fre_util.h"
-#include "chrome/browser/glic/fre/glic_fre_dialog_view.h"
 #include "chrome/browser/glic/fre/glic_fre_page_handler.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -31,11 +30,8 @@
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
-#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
 #include "components/google/core/common/google_util.h"
@@ -44,8 +40,15 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/fre/glic_fre_dialog_view.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"  // nogncheck
+#include "chrome/browser/ui/tabs/public/tab_features.h"        // nogncheck
+#endif
 namespace {
 
+#if !BUILDFLAG(IS_ANDROID)
 glic::GlicFreWidgetClosedReason ToGlicFreWidgetClosedReason(
     views::Widget::ClosedReason reason) {
   switch (reason) {
@@ -63,6 +66,7 @@ glic::GlicFreWidgetClosedReason ToGlicFreWidgetClosedReason(
       return glic::GlicFreWidgetClosedReason::kAcceptButtonClicked;
   }
 }
+#endif
 
 }  // namespace
 
@@ -91,12 +95,16 @@ void GlicFreController::Shutdown() {
 }
 
 bool GlicFreController::ShouldShowFreDialog() {
+  if (GlicEnabling::IsTrustFirstOnboardingEnabled()) {
+    return false;
+  }
   // If the given profile has not previously completed the FRE and is eligible,
   // then it should be shown.
   return GlicEnabling::IsEnabledForProfile(profile_) &&
          !GlicEnabling::HasConsentedForProfile(profile_);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 bool GlicFreController::CanShowFreDialog(Browser* browser) {
   // The FRE can only be shown given a valid browser. If there is no browser,
   // then an OS-level entrypoint is being used, which should not be possible
@@ -109,7 +117,9 @@ bool GlicFreController::CanShowFreDialog(Browser* browser) {
   tabs::TabInterface* tab = browser->GetActiveTabInterface();
   return tab && tab->CanShowModalUI();
 }
+#endif
 
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
                                               mojom::InvocationSource source) {
   Browser* browser = bwi->GetBrowserForMigrationOnly();
@@ -126,7 +136,9 @@ void GlicFreController::OpenFreDialogInNewTab(BrowserWindowInterface* bwi,
     }
   }
 }
+#endif
 
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::ShowFreDialog(Browser* browser,
                                       mojom::InvocationSource source) {
   CHECK(CanShowFreDialog(browser));
@@ -145,7 +157,9 @@ void GlicFreController::ShowFreDialog(Browser* browser,
         base::UserMetricsAction("Glic.Fre.CheckAuthBeforeShowSync"));
   }
 }
+#endif
 
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::ShowFreDialogAfterAuthCheck(
     base::WeakPtr<Browser> browser,
     mojom::InvocationSource source) {
@@ -196,6 +210,7 @@ void GlicFreController::ShowFreDialogAfterAuthCheck(
   RecordFrameworkStartTime();
   auth_controller_.OnGlicWindowOpened();
 }
+#endif
 
 void GlicFreController::MarkFreStartAttempt() {
   pending_open_start_time_ = base::TimeTicks::Now();
@@ -209,6 +224,7 @@ void GlicFreController::RecordFrameworkStartTime() {
   pending_framework_start_time_ = base::TimeTicks::Now();
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::DismissFreIfOpenOnActiveTab(Browser* browser) {
   if (!browser) {
     return;
@@ -222,6 +238,7 @@ void GlicFreController::DismissFreIfOpenOnActiveTab(Browser* browser) {
     DismissFre(webui_state_);
   }
 }
+#endif
 
 void GlicFreController::AcceptFre(GlicFrePageHandler* handler) {
   // Notify other handlers that they lost the race.
@@ -235,38 +252,34 @@ void GlicFreController::AcceptFre(GlicFrePageHandler* handler) {
   profile_->GetPrefs()->SetInteger(
       prefs::kGlicCompletedFre, static_cast<int>(prefs::FreStatus::kCompleted));
 
-  // Enable the launcher if it is still disabled by default and the browser
-  // is default or is on the stable channel.
-  bool is_enabled_default = false;
-  const bool is_launcher_enabled =
-      GlicLauncherConfiguration::IsEnabled(&is_enabled_default);
-  if (is_enabled_default && !is_launcher_enabled) {
-    base::MakeRefCounted<shell_integration::DefaultBrowserWorker>()
-        ->StartCheckIsDefault(
-            base::BindOnce(&GlicFreController::OnCheckIsDefaultBrowserFinished,
-                           chrome::GetChannel()));
-  }
+  GlicLauncherConfiguration::CheckDefaultBrowserToEnableLauncher();
 
+#if !BUILDFLAG(IS_ANDROID)
   // Dismiss the FRE window and then show the Glic panel, but store source
   // browser before it is cleared.
   Browser* source_browser = source_browser_;
-  CloseWithReason(views::Widget::ClosedReason::kAcceptButtonClicked);
+  CloseWithFreReason(GlicFreWidgetClosedReason::kAcceptButtonClicked);
 
   // Show a glic window attached to the invocation source browser.
   if (source_browser) {
     GlicKeyedServiceFactory::GetGlicKeyedService(profile_)->ToggleUI(
         source_browser, /*prevent_close=*/true, mojom::InvocationSource::kFre);
   }
+#endif
 }
 
 void GlicFreController::RejectFre() {
   base::RecordAction(base::UserMetricsAction("Glic.Fre.NoThanks"));
-  CloseWithReason(views::Widget::ClosedReason::kCancelButtonClicked);
+  CloseWithFreReason(GlicFreWidgetClosedReason::kCancelButtonClicked);
 }
 
+void GlicFreController::CloseWithFreReason(GlicFreWidgetClosedReason reason) {
+  base::UmaHistogramEnumeration("Glic.Fre.WidgetClosedReason2", reason);
+  DismissFre(webui_state_);
+}
+
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::CloseWithReason(views::Widget::ClosedReason reason) {
-  base::UmaHistogramEnumeration("Glic.Fre.WidgetClosedReason2",
-                                ToGlicFreWidgetClosedReason(reason));
   switch (reason) {
     case views::Widget::ClosedReason::kAcceptButtonClicked:
     case views::Widget::ClosedReason::kCancelButtonClicked:
@@ -281,8 +294,9 @@ void GlicFreController::CloseWithReason(views::Widget::ClosedReason reason) {
       base::RecordAction(base::UserMetricsAction("Glic.Fre.CloseWithX"));
       break;
   }
-  DismissFre(webui_state_);
+  CloseWithFreReason(ToGlicFreWidgetClosedReason(reason));
 }
+#endif
 
 void GlicFreController::DismissFre(mojom::FreWebUiState panel) {
   if (IsShowingDialog()) {
@@ -317,6 +331,7 @@ void GlicFreController::DismissFre(mojom::FreWebUiState panel) {
     }
   }
   web_contents_ = nullptr;
+#if !BUILDFLAG(IS_ANDROID)
   source_browser_ = nullptr;
   if (fre_view_ || fre_widget_) {
     auto* service = GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
@@ -334,6 +349,7 @@ void GlicFreController::DismissFre(mojom::FreWebUiState panel) {
     will_detach_subscription_ = {};
   }
   fre_view_.reset();
+#endif
 }
 
 void GlicFreController::PrepareForClient(
@@ -387,18 +403,30 @@ void GlicFreController::OnLinkClicked(const GURL& url) {
 }
 
 void GlicFreController::TryPreload() {
+#if !BUILDFLAG(IS_ANDROID)
   // Callers should not attempt to preload if the widget is showing.
   CHECK(!fre_widget_);
+#endif
 
-  if (fre_view_ || auth_controller_.RequiresSignIn()) {
+  if (
+#if !BUILDFLAG(IS_ANDROID)
+      fre_view_ ||
+#endif
+      auth_controller_.RequiresSignIn()) {
     return;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
   CreateView();
+#endif
 }
 
 bool GlicFreController::IsWarmed() const {
+#if !BUILDFLAG(IS_ANDROID)
   return !!fre_view_;
+#else
+  return false;
+#endif
 }
 
 content::WebContents* GlicFreController::GetWebContents() {
@@ -488,26 +516,6 @@ void GlicFreController::MaybePreconnect() {
   }
 }
 
-// static
-void GlicFreController::OnCheckIsDefaultBrowserFinished(
-    version_info::Channel channel,
-    shell_integration::DefaultWebClientState state) {
-  // Don't do anything because a different channel is the default browser
-  if (state ==
-      shell_integration::DefaultWebClientState::OTHER_MODE_IS_DEFAULT) {
-    return;
-  }
-
-  // Enables the launcher if the current browser is the default or
-  // is on the stable channel.
-  if (g_browser_process &&
-      (state == shell_integration::DefaultWebClientState::IS_DEFAULT ||
-       channel == version_info::Channel::STABLE)) {
-    g_browser_process->local_state()->SetBoolean(prefs::kGlicLauncherEnabled,
-                                                 true);
-  }
-}
-
 void GlicFreController::OnTabShowingModalWillDetach(
     tabs::TabInterface* tab,
     tabs::TabInterface::DetachReason reason) {
@@ -528,6 +536,7 @@ void GlicFreController::OnTabShowingModalWillDetach(
   DismissFre(webui_state_);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 void GlicFreController::CreateView() {
   if (fre_view_) {
     return;
@@ -539,17 +548,26 @@ void GlicFreController::CreateView() {
   auto* service = GlicKeyedServiceFactory::GetGlicKeyedService(profile_);
   GlicProfileManager::GetInstance()->OnLoadingClientForService(service);
 }
+#endif
 
 bool GlicFreController::IsShowingDialog() const {
   if (is_showing_dialog_for_testing_.has_value()) {
     return is_showing_dialog_for_testing_.value();
   }
+#if !BUILDFLAG(IS_ANDROID)
   return !!fre_widget_;
+#else
+  return false;
+#endif
 }
 
 bool GlicFreController::IsShowingDialogAndStateInitialized() const {
+#if !BUILDFLAG(IS_ANDROID)
   return !!fre_widget_ &&
          (webui_state_ != mojom::FreWebUiState::kUninitialized);
+#else
+  return false;
+#endif
 }
 
 gfx::Size GlicFreController::GetFreInitialSize() {
@@ -558,11 +576,13 @@ gfx::Size GlicFreController::GetFreInitialSize() {
 }
 
 void GlicFreController::UpdateFreWidgetSize(const gfx::Size& new_size) {
+#if !BUILDFLAG(IS_ANDROID)
   if (!fre_widget_) {
     return;
   }
 
   fre_widget_->SetSize(new_size);
+#endif
 }
 
 GlicFreController::InitTimestamps GlicFreController::RegisterPageHandler(

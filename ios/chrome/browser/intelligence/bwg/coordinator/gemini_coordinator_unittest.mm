@@ -23,10 +23,10 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -72,18 +72,17 @@ class GeminiCoordinatorTest : public PlatformTest {
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
     mock_bwg_command_handler_ = OCMProtocolMock(@protocol(BWGCommands));
     mock_help_command_handler_ = OCMProtocolMock(@protocol(HelpCommands));
-    id mock_application_commands_handler =
-        OCMProtocolMock(@protocol(ApplicationCommands));
+    id mock_scene_handler = OCMProtocolMock(@protocol(SceneCommands));
 
     [dispatcher startDispatchingToTarget:mock_bwg_command_handler_
                              forProtocol:@protocol(BWGCommands)];
     [dispatcher startDispatchingToTarget:mock_help_command_handler_
                              forProtocol:@protocol(HelpCommands)];
-    [dispatcher startDispatchingToTarget:mock_application_commands_handler
-                             forProtocol:@protocol(ApplicationCommands)];
+    [dispatcher startDispatchingToTarget:mock_scene_handler
+                             forProtocol:@protocol(SceneCommands)];
   }
 
-  void StartCoordinatorWithEntryPoint(bwg::EntryPoint entryPoint) {
+  void StartCoordinatorWithEntryPoint(gemini::EntryPoint entryPoint) {
     base_view_controller_ = [[UIViewController alloc] init];
     coordinator_ =
         [[BWGCoordinator alloc] initWithBaseViewController:base_view_controller_
@@ -127,7 +126,7 @@ TEST_F(GeminiCoordinatorTest, FullscreenNotExitedOnAIHubEntryPoint) {
       *tracker,
       NotifyEvent(feature_engagement::events::kIOSGeminiFlowStartedNonPromo));
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::AIHub);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::AIHub);
 
   // Check that fullscreen mode is still active.
   EXPECT_EQ(0.0, controller->GetProgress());
@@ -136,7 +135,9 @@ TEST_F(GeminiCoordinatorTest, FullscreenNotExitedOnAIHubEntryPoint) {
 // Tests fullscreen mode exiting when promo shows from the promo entry point.
 TEST_F(GeminiCoordinatorTest, FullscreenExitedOnPromoEntryPoint) {
   feature_list_.InitWithFeatures(
-      {kGeminiNavigationPromo, kAskGeminiChip, kPageActionMenu}, {});
+      {feature_engagement::kIPHiOSGeminiFullscreenPromoFeature,
+       kGeminiNavigationPromo, kAskGeminiChip, kPageActionMenu},
+      {});
   auto* tracker = static_cast<feature_engagement::test::MockTracker*>(
       feature_engagement::TrackerFactory::GetForProfile(
           profile_manager_.GetProfileWithName(kFirstProfileName)));
@@ -161,7 +162,7 @@ TEST_F(GeminiCoordinatorTest, FullscreenExitedOnPromoEntryPoint) {
       NotifyEvent(
           feature_engagement::events::kIOSFullscreenPromosGroupTrigger));
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::Promo);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::Promo);
 
   // Check that fullscreen mode is deactivated.
   EXPECT_EQ(1.0, controller->GetProgress());
@@ -193,7 +194,7 @@ TEST_F(GeminiCoordinatorTest, GeminiPromoNotShown) {
       NotifyEvent(feature_engagement::events::kIOSFullscreenPromosGroupTrigger))
       .Times(0);
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::Promo);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::Promo);
 
   // Checks that a promo didn't start and the impression count didn't
   // increase.
@@ -207,7 +208,7 @@ TEST_F(GeminiCoordinatorTest, AIHubIPHWasTriggered) {
   OCMExpect([mock_help_command_handler_
       presentInProductHelpWithType:InProductHelpType::kPageActionMenu]);
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::Promo);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::Promo);
   [coordinator_ stop];
 
   EXPECT_OCMOCK_VERIFY(mock_help_command_handler_);
@@ -219,7 +220,7 @@ TEST_F(GeminiCoordinatorTest, AIHubIPHNotTriggered) {
   OCMReject([mock_help_command_handler_
       presentInProductHelpWithType:InProductHelpType::kPageActionMenu]);
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::AIHub);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::AIHub);
   [coordinator_ stop];
 
   EXPECT_OCMOCK_VERIFY(mock_help_command_handler_);
@@ -244,25 +245,25 @@ TEST_F(GeminiCoordinatorTest, DismissOtherWindows) {
                    forProtocol:@protocol(BWGCommands)];
 
   OCMExpect([second_bwg_handler
-      dismissBWGFlowWithCompletion:[OCMArg checkWithBlock:^BOOL(
-                                               ProceduralBlock block) {
+      dismissGeminiFlowWithCompletion:[OCMArg checkWithBlock:^BOOL(
+                                                  ProceduralBlock block) {
         if (block) {
           block();
         }
         return YES;
       }]]);
 
-  StartCoordinatorWithEntryPoint(bwg::EntryPoint::Promo);
+  StartCoordinatorWithEntryPoint(gemini::EntryPoint::Promo);
 
   // Emulate starting the floaty from the first window.
   OCMStub([mock_bwg_command_handler_
-      dismissBWGFlowWithCompletion:[OCMArg
-                                       checkWithBlock:^(ProceduralBlock block) {
-                                         if (block) {
-                                           block();
-                                         }
-                                         return YES;
-                                       }]]);
+      dismissGeminiFlowWithCompletion:[OCMArg checkWithBlock:^(
+                                                  ProceduralBlock block) {
+        if (block) {
+          block();
+        }
+        return YES;
+      }]]);
 
   EXPECT_OCMOCK_VERIFY(mock_bwg_command_handler_);
   EXPECT_OCMOCK_VERIFY(second_bwg_handler);

@@ -26,7 +26,7 @@
 // offline_items_collection::FailState.
 #include "chrome/android/chrome_jni_headers/DownloadUtils_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace {
@@ -46,9 +46,8 @@ static jint JNI_DownloadUtils_GetResumeMode(
       true /* user_action_required */));
 }
 
-static jboolean JNI_DownloadUtils_IsDownloadRestrictedByPolicy(
-    JNIEnv* env,
-    Profile* profile) {
+static bool JNI_DownloadUtils_IsDownloadRestrictedByPolicy(JNIEnv* env,
+                                                           Profile* profile) {
   content::DownloadManager* manager = profile->GetDownloadManager();
   if (manager) {
     return manager->GetDelegate()->IsDownloadRestrictedByPolicy();
@@ -88,7 +87,9 @@ void DownloadUtils::OpenDownload(download::DownloadItem* item,
   Java_DownloadUtils_openDownload(
       env, item->GetTargetFilePath().value(), item->GetMimeType(),
       item->GetGuid(), otr_profile_id, original_url,
-      item->GetReferrerUrl().spec(), static_cast<jint>(open_source));
+      item->GetReferrerUrl().spec(), static_cast<jint>(open_source),
+      base::android::ConvertUTF8ToJavaString(
+        env, item->GetFileNameToReportUser().value()));
 }
 
 // static

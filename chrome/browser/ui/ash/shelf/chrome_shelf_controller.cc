@@ -20,7 +20,6 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
 #include "base/check_is_test.h"
-#include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -76,7 +75,6 @@
 #include "chrome/browser/ui/ash/shelf/shelf_extension_app_updater.h"
 #include "chrome/browser/ui/ash/shelf/shelf_spinner_controller.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/ash/settings/app_management/app_management_uma.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -1655,7 +1653,7 @@ void ChromeShelfController::AddAppUpdaterAndIconLoader(Profile* profile) {
     }
   }
 
-  if (!base::Contains(app_updaters_, profile)) {
+  if (!app_updaters_.contains(profile)) {
     std::vector<std::unique_ptr<ShelfAppUpdater>>& app_updaters_for_profile =
         app_updaters_[profile];
     app_updaters_for_profile.push_back(
@@ -1673,7 +1671,7 @@ void ChromeShelfController::AddAppUpdaterAndIconLoader(Profile* profile) {
         std::make_unique<ShelfPromiseAppUpdater>(this, profile));
   }
 
-  if (!base::Contains(app_icon_loaders_, profile)) {
+  if (!app_icon_loaders_.contains(profile)) {
     std::vector<std::unique_ptr<AppIconLoader>>& app_icon_loaders_for_profile =
         app_icon_loaders_[profile];
     app_icon_loaders_for_profile.push_back(

@@ -18,7 +18,6 @@
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/sync_switch_item.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_command_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_consumer.h"
@@ -123,8 +122,6 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
   // Needed for the initialization of authentication service.
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
 
-  base::test::ScopedFeatureList feature_list_;
-
   raw_ptr<syncer::TestSyncService, DanglingUntriaged> sync_service_;
   std::unique_ptr<TestProfileIOS> profile_;
 
@@ -159,7 +156,6 @@ TEST_F(ManageSyncSettingsMediatorTest,
 // for a signed in account along with manage accounts items.
 TEST_F(ManageSyncSettingsMediatorTest,
        CheckSignOutSectionItemsForSignedInAccount) {
-  feature_list_.InitAndDisableFeature(kIOSManageAccountStorage);
   CreateManageSyncSettingsMediator();
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
 
@@ -173,33 +169,37 @@ TEST_F(ManageSyncSettingsMediatorTest,
   ASSERT_GE([items count], 2u);
   EXPECT_EQ(ManageGoogleAccountItemType,
             base::apple::ObjCCastStrict<TableViewItem>(items[0]).type);
-  EXPECT_EQ(ManageAccountsItemType,
+  EXPECT_EQ(ManageAccountStorageType,
             base::apple::ObjCCastStrict<TableViewItem>(items[1]).type);
+  EXPECT_EQ(ManageAccountsItemType,
+            base::apple::ObjCCastStrict<TableViewItem>(items[2]).type);
   EXPECT_NSEQ(l10n_util::GetNSString(
                   IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_GOOGLE_ACCOUNT_ITEM),
               base::apple::ObjCCastStrict<TableViewTextItem>(items[0]).text);
   EXPECT_NSEQ(l10n_util::GetNSString(
-                  IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_ACCOUNTS_ITEM),
+                  IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_STORAGE_ITEM),
               base::apple::ObjCCastStrict<TableViewTextItem>(items[1]).text);
+  EXPECT_NSEQ(l10n_util::GetNSString(
+                  IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_ACCOUNTS_ITEM),
+              base::apple::ObjCCastStrict<TableViewTextItem>(items[2]).text);
 
   // The "Sign out" item only exists in this section if
   // kSeparateProfilesForManagedAccounts is disabled.
   if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    ASSERT_EQ([items count], 3u);
+    ASSERT_EQ([items count], 4u);
     EXPECT_EQ(SignOutItemType,
               base::apple::ObjCCastStrict<TableViewItem>(items[2]).type);
     EXPECT_NSEQ(
         l10n_util::GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM),
         base::apple::ObjCCastStrict<TableViewTextItem>(items[2]).text);
   } else {
-    ASSERT_EQ([items count], 2u);
+    ASSERT_EQ([items count], 3u);
   }
 }
 
 // Tests the signout section items when manage storage is enabled.
 TEST_F(ManageSyncSettingsMediatorTest,
        CheckSignOutSectionItemsForSignedInNotSyncingAccountWithStorage) {
-  feature_list_.InitAndEnableFeature(kIOSManageAccountStorage);
   CreateManageSyncSettingsMediator();
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
 
@@ -244,7 +244,6 @@ TEST_F(ManageSyncSettingsMediatorTest,
 // Tests that a persistent auth error is displayed as a text button at the top
 // of the page for a signed in account.
 TEST_F(ManageSyncSettingsMediatorTest, TestAuthErrorForSignedInAccount) {
-  feature_list_.InitAndEnableFeature(switches::kEnableIdentityInAuthError);
   CreateManageSyncSettingsMediator();
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
   sync_service_->SetPersistentAuthError();
@@ -336,32 +335,8 @@ TEST_F(ManageSyncSettingsMediatorTest, TestAccountStateTransitionOnSignOut) {
             [mediator_.consumer.tableViewModel numberOfSections]);
 }
 
-// Test that the GoogleActivityControlsItem is visible when the
-// LinkedServicesSettings flags is disabled.
-TEST_F(ManageSyncSettingsMediatorTest, TestGoogleActivityControlsItem) {
-  // Disable the LinkedServicesSettings flag.
-  feature_list_.InitAndDisableFeature(kLinkedServicesSettingIos);
-
-  // Create mediator with a signed-in account.
-  CreateManageSyncSettingsMediator();
-  sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
-
-  [mediator_ manageSyncSettingsTableViewControllerLoadModel:mediator_.consumer];
-
-  // Get section items.
-  NSArray* items = [mediator_.consumer.tableViewModel
-      itemsInSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
-
-  EXPECT_EQ(GoogleActivityControlsItemType,
-            base::apple::ObjCCastStrict<TableViewItem>(items[1]).type);
-}
-
-// Test that the PersonalizeGoogleServices is visible when the
-// LinkedServicesSettings flags is disabled.
+// Test that the PersonalizeGoogleServices is visible.
 TEST_F(ManageSyncSettingsMediatorTest, TestPersonalizeGoogleServicesItem) {
-  // Enable the LinkedServicesSettings flag.
-  feature_list_.InitAndEnableFeature(kLinkedServicesSettingIos);
-
   // Create mediator with a signed-in account.
   CreateManageSyncSettingsMediator();
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
@@ -379,9 +354,6 @@ TEST_F(ManageSyncSettingsMediatorTest, TestPersonalizeGoogleServicesItem) {
 // Test that the PersonalizeGoogleServices item open the Personalized Google
 // Services settings for EEA users.
 TEST_F(ManageSyncSettingsMediatorTest, TestPersonalizeGoogleServicesItemEEA) {
-  // Enable the LinkedServicesSettings flag.
-  feature_list_.InitAndEnableFeature(kLinkedServicesSettingIos);
-
   // Create mediator with a signed-in account.
   CreateManageSyncSettingsMediator(true);
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
@@ -408,9 +380,6 @@ TEST_F(ManageSyncSettingsMediatorTest, TestPersonalizeGoogleServicesItemEEA) {
 // settings for non EEA users.
 TEST_F(ManageSyncSettingsMediatorTest,
        TestPersonalizeGoogleServicesItemNonEEA) {
-  // Enable the LinkedServicesSettings flag.
-  feature_list_.InitAndEnableFeature(kLinkedServicesSettingIos);
-
   // Create mediator with a signed-in account.
   CreateManageSyncSettingsMediator(false);
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);

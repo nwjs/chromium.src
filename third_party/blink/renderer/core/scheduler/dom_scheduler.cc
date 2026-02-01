@@ -62,17 +62,21 @@ V8TaskPriority::Enum V8TaskEnumFromWebSchedulingPriority(
 }
 }  // namespace
 
+const char DOMScheduler::kSupplementName[] = "DOMScheduler";
+
 DOMScheduler* DOMScheduler::scheduler(ExecutionContext& context) {
-  DOMScheduler* scheduler = context.GetDOMScheduler();
+  DOMScheduler* scheduler =
+      Supplement<ExecutionContext>::From<DOMScheduler>(context);
   if (!scheduler) {
     scheduler = MakeGarbageCollected<DOMScheduler>(&context);
-    context.SetDOMScheduler(scheduler);
+    Supplement<ExecutionContext>::ProvideTo(context, scheduler);
   }
   return scheduler;
 }
 
 DOMScheduler::DOMScheduler(ExecutionContext* context)
     : ExecutionContextLifecycleObserver(context),
+      Supplement<ExecutionContext>(*context),
       fixed_priority_task_signals_(kWebSchedulingPriorityCount) {
   if (context->IsContextDestroyed()) {
     return;
@@ -95,6 +99,7 @@ void DOMScheduler::Trace(Visitor* visitor) const {
   visitor->Trace(signal_to_continuation_queue_map_);
   ScriptWrappable::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 ScriptPromise<IDLAny> DOMScheduler::postTask(
@@ -240,7 +245,8 @@ void DOMScheduler::setTaskId(v8::Isolate* isolate,
   }
   auto* task_state = MakeGarbageCollected<TaskAttributionInfoImpl>(
       scheduler::TaskAttributionId(task_id),
-      /*soft_navigation_context=*/nullptr);
+      /*soft_navigation_context=*/nullptr,
+      /*resource_timing_context=*/nullptr);
   TaskAttributionTaskState::SetCurrent(isolate, task_state);
   auto* scheduler = ThreadScheduler::Current()->ToMainThreadScheduler();
   // This test API is only available on the main thread.

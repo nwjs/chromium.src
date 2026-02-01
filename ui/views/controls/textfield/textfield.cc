@@ -73,6 +73,7 @@
 #include "ui/views/drag_utils.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/painter.h"
+#include "ui/views/property_effects.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
@@ -1251,14 +1252,6 @@ void Textfield::OnTextChanged() {
   drop_weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
-void Textfield::WriteTextToClipboard(ui::ClipboardBuffer clipboard_buffer,
-                                     const std::u16string_view& text) {
-  if (!controller_ ||
-      !controller_->HandleWriteTextToClipboard(clipboard_buffer, text)) {
-    ui::ScopedClipboardWriter(clipboard_buffer).WriteText(text);
-  }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, ContextMenuController overrides:
 
@@ -1328,8 +1321,7 @@ int Textfield::GetDragOperationsForView(View* sender, const gfx::Point& p) {
 bool Textfield::CanStartDragForView(View* sender,
                                     const gfx::Point& press_pt,
                                     const gfx::Point& p) {
-  return initiating_drag_ && GetRenderText()->IsPointInSelection(press_pt) &&
-         (!controller_ || controller_->AllowStartDragEvent(GetSelectedText()));
+  return initiating_drag_ && GetRenderText()->IsPointInSelection(press_pt);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2701,7 +2693,8 @@ void Textfield::UpdateSelectionClipboard() {
   if (ui::Clipboard::IsSupportedClipboardBuffer(
           ui::ClipboardBuffer::kSelection)) {
     if (text_input_type_ != ui::TEXT_INPUT_TYPE_PASSWORD) {
-      WriteTextToClipboard(ui::ClipboardBuffer::kSelection, GetSelectedText());
+      ui::ScopedClipboardWriter(ui::ClipboardBuffer::kSelection)
+          .WriteText(GetSelectedText());
       if (controller_) {
         controller_->OnAfterCutOrCopy(ui::ClipboardBuffer::kSelection);
       }
@@ -2995,14 +2988,31 @@ bool Textfield::Copy() {
 }
 
 bool Textfield::Paste() {
-  if (!GetReadOnly() && model_->Paste()) {
-    if (controller_) {
-      controller_->OnAfterPaste();
-    }
-    UpdateAccessibleTextSelection();
-    return true;
+  if (GetReadOnly()) {
+    return false;
   }
-  return false;
+
+  bool pasted = false;
+  std::u16string text;
+  // Allow the controller to intercept paste and provide text; if not provided,
+  // fall back to the model's default clipboard handling.
+  if (controller_ && controller_->OnBeforePaste(this, &text)) {
+    pasted = model_->Paste(std::move(text));
+  } else {
+    pasted = model_->Paste();
+  }
+
+  if (!pasted) {
+    return false;
+  }
+
+  if (controller_) {
+    controller_->OnAfterPaste();
+  }
+
+  UpdateAccessibleTextSelection();
+
+  return true;
 }
 
 void Textfield::UpdateContextMenu() {

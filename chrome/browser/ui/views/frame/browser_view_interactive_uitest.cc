@@ -57,9 +57,7 @@ namespace {
 
 class BrowserViewTest : public InProcessBrowserTest {
  public:
-  BrowserViewTest() : ax_observer_(views::AXUpdateNotifier::Get()) {
-    feature_list_.InitAndEnableFeature(features::kSideBySide);
-  }
+  BrowserViewTest() : ax_observer_(views::AXUpdateNotifier::Get()) {}
   ~BrowserViewTest() override = default;
   BrowserViewTest(const BrowserViewTest&) = delete;
   BrowserViewTest& operator=(const BrowserViewTest&) = delete;
@@ -86,7 +84,6 @@ class BrowserViewTest : public InProcessBrowserTest {
 
  protected:
   views::test::AXEventCounter ax_observer_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 }  // namespace
@@ -233,7 +230,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, BrowserFullscreenShowTopView) {
   EXPECT_EQ(top_view_in_browser_fullscreen, browser_view->GetTabStripVisible());
   // This makes sure that the layout was updated accordingly.
   EXPECT_EQ(top_view_in_browser_fullscreen,
-            browser_view->tabstrip()->GetVisible());
+            browser_view->horizontal_tab_strip_for_testing()->GetVisible());
   EXPECT_EQ(top_view_in_browser_fullscreen,
             chrome::IsCommandEnabled(browser(), IDC_SHOW_BOOKMARK_BAR));
 

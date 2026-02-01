@@ -33,6 +33,12 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="both valid and invalid entries"/>
 </enum>
 
+<enum name="AdditionalHttpsRecordStatus">
+  <int value="0" label="Malformed"/>
+  <int value="1" label="Alias"/>
+  <int value="2" label="Service"/>
+</enum>
+
 <enum name="AddressFamily">
   <int value="0" label="Unspecified"/>
   <int value="1" label="IPv4"/>
@@ -250,7 +256,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Signing exceeded"/>
 </enum>
 
-<!-- LINT.ThenChange(//net/device_bound_sessions/session_service.h:DeviceBoundSessionRefreshResult) -->
+<!-- LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult) -->
 
 <!-- LINT.IfChange(DeviceBoundSessionUsage) -->
 
@@ -664,6 +670,19 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//net/dns/host_cache.h:LookupOutcome) -->
+
+<!-- LINT.IfChange(MTCResult) -->
+
+<enum name="MTCResult">
+  <int value="0" label="kValidMTC"/>
+  <int value="1" label="kInvalidMTC"/>
+  <int value="2" label="kClassicalCertExpectedMTC"/>
+  <int value="3" label="kClassicalCertOldClient"/>
+  <int value="4" label="kClassicalCertUnknownLandmarkDelta"/>
+  <int value="5" label="kResumption"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/quic/quic_chromium_client_session.cc:MTCResult) -->
 
 <!-- LINT.IfChange(MultiplexedSessionCreationInitiator) -->
 
@@ -2840,6 +2859,31 @@ Called by update_net_trust_anchors.py.-->
   <int value="9" label="Automatic with DoH fallback, by enterprise policy"/>
 </enum>
 
+<!-- LINT.IfChange(SharedDictionaryStorageEvictionReason) -->
+
+<enum name="SharedDictionaryStorageEvictionReason">
+  <int value="0" label="Not Evicted"/>
+  <int value="1" label="Memory Pressure Moderate"/>
+  <int value="2" label="Memory Pressure Critical"/>
+  <int value="3" label="Cache Full"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/network/shared_dictionary/shared_dictionary_manager.h:SharedDictionaryStorageEvictionReason) -->
+
+<!-- LINT.IfChange(SharedDictionaryStorageResult) -->
+
+<enum name="SharedDictionaryStorageResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Create Entry Failed"/>
+  <int value="2" label="Write Data Failed"/>
+  <int value="3" label="Size Exceeds Limit"/>
+  <int value="4" label="Size Zero"/>
+  <int value="5" label="Aborted"/>
+  <int value="6" label="Database Write Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/network/shared_dictionary/shared_dictionary_storage_result.h:SharedDictionaryStorageResult) -->
+
 <enum name="SharedDictionaryStoreError">
   <int value="0" label="Ok"/>
   <int value="1" label="FailedToInitializeDatabase"/>
@@ -2852,6 +2896,16 @@ Called by update_net_trust_anchors.py.-->
   <int value="8" label="FailedToSetTotalDictSize"/>
   <int value="9" label="TooBigDictionary"/>
 </enum>
+
+<!-- LINT.IfChange(SharedDictionaryTransactionOutcome) -->
+
+<enum name="SharedDictionaryTransactionOutcome">
+  <int value="0" label="Dictionary Used (Brotli)"/>
+  <int value="1" label="Dictionary Used (Zstandard)"/>
+  <int value="2" label="Dictionary Not Used"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/shared_dictionary/shared_dictionary_transaction_outcome.h:SharedDictionaryTransactionOutcome) -->
 
 <enum name="SkipCompletionPortOnSuccessOutcome">
   <int value="0"
@@ -3251,12 +3305,6 @@ Called by update_net_trust_anchors.py.-->
     /components/unexportable_keys/mojom/unexportable_key_service.mojom:ServiceError,
     /components/unexportable_keys/service_error.h:ServiceError
 ) -->
-
-<enum name="UnsolicitedHttpsRecordStatus">
-  <int value="0" label="Malformed"/>
-  <int value="1" label="Alias"/>
-  <int value="2" label="Service"/>
-</enum>
 
 <enum name="URLRequestReferrerPolicy">
   <int value="0" label="CLEAR_REFERRER_ON_TRANSITION_FROM_SECURE_TO_INSECURE"/>

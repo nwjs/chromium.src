@@ -152,12 +152,6 @@ TEST_F(TabStripModelSelectionStateTest, Valid) {
 }
 
 TEST_F(TabStripModelSelectionStateTest, InvalidStates) {
-  // Empty selection with active tab is invalid.
-  EXPECT_FALSE(TabStripModelSelectionState({}, tab1_.get(), nullptr).Valid());
-
-  // Empty selection with anchor tab is invalid.
-  EXPECT_FALSE(TabStripModelSelectionState({}, nullptr, tab1_.get()).Valid());
-
   // Non-empty selection with null active tab is invalid.
   EXPECT_FALSE(
       TabStripModelSelectionState({tab1_.get()}, nullptr, tab1_.get()).Valid());
@@ -165,16 +159,6 @@ TEST_F(TabStripModelSelectionStateTest, InvalidStates) {
   // Non-empty selection with null anchor tab is invalid.
   EXPECT_FALSE(
       TabStripModelSelectionState({tab1_.get()}, tab1_.get(), nullptr).Valid());
-
-  // Active tab not in selection is invalid.
-  EXPECT_FALSE(
-      TabStripModelSelectionState({tab1_.get()}, tab2_.get(), tab1_.get())
-          .Valid());
-
-  // Anchor tab not in selection is invalid.
-  EXPECT_FALSE(
-      TabStripModelSelectionState({tab1_.get()}, tab1_.get(), tab2_.get())
-          .Valid());
 }
 
 }  // namespace tabs

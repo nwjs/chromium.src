@@ -49,8 +49,10 @@ void TestURLLoaderNetworkObserver::OnAuthRequired(
         auth_challenge_responder) {}
 
 void TestURLLoaderNetworkObserver::OnLocalNetworkAccessPermissionRequired(
+    mojom::TransportType type,
+    network::mojom::IPAddressSpace ip_address_space,
     OnLocalNetworkAccessPermissionRequiredCallback callback) {
-  std::move(callback).Run(false);
+  std::move(callback).Run(mojom::LocalNetworkAccessResult::kDenied);
 }
 
 void TestURLLoaderNetworkObserver::OnClearSiteData(
@@ -71,8 +73,8 @@ void TestURLLoaderNetworkObserver::OnLoadingStateUpdate(
 
 void TestURLLoaderNetworkObserver::OnDataUseUpdate(
     int32_t network_traffic_annotation_id_hash,
-    int64_t recv_bytes,
-    int64_t sent_bytes) {}
+    base::ByteSize recv_bytes,
+    base::ByteSize sent_bytes) {}
 
 void TestURLLoaderNetworkObserver::OnSharedStorageHeaderReceived(
     const url::Origin& request_origin,

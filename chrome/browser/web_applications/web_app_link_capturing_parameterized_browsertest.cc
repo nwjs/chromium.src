@@ -7,15 +7,17 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_reader.h"
+#include "base/strings/strcat.h"
+#include "base/strings/to_string.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
@@ -33,7 +35,6 @@
 #include "base/test/test_future.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -48,7 +49,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/web_apps/web_app_link_capturing_test_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -525,8 +526,8 @@ bool DoesTestMatchFileConfig(std::string_view full_test_params,
       TupleItemToParamString<LinkCapturing>(file_config);
   std::string display_mode_name =
       TupleItemToParamString<AppUserDisplayMode>(file_config);
-  return base::Contains(full_test_params, link_capturing_name) &&
-         base::Contains(full_test_params, display_mode_name);
+  return full_test_params.contains(link_capturing_name) &&
+         full_test_params.contains(display_mode_name);
 }
 
 // Removes all of the parameters from the `full_test_params` that are handled by
@@ -547,31 +548,35 @@ std::string RemoveExpectationsFileConfigFromFullTestParams(
   return output;
 }
 
-std::string BrowserTypeToString(Browser::Type type) {
+std::string BrowserTypeToString(BrowserWindowInterface::Type type) {
   switch (type) {
-    case Browser::Type::TYPE_NORMAL:
+    case BrowserWindowInterface::Type::TYPE_NORMAL:
       return "TYPE_NORMAL";
-    case Browser::Type::TYPE_POPUP:
+    case BrowserWindowInterface::Type::TYPE_POPUP:
       return "TYPE_POPUP";
-    case Browser::Type::TYPE_APP:
+    case BrowserWindowInterface::Type::TYPE_APP:
       return "TYPE_APP";
-    case Browser::Type::TYPE_DEVTOOLS:
+    case BrowserWindowInterface::Type::TYPE_DEVTOOLS:
       return "TYPE_DEVTOOLS";
-    case Browser::Type::TYPE_APP_POPUP:
+    case BrowserWindowInterface::Type::TYPE_APP_POPUP:
       return "TYPE_APP_POPUP";
 #if BUILDFLAG(IS_CHROMEOS)
-    case Browser::Type::TYPE_CUSTOM_TAB:
+    case BrowserWindowInterface::Type::TYPE_CUSTOM_TAB:
       return "TYPE_CUSTOM_TAB";
 #endif
-    case Browser::Type::TYPE_PICTURE_IN_PICTURE:
+    case BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE:
       return "TYPE_PICTURE_IN_PICTURE";
   }
   NOTREACHED() << "Unknown browser type: " + base::NumberToString(type);
 }
 
-bool IsNewTabOrAboutBlankUrl(const Browser* browser, const GURL& url) {
+bool IsNewTabOrAboutBlankUrl(const BrowserWindowInterface* browser,
+                             const GURL& url) {
   return url == GURL("about:blank") || url == GURL("chrome://newtab") ||
-         url == GURL("chrome://new-tab-page") || url == browser->GetNewTabURL();
+         url == GURL("chrome://new-tab-page") ||
+         (web_app::AppBrowserController::From(browser) &&
+          url ==
+              web_app::AppBrowserController::From(browser)->GetAppNewTabUrl());
 }
 
 // Serializes the state of a RenderFrameHost relevant for this test into a
@@ -589,7 +594,7 @@ base::Value::Dict RenderFrameHostToJson(content::RenderFrameHost& rfh) {
 
 // Serializes the state of a WebContents, including the state of all its iframes
 // as well as navigation history for the tab.
-base::Value::Dict WebContentsToJson(const Browser& browser,
+base::Value::Dict WebContentsToJson(const BrowserWindowInterface& browser,
                                     content::WebContents& web_contents) {
   base::Value::Dict dict =
       RenderFrameHostToJson(*web_contents.GetPrimaryMainFrame());
@@ -645,9 +650,11 @@ base::Value::Dict WebContentsToJson(const Browser& browser,
     }
   }
 
-  if (browser.app_controller() &&
-      browser.app_controller()->GetPinnedHomeTab() == &web_contents) {
-    dict.Set("is_pinned_home_tab", true);
+  if (const web_app::AppBrowserController* const app_controller =
+          web_app::AppBrowserController::From(&browser)) {
+    if (app_controller->GetPinnedHomeTab() == &web_contents) {
+      dict.Set("is_pinned_home_tab", true);
+    }
   }
 
   return dict;
@@ -659,22 +666,25 @@ base::Value::Dict WebContentsToJson(const Browser& browser,
 // For app browsers, the scope path is added to simplify manual debugging to
 // identify cases where a source app window can have an out of scope destination
 // url loaded in it.
-base::Value::Dict BrowserToJson(const Browser& browser) {
+base::Value::Dict BrowserToJson(BrowserWindowInterface& browser) {
   base::Value::Dict dict = base::Value::Dict().Set(
-      "browser_type", BrowserTypeToString(browser.type()));
-  if (browser.type() == Browser::Type::TYPE_APP ||
-      browser.type() == Browser::Type::TYPE_APP_POPUP) {
-    CHECK(browser.app_controller());
-    const webapps::AppId& app_id = browser.app_controller()->app_id();
+      "browser_type", BrowserTypeToString(browser.GetType()));
+  if (browser.GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+      browser.GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
+    const web_app::AppBrowserController* const app_controller =
+        web_app::AppBrowserController::From(&browser);
+    CHECK(app_controller);
+    const webapps::AppId& app_id = app_controller->app_id();
     CHECK(!app_id.empty());
-    WebAppProvider* provider = WebAppProvider::GetForTest(browser.profile());
+    WebAppProvider* const provider =
+        WebAppProvider::GetForTest(browser.GetProfile());
     const GURL& app_scope = provider->registrar_unsafe().GetAppScope(app_id);
     if (app_scope.is_valid()) {
       dict.Set("app_scope", app_scope.PathForRequest());
     }
   }
   base::Value::List tabs;
-  const TabStripModel* tab_model = browser.tab_strip_model();
+  const TabStripModel* const tab_model = browser.GetTabStripModel();
   for (int i = 0; i < tab_model->count(); ++i) {
     content::WebContents* const current_contents =
         tab_model->GetWebContentsAt(i);
@@ -918,7 +928,7 @@ class NavCaptureParameterizedBrowserTest
     // redirection happening on the way from a source to a destination url.
     // Prevent multiple redirections from being triggered which causes a Chrome
     // error page to show up, cancelling the navigation.
-    if (base::Contains(request.GetURL().query(), "redirect")) {
+    if (request.GetURL().query().contains("redirect")) {
       return nullptr;
     }
 
@@ -931,7 +941,7 @@ class NavCaptureParameterizedBrowserTest
     const GURL& final_request_url =
         request.GetURL().ReplaceComponents(request_replacements);
 
-    if (!base::Contains(final_request_url.spec(), "/destination.html")) {
+    if (!final_request_url.spec().contains("/destination.html")) {
       return nullptr;  // Only redirect for destination pages.
     }
 
@@ -1196,13 +1206,12 @@ class NavCaptureParameterizedBrowserTest
   // in creation order of the Browser.
   base::Value::Dict CaptureCurrentState() {
     base::Value::List browsers;
-    for (Browser* b : *BrowserList::GetInstance()) {
-      if (b->is_delete_scheduled()) {
-        continue;
-      }
-      base::Value::Dict json_browser = BrowserToJson(*b);
-      browsers.Append(std::move(json_browser));
-    }
+    GlobalBrowserCollection::GetInstance()->ForEach(
+        [&browsers](BrowserWindowInterface* browser) {
+          browsers.Append(BrowserToJson(*browser));
+          return true;
+        },
+        BrowserCollection::Order::kCreation);
 
     // Measure the web app launch metrics as well as the navigation capturing
     // metrics for the redirections and non-redirected navigations. It is
@@ -1514,8 +1523,7 @@ class NavCaptureParameterizedBrowserTest
     for (int i = 0; i < unit_test->total_test_suite_count(); ++i) {
       const testing::TestSuite* test_suite = unit_test->GetTestSuite(i);
       // We only care about link capturing parameterized tests.
-      if (!base::Contains(std::string(test_suite->name()),
-                          GetTestClassName())) {
+      if (!(std::string(test_suite->name())).contains(GetTestClassName())) {
         continue;
       }
       for (int j = 0; j < test_suite->total_test_count(); ++j) {
@@ -1582,11 +1590,11 @@ class NavCaptureParameterizedBrowserTest
   }
 
   void PerformTestCleanupForAllFilesIfNeeded() {
-    for (auto display_mode = base::to_underlying(AppUserDisplayMode::kMinValue);
-         display_mode <= base::to_underlying(AppUserDisplayMode::kMaxValue);
+    for (auto display_mode = std::to_underlying(AppUserDisplayMode::kMinValue);
+         display_mode <= std::to_underlying(AppUserDisplayMode::kMaxValue);
          ++display_mode) {
-      for (auto link_capturing = base::to_underlying(LinkCapturing::kMinValue);
-           link_capturing <= base::to_underlying(LinkCapturing::kMaxValue);
+      for (auto link_capturing = std::to_underlying(LinkCapturing::kMinValue);
+           link_capturing <= std::to_underlying(LinkCapturing::kMaxValue);
            ++link_capturing) {
         PerformTestCleanupIfNeeded(
             {static_cast<AppUserDisplayMode>(display_mode),
@@ -1826,8 +1834,8 @@ class NavCaptureParameterizedBrowserTest
     }
 
     // Skip tests that are disabled because they are flaky.
-    if (base::Contains(disabled_flaky_tests, TupleToParamString(param.param)) ||
-        base::Contains(disabled_flaky_tests, "*")) {
+    if (disabled_flaky_tests.contains(TupleToParamString(param.param)) ||
+        disabled_flaky_tests.contains("*")) {
       return true;
     }
 
@@ -1890,10 +1898,9 @@ class NavCaptureParameterizedBrowserTest
     // Cleanup tests will call this with every combination of file
     // configuration, and if no tests exist then the load will fail.
     if (!ShouldRebaseline() &&
-        !base::Contains(std::string(::testing::UnitTest::GetInstance()
-                                        ->current_test_info()
-                                        ->name()),
-                        "Cleanup")) {
+        !(std::string(
+              ::testing::UnitTest::GetInstance()->current_test_info()->name()))
+             .contains("Cleanup")) {
       ASSERT_TRUE(file_read_success_)
           << "Failed to read test baselines from "
           << GetExpectationsFile(file_config).value()

@@ -8,12 +8,16 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/puma_histogram_functions.h"
 #import "base/time/time.h"
+#import "components/activity_reporter/activity_reporter.h"
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/metrics/model/ios_profile_session_durations_service.h"
 #import "ios/chrome/browser/metrics/model/ios_profile_session_durations_service_factory.h"
+#import "ios/chrome/browser/metrics/model/tab_usage_recorder_service.h"
+#import "ios/chrome/browser/metrics/model/tab_usage_recorder_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_activation_level.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 
 @implementation SessionMetricsProfileAgent {
   // Timestamp recording the start of the active session. Null if the session
@@ -121,6 +125,13 @@
   _sessionStartTimestamp = base::TimeTicks();
   IOSProfileSessionDurationsServiceFactory::GetForProfile(profile)
       ->OnSessionEnded(duration);
+
+  // TabUsageRecorderServiceFactory may return null during tests.
+  if (auto* service = TabUsageRecorderServiceFactory::GetForProfile(profile)) {
+    service->RecordSessionMetrics();
+  }
+
+  GetApplicationContext()->GetActivityReporter()->ReportActive();
 }
 
 @end

@@ -21,14 +21,15 @@
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/supervised_user/supervised_user_navigation_observer.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_url_filtering_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_verification_page.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/supervised_user/core/browser/child_account_service.h"
 #include "components/supervised_user/core/browser/family_link_user_capabilities.h"
 #include "components/supervised_user/core/browser/supervised_user_interstitial.h"
-#include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
+#include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
@@ -236,18 +237,24 @@ std::string ClassifyUrlNavigationThrottle::GetInterstitialHTML(
     bool already_sent_request,
     bool is_main_frame) const {
 #if BUILDFLAG(IS_ANDROID)
-  if (supervised_user_service()->IsLocalBrowserFilteringEnabled() &&
+  // TODO(crbug.com/471985868): consider making decision on what kind of
+  // interstitial to show when this throttle is created, not in its runtime.
+  Profile* profile = Profile::FromBrowserContext(
+      navigation_handle()->GetWebContents()->GetBrowserContext());
+
+  // Family link supervised users should not see local supervision
+  // interstitials. Other users can see these interstitials if they have local
+  // supervision enabled.
+  if (!IsSubjectToParentalControls(*profile->GetPrefs()) &&
+      g_browser_process->device_parental_controls().IsWebFilteringEnabled() &&
       UseInterstitialForLocalSupervision()) {
     return SupervisedUserInterstitial::GetHTMLContentsWithoutApprovals(
         result.url, g_browser_process->GetApplicationLocale());
   }
 #endif
-  Profile* profile = Profile::FromBrowserContext(
-      navigation_handle()->GetWebContents()->GetBrowserContext());
   return SupervisedUserInterstitial::GetHTMLContentsWithApprovals(
-      supervised_user_service(), profile->GetPrefs(), result.reason,
-      already_sent_request, is_main_frame,
-      g_browser_process->GetApplicationLocale());
+      supervised_user_service(), result.reason, already_sent_request,
+      is_main_frame, g_browser_process->GetApplicationLocale());
 }
 
 const GURL& ClassifyUrlNavigationThrottle::currently_navigated_url() const {
@@ -278,9 +285,7 @@ void ClassifyUrlNavigationThrottle::MaybeCreateAndAdd(
 
   // This check is not making logical difference as the throttle would allow
   // this navigation anyway, but in this case no metrics will be recorded.
-  if (SupervisedUserServiceFactory::GetInstance()
-          ->GetForProfile(profile)
-          ->GetURLFilter()
+  if (SupervisedUserUrlFilteringServiceFactory::GetForProfile(profile)
           ->GetWebFilterType() == WebFilterType::kDisabled) {
     return;
   }

@@ -8,6 +8,7 @@
 #include "base/files/file_path.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_path_override.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -259,6 +260,10 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
   content::WebContents* PlatformOpenURLOffTheRecord(Profile* profile,
                                                     const GURL& url);
 
+  // Creates a new incognito browser window using the incognito profile owned
+  // by the test's profile from GetProfile().
+  BrowserWindowInterface* CreateIncognitoBrowserWindow();
+
   // Opens `url` in a new tab, blocking until the navigation finishes.
   content::RenderFrameHost* NavigateToURLInNewTab(const GURL& url);
 
@@ -362,7 +367,7 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
   content::WebContents* web_contents();
 
   // Returns the BrowserWindowInterface for the initially-created browser.
-  // TODO(crbug.com/434990953): Convert callers of NavigateToURL() to use this
+  // TODO(crbug.com/465157755): Convert callers of NavigateToURL() to use this
   // method.
   BrowserWindowInterface* browser_window_interface();
 
@@ -445,6 +450,9 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
 #if BUILDFLAG(IS_ANDROID)
   // Tab model used for incognito tab support.
   std::unique_ptr<OwningTestTabModel> incognito_tab_model_;
+
+  // Feature flags overrides are only used on Android.
+  base::test::ScopedFeatureList feature_list_;
 #endif
 
   // Used for setting the default scoped current channel for extension browser

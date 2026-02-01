@@ -53,7 +53,6 @@
 #include "third_party/blink/renderer/core/inspector/inspector_issue_storage.h"
 #include "third_party/blink/renderer/core/page/page_visibility_observer.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
-#include "third_party/blink/renderer/platform/forward_declared_member.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
@@ -61,6 +60,7 @@
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/scheduler/public/agent_group_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/page_scheduler.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "ui/gfx/geometry/insets.h"
@@ -74,7 +74,6 @@ class ColorProvider;
 }  // namespace ui
 
 namespace blink {
-class AudioGraphTracer;
 class AutoscrollController;
 class BrowserControls;
 class ChromeClient;
@@ -85,12 +84,10 @@ class DragCaret;
 class DragController;
 class FocusController;
 class Frame;
-class InternalSettings;
 class LinkHighlight;
 class LocalFrame;
 class LocalFrameView;
 class MediaFeatureOverrides;
-class NoStatePrefetchClient;
 class PageAnimator;
 struct PageScaleConstraints;
 class PageScaleConstraintsSet;
@@ -98,19 +95,14 @@ class PluginData;
 class PointerLockController;
 class PreferenceOverrides;
 class ScopedPagePauser;
-class ScrollbarTheme;
 class ScrollingCoordinator;
-class PagePopupController;
+class ScrollbarTheme;
 class Settings;
 class SpatialNavigationController;
-class StorageNamespace;
 class SVGDocumentResourceTracker;
 class TopDocumentRootScrollerController;
 class ValidationMessageClient;
 class VisualViewport;
-#if BUILDFLAG(IS_ANDROID)
-class SuspendCaptureObserver;
-#endif
 
 typedef uint64_t LinkHash;
 
@@ -119,6 +111,7 @@ typedef uint64_t LinkHash;
 //
 // Note that frames can be local or remote to this process.
 class CORE_EXPORT Page final : public GarbageCollected<Page>,
+                               public Supplementable<Page>,
                                public SettingsDelegate,
                                public PageScheduler::Delegate {
   friend class Settings;
@@ -385,7 +378,7 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
 
   void AcceptLanguagesChanged();
 
-  void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
 
   void DidInitializeCompositing(cc::AnimationHost&);
   void WillStopCompositing();
@@ -544,58 +537,6 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   // e.g. the close task will still be processed after the swap, the list of
   // related pages will include the new page instead of the old page, etc.
   void TakePropertiesForLocalMainFrameSwap(Page* old_page);
-
-  PagePopupController* GetPagePopupController() const {
-    return page_popup_controller_;
-  }
-  void SetPagePopupController(PagePopupController* page_popup_controller) {
-    page_popup_controller_ = page_popup_controller;
-  }
-
-  ForwardDeclaredMember<StorageNamespace> GetStorageNamespace() const {
-    return storage_namespace_;
-  }
-  void SetStorageNamespace(
-      ForwardDeclaredMember<StorageNamespace> storage_namespace) {
-    storage_namespace_ = storage_namespace;
-  }
-
-  ForwardDeclaredMember<NoStatePrefetchClient> GetNoStatePrefetchClient()
-      const {
-    return no_state_prefetch_client_;
-  }
-  void SetNoStatePrefetchClient(
-      ForwardDeclaredMember<NoStatePrefetchClient> no_state_prefetch_client) {
-    no_state_prefetch_client_ = no_state_prefetch_client;
-  }
-
-  ForwardDeclaredMember<AudioGraphTracer> GetAudioGraphTracer() const {
-    return audio_graph_tracer_;
-  }
-  void SetAudioGraphTracer(
-      ForwardDeclaredMember<AudioGraphTracer> audio_graph_tracer) {
-    audio_graph_tracer_ = audio_graph_tracer;
-  }
-
-  ForwardDeclaredMember<InternalSettings> GetInternalSettings() const {
-    return internal_settings_;
-  }
-  void SetInternalSettings(
-      ForwardDeclaredMember<InternalSettings> internal_settings) {
-    internal_settings_ = internal_settings;
-  }
-
-#if BUILDFLAG(IS_ANDROID)
-  ForwardDeclaredMember<SuspendCaptureObserver> GetSuspendCaptureObserver()
-      const {
-    return suspend_capture_observer_;
-  }
-  void SetSuspendCaptureObserver(
-      ForwardDeclaredMember<SuspendCaptureObserver> suspend_capture_observer) {
-    suspend_capture_observer_ = suspend_capture_observer;
-  }
-
-#endif
 
  private:
   friend class ScopedPagePauser;
@@ -788,26 +729,14 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
       network::mojom::AttributionSupport::kUnset;
 
   Member<CloseTaskHandler> close_task_handler_;
-
-  Member<PagePopupController> page_popup_controller_;
-
-  ForwardDeclaredMember<StorageNamespace> storage_namespace_;
-  ForwardDeclaredMember<NoStatePrefetchClient> no_state_prefetch_client_;
-  ForwardDeclaredMember<AudioGraphTracer> audio_graph_tracer_;
-  ForwardDeclaredMember<InternalSettings> internal_settings_;
-#if BUILDFLAG(IS_ANDROID)
-  ForwardDeclaredMember<SuspendCaptureObserver> suspend_capture_observer_;
-#endif
 };
 
-class CORE_EXPORT InternalSettingsPageSupplementBase
-    : public GarbageCollectedMixin {
- public:
-  explicit InternalSettingsPageSupplementBase(Page& page) : page_(&page) {}
-  void Trace(Visitor* visitor) const override { visitor->Trace(page_); }
+extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Page>;
 
- protected:
-  Member<Page> page_;
+class CORE_EXPORT InternalSettingsPageSupplementBase : public Supplement<Page> {
+ public:
+  using Supplement<Page>::Supplement;
+  static const char kSupplementName[];
 };
 
 }  // namespace blink

@@ -68,12 +68,9 @@ android_library("cronet_build_config_java") {
 }
 
 # Use java_library instead of android_library to avoid stripping GEN_JNI.java
-java_library("cronet_build_config_and_jni_registration_java") {
+java_library("cronet_jni_registration_java") {
   supports_android = true
-  srcjar_deps = [
-    ":cronet_build_config_srcjar",
-    ":cronet_jni_registration",
-  ]
+  srcjar_deps = [ ":cronet_jni_registration" ]
 }
 
 java_cpp_enum("effective_connection_type_java") {
@@ -248,6 +245,11 @@ source_set("cronet_static") {
 }
 
 _cronet_shared_lib_name = "cronet.$chrome_version_full"
+if (is_cronet_for_aosp_build) {
+  # We must have a unique name in Android builds to correctly collect afdo samples and improve
+  # the performance of the library (https://source.android.com/docs/core/perf/autofdo).
+  _cronet_shared_lib_name = "httpengine"
+}
 
 shared_library("cronet") {
   output_name = _cronet_shared_lib_name
@@ -294,6 +296,7 @@ android_library("cronet_shared_java") {
     "java/src/org/chromium/net/impl/CronetLoggerFactory.java",
     "java/src/org/chromium/net/impl/CronetManifest.java",
     "java/src/org/chromium/net/impl/NoOpLogger.java",
+    "java/src/org/chromium/net/impl/UserAgent.java",
     "java/src/org/chromium/net/telemetry/CronetLoggerImpl.java",
     "java/src/org/chromium/net/telemetry/ExperimentalOptions.java",
     "java/src/org/chromium/net/telemetry/Hash.java",
@@ -436,7 +439,6 @@ android_library("cronet_impl_common_java") {
     "java/src/org/chromium/net/impl/UrlRequestBuilderImpl.java",
     "java/src/org/chromium/net/impl/UrlRequestUtil.java",
     "java/src/org/chromium/net/impl/UrlResponseInfoImpl.java",
-    "java/src/org/chromium/net/impl/UserAgent.java",
     "java/src/org/chromium/net/impl/VersionSafeCallbacks.java",
     "java/src/org/chromium/net/impl/VersionSafeProxyCallback.java",
     "java/src/org/chromium/net/impl/VersionSafeProxyOptions.java",
@@ -776,7 +778,8 @@ template("collect_proguard_configs") {
   _build_config = "$target_gen_dir/${target_name}.build_config.json"
 
   _deps = [
-    ":cronet_build_config_and_jni_registration_java",
+    ":cronet_build_config_java",
+    ":cronet_jni_registration_java",
     ":repackage_api",
     ":repackage_native_impl",
   ]
@@ -1073,7 +1076,16 @@ template("repackage_jars") {
 
 repackage_jars("repackage_shared") {
   output = "$_package_dir/cronet_shared_java.jar"
-  deps = cronet_shared_java_deps_to_package + [ ":cronet_shared_java" ]
+  deps = cronet_shared_java_deps_to_package + [
+           # Compilation targets are fed a placeholder BuildConfig. We still
+           # have to ship the final non-placeholder BuildConfig; this is what
+           # we do here. We do it here because we only want to include
+           # BuildConfig in the jars that we ship; we don't want to feed it to
+           # e.g. test APK targets because Chromium APK gn rules already do
+           # that, so it would result in conflicts.
+           ":cronet_build_config_java",
+           ":cronet_shared_java",
+         ]
 }
 
 repackage_jars("repackage_api") {
@@ -1110,7 +1122,7 @@ repackage_jars("repackage_httpengine_native_provider") {
 repackage_jars("repackage_native") {
   output = "$_package_dir/cronet_impl_native_java.jar"
   deps = [
-    ":cronet_build_config_and_jni_registration_java",
+    ":cronet_jni_registration_java",
     ":repackage_native_java",
   ]
   jar_excluded_patterns = _jar_excluded_patterns
@@ -1446,9 +1458,6 @@ android_library("cronet_javatests") {
     "test/javatests/src/org/chromium/net/NetworkChangesTest.java",
     "test/javatests/src/org/chromium/net/NetworkErrorLoggingTest.java",
     "test/javatests/src/org/chromium/net/PkpTest.java",
-    "test/javatests/src/org/chromium/net/ProxyNoExecutorBackwardCompatibilityTest.java",
-    "test/javatests/src/org/chromium/net/ProxyOnBeforeTunnelRequestWithoutRequestBackwardCompatibilityTest.java",
-    "test/javatests/src/org/chromium/net/ProxyPriorToRenameBackwardCompatibilityTest.java",
     "test/javatests/src/org/chromium/net/ProxyTest.java",
     "test/javatests/src/org/chromium/net/QuicTest.java",
     "test/javatests/src/org/chromium/net/RequestFinishedInfoTest.java",
@@ -1469,6 +1478,9 @@ android_library("cronet_javatests") {
     "test/javatests/src/org/chromium/net/impl/AndroidHttpEngineBuilderWrapperTest.java",
     "test/javatests/src/org/chromium/net/impl/CronetLoggerTest.java",
     "test/javatests/src/org/chromium/net/impl/CronetManifestTest.java",
+    "test/javatests/src/org/chromium/net/impl/UserAgentIntegrationTest.java",
+    "test/javatests/src/org/chromium/net/impl/UserAgentTest.java",
+    "test/javatests/src/org/chromium/net/impl/UserAgentTestUtil.java",
     "test/javatests/src/org/chromium/net/impl/VersionSafeProxyOptionsTest.java",
     "test/javatests/src/org/chromium/net/telemetry/CronetLoggerImplTest.java",
     "test/javatests/src/org/chromium/net/telemetry/ExperimentalOptionsTest.java",
@@ -2105,6 +2117,14 @@ action("cronet_gn2bp_aosp_feedback_loop") {
   ]
   _stamp_path = "$target_gen_dir/$target_name.stamp"
   args = [
+    # Do not specify the channel via --channel`. Doing so risks misconfiguring
+    # which Chromium release track is imported in each Cronet channel in the
+    # Android repo.
+    #
+    # This action is only used by bot environments. These automatically select
+    # the target Cronet channel in the Android repo based on the environment they
+    # are running in (see components/cronet/gn2bp/run_gn2bp.py's
+    # _pick_target_channel_for_bot_environment).
     "--wait-for-presubmit-verified",
     "--stamp",
     rebase_path(_stamp_path, root_build_dir),

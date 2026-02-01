@@ -119,7 +119,6 @@ import org.chromium.content_public.browser.MessagePort;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.NavigationHistory;
-import org.chromium.content_public.browser.Page;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.SelectionClient;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -134,6 +133,7 @@ import org.chromium.content_public.browser.navigation_controller.UserAgentOverri
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.device.gamepad.GamepadList;
+import org.chromium.js_injection.mojom.DocumentInjectionTime;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.network.mojom.ReferrerPolicy;
 import org.chromium.ui.base.ActivityWindowAndroid;
@@ -1618,7 +1618,8 @@ public class AwContents implements SmartClipProvider {
                         mWebContentsDelegate,
                         mContentsClientBridge,
                         mIoThreadClient,
-                        mInterceptNavigationDelegate);
+                        mInterceptNavigationDelegate,
+                        mNavigationClient);
         GestureListenerManager.fromWebContents(mWebContents)
                 .addListener(new AwGestureStateListener());
 
@@ -3054,12 +3055,17 @@ public class AwContents implements SmartClipProvider {
         return new ScriptHandler(
                 this,
                 AwContentsJni.get()
-                        .addDocumentStartJavaScript(mNativeAwContents, script, allowedOriginRules));
+                        .addPersistentJavaScript(
+                                mNativeAwContents,
+                                script,
+                                DocumentInjectionTime.DOCUMENT_START,
+                                allowedOriginRules,
+                                /* worldId= */ 0));
     }
 
     /* package */ void removeDocumentStartJavaScript(int scriptId) {
         if (isDestroyed(WARN)) return;
-        AwContentsJni.get().removeDocumentStartJavaScript(mNativeAwContents, scriptId);
+        AwContentsJni.get().removePersistentJavaScript(mNativeAwContents, scriptId);
     }
 
     /**
@@ -3105,7 +3111,8 @@ public class AwContents implements SmartClipProvider {
                                 mNativeAwContents,
                                 new WebMessageListenerHolder(listener),
                                 jsObjectName,
-                                allowedOriginRules);
+                                allowedOriginRules,
+                                /* worldId= */ 0);
 
         if (!TextUtils.isEmpty(exceptionMessage)) {
             throw new IllegalArgumentException(exceptionMessage);
@@ -3121,7 +3128,8 @@ public class AwContents implements SmartClipProvider {
     public void removeWebMessageListener(@NonNull String jsObjectName) {
         if (TRACE) Log.i(TAG, "%s removeWebMessageListener=%s", this, jsObjectName);
         if (isDestroyed(WARN)) return;
-        AwContentsJni.get().removeWebMessageListener(mNativeAwContents, jsObjectName);
+        AwContentsJni.get()
+                .removeWebMessageListener(mNativeAwContents, jsObjectName, /* worldId= */ 0);
     }
 
     /**
@@ -4116,11 +4124,6 @@ public class AwContents implements SmartClipProvider {
         return AwContentsJni.get().fromWebContents(webContents);
     }
 
-    @CalledByNative
-    private void onPerformanceMark(Page page, String markName, long markTimeMs) {
-        mNavigationClient.onPerformanceMark(page, markName, markTimeMs);
-    }
-
     // -------------------------------------------------------------------------------------------
     // Helper methods
     // -------------------------------------------------------------------------------------------
@@ -4864,7 +4867,8 @@ public class AwContents implements SmartClipProvider {
                 AwWebContentsDelegate webViewWebContentsDelegate,
                 AwContentsClientBridge contentsClientBridge,
                 AwContentsIoThreadClient ioThreadClient,
-                InterceptNavigationDelegate navigationInterceptionDelegate);
+                InterceptNavigationDelegate navigationInterceptionDelegate,
+                AwNavigationClient navigationClient);
 
         void initializeAndroidAutofill(long nativeAwContents);
 
@@ -4984,18 +4988,26 @@ public class AwContents implements SmartClipProvider {
 
         AwRenderProcess getRenderProcess(long nativeAwContents);
 
-        int addDocumentStartJavaScript(
-                long nativeAwContents, String script, String[] allowedOriginRules);
+        int addPersistentJavaScript(
+                long nativeAwContents,
+                @JniType("std::u16string") String script,
+                @JniType("js_injection::mojom::DocumentInjectionTime")
+                        @DocumentInjectionTime.EnumType
+                        int eventType,
+                @JniType("std::vector<std::string>") String[] allowedOriginRules,
+                int worldId);
 
-        void removeDocumentStartJavaScript(long nativeAwContents, int scriptId);
+        void removePersistentJavaScript(long nativeAwContents, int scriptId);
 
         String addWebMessageListener(
                 long nativeAwContents,
                 WebMessageListenerHolder listener,
-                String jsObjectName,
-                String[] allowedOrigins);
+                @JniType("std::u16string") String jsObjectName,
+                @JniType("std::vector<std::string>") String[] allowedOrigins,
+                int worldId);
 
-        void removeWebMessageListener(long nativeAwContents, String jsObjectName);
+        void removeWebMessageListener(
+                long nativeAwContents, @JniType("std::u16string") String jsObjectName, int worldId);
 
         @JniType("std::vector")
         WebMessageListenerInfo[] getWebMessageListenerInfos(long nativeAwContents);

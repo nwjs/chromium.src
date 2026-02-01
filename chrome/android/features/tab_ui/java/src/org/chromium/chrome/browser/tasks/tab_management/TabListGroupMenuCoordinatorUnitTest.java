@@ -7,8 +7,10 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -32,10 +34,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
@@ -51,13 +50,12 @@ import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.widget.RectProvider;
+import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
 
 /** Unit tests for {@link TabListGroupMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
 public class TabListGroupMenuCoordinatorUnitTest {
     private static final int TAB_ID = 123;
     private static final String COLLABORATION_ID1 = "A";
@@ -75,6 +73,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     @Mock private TabGroupSyncService mTabGroupSyncService;
     @Mock private CollaborationService mCollaborationService;
     @Mock private ServiceStatus mServiceStatus;
+    @Mock private ViewRectProvider mViewRectProvider;
     @Mock private OnItemClickedCallback<Token> mOnItemClickedCallback;
 
     @Captor private ArgumentCaptor<ModelList> mModelListCaptor;
@@ -103,6 +102,9 @@ public class TabListGroupMenuCoordinatorUnitTest {
         mSavedTabGroup = new SavedTabGroup();
         when(mTabGroupSyncService.getGroup(any(LocalTabGroupId.class))).thenReturn(mSavedTabGroup);
 
+        when(mViewRectProvider.getRect()).thenReturn(new Rect());
+        when(mViewRectProvider.isViewShown()).thenReturn(true);
+
         mMenuCoordinator =
                 spy(
                         new TabListGroupMenuCoordinator(
@@ -123,7 +125,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildMenuItems_WithDelete() {
+    public void testBuildMenuItems_withDelete() {
         ModelList modelList = new ModelList();
         when(mServiceStatus.isAllowedToJoin()).thenReturn(false);
 
@@ -139,15 +141,11 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
-    public void testBuildMenuItems_WithIcons() {
+    public void testBuildMenuItems_withIcons() {
         ModelList modelList = new ModelList();
         when(mServiceStatus.isAllowedToJoin()).thenReturn(false);
 
-        RectProvider viewRectProvider = mock();
-        when(viewRectProvider.getRect()).thenReturn(new Rect());
-
-        mMenuCoordinator.showMenu(viewRectProvider, TAB_GROUP_TOKEN, /* focusable= */ true);
+        mMenuCoordinator.showMenu(mViewRectProvider, TAB_GROUP_TOKEN, /* focusable= */ true);
         mMenuCoordinator.destroyMenuForTesting();
         mMenuCoordinator.buildMenuActionItems(modelList, TAB_GROUP_TOKEN);
 
@@ -159,7 +157,24 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildMenuItems_NoDelete() {
+    public void testBuildMenuItems_viewNotShown() {
+        when(mViewRectProvider.isViewShown()).thenReturn(false);
+
+        mMenuCoordinator.showMenu(mViewRectProvider, TAB_GROUP_TOKEN, /* focusable= */ true);
+        verify(mMenuCoordinator, never())
+                .createAndShowMenu(
+                        any(),
+                        any(),
+                        anyBoolean(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyInt(),
+                        any(),
+                        anyBoolean());
+    }
+
+    @Test
+    public void testBuildMenuItems_noDelete() {
         setCollaborationState(true);
         ModelList modelList = new ModelList();
         mMenuCoordinator.buildMenuActionItems(modelList, TAB_GROUP_TOKEN);
@@ -186,7 +201,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildMenuItems_Share() {
+    public void testBuildMenuItems_share() {
         setCollaborationState(true);
         ModelList modelList = new ModelList();
         when(mServiceStatus.isAllowedToCreate()).thenReturn(false);
@@ -236,7 +251,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildCollaborationMenuItems_Unknown() {
+    public void testBuildCollaborationMenuItems_unknown() {
         setCollaborationState(true);
         ModelList modelList = new ModelList();
         mMenuCoordinator.buildCollaborationMenuItems(modelList, MemberRole.UNKNOWN);
@@ -245,7 +260,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildAllItems_Member() {
+    public void testBuildAllItems_member() {
         setCollaborationState(true);
         when(mCollaborationService.getCurrentUserRoleForGroup(COLLABORATION_ID1))
                 .thenReturn(MemberRole.MEMBER);
@@ -268,7 +283,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testBuildAllItems_Owner() {
+    public void testBuildAllItems_owner() {
         setCollaborationState(true);
         when(mCollaborationService.getCurrentUserRoleForGroup(COLLABORATION_ID1))
                 .thenReturn(MemberRole.OWNER);

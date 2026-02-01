@@ -40,7 +40,6 @@
 #include "components/webapps/browser/installable/installable_logging.h"
 #include "components/webapps/browser/installable/installable_manager.h"
 #include "components/webapps/common/web_app_id.h"
-#include "components/webapps/common/web_page_metadata.mojom-forward.h"
 #include "components/webapps/common/web_page_metadata.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -655,13 +654,7 @@ TEST_P(InstallFromSyncTest, TwoInstalls) {
                           webapps::InstallResultCode::kSuccessNewInstall));
 }
 
-// TODO(crbug.com/453907861): Disabled on Linux UBSan due to failures.
-#if BUILDFLAG(IS_LINUX) && defined(UNDEFINED_SANITIZER)
-#define MAYBE_Shutdown DISABLED_Shutdown
-#else
-#define MAYBE_Shutdown Shutdown
-#endif
-TEST_P(InstallFromSyncTest, MAYBE_Shutdown) {
+TEST_P(InstallFromSyncTest, Shutdown) {
   const webapps::AppId app_id = GenerateAppIdFromManifestId(kWebAppManifestId);
 
   // Page with manifest, but have the manifest fetch cause the system to shut

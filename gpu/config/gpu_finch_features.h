@@ -90,6 +90,8 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphiteSmallPathAtlas);
 GPU_CONFIG_EXPORT extern const base::FeatureParam<int>
     kSkiaGraphiteMinPathSizeForMsaa;
 
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGpuPersistentCache);
+
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kConditionallySkipGpuChannelFlush);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kNoDiscardableMemoryForGpuDecodePath);
@@ -98,6 +100,8 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kEnableDrDc);
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kPruneOldTransferCacheEntries);
 
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kRemoveGPULegacyIPC);
+
 #if BUILDFLAG(IS_ANDROID)
 // This flag is use additionally with kEnableDrDc to enable the feature for
 // vulkan enabled android devices.
@@ -105,6 +109,7 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kEnableDrDcVulkan);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUService);
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kAAPMBlocksWebGPU);
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUBlobCache);
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUEnableRangeAnalysisForRobustness);
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUAndroidOpenGLES);
@@ -132,8 +137,6 @@ GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kDeferredOverlaysRelease);
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kD3DBackingUploadWithUpdateSubresource);
 #endif
 
-GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kHandleOverlaysSwapFailure);
-
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGPUBlockListTestGroup);
 GPU_CONFIG_EXPORT extern const base::FeatureParam<int> kGPUBlockListTestGroupId;
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kGPUDriverBugListTestGroup);
@@ -151,6 +154,7 @@ GPU_CONFIG_EXPORT bool IsSkiaGraphitePrecompilationEnabled(
     const base::CommandLine* command_line);
 GPU_CONFIG_EXPORT bool EnablePurgeGpuImageDecodeCache();
 GPU_CONFIG_EXPORT bool EnablePruneOldTransferCacheEntries();
+GPU_CONFIG_EXPORT bool IsLegacyIpcDisabled();
 
 #if BUILDFLAG(IS_ANDROID)
 GPU_CONFIG_EXPORT bool IsAndroidSurfaceControlEnabled();

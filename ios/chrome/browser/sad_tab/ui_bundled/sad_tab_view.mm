@@ -10,7 +10,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/ui_metrics/sadtab_metrics_types.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -312,6 +312,7 @@ NSString* const kMessageTextViewBulletRTLFormat = @"\u202E%@\u202C";
 - (UITextView*)footerLabel {
   if (!_footerLabel) {
     _footerLabel = CreateUITextViewWithTextKit1();
+    _footerLabel.editable = NO;
     _footerLabel.backgroundColor = self.backgroundColor;
     _footerLabel.delegate = self;
 
@@ -509,24 +510,9 @@ NSString* const kMessageTextViewBulletRTLFormat = @"\u202E%@\u202C";
 
 #pragma mark - UITextViewDelegate
 
-#if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
-- (BOOL)textView:(UITextView*)textView
-    shouldInteractWithURL:(NSURL*)URL
-                  inRange:(NSRange)characterRange
-              interaction:(UITextItemInteraction)interaction {
-  DCHECK(self.footerLabel == textView);
-  DCHECK(URL);
-
-  [self.delegate sadTabView:self
-      showSuggestionsPageWithURL:net::GURLWithNSURL(URL)];
-  // Returns NO as the app is handling the opening of the URL.
-  return NO;
-}
-#endif
-
 - (UIAction*)textView:(UITextView*)textView
     primaryActionForTextItem:(UITextItem*)textItem
-               defaultAction:(UIAction*)defaultAction API_AVAILABLE(ios(17.0)) {
+               defaultAction:(UIAction*)defaultAction {
   DCHECK(self.footerLabel == textView);
   DCHECK(textItem.link);
 
@@ -535,6 +521,19 @@ NSString* const kMessageTextViewBulletRTLFormat = @"\u202E%@\u202C";
     [weakSelf.delegate sadTabView:weakSelf
         showSuggestionsPageWithURL:net::GURLWithNSURL(textItem.link)];
   }];
+}
+
+- (UITextItemMenuConfiguration*)textView:(UITextView*)textView
+            menuConfigurationForTextItem:(UITextItem*)textItem
+                             defaultMenu:(UIMenu*)defaultMenu {
+  CHECK_EQ(textView, self.footerLabel);
+  CHECK(textItem.link);
+  UIMenu* menu = [self.delegate sadTabView:self
+            contextMenuConfigurationForURL:net::GURLWithNSURL(textItem.link)];
+  if (!menu) {
+    return nil;
+  }
+  return [UITextItemMenuConfiguration configurationWithPreview:nil menu:menu];
 }
 
 @end

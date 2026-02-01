@@ -27,7 +27,8 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowLooper;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
@@ -59,7 +60,7 @@ public class ToolbarProgressBarLayerTest {
 
     private ToolbarProgressBarLayer mLayer;
     private @ControlsPosition int mTestControlPosition = ControlsPosition.NONE;
-    private ObservableSupplierImpl<Integer> mBookmarkBarIdSupplier;
+    private SettableObservableSupplier<Integer> mBookmarkBarIdSupplier;
 
     @Before
     public void setUp() {
@@ -68,7 +69,7 @@ public class ToolbarProgressBarLayerTest {
         doReturn(mContentView).when(mProgressBarContainer).getParent();
         mToolbarHairline = new View(mActivity);
 
-        mBookmarkBarIdSupplier = new ObservableSupplierImpl<>(0);
+        mBookmarkBarIdSupplier = ObservableSuppliers.createMonotonic(0);
 
         mLayer =
                 new ToolbarProgressBarLayer(

@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
@@ -53,11 +54,11 @@ void ImageBitmapRenderingContext::Reset() {
   Host()->DiscardResources();
 }
 
-base::ByteCount ImageBitmapRenderingContext::AllocatedBufferSize() const {
+base::ByteSize ImageBitmapRenderingContext::AllocatedBufferSize() const {
   if (!IsPaintable()) {
-    return base::ByteCount();
+    return base::ByteSize();
   }
-  base::ByteCount result =
+  base::ByteSize result =
       image_layer_bridge_->GetImage()->EstimatedSizeInBytes();
   if (resource_provider_for_offscreen_canvas_) {
     result += resource_provider_for_offscreen_canvas_->EstimatedSizeInBytes();

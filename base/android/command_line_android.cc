@@ -10,7 +10,7 @@
 #include "base/command_line_jni/CommandLine_jni.h"
 
 using base::CommandLine;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace {
@@ -26,8 +26,7 @@ void AppendToCommandLine(std::vector<std::string>& vec, bool includes_program) {
 
 }  // namespace
 
-static jboolean JNI_CommandLine_HasSwitch(JNIEnv* env,
-                                          std::string& switch_string) {
+static bool JNI_CommandLine_HasSwitch(JNIEnv* env, std::string& switch_string) {
   return CommandLine::ForCurrentProcess()->HasSwitch(switch_string);
 }
 

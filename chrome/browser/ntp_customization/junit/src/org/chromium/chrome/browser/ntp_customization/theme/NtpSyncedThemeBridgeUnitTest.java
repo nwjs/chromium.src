@@ -50,6 +50,10 @@ public class NtpSyncedThemeBridgeUnitTest {
         verify(mNatives).init(eq(mProfile), any(NtpSyncedThemeBridge.class));
         mNtpSyncedThemeBridge.destroy();
         verify(mNatives).destroy(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+
+        // Calling destroy() again should be a no-op.
+        mNtpSyncedThemeBridge.destroy();
+        verify(mNatives).destroy(NATIVE_NTP_SYNCED_THEME_BRIDGE);
     }
 
     @Test
@@ -63,5 +67,11 @@ public class NtpSyncedThemeBridgeUnitTest {
         when(mNatives.getCustomBackgroundInfo(anyLong())).thenReturn(info);
         mNtpSyncedThemeBridge.onCustomBackgroundImageUpdated();
         verify(mCallback).onResult(info);
+    }
+
+    @Test
+    public void testFetchNextThemeCollectionImage() {
+        mNtpSyncedThemeBridge.fetchNextThemeCollectionImage();
+        verify(mNatives).fetchNextThemeCollectionImage(NATIVE_NTP_SYNCED_THEME_BRIDGE);
     }
 }

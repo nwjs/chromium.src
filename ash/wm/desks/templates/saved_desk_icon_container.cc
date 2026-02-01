@@ -15,12 +15,12 @@
 #include "ash/wm/desks/templates/saved_desk_constants.h"
 #include "ash/wm/window_restore/window_restore_util.h"
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
 #include "components/app_restore/app_restore_utils.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -65,7 +65,7 @@ void InsertIconIdentifierToIconInfo(
         out_icon_identifier_to_icon_info) {
   // A single app/site can have multiple windows so count their occurrences and
   // use the smallest activation index for sorting purposes.
-  if (!base::Contains(out_icon_identifier_to_icon_info, identifier)) {
+  if (!out_icon_identifier_to_icon_info.contains(identifier)) {
     out_icon_identifier_to_icon_info[identifier] = {
         app_id, base::UTF16ToUTF8(app_title), activation_index,
         /*count=*/1};

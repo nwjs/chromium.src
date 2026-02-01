@@ -5,7 +5,9 @@
 #include "components/history/core/browser/browsing_history_service.h"
 
 #include <utility>
+#include <vector>
 
+#include "base/feature_list.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -27,6 +29,7 @@
 #include "components/sync/service/sync_service_observer.h"
 #include "components/sync/test/mock_sync_service.h"
 #include "net/http/http_status_code.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -36,7 +39,25 @@ namespace history {
 
 using HistoryEntry = BrowsingHistoryService::HistoryEntry;
 
+void PrintTo(const HistoryEntry& entry, std::ostream* os) {
+  *os << "{url: " << entry.url << ", time: " << entry.time
+      << ", entry_type: " << entry.entry_type
+      << ", remote_icon_url_for_uma: " << entry.remote_icon_url_for_uma
+      << ", is_actor_visit: " << entry.is_actor_visit << "}";
+}
+
+void PrintTo(const BrowsingHistoryService::QueryResultsInfo& info,
+             std::ostream* os) {
+  *os << "{reached_beginning: " << info.reached_beginning
+      << ", sync_timed_out: " << info.sync_timed_out << "}";
+}
+
 namespace {
+
+using ::testing::AllOf;
+using ::testing::ElementsAre;
+using ::testing::Field;
+using ::testing::IsEmpty;
 
 const char kUrl1[] = "http://www.one.com";
 const char kUrl2[] = "http://www.two.com";
@@ -54,6 +75,10 @@ const HistoryEntry::EntryType kLocal = HistoryEntry::LOCAL_ENTRY;
 const HistoryEntry::EntryType kRemote = HistoryEntry::REMOTE_ENTRY;
 const HistoryEntry::EntryType kBoth = HistoryEntry::COMBINED_ENTRY;
 
+Time OffsetToTimeWithBaseline(base::Time baseline_time, int64_t hour_offset) {
+  return baseline_time + base::Hours(hour_offset);
+}
+
 struct TestResult {
   std::string url;
   int64_t hour_offset;  // Visit time in hours past the baseline time.
@@ -61,6 +86,49 @@ struct TestResult {
   std::string remote_icon_url_for_uma;
   VisitSource visit_source = VisitSource::SOURCE_BROWSED;
 };
+
+void PrintTo(const TestResult& result, std::ostream* os) {
+  *os << "{url: " << result.url << ", hour_offset: " << result.hour_offset
+      << ", type: " << result.type
+      << ", remote_icon_url_for_uma: " << result.remote_icon_url_for_uma
+      << ", visit_source: " << static_cast<int>(result.visit_source) << "}";
+}
+
+MATCHER_P2(MatchesHistory, baseline_time, expected, "") {
+  return arg.url == GURL(expected.url) &&
+         arg.time ==
+             OffsetToTimeWithBaseline(baseline_time, expected.hour_offset) &&
+         arg.entry_type == expected.type &&
+         arg.remote_icon_url_for_uma ==
+             GURL(expected.remote_icon_url_for_uma) &&
+         arg.is_actor_visit ==
+             (expected.visit_source == VisitSource::SOURCE_ACTOR);
+}
+
+MATCHER_P3(MatchesQueryResult,
+           baseline_time,
+           reached_beginning,
+           expected_entries,
+           "") {
+  const BrowsingHistoryService::QueryResultsInfo& info = arg.second;
+  if (info.reached_beginning != reached_beginning) {
+    *result_listener << "where reached_beginning should be "
+                     << reached_beginning;
+    return false;
+  }
+  if (info.sync_timed_out) {
+    *result_listener << "where sync_timed_out should be false";
+    return false;
+  }
+
+  const std::vector<BrowsingHistoryService::HistoryEntry>& entries = arg.first;
+  std::vector<testing::Matcher<const HistoryEntry&>> matchers;
+  for (const auto& entry : expected_entries) {
+    matchers.push_back(MatchesHistory(baseline_time, entry));
+  }
+  return ExplainMatchResult(ElementsAreArray(matchers), entries,
+                            result_listener);
+}
 
 class TestBrowsingHistoryDriver : public BrowsingHistoryDriver {
  public:
@@ -114,7 +182,7 @@ class TestBrowsingHistoryDriver : public BrowsingHistoryDriver {
 
 class TestWebHistoryService : public FakeWebHistoryService {
  public:
-  TestWebHistoryService() : FakeWebHistoryService() {}
+  TestWebHistoryService() = default;
 
   void TriggerOnWebHistoryDeleted() {
     TestRequest request;
@@ -125,9 +193,9 @@ class TestWebHistoryService : public FakeWebHistoryService {
   class TestRequest : public WebHistoryService::Request {
    private:
     // WebHistoryService::Request implementation.
-    bool IsPending() override { return false; }
-    int GetResponseCode() override { return net::HTTP_OK; }
-    const std::string& GetResponseBody() override { return body_; }
+    bool IsPending() const override { return false; }
+    int GetResponseCode() const override { return net::HTTP_OK; }
+    const std::string& GetResponseBody() const override { return body_; }
     void SetPostData(const std::string& post_data) override {}
     void SetPostDataAndType(const std::string& post_data,
                             const std::string& mime_type) override {}
@@ -155,11 +223,12 @@ class ReversedWebHistoryService : public TestWebHistoryService {
 class TimeoutWebHistoryService : public TestWebHistoryService {
  private:
   // WebHistoryService implementation.
-  Request* CreateRequest(const GURL& url,
-                         CompletionCallback callback,
-                         const net::PartialNetworkTrafficAnnotationTag&
-                             partial_traffic_annotation) override {
-    return new TestWebHistoryService::TestRequest();
+  std::unique_ptr<Request> CreateRequest(
+      const GURL& url,
+      CompletionCallback callback,
+      const net::PartialNetworkTrafficAnnotationTag& partial_traffic_annotation)
+      override {
+    return std::make_unique<TestWebHistoryService::TestRequest>();
   }
 };
 
@@ -175,7 +244,9 @@ class TestBrowsingHistoryService : public BrowsingHistoryService {
                                std::move(timer)) {}
 };
 
-class BrowsingHistoryServiceTest : public ::testing::Test {
+// The param determines whether the feature `kHistoryQueryOnlyLocalFirst` is
+// enabled.
+class BrowsingHistoryServiceTest : public ::testing::TestWithParam<bool> {
  protected:
   // WebHistory API is to pass time ranges as the number of microseconds since
   // Time::UnixEpoch() as a query parameter. This becomes a problem when we use
@@ -185,6 +256,8 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
   BrowsingHistoryServiceTest()
       : baseline_time_(Time::UnixEpoch().LocalMidnight() + base::Days(1)),
         driver_(&web_history_) {
+    features_.InitWithFeatureState(kHistoryQueryOnlyLocalFirst, GetParam());
+
     EXPECT_TRUE(history_dir_.CreateUniqueTempDir());
     local_history_ = CreateHistoryService(history_dir_.GetPath(), true);
     ResetService(driver(), local_history(), sync());
@@ -205,7 +278,7 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
   }
 
   Time OffsetToTime(int64_t hour_offset) {
-    return baseline_time_ + base::Hours(hour_offset);
+    return OffsetToTimeWithBaseline(baseline_time_, hour_offset);
   }
 
   void AddHistory(const std::vector<TestResult>& data,
@@ -236,17 +309,6 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
       entry.all_timestamps.insert(OffsetToTime(hour_offset));
     }
     return entry;
-  }
-
-  void VerifyEntry(const TestResult& expected, const HistoryEntry& actual) {
-    EXPECT_EQ(GURL(expected.url), actual.url);
-    EXPECT_EQ(OffsetToTime(expected.hour_offset), actual.time);
-    EXPECT_EQ(static_cast<int>(expected.type),
-              static_cast<int>(actual.entry_type));
-    EXPECT_EQ(GURL(expected.remote_icon_url_for_uma),
-              actual.remote_icon_url_for_uma);
-    EXPECT_EQ(expected.visit_source == VisitSource::SOURCE_ACTOR,
-              actual.is_actor_visit);
   }
 
   TestBrowsingHistoryDriver::QueryResult QueryHistory(size_t max_count = 0) {
@@ -282,17 +344,6 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
     return *all_results.rbegin();
   }
 
-  void VerifyQueryResult(bool reached_beginning,
-                         const std::vector<TestResult>& expected_entries,
-                         TestBrowsingHistoryDriver::QueryResult result) {
-    EXPECT_EQ(reached_beginning, result.second.reached_beginning);
-    EXPECT_FALSE(result.second.sync_timed_out);
-    ASSERT_EQ(expected_entries.size(), result.first.size());
-    for (size_t i = 0; i < expected_entries.size(); ++i) {
-      VerifyEntry(expected_entries[i], result.first[i]);
-    }
-  }
-
   HistoryService* local_history() { return local_history_.get(); }
   TestWebHistoryService* web_history() { return &web_history_; }
   syncer::MockSyncService* sync() { return &sync_service_; }
@@ -302,12 +353,15 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
     return browsing_history_service_.get();
   }
 
- private:
-  base::test::TaskEnvironment task_environment_;
-
+ protected:
   // Duplicates on the same day in the local timezone are removed, so set a
   // baseline time in local time.
   Time baseline_time_;
+
+ private:
+  base::test::ScopedFeatureList features_;
+
+  base::test::TaskEnvironment task_environment_;
 
   base::ScopedTempDir history_dir_;
   std::unique_ptr<HistoryService> local_history_;
@@ -318,7 +372,15 @@ class BrowsingHistoryServiceTest : public ::testing::Test {
   std::unique_ptr<TestBrowsingHistoryService> browsing_history_service_;
 };
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
+INSTANTIATE_TEST_SUITE_P(,
+                         BrowsingHistoryServiceTest,
+                         testing::Bool(),
+                         [](testing::TestParamInfo<bool> param_info) {
+                           return param_info.param ? "QueryLocalFirst"
+                                                   : "QueryInParallel";
+                         });
+
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
   // Allow saving 404 visits to History.
   base::test::ScopedFeatureList scoped_featurelist;
   scoped_featurelist.InitAndEnableFeature(history::kVisitedLinksOn404);
@@ -336,67 +398,83 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryExcludes404s) {
   BlockUntilHistoryProcessesPendingRequests();
 
   // 404s should be excluded from query results.
-  VerifyQueryResult(/*reached_beginning=*/true, {{kUrl1, 1, kLocal}},
-                    QueryHistory());
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                 std::vector<TestResult>{{kUrl1, 1, kLocal}}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryNoSources) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryNoSources) {
   driver()->SetWebHistory(nullptr);
   ResetService(driver(), nullptr, nullptr);
-  VerifyQueryResult(/*reached_beginning*/ true, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, EmptyQueryHistoryJustLocal) {
+TEST_P(BrowsingHistoryServiceTest, EmptyQueryHistoryJustLocal) {
   driver()->SetWebHistory(nullptr);
   ResetService(driver(), local_history(), nullptr);
-  VerifyQueryResult(/*reached_beginning*/ true, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryJustLocal) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryJustLocal) {
   driver()->SetWebHistory(nullptr);
   ResetService(driver(), local_history(), nullptr);
   AddHistory({{kUrl1, 1, kLocal}});
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kLocal}},
-                    QueryHistory());
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                 std::vector<TestResult>{{kUrl1, 1, kLocal}}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, EmptyQueryHistoryJustWeb) {
+TEST_P(BrowsingHistoryServiceTest, EmptyQueryHistoryJustWeb) {
   ResetService(driver(), nullptr, nullptr);
-  VerifyQueryResult(/*reached_beginning*/ true, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, EmptyQueryHistoryDelayedWeb) {
+TEST_P(BrowsingHistoryServiceTest, EmptyQueryHistoryDelayedWeb) {
   driver()->SetWebHistory(nullptr);
   ResetService(driver(), nullptr, sync());
   driver()->SetWebHistory(web_history());
-  VerifyQueryResult(/*reached_beginning*/ true, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryJustWeb) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryJustWeb) {
   ResetService(driver(), nullptr, sync());
   AddHistory({{kUrl1, 1, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kRemote}},
-                    QueryHistory());
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                 std::vector<TestResult>{{kUrl1, 1, kRemote}}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, EmptyQueryHistoryBothSources) {
+TEST_P(BrowsingHistoryServiceTest, EmptyQueryHistoryBothSources) {
   ResetService(driver(), local_history(), sync());
-  VerifyQueryResult(/*reached_beginning*/ true, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryAllSources) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryAllSources) {
   ResetService(driver(), local_history(), sync());
-  AddHistory({{kUrl1, 1, kLocal},
-              {kUrl2, 2, kLocal},
-              {kUrl3, 3, kRemote},
-              {kUrl1, 4, kRemote}});
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl1, 4, kBoth}, {kUrl3, 3, kRemote}, {kUrl2, 2, kLocal}},
-      QueryHistory());
+  AddHistory({{kUrl1, 1, kRemote},
+              {kUrl2, 2, kRemote},
+              {kUrl3, 3, kLocal},
+              {kUrl1, 4, kLocal}});
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{
+                                                     {kUrl1, 4, kBoth},
+                                                     {kUrl3, 3, kLocal},
+                                                     {kUrl2, 2, kRemote},
+                                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalTimeRanges) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryLocalTimeRanges) {
   AddHistory({{kUrl1, 1, kLocal},
               {kUrl2, 2, kLocal},
               {kUrl3, 3, kLocal},
@@ -409,12 +487,16 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalTimeRanges) {
   // `count`. If the local history implementation changes, feel free to update
   // this value, all this test cares about is that BrowsingHistoryService passes
   // the values through correctly.
-  VerifyQueryResult(/*reached_beginning*/ false,
-                    {{kUrl3, 3, kLocal}, {kUrl2, 2, kLocal}},
-                    QueryHistory(options));
+  EXPECT_THAT(QueryHistory(options),
+              MatchesQueryResult(baseline_time_,
+                                 /*reached_beginning*/ false,
+                                 std::vector<TestResult>{
+                                     {kUrl3, 3, kLocal},
+                                     {kUrl2, 2, kLocal},
+                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryRemoteTimeRanges) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryRemoteTimeRanges) {
   AddHistory({{kUrl1, 1, kRemote},
               {kUrl2, 2, kRemote},
               {kUrl3, 3, kRemote},
@@ -422,83 +504,131 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryRemoteTimeRanges) {
   QueryOptions options;
   options.begin_time = OffsetToTime(2);
   options.end_time = OffsetToTime(4);
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {{kUrl3, 3, kRemote}, {kUrl2, 2, kRemote}},
-      QueryHistory(options));
+  EXPECT_THAT(QueryHistory(options),
+              MatchesQueryResult(baseline_time_,
+                                 /*reached_beginning*/ true,
+                                 std::vector<TestResult>{
+                                     {kUrl3, 3, kRemote},
+                                     {kUrl2, 2, kRemote},
+                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryHostOnlyRemote) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryHostOnlyRemote) {
   AddHistory({{kUrl8, 1, kRemote}, {kUrl9, 2, kRemote}, {kUrl10, 3, kRemote}});
 
   QueryOptions options;
   options.max_count = 0;
   options.host_only = false;
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-
-      {{kUrl10, 3, kRemote}, {kUrl9, 2, kRemote}, {kUrl8, 1, kRemote}},
-      QueryHistory(u"eight.com", options));
+  EXPECT_THAT(QueryHistory(u"eight.com", options),
+              MatchesQueryResult(baseline_time_,
+                                 /*reached_beginning*/ true,
+                                 std::vector<TestResult>{
+                                     {kUrl10, 3, kRemote},
+                                     {kUrl9, 2, kRemote},
+                                     {kUrl8, 1, kRemote},
+                                 }));
   options.host_only = true;
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl8, 1, kRemote}},
-                    QueryHistory(u"eight.com", options));
+  EXPECT_THAT(QueryHistory(u"eight.com", options),
+              MatchesQueryResult(baseline_time_, /*reached_beginning*/ true,
+                                 std::vector<TestResult>{
+                                     {kUrl8, 1, kRemote},
+                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalPagingPartial) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryLocalPagingPartial) {
   AddHistory({{kUrl1, 1, kLocal}, {kUrl2, 2, kLocal}, {kUrl3, 3, kLocal}});
-  VerifyQueryResult(/*reached_beginning*/ false,
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kLocal},
+                                                      {kUrl2, 2, kLocal},
+                                                  }));
 
-                    {{kUrl3, 3, kLocal}, {kUrl2, 2, kLocal}}, QueryHistory(2));
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {{kUrl1, 1, kLocal}}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl1, 1, kLocal},
+                                                  }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryLocalPagingFull) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryLocalPagingFull) {
   AddHistory({{kUrl1, 1, kLocal}, {kUrl2, 2, kLocal}, {kUrl3, 3, kLocal}});
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl3, 3, kLocal}, {kUrl2, 2, kLocal}, {kUrl1, 1, kLocal}},
-      QueryHistory(3));
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {}, ContinueQuery());
+  // With `kHistoryQueryOnlyLocalFirst`, the first query doesn't reach the
+  // beginning, since there were just enough local results to fulfill the
+  // request and remote hasn't been queried yet.
+  bool reached_beginning =
+      !base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst);
+  EXPECT_THAT(QueryHistory(3),
+              MatchesQueryResult(baseline_time_,
+                                 /*reached_beginning*/ reached_beginning,
+                                 std::vector<TestResult>{
+                                     {kUrl3, 3, kLocal},
+                                     {kUrl2, 2, kLocal},
+                                     {kUrl1, 1, kLocal},
+                                 }));
+
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryRemotePagingPartial) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryRemotePagingPartial) {
   AddHistory({{kUrl1, 1, kRemote}, {kUrl2, 2, kRemote}, {kUrl3, 3, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ false,
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kRemote},
+                                                      {kUrl2, 2, kRemote},
+                                                  }));
 
-                    {{kUrl3, 3, kRemote}, {kUrl2, 2, kRemote}},
-                    QueryHistory(2));
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {{kUrl1, 1, kRemote}}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryRemotePagingFull) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryRemotePagingFull) {
   AddHistory({{kUrl1, 1, kRemote}, {kUrl2, 2, kRemote}, {kUrl3, 3, kRemote}});
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl3, 3, kRemote}, {kUrl2, 2, kRemote}, {kUrl1, 1, kRemote}},
-      QueryHistory(3));
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {}, ContinueQuery());
+  // Note: As opposed to QueryHistoryLocalPagingFull, here both local and remote
+  // reach the beginning. The local query returns no results, so remote gets
+  // queried immediately and returns all the existing results.
+  EXPECT_THAT(QueryHistory(3), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kRemote},
+                                                      {kUrl2, 2, kRemote},
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesSameDay) {
+TEST_P(BrowsingHistoryServiceTest, MergeDuplicatesSameDay) {
   AddHistory({{kUrl1, 0, kRemote},
               {kUrl2, 1, kRemote},
               {kUrl1, 2, kRemote},
               {kUrl1, 3, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl1, 3, kRemote}, {kUrl2, 1, kRemote}}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{
+                                                     {kUrl1, 3, kRemote},
+                                                     {kUrl2, 1, kRemote},
+                                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesNextDayNotRemoved) {
+TEST_P(BrowsingHistoryServiceTest, MergeDuplicatesNextDayNotRemoved) {
   AddHistory({{kUrl1, 0, kRemote}, {kUrl1, 23, kRemote}, {kUrl1, 24, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl1, 24, kRemote}, {kUrl1, 23, kRemote}},
-                    QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{
+                                                     {kUrl1, 24, kRemote},
+                                                     {kUrl1, 23, kRemote},
+                                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesMultipleDays) {
+TEST_P(BrowsingHistoryServiceTest, MergeDuplicatesMultipleDays) {
   AddHistory({{kUrl2, 0, kRemote},
               {kUrl1, 1, kRemote},
               {kUrl2, 2, kRemote},
@@ -507,79 +637,134 @@ TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesMultipleDays) {
               {kUrl1, 25, kRemote},
               {kUrl2, 26, kRemote},
               {kUrl1, 27, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl1, 27, kRemote},
-                     {kUrl2, 26, kRemote},
-                     {kUrl1, 3, kRemote},
-                     {kUrl2, 2, kRemote}},
-                    QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{
+                                                     {kUrl1, 27, kRemote},
+                                                     {kUrl2, 26, kRemote},
+                                                     {kUrl1, 3, kRemote},
+                                                     {kUrl2, 2, kRemote},
+                                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesVerifyTimestamps) {
+TEST_P(BrowsingHistoryServiceTest, MergeDuplicatesVerifyTimestamps) {
   AddHistory({{kUrl1, 0, kRemote},
               {kUrl2, 1, kRemote},
               {kUrl1, 2, kRemote},
               {kUrl1, 3, kRemote}});
   auto results = QueryHistory();
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl1, 3, kRemote}, {kUrl2, 1, kRemote}}, results);
+  EXPECT_THAT(results, MatchesQueryResult(baseline_time_,
+                                          /*reached_beginning*/ true,
+                                          std::vector<TestResult>{
+                                              {kUrl1, 3, kRemote},
+                                              {kUrl2, 1, kRemote},
+                                          }));
   EXPECT_EQ(3U, results.first[0].all_timestamps.size());
   EXPECT_EQ(1U, results.first[1].all_timestamps.size());
 }
 
-TEST_F(BrowsingHistoryServiceTest, MergeDuplicatesKeepNonEmptyIconUrl) {
+TEST_P(BrowsingHistoryServiceTest, MergeDuplicatesKeepNonEmptyIconUrl) {
   AddHistory({{kUrl1, 0, kRemote, kIconUrl1}, {kUrl1, 1, kLocal}});
-  auto results = QueryHistory();
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kBoth, kIconUrl1}},
-                    results);
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(
+                  baseline_time_,
+                  /*reached_beginning*/ true,
+                  std::vector<TestResult>{{kUrl1, 1, kBoth, kIconUrl1}}));
 
   AddHistory({{kUrl1, 0, kLocal}, {kUrl1, 1, kRemote, kIconUrl1}});
-  results = QueryHistory();
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kBoth, kIconUrl1}},
-                    results);
+  EXPECT_THAT(QueryHistory(),
+              MatchesQueryResult(
+                  baseline_time_,
+                  /*reached_beginning*/ true,
+                  std::vector<TestResult>{{kUrl1, 1, kBoth, kIconUrl1}}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryMerge) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryMerge) {
   AddHistory({{kUrl1, 1, kRemote},
               {kUrl2, 2, kRemote},
               {kUrl3, 3, kLocal},
               {kUrl1, 4, kLocal}});
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl1, 4, kBoth}, {kUrl3, 3, kLocal}, {kUrl2, 2, kRemote}},
-      QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ true,
+                                                 std::vector<TestResult>{
+                                                     {kUrl1, 4, kBoth},
+                                                     {kUrl3, 3, kLocal},
+                                                     {kUrl2, 2, kRemote},
+                                                 }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryPending) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryPending) {
   AddHistory({{kUrl1, 1, kRemote},
               {kUrl2, 2, kRemote},
               {kUrl3, 3, kLocal},
               {kUrl4, 4, kLocal}});
-  VerifyQueryResult(
-      /*reached_beginning*/ false, {{kUrl4, 4, kLocal}}, QueryHistory(1));
-  VerifyQueryResult(
-      /*reached_beginning*/ false, {{kUrl3, 3, kLocal}, {kUrl2, 2, kRemote}},
-      ContinueQuery());
-  VerifyQueryResult(
-      /*reached_beginning*/ true, {{kUrl1, 1, kRemote}}, ContinueQuery());
+  EXPECT_THAT(QueryHistory(1), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl4, 4, kLocal},
+                                                  }));
+
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl3, 3, kLocal},
+                                                    }));
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl2, 2, kRemote},
+                                                    }));
+  } else {
+    // Since local and remote are queried in parallel, one result is returned
+    // from each, even though only one result was requested.
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl3, 3, kLocal},
+                                                        {kUrl2, 2, kRemote},
+                                                    }));
+  }
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
 }
 
 // A full request worth of local results will sit in pending, resulting in us
 // being able to delete local history before our next query and we should still
 // see the local entry.
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryFullLocalPending) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryFullLocalPending) {
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // With `kHistoryQueryOnlyLocalFirst`, the situation with pending results
+    // doesn't exist.
+    GTEST_SKIP();
+  }
   AddHistory({{kUrl1, 1, kLocal}, {kUrl2, 2, kRemote}, {kUrl3, 3, kRemote}});
-  VerifyQueryResult(
-      /*reached_beginning*/ false, {{kUrl3, 3, kRemote}}, QueryHistory(1));
+  EXPECT_THAT(QueryHistory(1), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kRemote},
+                                                  }));
 
   local_history()->DeleteURLs({GURL(kUrl1)});
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl2, 2, kRemote}, {kUrl1, 1, kLocal}}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl2, 2, kRemote},
+                                                      {kUrl1, 1, kLocal},
+                                                  }));
 }
 
 // Part of a request worth of local results will sit in pending, resulting in us
 // seeing extra local results on our next request.
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryPartialLocalPending) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryPartialLocalPending) {
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // With `kHistoryQueryOnlyLocalFirst`, the situation with pending results
+    // doesn't exist.
+    GTEST_SKIP();
+  }
   AddHistory({{kUrl1, 1, kLocal},
               {kUrl2, 2, kLocal},
               {kUrl3, 3, kRemote},
@@ -587,34 +772,56 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryPartialLocalPending) {
               {kUrl5, 5, kRemote},
               {kUrl6, 6, kRemote},
               {kUrl7, 7, kLocal}});
-  VerifyQueryResult(
-      /*reached_beginning*/ false,
-      {{kUrl7, 7, kLocal}, {kUrl6, 6, kRemote}, {kUrl5, 5, kRemote}},
-      QueryHistory(2));
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl4, 4, kLocal},
-                     {kUrl3, 3, kRemote},
-                     {kUrl2, 2, kLocal},
-                     {kUrl1, 1, kLocal}},
-                    ContinueQuery());
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl7, 7, kLocal},
+                                                      {kUrl6, 6, kRemote},
+                                                      {kUrl5, 5, kRemote},
+                                                  }));
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl4, 4, kLocal},
+                                                      {kUrl3, 3, kRemote},
+                                                      {kUrl2, 2, kLocal},
+                                                      {kUrl1, 1, kLocal},
+                                                  }));
 }
 
 // A full request worth of remote results will sit in pending, resulting in us
 // being able to delete remote history before our next query and we should still
 // see the remote entry.
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryFullRemotePending) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryFullRemotePending) {
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // With `kHistoryQueryOnlyLocalFirst`, the situation with pending results
+    // doesn't exist.
+    GTEST_SKIP();
+  }
   AddHistory({{kUrl1, 1, kRemote}, {kUrl2, 2, kLocal}, {kUrl3, 3, kLocal}});
-  VerifyQueryResult(/*reached_beginning*/ false, {{kUrl3, 3, kLocal}},
-                    QueryHistory(1));
+  EXPECT_THAT(QueryHistory(1), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kLocal},
+                                                  }));
 
   web_history()->ClearSyncedVisits();
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl2, 2, kLocal}, {kUrl1, 1, kRemote}}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl2, 2, kLocal},
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
 }
 
 // Part of a request worth of remote results will sit in pending, resulting in
 // us seeing extra remote results on our next request.
-TEST_F(BrowsingHistoryServiceTest, QueryHistoryPartialRemotePending) {
+TEST_P(BrowsingHistoryServiceTest, QueryHistoryPartialRemotePending) {
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // With `kHistoryQueryOnlyLocalFirst`, the situation with pending results
+    // doesn't exist.
+    GTEST_SKIP();
+  }
   AddHistory({{kUrl1, 1, kRemote},
               {kUrl2, 2, kRemote},
               {kUrl3, 3, kLocal},
@@ -622,51 +829,75 @@ TEST_F(BrowsingHistoryServiceTest, QueryHistoryPartialRemotePending) {
               {kUrl5, 5, kLocal},
               {kUrl6, 6, kLocal},
               {kUrl7, 7, kRemote}});
-  VerifyQueryResult(
-      /*reached_beginning*/ false,
-      {{kUrl7, 7, kRemote}, {kUrl6, 6, kLocal}, {kUrl5, 5, kLocal}},
-      QueryHistory(2));
-  VerifyQueryResult(/*reached_beginning*/ true,
-                    {{kUrl4, 4, kRemote},
-                     {kUrl3, 3, kLocal},
-                     {kUrl2, 2, kRemote},
-                     {kUrl1, 1, kRemote}},
-                    ContinueQuery());
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl7, 7, kRemote},
+                                                      {kUrl6, 6, kLocal},
+                                                      {kUrl5, 5, kLocal},
+                                                  }));
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl4, 4, kRemote},
+                                                      {kUrl3, 3, kLocal},
+                                                      {kUrl2, 2, kRemote},
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, RetryOnRemoteFailureEmpty) {
+TEST_P(BrowsingHistoryServiceTest, RetryOnRemoteFailureEmpty) {
   web_history()->SetupFakeResponse(false, 0);
-  VerifyQueryResult(/*reached_beginning*/ false, {}, QueryHistory());
+  EXPECT_THAT(QueryHistory(), MatchesQueryResult(baseline_time_,
+                                                 /*reached_beginning*/ false,
+                                                 std::vector<TestResult>{}));
   web_history()->SetupFakeResponse(true, net::HTTP_OK);
-  VerifyQueryResult(/*reached_beginning*/ true, {}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{}));
 }
 
-TEST_F(BrowsingHistoryServiceTest, RetryOnRemoteFailurePagingRemote) {
+TEST_P(BrowsingHistoryServiceTest, RetryOnRemoteFailurePagingRemote) {
   AddHistory({{kUrl1, 1, kRemote}, {kUrl2, 2, kRemote}, {kUrl3, 3, kRemote}});
-  VerifyQueryResult(/*reached_beginning*/ false,
-                    {{kUrl3, 3, kRemote}, {kUrl2, 2, kRemote}},
-                    QueryHistory(2));
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kRemote},
+                                                      {kUrl2, 2, kRemote},
+                                                  }));
 
   web_history()->SetupFakeResponse(false, 0);
-  VerifyQueryResult(/*reached_beginning*/ false, {}, ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{}));
 
   web_history()->SetupFakeResponse(true, net::HTTP_OK);
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kRemote}},
-                    ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl1, 1, kRemote},
+                                                  }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, RetryOnRemoteFailurePagingLocal) {
+TEST_P(BrowsingHistoryServiceTest, RetryOnRemoteFailurePagingLocal) {
   AddHistory({{kUrl1, 1, kLocal}, {kUrl2, 2, kLocal}, {kUrl3, 3, kLocal}});
   web_history()->SetupFakeResponse(false, 0);
-  VerifyQueryResult(/*reached_beginning*/ false,
-                    {{kUrl3, 3, kLocal}, {kUrl2, 2, kLocal}}, QueryHistory(2));
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl3, 3, kLocal},
+                                                      {kUrl2, 2, kLocal},
+                                                  }));
 
   web_history()->SetupFakeResponse(true, net::HTTP_OK);
-  VerifyQueryResult(/*reached_beginning*/ true, {{kUrl1, 1, kLocal}},
-                    ContinueQuery());
+  EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ true,
+                                                  std::vector<TestResult>{
+                                                      {kUrl1, 1, kLocal},
+                                                  }));
 }
 
-TEST_F(BrowsingHistoryServiceTest, WebHistoryTimeout) {
+TEST_P(BrowsingHistoryServiceTest, WebHistoryTimeout) {
   TimeoutWebHistoryService timeout;
   driver()->SetWebHistory(&timeout);
   ResetService(driver(), local_history(), sync());
@@ -686,7 +917,7 @@ TEST_F(BrowsingHistoryServiceTest, WebHistoryTimeout) {
   ResetService(driver(), nullptr, nullptr);
 }
 
-TEST_F(BrowsingHistoryServiceTest, ObservingWebHistory) {
+TEST_P(BrowsingHistoryServiceTest, ObservingWebHistory) {
   // No need to observe SyncService since we have a WebHistory already.
   EXPECT_CALL(*sync(), AddObserver).Times(0);
   EXPECT_CALL(*sync(), RemoveObserver).Times(0);
@@ -697,7 +928,7 @@ TEST_F(BrowsingHistoryServiceTest, ObservingWebHistory) {
   EXPECT_EQ(1, driver()->GetHistoryDeletedCount());
 }
 
-TEST_F(BrowsingHistoryServiceTest, ObservingWebHistoryDelayedWeb) {
+TEST_P(BrowsingHistoryServiceTest, ObservingWebHistoryDelayedWeb) {
   // Since there's no WebHistory, observations should be set up on Sync.
   EXPECT_CALL(*sync(), AddObserver);
   EXPECT_CALL(*sync(), RemoveObserver).Times(0);
@@ -727,22 +958,43 @@ TEST_F(BrowsingHistoryServiceTest, ObservingWebHistoryDelayedWeb) {
   EXPECT_EQ(1, driver()->GetHistoryDeletedCount());
 }
 
-TEST_F(BrowsingHistoryServiceTest, IncorrectlyOrderedRemoteResults) {
+TEST_P(BrowsingHistoryServiceTest, IncorrectlyOrderedRemoteResults) {
   // Created from crbug.com/787928, where suspected MergeDuplicateResults did
   // not start with sorted data. This case originally hit a NOTREACHED.
   ReversedWebHistoryService reversed;
   driver()->SetWebHistory(&reversed);
   ResetService(driver(), local_history(), sync());
   AddHistory({{kUrl1, 1, kRemote},
-              {kUrl1, 2, kLocal},
+              {kUrl3, 2, kRemote},
               {kUrl3, 3, kLocal},
               {kUrl5, 4, kRemote},
               {kUrl5, 5, kLocal},
               {kUrl6, 6, kRemote}},
              &reversed);
-  VerifyQueryResult(
-      /*reached_beginning*/ false, {{kUrl6, 6, kRemote}, {kUrl5, 5, kBoth}},
-      QueryHistory(2));
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // The local query returns 5, 3. Since more results were requested, a
+    // remote query is started for entries < 3, which returns 1, 2 (in this
+    // order!). 2 and 3 have the same URL and day so are merged. Note that the
+    // remote entries 4 and 6 are never queried. In practice, this situation
+    // should be impossible - recent remote entries should always also be
+    // available locally.
+    EXPECT_THAT(QueryHistory(4), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ true,
+                                                    std::vector<TestResult>{
+                                                        {kUrl5, 5, kLocal},
+                                                        {kUrl3, 3, kBoth},
+                                                        {kUrl1, 1, kRemote},
+                                                    }));
+  } else {
+    // The local query returns 5, 3, and the remote one returns 4, 6 (in this
+    // order!). 4 and 5 have the same URL and are merged.
+    EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl6, 6, kRemote},
+                                                        {kUrl5, 5, kBoth},
+                                                    }));
+  }
 
   // WebHistoryService will DCHECK if we destroy it before the observer in
   // BrowsingHistoryService is removed, so reset our first
@@ -751,7 +1003,59 @@ TEST_F(BrowsingHistoryServiceTest, IncorrectlyOrderedRemoteResults) {
   ResetService(driver(), nullptr, nullptr);
 }
 
-TEST_F(BrowsingHistoryServiceTest, RemoveVisitsMetric) {
+TEST_P(BrowsingHistoryServiceTest, MultipleSubsequentQueries) {
+  AddHistory({{kUrl1, 1, kRemote},
+              {kUrl2, 2, kRemote},
+              {kUrl3, 3, kRemote},
+              {kUrl4, 4, kLocal},
+              {kUrl5, 5, kLocal},
+              {kUrl6, 6, kLocal}});
+
+  // First query: Two local results.
+  EXPECT_THAT(QueryHistory(2), MatchesQueryResult(baseline_time_,
+                                                  /*reached_beginning*/ false,
+                                                  std::vector<TestResult>{
+                                                      {kUrl6, 6, kLocal},
+                                                      {kUrl5, 5, kLocal},
+                                                  }));
+  if (base::FeatureList::IsEnabled(kHistoryQueryOnlyLocalFirst)) {
+    // Second query: One local and one remote result. Under the hood, this maps
+    // to two successive queries, one to the local DB and then one to the remote
+    // service.
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl4, 4, kLocal},
+                                                        {kUrl3, 3, kRemote},
+                                                    }));
+    // Third query: Two remote results, and done.
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ true,
+                                                    std::vector<TestResult>{
+                                                        {kUrl2, 2, kRemote},
+                                                        {kUrl1, 1, kRemote},
+                                                    }));
+  } else {
+    // Second query: One local and *two* remote results. This is sort of
+    // unexpected (only two results were asked for), but is a consequence of the
+    // parallel local+remote queries.
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ false,
+                                                    std::vector<TestResult>{
+                                                        {kUrl4, 4, kLocal},
+                                                        {kUrl3, 3, kRemote},
+                                                        {kUrl2, 2, kRemote},
+                                                    }));
+    // Third query: The one remaining remote result, and done.
+    EXPECT_THAT(ContinueQuery(), MatchesQueryResult(baseline_time_,
+                                                    /*reached_beginning*/ true,
+                                                    std::vector<TestResult>{
+                                                        {kUrl1, 1, kRemote},
+                                                    }));
+  }
+}
+
+TEST_P(BrowsingHistoryServiceTest, RemoveVisitsMetric) {
   // `kUrl1` was visited 3 times on day 1, and 4 times on day 2. `kUrl2` was
   // visited once on day 1. In total, there are 3 `HistoryEntry` instances
   // (since every "entry" groups all visits to a URL for a single day).
@@ -784,20 +1088,24 @@ TEST_F(BrowsingHistoryServiceTest, RemoveVisitsMetric) {
   }
 }
 
-TEST_F(BrowsingHistoryServiceTest, ActorVisitPropagated) {
+TEST_P(BrowsingHistoryServiceTest, ActorVisitPropagated) {
   AddHistory({
       {kUrl1, 1, kRemote},
       {kUrl2, 2, kLocal, "", VisitSource::SOURCE_ACTOR},
   });
 
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl2, 2, kLocal, "", VisitSource::SOURCE_ACTOR}, {kUrl1, 1, kRemote}},
-      QueryHistory());
+  EXPECT_THAT(
+      QueryHistory(),
+      MatchesQueryResult(baseline_time_,
+                         /*reached_beginning*/ true,
+                         std::vector<TestResult>{
+                             {kUrl2, 2, kLocal, "", VisitSource::SOURCE_ACTOR},
+                             {kUrl1, 1, kRemote},
+                         }));
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-TEST_F(BrowsingHistoryServiceTest, ActorVisitDeduplication) {
+TEST_P(BrowsingHistoryServiceTest, ActorVisitDeduplication) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(kBrowsingHistoryActorIntegrationM2);
 
@@ -815,15 +1123,17 @@ TEST_F(BrowsingHistoryServiceTest, ActorVisitDeduplication) {
   // de-duplication.
   options.duplicate_policy = QueryOptions::KEEP_ALL_DUPLICATES;
 
-  VerifyQueryResult(
-      /*reached_beginning*/ true,
-      {{kUrl2, 5, kLocal, "",
-        VisitSource::SOURCE_ACTOR},  // Duplicate actor visits take the latest
-                                     // visit values.
-       {kUrl1, 3, kLocal, "", VisitSource::SOURCE_ACTOR},
-       {kUrl1, 2, kBoth}},  // Actor visits are not duplicated with non-actor
-                            // visits.
-      QueryHistory(options));
+  // Duplicate actor visits take the latest visit values.
+  // Actor visits are not duplicated with non-actor visits.
+  EXPECT_THAT(
+      QueryHistory(options),
+      MatchesQueryResult(baseline_time_,
+                         /*reached_beginning*/ true,
+                         std::vector<TestResult>{
+                             {kUrl2, 5, kLocal, "", VisitSource::SOURCE_ACTOR},
+                             {kUrl1, 3, kLocal, "", VisitSource::SOURCE_ACTOR},
+                             {kUrl1, 2, kBoth},
+                         }));
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 

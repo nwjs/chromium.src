@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
 #include "chrome/browser/ui/webui/browsing_topics/browsing_topics_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
-#include "chrome/browser/ui/webui/connectors_internals/connectors_internals.mojom.h"
 #include "chrome/browser/ui/webui/connectors_internals/connectors_internals_ui.h"
 #include "chrome/browser/ui/webui/data_sharing_internals/data_sharing_internals_ui.h"
 #include "chrome/browser/ui/webui/engagement/site_engagement_ui.h"
@@ -22,6 +21,7 @@
 #include "chrome/browser/ui/webui/omnibox/aim_eligibility/aim_eligibility.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_internals.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
+#include "components/enterprise/connectors/connectors_internals.mojom.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/omnibox_popup/mojom/omnibox_popup_aim.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
@@ -154,16 +154,24 @@ void PopulateChromeWebUIFrameBinders(
   // this function longer.
 }
 
-void PopulateChromeWebUIFrameInterfaceBrokers(
+void PopulateTrustedChromeWebUIFrameInterfaceBrokers(
     content::WebUIBrowserInterfaceBrokerRegistry& registry) {
   // This function is broken up into sections based on WebUI types.
 
-  // --- Section 1: chrome:// WebUIs:
 #if BUILDFLAG(IS_CHROMEOS)
   PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsCros(registry);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  // --- Section 2: chrome-untrusted:// WebUIs:
+#if !BUILDFLAG(IS_ANDROID)
+  PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(registry);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+  // When possible, please use one of the Parts functions above and avoid making
+  // this function longer.
+}
+
+void PopulateUntrustedChromeWebUIFrameInterfaceBrokers(
+    content::WebUIBrowserInterfaceBrokerRegistry& registry) {
   PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsFeatures(registry);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -171,11 +179,10 @@ void PopulateChromeWebUIFrameInterfaceBrokers(
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_ANDROID)
-  PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(registry);
   PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsDesktop(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-  // When possible, please one one of the Parts functions above and avoid making
+  // When possible, please use one of the Parts functions above and avoid making
   // this function longer.
 }
 

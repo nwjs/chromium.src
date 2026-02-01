@@ -88,7 +88,7 @@ def convert(crossbench_out_dir: pathlib.Path,
   Args: See the help strings passed to argparse.ArgumentParser.
   """
 
-  if benchmark and benchmark.startswith('loadline'):
+  if benchmark and benchmark.lower().startswith('loadline'):
     _loadline(crossbench_out_dir, out_filename, benchmark, results_label)
     return
 
@@ -103,18 +103,20 @@ def convert(crossbench_out_dir: pathlib.Path,
     metric = None
     key_parts = key.split('/')
     if len(key_parts) == 1:
-      if key.startswith('Iteration') or key == 'Geomean':
+      lower_key = key.lower()
+      if lower_key.startswith('iteration') or lower_key == 'geomean':
         continue
       metric = key
-      if key.lower() == 'score':
+      if lower_key == 'score':
         unit = 'unitless_biggerIsBetter'
       else:
         unit = 'ms_smallerIsBetter'
-    else:
-      if len(key_parts) == 2 and key_parts[1] == 'total':
+    elif len(key_parts) == 2:
+      key = key_parts[1].lower()
+      if key == 'total':
         metric = key_parts[0]
         unit = 'ms_smallerIsBetter'
-      elif len(key_parts) == 2 and key_parts[1] == 'score':
+      elif key == 'score':
         metric = key_parts[0]
         unit = 'unitless_biggerIsBetter'
 
@@ -136,22 +138,7 @@ def convert(crossbench_out_dir: pathlib.Path,
     json.dump(results.AsDicts(), f)
 
 
-def _loadline(crossbench_out_dir: pathlib.Path,
-              out_filename: pathlib.Path,
-              benchmark: Optional[str] = None,
-              results_label: Optional[str] = None) -> None:
-  """Converts `loadline-*` benchmarks."""
-
-  crossbench_json_filename = crossbench_out_dir / 'cb.results.json'
-  if not crossbench_json_filename.exists():
-    raise FileNotFoundError(
-        f'Missing crossbench results file: {crossbench_json_filename}')
-
-  with crossbench_json_filename.open() as f:
-    crossbench_result = json.load(f)
-
-  loadline_csv = pathlib.Path(
-      crossbench_result["probes"]["loadline_probe"]["csv"][0])
+def _loadline1_results(loadline_csv: pathlib.Path):
   if not loadline_csv.exists():
     raise FileNotFoundError(
         f'Missing loadline CSV results file: {loadline_csv}')
@@ -169,6 +156,54 @@ def _loadline(crossbench_out_dir: pathlib.Path,
                                               float(value))
     if data_point:
       results.AddHistogram(data_point)
+
+  return results
+
+
+def _loadline2_results(loadline_csv: pathlib.Path):
+  if not loadline_csv.exists():
+    raise FileNotFoundError(
+        f'Missing loadline CSV results file: {loadline_csv}')
+
+  results = histogram_set.HistogramSet()
+  with loadline_csv.open() as f:
+    csv_reader = csv.DictReader(f)
+    metric_key = csv_reader.fieldnames[0]
+    value_key = csv_reader.fieldnames[1]
+    for line in csv_reader:
+      data_point = histogram.Histogram.Create(line[metric_key],
+                                              'unitless_biggerIsBetter',
+                                              float(line[value_key]))
+      if data_point:
+        results.AddHistogram(data_point)
+    results.AddSharedDiagnosticToAllHistograms(
+        'browser', generic_set.GenericSet([value_key]))
+
+  return results
+
+
+def _loadline(crossbench_out_dir: pathlib.Path,
+              out_filename: pathlib.Path,
+              benchmark: Optional[str] = None,
+              results_label: Optional[str] = None) -> None:
+  """Converts `loadline-*` benchmarks."""
+
+  crossbench_json_filename = crossbench_out_dir / 'cb.results.json'
+  if not crossbench_json_filename.exists():
+    raise FileNotFoundError(
+        f'Missing crossbench results file: {crossbench_json_filename}')
+
+  with crossbench_json_filename.open() as f:
+    crossbench_result = json.load(f)
+
+  if "loadline_probe" in crossbench_result["probes"]:
+    results = _loadline1_results(
+        pathlib.Path(crossbench_result["probes"]["loadline_probe"]["csv"][0]))
+  elif "loadline2_probe" in crossbench_result["probes"]:
+    results = _loadline2_results(
+        pathlib.Path(crossbench_result["probes"]["loadline2_probe"]["csv"][0]))
+  else:
+    raise ValueError("Missing LoadLine probe results")
 
   if benchmark:
     results.AddSharedDiagnosticToAllHistograms(

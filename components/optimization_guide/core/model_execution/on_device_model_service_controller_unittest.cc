@@ -20,7 +20,6 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/expected.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
@@ -60,7 +59,6 @@
 #include "components/optimization_guide/proto/redaction.pb.h"
 #include "components/optimization_guide/proto/substitution.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
-#include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "components/prefs/testing_pref_service.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -77,6 +75,7 @@ namespace optimization_guide {
 namespace {
 
 using ::on_device_model::mojom::LoadModelResult;
+using ::on_device_model::mojom::PerformanceClass;
 using ExecuteModelResult = ::optimization_guide::OnDeviceExecution::Result;
 
 using ::testing::AllOf;
@@ -154,7 +153,7 @@ class OnDeviceModelServiceControllerTest : public testing::Test {
            {"on_device_model_crash_backoff_base_time", "1m"},
            {"on_device_model_max_crash_backoff_time", "1h"}}},
          {features::kOnDeviceModelPerformanceParams,
-          {{"compatible_on_device_performance_classes", "*"},
+          {{"compatible_on_device_performance_classes", "3,4,5,6"},
            {"compatible_low_tier_on_device_performance_classes", "3"}}},
          {features::kTextSafetyClassifier, {}},
          {features::kOnDeviceModelValidation,
@@ -708,9 +707,7 @@ TEST_F(OnDeviceModelServiceControllerTest, UpdatingSafetyModelEnablesModels) {
 
   // Compose should run and be rejected as unsafe.
   EXPECT_FALSE(compose_response.GetFinalStatus());
-  EXPECT_EQ(
-      compose_response.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(compose_response.error(), OnDeviceError::kFiltered);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, SessionRequiresSafetyModel) {
@@ -940,9 +937,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   session->ExecuteModel(PageUrlRequest("unsafe_url"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kFiltered);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_THAT(response_.model_execution_info()
@@ -1031,9 +1026,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   session->ExecuteModel(PageUrlRequest("safe_url"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kFiltered);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_THAT(response_.model_execution_info()
@@ -1170,9 +1163,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   session->ExecuteModel(PageUrlRequest("url_un"),
                         response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kFiltered);
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_THAT(response_.model_execution_info()
                   ->on_device_model_execution_info()
@@ -1297,9 +1288,7 @@ TEST_F(OnDeviceModelServiceControllerTest, ReturnsErrorOnServiceDisconnect) {
       ExecuteModelResult::kDisconnectAndCancel, 1);
 
   ASSERT_TRUE(response_.error());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kCancelled);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kCancelled);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, CancelsExecuteOnAddContext) {
@@ -1318,9 +1307,7 @@ TEST_F(OnDeviceModelServiceControllerTest, CancelsExecuteOnAddContext) {
   task_environment_.RunUntilIdle();
 
   EXPECT_TRUE(response_.error());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kCancelled);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kCancelled);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, CancelsExecuteOnExecute) {
@@ -1335,9 +1322,7 @@ TEST_F(OnDeviceModelServiceControllerTest, CancelsExecuteOnExecute) {
 
   EXPECT_FALSE(resp1.GetFinalStatus());
   EXPECT_TRUE(resp2.GetFinalStatus());
-  EXPECT_EQ(
-      *resp1.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kCancelled);
+  EXPECT_EQ(*resp1.error(), OnDeviceError::kCancelled);
   EXPECT_EQ(*resp2.value(), "execute:bar max:1024");
 }
 
@@ -1820,9 +1805,7 @@ TEST_F(OnDeviceModelServiceControllerTest, RejectedField) {
   task_environment_.RunUntilIdle();
   EXPECT_FALSE(response_.value());
   ASSERT_TRUE(response_.error());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kFiltered);
   // Although we send an error, we should be sending a log entry back so the
   // filtering can be logged.
   ASSERT_TRUE(response_.model_execution_info());
@@ -1967,8 +1950,7 @@ TEST_F(OnDeviceModelServiceControllerTest, DetectsRepeatsAndCancelsResponse) {
 
   EXPECT_FALSE(response_.value());
   ASSERT_TRUE(response_.error());
-  EXPECT_EQ(*response_.error(), OptimizationGuideModelExecutionError::
-                                    ModelExecutionError::kResponseLowQuality);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kResponseLowQuality);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_GT(response_.model_execution_info()
@@ -2383,9 +2365,7 @@ TEST_F(OnDeviceModelServiceControllerTest, WaitUntilCompleteToCancel) {
 
   // The full output was unsafe so it resulted it in it being filtered.
   EXPECT_FALSE(response_.GetFinalStatus());
-  EXPECT_EQ(
-      response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(response_.error(), OnDeviceError::kFiltered);
 
   const std::vector<std::string> expected_responses = {
       // The first two responses are filtered because their language hasn't been
@@ -3139,8 +3119,7 @@ TEST_F(OnDeviceModelServiceControllerTest, KeepInputOnExtension) {
       .language = &standard_assets_.language,
       .adaptations = {&compose_asset},
   });
-  base::test::TestFuture<
-      base::expected<size_t, OptimizationGuideModelExecutionError>>
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>>
       set_input_future;
 
   auto session = CreateSession(SessionConfigParams{
@@ -3332,9 +3311,7 @@ TEST_F(OnDeviceModelServiceControllerTest,
   clone->ExecuteModel(PageUrlRequest("unsafe_url"),
                       response_.GetStreamingCallback());
   ASSERT_FALSE(response_.GetFinalStatus());
-  EXPECT_EQ(
-      *response_.error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered);
+  EXPECT_EQ(*response_.error(), OnDeviceError::kFiltered);
 
   ASSERT_TRUE(response_.model_execution_info());
   EXPECT_THAT(response_.model_execution_info()
@@ -3509,6 +3486,62 @@ TEST_F(OnDeviceModelServiceControllerTest,
       OnDeviceModelPerformanceClass::kVeryHigh, 1);
 }
 
+TEST_F(OnDeviceModelServiceControllerTest,
+       BrokerCreateSessionFailedOnDeviceIncapable) {
+  // Arrange for a performance check to be run which will classify the device as
+  // ineligible for both GPU and CPU models.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      on_device_model::features::kOnDeviceModelCpuBackend);
+  broker_.service_settings().performance_class = PerformanceClass::kVeryLow;
+  broker_.local_state().SetString(
+      model_execution::prefs::localstate::kOnDevicePerformanceClassVersion,
+      "0.0.0.1");
+
+  mojo::PendingReceiver<mojom::ModelBroker> pending_broker;
+  OptimizationGuideLogger logger;
+
+  ModelBrokerClient broker_client(pending_broker.InitWithNewPipeAndPassRemote(),
+                                  logger.GetWeakPtr());
+  base::test::TestFuture<std::unique_ptr<OnDeviceSession>> session_future;
+  broker_client.CreateSession(mojom::OnDeviceFeature::kCompose,
+                              SessionConfigParams{},
+                              session_future.GetCallback());
+  broker_.GetOrCreateBrokerState().BindModelBroker(std::move(pending_broker));
+  EXPECT_EQ(session_future.Take(), nullptr);
+
+  // Create session with another feature will also fail.
+  broker_client.CreateSession(mojom::OnDeviceFeature::kTest,
+                              SessionConfigParams{},
+                              session_future.GetCallback());
+  EXPECT_EQ(session_future.Take(), nullptr);
+}
+
+TEST_F(OnDeviceModelServiceControllerTest,
+       BrokerCreateSessionFailedOnNotEnoughDiskSpace) {
+  // 20gb is the default in `IsFreeDiskSpaceSufficientForOnDeviceModelInstall`.
+  broker_.component_state().SetFreeDiskSpace(base::GiB(20) -
+                                             base::ByteCount(1));
+
+  mojo::PendingReceiver<mojom::ModelBroker> pending_broker;
+  OptimizationGuideLogger logger;
+
+  ModelBrokerClient broker_client(pending_broker.InitWithNewPipeAndPassRemote(),
+                                  logger.GetWeakPtr());
+  base::test::TestFuture<std::unique_ptr<OnDeviceSession>> session_future;
+  broker_client.CreateSession(mojom::OnDeviceFeature::kCompose,
+                              SessionConfigParams{},
+                              session_future.GetCallback());
+  broker_.GetOrCreateBrokerState().BindModelBroker(std::move(pending_broker));
+  EXPECT_EQ(session_future.Take(), nullptr);
+
+  // Create session with another feature will also fail
+  broker_client.CreateSession(mojom::OnDeviceFeature::kTest,
+                              SessionConfigParams{},
+                              session_future.GetCallback());
+  EXPECT_EQ(session_future.Take(), nullptr);
+}
+
 TEST_F(OnDeviceModelServiceControllerTest, Priority) {
   Initialize(standard_assets_);
 
@@ -3553,9 +3586,7 @@ TEST_F(OnDeviceModelServiceControllerTest, SetInputCallback) {
   ASSERT_TRUE(session);
 
   MultimodalMessage request((UserInputRequest("foo")));
-  base::test::TestFuture<
-      base::expected<size_t, OptimizationGuideModelExecutionError>>
-      future;
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>> future;
   session->SetInput(std::move(request), future.GetCallback());
   EXPECT_EQ(*future.Get(), std::string("ctx:foo").size());
 
@@ -3574,19 +3605,13 @@ TEST_F(OnDeviceModelServiceControllerTest, SetInputCallbackCancelled) {
   ASSERT_TRUE(session);
 
   MultimodalMessage request((UserInputRequest("foo")));
-  base::test::TestFuture<
-      base::expected<size_t, OptimizationGuideModelExecutionError>>
-      future1;
-  base::test::TestFuture<
-      base::expected<size_t, OptimizationGuideModelExecutionError>>
-      future2;
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>> future1;
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>> future2;
   session->SetInput(request.Clone(), future1.GetCallback());
   session->SetInput(std::move(request), future2.GetCallback());
 
   // First request is cancelled, second request completes.
-  EXPECT_EQ(
-      future1.Get().error().error(),
-      OptimizationGuideModelExecutionError::ModelExecutionError::kCancelled);
+  EXPECT_EQ(future1.Get().error(), OnDeviceError::kCancelled);
   EXPECT_EQ(*future2.Get(), std::string("ctx:foo").size());
 
   session->ExecuteModel(PageUrlRequest("bar"),
@@ -3604,13 +3629,9 @@ TEST_F(OnDeviceModelServiceControllerTest, SetInputCallbackError) {
   ASSERT_TRUE(session);
 
   MultimodalMessage request((proto::ExampleForTestingRequest()));
-  base::test::TestFuture<
-      base::expected<size_t, OptimizationGuideModelExecutionError>>
-      future;
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>> future;
   session->SetInput(std::move(request), future.GetCallback());
-  EXPECT_EQ(future.Get().error().error(),
-            OptimizationGuideModelExecutionError::ModelExecutionError::
-                kInvalidRequest);
+  EXPECT_EQ(future.Get().error(), OnDeviceError::kInvalidRequest);
 }
 
 TEST_F(OnDeviceModelServiceControllerTest, TokenCounts) {

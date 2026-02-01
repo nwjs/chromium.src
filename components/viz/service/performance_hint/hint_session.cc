@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
 #include "base/system/sys_info.h"
 #include "base/time/time.h"
@@ -62,6 +61,8 @@ using pAPerformanceHint_notifyWorkloadIncrease =
             bool cpu,
             bool gpu,
             const char* identifier);
+using pAPerformanceHint_setPreferPowerEfficiency =
+    int (*)(APerformanceHintSession* session, bool preferPowerEfficiency);
 }
 
 namespace viz {
@@ -88,6 +89,10 @@ bool ShouldUseWorkloadIncrease() {
   return android_get_device_api_level() > __ANDROID_API_V__ &&
          base::FeatureList::IsEnabled(
              features::kEnableADPFWorkloadIncreaseOnPageLoad);
+}
+
+bool CanUsePowerEfficiencyHint() {
+  return android_get_device_api_level() >= __ANDROID_API_V__;
 }
 
 struct AdpfMethods {
@@ -120,6 +125,9 @@ struct AdpfMethods {
     if (ShouldUseWorkloadIncrease()) {
       LOAD_FUNCTION(main_dl_handle, APerformanceHint_notifyWorkloadIncrease);
     }
+    if (CanUsePowerEfficiencyHint()) {
+      LOAD_FUNCTION(main_dl_handle, APerformanceHint_setPreferPowerEfficiency);
+    }
   }
 
   ~AdpfMethods() = default;
@@ -136,6 +144,8 @@ struct AdpfMethods {
   pAPerformanceHint_notifyWorkloadReset APerformanceHint_notifyWorkloadResetFn;
   pAPerformanceHint_notifyWorkloadIncrease
       APerformanceHint_notifyWorkloadIncreaseFn;
+  pAPerformanceHint_setPreferPowerEfficiency
+      APerformanceHint_setPreferPowerEfficiencyFn;
 };
 
 class AdpfHintSession : public HintSession {
@@ -158,11 +168,22 @@ class AdpfHintSession : public HintSession {
   void WakeUp();
 
  private:
+  bool ShouldScheduleForEfficiency() const;
+  void UpdateEfficiencyHintIfNeeded(const bool);
+  void UpdateLastFrameReportTime();
+
+  const bool rate_limit_boost_;
+  const base::TimeDelta rate_limit_boost_min_wait_;
+
+  base::TimeTicks last_frame_report_time_ = base::TimeTicks();
   const raw_ptr<APerformanceHintSession> hint_session_;
   const raw_ptr<HintSessionFactoryImpl> factory_;
   base::TimeDelta target_duration_;
   const SessionType type_;
   BoostManager boost_manager_;
+  // Stores whether the session is current configured for efficiency. Used to
+  // de-bounce calls to setPreferPowerEfficiency.
+  bool prefer_efficiency_;
 };
 
 class HintSessionFactoryImpl : public HintSessionFactory {
@@ -196,7 +217,10 @@ AdpfHintSession::AdpfHintSession(APerformanceHintSession* session,
                                  HintSessionFactoryImpl* factory,
                                  base::TimeDelta target_duration,
                                  SessionType type)
-    : hint_session_(session),
+    : rate_limit_boost_(
+          base::FeatureList::IsEnabled(features::kEnableADPFBoostRateLimit)),
+      rate_limit_boost_min_wait_(features::kAdpfBoostRateLimitMinWait.Get()),
+      hint_session_(session),
       factory_(factory),
       target_duration_(target_duration),
       type_(type) {
@@ -222,10 +246,47 @@ void AdpfHintSession::UpdateTargetDuration(base::TimeDelta target_duration) {
       hint_session_, target_duration.InNanoseconds());
 }
 
+bool AdpfHintSession::ShouldScheduleForEfficiency() const {
+  switch (features::kAdpfEfficiencyModeParam.Get()) {
+    case features::AdpfEfficiencyMode::kNever:
+      [[likely]] return false;
+    default:
+      return true;
+  }
+}
+
+void AdpfHintSession::UpdateLastFrameReportTime() {
+  last_frame_report_time_ = base::TimeTicks::Now();
+}
+
+void AdpfHintSession::UpdateEfficiencyHintIfNeeded(
+    const bool prefer_efficiency) {
+  if (prefer_efficiency_ == prefer_efficiency || !CanUsePowerEfficiencyHint())
+      [[likely]] {
+    return;
+  }
+  const int result =
+      AdpfMethods::Get().APerformanceHint_setPreferPowerEfficiencyFn(
+          hint_session_, prefer_efficiency);
+  if (result == 0) [[likely]] {
+    prefer_efficiency_ = prefer_efficiency;
+  } else {
+    LOG(ERROR) << "setPreferPowerEfficiency (service failure). Returned: "
+               << std::strerror(result);
+  }
+  TRACE_EVENT_INSTANT("android.adpf", "SetPowerEfficiencyHint",
+                      "prefer_efficiency", prefer_efficiency, "success",
+                      result == 0);
+}
+
 void AdpfHintSession::ReportCpuCompletionTime(base::TimeDelta actual_duration,
                                               base::TimeTicks draw_start,
                                               BoostType preferable_boost_type) {
   DCHECK_CALLED_ON_VALID_THREAD(factory_->thread_checker_);
+
+  // Update whether this session should be scheduled for efficiency.
+  UpdateEfficiencyHintIfNeeded(ShouldScheduleForEfficiency());
+
   // At the moment, we don't have a good way to distinguish repeating animation
   // work from other workloads on CrRendererMain, so we don't report any timing
   // durations.
@@ -233,14 +294,14 @@ void AdpfHintSession::ReportCpuCompletionTime(base::TimeDelta actual_duration,
     return;
   }
 
-  base::TimeDelta frame_duration =
-      boost_manager_.GetFrameDurationAndMaybeUpdateBoostType(
-          target_duration_, actual_duration, draw_start, preferable_boost_type);
+  base::TimeDelta frame_duration = boost_manager_.GetFrameDuration(
+      target_duration_, actual_duration, draw_start, preferable_boost_type);
   TRACE_EVENT_INSTANT("android.adpf", "ReportCpuCompletionTime",
                       "frame_duration_ms", frame_duration.InMillisecondsF(),
                       "target_duration_ms", target_duration_.InMillisecondsF());
   AdpfMethods::Get().APerformanceHint_reportActualWorkDurationFn(
       hint_session_, frame_duration.InNanoseconds());
+  UpdateLastFrameReportTime();
 }
 
 void AdpfHintSession::SetThreads(
@@ -283,6 +344,12 @@ void AdpfHintSession::NotifyWorkloadIncrease() {
 
 void AdpfHintSession::WakeUp() {
   DCHECK_CALLED_ON_VALID_THREAD(factory_->thread_checker_);
+  if (rate_limit_boost_ &&
+      base::TimeTicks::Now() <=
+          last_frame_report_time_ + rate_limit_boost_min_wait_) {
+    TRACE_EVENT_INSTANT("android.adpf", "Skip WakeUp");
+    return;
+  }
   if (ShouldUseWorkloadReset()) {
     NotifyWorkloadReset();
   } else {
@@ -382,9 +449,8 @@ bool IsAdpfEnabled() {
   }
 
   std::string soc_allowlist = features::kADPFSocManufacturerAllowlist.Get();
-  std::string soc_blocklist = features::kADPFSocManufacturerBlocklist.Get();
   std::string soc = base::SysInfo::SocManufacturer();
-  return features::ShouldUseAdpfForSoc(soc_allowlist, soc_blocklist, soc);
+  return features::ShouldUseAdpfForSoc(soc_allowlist, soc);
 }
 
 }  // namespace

@@ -31,6 +31,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/mojom/base/error.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
 
 // TODO(ffred): refactor this stuff. Maybe it makes more sense to have an
@@ -138,8 +139,7 @@ class TabStripServiceImplBrowserTest : public InProcessBrowserTest {
   using TabStripExperimentService = tabs_api::mojom::TabStripExperimentService;
 
   TabStripServiceImplBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {features::kTabStripBrowserApi, features::kSideBySide}, {});
+    feature_list_.InitWithFeatures({features::kTabStripBrowserApi}, {});
   }
 
   void SetUpOnMainThread() override {
@@ -466,7 +466,7 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, CloseTabs) {
   mojo::Remote<TabStripService> remote;
   tab_strip_service_mojo_handler_->Accept(remote.BindNewPipeAndPassReceiver());
 
-  const int starting_num_tabs = GetTabStripModel()->GetTabCount();
+  const int starting_num_tabs = GetTabStripModel()->count();
 
   base::RunLoop create_loop;
   remote->CreateTabAt(tabs_api::Position(0),
@@ -479,7 +479,7 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, CloseTabs) {
   create_loop.Run();
 
   // We should now have one more tab than when we first started.
-  ASSERT_EQ(starting_num_tabs + 1, GetTabStripModel()->GetTabCount());
+  ASSERT_EQ(starting_num_tabs + 1, GetTabStripModel()->count());
   const auto* interface = GetTabStripModel()->GetTabAtIndex(0);
 
   base::RunLoop close_loop;
@@ -494,7 +494,7 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, CloseTabs) {
   close_loop.Run();
 
   // We should be back to where we started.
-  ASSERT_EQ(starting_num_tabs, GetTabStripModel()->GetTabCount());
+  ASSERT_EQ(starting_num_tabs, GetTabStripModel()->count());
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, ActivateTab) {
@@ -812,7 +812,7 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest,
 
   base::RunLoop create_loop;
   remote->CreateTabAt(std::nullopt,
-                      std::make_optional(GURL("http://somwewhere.nowhere")),
+                      std::make_optional(GURL("http://somewhere.nowhere")),
                       base::BindLambdaForTesting(
                           [&](TabStripService::CreateTabAtResult result) {
                             ASSERT_TRUE(result.has_value());
@@ -850,4 +850,38 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest,
 
   ASSERT_EQ(expected_title, updated_data->title());
   ASSERT_EQ(tab_groups::TabGroupColorId::kRed, updated_data->color());
+}
+
+// Tests ShowTabContextMenu() api. Currently it only verifies that the api
+// call succeeds.
+// TODO(crbug.com/470136275): verifies that the context menu is actually shown.
+IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, ShowTabContextMenu) {
+  mojo::Remote<TabStripService> remote;
+  mojo::Remote<TabStripExperimentService> experiment_remote;
+  tab_strip_service_mojo_handler_->Accept(remote.BindNewPipeAndPassReceiver());
+  tab_strip_service_mojo_handler_->AcceptExperimental(
+      experiment_remote.BindNewPipeAndPassReceiver());
+
+  tabs_api::NodeId created_id;
+  base::RunLoop create_loop;
+  remote->CreateTabAt(std::nullopt,
+                      std::make_optional(GURL("http://somewhere.nowhere")),
+                      base::BindLambdaForTesting(
+                          [&](TabStripService::CreateTabAtResult result) {
+                            ASSERT_TRUE(result.has_value());
+                            created_id = result.value()->id;
+                            create_loop.Quit();
+                          }));
+  create_loop.Run();
+
+  base::RunLoop run_loop;
+  experiment_remote->ShowTabContextMenu(
+      created_id, gfx::Point(100, 100),
+      base::BindLambdaForTesting(
+          [&](TabStripExperimentService::ShowTabContextMenuResult result) {
+            ASSERT_TRUE(result.has_value())
+                << "ShowTabContextMenu failed: " << result.error()->message;
+            run_loop.Quit();
+          }));
+  run_loop.Run();
 }

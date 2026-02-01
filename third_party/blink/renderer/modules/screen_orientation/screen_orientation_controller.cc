@@ -23,24 +23,28 @@ namespace blink {
 
 ScreenOrientationController::~ScreenOrientationController() = default;
 
+const char ScreenOrientationController::kSupplementName[] =
+    "ScreenOrientationController";
+
 ScreenOrientationController* ScreenOrientationController::From(
     LocalDOMWindow& window) {
   auto* controller = FromIfExists(window);
   if (!controller) {
     controller = MakeGarbageCollected<ScreenOrientationController>(window);
-    window.SetScreenOrientationController(controller);
+    Supplement<LocalDOMWindow>::ProvideTo(window, controller);
   }
   return controller;
 }
 
 ScreenOrientationController* ScreenOrientationController::FromIfExists(
     LocalDOMWindow& window) {
-  return window.GetScreenOrientationController();
+  return Supplement<LocalDOMWindow>::From<ScreenOrientationController>(window);
 }
 
 ScreenOrientationController::ScreenOrientationController(LocalDOMWindow& window)
     : ExecutionContextLifecycleObserver(&window),
       PageVisibilityObserver(window.GetFrame()->GetPage()),
+      Supplement<LocalDOMWindow>(window),
       screen_orientation_service_(&window) {
   Page* page = window.GetFrame()->GetPage();
 
@@ -265,6 +269,7 @@ void ScreenOrientationController::Trace(Visitor* visitor) const {
   visitor->Trace(screen_orientation_service_);
   ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
+  Supplement<LocalDOMWindow>::Trace(visitor);
 }
 
 void ScreenOrientationController::SetScreenOrientationAssociatedRemoteForTests(

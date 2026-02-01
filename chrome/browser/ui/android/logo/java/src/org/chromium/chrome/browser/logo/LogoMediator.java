@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.logo;
 
-import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.APP_LAUNCH_SEARCH_ENGINE_HAD_LOGO;
+import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.doesDefaultSearchEngineHaveLogo;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -29,7 +29,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.logo.LogoBridge.Logo;
 import org.chromium.chrome.browser.logo.LogoBridge.LogoObserver;
 import org.chromium.chrome.browser.logo.LogoCoordinator.VisibilityObserver;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.components.image_fetcher.ImageDataFetchResult;
@@ -94,7 +94,7 @@ public class LogoMediator implements TemplateUrlServiceObserver {
     private boolean mHasLogoLoadedForCurrentSearchEngine;
     private final LogoCoordinator.@Nullable VisibilityObserver mVisibilityObserver;
     private final CachedTintedBitmap mDefaultGoogleLogo;
-    private final @Nullable Drawable mDefaultGoogleLogoDrawable;
+    private @Nullable Drawable mDefaultGoogleLogoDrawable;
     private final boolean mIsRefactorEnabled;
     private boolean mShouldShowLogo;
     private boolean mIsLoadPending;
@@ -235,6 +235,13 @@ public class LogoMediator implements TemplateUrlServiceObserver {
         return mShouldShowLogo && mLogoModel.get(LogoProperties.VISIBILITY);
     }
 
+    /** Returns whether the default Google Logo is shown. */
+    boolean isDefaultGoogleLogoShown() {
+        return mShouldShowLogo
+                && mLogoModel.get(LogoProperties.VISIBILITY)
+                && mLogoModel.get(LogoProperties.LOGO) == null;
+    }
+
     /**
      * Load the search provider logo on Start surface.
      *
@@ -261,6 +268,11 @@ public class LogoMediator implements TemplateUrlServiceObserver {
                     @Override
                     public void onLogoAvailable(LogoBridge.Logo logo, boolean fromCache) {
                         if (logo == null) {
+                            // When internet is disconnected, logo given by the LogoService is
+                            // null.
+                            NtpCustomizationConfigManager.getInstance()
+                                    .setDefaultSearchEngineLogoBitmap(null);
+
                             if (fromCache) {
                                 // There is no cached logo. Wait until we know whether there's a
                                 // fresh one before making any further decisions.
@@ -295,13 +307,7 @@ public class LogoMediator implements TemplateUrlServiceObserver {
     }
 
     private void updateVisibility() {
-        boolean doesDseHaveLogo =
-                mProfile != null
-                        ? TemplateUrlServiceFactory.getForProfile(mProfile)
-                                .doesDefaultSearchEngineHaveLogo()
-                        : ChromeSharedPreferences.getInstance()
-                                .readBoolean(APP_LAUNCH_SEARCH_ENGINE_HAD_LOGO, true);
-        mShouldShowLogo = doesDseHaveLogo;
+        mShouldShowLogo = doesDefaultSearchEngineHaveLogo(mProfile);
         mLogoModel.set(LogoProperties.VISIBILITY, mShouldShowLogo);
         for (LogoCoordinator.VisibilityObserver observer : mVisibilityObservers) {
             observer.onLogoVisibilityChanged();
@@ -336,6 +342,18 @@ public class LogoMediator implements TemplateUrlServiceObserver {
         }
 
         return mDefaultGoogleLogoDrawable;
+    }
+
+    /**
+     * Updates the drawable of the LogoView and show it.
+     *
+     * @param drawable The updated drawable for default Google logo.
+     */
+    void updateDefaultGoogleLogo(Drawable drawable) {
+        mDefaultGoogleLogoDrawable = drawable;
+
+        mLogoModel.set(LogoProperties.DEFAULT_GOOGLE_LOGO_DRAWABLE, mDefaultGoogleLogoDrawable);
+        mLogoModel.set(LogoProperties.SHOW_DEFAULT_GOOGLE_LOGO, true);
     }
 
     public void onLogoClicked(boolean isAnimatedLogoShowing) {
@@ -483,15 +501,11 @@ public class LogoMediator implements TemplateUrlServiceObserver {
         mSearchEngineKeyword = null;
     }
 
-    @Nullable ImageFetcher getImageFetcherForTesting() {
-        return mImageFetcher;
-    }
-
-    @Nullable LogoBridge getLogoBridgeForTesting() {
-        return mLogoBridge;
-    }
-
     boolean getIsLoadPendingForTesting() {
         return mIsLoadPending;
+    }
+
+    public void setShouldShowLogoForTesting(boolean shouldShowLogo) {
+        mShouldShowLogo = shouldShowLogo;
     }
 }

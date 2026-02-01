@@ -21,6 +21,7 @@
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/webui/url_data_manager_backend.h"
 #include "content/common/features.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/process_selection_user_data.h"
 #include "content/public/browser/site_isolation_policy.h"
@@ -56,6 +57,15 @@ bool IsWebUIAndUsesTLDForProcessLockURL(const GURL& url) {
   if (!base::Contains(URLDataManagerBackend::GetWebUISchemes(), url.scheme())) {
     return false;
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (features::kInitialWebUIUseSeparateProcess.Get() &&
+      GetContentClient()->browser()->IsInitialWebUIURL(url)) {
+    // If initial WebUIs need to use a different process separate from other
+    // WebUIs, use the full URL for process lock instead of just the TLD.
+    return false;
+  }
+#endif
 
   WebUIDomains domains = GetWebUIDomains(url);
   // This only applies to WebUI urls with two or more non-empty domains.
@@ -157,7 +167,8 @@ SiteInfo SiteInfo::CreateForErrorPage(
     const WebExposedIsolationInfo& web_exposed_isolation_info,
     WebExposedIsolationLevel web_exposed_isolation_level,
     const std::optional<AgentClusterKey::CrossOriginIsolationKey>&
-        cross_origin_isolation_key) {
+        cross_origin_isolation_key,
+    const std::string& browser_context_id) {
   AgentClusterKey agent_cluster_key;
   if (cross_origin_isolation_key.has_value()) {
     agent_cluster_key = AgentClusterKey::CreateWithCrossOriginIsolationKey(
@@ -176,7 +187,7 @@ SiteInfo SiteInfo::CreateForErrorPage(
       web_exposed_isolation_level, is_guest,
       false /* does_site_request_dedicated_process_for_coop */,
       false /* is_jit_disabled */, false /* are_v8_optimizations_disabled */,
-      false /* is_pdf */, is_fenced);
+      false /* is_pdf */, is_fenced, browser_context_id);
 }
 
 // static
@@ -217,7 +228,8 @@ SiteInfo SiteInfo::CreateForDefaultSiteInstance(
                   web_exposed_isolation_level, isolation_context.is_guest(),
                   /*does_site_request_dedicated_process_for_coop=*/false,
                   is_jit_disabled, are_v8_optimizations_disabled,
-                  /*is_pdf=*/false, isolation_context.is_fenced());
+                  /*is_pdf=*/false, isolation_context.is_fenced(),
+                  browser_context->UniqueId());
 }
 
 // static
@@ -240,7 +252,7 @@ SiteInfo SiteInfo::CreateForGuest(
       /*is_guest=*/true,
       /*does_site_request_dedicated_process_for_coop=*/false,
       /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
-      /*is_pdf=*/false, /*is_fenced=*/false);
+      /*is_pdf=*/false, /*is_fenced=*/false, browser_context->UniqueId());
 }
 
 // static
@@ -338,7 +350,8 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
         storage_partition_config.value(),
         /*is_guest=*/isolation_context.is_guest(),
         /*is_fenced=*/isolation_context.is_fenced(), web_exposed_isolation_info,
-        web_exposed_isolation_level, url_info.cross_origin_isolation_key);
+        web_exposed_isolation_level, url_info.cross_origin_isolation_key,
+        isolation_context.browser_context()->UniqueId());
   }
 
   // If there is a COOP isolation request, propagate it to SiteInfo.
@@ -353,7 +366,8 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
                   isolation_context.is_guest(),
                   does_site_request_dedicated_process_for_coop, is_jitless,
                   are_v8_optimizations_disabled, url_info.is_pdf,
-                  isolation_context.is_fenced());
+                  isolation_context.is_fenced(),
+                  isolation_context.browser_context()->UniqueId());
 }
 
 // static
@@ -374,7 +388,8 @@ SiteInfo::SiteInfo(const AgentClusterKey& agent_cluster_key,
                    bool is_jit_disabled,
                    bool are_v8_optimizations_disabled,
                    bool is_pdf,
-                   bool is_fenced)
+                   bool is_fenced,
+                   const std::string& browser_context_id)
     : site_url_(site_url),
       agent_cluster_key_(agent_cluster_key),
       is_sandboxed_(is_sandboxed),
@@ -388,7 +403,8 @@ SiteInfo::SiteInfo(const AgentClusterKey& agent_cluster_key,
       is_jit_disabled_(is_jit_disabled),
       are_v8_optimizations_disabled_(are_v8_optimizations_disabled),
       is_pdf_(is_pdf),
-      is_fenced_(is_fenced) {
+      is_fenced_(is_fenced),
+      browser_context_id_(browser_context_id) {
   DCHECK(is_sandboxed_ ||
          unique_sandbox_id_ == UrlInfo::kInvalidUniqueSandboxId);
   DCHECK((oac_status() != AgentClusterKey::OACStatus::kOriginKeyedByHeader &&
@@ -412,7 +428,8 @@ SiteInfo::SiteInfo(BrowserContext* browser_context)
                /*is_jit_disabled=*/false,
                /*are_v8_optimizations_disabled=*/false,
                /*is_pdf=*/false,
-               /*is_fenced=*/false) {}
+               /*is_fenced=*/false,
+               browser_context->UniqueId()) {}
 
 // static
 auto SiteInfo::MakeSecurityPrincipalKey(const SiteInfo& site_info) {
@@ -422,14 +439,14 @@ auto SiteInfo::MakeSecurityPrincipalKey(const SiteInfo& site_info) {
   // site-isolated due to COOP should still share a SiteInstance with other
   // same-site frames in the BrowsingInstance, even if those frames lack the
   // COOP isolation request.
-  return std::tie(site_info.site_url_.possibly_invalid_spec(),
-                  site_info.is_sandboxed_, site_info.unique_sandbox_id_,
-                  site_info.storage_partition_config_,
-                  site_info.web_exposed_isolation_info_,
-                  site_info.web_exposed_isolation_level_, site_info.is_guest_,
-                  site_info.is_jit_disabled_,
-                  site_info.are_v8_optimizations_disabled_, site_info.is_pdf_,
-                  site_info.is_fenced_, site_info.agent_cluster_key_);
+  return std::tie(
+      site_info.site_url_.possibly_invalid_spec(), site_info.is_sandboxed_,
+      site_info.unique_sandbox_id_, site_info.storage_partition_config_,
+      site_info.web_exposed_isolation_info_,
+      site_info.web_exposed_isolation_level_, site_info.is_guest_,
+      site_info.is_jit_disabled_, site_info.are_v8_optimizations_disabled_,
+      site_info.is_pdf_, site_info.is_fenced_, site_info.agent_cluster_key_,
+      site_info.browser_context_id_);
 }
 
 SiteInfo SiteInfo::GetNonOriginKeyedEquivalentForMetrics(
@@ -512,7 +529,8 @@ bool SiteInfo::IsExactMatch(const SiteInfo& other) const {
       is_jit_disabled_ == other.is_jit_disabled_ &&
       are_v8_optimizations_disabled_ == other.are_v8_optimizations_disabled_ &&
       is_pdf_ == other.is_pdf_ && is_fenced_ == other.is_fenced_ &&
-      agent_cluster_key_ == other.agent_cluster_key_;
+      agent_cluster_key_ == other.agent_cluster_key_ &&
+      browser_context_id_ == other.browser_context_id_;
 
   if (is_match) {
     // If all the fields match, then the "same principal" subset must also
@@ -536,7 +554,8 @@ auto SiteInfo::MakeProcessLockComparisonKey() const {
   // (presumably).
   return std::tie(is_sandboxed_, unique_sandbox_id_, is_pdf_, is_guest_,
                   web_exposed_isolation_info_, web_exposed_isolation_level_,
-                  storage_partition_config_, is_fenced_, agent_cluster_key_);
+                  storage_partition_config_, is_fenced_, agent_cluster_key_,
+                  browser_context_id_);
 }
 
 int SiteInfo::ProcessLockCompareTo(const SiteInfo& other) const {

@@ -126,6 +126,7 @@
 #include "third_party/blink/public/mojom/drag/drag.mojom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
 #include "third_party/blink/public/mojom/input/touch_event.mojom.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/cursor/cursor.h"
@@ -838,10 +839,8 @@ void RenderWidgetHostImpl::SetIsLoading(bool is_loading) {
   }
 }
 
-void RenderWidgetHostImpl::WillSendInputEventToRenderer(
-    const WebInputEvent& event) {
-  GetRenderInputRouter()->GetDispatchToRendererCallback().Run(
-      event, input::DispatchToRendererResult::kDispatched);
+void RenderWidgetHostImpl::SimulateUserInteraction(const WebInputEvent& event) {
+  delegate_->SimulateUserInteraction(this, event);
 }
 
 void RenderWidgetHostImpl::WasHidden() {
@@ -904,8 +903,7 @@ void RenderWidgetHostImpl::WasShown(
     return;
   }
 
-  TRACE_EVENT_WITH_FLOW0("renderer_host", "RenderWidgetHostImpl::WasShown",
-                         routing_id_, TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("renderer_host", "RenderWidgetHostImpl::WasShown");
   is_hidden_ = false;
   latest_shown_time_ = base::TimeTicks::Now();
   if (!was_ever_shown_) {
@@ -1358,12 +1356,12 @@ bool RenderWidgetHostImpl::SynchronizeVisualProperties(
   // TODO(jonross): Untangle startup so that we don't have this invalid partial
   // state. (https://crbug.com/1185286) (https://crbug.com/419087)
   if (visual_properties->local_surface_id.has_value()) {
-    TRACE_EVENT_WITH_FLOW2(
+    TRACE_EVENT_INSTANT(
         TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
         "RenderWidgetHostImpl::SynchronizeVisualProperties send message",
-        visual_properties->local_surface_id->submission_trace_id(),
-        TRACE_EVENT_FLAG_FLOW_OUT, "message",
-        "WidgetMsg_SynchronizeVisualProperties", "local_surface_id",
+        perfetto::Flow::ProcessScoped(
+            visual_properties->local_surface_id->submission_trace_id()),
+        "message", "WidgetMsg_SynchronizeVisualProperties", "local_surface_id",
         visual_properties->local_surface_id->ToString());
   }
   visual_properties_ack_pending_ =
@@ -2141,6 +2139,11 @@ RenderProcessHostPriorityClient::Priority RenderWidgetHostImpl::GetPriority() {
                         owner_delegate_->ShouldContributePriorityToProcess();
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  // should_contribute represents whether the RenderWidgetHost is active or not.
+  // For example, RenderWidgetHost is inactive if it is in BFCache.
+  priority.has_active_clients = should_contribute;
+#endif
   if (!should_contribute) {
     priority.is_hidden = true;
     priority.frame_depth = RenderProcessHostImpl::kMaxFrameDepthForPriority;
@@ -2198,7 +2201,7 @@ void RenderWidgetHostImpl::GetSnapshotFromBrowser(
       // 3. Create a copy request from the newest surface. This
       // should wait until the requested repaint has arrived.
       GetView()->CopyFromSurface(
-          gfx::Rect(), gfx::Size(),
+          gfx::Rect(), gfx::Size(), base::TimeDelta(),
           base::BindOnce(&RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived,
                          weak_factory_.GetWeakPtr(), snapshot_id, 0));
     } else {
@@ -2335,11 +2338,12 @@ void RenderWidgetHostImpl::ImeSetComposition(
     const std::vector<ui::ImeTextSpan>& ime_text_spans,
     const gfx::Range& replacement_range,
     int selection_start,
-    int selection_end) {
+    int selection_end,
+    blink::mojom::ImeState ime_state) {
   // Passing null callback since it is only needed for Devtools
   GetWidgetInputHandler()->ImeSetComposition(
       text, ime_text_spans, replacement_range, selection_start, selection_end,
-      base::OnceClosure());
+      ime_state, base::OnceClosure());
 #if BUILDFLAG(IS_ANDROID)
   for (auto& observer : ime_input_event_observers_) {
     observer.OnImeSetComposingTextEvent(text);
@@ -2376,7 +2380,8 @@ void RenderWidgetHostImpl::ImeCancelComposition() {
   // Passing null callback since it is only needed for Devtools
   GetWidgetInputHandler()->ImeSetComposition(
       std::u16string(), std::vector<ui::ImeTextSpan>(),
-      gfx::Range::InvalidRange(), 0, 0, base::OnceClosure());
+      gfx::Range::InvalidRange(), 0, 0, blink::mojom::ImeState::kNone,
+      base::OnceClosure());
 }
 
 void RenderWidgetHostImpl::RejectPointerLockOrUnlockIfNecessary(
@@ -2643,11 +2648,10 @@ void RenderWidgetHostImpl::ForwardDelegatedInkPoint(
     return;
   }
 
-  TRACE_EVENT_WITH_FLOW1("delegated_ink_trails",
-                         "Forwarding delegated ink point from browser.",
-                         TRACE_ID_GLOBAL(delegated_ink_point.trace_id()),
-                         TRACE_EVENT_FLAG_FLOW_OUT, "delegated point",
-                         delegated_ink_point.ToString());
+  TRACE_EVENT("delegated_ink_trails",
+              "Forwarding delegated ink point from browser.",
+              perfetto::Flow::Global(delegated_ink_point.trace_id()),
+              "delegated point", delegated_ink_point.ToString());
 
   // Calling this will result in IPC calls to get |delegated_ink_point| to
   // viz. The decision to do this here was made with the understanding that
@@ -2820,14 +2824,15 @@ void RenderWidgetHostImpl::OnRenderFrameSubmission() {}
 
 void RenderWidgetHostImpl::OnLocalSurfaceIdChanged(
     const cc::RenderFrameMetadata& metadata) {
-  TRACE_EVENT_WITH_FLOW1(
+  TRACE_EVENT(
       "renderer_host," TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
       "RenderWidgetHostImpl::OnLocalSurfaceIdChanged",
-      metadata.local_surface_id && metadata.local_surface_id->is_valid()
-          ? metadata.local_surface_id->submission_trace_id() +
-                metadata.local_surface_id->embed_trace_id()
-          : 0,
-      TRACE_EVENT_FLAG_FLOW_IN, "local_surface_id",
+      perfetto::TerminatingFlow::ProcessScoped(
+          metadata.local_surface_id && metadata.local_surface_id->is_valid()
+              ? metadata.local_surface_id->submission_trace_id() +
+                    metadata.local_surface_id->embed_trace_id()
+              : 0),
+      "local_surface_id",
       metadata.local_surface_id ? metadata.local_surface_id->ToString()
                                 : "null");
 
@@ -3351,7 +3356,7 @@ void RenderWidgetHostImpl::RequestKeyboardLock(
 
   const bool esc_requested =
       !keyboard_keys_to_lock_.has_value() ||
-      base::Contains(keyboard_keys_to_lock_.value(), ui::DomCode::ESCAPE);
+      keyboard_keys_to_lock_.value().contains(ui::DomCode::ESCAPE);
   delegate_->RequestKeyboardLock(this, esc_requested);
 }
 
@@ -3535,7 +3540,7 @@ void RenderWidgetHostImpl::GotResponseToForceRedraw(int snapshot_id) {
   // Snapshots from surface do not need to wait for the screen update.
   if (!pending_surface_browser_snapshots_.empty()) {
     GetView()->CopyFromSurface(
-        gfx::Rect(), gfx::Size(),
+        gfx::Rect(), gfx::Size(), base::TimeDelta(),
         base::BindOnce(&RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived,
                        weak_factory_.GetWeakPtr(), snapshot_id, 0));
   }
@@ -3587,12 +3592,11 @@ void RenderWidgetHostImpl::WindowSnapshotReachedScreen(int snapshot_id) {
 void RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived(
     int snapshot_id,
     int retry_count,
-    const viz::CopyOutputBitmapWithMetadata& result) {
+    const content::CopyFromSurfaceResult& result) {
   static constexpr int kMaxRetries = 5;
-  const SkBitmap& bitmap = result.bitmap;
-  if (bitmap.drawsNothing() && retry_count < kMaxRetries) {
+  if (!result.has_value() && retry_count < kMaxRetries) {
     GetView()->CopyFromSurface(
-        gfx::Rect(), gfx::Size(),
+        gfx::Rect(), gfx::Size(), base::TimeDelta(),
         base::BindOnce(&RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived,
                        weak_factory_.GetWeakPtr(), snapshot_id,
                        retry_count + 1));
@@ -3600,8 +3604,8 @@ void RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived(
   }
   // If all retries have failed, we return an empty image.
   gfx::Image image;
-  if (!bitmap.drawsNothing()) {
-    image = gfx::Image::CreateFrom1xBitmap(bitmap);
+  if (result.has_value()) {
+    image = gfx::Image::CreateFrom1xBitmap(result->bitmap);
   }
   // Any pending snapshots with a lower ID than the one received are considered
   // to be implicitly complete, and returned the same snapshot data.

@@ -14,15 +14,15 @@
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/browser_view/public/browser_view_visibility_state.h"
 #import "ios/chrome/browser/browser_view/test/browser_view_visibility_app_interface.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/new_tab_page_app_interface.h"
+#import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
+#import "ios/chrome/browser/content_suggestions/test/new_tab_page_app_interface.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings_app_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_constants.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_constants.h"
 #import "ios/chrome/browser/widget_kit/model/features.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -248,9 +248,7 @@ const char kSecondURLText[] = "You've arrived";
 // should be opened in the same tab (not create a new tab).
 - (void)testOpenURLFromNTP {
   [ChromeEarlGrey sceneOpenURL:GURL("https://anything")];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::OmniboxText(
-                                          "https://anything")]
-      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey waitForWebStateVisibleURL:GURL("https://anything")];
   [ChromeEarlGrey waitForMainTabCount:1];
 }
 
@@ -259,9 +257,7 @@ const char kSecondURLText[] = "You've arrived";
 - (void)testOpenURLFromTab {
   [ChromeEarlGrey loadURL:GURL("https://invalid")];
   [ChromeEarlGrey sceneOpenURL:GURL("https://anything")];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::OmniboxText(
-                                          "https://anything")]
-      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey waitForWebStateVisibleURL:GURL("https://anything")];
   [ChromeEarlGrey waitForMainTabCount:2];
 }
 
@@ -271,9 +267,7 @@ const char kSecondURLText[] = "You've arrived";
   [ChromeEarlGrey closeCurrentTab];
   [ChromeEarlGrey waitForMainTabCount:0];
   [ChromeEarlGrey sceneOpenURL:GURL("https://anything")];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::OmniboxText(
-                                          "https://anything")]
-      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey waitForWebStateVisibleURL:GURL("https://anything")];
   [ChromeEarlGrey waitForMainTabCount:1];
 }
 
@@ -378,9 +372,7 @@ const char kSecondURLText[] = "You've arrived";
 
   // The dino game should be loaded.
   [ChromeEarlGrey waitForPageToFinishLoading];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      assertWithMatcher:chrome_test_util::OmniboxContainingText(
-                            base::SysNSStringToUTF8(@"chrome://dino"))];
+  [ChromeEarlGrey waitForWebStateVisibleURL:GURL("chrome://dino/")];
 
   GREYAssertTrue([SigninEarlGrey isSignedOut], @"Failed to sign-out.");
 

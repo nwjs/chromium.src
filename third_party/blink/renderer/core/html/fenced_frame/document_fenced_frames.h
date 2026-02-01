@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -14,8 +15,11 @@ class Document;
 class HTMLFencedFrameElement;
 
 class DocumentFencedFrames final
-    : public GarbageCollected<DocumentFencedFrames> {
+    : public GarbageCollected<DocumentFencedFrames>,
+      public Supplement<Document> {
  public:
+  static const char kSupplementName[];
+
   // Returns the supplement that stores the fenced frame elements
   // that are associated with the document. Returns nullptr if
   // `GetOrCreate` has yet been called yet.
@@ -35,10 +39,9 @@ class DocumentFencedFrames final
     return fenced_frames_;
   }
 
-  void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
 
  private:
-  Member<Document> document_;
   HeapVector<Member<HTMLFencedFrameElement>> fenced_frames_;
 };  // class DocumentFencedFrames
 

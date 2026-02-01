@@ -40,7 +40,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkShader.h"
-#include "third_party/skia/include/effects/SkGradientShader.h"
+#include "third_party/skia/include/effects/SkGradient.h"
 #include "ui/gfx/geometry/clamp_float_geometry.h"
 
 namespace blink {
@@ -210,12 +210,12 @@ void Gradient::FillSkiaStops(ColorBuffer& colors, OffsetBuffer& pos) const {
   }
 }
 
-SkGradientShader::Interpolation Gradient::ResolveSkInterpolation() const {
+SkGradient::Interpolation Gradient::ResolveSkInterpolation() const {
   DCHECK(color_space_interpolation_space_ != Color::ColorSpace::kNone);
 
-  using sk_colorspace = SkGradientShader::Interpolation::ColorSpace;
-  using sk_hue_method = SkGradientShader::Interpolation::HueMethod;
-  SkGradientShader::Interpolation sk_interpolation;
+  using sk_colorspace = SkGradient::Interpolation::ColorSpace;
+  using sk_hue_method = SkGradient::Interpolation::HueMethod;
+  SkGradient::Interpolation sk_interpolation;
 
   switch (color_space_interpolation_space_) {
     case Color::ColorSpace::kXYZD65:
@@ -285,8 +285,8 @@ SkGradientShader::Interpolation Gradient::ResolveSkInterpolation() const {
 
   sk_interpolation.fInPremul =
       (premultiplied_alpha_ == PremultipliedAlpha::kPremultiplied)
-          ? SkGradientShader::Interpolation::InPremul::kYes
-          : SkGradientShader::Interpolation::InPremul::kNo;
+          ? SkGradient::Interpolation::InPremul::kYes
+          : SkGradient::Interpolation::InPremul::kNo;
 
   return sk_interpolation;
 }
@@ -392,7 +392,7 @@ class LinearGradient final : public Gradient {
       const ColorBuffer& colors,
       const OffsetBuffer& pos,
       SkTileMode tile_mode,
-      SkGradientShader::Interpolation sk_interpolation,
+      SkGradient::Interpolation sk_interpolation,
       const SkMatrix& local_matrix,
       SkColor4f fallback_color) const override {
     if (GetDegenerateHandling() == DegenerateHandling::kDisallow &&
@@ -438,7 +438,7 @@ class RadialGradient final : public Gradient {
       const ColorBuffer& colors,
       const OffsetBuffer& pos,
       SkTileMode tile_mode,
-      SkGradientShader::Interpolation sk_interpolation,
+      SkGradient::Interpolation sk_interpolation,
       const SkMatrix& local_matrix,
       SkColor4f fallback_color) const override {
     const SkMatrix* matrix = &local_matrix;
@@ -500,7 +500,7 @@ class ConicGradient final : public Gradient {
       const ColorBuffer& colors,
       const OffsetBuffer& pos,
       SkTileMode tile_mode,
-      SkGradientShader::Interpolation sk_interpolation,
+      SkGradient::Interpolation sk_interpolation,
       const SkMatrix& local_matrix,
       SkColor4f fallback_color) const override {
     if (GetDegenerateHandling() == DegenerateHandling::kDisallow &&
@@ -534,17 +534,17 @@ class ConicGradient final : public Gradient {
 
 }  // namespace
 
-scoped_refptr<Gradient> Gradient::CreateLinear(
+std::unique_ptr<Gradient> Gradient::CreateLinear(
     const gfx::PointF& p0,
     const gfx::PointF& p1,
     SpreadMethod spread_method,
     PremultipliedAlpha premultiplied_alpha,
     DegenerateHandling degenerate_handling) {
-  return base::AdoptRef(new LinearGradient(
-      p0, p1, spread_method, premultiplied_alpha, degenerate_handling));
+  return std::make_unique<LinearGradient>(
+      p0, p1, spread_method, premultiplied_alpha, degenerate_handling);
 }
 
-scoped_refptr<Gradient> Gradient::CreateRadial(
+std::unique_ptr<Gradient> Gradient::CreateRadial(
     const gfx::PointF& p0,
     float r0,
     const gfx::PointF& p1,
@@ -553,12 +553,12 @@ scoped_refptr<Gradient> Gradient::CreateRadial(
     SpreadMethod spread_method,
     PremultipliedAlpha premultiplied_alpha,
     DegenerateHandling degenerate_handling) {
-  return base::AdoptRef(new RadialGradient(p0, r0, p1, r1, aspect_ratio,
-                                           spread_method, premultiplied_alpha,
-                                           degenerate_handling));
+  return std::make_unique<RadialGradient>(p0, r0, p1, r1, aspect_ratio,
+                                          spread_method, premultiplied_alpha,
+                                          degenerate_handling);
 }
 
-scoped_refptr<Gradient> Gradient::CreateConic(
+std::unique_ptr<Gradient> Gradient::CreateConic(
     const gfx::PointF& position,
     float rotation,
     float start_angle,
@@ -566,9 +566,9 @@ scoped_refptr<Gradient> Gradient::CreateConic(
     SpreadMethod spread_method,
     PremultipliedAlpha premultiplied_alpha,
     DegenerateHandling degenerate_handling) {
-  return base::AdoptRef(new ConicGradient(
+  return std::make_unique<ConicGradient>(
       position, rotation, start_angle, end_angle, spread_method,
-      premultiplied_alpha, degenerate_handling));
+      premultiplied_alpha, degenerate_handling);
 }
 
 }  // namespace blink

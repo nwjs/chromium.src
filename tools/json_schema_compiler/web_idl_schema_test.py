@@ -186,6 +186,12 @@ class WebIdlSchemaTest(unittest.TestCase):
     }, getFunctionReturn(schema, 'returnsCustomType'))
     self.assertEqual(
         {
+            'name': 'returnsNullableCustomType',
+            'optional': True,
+            '$ref': 'ExampleType'
+        }, getFunctionReturn(schema, 'returnsNullableCustomType'))
+    self.assertEqual(
+        {
             'name': 'returnsDOMStringSequence',
             'type': 'array',
             'items': {
@@ -507,7 +513,7 @@ class WebIdlSchemaTest(unittest.TestCase):
             'description': 'Comment on sequence type.',
         }, custom_type['properties']['booleanSequence'])
 
-    enum_expected = {
+    expected_enum = {
         'enum': [{
             'name': 'name1',
             'description': 'Comment1.'
@@ -518,7 +524,20 @@ class WebIdlSchemaTest(unittest.TestCase):
         'type': 'string',
         'id': 'EnumType'
     }
-    self.assertEqual(enum_expected, getType(schema, 'EnumType'))
+    self.assertEqual(expected_enum, getType(schema, 'EnumType'))
+
+    expected_single_line_enum = {
+        'enum': [{
+            'name': 'value1'
+        }, {
+            'name': 'value2'
+        }],
+        'description': 'Single line enum.',
+        'type': 'string',
+        'id': 'SingleLineEnum',
+    }
+    self.assertEqual(expected_single_line_enum, getType(schema,
+                                                        'SingleLineEnum'))
 
     expected_type_with_function = {
         'name': 'callbackMember',
@@ -661,8 +680,9 @@ class WebIdlSchemaTest(unittest.TestCase):
   # support for shared types to the new parser.
   def testMissingBrowserInterfaceError(self):
     expected_error_regex = (
-        r'.* File\(test\/web_idl\/missing_browser_interface.idl\): Required'
-        r' partial Browser interface not found in schema\.')
+        r'.* File\(test\/web_idl\/missing_browser_interface.idl\): Schema must'
+        r' contain either a paritial Browser interface \(for APIs\) or a'
+        r' partial ExtensionManifest dictionary \(for manifest stubs\)\.')
     self.assertRaisesRegex(
         SchemaCompilerError,
         expected_error_regex,
@@ -1026,7 +1046,6 @@ class WebIdlSchemaTest(unittest.TestCase):
     normal_function = getFunction(schema, 'normalFunction')
     self.assertFalse(hasattr(normal_function, 'platforms'))
 
-
   # Tests that the 'implemented_in' extended attribute on an interface
   # definition is copied into the resulting namespace after processing.
   def testImplementedInExtendedAttribute(self):
@@ -1291,9 +1310,9 @@ class WebIdlSchemaTest(unittest.TestCase):
             'isInstanceOf': 'ArrayBuffer'
         }, array_buffer_params[1])
 
-  # Tests Manifest keys defined on a partial 'Manifest' dictionary are
+  # Tests Manifest keys defined on a partial 'ExtensionManifest' dictionary are
   # extracted and put into the manifest keys details and not into the Types.
-  def testManifestKeys(self):
+  def testManifestKeysOnApiSchema(self):
     schema = self.idl_basics
     # The 'Manifest' dictionary shouldn't get put into the custom types.
     self.assertFalse(any(obj['id'] == 'Manifest' for obj in schema['types']))
@@ -1322,18 +1341,64 @@ class WebIdlSchemaTest(unittest.TestCase):
             'name': 'union_type_key'
         }, manifest_keys['union_type_key'])
 
-  # Tests that if 'partial' is left off the 'Manifest' dictionary, we throw an
-  # error.
+  # Tests that if 'partial' is left off the 'ExtensionManifest' dictionary, we
+  # throw an error.
   def testNonPartialManifestDictError(self):
     expected_error_regex = (
-        r'.* Dictionary\(Manifest\): If using a "Manifest" dictionary to define'
-        r' manifest keys, it must be declared "partial"\.')
+        r'.* Dictionary\(ExtensionManifest\): If using an "ExtensionManifest"'
+        r' dictionary to define manifest keys, it must be declared "partial"\.')
     self.assertRaisesRegex(
         SchemaCompilerError,
         expected_error_regex,
         web_idl_schema.Load,
         'test/web_idl/non_partial_manifest_dict.idl',
     )
+
+  # Tests that the 'ExtensionManifest' dictionary can be defined as a "stub"
+  # schema file which is just defining manifest key details to be used for type
+  # checking.
+  def testManifestKeysOnStubSchema(self):
+    # Loading the stub should load fine, even though it has no 'Browser'
+    # interface.
+    idl = web_idl_schema.Load('test/web_idl/stub_extension_manifest.idl')
+    self.assertEqual(1, len(idl))
+    schema = idl[0]
+
+    # The name specified by the 'Namespace' extended attribute should be set.
+    self.assertEqual('ExampleManifestStub', schema['namespace'])
+
+    # There should be two keys, one just a string and the other a sequence of a
+    # custom type.
+    manifest_keys = schema['manifest_keys']
+    self.assertEqual(['string_key', 'item_list'], list(manifest_keys.keys()))
+    self.assertEqual({
+        'type': 'string',
+        'name': 'string_key',
+    }, manifest_keys['string_key'])
+    self.assertEqual(
+        {
+            'type': 'array',
+            'name': 'item_list',
+            'items': {
+                '$ref': 'Item'
+            }
+        }, manifest_keys['item_list'])
+
+    # In a manifest key stub schema, there are no functions or events.
+    self.assertFalse(schema['functions'])
+    self.assertFalse(schema['events'])
+
+  # Tests that trying to load a "stub" manifest key schema fails if the
+  # "ExtensionManifest" dictionary doesn't include the extended attribute to
+  # specify the namespace name associated with it.
+  def testManifestKeyStubMissingNamespaceName(self):
+    expected_error_regex = (
+        r'.* Error processing node Dictionary\(ExtensionManifest\):'
+        r' ExtensionManifest stub schemas must specify a \[Namespace=...\]'
+        r' extended attribute.')
+    self.assertRaisesRegex(
+        SchemaCompilerError, expected_error_regex, web_idl_schema.Load,
+        'test/web_idl/stub_extension_manifest_missing_namespace.idl')
 
 
 if __name__ == '__main__':

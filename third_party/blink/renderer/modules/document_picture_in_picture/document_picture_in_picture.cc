@@ -10,16 +10,21 @@
 
 namespace blink {
 
+// static
+const char DocumentPictureInPicture::kSupplementName[] =
+    "DocumentPictureInPicture";
+
 DocumentPictureInPicture::DocumentPictureInPicture(LocalDOMWindow& window)
-    : local_dom_window_(window) {}
+    : Supplement<LocalDOMWindow>(window) {}
 
 // static
 DocumentPictureInPicture* DocumentPictureInPicture::From(
     LocalDOMWindow& window) {
-  DocumentPictureInPicture* pip = window.GetDocumentPictureInPicture();
+  DocumentPictureInPicture* pip =
+      Supplement<LocalDOMWindow>::From<DocumentPictureInPicture>(window);
   if (!pip) {
     pip = MakeGarbageCollected<DocumentPictureInPicture>(window);
-    window.SetDocumentPictureInPicture(pip);
+    ProvideTo(window, pip);
   }
   return pip;
 }
@@ -35,7 +40,7 @@ const AtomicString& DocumentPictureInPicture::InterfaceName() const {
 }
 
 ExecutionContext* DocumentPictureInPicture::GetExecutionContext() const {
-  return local_dom_window_;
+  return GetSupplementable();
 }
 
 ScriptPromise<DOMWindow> DocumentPictureInPicture::requestWindow(
@@ -97,7 +102,7 @@ DOMWindow* DocumentPictureInPicture::window(ScriptState* script_state) const {
 
 void DocumentPictureInPicture::Trace(Visitor* visitor) const {
   EventTarget::Trace(visitor);
-  visitor->Trace(local_dom_window_);
+  Supplement<LocalDOMWindow>::Trace(visitor);
 }
 
 void DocumentPictureInPicture::AddedEventListener(

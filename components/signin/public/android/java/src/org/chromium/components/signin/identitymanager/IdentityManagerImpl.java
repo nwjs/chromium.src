@@ -8,7 +8,7 @@ import androidx.annotation.MainThread;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
-import org.jni_zero.JniType;
+import org.jni_zero.JNINamespace;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
@@ -20,10 +20,9 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.google_apis.gaia.GoogleServiceAuthError;
 
-import java.util.List;
-
 /** IdentityManager provides access to native IdentityManager's public API to java components. */
 @NullMarked
+@JNINamespace("signin")
 public class IdentityManagerImpl implements IdentityManager {
     private long mNativeIdentityManager;
     private final ProfileOAuth2TokenServiceDelegate mProfileOAuth2TokenServiceDelegate;
@@ -76,17 +75,20 @@ public class IdentityManagerImpl implements IdentityManager {
     }
 
     @Override
+    public @Nullable AccountInfo findExtendedAccountInfoByAccountId(CoreAccountId accountId) {
+        return IdentityManagerImplJni.get()
+                .findExtendedAccountInfoByAccountId(mNativeIdentityManager, accountId);
+    }
+
+    @Override
     public @Nullable AccountInfo findExtendedAccountInfoByEmailAddress(String email) {
         return IdentityManagerImplJni.get()
                 .findExtendedAccountInfoByEmailAddress(mNativeIdentityManager, email);
     }
 
     @Override
-    public void refreshAccountInfoIfStale(List<AccountInfo> accountInfos) {
-        for (AccountInfo accountInfo : accountInfos) {
-            IdentityManagerImplJni.get()
-                    .refreshAccountInfoIfStale(mNativeIdentityManager, accountInfo.getId());
-        }
+    public void refreshAccountInfoIfStale() {
+        IdentityManagerImplJni.get().refreshAccountInfoIfStale(mNativeIdentityManager);
     }
 
     @Override
@@ -168,14 +170,15 @@ public class IdentityManagerImpl implements IdentityManager {
         @Nullable CoreAccountInfo getPrimaryAccountInfo(
                 long nativeIdentityManager, int consentLevel);
 
+        @Nullable AccountInfo findExtendedAccountInfoByAccountId(
+                long nativeIdentityManager, CoreAccountId accountId);
+
         @Nullable AccountInfo findExtendedAccountInfoByEmailAddress(
                 long nativeIdentityManager, String email);
 
         CoreAccountInfo[] getAccountsWithRefreshTokens(long nativeIdentityManager);
 
-        // TODO(crbug.com/40284908): Remove the accountId parameter.
-        void refreshAccountInfoIfStale(
-                long nativeIdentityManager, @JniType("CoreAccountId") CoreAccountId accountId);
+        void refreshAccountInfoIfStale(long nativeIdentityManager);
 
         boolean isClearPrimaryAccountAllowed(long nativeIdentityManager);
     }

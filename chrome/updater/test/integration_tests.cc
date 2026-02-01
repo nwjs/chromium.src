@@ -26,6 +26,7 @@
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -82,7 +83,6 @@
 #include <unistd.h>
 
 #include "base/environment.h"
-#include "base/strings/strcat.h"
 #include "chrome/updater/util/posix_util.h"
 #endif
 
@@ -480,6 +480,10 @@ class IntegrationTest : public ::testing::Test {
     test_commands_->ExpectLegacyProcessLauncherSucceeds();
   }
 
+  void ExpectProcessLauncherLaunchCmdLineSucceeds() {
+    test_commands_->ExpectProcessLauncherLaunchCmdLineSucceeds();
+  }
+
   void ExpectLegacyAppCommandWebSucceeds(const std::string& app_id,
                                          const std::string& command_id,
                                          const base::Value::List& parameters,
@@ -683,6 +687,11 @@ class IntegrationTest : public ::testing::Test {
                                target_url);
   }
 
+  void ExpectInstallSource(ScopedServer* test_server,
+                           const std::string& install_source) {
+    test_commands_->ExpectInstallSource(test_server, install_source);
+  }
+
   void ExpectAppCommandPing(
       ScopedServer* test_server,
       const std::string& appid,
@@ -870,9 +879,11 @@ class IntegrationTest : public ::testing::Test {
   void RunOfflineInstall(bool is_legacy_install,
                          bool is_silent_install,
                          int installer_result = 0,
-                         int installer_error = 0) {
+                         int installer_error = 0,
+                         const std::string& install_source = "") {
     test_commands_->RunOfflineInstall(is_legacy_install, is_silent_install,
-                                      installer_result, installer_error);
+                                      installer_result, installer_error,
+                                      install_source);
   }
 
   void RunOfflineInstallOsNotSupported(bool is_legacy_install,
@@ -1497,8 +1508,7 @@ TEST_F(IntegrationTest, CheckForUpdate) {
 }
 
 #if BUILDFLAG(IS_WIN)
-// TODO(crbug.com/462797181): Disabled while mojo server is disabled.
-TEST_F(IntegrationTest, DISABLED_CheckForUpdateAndInstallAppViaMojo) {
+TEST_F(IntegrationTest, CheckForUpdateAndInstallAppViaMojo) {
   ScopedServer test_server(test_commands_);
   ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install());
@@ -1571,6 +1581,84 @@ TEST_F(IntegrationTest, DISABLED_CheckForUpdateAndInstallAppViaMojo) {
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 #endif  // BUILDFLAG(IS_WIN)
+
+TEST_F(IntegrationTest, GetUpdaterState) {
+  ASSERT_NO_FATAL_FAILURE(Install());
+
+  {
+    scoped_refptr<UpdateService> update_service =
+#if BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxyMojo(GetUpdaterScopeForTesting());
+#else   // BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxy(GetUpdaterScopeForTesting());
+#endif  // BUILDFLAG(IS_WIN)
+    base::RunLoop loop;
+    update_service->GetUpdaterState(base::BindLambdaForTesting(
+        [&](const UpdateService::UpdaterState& result) {
+          // TODO(crbug.com/456497861): add more comprehensive tests after
+          // adding older versions.
+          EXPECT_EQ(result.active_version, kUpdaterVersion);
+          loop.Quit();
+        }));
+    loop.Run();
+  }
+
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, GetUpdaterPolicies) {
+  ASSERT_NO_FATAL_FAILURE(Install());
+
+  {
+    scoped_refptr<UpdateService> update_service =
+#if BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxyMojo(GetUpdaterScopeForTesting());
+#else   // BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxy(GetUpdaterScopeForTesting());
+#endif  // BUILDFLAG(IS_WIN)
+    base::RunLoop loop;
+    update_service->GetUpdaterPolicies(base::BindLambdaForTesting(
+        [&](const base::flat_map<std::string, UpdateService::PolicyValue>&
+                result) {
+          // TODO(crbug.com/456497861): add more comprehensive tests after
+          // integrating dict policies.
+          EXPECT_GT(result.size(), 0u);
+          EXPECT_GT(result.at("LastCheckPeriod").policy_value.length(), 0u);
+          EXPECT_EQ(result.at("LastCheckPeriod").policy_source,
+                    UpdateService::PolicyValue::PolicySource::kSourceDefault);
+          loop.Quit();
+        }));
+    loop.Run();
+  }
+
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, GetAppPolicies) {
+  ASSERT_NO_FATAL_FAILURE(Install());
+
+  {
+    scoped_refptr<UpdateService> update_service =
+#if BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxyMojo(GetUpdaterScopeForTesting());
+#else   // BUILDFLAG(IS_WIN)
+        CreateUpdateServiceProxy(GetUpdaterScopeForTesting());
+#endif  // BUILDFLAG(IS_WIN)
+    base::RunLoop loop;
+    update_service->GetAppPolicies(base::BindLambdaForTesting(
+        [&](const base::flat_map<
+            std::string,
+            base::flat_map<std::string, UpdateService::PolicyValue>>& result) {
+          // TODO(crbug.com/456497861): add more comprehensive tests after
+          // integrating dict policies.
+          EXPECT_GE(result.size(), 0u);
+          loop.Quit();
+        }));
+    loop.Run();
+  }
+
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
 
 TEST_F(IntegrationTest, UpdateBadHash) {
   ASSERT_NO_FATAL_FAILURE(Install());
@@ -4807,7 +4895,7 @@ INSTANTIATE_TEST_SUITE_P(IntegrationLegacyProcessLauncherTestCases,
                          IntegrationLegacyProcessLauncherTest,
                          ::testing::ValuesIn(GetRealUpdaterVersions()));
 
-TEST_P(IntegrationLegacyProcessLauncherTest, Test) {
+TEST_P(IntegrationLegacyProcessLauncherTest, LaunchCmdElevated) {
   // `ExpectLegacyProcessLauncherSucceeds` runs the process launcher once with
   // usagestats enabled, and twice without, so only a single ping is expected.
   ASSERT_NO_FATAL_FAILURE(ExpectAppCommandPing(
@@ -4815,6 +4903,12 @@ TEST_P(IntegrationLegacyProcessLauncherTest, Test) {
       1, update_client::protocol_request::kEventAppCommandComplete, {},
       GetParam().version));
   ASSERT_NO_FATAL_FAILURE(ExpectLegacyProcessLauncherSucceeds());
+}
+
+// TODO(crbug.com/465095657): re-enable this test after fixing
+// `IProcessLauncher::LaunchCmdLine`.
+TEST_P(IntegrationLegacyProcessLauncherTest, DISABLED_LaunchCmdLine) {
+  ASSERT_NO_FATAL_FAILURE(ExpectProcessLauncherLaunchCmdLineSucceeds());
 }
 
 class IntegrationLegacyPolicyStatusTest
@@ -5037,6 +5131,37 @@ TEST_F(IntegrationTest, OfflineInstallerError) {
                                             /*is_silent_install=*/true,
                                             /*installer_result=*/1,
                                             /*installer_error=*/99));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, OfflineInstallProvidedInstallSource) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstallSource(&test_server, "enterprisemsi"));
+  ASSERT_NO_FATAL_FAILURE(
+      RunOfflineInstall(/*is_legacy_install=*/false,
+                        /*is_silent_install=*/false,
+                        /*installer_result=*/0,
+                        /*installer_error=*/0,
+                        /*install_source=*/kInstallSourceEnterpriseMsi));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, OfflineInstallInferredInstallSource) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectInstallSource(&test_server, updater::kInstallSourceOffline));
+  ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
+                                            /*is_silent_install=*/false));
 
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());

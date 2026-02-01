@@ -419,6 +419,11 @@ void PeopleHandler::RegisterMessages() {
       "SyncStartKeyRetrieval",
       base::BindRepeating(&PeopleHandler::HandleStartKeyRetrieval,
                           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "SyncShowBookmarkLimitExceededHelp",
+      base::BindRepeating(
+          &PeopleHandler::HandleSyncShowBookmarkLimitExceededHelp,
+          base::Unretained(this)));
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   web_ui()->RegisterMessageCallback(
       "GetChromeSigninUserChoiceInfo",
@@ -881,21 +886,8 @@ void PeopleHandler::HandleTurnOffSync(bool delete_profile,
       << "Profile deletion is not allowed!";
 
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
-  auto* signin_client = ChromeSigninClientFactory::GetForProfile(profile_);
-
-  if (!signin_client->IsRevokeSyncConsentAllowed()) {
-    // If the user can't revoke sync the profile must be destroyed.
-    if (delete_profile && delete_profile_allowed) {
-      webui::DeleteProfileAtPath(profile_path,
-                                 ProfileMetrics::DELETE_PROFILE_SETTINGS);
-    } else {
-      DCHECK(delete_profile) << "User signout requires profile destruction.";
-    }
-    return;
-  }
 
   if (!is_clear_primary_account_allowed) {
-    DCHECK(signin_client->IsRevokeSyncConsentAllowed());
     identity_manager->GetPrimaryAccountMutator()->RevokeSyncConsent(
         signin_metrics::ProfileSignout::kRevokeSyncFromSettings);
   } else {
@@ -946,6 +938,15 @@ void PeopleHandler::HandleStartKeyRetrieval(const base::Value::List& args) {
 
   OpenTabForSyncKeyRetrieval(
       browser, trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings);
+}
+
+void PeopleHandler::HandleSyncShowBookmarkLimitExceededHelp(
+    const base::Value::List& args) {
+  Browser* browser = chrome::FindBrowserWithTab(web_ui()->GetWebContents());
+  if (!browser) {
+    return;
+  }
+  ShowBookmarksLimitExceededHelp(browser, GetSyncService());
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)

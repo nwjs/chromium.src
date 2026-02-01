@@ -216,14 +216,6 @@ void AnimationTrigger::DidAddAnimation() {}
 
 void AnimationTrigger::DidRemoveAnimation(Animation* animation) {}
 
-void AnimationTrigger::RemoveAnimations() {
-  AnimationBehaviorMap animation_behavior_map;
-  animation_behavior_map_.swap(animation_behavior_map);
-  for (Animation* animation : animation_behavior_map.Keys()) {
-    removeAnimation(animation);
-  }
-}
-
 void AnimationTrigger::UpdateBehaviorMap(Animation& animation,
                                          Behavior activate_behavior,
                                          Behavior deactivate_behavior) {
@@ -278,6 +270,7 @@ void AnimationTrigger::UpdateCompositorTrigger() {
 
 void AnimationTrigger::Trace(Visitor* visitor) const {
   visitor->Trace(animation_behavior_map_);
+  visitor->Trace(owning_element_);
   ScriptWrappable::Trace(visitor);
 }
 

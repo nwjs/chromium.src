@@ -16,27 +16,6 @@ namespace actor {
 class ToolRequest;
 
 namespace ui {
-// LINT.IfChange(ModelPageTargetType)
-// These enum values are persisted to logs.  Do not renumber or reuse numeric
-// values.
-enum class ModelPageTargetType {
-  kDomNode = 0,
-  kPoint = 1,
-  kMaxValue = kPoint,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:ModelPageTargetType)
-
-// LINT.IfChange(ComputedTargetResult)
-// These enum values are persisted to logs.  Do not renumber or reuse numeric
-// values.
-enum class ComputedTargetResult {
-  kSuccess = 0,
-  kMissingActorTabData = 1,
-  kMissingAnnotatedPageContent = 2,
-  kTargetNotResolvedInApc = 3,
-  kMaxValue = kTargetNotResolvedInApc,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:ComputedTargetResult)
 
 class ActorUiStateManagerInterface;
 
@@ -55,14 +34,25 @@ class UiEventDispatcher {
     TaskId task_id;
     ActorTask::State old_state;
     ActorTask::State new_state;
-    std::string title;
   };
+
+  /* The only valid values for final_state are terminal states
+   * that include: {kFinished, kFailed, kCancelled}
+   */
+  struct StopTask {
+    TaskId task_id;
+    ActorTask::State final_state;
+    std::string title;
+    tabs::TabInterface::Handle last_acted_on_tab_handle;
+  };
+
   struct RemoveTab {
     TaskId task_id;
     tabs::TabInterface::Handle handle;
   };
   // TODO(crbug.com/425784083): Add tab changes from ActorTask.
-  using ActorTaskSyncChange = std::variant<ChangeTaskState, RemoveTab>;
+  using ActorTaskSyncChange =
+      std::variant<ChangeTaskState, StopTask, RemoveTab>;
 
   virtual ~UiEventDispatcher() = default;
 

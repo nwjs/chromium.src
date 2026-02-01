@@ -16,10 +16,13 @@
 #include "remoting/base/buildflags.h"
 #include "remoting/base/certificate_helpers.h"
 #include "remoting/base/http_status.h"
+#include "remoting/base/internal_headers.h"
 #include "remoting/base/protobuf_http_client.h"
 #include "remoting/base/protobuf_http_test_responder.h"
 #include "remoting/proto/messaging_service.h"
 #include "remoting/signaling/corp_message_channel_strategy.h"
+#include "remoting/signaling/signaling_address.h"
+#include "remoting/signaling/signaling_message.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -33,12 +36,15 @@ using ::testing::Return;
 using internal::HostSendMessageRequest;
 using internal::HostSendMessageResponse;
 
-constexpr char kFakePayload[] = "fake_payload";
 constexpr char kFakeUsername[] = "fake_user";
-constexpr char kFakeAuthzToken[] = "fake_token";
+#if BUILDFLAG(REMOTING_INTERNAL)
+// Only used for validation in REMOTING_INTERNAL builds.
+constexpr char kFakeAuthzToken[] = "fake_authz_token";
+#endif
+constexpr char kFakeAuthzTokenBase64[] = "ZmFrZV9hdXRoel90b2tlbg==";
 constexpr char kFakePublicKey[] = "fake_public_key";
 
-using StatusCallback = CorpMessagingClient::StatusCallback;
+using DoneCallback = MessagingClient::DoneCallback;
 
 base::OnceCallback<void(const HttpStatus&)> CheckStatusThenQuitRunLoopCallback(
     const base::Location& from_here,
@@ -57,15 +63,21 @@ class CorpMessagingClientTest : public testing::Test {
  protected:
   base::test::TaskEnvironment task_environment_;
   ProtobufHttpTestResponder test_responder_;
-  CorpMessagingClient messaging_client_{kFakeUsername, kFakePublicKey,
-                                        test_responder_.GetUrlLoaderFactory(),
-                                        CreateClientCertStoreInstance()};
+  base::MockCallback<CorpMessagingClient::SignalingAddressChangedCallback>
+      mock_on_signaling_address_changed_;
+  CorpMessagingClient messaging_client_{
+      kFakeUsername, kFakePublicKey, test_responder_.GetUrlLoaderFactory(),
+      CreateClientCertStoreInstance(),
+      mock_on_signaling_address_changed_.Get()};
 };
 
 TEST_F(CorpMessagingClientTest, TestSendMessage_Unauthenticated) {
   base::RunLoop run_loop;
+
+  internal::PeerMessageStruct peer_message;
   messaging_client_.SendMessage(
-      kFakeAuthzToken, kFakePayload,
+      SignalingAddress{kFakeAuthzTokenBase64},
+      SignalingMessage(std::move(peer_message)),
       CheckStatusThenQuitRunLoopCallback(
           FROM_HERE, HttpStatus::Code::UNAUTHENTICATED, &run_loop));
   test_responder_.AddErrorToMostRecentRequestUrl(
@@ -75,13 +87,20 @@ TEST_F(CorpMessagingClientTest, TestSendMessage_Unauthenticated) {
 
 TEST_F(CorpMessagingClientTest, TestSendMessage_SendOneMessage) {
   base::RunLoop run_loop;
+  internal::PeerMessageStruct peer_message;
   messaging_client_.SendMessage(
-      kFakeAuthzToken, kFakePayload,
+      SignalingAddress{kFakeAuthzTokenBase64},
+      SignalingMessage(std::move(peer_message)),
       CheckStatusThenQuitRunLoopCallback(FROM_HERE, HttpStatus::Code::OK,
                                          &run_loop));
 
   HostSendMessageRequest request;
   ASSERT_TRUE(test_responder_.GetMostRecentRequestMessage(&request));
+#if BUILDFLAG(REMOTING_INTERNAL)
+  // External builds use a DoNothing proto to back the request so we scope the
+  // verification to internal builds only.
+  ASSERT_EQ(kFakeAuthzToken, request.messaging_authz_token());
+#endif
 
   test_responder_.AddResponseToMostRecentRequestUrl(HostSendMessageResponse());
   run_loop.Run();

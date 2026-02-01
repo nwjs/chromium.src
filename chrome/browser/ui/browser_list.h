@@ -48,9 +48,6 @@ class BrowserList {
   const_iterator begin() const { return browsers_.begin(); }
   const_iterator end() const { return browsers_.end(); }
 
-  bool empty() const { return browsers_.empty(); }
-  size_t size() const { return browsers_.size(); }
-
   static BrowserList* GetInstance();
 
   // Adds or removes |browser| from the list it is associated with. The browser
@@ -106,28 +103,6 @@ class BrowserList {
       const CloseCallback& on_close_success,
       const CloseCallback& on_close_aborted,
       bool skip_beforeunload);
-
-  // Returns true if at least one off-the-record browser is active across all
-  // desktops.
-  static bool IsOffTheRecordBrowserActive();
-
-  // Returns the number of active off-the-record browsers for |profile| across
-  // all desktops. Note that this function does not count devtools windows
-  // opened for off-the-record windows.
-  static int GetOffTheRecordBrowsersActiveForProfile(Profile* profile);
-
-  // Returns the number of active incognito browsers except devtools windows
-  // across all desktops.
-  static size_t GetIncognitoBrowserCount();
-
-  // Returns the number of active guest browsers except devtools windows
-  // across all desktops.
-  static size_t GetGuestBrowserCount();
-
-  // Returns true if the off-the-record browser for |profile| is in use in any
-  // window across all desktops. This function considers devtools windows as
-  // well.
-  static bool IsOffTheRecordBrowserInUse(Profile* profile);
 
  private:
   BrowserList();

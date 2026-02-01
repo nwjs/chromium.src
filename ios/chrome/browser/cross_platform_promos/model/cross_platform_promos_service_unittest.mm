@@ -8,6 +8,7 @@
 
 #import "base/functional/bind.h"
 #import "base/json/values_util.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/time/clock.h"
@@ -28,10 +29,10 @@
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/credential_provider_promo_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -49,7 +50,8 @@ class CrossPlatformPromosServiceTest : public PlatformTest {
   CrossPlatformPromosServiceTest() {
     feature_list_.InitWithFeatures(
         {sync_preferences::features::kEnableCrossDevicePrefTracker,
-         kMobilePromoOnDesktopRecordActiveDays, kMobilePromoOnDesktop},
+         kMobilePromoOnDesktopRecordActiveDays,
+         kMobilePromoOnDesktopWithReminder},
         {});
 
     TestProfileIOS::Builder builder;
@@ -105,9 +107,9 @@ class CrossPlatformPromosServiceTest : public PlatformTest {
   }
 
   // Stubs the `-prepareToPresentModalWithSnackbarDismissal:` method from
-  // `ApplicationCommands` so that it immediately calls the completion block.
+  // `SceneCommands` so that it immediately calls the completion block.
   void StubPrepareToPresentModal() {
-    id mock_application_handler = MockHandler(@protocol(ApplicationCommands));
+    id mock_application_handler = MockHandler(@protocol(SceneCommands));
     OCMStub([mock_application_handler
         prepareToPresentModalWithSnackbarDismissal:NO
                                         completion:[OCMArg invokeBlock]]);
@@ -116,6 +118,7 @@ class CrossPlatformPromosServiceTest : public PlatformTest {
  protected:
   web::WebTaskEnvironment task_environment_{
       web::WebTaskEnvironment::TimeSource::MOCK_TIME};
+  base::HistogramTester histogram_tester_;
   std::unique_ptr<TestProfileIOS> profile_;
   raw_ptr<PrefService> prefs_;
   raw_ptr<syncer::FakeDeviceInfoSyncService> device_info_sync_service_;
@@ -197,6 +200,9 @@ TEST_F(CrossPlatformPromosServiceTest, MaybeShowPromo_Lens) {
   service_->MaybeShowPromo();
 
   EXPECT_OCMOCK_VERIFY(mock_handler);
+  histogram_tester_.ExpectUniqueSample(
+      "IOS.CrossPlatformPromos.Promo.Shown.FromAppForeground",
+      desktop_to_mobile_promos::PromoType::kLens, 1);
 }
 
 // Tests that the Enhanced Browsing promo is triggered when the pref changes.
@@ -215,6 +221,9 @@ TEST_F(CrossPlatformPromosServiceTest, MaybeShowPromo_ESB) {
   service_->MaybeShowPromo();
 
   EXPECT_OCMOCK_VERIFY(mock_handler);
+  histogram_tester_.ExpectUniqueSample(
+      "IOS.CrossPlatformPromos.Promo.Shown.FromAppForeground",
+      desktop_to_mobile_promos::PromoType::kEnhancedBrowsing, 1);
 }
 
 // Tests that the Password promo is triggered when the pref changes.
@@ -234,6 +243,9 @@ TEST_F(CrossPlatformPromosServiceTest, MaybeShowPromo_Password) {
   service_->MaybeShowPromo();
 
   EXPECT_OCMOCK_VERIFY(mock_handler);
+  histogram_tester_.ExpectUniqueSample(
+      "IOS.CrossPlatformPromos.Promo.Shown.FromAppForeground",
+      desktop_to_mobile_promos::PromoType::kPassword, 1);
 }
 
 // Tests that the promo type pref is cleared after showing a promo.
@@ -271,4 +283,6 @@ TEST_F(CrossPlatformPromosServiceTest, MaybeShowPromo_WrongGUID) {
   service_->MaybeShowPromo();
 
   EXPECT_OCMOCK_VERIFY(mock_handler);
+  histogram_tester_.ExpectTotalCount(
+      "IOS.CrossPlatformPromos.Promo.Shown.FromAppForeground", 0);
 }

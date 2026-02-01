@@ -4,19 +4,19 @@
 
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/process/kill.h"
 #include "build/build_config.h"
 #include "chrome/browser/collaboration/messaging/messaging_backend_service_factory.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom-shared.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_utils.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
-#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/collaboration/public/messaging/messaging_backend_service.h"
 #include "components/performance_manager/public/features.h"
 #include "components/saved_tab_groups/public/features.h"
@@ -56,6 +57,13 @@ GetCollaborationMessage(tabs::TabInterface* tab) {
   return data->GetWeakPtr();
 }
 
+bool IsNTP(const GURL& url) {
+  return url.SchemeIs(content::kChromeUIScheme) &&
+         (url.GetHost() == chrome::kChromeUINewTabHost ||
+          url.GetHost() == chrome::kChromeUINewTabPageHost ||
+          url.GetHost() == chrome::kChromeUITabSearchHost);
+}
+
 }  // namespace
 
 // static
@@ -72,20 +80,24 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
   security_interstitials::SecurityInterstitialTabHelper*
       security_interstitial_tab_helper = security_interstitials::
           SecurityInterstitialTabHelper::FromWebContents(contents);
+
   bool should_display_url =
-      !security_interstitial_tab_helper ||
-      !security_interstitial_tab_helper->IsDisplayingInterstitial() ||
-      security_interstitial_tab_helper->ShouldDisplayURL();
+      // NTP URLs are hidden to match the omnibox behavior.
+      !IsNTP(contents->GetVisibleURL()) &&
+      (!security_interstitial_tab_helper ||
+       !security_interstitial_tab_helper->IsDisplayingInterstitial() ||
+       security_interstitial_tab_helper->ShouldDisplayURL());
 
   TabRendererData data;
 
-  tabs::TabFeatures* const features = tab->GetTabFeatures();
-  TabUIHelper* const tab_ui_helper = features->tab_ui_helper();
+  TabUIHelper* const tab_ui_helper = TabUIHelper::From(tab);
   data.favicon = tab_ui_helper->GetFavicon();
   data.title = tab_ui_helper->GetTitle();
+  auto* const bwi = tab->GetBrowserWindowInterface();
+  Browser* browser = bwi ? bwi->GetBrowserForMigrationOnly() : nullptr;
 
   // Note that in unit tests, this may be null.
-  if (auto* const bwi = tab->GetBrowserWindowInterface()) {
+  if (bwi) {
     // Tabbed web apps should use the app icon on the home tab.
     if (auto* const app_controller =
             web_app::WebAppBrowserController::From(bwi);
@@ -128,11 +140,11 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
   }
   data.last_committed_url = contents->GetLastCommittedURL();
   data.should_display_url = should_display_url;
-  data.crashed_status = contents->GetCrashedStatus();
+  data.is_crashed = tab_ui_helper->IsCrashed();
   data.pinned = tab->IsPinned();
   data.show_icon =
-      data.pinned || model->delegate()->ShouldDisplayFavicon(contents);
-  data.blocked = model->IsTabBlocked(index);
+      data.pinned || (browser && browser->ShouldDisplayFavicon(contents));
+  data.blocked = tab->IsBlocked();
   data.should_hide_throbber = tab_ui_helper->ShouldHideThrobber();
   data.alert_state = tabs::TabAlertController::From(tab)->GetAllActiveAlerts();
 
@@ -154,16 +166,13 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
 
   if (contents->WasDiscarded()) {
     data.discarded_memory_savings =
-        base::ByteCount(memory_saver::GetDiscardedMemorySavings(contents));
+        memory_saver::GetDiscardedMemorySavings(contents);
   }
 
   if (const auto* const resource_tab_helper =
           TabResourceUsageTabHelper::From(tab)) {
     data.tab_resource_usage = resource_tab_helper->resource_usage();
   }
-
-  // Attach the weak pointer to the TabInterface
-  data.tab_interface = tab->GetWeakPtr();
 
   return data;
 }
@@ -184,25 +193,13 @@ bool TabRendererData::operator==(const TabRendererData& other) const {
          visible_url == other.visible_url &&
          last_committed_url == other.last_committed_url &&
          should_display_url == other.should_display_url &&
-         crashed_status == other.crashed_status &&
-         show_icon == other.show_icon && pinned == other.pinned &&
-         blocked == other.blocked && alert_state == other.alert_state &&
+         is_crashed == other.is_crashed && show_icon == other.show_icon &&
+         pinned == other.pinned && blocked == other.blocked &&
+         alert_state == other.alert_state &&
          should_hide_throbber == other.should_hide_throbber &&
          is_tab_discarded == other.is_tab_discarded &&
          should_show_discard_status == other.should_show_discard_status &&
          discarded_memory_savings == other.discarded_memory_savings &&
          tab_resource_usage == other.tab_resource_usage &&
-         is_monochrome_favicon == other.is_monochrome_favicon &&
-         tab_interface.get() == other.tab_interface.get();
-}
-
-bool TabRendererData::IsCrashed() const {
-  return (crashed_status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ||
-#if BUILDFLAG(IS_CHROMEOS)
-          crashed_status ==
-              base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM ||
-#endif
-          crashed_status == base::TERMINATION_STATUS_PROCESS_CRASHED ||
-          crashed_status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION ||
-          crashed_status == base::TERMINATION_STATUS_LAUNCH_FAILED);
+         is_monochrome_favicon == other.is_monochrome_favicon;
 }

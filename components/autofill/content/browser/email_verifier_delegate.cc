@@ -43,7 +43,7 @@ void EmailVerifierDelegate::OnFillOrPreviewForm(
     mojom::ActionPersistence action_persistence,
     const base::flat_set<FieldGlobalId>& filled_field_ids,
     const FillingPayload& filling_payload) {
-  if (!base::FeatureList::IsEnabled(::features::kFedCmDelegation)) {
+  if (!base::FeatureList::IsEnabled(::features::kEmailVerificationProtocol)) {
     return;
   }
 
@@ -58,7 +58,7 @@ void EmailVerifierDelegate::OnFillOrPreviewForm(
     return;
   }
 
-  FormStructure* form = manager.FindCachedFormById(form_id);
+  const FormStructure* form = manager.FindCachedFormById(form_id);
   if (!form) {
     return;
   }

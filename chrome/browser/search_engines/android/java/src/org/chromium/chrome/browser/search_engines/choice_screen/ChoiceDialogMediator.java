@@ -15,7 +15,7 @@ import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -35,27 +35,21 @@ import java.lang.annotation.RetentionPolicy;
  *
  * <ul>
  *   <li>On startup ({@link #startObserving}) this mediator is created, the type is set to {@link
- *       DialogType#LOADING} and {@link #mObservationStartedTimeMillis} is set.
- *   <li>On supplier update before the dialog is shown ({@link #onIsDeviceChoiceRequiredChanged}):
+ *       DialogType#UNKNOWN} and {@link #mObservationStartedTimeMillis} is set.
+ *   <li>On supplier updates ({@link #onIsDeviceChoiceRequiredChanged}):
  *       <ul>
- *         <li>we set the type to {@link DialogType#CHOICE_LAUNCH} and show the dialog. Otherwise,
- *             if the dialog should not be shown, we dismiss the (possibly pending) dialog and
- *             destroy the mediator.
+ *         <li>If the blocking the user is needed, we set the type to {@link
+ *             DialogType#CHOICE_LAUNCH} and schedule a task that will show the dialog. From there
+ *             the users will be able to launch the choice screen.
+ *         <li>If blocking the user is not needed, we set the type to {@link
+ *             DialogType#CHOICE_CONFIRM} to make the dialog non-blocking. If we get this signal
+ *             while the dialog has not been shown yet, keep the type as {@link DialogType#UNKNOWN}
+ *             and destroy the mediator.
  *       </ul>
  *   <li>On dialog added ({@link #onDialogAdded}):
  *       <ul>
- *         <li>We set {@link #mDialogAddedTimeMillis}, which will then be used to signal that the
- *             dialog was shown. if we didn't get a backend signal at this point, we schedule a task
- *             to auto-unblock the dialog after {@link
- *             SearchEnginesFeatureUtils#CHOICE_DIALOG_TIMEOUT_MILLIS}.
- *       </ul>
- *   <li>On other supplier updates ({@link #onIsDeviceChoiceRequiredChanged}):
- *       <ul>
- *         <li>If the blocking the user is needed, we set the type to {@link
- *             DialogType#CHOICE_LAUNCH} which will let the users launch the choice screen.
- *         <li>If blocking the user is not needed, we set the type to {@link
- *             DialogType#CHOICE_CONFIRM} to make the dialog non-blocking. If we get this signal
- *             while the dialog is not visible, we destroy the mediator.
+ *         <li>We set {@link #mDialogAddedTimeMillis}, which will then be used to track that the
+ *             dialog was shown.
  *       </ul>
  * </ul>
  */
@@ -101,8 +95,8 @@ class ChoiceDialogMediator {
 
     private final ActivityLifecycleDispatcher mLifecycleDispatcher;
     private final SearchEngineChoiceService mSearchEngineChoiceService;
-    private final ObservableSupplier<Boolean> mIsDeviceChoiceRequiredSupplier;
-    private final Callback<Boolean> mIsDeviceChoiceRequiredObserver;
+    private final NullableObservableSupplier<Boolean> mIsDeviceChoiceRequiredSupplier;
+    private final Callback<@Nullable Boolean> mIsDeviceChoiceRequiredObserver;
     private final PauseResumeWithNativeObserver mActivityLifecycleObserver;
 
     private @DialogType int mDialogType = DialogType.UNKNOWN;
@@ -343,7 +337,6 @@ class ChoiceDialogMediator {
         // If we get here, this is some sort of error state. Shutdown everything.
         // Indicates that the backend was disconnected. This would make the dialog non-functional if
         // it is still shown, so let's dismiss it and let the user proceed to Chrome.
-        // TODO(b/355201070): Add UMA recording.
         if (SearchEnginesFeatureUtils.getInstance().isChoiceApisDebugEnabled()) {
             Log.w(
                     TAG,
@@ -388,8 +381,8 @@ class ChoiceDialogMediator {
         }
 
         if (TimeUtils.currentTimeMillis() - mLatestAcceptedTapTimeMillis <= DEBOUNCE_TIME_MILLIS) {
-            // TODO(b/374288328): Consider disabling the button and indicate the "loading" status
-            // instead of invisibly debouncing taps.
+            // Note: Ignores taps without any visual changes (not marking the button as disabled or
+            // anything like that).
             return LaunchChoiceScreenTapHandlingStatus.SUPPRESSED_TAP;
         }
 

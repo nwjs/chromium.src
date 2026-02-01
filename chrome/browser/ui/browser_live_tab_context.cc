@@ -13,6 +13,7 @@
 #include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/to_string.h"
 #include "base/token.h"
 #include "base/uuid.h"
 #include "base/values.h"
@@ -30,6 +31,7 @@
 #include "chrome/browser/ui/browser_tabrestore.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
@@ -149,12 +151,12 @@ std::string BrowserLiveTabContext::GetUserTitle() const {
 }
 
 sessions::LiveTab* BrowserLiveTabContext::GetLiveTabAt(int index) const {
-  return sessions::ContentLiveTab::GetForWebContents(
+  return sessions::ContentLiveTab::GetOrCreateForWebContents(
       tab_strip_model_->GetWebContentsAt(index));
 }
 
 sessions::LiveTab* BrowserLiveTabContext::GetActiveLiveTab() const {
-  return sessions::ContentLiveTab::GetForWebContents(
+  return sessions::ContentLiveTab::GetOrCreateForWebContents(
       tab_strip_model_->GetActiveWebContents());
 }
 
@@ -167,15 +169,13 @@ std::map<std::string, std::string>
 BrowserLiveTabContext::GetExtraDataForWindow() const {
   std::map<std::string, std::string> data;
 
-  if (tabs::IsVerticalTabsFeatureEnabled()) {
-    auto* controller =
-        browser_->GetFeatures().vertical_tab_strip_state_controller();
-    if (controller) {
-      data[tabs::VerticalTabStripStateController::kCollapsedKey] =
-          base::ToString(controller->IsCollapsed());
-      data[tabs::VerticalTabStripStateController::kUncollapsedWidthKey] =
-          base::NumberToString(controller->GetUncollapsedWidth());
-    }
+  auto* controller =
+      tabs::VerticalTabStripStateController::From(&browser_.get());
+  if (controller) {
+    data[tabs::VerticalTabStripStateController::kCollapsedKey] =
+        base::ToString(controller->IsCollapsed());
+    data[tabs::VerticalTabStripStateController::kUncollapsedWidthKey] =
+        base::NumberToString(controller->GetUncollapsedWidth());
   }
 
   return data;
@@ -340,7 +340,7 @@ sessions::LiveTab* BrowserLiveTabContext::AddRestoredTab(
       // Load the tab manually if there's no BackgroundTabLoadingPolicy.
       web_contents->GetController().LoadIfNecessary();
     }
-    return sessions::ContentLiveTab::GetForWebContents(web_contents);
+    return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
   }
 
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
@@ -367,7 +367,7 @@ sessions::LiveTab* BrowserLiveTabContext::AddRestoredTab(
   web_contents->GetController().LoadIfNecessary();
 #endif  // BUILDFLAG(ENABLE_SESSION_SERVICE)
 
-  return sessions::ContentLiveTab::GetForWebContents(web_contents);
+  return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
 }
 
 sessions::LiveTab* BrowserLiveTabContext::ReplaceRestoredTab(
@@ -386,7 +386,7 @@ sessions::LiveTab* BrowserLiveTabContext::ReplaceRestoredTab(
       tab.normalized_navigation_index(), tab.extension_app_id,
       storage_namespace, tab.user_agent_override, tab.extra_data,
       false /* from_session_restore */);
-  return sessions::ContentLiveTab::GetForWebContents(web_contents);
+  return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
 }
 
 void BrowserLiveTabContext::CloseTab() {

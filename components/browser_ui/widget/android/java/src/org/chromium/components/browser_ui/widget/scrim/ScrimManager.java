@@ -25,7 +25,8 @@ import androidx.core.util.Function;
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Public interface to create/display/observer multiple simultaneous scrims. Clients should use
@@ -75,12 +77,12 @@ public class ScrimManager {
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:ScrimClient)
 
-    private final ObservableSupplierImpl<Boolean> mScrimVisibilitySupplier =
-            new ObservableSupplierImpl<>(false);
-    private final ObservableSupplierImpl<Integer> mStatusBarColorSupplier =
-            new ObservableSupplierImpl<>(ScrimProperties.INVALID_COLOR);
-    private final ObservableSupplierImpl<Integer> mNavigationBarColorSupplier =
-            new ObservableSupplierImpl<>(ScrimProperties.INVALID_COLOR);
+    private final SettableNonNullObservableSupplier<Boolean> mScrimVisibilitySupplier =
+            ObservableSuppliers.createNonNull(false);
+    private final SettableNonNullObservableSupplier<Integer> mStatusBarColorSupplier =
+            ObservableSuppliers.createNonNull(ScrimProperties.INVALID_COLOR);
+    private final SettableNonNullObservableSupplier<Integer> mNavigationBarColorSupplier =
+            ObservableSuppliers.createNonNull(ScrimProperties.INVALID_COLOR);
 
     private final Context mContext;
     private final ViewGroup mParent;
@@ -284,11 +286,11 @@ public class ScrimManager {
     }
 
     private void updateColorSupplier(
-            Function<ScrimCoordinator, ObservableSupplier<Integer>> unwrap,
-            ObservableSupplierImpl<Integer> targetSupplier) {
+            Function<ScrimCoordinator, Supplier<Integer>> unwrap,
+            SettableNonNullObservableSupplier<Integer> targetSupplier) {
         @ColorInt int color = Color.TRANSPARENT;
         for (ScrimCoordinator coordinator : orderedScrims()) {
-            ObservableSupplier<Integer> inputSupplier = unwrap.apply(coordinator);
+            Supplier<Integer> inputSupplier = unwrap.apply(coordinator);
             color = ColorUtils.compositeColors(inputSupplier.get(), color);
         }
         targetSupplier.set(color);

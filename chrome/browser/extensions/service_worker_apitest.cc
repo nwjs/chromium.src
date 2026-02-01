@@ -35,7 +35,6 @@
 #include "chrome/browser/extensions/error_console/error_console_test_observer.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
@@ -82,6 +81,7 @@
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
 #include "extensions/browser/service_worker/service_worker_test_utils.h"
+#include "extensions/browser/unpacked_installer.h"
 #include "extensions/common/api/test.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extensions_client.h"
@@ -2809,19 +2809,14 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
 
 class ServiceWorkerWebRequestPersistFilteredEventsTest
     : public ServiceWorkerWebRequestEarlyListenerTest {
- public:
-  ServiceWorkerWebRequestPersistFilteredEventsTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kWebRequestPersistFilteredEvents);
-  }
-
  protected:
   WebRequestEventRouter* web_request_router() {
     return WebRequestEventRouter::Get(profile());
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList scoped_feature_list_{
+      extensions_features::kWebRequestPersistFilteredEvents};
   base::AutoReset<bool> disable_lazy_context_spinup_ =
       ExtensionRegistrar::DisableLazyContextSpinupForTest();
 };
@@ -2874,15 +2869,15 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestPersistFilteredEventsTest,
   // browser is created.
   ExtensionTestMessageListener incognito_listener_added(kListenerAdded);
   ResultCatcher incognito_catcher;
-  incognito_catcher.RestrictToBrowserContext(
-      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true));
-  Browser* incognito_browser =
-      OpenURLOffTheRecord(profile(), GURL("about:blank"));
-  content::BrowserContext* incognito_profile = incognito_browser->profile();
+  Profile* incognito_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  incognito_catcher.RestrictToBrowserContext(incognito_profile);
   EXPECT_EQ(0u, web_request_router()->GetInactiveListenerCountForTesting(
                     incognito_profile, "webRequest.onBeforeRequest"));
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     incognito_profile, "webRequest.onBeforeRequest"));
+  Browser* incognito_browser =
+      OpenURLOffTheRecord(profile(), GURL("about:blank"));
   ASSERT_TRUE(incognito_listener_added.WaitUntilSatisfied());
   // Navigate and expect the listener in the extension to be triggered.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(

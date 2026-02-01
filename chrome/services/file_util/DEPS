@@ -1,6 +1,7 @@
 include_rules = [
   "+components/services/filesystem",
   "+chrome/utility/safe_browsing",
+  "+components/enterprise/obfuscation/core",
   "+components/safe_browsing/buildflags.h",
   "+components/safe_browsing/core/common",
   "+extensions/buildflags",
@@ -8,4 +9,5 @@ include_rules = [
   "+third_party/lzma_sdk",
   "+third_party/zlib",
   "+third_party/zlib/google",
+  "+third_party/unrar",
 ]

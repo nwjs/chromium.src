@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './immersive_mode_header.js';
 import './read_anything_toolbar.js';
 import '/strings.m.js';
 import '//read-anything-side-panel.top-chrome/shared/sp_empty_state.js';
@@ -16,7 +17,9 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {ContentController, ContentType} from '../content/content_controller.js';
 import type {ContentListener, ContentState} from '../content/content_controller.js';
+import {LineFocusController, type LineFocusListener} from '../content/line_focus_controller.js';
 import {NodeStore} from '../content/node_store.js';
+import {DEFAULT_SETTINGS, LineFocusType, type SettingsPrefs} from '../content/read_anything_types.js';
 import {SelectionController} from '../content/selection_controller.js';
 import type {LanguageToastElement} from '../read_aloud/language_toast.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
@@ -25,30 +28,35 @@ import {TextSegmenter} from '../read_aloud/text_segmenter.js';
 import {VoiceLanguageController} from '../read_aloud/voice_language_controller.js';
 import type {VoiceLanguageListener} from '../read_aloud/voice_language_controller.js';
 import {VoiceNotificationManager} from '../read_aloud/voice_notification_manager.js';
-import type {SettingsPrefs} from '../shared/common.js';
 import {getWordCount, minOverflowLengthToScroll} from '../shared/common.js';
+import {isForwardArrow, isLineFocusShortcut, isVerticalArrow} from '../shared/keyboard_util.js';
 import {ReadAnythingLogger, TimeFrom} from '../shared/read_anything_logger.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {AppStyleUpdater} from './app_style_updater.js';
+import type {ImmersiveModeHeaderElement} from './immersive_mode_header.js';
 import type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
 
 const AppElementBase = WebUiListenerMixinLit(CrLitElement);
 
 export interface AppElement {
   $: {
+    immersiveHeader: ImmersiveModeHeaderElement,
     toolbar: ReadAnythingToolbarElement,
     appFlexParent: HTMLElement,
+    containerParent: HTMLElement,
     container: HTMLElement,
     languageToast: LanguageToastElement,
     containerScroller: HTMLElement,
+    lineFocus: HTMLElement,
   };
 }
 
 export class AppElement extends AppElementBase implements SpeechListener,
                                                           VoiceLanguageListener,
-                                                          ContentListener {
+                                                          ContentListener,
+                                                          LineFocusListener {
   static get is() {
     return 'read-anything-app';
   }
@@ -75,6 +83,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       speechEngineLoaded_: {type: Boolean},
       willDrawAgainSoon_: {type: Boolean},
       pageLanguage_: {type: String},
+      presentationState_: {type: Number},
     };
   }
 
@@ -123,17 +132,20 @@ export class AppElement extends AppElementBase implements SpeechListener,
       ContentController.getInstance();
   private selectionController_: SelectionController =
       SelectionController.getInstance();
-  protected accessor settingsPrefs_: SettingsPrefs = {
-    letterSpacing: 0,
-    lineSpacing: 0,
-    theme: 0,
-    speechRate: 0,
-    font: '',
-    highlightGranularity: 0,
-  };
+  private lineFocusController_: LineFocusController =
+      LineFocusController.getInstance();
+  protected accessor settingsPrefs_: SettingsPrefs = DEFAULT_SETTINGS;
 
   protected accessor isSpeechActive_: boolean = false;
   protected accessor isAudioCurrentlyPlaying_: boolean = false;
+
+  protected accessor presentationState_: number|undefined = undefined;
+
+  isImmersiveMode(): boolean {
+    // The kInImmersiveOverlay enum value is 3 in ReadAnythingPresentationState.
+    // See chrome/common/read_anything/read_anything.mojom.
+    return this.presentationState_ === 3;
+  }
 
   constructor() {
     super();
@@ -164,11 +176,23 @@ export class AppElement extends AppElementBase implements SpeechListener,
       chrome.readingMode.onConnected();
     }
 
+    // Request the presentation state to determine whether we should use the UI
+    // for immersive mode.
+    chrome.readingMode.sendGetPresentationStateRequest();
     // Push ShowUI() callback to the event queue to allow deferred rendering
     // to take place.
     setTimeout(() => chrome.readingMode.shouldShowUi(), 0);
     this.styleUpdater_.setMaxLineWidth();
-
+    if (chrome.readingMode.isLineFocusEnabled) {
+      window.addEventListener('resize', this.onWindowResize_.bind(this));
+      this.$.containerParent.addEventListener('mousemove', mouseEvent => {
+        this.lineFocusController_.onMouseMove(mouseEvent.clientY);
+      });
+      this.$.toolbar.addEventListener('mousemove', mouseEvent => {
+        this.lineFocusController_.onMouseMoveInToolbar(mouseEvent.clientY);
+      });
+      this.lineFocusController_.addListener(this);
+    }
     this.contentController_.addListener(this);
     if (this.isReadAloudEnabled_) {
       this.speechController_.addListener(this);
@@ -188,6 +212,9 @@ export class AppElement extends AppElementBase implements SpeechListener,
       speechRate: chrome.readingMode.speechRate,
       font: chrome.readingMode.fontName,
       highlightGranularity: chrome.readingMode.highlightGranularity,
+      lineFocus: chrome.readingMode.lineFocus,
+      linksEnabled: chrome.readingMode.linksEnabled,
+      imagesEnabled: chrome.readingMode.imagesEnabled,
     };
 
     document.onselectionchange = () => {
@@ -214,8 +241,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
       return false;
     };
 
+    document.onkeydown = this.onKeyDown_.bind(this);
+
     /////////////////////////////////////////////////////////////////////
-    // Called by ReadAnythingUntrustedPageHandler via callback router. //
+    // Called by ReadAnythingAppController via callback router. //
     /////////////////////////////////////////////////////////////////////
     chrome.readingMode.updateContent = () => {
       this.updateContent();
@@ -263,6 +292,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.speechController_.onLockScreen();
     };
 
+    chrome.readingMode.readingModeWillClose = () => {
+      this.speechController_.onReadingModeWillClose();
+    };
+
     chrome.readingMode.onTtsEngineInstalled = () => {
       this.voiceLanguageController_.onTtsEngineInstalled();
     };
@@ -274,6 +307,23 @@ export class AppElement extends AppElementBase implements SpeechListener,
     chrome.readingMode.onNodeWillBeDeleted = (nodeId: number) => {
       this.contentController_.onNodeWillBeDeleted(nodeId);
     };
+
+    chrome.readingMode.onPresentationStateReceived =
+        (presentationState: number) => {
+          // TODO (crbug.com/450950100): The Read Anything app should determine
+          // which content to display based on the presentation state.
+          this.presentationState_ = presentationState;
+        };
+
+    chrome.readingMode.onPinStateReceived = (pinState: boolean) => {
+      this.$.immersiveHeader.isReadAnythingPinned = pinState;
+    };
+  }
+
+  private onWindowResize_() {
+    requestAnimationFrame(() => {
+      this.onTextLocationsChange_();
+    });
   }
 
   protected onContainerScroll_() {
@@ -281,10 +331,14 @@ export class AppElement extends AppElementBase implements SpeechListener,
     if (this.isReadAloudEnabled_) {
       this.speechController_.onScroll();
     }
+    this.onTextLocationsChange_();
   }
 
   protected onContainerScrollEnd_() {
     this.nodeStore_.estimateWordsSeenWithDelay();
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.lineFocusController_.onScrollEnd(this.$.containerScroller.scrollTop);
+    }
   }
 
   showLoading() {
@@ -313,6 +367,9 @@ export class AppElement extends AppElementBase implements SpeechListener,
           getWordCount(newRoot.textContent) :
           0;
       chrome.readingMode.onDistilled(wordCount);
+      requestAnimationFrame(() => {
+        this.onTextLocationsChange_();
+      });
     }
   }
 
@@ -363,6 +420,34 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected onPlayPauseClick_() {
     this.speechController_.onPlayPauseToggle(this.$.container);
+  }
+
+  onLineFocusMove(): void {
+    if (!chrome.readingMode.isLineFocusEnabled) {
+      return;
+    }
+
+    this.styleUpdater_.setLineFocusPos(
+        this.lineFocusController_.getTop(),
+        this.lineFocusController_.getHeight(), this.$.containerParent);
+  }
+
+  onNeedScrollForLineFocus(scrollDiff: number): void {
+    if (!chrome.readingMode.isLineFocusEnabled) {
+      return;
+    }
+
+    const top = this.$.containerScroller.scrollTop + scrollDiff;
+    this.$.containerScroller.scrollTo({top, behavior: 'smooth'});
+  }
+
+  onNeedScrollToTop(): void {
+    if (!chrome.readingMode.isLineFocusEnabled ||
+        this.$.containerScroller.scrollTop === 0) {
+      return;
+    }
+
+    this.$.containerScroller.scrollTo({top: 0, behavior: 'smooth'});
   }
 
   onContentStateChange(): void {
@@ -445,15 +530,20 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.voiceLanguageController_.restoreFromPrefs();
     }
     this.settingsPrefs_ = {
-      ...this.settingsPrefs_,
       letterSpacing: chrome.readingMode.letterSpacing,
       lineSpacing: chrome.readingMode.lineSpacing,
       theme: chrome.readingMode.colorTheme,
       speechRate: chrome.readingMode.speechRate,
       font: chrome.readingMode.fontName,
       highlightGranularity: chrome.readingMode.highlightGranularity,
+      lineFocus: chrome.readingMode.lineFocus,
+      linksEnabled: chrome.readingMode.linksEnabled,
+      imagesEnabled: chrome.readingMode.imagesEnabled,
     };
     this.styleUpdater_.setAllTextStyles();
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.setLineFocus_(this.settingsPrefs_.lineFocus);
+    }
     // TODO: crbug.com/40927698 - Remove this call. Using this.settingsPrefs_
     // should replace this direct call to the toolbar.
     this.$.toolbar.restoreSettingsFromPrefs();
@@ -461,18 +551,27 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected onLineSpacingChange_() {
     this.styleUpdater_.setLineSpacing();
+    this.onTextLocationsChange_();
   }
 
   protected onLetterSpacingChange_() {
     this.styleUpdater_.setLetterSpacing();
+    this.onTextLocationsChange_();
   }
 
   protected onFontChange_() {
     this.styleUpdater_.setFont();
+    this.onTextLocationsChange_();
   }
 
   protected onFontSizeChange_() {
     this.styleUpdater_.setFontSize();
+    this.onTextLocationsChange_();
+    if (chrome.readingMode.isLineFocusEnabled &&
+        this.lineFocusController_.getCurrentLineFocusType() ===
+            LineFocusType.LINE) {
+      this.styleUpdater_.setLineFocusHeight();
+    }
   }
 
   protected onThemeChange_() {
@@ -493,6 +592,32 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.speechController_.onHighlightGranularityChange(event.detail.data);
     // Apply highlighting changes to the DOM.
     this.styleUpdater_.setHighlight();
+  }
+
+  protected onAllMenusClose_() {
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.lineFocusController_.onAllMenusClose();
+    }
+  }
+
+  protected onLineFocusChange_(event: CustomEvent<{data: number}>) {
+    this.setLineFocus_(event.detail.data);
+  }
+
+  private setLineFocus_(lineFocus: number) {
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.lineFocusController_.onLineFocusChange(
+          lineFocus, this.$.container, this.$.containerParent.clientHeight);
+      this.styleUpdater_.setLineFocusStyle(
+          this.lineFocusController_.getCurrentLineFocusType());
+    }
+  }
+
+  private onTextLocationsChange_() {
+    if (chrome.readingMode.isLineFocusEnabled) {
+      this.lineFocusController_.onTextLocationsChange(
+          this.$.container, this.$.containerParent.clientHeight);
+    }
   }
 
   languageChanged() {
@@ -518,6 +643,17 @@ export class AppElement extends AppElementBase implements SpeechListener,
       e.stopPropagation();
       e.preventDefault();
       this.speechController_.onPlayPauseKeyPress(this.$.container);
+    } else if (
+        this.lineFocusController_.isEnabled() && isVerticalArrow(e.key)) {
+      e.stopPropagation();
+      e.preventDefault();
+      this.lineFocusController_.snapToNextLine(isForwardArrow(e.key));
+    } else if (
+        chrome.readingMode.isLineFocusEnabled && isLineFocusShortcut(e.key)) {
+      this.lineFocusController_.toggle(
+          this.$.container, this.$.containerParent.offsetHeight);
+      this.styleUpdater_.setLineFocusStyle(
+          this.lineFocusController_.getCurrentLineFocusType());
     }
   }
 }

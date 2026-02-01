@@ -10,7 +10,6 @@
 #include <memory>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -433,7 +432,7 @@ void IsolatedContext::RevokeFileSystemByPath(const base::FilePath& path_in) {
 
 void IsolatedContext::AddReference(const std::string& filesystem_id) {
   base::AutoLock locker(lock_);
-  DCHECK(base::Contains(instance_map_, filesystem_id));
+  DCHECK(instance_map_.contains(filesystem_id));
   instance_map_[filesystem_id]->AddRef();
 }
 
@@ -524,7 +523,7 @@ std::string IsolatedContext::GetNewFileSystemId() const {
   do {
     base::RandBytes(random_data);
     id = base::HexEncode(random_data);
-  } while (base::Contains(instance_map_, id));
+  } while (instance_map_.contains(id));
   return id;
 }
 

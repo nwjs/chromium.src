@@ -17,11 +17,15 @@
 
 namespace blink {
 
-class EXTENSIONS_WEBVIEW_EXPORT WebViewAndroid : public ScriptWrappable,
-                                                 public ExecutionContextClient {
+class EXTENSIONS_WEBVIEW_EXPORT WebViewAndroid
+    : public ScriptWrappable,
+      public Supplement<ExecutionContext>,
+      public ExecutionContextClient {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  static const char kSupplementName[];
+
   static WebViewAndroid& From(ExecutionContext&);
 
   explicit WebViewAndroid(ExecutionContext&);

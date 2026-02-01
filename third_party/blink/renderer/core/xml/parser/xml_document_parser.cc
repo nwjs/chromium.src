@@ -52,10 +52,10 @@
 #include "third_party/blink/renderer/core/dom/xml_document.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/ce_reactions_scope.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_construction_site.h"
@@ -72,6 +72,7 @@
 #include "third_party/blink/renderer/core/xml/parser/xhtml_subset.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser_scope.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_parser_input.h"
+#include "third_party/blink/renderer/core/xml/xslt_processor.h"
 #include "third_party/blink/renderer/core/xmlns_names.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
@@ -372,6 +373,7 @@ void XMLDocumentParser::PopCurrentNode() {
 void XMLDocumentParser::ClearCurrentNodeStack() {
   current_node_ = nullptr;
   leaf_text_node_ = nullptr;
+  ancestor_resetting_namespace_ = nullptr;
 
   if (current_node_stack_.size()) {  // Aborted parsing.
     current_node_stack_.clear();
@@ -740,7 +742,7 @@ static void ErrorFunc(void*, const char*, ...) {
   // FIXME: It would be nice to display error messages somewhere.
 }
 
-static void InitializeLibXMLIfNecessary() {
+static void EnsureLibXMLInitialized() {
   static bool did_init = false;
   if (did_init)
     return;
@@ -754,7 +756,7 @@ static void InitializeLibXMLIfNecessary() {
 scoped_refptr<XMLParserContext> XMLParserContext::CreateStringParser(
     xmlSAXHandlerPtr handlers,
     void* user_data) {
-  InitializeLibXMLIfNecessary();
+  EnsureLibXMLInitialized();
   xmlParserCtxtPtr parser =
       xmlCreatePushParserCtxt(handlers, nullptr, nullptr, 0, nullptr);
 
@@ -778,7 +780,7 @@ scoped_refptr<XMLParserContext> XMLParserContext::CreateMemoryParser(
     xmlSAXHandlerPtr handlers,
     void* user_data,
     const std::string& chunk) {
-  InitializeLibXMLIfNecessary();
+  EnsureLibXMLInitialized();
 
   // appendFragmentSource() checks that the length doesn't overflow an int.
   xmlParserCtxtPtr parser = xmlCreateMemoryParserCtxt(
@@ -914,6 +916,7 @@ XMLDocumentParser::~XMLDocumentParser() = default;
 void XMLDocumentParser::Trace(Visitor* visitor) const {
   visitor->Trace(current_node_);
   visitor->Trace(current_node_stack_);
+  visitor->Trace(ancestor_resetting_namespace_);
   visitor->Trace(leaf_text_node_);
   visitor->Trace(xml_errors_);
   visitor->Trace(document_);
@@ -959,6 +962,7 @@ void XMLDocumentParser::DoWrite(const String& parse_string) {
 static inline bool HandleNamespaceAttributes(
     Vector<Attribute, kAttributePrealloc>& prefixed_attributes,
     base::span<const xmlSAX2Namespace> namespaces,
+    bool& encountered_namespace_reset,
     ExceptionState& exception_state) {
   for (const auto& ns : namespaces) {
     AtomicString namespace_q_name = g_xmlns_atom;
@@ -972,6 +976,9 @@ static inline bool HandleNamespaceAttributes(
     if (!parsed_name) {
       DCHECK(exception_state.HadException());
       return false;
+    }
+    if (parsed_name->LocalName() == g_xmlns_atom) {
+      encountered_namespace_reset = namespace_uri.empty();
     }
     prefixed_attributes.push_back(Attribute(*parsed_name, namespace_uri));
   }
@@ -1046,6 +1053,18 @@ void XMLDocumentParser::StartElementNs(
   if (!UpdateLeafTextNode())
     return;
 
+  bool is_first_element = !saw_first_element_;
+  saw_first_element_ = true;
+
+  Vector<Attribute, kAttributePrealloc> prefixed_attributes;
+  bool encountered_namespace_reset = false;
+  if (!HandleNamespaceAttributes(prefixed_attributes, namespaces,
+                                 encountered_namespace_reset,
+                                 IGNORE_EXCEPTION)) {
+    StopParsing();
+    return;
+  }
+
   // Needed for fragment parsing. If the parser library reports an empty NS url,
   // resolve it against the initially preserved namespace hierarchy that is
   // built when creating an XMLDocumentParser with the fragment-parsing
@@ -1057,18 +1076,11 @@ void XMLDocumentParser::StartElementNs(
       if (it != prefix_to_namespace_map_.end())
         adjusted_uri = it->value;
     } else {
-      adjusted_uri = default_namespace_uri_;
+      adjusted_uri =
+          encountered_namespace_reset || ancestor_resetting_namespace_
+              ? g_null_atom
+              : default_namespace_uri_;
     }
-  }
-
-  bool is_first_element = !saw_first_element_;
-  saw_first_element_ = true;
-
-  Vector<Attribute, kAttributePrealloc> prefixed_attributes;
-  if (!HandleNamespaceAttributes(prefixed_attributes, namespaces,
-                                 IGNORE_EXCEPTION)) {
-    StopParsing();
-    return;
   }
 
   v8::Isolate* isolate = document_->GetAgent().isolate();
@@ -1121,7 +1133,7 @@ void XMLDocumentParser::StartElementNs(
       q_name,
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser(document_)
                         : CreateElementFlags::ByParser(document_),
-      is, /*registry*/ nullptr);
+      is, CustomElementRegistry::DefaultRegistry(current_node_->GetDocument()));
   // Check IsStopped() because custom element constructors may synchronously
   // trigger removal of the document and cancellation of this parser.
   if (IsStopped()) {
@@ -1133,6 +1145,10 @@ void XMLDocumentParser::StartElementNs(
   }
 
   SetAttributes(new_element, prefixed_attributes, GetParserContentPolicy());
+
+  if (parsing_fragment_ && encountered_namespace_reset) {
+    ancestor_resetting_namespace_ = new_element;
+  }
 
   new_element->BeginParsingChildren();
 
@@ -1183,6 +1199,10 @@ void XMLDocumentParser::EndElementNs() {
   if (!element) {
     PopCurrentNode();
     return;
+  }
+
+  if (ancestor_resetting_namespace_ == n) {
+    ancestor_resetting_namespace_ = nullptr;
   }
 
   element->FinishParsingChildren();
@@ -1300,9 +1320,7 @@ void XMLDocumentParser::GetProcessingInstruction(const String& target,
   CheckIfBlockingStyleSheetAdded();
 
   saw_xsl_transform_ = !saw_first_element_ && pi->IsXSL();
-  CHECK(!saw_xsl_transform_ ||
-        (RuntimeEnabledFeatures::XSLTEnabled() &&
-         RuntimeEnabledFeatures::XSLTSpecialTrialEnabled()));
+  CHECK(!saw_xsl_transform_ || XSLTProcessor::XSLTEnabled());
   if (saw_xsl_transform_ &&
       !DocumentXSLT::HasTransformSourceDocument(*GetDocument())) {
     // This behavior is very tricky. We call stopParsing() here because we
@@ -1472,7 +1490,8 @@ PRINTF_FORMAT(2, 3)
 static void WarningHandler(void* closure, const char* message, ...) {
   va_list args;
   va_start(args, message);
-  GetParser(closure)->GetError(XMLErrors::kErrorTypeWarning, message, args);
+  UNSAFE_TODO(GetParser(closure))
+      ->GetError(XMLErrors::kErrorTypeWarning, message, args);
   va_end(args);
 }
 
@@ -1480,7 +1499,8 @@ PRINTF_FORMAT(2, 3)
 static void NormalErrorHandler(void* closure, const char* message, ...) {
   va_list args;
   va_start(args, message);
-  GetParser(closure)->GetError(XMLErrors::kErrorTypeNonFatal, message, args);
+  UNSAFE_TODO(GetParser(closure))
+      ->GetError(XMLErrors::kErrorTypeNonFatal, message, args);
   va_end(args);
 }
 
@@ -1574,11 +1594,6 @@ static xmlEntityPtr GetEntityHandler(void* closure, const xmlChar* name) {
   }
 
   ent = xmlGetDocEntity(ctxt->myDoc, name);
-
-  if (ent && ent->etype == XML_EXTERNAL_GENERAL_PARSED_ENTITY) {
-    GetParser(closure)->DidSeeExternalEntity();
-  }
-
   if (!ent && GetParser(closure)->IsXHTMLDocument()) {
     ent = GetXHTMLEntity(name);
     if (ent) {
@@ -1689,25 +1704,6 @@ void XMLDocumentParser::DoEnd() {
     }
   }
 
-  auto* window = GetDocument()->domWindow();
-
-  // Don't issue the warning when we have moved from deprecation to removal.
-  if (!RuntimeEnabledFeatures::XMLNoExternalEntitiesEnabled() && !saw_error_ &&
-      !saw_xsl_transform_ && saw_external_entity_ && window) {
-    GetDocument()->CountDeprecation(WebFeature::kXMLExternalResourceLoadEntitiesOnly);
-
-    // The previous line counts this as a deprecation, but add an
-    // explicit message here, due to crbug.com/40069336.
-    window->AddConsoleMessage(
-        MakeGarbageCollected<ConsoleMessage>(
-            ConsoleMessage::Source::kDeprecation,
-            ConsoleMessage::Level::kWarning,
-            "Externally loaded entities in XML parsing have been deprecated "
-            "and will be removed from this browser soon. See "
-            "https://chromestatus.com/feature/6734457763659776."),
-        /*discard_duplicates=*/true);
-  }
-
   bool xml_viewer_mode = !saw_error_ && !saw_css_ && !saw_xsl_transform_ &&
                          HasNoStyleInformation(GetDocument());
   if (xml_viewer_mode) {
@@ -1727,6 +1723,11 @@ xmlDocPtr XmlDocPtrForString(Document* document,
                              const String& url) {
   if (source.empty())
     return nullptr;
+
+  // In situations where the XMLDocumentParserRs is used as the primary parser,
+  // this might be the first call into libxml2.
+  EnsureLibXMLInitialized();
+
   // Parse in a single chunk into an xmlDocPtr
   // FIXME: Hook up error handlers so that a failure to parse the main
   // document results in good error messages.

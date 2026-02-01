@@ -10,7 +10,6 @@
 #include <memory>
 
 #include "base/android/scoped_java_ref.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "components/favicon/core/favicon_service.h"
@@ -27,18 +26,18 @@ class FaviconHelper {
   FaviconHelper(const FaviconHelper&) = delete;
   FaviconHelper& operator=(const FaviconHelper&) = delete;
 
-  jboolean GetLocalFaviconImageForURL(
+  bool GetLocalFaviconImageForURL(
       JNIEnv* env,
       Profile* profile,
       GURL& page_url,
       jint j_desired_size_in_pixel,
-      const base::android::JavaParamRef<jobject>& j_favicon_image_callback);
-  jboolean GetForeignFaviconImageForURL(
+      const base::android::JavaRef<jobject>& j_favicon_image_callback);
+  bool GetForeignFaviconImageForURL(
       JNIEnv* env,
       Profile* profile,
       GURL& page_url,
       jint j_desired_size_in_pixel,
-      const base::android::JavaParamRef<jobject>& j_favicon_image_callback);
+      const base::android::JavaRef<jobject>& j_favicon_image_callback);
 
   void GetLocalFaviconImageForURLInternal(
       favicon::FaviconService* favicon_service,

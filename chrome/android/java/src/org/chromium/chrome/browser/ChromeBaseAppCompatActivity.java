@@ -40,11 +40,14 @@ import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.FeatureList;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -66,6 +69,8 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.SimpleEdgeToEdgeController;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.AutomotiveUtils;
+import org.chromium.ui.base.ActivityResultTracker;
+import org.chromium.ui.base.ActivityResultTrackerImpl;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.base.UiAndroidFeatureList;
@@ -121,13 +126,17 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         int NONE = -1;
     }
 
-    private final ObservableSupplierImpl<@Nullable ModalDialogManager> mModalDialogManagerSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier =
+            ObservableSuppliers.createMonotonic();
     protected final OneshotSupplierImpl<SystemBarColorHelper> mSystemBarColorHelperSupplier =
             new OneshotSupplierImpl<>();
     // TODO(crbug.com/435269657): Update this and the ChromeActivity equivalent to OneShotSupplier
     protected final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier =
             new ObservableSupplierImpl<>();
+    // Manages activity results for this activity.
+    private final ActivityResultTrackerImpl mActivityResultTracker =
+            new ActivityResultTrackerImpl(
+                    new ActivityResultTrackerImpl.RegistryImpl(getActivityResultRegistry()));
 
     private NightModeStateProvider mNightModeStateProvider;
     private InsetObserver mInsetObserver;
@@ -138,6 +147,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     private @Nullable EdgeToEdgeLayoutCoordinator mEdgeToEdgeLayoutCoordinator;
     private @Nullable EdgeToEdgeControllerCreator mEdgeToEdgeControllerCreator;
     private NtpThemeStateProvider.@Nullable Observer mNtpThemeStateObserver;
+    private boolean mInMultiWindowMode;
 
     private static boolean sIsTabletDeterminationMismatchRecord;
 
@@ -189,16 +199,30 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         }
     }
 
+    /**
+     * Returns whether the activity should save and restore its state to persist across reboots and
+     * app updates.
+     */
+    protected boolean shouldPersistAcrossReboots() {
+        return false;
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         BundleUtils.restoreLoadedSplits(savedInstanceState);
+        mInMultiWindowMode = isInMultiWindowMode();
 
         mEdgeToEdgeStateProvider = new EdgeToEdgeStateProvider(getWindow());
 
-        mModalDialogManagerSupplier.set(createModalDialogManager());
+        ModalDialogManager modalDialogManager = createModalDialogManager();
+        if (modalDialogManager != null) {
+            mModalDialogManagerSupplier.set(modalDialogManager);
+        }
 
         initializeNightModeStateProvider();
         mNightModeStateProvider.addObserver(this);
+
+        mActivityResultTracker.onRestoreInstanceState(savedInstanceState);
 
         // onCreate may initialize some views, need to apply themes before that can happen.
         applyThemeOverlays();
@@ -308,10 +332,11 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     @Override
     protected void onDestroy() {
         mNightModeStateProvider.removeObserver(this);
+        mActivityResultTracker.onDestroy();
         if (mModalDialogManagerSupplier.get() != null) {
             mModalDialogManagerSupplier.get().destroy();
-            mModalDialogManagerSupplier.set(null);
         }
+        mModalDialogManagerSupplier.destroy();
         if (mEdgeToEdgeLayoutCoordinator != null) {
             mEdgeToEdgeLayoutCoordinator.destroy();
             mEdgeToEdgeLayoutCoordinator = null;
@@ -346,6 +371,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         BundleUtils.saveLoadedSplits(outState);
+        mActivityResultTracker.onSaveInstanceState(outState);
     }
 
     // This method has different Nullness than Activity.onRestoreInstanceState().
@@ -367,10 +393,26 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     }
 
     @Override
-    public void onMultiWindowModeChanged(boolean inMultiWindowMode, Configuration configuration) {
+    public final void onMultiWindowModeChanged(
+            boolean inMultiWindowMode, Configuration configuration) {
         super.onMultiWindowModeChanged(inMultiWindowMode, configuration);
         onMultiWindowModeChanged(inMultiWindowMode);
     }
+
+    @Override
+    public final void onMultiWindowModeChanged(boolean inMultiWindowMode) {
+        // Some OEMs double-notify about multi-window mode changes (eg. Samsung tablets).
+        if (FeatureList.isNativeInitialized()
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.AVOID_DOUBLE_MULTIWINDOW_CHANGES)
+                && mInMultiWindowMode == inMultiWindowMode) {
+            return;
+        }
+        mInMultiWindowMode = inMultiWindowMode;
+        handleMultiWindowModeChanged(inMultiWindowMode);
+        super.onMultiWindowModeChanged(inMultiWindowMode);
+    }
+
+    public void handleMultiWindowModeChanged(boolean inMultiWindowMode) {}
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -401,7 +443,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     /**
      * Returns the supplier of {@link ModalDialogManager} that manages the display of modal dialogs.
      */
-    public ObservableSupplier<@Nullable ModalDialogManager> getModalDialogManagerSupplier() {
+    public ObservableSupplier<ModalDialogManager> getModalDialogManagerSupplier() {
         return mModalDialogManagerSupplier;
     }
 
@@ -726,6 +768,15 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         return mEdgeToEdgeManager;
     }
 
+    /**
+     * Returns the {@link ActivityResultTracker} for launching new activities and watching for their
+     * result.
+     */
+    @VisibleForTesting
+    public ActivityResultTracker getActivityResultTracker() {
+        return mActivityResultTracker;
+    }
+
     /** Returns the {@link InsetObserver} for observing changes to the system insets. */
     protected InsetObserver getInsetObserver() {
         assert mInsetObserver != null
@@ -758,7 +809,9 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     /** Applies dynamic colors or a selected color theme generated using DynamicColors API. */
     private void applyDynamicColors() {
         @ColorInt
-        Integer primaryColor = NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor(this);
+        Integer primaryColor =
+                NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor(
+                        this, /* checkDailyRefresh= */ true);
         if (primaryColor != null) {
             NtpCustomizationUtils.applyDynamicColorToActivity(this, primaryColor);
         } else {

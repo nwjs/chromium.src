@@ -18,6 +18,8 @@ source_set("contextual_tasks") {
       "active_task_context_provider_impl.h",
       "contextual_tasks_context_service.h",
       "contextual_tasks_context_service_factory.h",
+      "contextual_tasks_tab_visit_tracker.cc",
+      "contextual_tasks_tab_visit_tracker.h",
     ]
   }
 
@@ -55,10 +57,12 @@ source_set("impl") {
   if (!is_android) {
     sources += [
       "active_task_context_provider_impl.cc",
+      "contextual_tasks_context_scoring_utils.cc",
+      "contextual_tasks_context_scoring_utils.h",
       "contextual_tasks_context_service.cc",
       "contextual_tasks_context_service_factory.cc",
-      "contextual_tasks_signal_utils.cc",
-      "contextual_tasks_signal_utils.h",
+      "contextual_tasks_context_signal_utils.cc",
+      "contextual_tasks_context_signal_utils.h",
       "tab_strip_context_decorator.cc",
       "tab_strip_context_decorator.h",
     ]
@@ -73,6 +77,7 @@ source_set("impl") {
     "//chrome/browser/page_content_annotations",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
+    "//chrome/browser/ui/tabs:tab_list_interface",
     "//chrome/common:channel_info",
     "//components/contextual_search:public",
     "//components/contextual_tasks/internal",
@@ -96,6 +101,7 @@ source_set("impl") {
       "//chrome/browser/ui",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/browser/ui/tabs:tab_strip",
       "//components/contextual_search:public",
       "//components/optimization_guide/core:model_execution",
@@ -156,6 +162,8 @@ if (!is_android) {
       "contextual_tasks_ui.cc",
       "contextual_tasks_ui_service.cc",
       "contextual_tasks_ui_service_factory.cc",
+      "contextual_tasks_url_loader_factory_interceptor.cc",
+      "contextual_tasks_url_loader_factory_interceptor.h",
       "entry_point_eligibility_manager.cc",
     ]
 
@@ -172,6 +180,7 @@ if (!is_android) {
       "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/omnibox",
+      "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/interaction",
       "//chrome/browser/ui/webui",
@@ -211,11 +220,14 @@ if (!is_android) {
     sources = [
       "contextual_tasks_context_service_browsertest.cc",
       "contextual_tasks_ui_browsertest.cc",
+      "contextual_tasks_url_loader_factory_interceptor_browsertest.cc",
     ]
 
     deps = [
       ":contextual_tasks",
+      ":impl",
       ":ui",
+      ":ui_impl",
       "//base",
       "//base/test:test_support",
       "//chrome/browser:browser_process",
@@ -227,6 +239,7 @@ if (!is_android) {
       "//chrome/browser/signin",
       "//chrome/browser/ui",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/contextual_tasks/public:feature_list",
@@ -258,9 +271,12 @@ source_set("unit_tests") {
   if (!is_android) {
     sources += [
       "contextual_tasks_composebox_handler_unittest.cc",
+      "contextual_tasks_context_scoring_utils_unittest.cc",
       "contextual_tasks_context_service_factory_unittest.cc",
+      "contextual_tasks_context_signal_utils_unittest.cc",
+      "contextual_tasks_page_handler_unittest.cc",
       "contextual_tasks_side_panel_coordinator_unittest.cc",
-      "contextual_tasks_signal_utils_unittest.cc",
+      "contextual_tasks_tab_visit_tracker_unittest.cc",
       "contextual_tasks_ui_service_unittest.cc",
       "contextual_tasks_ui_unittest.cc",
       "entry_point_eligibility_manager_unittest.cc",
@@ -295,6 +311,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/browser/ui/tabs:test_support",
       "//chrome/browser/ui/webui:webui_util",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
@@ -325,6 +342,7 @@ source_set("interactive_ui_tests") {
     ":impl",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser/ui/tabs:tab_list_interface",
     "//chrome/test:test_support",
     "//components/contextual_tasks/public",
     "//content/test:test_support",
@@ -334,6 +352,9 @@ source_set("interactive_ui_tests") {
   ]
 
   if (!is_android) {
-    deps += [ ":ui" ]
+    deps += [
+      ":ui",
+      "//chrome/browser/ui/tabs:tab_list_interface",
+    ]
   }
 }

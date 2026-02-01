@@ -322,8 +322,8 @@ public class ToolbarTablet extends ToolbarLayout {
     @Override
     void updateBookmarkButton(boolean isBookmarked, boolean editingAllowed) {
         if (isBookmarked) {
-            mBookmarkButtonImageRes = R.drawable.btn_star_filled;
-            mBookmarkButton.setImageResource(R.drawable.btn_star_filled);
+            mBookmarkButtonImageRes = R.drawable.ic_star_filled_24dp;
+            mBookmarkButton.setImageResource(R.drawable.ic_star_filled_24dp);
             final @ColorRes int tint =
                     isIncognitoBranded()
                             ? R.color.default_icon_color_blue_light
@@ -332,8 +332,8 @@ public class ToolbarTablet extends ToolbarLayout {
                     mBookmarkButton, AppCompatResources.getColorStateList(getContext(), tint));
             mBookmarkButton.setContentDescription(getContext().getString(R.string.edit_bookmark));
         } else {
-            mBookmarkButtonImageRes = R.drawable.star_outline_24dp;
-            mBookmarkButton.setImageResource(R.drawable.star_outline_24dp);
+            mBookmarkButtonImageRes = R.drawable.ic_star_24dp;
+            mBookmarkButton.setImageResource(R.drawable.ic_star_24dp);
             ImageViewCompat.setImageTintList(mBookmarkButton, getTint());
             mBookmarkButton.setContentDescription(
                     getContext().getString(R.string.accessibility_menu_bookmark));
@@ -371,7 +371,6 @@ public class ToolbarTablet extends ToolbarLayout {
             @Nullable BackButtonCoordinator backButtonCoordinator,
             @Nullable ForwardButtonCoordinator forwardButtonCoordinator,
             @Nullable HomeButtonDisplay homeButtonDisplay,
-            @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator,
             ThemeColorProvider themeColorProvider,
             IncognitoStateProvider incognitoStateProvider,
             @Nullable Supplier<Integer> incognitoWindowCountSupplier) {
@@ -389,7 +388,6 @@ public class ToolbarTablet extends ToolbarLayout {
                 backButtonCoordinator,
                 forwardButtonCoordinator,
                 homeButtonDisplay,
-                extensionToolbarCoordinator,
                 themeColorProvider,
                 incognitoStateProvider,
                 incognitoWindowCountSupplier);
@@ -397,7 +395,6 @@ public class ToolbarTablet extends ToolbarLayout {
         mBackButtonCoordinator = assertNonNull(backButtonCoordinator);
         mForwardButtonCoordinator = assertNonNull(forwardButtonCoordinator);
         menuButtonCoordinator.setVisibility(true);
-        mExtensionToolbarCoordinator = extensionToolbarCoordinator;
 
         assert incognitoWindowCountSupplier != null;
         mIncognitoIndicatorCoordinator =
@@ -425,6 +422,12 @@ public class ToolbarTablet extends ToolbarLayout {
         mToolbarWidthConsumers[ToolbarComponentId.MENU] = menuButtonCoordinator;
         mToolbarWidthConsumers[ToolbarComponentId.PADDING] =
                 new ToolbarPaddingWidthConsumer(this, mStartPaddingWithButtons);
+    }
+
+    @Override
+    public void setExtensionToolbarCoordinator(
+            ExtensionToolbarCoordinator extensionToolbarCoordinator) {
+        mExtensionToolbarCoordinator = extensionToolbarCoordinator;
     }
 
     @Override

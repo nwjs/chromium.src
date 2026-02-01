@@ -10,10 +10,10 @@
 #include <tuple>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/to_string.h"
 #include "base/supports_user_data.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/pdf/browser/pdf_frame_util.h"
@@ -325,8 +325,8 @@ void PdfViewerStreamManager::SetPluginCanSave(
 
 bool PdfViewerStreamManager::ContainsUnclaimedStreamInfo(
     content::FrameTreeNodeId frame_tree_node_id) const {
-  return base::Contains(stream_infos_,
-                        GetUnclaimedEmbedderHostInfo(frame_tree_node_id));
+  return stream_infos_.contains(
+      GetUnclaimedEmbedderHostInfo(frame_tree_node_id));
 }
 
 void PdfViewerStreamManager::DeleteUnclaimedStreamInfo(

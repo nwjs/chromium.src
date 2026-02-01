@@ -22,9 +22,9 @@ namespace {
 // https://github.com/openvinotoolkit/openvino/blob/14bf903270f78592c4572c88c936bdf0120e2fb9/src/plugins/intel_npu/src/utils/include/intel_npu/utils/utils.hpp#L15
 constexpr size_t kIntelNpuStandardPageSize = 4096;
 
-// Creates memory info for a specific EP.
-// Returns an invalid memory info if the device allocator is not supported for
-// the EP.
+// Creates memory info for a specific EP. Currently, the device allocator only
+// supports OpenVINO and WebGPU EPs. Returns an invalid memory info if not
+// supported.
 ScopedOrtMemoryInfo CreateMemoryInfo(const OrtApi* ort_api,
                                      base::cstring_view ep_name) {
   ScopedOrtMemoryInfo memory_info;
@@ -42,8 +42,6 @@ ScopedOrtMemoryInfo CreateMemoryInfo(const OrtApi* ort_api,
         "WebGPU_Buffer", OrtDeviceAllocator, /*id*/ 0, OrtMemTypeDefault,
         ScopedOrtMemoryInfo::Receiver(memory_info).get()));
     CHECK(memory_info.get());
-  } else {
-    LOG(WARNING) << "[WebNN] Device allocator is not supported for " << ep_name;
   }
 
   return memory_info;
@@ -53,23 +51,11 @@ ScopedOrtMemoryInfo CreateMemoryInfo(const OrtApi* ort_api,
 
 // static
 scoped_refptr<DeviceAllocator> DeviceAllocator::Create(
-    mojom::Device device_type,
-    const OrtSessionOptions* session_options,
+    scoped_refptr<SessionOptions> session_options,
     scoped_refptr<Environment> env) {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
-
-  base::span<const OrtEpDevice* const> registered_ep_devices =
-      env->GetRegisteredEpDevices();
-  std::vector<const OrtEpDevice*> selected_ep_devices =
-      Environment::SelectEpDevices(registered_ep_devices, device_type);
-  if (selected_ep_devices.empty()) {
-    LOG(ERROR)
-        << "[WebNN] No suitable EP device found for creating DeviceAllocator.";
-    return nullptr;
-  }
-
-  const OrtEpDevice* first_selected_device = selected_ep_devices.front();
-  CHECK(first_selected_device);
+  const OrtEpDevice* first_selected_device =
+      session_options->first_selected_device();
 
   const char* ep_name = ort_api->EpDevice_EpName(first_selected_device);
   // SAFETY: ORT guarantees that `ep_name` is valid and null-terminated.
@@ -95,14 +81,16 @@ scoped_refptr<DeviceAllocator> DeviceAllocator::Create(
 
   ScopedOrtSession trivial_session;
   CHECK_STATUS(ort_api->CreateSessionFromArray(
-      env->get(), kTrivialModel, sizeof(kTrivialModel), session_options,
+      env->get(), kTrivialModel, sizeof(kTrivialModel), session_options->get(),
       ScopedOrtSession::Receiver(trivial_session).get()));
   CHECK(trivial_session.get());
 
   ScopedOrtAllocator device_allocator;
-  CHECK_STATUS(ort_api->CreateAllocator(
-      trivial_session.get(), memory_info.get(),
-      ScopedOrtAllocator::Receiver(device_allocator).get()));
+  if (ORT_CALL_FAILED(ort_api->CreateAllocator(
+          trivial_session.get(), memory_info.get(),
+          ScopedOrtAllocator::Receiver(device_allocator).get()))) {
+    return nullptr;
+  }
   CHECK(device_allocator.get());
 
   // SAFETY: ORT guarantees that `ep_name` is valid and null-terminated.

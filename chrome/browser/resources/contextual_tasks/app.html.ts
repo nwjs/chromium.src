@@ -15,7 +15,6 @@ export function getHtml(this: ContextualTasksAppElement) {
     <div id="toolbarOverlay">
       <top-toolbar id="toolbar"
           .title="${this.threadTitle_}"
-          .attachedTabs="${this.contextTabs_}"
           .darkMode="${this.darkMode_}"
           .isAiPage="${this.isAiPage_}"
           @new-thread-click="${this.onNewThreadClick_}">
@@ -25,8 +24,8 @@ export function getHtml(this: ContextualTasksAppElement) {
   <webview id="threadFrame"></webview>
   <div class="flex-center">
     <div id="composeboxHeaderWrapper"
-        ?hidden="${!this.showComposeboxHeader_}">
-      <h1 class="thread-header">
+        ?hidden="${this.isInBasicMode_}">
+      <h1 class="thread-header" id="composeboxHeader">
           ${this.friendlyZeroStateTitle}
           ${this.friendlyZeroStateSubtitle.length > 0 ?
               html`<br>
@@ -34,7 +33,7 @@ export function getHtml(this: ContextualTasksAppElement) {
       </h1>
     </div>
     <contextual-tasks-composebox id="composebox"
-          ?hidden="${!this.showComposebox_}"
+          ?hidden="${this.isInBasicMode_}"
           .isZeroState="${this.isZeroState_}"
           .isSidePanel="${!this.isShownInTab_}"
           .isLensOverlayShowing="${this.isLensOverlayShowing_}">

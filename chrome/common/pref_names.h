@@ -1193,9 +1193,6 @@ inline constexpr char kLoginExtensionApiDataForNextLoginAttempt[] =
 inline constexpr char kLastRsuDeviceIdUploaded[] =
     "rsu.last_rsu_device_id_uploaded";
 
-// A string pref stored in local state containing the name of the device.
-inline constexpr char kDeviceName[] = "device_name";
-
 // Int64 pref indicating the time in microseconds since Windows epoch when the
 // timer for update required which will block user session was started. If the
 // timer is not started the pref holds the default value base::Time().
@@ -2626,6 +2623,12 @@ inline constexpr char kWebAppCreateInQuickLaunchBar[] =
 inline constexpr char kWebAppInstallForceList[] =
     "profile.web_app.install.forcelist";
 
+#if !BUILDFLAG(IS_ANDROID)
+// Boolean pref tracking whether users can install web apps through the browser.
+inline constexpr char kWebAppInstallByUserEnabled[] =
+    "profile.web_app.install_by_user_enabled";
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 // A list of dictionaries for managing Web Apps.
 inline constexpr char kWebAppSettings[] = "profile.web_app.policy_settings";
 
@@ -3364,40 +3367,6 @@ inline constexpr char kToastAlertLevel[] = "settings.toast.alert_level";
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
 
-inline constexpr char kCloudPrintRoot[] = "cloud_print";
-inline constexpr char kCloudPrintProxyEnabled[] = "cloud_print.enabled";
-// The unique id for this instance of the cloud print proxy.
-inline constexpr char kCloudPrintProxyId[] = "cloud_print.proxy_id";
-// The GAIA auth token for Cloud Print
-inline constexpr char kCloudPrintAuthToken[] = "cloud_print.auth_token";
-// The email address of the account used to authenticate with the Cloud Print
-// server.
-inline constexpr char kCloudPrintEmail[] = "cloud_print.email";
-// Settings specific to underlying print system.
-inline constexpr char kCloudPrintPrintSystemSettings[] =
-    "cloud_print.print_system_settings";
-// A boolean indicating whether we should poll for print jobs when don't have
-// an XMPP connection (false by default).
-inline constexpr char kCloudPrintEnableJobPoll[] =
-    "cloud_print.enable_job_poll";
-inline constexpr char kCloudPrintRobotRefreshToken[] =
-    "cloud_print.robot_refresh_token";
-inline constexpr char kCloudPrintRobotEmail[] = "cloud_print.robot_email";
-// A boolean indicating whether we should connect to cloud print new printers.
-inline constexpr char kCloudPrintConnectNewPrinters[] =
-    "cloud_print.user_settings.connectNewPrinters";
-// A boolean indicating whether we should ping XMPP connection.
-inline constexpr char kCloudPrintXmppPingEnabled[] =
-    "cloud_print.xmpp_ping_enabled";
-// An int value indicating the average timeout between xmpp pings.
-inline constexpr char kCloudPrintXmppPingTimeout[] =
-    "cloud_print.xmpp_ping_timeout_sec";
-// Dictionary with settings stored by connector setup page.
-inline constexpr char kCloudPrintUserSettings[] = "cloud_print.user_settings";
-// List of printers settings.
-inline constexpr char kCloudPrintPrinters[] =
-    "cloud_print.user_settings.printers";
-
 // Preference to store proxy settings.
 inline constexpr char kMaxConnectionsPerProxy[] =
     "net.max_connections_per_proxy";
@@ -3590,10 +3559,6 @@ inline constexpr char kCryptAuthDeviceId[] = "easy_unlock.device_id";
 inline constexpr char kCryptAuthInstanceId[] = "cryptauth.instance_id";
 inline constexpr char kCryptAuthInstanceIdToken[] =
     "cryptauth.instance_id_token";
-
-// Boolean that indicates whether elevation is needed to recover Chrome upgrade.
-inline constexpr char kRecoveryComponentNeedsElevation[] =
-    "recovery_component.needs_elevation";
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 // Policy that indicates how to handle animated images.
@@ -4303,6 +4268,13 @@ inline constexpr char kExtensibleEnterpriseSSOEnabled[] =
 // This is based on the ExtensibleEnterpriseSSOBlocklist policy.
 inline constexpr char kExtensibleEnterpriseSSOEnabledIdps[] =
     "extensible_enterprise_sso.enabled_idps";
+
+// The list value of hosts for which the extensible enterprise SSO has been
+// configured. This is based on the CFPreferences under key
+// com.apple.extensiblesso
+inline constexpr char kExtensibleEnterpriseSSOConfiguredHosts[] =
+    "extensible_enterprise_sso.configured_hosts";
+
 #endif  //  BUILDFLAG(IS_MAC)
 
 // Allow or don't allow bypassing WebAudio output buffering
@@ -4322,11 +4294,6 @@ inline constexpr char kSharedWorkerBlobURLFixEnabled[] =
 // top-level, cross-site and swaps BrowsingContextGroup is allowed or not.
 inline constexpr char kClearWindowNameForNewBrowsingContextGroup[] =
     "profile.content_settings.clear_window_name_for_new_browsing_context_group";
-
-// Boolean indicating whether Local Network Access restrictions should be forced
-// on regardless of defaults.
-inline constexpr char kManagedLocalNetworkAccessRestrictionsEnabled[] =
-    "managed_local_network_access_restrictions_enabled";
 
 // Boolean indicating whether Local Network Access restrictions should be
 // temporarily opted out of.

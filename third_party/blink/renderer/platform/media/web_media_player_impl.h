@@ -202,7 +202,7 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   // ImageBitmap, printing and capturing capabilities.
   void Paint(cc::PaintCanvas* canvas,
              const gfx::Rect& rect,
-             cc::PaintFlags& flags) override;
+             const cc::PaintFlags& flags) override;
   scoped_refptr<media::VideoFrame> GetCurrentFrameThenUpdate() override;
   std::optional<media::VideoFrame::ID> CurrentFrameId() const override;
   media::PaintCanvasVideoRenderer* GetPaintCanvasVideoRenderer() override;
@@ -442,13 +442,10 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   void RestartForHls() override;
   void UpdateLoadedUrl(const GURL& url) override;
   void DemuxerRequestsSeek(base::TimeDelta seek_time) override;
-
-#if BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
   void AddTrack(const media::MediaTrack&) override;
   void RemoveTrack(const media::MediaTrack&) override;
   void SetTrackState(const media::MediaTrack&,
                      media::MediaTrack::State) override;
-#endif  // BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
   void GetUrlData(const GURL& gurl,

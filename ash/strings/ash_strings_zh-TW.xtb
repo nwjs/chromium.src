@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">第 <ph name="INDEX" /> 張近期相片，共 <ph name="TOTAL_COUNT" /> 張。</translation>
 <translation id="2201687081523799384">收合 Google Tasks</translation>
 <translation id="2208323208084708176">整合桌面模式</translation>
+<translation id="2210311543574621570">按住 Ctrl + V 鍵即可查看剪貼簿。你可以在 chrome://flags 中停用 #clipboard-history-longpress 旗標，關閉這個快速鍵。</translation>
 <translation id="2215920961700443347">沒有網際網路連線。請連線到網際網路，然後再試一次。</translation>
 <translation id="2222841058024245321">桌面 7</translation>
 <translation id="2223384056430485343">在分割畫面中</translation>
@@ -872,6 +873,7 @@
 <translation id="397105322502079400">計算中…</translation>
 <translation id="397726367135689299">電池充電過程可能不穩定。</translation>
 <translation id="3977512764614765090">電池電量：<ph name="PERCENTAGE" />% (充電中)。</translation>
+<translation id="3978162107953847778">你可以從瀏覽記錄和 Google 雲端硬碟等處插入連結，也可以插入表情符號、圖片檔等等。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">要切換音訊輸出裝置嗎？</translation>
 <translation id="3984536049089846927">下一頁</translation>
 <translation id="3986082989454912832">接聽</translation>
@@ -936,7 +938,7 @@
 <translation id="4193857202545160520">顯示點擊次數和鍵盤快速鍵</translation>
 <translation id="4193969623755915875">在「探索」應用程式中使用<ph name="NEW_SHORTCUT" />開啟「說明」。</translation>
 <translation id="4195579532193195633">目前版本 <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
-<translation id="4195814663415092787">繼續瀏覽上次開啟的網頁</translation>
+<translation id="4195814663415092787">繼續先前進度</translation>
 <translation id="4195877955194704651">自動點擊按鈕</translation>
 <translation id="4197790712631116042">關閉</translation>
 <translation id="4201033867194214117">「<ph name="FEATURE_NAME" />」無法使用。</translation>
@@ -1021,7 +1023,6 @@
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 則重要通知}other{# 則重要通知}}</translation>
 <translation id="4450893287417543264">不要再顯示</translation>
 <translation id="4451374464530248585">「Alt + 向下鍵」的鍵盤快速鍵已變更。如要使用 Page Down 鍵，請按下<ph name="LAUNCHER_KEY_NAME" />鍵 + 向下鍵。</translation>
-<translation id="4453876312474547652">按住 Ctrl + V 鍵即可查看剪貼簿。你可以在 chrome://flags 中 (如果使用 Lacros，則在 os://flags 中) 停用 #clipboard-history-longpress 旗標，關閉這個快速鍵。</translation>
 <translation id="445765352722456792">自訂建議</translation>
 <translation id="4458688154122353284">停止錄製螢幕畫面</translation>
 <translation id="445923051607553918">加入 Wi-Fi 網路</translation>
@@ -1597,6 +1598,7 @@
 <translation id="6260038345397266744"><ph name="TITLE" />。<ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />：正在啟用...</translation>
 <translation id="6274202259872570803">螢幕側錄</translation>
+<translation id="6274422179279280249">你可以插入連結、表情符號等等，也可以讓 Google AI 幫忙撰寫。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">查看網頁原始碼</translation>
 <translation id="6285871695023807425">新增至日曆</translation>
 <translation id="6288235558961782912">取得家長同意後即可再次新增 <ph name="USER_EMAIL_ADDRESS" />。</translation>
@@ -2186,6 +2188,7 @@
 <translation id="8237964652943995219">下一個桌面：<ph name="DESK_NAME" />。第 <ph name="DESK_INDEX" /> 個桌面，共 <ph name="DESK_COUNT" /> 個。</translation>
 <translation id="8238817965863339552">請觀看快速導覽，瞭解如何操作 <ph name="PRODUCT_NAME" />。只要 5 個步驟，就能輕鬆上手。</translation>
 <translation id="8239034820133090126">啟動右側桌面</translation>
+<translation id="8241650983304689286">將分頁加入新的分割畫面</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />，訊號強度 <ph name="SIGNAL_STRENGTH" />，手機電量：<ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">顯示所有 Google 雲端硬碟內容</translation>
 <translation id="8257510091797044096">設定裝置</translation>

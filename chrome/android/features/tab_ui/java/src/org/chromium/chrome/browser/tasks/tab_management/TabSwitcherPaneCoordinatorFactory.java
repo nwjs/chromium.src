@@ -17,6 +17,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -187,7 +188,7 @@ public class TabSwitcherPaneCoordinatorFactory {
             @Nullable Runnable onTabGroupCreation,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             Callback<@Nullable View> setOverlayViewCallback,
-            ObservableSupplierImpl<Boolean> hubSearchBoxVisibilitySupplier) {
+            SettableNonNullObservableSupplier<Boolean> hubSearchBoxVisibilitySupplier) {
         int token = mMessageManagerTokenHolder.acquireToken();
         assert mMessageManager != null;
 
@@ -242,8 +243,7 @@ public class TabSwitcherPaneCoordinatorFactory {
         // TabSwitcherPaneMediator to properly refresh the list in the event the contents changed.
         TabModelSelector selector = mTabModelSelector;
         if (!selector.getModels().isEmpty()) {
-            TabGroupModelFilter filter =
-                    selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(isIncognito);
+            TabGroupModelFilter filter = selector.getTabGroupModelFilter(isIncognito);
             tabGroupModelFilterSupplier.set(filter);
         } else {
             selector.addObserver(
@@ -252,8 +252,7 @@ public class TabSwitcherPaneCoordinatorFactory {
                         public void onChange() {
                             assert !selector.getModels().isEmpty();
                             TabGroupModelFilter filter =
-                                    selector.getTabGroupModelFilterProvider()
-                                            .getTabGroupModelFilter(isIncognito);
+                                    selector.getTabGroupModelFilter(isIncognito);
                             assert filter != null;
                             selector.removeObserver(this);
                             tabGroupModelFilterSupplier.set(filter);
@@ -270,9 +269,7 @@ public class TabSwitcherPaneCoordinatorFactory {
                     new TabSwitcherMessageManager(
                             mActivity,
                             mLifecycleDispatcher,
-                            mTabModelSelector
-                                    .getTabGroupModelFilterProvider()
-                                    .getCurrentTabGroupModelFilterSupplier(),
+                            mTabModelSelector.getCurrentTabGroupModelFilterSupplier(),
                             mMultiWindowModeStateDispatcher,
                             mSnackbarManager,
                             mModalDialogManager,

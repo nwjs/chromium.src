@@ -10,12 +10,12 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/time/time.h"
 #include "components/variations/active_field_trials.h"
 #include "components/variations/synthetic_trial_registry.h"
 #include "third_party/metrics_proto/system_profile.pb.h"
 
 namespace variations {
-
 namespace {
 
 std::optional<bool> g_seed_has_active_limited_layer;
@@ -47,13 +47,6 @@ void FieldTrialsProvider::UpdateAppliedSeedHasActiveLimitedLayer(
 // static
 void FieldTrialsProvider::ClearSeedHasActiveLimitedLayerForTesting() {
   g_seed_has_active_limited_layer = std::nullopt;
-}
-
-void FieldTrialsProvider::GetFieldTrialIds(
-    std::vector<ActiveGroupId>* field_trial_ids) const {
-  // As the trial groups are included in metrics reports, we must not include
-  // the low anonymity trials.
-  variations::GetFieldTrialActiveGroupIds(suffix_, field_trial_ids);
 }
 
 void FieldTrialsProvider::ProvideSystemProfileMetrics(
@@ -98,6 +91,13 @@ void FieldTrialsProvider::ProvideCurrentSessionData(
 
 void FieldTrialsProvider::SetLogCreationTimeForTesting(base::TimeTicks time) {
   log_creation_time_ = time;
+}
+
+void FieldTrialsProvider::GetFieldTrialIds(
+    std::vector<ActiveGroupId>* field_trial_ids) const {
+  // As the trial groups are included in metrics reports, we must not include
+  // the low anonymity trials.
+  variations::GetFieldTrialActiveGroupIds(suffix_, field_trial_ids);
 }
 
 void FieldTrialsProvider::GetAndWriteFieldTrials(

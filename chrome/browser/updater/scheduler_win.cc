@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/updater/browser_updater_client_util.h"
@@ -16,17 +17,18 @@
 
 namespace updater {
 
-void DoPeriodicTasks(base::OnceClosure callback) {
+void DoPeriodicTasks(base::RepeatingClosure /*prompt*/,
+                     base::OnceClosure callback) {
   base::MakeRefCounted<CheckUpdaterHealthTask>(GetBrowserUpdaterScope())
       ->Run(base::BindOnce(
           [](base::OnceClosure callback) {
-            base::ThreadPool::PostTaskAndReply(
+            base::ThreadPool::PostTask(
                 FROM_HERE,
                 {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
                  base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-                base::BindOnce(&WakeAllUpdaters), std::move(callback));
+                base::BindOnce(&WakeAllUpdaters, std::move(callback)));
           },
-          std::move(callback)));
+          base::BindPostTaskToCurrentDefault(std::move(callback))));
 }
 
 }  // namespace updater

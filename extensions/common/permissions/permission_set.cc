@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/memory/ptr_util.h"
 #include "extensions/common/permissions/permissions_info.h"
 #include "extensions/common/url_pattern.h"
@@ -151,7 +150,7 @@ bool PermissionSet::IsEmpty() const {
 bool PermissionSet::HasAPIPermission(APIPermissionID id, bool ignore_override) const {
   if (allow_all_override_ && !ignore_override)
     return true;
-  return base::Contains(apis(), id);
+  return apis().count(id);
 }
 
 bool PermissionSet::HasAPIPermission(const std::string& permission_name,

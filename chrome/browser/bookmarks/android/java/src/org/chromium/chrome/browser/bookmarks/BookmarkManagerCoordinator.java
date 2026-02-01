@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -16,14 +17,16 @@ import android.view.ViewGroup;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.ItemAnimator;
 import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
 
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -61,6 +64,7 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
+import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
 import java.util.function.Consumer;
@@ -114,8 +118,8 @@ public class BookmarkManagerCoordinator
         }
     }
 
-    private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mBackPressStateSupplier =
+            ObservableSuppliers.createNonNull(false);
     private final Context mContext;
     private final ViewGroup mMainView;
     private final SelectableListLayout<BookmarkId> mSelectableListLayout;
@@ -186,6 +190,11 @@ public class BookmarkManagerCoordinator
         mModelList = new ModelList();
         DragReorderableRecyclerViewAdapter dragReorderableRecyclerViewAdapter =
                 new DragAndCancelAdapter(context, mModelList);
+
+        // Disable the default long press so that our custom one can be used.
+        dragReorderableRecyclerViewAdapter.setDefaultLongPressDragEnabled(
+                !ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled());
+
         mRecyclerView =
                 mSelectableListLayout.initializeRecyclerView(
                         dragReorderableRecyclerViewAdapter,
@@ -223,6 +232,7 @@ public class BookmarkManagerCoordinator
                         this::onEndSearch,
                         () -> IncognitoUtils.isIncognitoModeEnabled(profile),
                         bookmarkManagerOpener,
+                        mSnackbarManager,
                         /* nextFocusableView= */ mMainView.findViewById(R.id.list_content));
         mSelectableListLayout.configureWideDisplayStyle();
 
@@ -312,13 +322,13 @@ public class BookmarkManagerCoordinator
                 ViewType.IMPROVED_BOOKMARK_VISUAL,
                 BookmarkManagerCoordinator::buildVisualImprovedBookmarkRow,
                 ImprovedBookmarkRowViewBinder::bind,
-                (viewHolder, itemTouchHelper) -> {},
+                this::bindDragProperties,
                 mMediator.getDraggabilityProvider());
         dragReorderableRecyclerViewAdapter.registerDraggableType(
                 ViewType.IMPROVED_BOOKMARK_COMPACT,
                 BookmarkManagerCoordinator::buildCompactImprovedBookmarkRow,
                 ImprovedBookmarkRowViewBinder::bind,
-                (viewHolder, itemTouchHelper) -> {},
+                this::bindDragProperties,
                 mMediator.getDraggabilityProvider());
         dragReorderableRecyclerViewAdapter.registerType(
                 ViewType.SEARCH_BOX,
@@ -420,7 +430,7 @@ public class BookmarkManagerCoordinator
     }
 
     @Override
-    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+    public NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
         return mBackPressStateSupplier;
     }
 
@@ -615,5 +625,47 @@ public class BookmarkManagerCoordinator
 
     @Nullable BackPressManager getBackPressManagerForTesting() {
         return mBackPressManager;
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void bindDragProperties(
+            RecyclerView.ViewHolder viewHolder, ItemTouchHelper itemTouchHelper) {
+        if (!ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) return;
+
+        int position = viewHolder.getBindingAdapterPosition();
+        if (position == RecyclerView.NO_POSITION) return;
+
+        // Get the model for this specific row.
+        PropertyModel model = mModelList.get(position).model;
+        BookmarkListEntry entry = model.get(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY);
+        BookmarkItem bookmarkItem = entry.getBookmarkItem();
+        if (bookmarkItem == null) return;
+        BookmarkId bookmarkId = bookmarkItem.getId();
+
+        // This was set in the mediator.
+        boolean isDragEnabled = model.get(ImprovedBookmarkRowProperties.IS_DRAG_ENABLED);
+
+        BookmarkManagerDragHelper dragHelper =
+                new BookmarkManagerDragHelper(
+                        mContext,
+                        bookmarkId,
+                        mSelectionDelegate,
+                        itemTouchHelper,
+                        mRecyclerView,
+                        viewHolder,
+                        isDragEnabled);
+
+        model.set(ImprovedBookmarkRowProperties.DRAG_HELPER, dragHelper);
+
+        model.set(
+                ImprovedBookmarkRowProperties.ROW_BODY_TOUCH_LISTENER, dragHelper::onRowBodyTouch);
+        model.set(
+                ImprovedBookmarkRowProperties.DRAG_HANDLE_TOUCH_LISTENER,
+                dragHelper::onDragHandleTouch);
+        model.set(
+                ImprovedBookmarkRowProperties.DRAG_HANDLE_HOVER_LISTENER,
+                dragHelper::onDragHandleHover);
+        model.set(
+                ImprovedBookmarkRowProperties.ROW_BODY_HOVER_LISTENER, dragHelper::onRowBodyHover);
     }
 }

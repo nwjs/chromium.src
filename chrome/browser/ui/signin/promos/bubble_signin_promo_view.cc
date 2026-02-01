@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
@@ -403,6 +404,16 @@ BubbleSignInPromoView::~BubbleSignInPromoView() = default;
 
 views::View* BubbleSignInPromoView::GetSignInButton() const {
   return signin_button_view_ ? signin_button_view_->GetSignInButton() : nullptr;
+}
+
+gfx::Insets BubbleSignInPromoView::GetBubbleSigninPromoMargins() {
+  views::LayoutProvider* layout_provider = views::LayoutProvider::Get();
+  gfx::Insets margin = layout_provider->GetInsetsMetric(views::INSETS_DIALOG);
+  // The top margin sets the distance to the title rather than the top of the
+  // dialog, so it needs to be smaller.
+  margin.set_top(layout_provider->GetDistanceMetric(
+      DISTANCE_RELATED_CONTROL_VERTICAL_SMALL));
+  return margin;
 }
 
 void BubbleSignInPromoView::SignIn() {

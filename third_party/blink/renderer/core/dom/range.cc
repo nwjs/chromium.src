@@ -124,6 +124,7 @@ class RangeUpdateScope {
 #endif
   Range* range_ = nullptr;
   Document* old_document_ = nullptr;
+
 };
 
 int RangeUpdateScope::scope_count_ = 0;
@@ -998,8 +999,9 @@ DocumentFragment* Range::createContextualFragment(
 
   // Step 1: Invoke Get Trusted Type compliant string.
   String compliant_markup = TrustedTypesCheckForHTML(
-      markup, OwnerDocument().GetExecutionContext(), "Range",
-      "createContextualFragment", exception_state);
+      markup, OwnerDocument().GetExecutionContext(),
+      trusted_types_names::kRange,
+      trusted_types_names::kCreateContextualFragment, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -1841,7 +1843,8 @@ void Range::ResetUpdateSelectionBehavior() {
 void Range::ScheduleVisualUpdateIfInRegisteredHighlight(Document& document) {
   if (LocalDOMWindow* window = document.domWindow()) {
     if (HighlightRegistry* highlight_registry =
-            window->GetHighlightRegistry()) {
+            window->Supplementable<LocalDOMWindow>::RequireSupplement<
+                HighlightRegistry>()) {
       for (const auto& highlight_registry_map_entry :
            highlight_registry->GetHighlights()) {
         const auto& highlight = highlight_registry_map_entry->highlight;

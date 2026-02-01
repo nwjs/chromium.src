@@ -8,11 +8,11 @@
 #include "base/numerics/safe_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_impl.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_params.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
 #include "ui/gfx/geometry/rect.h"
@@ -21,34 +21,28 @@
 
 namespace {
 
-views::LayoutAlignment GetWindowTitleAlignment() {
-#if BUILDFLAG(IS_MAC)
-  return views::LayoutAlignment::kCenter;
-#else
-  return views::LayoutAlignment::kStart;
-#endif
-}
-
 // Ensure that the title isn't too close to the edge of the window. The logic
 // for this may vary by platform. Only adjusts the region if it's closer to the
 // edge than allowed.
 void MaybeAdjustTitleRegionForWindowEdge(gfx::Rect& title_region,
-                                         const BrowserLayoutParams& params) {
+                                         const BrowserLayoutParams& params,
+                                         views::LayoutAlignment alignment) {
   // The minimum distance from the visual edge of the window.
   int from_edge = 0;
   // The minimum distance from the content of the exclusion area.
   int from_exclusion = 0;
-#if BUILDFLAG(IS_MAC)
-  // On Mac, this is determined by a constant percentage of window width.
-  from_edge = base::ClampRound(params.visual_client_area.width() * 0.1);
-#else
-  // Match native Windows 10 UWP apps that don't have window icons.
-  // TODO(crbug.com/40890502): Avoid hardcoding sizes like this.
-  from_edge = 11;
-  // This provides spacing next to the caption button or app icon even if there
-  // is none
-  from_exclusion = 5;
-#endif
+
+  if (alignment == views::LayoutAlignment::kCenter) {
+    // On Mac, this is determined by a constant percentage of window width.
+    from_edge = base::ClampRound(params.visual_client_area.width() * 0.1);
+  } else {
+    // Match native Windows 10 UWP apps that don't have window icons.
+    // TODO(crbug.com/40890502): Avoid hardcoding sizes like this.
+    from_edge = 11;
+    // This provides spacing next to the caption button or app icon even if
+    // there is none
+    from_exclusion = 5;
+  }
 
   int min_x = std::max(
       title_region.x(),
@@ -63,6 +57,20 @@ void MaybeAdjustTitleRegionForWindowEdge(gfx::Rect& title_region,
                    base::ClampRound(params.trailing_exclusion.content.width()) +
                        from_exclusion));
   title_region.SetHorizontalBounds(min_x, max_x);
+}
+
+// Gets a rectangle between the leading and trailing exclusion areas of
+// `params`.
+gfx::Rect GetBoundsBetweenExclusionZones(const BrowserLayoutParams& params) {
+  const auto leading_size = params.leading_exclusion.ContentWithPadding();
+  const auto trailing_size = params.trailing_exclusion.ContentWithPadding();
+  const int height =
+      base::ClampCeil(std::max(leading_size.height(), trailing_size.height()));
+  const int leading = base::ClampCeil(leading_size.width());
+  const int trailing = base::ClampCeil(trailing_size.width());
+  return gfx::Rect(
+      params.visual_client_area.x() + leading, params.visual_client_area.y(),
+      params.visual_client_area.width() - (leading + trailing), height);
 }
 
 }  // namespace
@@ -92,9 +100,9 @@ gfx::Size BrowserViewAppLayoutImpl::GetMinimumSize(
           ? views().web_app_frame_toolbar->GetMinimumSize()
           : gfx::Size();
   const gfx::Size tabstrip_size =
-      views().tab_strip_region_view &&
-              views().tab_strip_region_view->GetVisible()
-          ? views().tab_strip_region_view->GetMinimumSize()
+      views().horizontal_tab_strip_region_view &&
+              views().horizontal_tab_strip_region_view->GetVisible()
+          ? views().horizontal_tab_strip_region_view->GetMinimumSize()
           : gfx::Size();
   const gfx::Size infobar_container_size =
       views().infobar_container->GetMinimumSize();
@@ -171,6 +179,14 @@ BrowserViewAppLayoutImpl::CalculateProposedLayout(
   contents_bounds.set_height(std::max(contents_bounds.height(), 1));
   layout.AddChild(views().contents_container, contents_bounds);
 
+  // If certain views were not laid out, make sure they're hidden to avoid
+  // visual artifacts.
+  if (delegate().ShouldLayoutTabStrip() &&
+      IsParentedTo(views().horizontal_tab_strip_region_view,
+                   views().browser_view)) {
+    layout.HideViewIfNotPresent(views().horizontal_tab_strip_region_view);
+  }
+
   return layout;
 }
 
@@ -182,6 +198,13 @@ gfx::Rect BrowserViewAppLayoutImpl::CalculateTopContainerLayout(
 
   if (IsParentedTo(views().web_app_frame_toolbar, views().top_container)) {
     CalculateTitlebarLayout(layout, params);
+  } else if (!views().web_app_frame_toolbar) {
+#if !BUILDFLAG(IS_MAC)
+    // If there's no toolbar at all, still have to make room for the titlebar.
+    // Note that on Mac, the titlebar area is native, so it is not counted in
+    // the client area and no adjustment is necessary.
+    params.SetTop(GetBoundsBetweenExclusionZones(params).bottom());
+#endif
   }
 
   // Lay out the standard toolbar if present. This is used in tab fullscreen
@@ -197,6 +220,13 @@ gfx::Rect BrowserViewAppLayoutImpl::CalculateTopContainerLayout(
     params.SetTop(toolbar_bounds.bottom());
   }
 
+  // Tabstrip must be hidden if it's not laid out.
+  if (delegate().ShouldLayoutTabStrip() &&
+      IsParentedTo(views().horizontal_tab_strip_region_view,
+                   views().top_container)) {
+    layout.HideViewIfNotPresent(views().horizontal_tab_strip_region_view);
+  }
+
   return gfx::Rect(params.visual_client_area.x(), original_top,
                    params.visual_client_area.width(),
                    params.visual_client_area.y() - original_top);
@@ -208,10 +238,13 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
     ProposedLayout& layout,
     BrowserLayoutParams& params) const {
   const bool should_draw_toolbar = delegate().ShouldDrawWebAppFrameToolbar();
-  gfx::Rect full_toolbar_bounds =
-      should_draw_toolbar
-          ? GetBoundsWithExclusion(params, views().web_app_frame_toolbar)
-          : gfx::Rect();
+  gfx::Rect full_titlebar_bounds;
+  if (!delegate().GetBorderlessModeEnabled()) {
+    full_titlebar_bounds =
+        should_draw_toolbar
+            ? GetBoundsWithExclusion(params, views().web_app_frame_toolbar)
+            : GetBoundsBetweenExclusionZones(params);
+  }
   const bool tabstrip_enabled =
       delegate().ShouldLayoutTabStrip() && delegate().ShouldDrawTabStrip();
   const bool overlay_controls_enabled =
@@ -219,8 +252,8 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
   CHECK(!tabstrip_enabled || !overlay_controls_enabled)
       << "Cannot enable both overlay and tabs at the same time.";
   if (tabstrip_enabled) {
-    full_toolbar_bounds.Union(
-        GetBoundsWithExclusion(params, views().tab_strip_region_view));
+    full_titlebar_bounds.Union(GetBoundsWithExclusion(
+        params, views().horizontal_tab_strip_region_view));
   }
 
   // Lay out the webapp toolbar.
@@ -229,14 +262,14 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
     const int width =
         overlay_controls_enabled || tabstrip_enabled
             ? std::min(
-                  full_toolbar_bounds.width(),
+                  full_titlebar_bounds.width(),
                   views().web_app_frame_toolbar->GetPreferredSize().width())
-            : full_toolbar_bounds.width();
+            : full_titlebar_bounds.width();
 
     // Overlay and tabstrip come before toolbar.
-    toolbar_rect =
-        gfx::Rect(full_toolbar_bounds.right() - width, full_toolbar_bounds.y(),
-                  width, full_toolbar_bounds.height());
+    toolbar_rect = gfx::Rect(full_titlebar_bounds.right() - width,
+                             full_titlebar_bounds.y(), width,
+                             full_titlebar_bounds.height());
   }
   layout.AddChild(views().web_app_frame_toolbar, toolbar_rect,
                   should_draw_toolbar);
@@ -251,8 +284,9 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
           views().web_app_frame_toolbar->GetCenterContainerForSize(
               toolbar_rect.size());
       available.Offset(toolbar_rect.OffsetFromOrigin());
-      MaybeAdjustTitleRegionForWindowEdge(available, params);
-      switch (GetWindowTitleAlignment()) {
+      const auto title_alignment = delegate().GetWindowTitleAlignment();
+      MaybeAdjustTitleRegionForWindowEdge(available, params, title_alignment);
+      switch (title_alignment) {
         case views::LayoutAlignment::kStart:
           title_bounds = available;
           break;
@@ -277,15 +311,18 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
 
   // Lay out tabstrip if present.
   if (delegate().ShouldLayoutTabStrip()) {
-    CHECK_EQ(views().tab_strip_region_view->parent(),
+    CHECK_EQ(views().horizontal_tab_strip_region_view->parent(),
              views().web_app_frame_toolbar->parent())
         << "Always expect PWA toolbar and tabstrip to share the same "
            "coordinate basis.";
-    const gfx::Rect tab_strip_bounds(
-        full_toolbar_bounds.x(), full_toolbar_bounds.y(),
-        full_toolbar_bounds.width() - toolbar_rect.width(),
-        full_toolbar_bounds.height());
-    layout.AddChild(views().tab_strip_region_view, tab_strip_bounds,
+    gfx::Rect tab_strip_bounds;
+    if (tabstrip_enabled) {
+      tab_strip_bounds =
+          gfx::Rect(full_titlebar_bounds.x(), full_titlebar_bounds.y(),
+                    full_titlebar_bounds.width() - toolbar_rect.width(),
+                    full_titlebar_bounds.height());
+    }
+    layout.AddChild(views().horizontal_tab_strip_region_view, tab_strip_bounds,
                     tabstrip_enabled);
   }
 
@@ -294,9 +331,9 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
     // Unfortunately, the overlay is not a view in the same sense as the other
     // views and must be updated separately.
     overlay_rect_ =
-        gfx::Rect(full_toolbar_bounds.x(), full_toolbar_bounds.y(),
-                  full_toolbar_bounds.width() - toolbar_rect.width(),
-                  full_toolbar_bounds.height());
+        gfx::Rect(full_titlebar_bounds.x(), full_titlebar_bounds.y(),
+                  full_titlebar_bounds.width() - toolbar_rect.width(),
+                  full_titlebar_bounds.height());
   } else {
     // Move the available space downward when not in overlay mode (in overlay
     // mode the contents pane will need to render behind the overlay area).
@@ -304,8 +341,10 @@ void BrowserViewAppLayoutImpl::CalculateTitlebarLayout(
     // contents slightly to give the impression that the tabs connect to the
     // contents.
     const int tabstrip_adjustment =
-        tabstrip_enabled ? GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP) : 0;
-    params.SetTop(full_toolbar_bounds.bottom() - tabstrip_adjustment);
+        tabstrip_enabled
+            ? GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap)
+            : 0;
+    params.SetTop(full_titlebar_bounds.bottom() - tabstrip_adjustment);
     overlay_rect_ = std::nullopt;
   }
 }

@@ -43,7 +43,7 @@ void TabGroupHighlight::OnPaint(gfx::Canvas* canvas) {
   flags.setStyle(cc::PaintFlags::kFill_Style);
   flags.setColor(TabStyle::Get()->GetTabBackgroundColor(
       TabStyle::TabSelectionState::kSelected, /*hovered=*/false,
-      GetWidget()->ShouldPaintAsActive(), *GetColorProvider()));
+      GetWidget()->ShouldPaintAsActive(), GetColorProvider()));
   canvas->DrawPath(path, flags);
 }
 
@@ -55,7 +55,7 @@ SkPath TabGroupHighlight::GetPath() const {
   // the tabs around it, so there are no special cases needed when determining
   // its shape.
   const int corner_radius = TabStyle::Get()->GetBottomCornerRadius();
-  const int top = GetLayoutConstant(TAB_STRIP_PADDING);
+  const int top = GetLayoutConstant(LayoutConstant::kTabStripPadding);
 
   return SkPathBuilder()
       .moveTo(0, bounds().height())

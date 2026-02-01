@@ -19,8 +19,10 @@
 namespace content {
 
 WebGraphicsContext3DProviderImpl::WebGraphicsContext3DProviderImpl(
-    scoped_refptr<viz::ContextProviderCommandBuffer> provider)
-    : provider_(std::move(provider)) {}
+    scoped_refptr<viz::ContextProviderCommandBuffer> provider,
+    scoped_refptr<base::SingleThreadTaskRunner> reply_task_runner)
+    : provider_(std::move(provider)),
+      reply_task_runner_(std::move(reply_task_runner)) {}
 
 WebGraphicsContext3DProviderImpl::~WebGraphicsContext3DProviderImpl() {
   provider_->RemoveObserver(this);
@@ -32,6 +34,9 @@ bool WebGraphicsContext3DProviderImpl::BindToCurrentSequence() {
   // Call AddObserver here instead of in constructor so that it's called on the
   // correct thread.
   provider_->AddObserver(this);
+  if (reply_task_runner_) {
+    provider_->SetReplyTaskRunner(reply_task_runner_);
+  }
   return provider_->BindToCurrentSequence() == gpu::ContextResult::kSuccess;
 }
 
@@ -163,7 +168,6 @@ void WebGraphicsContext3DProviderImpl::OnContextLost() {
 
 cc::ImageDecodeCache* WebGraphicsContext3DProviderImpl::ImageDecodeCache(
     SkColorType color_type) {
-  CHECK(GetCapabilities().gpu_rasterization);
   auto cache_iterator = image_decode_cache_map_.find(color_type);
   if (cache_iterator != image_decode_cache_map_.end())
     return cache_iterator->second.get();

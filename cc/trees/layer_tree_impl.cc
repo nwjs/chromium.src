@@ -62,6 +62,7 @@
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/traced_value.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -846,7 +847,6 @@ void LayerTreeImpl::PullLayerTreePropertiesFrom(CommitState& commit_state) {
                               commit_state.max_page_scale_factor);
 
   SetBrowserControlsParams(commit_state.browser_controls_params);
-  SetLoadProgress(commit_state.load_progress);
   set_overscroll_behavior(commit_state.overscroll_behavior);
   PushBrowserControlsFromMainThread(commit_state.top_controls_shown_ratio,
                                     commit_state.bottom_controls_shown_ratio);
@@ -972,7 +972,6 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
 
   target_tree->SetBrowserControlsParams(browser_controls_params_);
   target_tree->PushBrowserControls(nullptr, nullptr);
-  target_tree->SetLoadProgress(load_progress_);
 
   target_tree->set_overscroll_behavior(overscroll_behavior_);
 
@@ -1037,11 +1036,9 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
   successful_presentation_callbacks_.clear();
 
   if (delegated_ink_metadata_) {
-    TRACE_EVENT_WITH_FLOW1("delegated_ink_trails",
-                           "Delegated ink metadata pushed to tree",
-                           TRACE_ID_GLOBAL(delegated_ink_metadata_->trace_id()),
-                           TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
-                           "metadata", delegated_ink_metadata_->ToString());
+    TRACE_EVENT("delegated_ink_trails", "Delegated ink metadata pushed to tree",
+                perfetto::Flow::Global(delegated_ink_metadata_->trace_id()),
+                "metadata", delegated_ink_metadata_->ToString());
     target_tree->set_delegated_ink_metadata(std::move(delegated_ink_metadata_));
   } else if (target_tree->delegated_ink_metadata()) {
     target_tree->clear_delegated_ink_metadata();
@@ -1458,18 +1455,6 @@ void LayerTreeImpl::SetBrowserControlsParams(
   }
 }
 
-void LayerTreeImpl::SetLoadProgress(float progress) {
-  if (load_progress_ == progress) {
-    return;
-  }
-
-  load_progress_ = progress;
-
-  if (IsActiveTree()) {
-    host_impl_->progress_bar_manager()->OnLoadProgressChanged(progress);
-  }
-}
-
 void LayerTreeImpl::set_overscroll_behavior(
     const OverscrollBehavior& behavior) {
   overscroll_behavior_ = behavior;
@@ -1800,13 +1785,6 @@ bool LayerTreeImpl::UpdateDrawProperties(
     // us to skip it.
     draw_property_utils::CalculateDrawProperties(
         this, &render_surface_list_, output_update_layer_list_for_testing);
-
-    if (!settings().single_thread_proxy_scheduler) {
-      // This metric is only recorded for the Renderer.
-      UMA_HISTOGRAM_COUNTS_100(
-          "Compositing.Renderer.NumRenderSurfaces",
-          base::saturated_cast<int>(render_surface_list_.size()));
-    }
   }
 
   TRACE_EVENT2("cc,benchmark", "LayerTreeImpl::UpdateDrawProperties::Occlusion",
@@ -2310,6 +2288,10 @@ void LayerTreeImpl::set_ui_resource_request_queue(
 
 viz::ResourceId LayerTreeImpl::ResourceIdForUIResource(UIResourceId uid) const {
   return host_impl_->ResourceIdForUIResource(uid);
+}
+
+gfx::Size LayerTreeImpl::GetUIResourceSize(UIResourceId uid) const {
+  return host_impl_->GetUIResourceSize(uid);
 }
 
 bool LayerTreeImpl::IsUIResourceOpaque(UIResourceId uid) const {

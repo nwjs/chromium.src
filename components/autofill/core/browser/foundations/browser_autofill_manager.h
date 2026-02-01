@@ -5,7 +5,6 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_BROWSER_AUTOFILL_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_FOUNDATIONS_BROWSER_AUTOFILL_MANAGER_H_
 
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -14,7 +13,6 @@
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -271,6 +269,8 @@ class BrowserAutofillManager : public AutofillManager {
   void OnFocusOnFormFieldImpl(const FormData& form,
                               const FieldGlobalId& field_id) override;
   void OnDidAutofillFormImpl(const FormData& form) override;
+  void SuppressAutomaticRefillsImpl(const FillId& fill_id) override;
+  void RequestRefillImpl(const FillId& fill_id) override;
   void OnDidEndTextFieldEditingImpl() override;
   void OnHidePopupImpl() override;
   void OnSelectFieldOptionsDidChangeImpl(
@@ -281,9 +281,10 @@ class BrowserAutofillManager : public AutofillManager {
       const FieldGlobalId& field_id,
       const std::u16string& old_value) override;
   void OnLoadedServerPredictionsImpl(
-      base::span<const raw_ptr<FormStructure, VectorExperimental>> forms)
-      override;
+      base::span<const raw_ref<FormStructure>> forms) override;
   void Reset() override;
+
+  base::WeakPtr<BrowserAutofillManager> GetBrowserAutofillManagerWeakPtr();
 
   // Retrieves the four digit combinations from the DOM of the current web page
   // and stores them in `four_digit_combinations_in_dom_`. This is used to check
@@ -331,12 +332,6 @@ class BrowserAutofillManager : public AutofillManager {
       std::unique_ptr<FastCheckoutDelegate> fast_checkout_delegate) {
     fast_checkout_delegate_ = std::move(fast_checkout_delegate);
   }
-
-  // Returns the field corresponding to `form_id` and `field_id` that can be
-  // autofilled. Returns NULL if the field cannot be autofilled.
-  [[nodiscard]] AutofillField* GetAutofillField(
-      const FormGlobalId& form_id,
-      const FieldGlobalId& field_id) const;
 
   // This reference is not stable over the lifetime of BrowserAutofillManager.
   virtual autofill_metrics::CreditCardFormEventLogger&
@@ -386,13 +381,22 @@ class BrowserAutofillManager : public AutofillManager {
  private:
   friend class BrowserAutofillManagerTestApi;
 
+  // Fills `form_structure` and `autofill_field` with the cached elements
+  // corresponding to `form_id` and `field_id`.  This might have the side-effect
+  // of updating the cache.  Returns false if the form is not autofillable, or
+  // if either the form or the field cannot be found.
+  [[nodiscard]] bool GetCachedFormAndField(const FormGlobalId& form_id,
+                                           const FieldGlobalId& field_id,
+                                           FormStructure** form_structure,
+                                           AutofillField** autofill_field);
 
   // Emits all metrics that should be recorded at submission time.
   void LogSubmissionMetrics(const FormStructure* submitted_form,
                             const base::TimeTicks& form_submitted_timestamp);
 
-  // Updates event loggers with information about data stored for Autofill.
-  void UpdateLoggersReadinessData();
+  // Updates event loggers with information about data stored for Autofill. Some
+  // loggers require a form of interest, and `form` specifies that.
+  void UpdateLoggersReadinessData(const FormStructure* form);
 
   // Creates a FormStructure using the FormData received from the renderer. Will
   // return an empty scoped_ptr if the data should not be processed for upload
@@ -640,7 +644,7 @@ class BrowserAutofillManager : public AutofillManager {
 
   // Updates Autofill Ai's model cache after server predictions were loaded.
   void HandleLoadedServerPredictionsForAutofillAi(
-      base::span<const raw_ptr<FormStructure, VectorExperimental>> forms);
+      base::span<const raw_ref<FormStructure>> forms);
 
   // Calls `OnDidIdentifyForms()` on all appropriate form event loggers,
   // depending on the form types of the `form_structure`.
@@ -653,6 +657,7 @@ class BrowserAutofillManager : public AutofillManager {
   // suggestions for field with `field_id` given `trigger_source`.
   void InitializeSuggestionGenerators(
       AutofillSuggestionTriggerSource trigger_source,
+      FormGlobalId form_id,
       FieldGlobalId field_id);
 
   // Delegates to perform external processing (display, selection) on

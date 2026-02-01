@@ -52,7 +52,7 @@
         "layout-custom", "inline-layout-custom", "math", "block math",
         "inline list-item", "flow-root list-item", "inline flow-root list-item",
         "ruby", "block ruby", "ruby-text",
-        // Available only if CSSMasonryLayout is enabled:
+        // Available only if CSSGridLanesLayout is enabled:
         "grid-lanes", "inline-grid-lanes"
       ],
       default_value: "inline",
@@ -459,6 +459,18 @@
       keywords: ["none", "auto", "dot", "circle", "double-circle", "triangle", "sesame", "custom"],
       field_group: "*",
       computed_style_custom_functions: ["getter"],
+      invalidate: ["layout", "paint"],
+    },
+    {
+      name: "TextIndentFlags",
+      inherited: true,
+      field_template: "primitive",
+      type_name: "TextIndentFlags",
+      field_size: 2,
+      include_paths: ["third_party/blink/renderer/core/style/text_indent_flags.h"],
+      default_value: "TextIndentFlags::kDefault",
+      keywords: ["hanging", "each-line"],
+      field_group: "*",
       invalidate: ["layout", "paint"],
     },
     // Though will-change is not itself an inherited property, the intent
@@ -1338,6 +1350,13 @@
       name: "HasAnchorEvaluator",
       field_template: "monotonic_flag",
       field_group: "surround",
+      default_value: "false",
+      custom_compare: true,
+    },
+    {
+      name: "HasElementDependentRandomFunctions",
+      field_template: "monotonic_flag",
+      field_group: "*",
       default_value: "false",
       custom_compare: true,
     },

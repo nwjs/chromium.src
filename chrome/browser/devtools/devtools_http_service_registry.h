@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_DEVTOOLS_DEVTOOLS_HTTP_SERVICE_REGISTRY_H_
 #define CHROME_BROWSER_DEVTOOLS_DEVTOOLS_HTTP_SERVICE_REGISTRY_H_
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -42,6 +41,11 @@ class DevToolsHttpServiceRegistry {
   void Request(Profile* profile,
                const DevToolsDispatchHttpRequestParams& params,
                DevToolsHttpServiceHandler::Callback callback);
+
+  void RequestAsStream(Profile* profile,
+                       const DevToolsDispatchHttpRequestParams& params,
+                       DevToolsHttpServiceHandler::StreamWriter stream_writer,
+                       DevToolsHttpServiceHandler::Callback callback);
 
   void AddForTesting(Service service) {
     services_.push_back(std::move(service));

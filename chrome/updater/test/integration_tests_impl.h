@@ -389,6 +389,7 @@ void ExpectLegacyUpdate3WebSucceeds(
     int expected_error_code,
     bool cancel_when_downloading);
 void ExpectLegacyProcessLauncherSucceeds(UpdaterScope scope);
+void ExpectProcessLauncherLaunchCmdLineSucceeds(UpdaterScope scope);
 void ExpectLegacyAppCommandWebSucceeds(UpdaterScope scope,
                                        const std::string& app_id,
                                        const std::string& command_id,
@@ -433,7 +434,9 @@ void ExpectPing(UpdaterScope scope,
                 ScopedServer* test_server,
                 int event_type,
                 std::optional<GURL> target_url);
-
+void ExpectInstallSource(UpdaterScope scope,
+                         ScopedServer* test_server,
+                         const std::string& install_source);
 void ExpectAppCommandPing(UpdaterScope scope,
                           ScopedServer* test_server,
                           const std::string& appid,
@@ -545,7 +548,8 @@ void RunOfflineInstall(UpdaterScope scope,
                        bool is_legacy_install,
                        bool is_silent_install,
                        int installer_result,
-                       int installer_error);
+                       int installer_error,
+                       const std::string& install_source);
 
 void RunOfflineInstallOsNotSupported(UpdaterScope scope,
                                      bool is_legacy_install,

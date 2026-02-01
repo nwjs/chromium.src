@@ -6,21 +6,29 @@ package org.chromium.chrome.browser.media;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.graphics.Rect;
+import android.os.Bundle;
 import android.view.ViewGroup;
 
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.Log;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
+import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabUtils;
+import org.chromium.chrome.browser.util.PictureInPictureWindowOptions;
 import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.thinwebview.ThinWebView;
@@ -34,11 +42,16 @@ import org.chromium.url.GURL;
 
 @NullMarked
 public class DocumentPictureInPictureActivity extends AsyncInitializationActivity {
+    private static final String TAG = "DocumentPiPActivity";
     public static final String WEB_CONTENTS_KEY =
             "org.chromium.chrome.browser.media.DocumentPictureInPicture.WebContents";
+    public static final String WINDOW_OPTIONS_KEY =
+            "org.chromium.chrome.browser.media.DocumentPictureInPicture.WindowOptions";
     private WebContents mWebContents;
     private Tab mInitiatorTab;
     private @Nullable ThinWebView mThinWebView;
+    private @Nullable TabObserver mInitiatorTabObserver;
+    private @Nullable @SuppressWarnings("unused") PictureInPictureWindowOptions mWindowOptions;
 
     @Override
     protected void onPreCreate() {
@@ -48,6 +61,7 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
         intent.setExtrasClassLoader(WebContents.class.getClassLoader());
         WebContents webContents = intent.getParcelableExtra(WEB_CONTENTS_KEY);
         if (webContents == null) {
+            Log.e(TAG, "WebContents is null, finishing.");
             finish();
             return;
         }
@@ -56,9 +70,18 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
         WebContents parentWebContents = mWebContents.getDocumentPictureInPictureOpener();
         mInitiatorTab = TabUtils.fromWebContents(parentWebContents);
         if (parentWebContents == null || TabUtils.getActivity(mInitiatorTab) == null) {
+            Log.e(TAG, "Parent web contents or initiator tab is null, finishing.");
             finish();
             return;
         }
+
+        Bundle windowOptionsBundle = intent.getBundleExtra(WINDOW_OPTIONS_KEY);
+        if (windowOptionsBundle == null) {
+            Log.e(TAG, "Window options bundle is null, finishing.");
+            finish();
+            return;
+        }
+        mWindowOptions = new PictureInPictureWindowOptions(windowOptionsBundle);
     }
 
     /**
@@ -82,6 +105,29 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
 
         DocumentPictureInPictureActivityJni.get()
                 .onActivityStart(mInitiatorTab.getWebContents(), mWebContents);
+
+        mInitiatorTabObserver =
+                new EmptyTabObserver() {
+                    @Override
+                    public void onClosingStateChanged(Tab tab, boolean closing) {
+                        if (closing) {
+                            finish();
+                        }
+                    }
+
+                    @Override
+                    public void onDestroyed(Tab tab) {
+                        if (tab.isClosing()) {
+                            finish();
+                        }
+                    }
+
+                    @Override
+                    public void onCrash(Tab tab) {
+                        finish();
+                    }
+                };
+        mInitiatorTab.addObserver(mInitiatorTabObserver);
     }
 
     @Override
@@ -105,6 +151,20 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
                 mThinWebView.getView(),
                 new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTO_DOC_PIP_PERMISSION_PROMPT_ANDROID)) {
+            WebContents webContents = mInitiatorTab.getWebContents();
+            if (webContents != null
+                    && AutoPictureInPicturePermissionController.isAutoPictureInPictureInUse(
+                            webContents)) {
+                mThinWebView
+                        .getView()
+                        .post(
+                                () ->
+                                        AutoPictureInPicturePermissionController.showPromptIfNeeded(
+                                                this, mInitiatorTab, this::finish));
+            }
+        }
     }
 
     @Override
@@ -164,6 +224,13 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
             mWebContents = null;
         }
 
+        if (mInitiatorTabObserver != null && mInitiatorTab != null) {
+            mInitiatorTab.removeObserver(mInitiatorTabObserver);
+        }
+
+        mInitiatorTab = null;
+        mInitiatorTabObserver = null;
+
         super.onDestroy();
     }
 
@@ -181,6 +248,11 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
                 int disposition,
                 boolean isRendererInitiated) {
             finish();
+        }
+
+        @Override
+        public void setContentsBounds(WebContents source, Rect bounds) {
+            MultiWindowUtils.moveActivityToBounds(DocumentPictureInPictureActivity.this, bounds);
         }
     }
 

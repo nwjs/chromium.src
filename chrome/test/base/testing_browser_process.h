@@ -23,6 +23,8 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/test/base/testing_browser_process_platform_part.h"
+#include "chrome/test/base/testing_profile_manager.h"
+#include "components/activity_reporter/activity_reporter.h"
 #include "components/signin/core/browser/active_primary_accounts_metrics_recorder.h"
 #include "extensions/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
@@ -69,6 +71,10 @@ namespace resource_coordinator {
 class ResourceCoordinatorParts;
 }
 
+namespace supervised_user {
+class DeviceParentalControls;
+}  // namespace supervised_user
+
 namespace variations {
 class VariationsService;
 }
@@ -92,6 +98,18 @@ class TestingBrowserProcess
 
   TestingBrowserProcess(const TestingBrowserProcess&) = delete;
   TestingBrowserProcess& operator=(const TestingBrowserProcess&) = delete;
+
+  // Handles creating the global features and optionally testing profile manager
+  // in the correct order. Should be called after Init() in unit tests that need
+  // to to create GlobalFeatures after modifying feature flags, or unit tests
+  // that need more than just the core GlobalFeatures initialized.
+  raw_ptr<TestingProfileManager> SetUpGlobalFeaturesForTesting(
+      bool profile_manager);
+
+  // Destroys the global features, testing profile manager, and resource
+  // coordinator parts in the correct order. Should be used if (and only if)
+  // SetUpGlobalFeaturesForTesting() was used in initialization.
+  void TearDownGlobalFeaturesForTesting();
 
   // BrowserProcess overrides:
   ui::UnownedUserDataHost& GetUnownedUserDataHost() override;
@@ -139,6 +157,7 @@ class TestingBrowserProcess
   printing::PrintPreviewDialogController* print_preview_dialog_controller()
       override;
   printing::BackgroundPrintingManager* background_printing_manager() override;
+  supervised_user::DeviceParentalControls& device_parental_controls() override;
   const std::string& GetApplicationLocale() override;
   void SetApplicationLocale(const std::string& actual_locale) override;
   DownloadStatusUpdater* download_status_updater() override;
@@ -149,9 +168,12 @@ class TestingBrowserProcess
   void StartAutoupdateTimer() override {}
 #endif
 
+  activity_reporter::ActivityReporter* activity_reporter() override;
 
   component_updater::ComponentUpdateService* component_updater() override;
+#if BUILDFLAG(IS_CHROMEOS)
   MediaFileSystemRegistry* media_file_system_registry() override;
+#endif
 
   WebRtcLogUploader* webrtc_log_uploader() override;
 
@@ -175,7 +197,6 @@ class TestingBrowserProcess
 
   BuildState* GetBuildState() override;
   GlobalFeatures* GetFeatures() override;
-  void CreateGlobalFeaturesForTesting() override;
 
   // TaskEnvironment::DestructionObserver:
   void WillDestroyCurrentTaskEnvironment() override;
@@ -223,6 +244,9 @@ class TestingBrowserProcess
 
   void ShutdownBrowserPolicyConnector();
 
+  void CreateGlobalFeaturesPreProfileManager();
+  void CreateGlobalFeaturesPostProfileManager();
+
   ui::UnownedUserDataHost unowned_user_data_host_;
 
   // This member needs to stay at or near the top of the list so it gets
@@ -243,7 +267,17 @@ class TestingBrowserProcess
       test_network_quality_tracker_;
   raw_ptr<metrics::MetricsService> metrics_service_ = nullptr;
   raw_ptr<variations::VariationsService> variations_service_ = nullptr;
+
+  // The `ProfileManager` is here as part of the `BrowserProcess` API. It is
+  // typically created during initialization of the `TestingProfileManager`, but
+  // can also be set directly by tests using `SetProfileManager()`.
   std::unique_ptr<ProfileManager> profile_manager_;
+
+  // The `TestingProfileManager` (not to be confused with the `ProfileManager`
+  // above) is created by `SetUpGlobalFeaturesForTesting()` and cleaned up by
+  // `TearDownGlobalFeaturesForTesting()`. Initialization causes the above
+  // `ProfileManager` to also be created and set.
+  std::unique_ptr<TestingProfileManager> testing_profile_manager_;
 
   std::unique_ptr<TestingPrefServiceSimple> testing_local_state_;
 
@@ -269,6 +303,9 @@ class TestingBrowserProcess
       print_preview_dialog_controller_;
 #endif
 
+  std::unique_ptr<supervised_user::DeviceParentalControls>
+      device_parental_controls_;
+
   scoped_refptr<safe_browsing::SafeBrowsingService> sb_service_;
   std::unique_ptr<subresource_filter::RulesetService>
       subresource_filter_ruleset_service_;
@@ -283,7 +320,7 @@ class TestingBrowserProcess
   std::unique_ptr<network::TestNetworkConnectionTracker>
       test_network_connection_tracker_;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(IS_CHROMEOS)
   std::unique_ptr<MediaFileSystemRegistry> media_file_system_registry_;
 #endif
 
@@ -296,6 +333,7 @@ class TestingBrowserProcess
       resource_coordinator_parts_;
 
   std::unique_ptr<SerialPolicyAllowedPorts> serial_policy_allowed_ports_;
+  std::unique_ptr<activity_reporter::ActivityReporter> activity_reporter_;
 #if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<HidSystemTrayIcon> hid_system_tray_icon_;
   std::unique_ptr<UsbSystemTrayIcon> usb_system_tray_icon_;

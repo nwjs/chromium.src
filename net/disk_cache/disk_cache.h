@@ -19,17 +19,19 @@
 #include "base/memory/ref_counted.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_split.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "net/base/cache_type.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/net_errors.h"
 #include "net/base/net_export.h"
 #include "net/base/request_priority.h"
+#include "net/disk_cache/cache_file.h"
 
 namespace base {
 class FilePath;
+class SequencedTaskRunner;
 
 namespace android {
 class ApplicationStatusListener;
@@ -38,9 +40,10 @@ class ApplicationStatusListener;
 }  // namespace base
 
 namespace net {
+class CacheEncryptionDelegate;
 class IOBuffer;
 class NetLog;
-}
+}  // namespace net
 
 namespace disk_cache {
 
@@ -107,6 +110,7 @@ CreateCacheBackend(net::CacheType type,
                    int64_t max_bytes,
                    ResetHandling reset_handling,
                    net::NetLog* net_log,
+                   net::CacheEncryptionDelegate* cache_encryption_delegate,
                    BackendResultCallback callback);
 
 // Note: this is permitted to return nullptr when things are in process of
@@ -126,6 +130,7 @@ CreateCacheBackend(net::CacheType type,
                    int64_t max_bytes,
                    ResetHandling reset_handling,
                    net::NetLog* net_log,
+                   net::CacheEncryptionDelegate* cache_encryption_delegate,
                    BackendResultCallback callback,
                    ApplicationStatusListenerGetter app_status_listener_getter);
 #endif
@@ -147,6 +152,7 @@ CreateCacheBackend(net::CacheType type,
                    int64_t max_bytes,
                    ResetHandling reset_handling,
                    net::NetLog* net_log,
+                   net::CacheEncryptionDelegate* cache_encryption_delegate,
                    base::OnceClosure post_cleanup_callback,
                    BackendResultCallback callback);
 
@@ -206,9 +212,12 @@ class NET_EXPORT Backend {
   net::CacheType GetCacheType() const { return cache_type_; }
 
   // Returns the entry count synchronously if available, or
-  // net::ERR_IO_PENDING for asynchronous completion via `callback`.
-  virtual int32_t GetEntryCount(
-      net::Int32CompletionOnceCallback callback) const = 0;
+  // net::ERR_IO_PENDING for asynchronous completion via `callback`. The only
+  // error that might be returned is ERR_IO_PENDING; all other returns will
+  // indicate synchronous success.
+  using GetEntryCountCallback = base::OnceCallback<void(int32_t)>;
+  virtual base::expected<int32_t, net::Error> GetEntryCount(
+      GetEntryCountCallback callback) const = 0;
 
   // Atomically attempts to open an existing entry based on |key| or, if none
   // already exists, to create a new entry. Returns an EntryResult object,
@@ -663,7 +672,9 @@ class BackendFileOperations {
   virtual bool DirectoryExists(const base::FilePath& path) = 0;
 
   // Opens a file with the given path and flags. Returns the opened file.
-  virtual base::File OpenFile(const base::FilePath& path, uint32_t flags) = 0;
+  // Implementations must ensure the returned `CacheFile` object is not null.
+  virtual std::unique_ptr<CacheFile> OpenFile(const base::FilePath& path,
+                                              uint32_t flags) = 0;
 
   // Deletes a file with the given path and returns whether that succeeded.
   virtual bool DeleteFile(const base::FilePath& path,
@@ -740,7 +751,8 @@ class NET_EXPORT TrivialFileOperations : public BackendFileOperations {
   bool CreateDirectory(const base::FilePath& path) override;
   bool PathExists(const base::FilePath& path) override;
   bool DirectoryExists(const base::FilePath& path) override;
-  base::File OpenFile(const base::FilePath& path, uint32_t flags) override;
+  std::unique_ptr<CacheFile> OpenFile(const base::FilePath& path,
+                                      uint32_t flags) override;
   bool DeleteFile(const base::FilePath& path, DeleteFileMode mode) override;
   bool ReplaceFile(const base::FilePath& from_path,
                    const base::FilePath& to_path,

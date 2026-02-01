@@ -8,16 +8,19 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
-class CrosKiosk : public ScriptWrappable, public GarbageCollectedMixin {
+class CrosKiosk : public ScriptWrappable, public Supplement<ExecutionContext> {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  static const char kSupplementName[];
+
   static CrosKiosk& From(ExecutionContext&);
 
-  CrosKiosk() = default;
+  explicit CrosKiosk(ExecutionContext&);
 
   void Trace(Visitor*) const override;
 };

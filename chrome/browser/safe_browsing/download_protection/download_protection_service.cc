@@ -20,6 +20,7 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_item_warning_data.h"
+#include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
@@ -66,8 +67,8 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #endif
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -76,8 +77,6 @@
 #endif
 
 using content::BrowserThread;
-using ReportThreatDetailsResult =
-    safe_browsing::PingManager::ReportThreatDetailsResult;
 
 namespace safe_browsing {
 
@@ -113,6 +112,7 @@ bool IsDownloadSecuritySensitive(safe_browsing::DownloadCheckResult result) {
     case Result::BLOCKED_SCAN_FAILED:
     case Result::IMMEDIATE_DEEP_SCAN:
     case Result::FORCE_SAVE_TO_GDRIVE:
+    case Result::FORCE_SAVE_TO_ONEDRIVE:
       return false;
   }
   NOTREACHED();
@@ -815,15 +815,6 @@ void DownloadProtectionService::UploadSavePackageForDeepScanning(
   DCHECK(insertion_result.second);
   insertion_result.first->get()->Start();
 }
-
-std::vector<DeepScanningRequest*>
-DownloadProtectionService::GetDeepScanningRequests() {
-  std::vector<DeepScanningRequest*> requests;
-  for (const auto& request : deep_scanning_requests_) {
-    requests.push_back(request.get());
-  }
-  return requests;
-}
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 scoped_refptr<network::SharedURLLoaderFactory>
@@ -869,10 +860,12 @@ void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
   deep_scanning_requests_.erase(it);
 }
 
-BinaryUploadService* DownloadProtectionService::GetBinaryUploadService(
+enterprise_connectors::BinaryUploadService*
+DownloadProtectionService::GetBinaryUploadService(
     Profile* profile,
     const enterprise_connectors::AnalysisSettings& settings) {
-  return BinaryUploadService::GetForProfile(profile, settings);
+  return enterprise_connectors::GetBinaryUploadServiceForConnector(profile,
+                                                                   settings);
 }
 #endif
 

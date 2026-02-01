@@ -4,7 +4,6 @@
 
 #include "components/segmentation_platform/internal/database/signal_storage_config.h"
 
-#include "base/containers/contains.h"
 #include "base/functional/callback_helpers.h"
 #include "components/segmentation_platform/internal/metadata/metadata_utils.h"
 #include "components/segmentation_platform/public/proto/model_metadata.pb.h"
@@ -110,8 +109,9 @@ bool SignalStorageConfig::UpdateConfigForSignal(int signal_storage_length,
     // entry in the DB, and set collection start time.
     proto::SignalStorageConfig* signal_config = config_.add_signals();
     signal_config->set_name_hash(signal_hash);
-    if (signal_type == proto::SignalType::UKM_EVENT)
+    if (signal_type == proto::SignalType::UKM_EVENT) {
       signal_config->set_event_hash(event_hash);
+    }
     signal_config->set_signal_type(signal_type);
     signal_config->set_storage_length_s(signal_storage_length);
     signal_config->set_collection_start_time_s(
@@ -131,8 +131,9 @@ bool SignalStorageConfig::MeetsSignalCollectionRequirementForSignal(
   }
   const proto::SignalStorageConfig* config =
       FindSignal(signal_hash, event_hash, signal_type);
-  if (!config || config->collection_start_time_s() == 0)
+  if (!config || config->collection_start_time_s() == 0) {
     return false;
+  }
 
   base::Time collection_start_time = base::Time::FromDeltaSinceWindowsEpoch(
       base::Seconds(config->collection_start_time_s()));
@@ -182,8 +183,9 @@ bool SignalStorageConfig::MeetsSignalCollectionRequirement(
 
   // Loop through sql features.
   for (auto const& feature : model_metadata.input_features()) {
-    if (!feature.has_sql_feature())
+    if (!feature.has_sql_feature()) {
       continue;
+    }
 
     if (metadata_utils::ValidateMetadataSqlFeature(feature.sql_feature()) !=
         metadata_utils::ValidationResult::kValidationSuccess) {
@@ -223,8 +225,9 @@ void SignalStorageConfig::OnSignalCollectionStarted(
 
   // Add signals for sql features.
   for (auto const& feature : model_metadata.input_features()) {
-    if (!feature.has_sql_feature())
+    if (!feature.has_sql_feature()) {
       continue;
+    }
 
     if (metadata_utils::ValidateMetadataSqlFeature(feature.sql_feature()) !=
         metadata_utils::ValidationResult::kValidationSuccess) {
@@ -245,8 +248,9 @@ void SignalStorageConfig::OnSignalCollectionStarted(
     }
   }
 
-  if (is_dirty)
+  if (is_dirty) {
     WriteToDB();
+  }
 }
 
 void SignalStorageConfig::GetSignalsForCleanup(
@@ -262,16 +266,18 @@ void SignalStorageConfig::GetSignalsForCleanup(
     base::Time earliest_needed_timestamp =
         clock_->Now() - required_storage_length;
 
-    if (earliest_needed_timestamp < collection_start_time)
+    if (earliest_needed_timestamp < collection_start_time) {
       continue;
+    }
 
     result.emplace_back(signal_config.name_hash(), signal_config.event_hash(),
                         signal_config.signal_type(), earliest_needed_timestamp);
   }
 
   // Now collect the signals that aren't used by any of the models.
-  if (known_signals.empty())
+  if (known_signals.empty()) {
     return;
+  }
 
   for (int i = 0; i < config_.signals_size(); ++i) {
     const auto& signal_config = config_.signals(i);
@@ -279,9 +285,8 @@ void SignalStorageConfig::GetSignalsForCleanup(
     // include signals when not needed. For UMA signals, skip adding signals
     // that are used by any models.
     // TODO(ssid) : Handle this for UKM signals.
-    if (base::Contains(known_signals,
-                       std::make_pair(signal_config.name_hash(),
-                                      signal_config.signal_type())) ||
+    if (known_signals.contains(std::make_pair(signal_config.name_hash(),
+                                              signal_config.signal_type())) ||
         signal_config.signal_type() == proto::SignalType::UKM_EVENT) {
       continue;
     }
@@ -298,16 +303,18 @@ void SignalStorageConfig::UpdateSignalsForCleanup(
     proto::SignalStorageConfig* signal_config =
         FindSignal(signal_for_cleanup.name_hash, signal_for_cleanup.event_hash,
                    signal_for_cleanup.signal_type);
-    if (!signal_config)
+    if (!signal_config) {
       continue;
+    }
 
     signal_config->set_collection_start_time_s(
         signal_for_cleanup.timestamp.ToDeltaSinceWindowsEpoch().InSeconds());
     is_dirty = true;
   }
 
-  if (is_dirty)
+  if (is_dirty) {
     WriteToDB();
+  }
 }
 
 void SignalStorageConfig::WriteToDB() {

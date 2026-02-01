@@ -198,7 +198,6 @@ class ExecutableConfig(object):
 
 
 class CrossbenchConfig:
-
   def __init__(self,
                name,
                crossbench_name,
@@ -490,6 +489,19 @@ def _jetstream2_crossbench(estimated_runtime=180, arguments=()):
                           arguments=arguments)
 
 
+def _jetstream3_0_crossbench(estimated_runtime=180, arguments=()):
+  return CrossbenchConfig('jetstream3_0.crossbench',
+                          'jetstream_3.0',
+                          estimated_runtime=estimated_runtime,
+                          arguments=arguments)
+
+
+def _jetstream3_crossbench(estimated_runtime=180, arguments=()):
+  return CrossbenchConfig('jetstream3.crossbench',
+                          'jetstream_3',
+                          estimated_runtime=estimated_runtime,
+                          arguments=arguments)
+
 def _jetstream_main_crossbench(estimated_runtime=180, arguments=()):
   return CrossbenchConfig('jetstream_main.crossbench',
                           'jetstream_main',
@@ -508,6 +520,13 @@ def _loadline_phone_crossbench(estimated_runtime=7000, arguments=()):
 def _loadline_tablet_crossbench(estimated_runtime=3600, arguments=()):
   return CrossbenchConfig('loadline_tablet.crossbench',
                           'loadline-tablet-fast',
+                          estimated_runtime=estimated_runtime,
+                          arguments=arguments)
+
+
+def _loadline2_phone_crossbench(estimated_runtime=1000, arguments=()):
+  return CrossbenchConfig('loadline2_phone.crossbench',
+                          'loadline2-phone',
                           estimated_runtime=estimated_runtime,
                           arguments=arguments)
 
@@ -548,6 +567,7 @@ _CROSSBENCH_BENCHMARKS_ALL = frozenset([
     _speedometer3_crossbench(),
     _motionmark1_3_crossbench(),
     _jetstream2_crossbench(),
+    _jetstream3_crossbench(),
 ])
 
 # TODO(crbug.com/338630584): Remove it when other benchmarks can be run on
@@ -570,6 +590,7 @@ _CROSSBENCH_PIXEL9 = frozenset([
         '--cool-down-threshold=moderate',
         '--debug',
     ]),
+    _loadline2_phone_crossbench(arguments=['--debug']),
 ])
 
 _CROSSBENCH_ANDROID_AL_BRYA = frozenset([
@@ -894,8 +915,8 @@ _LINUX_PERF_FYI_BENCHMARK_CONFIGS = PerfSuite([
 
 
 # Linux
-LINUX = PerfPlatform('linux-perf',
-                     'Ubuntu-22.04, Precision 3930 Rack, NVIDIA GeForce GTX 1660',
+LINUX = PerfPlatform('linux-perf', ('Ubuntu-22.04, Precision 3930 Rack, '
+                                    'NVIDIA GeForce GTX 1660'),
                      _LINUX_GPU_BENCHMARK_CONFIGS,
                      7,
                      'linux',
@@ -918,7 +939,8 @@ LINUX_R350 = PerfPlatform('linux-r350-perf',
                           30,
                           'linux',
                           executables=_LINUX_EXECUTABLE_CONFIGS,
-                          crossbench=_CROSSBENCH_BENCHMARKS_ALL)
+                          crossbench=_CROSSBENCH_BENCHMARKS_ALL
+                          | {_devtools_frontend_crossbench()})
 LINUX_FALCON_RAK_5070 = PerfPlatform('linux-falcon-rak-5070-perf',
                                      'Linux Falcon RAK 5070',
                                      _FALCON_BENCHMARK_CONFIGS,
@@ -942,7 +964,7 @@ MAC_M1_MINI_2020 = PerfPlatform(
     28,
     'mac',
     executables=_MAC_M1_MINI_2020_EXECUTABLE_CONFIGS,
-    crossbench=_CROSSBENCH_BENCHMARKS_ALL)
+    crossbench=_CROSSBENCH_BENCHMARKS_ALL | {_devtools_frontend_crossbench()})
 MAC_M1_MINI_2020_PGO = PerfPlatform('mac-m1_mini_2020-perf-pgo',
                                     'Mac M1 Mini 2020',
                                     _MAC_M1_MINI_2020_PGO_BENCHMARK_CONFIGS,
@@ -1020,14 +1042,16 @@ WIN_10_AMD_LAPTOP_PGO = PerfPlatform('win-10_amd_laptop-perf-pgo',
                                      3,
                                      'win',
                                      pinpoint_only=True)
-WIN_11 = PerfPlatform('win-11-perf',
-                      'Windows Dell PowerEdge R350',
-                      _WIN_11_BENCHMARK_CONFIGS,
-                      20,
-                      'win',
-                      executables=_WIN_11_EXECUTABLE_CONFIGS,
-                      crossbench=_CROSSBENCH_BENCHMARKS_ALL
-                      | {_speedometer3_a11y_crossbench()})
+WIN_11 = PerfPlatform(
+    'win-11-perf',
+    'Windows Dell PowerEdge R350',
+    _WIN_11_BENCHMARK_CONFIGS,
+    20,
+    'win',
+    executables=_WIN_11_EXECUTABLE_CONFIGS,
+    crossbench=_CROSSBENCH_BENCHMARKS_ALL
+    | {_speedometer3_a11y_crossbench(),
+       _devtools_frontend_crossbench()})
 WIN_11_PGO = PerfPlatform('win-11-perf-pgo',
                           'Windows Dell PowerEdge R350',
                           _WIN_11_BENCHMARK_CONFIGS,
@@ -1233,8 +1257,8 @@ LINUX_PERF_FYI = PerfPlatform('linux-perf-fyi',
                               _LINUX_PERF_FYI_BENCHMARK_CONFIGS,
                               1,
                               'linux',
-                              crossbench=_CROSSBENCH_BENCHMARKS_ALL.union(
-                                  [_devtools_frontend_crossbench()]),
+                              crossbench=_CROSSBENCH_BENCHMARKS_ALL
+                              | {_devtools_frontend_crossbench()},
                               is_fyi=True)
 
 ALL_PLATFORMS = {

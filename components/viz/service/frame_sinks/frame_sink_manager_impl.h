@@ -67,6 +67,9 @@ class InputManager;
 class OutputSurfaceProvider;
 class SharedImageInterfaceProvider;
 struct VideoCaptureTarget;
+#if BUILDFLAG(IS_MAC)
+class ExternalBeginFrameSourceMojoMac;
+#endif
 
 // FrameSinkManagerImpl manages BeginFrame hierarchy. This is the implementation
 // detail for FrameSinkManagerImpl.
@@ -141,6 +144,12 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
                               const std::string& debug_label) override;
   void CreateRootCompositorFrameSink(
       mojom::RootCompositorFrameSinkParamsPtr params) override;
+
+#if BUILDFLAG(IS_MAC)
+  void CreateCompositorDisplayLink(
+      mojom::CompositorDisplayLinkParamsPtr params) override;
+#endif
+
   void CreateFrameSinkBundle(
       const FrameSinkBundleId& bundle_id,
       mojo::PendingReceiver<mojom::FrameSinkBundle> receiver,
@@ -169,7 +178,8 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   void EvictSurfaces(const std::vector<SurfaceId>& surface_ids) override;
   void RequestCopyOfOutput(const SurfaceId& surface_id,
                            std::unique_ptr<CopyOutputRequest> request,
-                           bool capture_exact_surface_id) override;
+                           bool capture_exact_surface_id,
+                           base::TimeDelta timeout) override;
 #if BUILDFLAG(IS_ANDROID)
   void CacheBackBuffer(uint32_t cache_id,
                        const FrameSinkId& root_frame_sink_id) override;
@@ -243,6 +253,23 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   // `transition_token`.
   bool HasViewTransitionToken(
       const blink::ViewTransitionToken& transition_token) override;
+
+  // Registers `token` for a same-document view transition. This is used for
+  // synchronizing activation of the new frame with the completion of the
+  // previous frame's capture. When a new frame with a view transition directive
+  // is committed, its activation is delayed until the previous frame's content
+  // has been successfully captured via a CopyOutputRequest. This ensures that
+  // the transition animation has all necessary resources before it begins.
+  void RegisterSameDocViewTransitionToken(
+      const blink::ViewTransitionToken& token);
+
+  // Marks the `token` as ready, indicating that the associated
+  // CopyOutputRequest has been completed and resources are available.
+  void MarkSameDocViewTransitionTokenReady(
+      const blink::ViewTransitionToken& token);
+
+  // Removes the `token` from the tracking set.
+  void ClearSameDocViewTransitionToken(const blink::ViewTransitionToken& token);
 
   // HitTestDataProvider implementation.
   // This is required to allow RenderWidgetHostInputEventRouter to find target
@@ -387,6 +414,12 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   // This call is only valid after BindAndSetClient().
   gpu::SharedImageInterface* GetSharedImageInterface();
 
+  // Returns a callback that triggers the resource capture signal.
+  // This encapsulates the binding logic so clients don't need to know the
+  // implementation details.
+  base::OnceCallback<void(const blink::ViewTransitionToken&)>
+  GetViewTransitionResourcesCapturedCallback();
+
   ReservedResourceIdTracker* reserved_resource_id_tracker() {
     return &reserved_resource_id_tracker_;
   }
@@ -399,7 +432,18 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
 
   GpuServiceImpl* GetGpuService();
 
+#if BUILDFLAG(IS_MAC)
+  // This is called after SetSupportedDisplayLinkId() in the browser process.
+  // This function will force ExternalDisplayLinkMac in every
+  // RootCompositorFrameSink to check whether we need to get a new
+  // DisplayLinkMac when a display is added or removed.
+  void UpdateVSyncDisplays();
+#endif
+
  private:
+  void OnViewTransitionResourcesCaptured(
+      const blink::ViewTransitionToken& transition_token);
+
   friend class FrameSinkManagerTest;
   friend class CompositorFrameSinkSupportTestBase;
   friend class FlingSchedulerTest;
@@ -562,6 +606,9 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
                  std::unique_ptr<SurfaceAnimationManager>>
       transition_token_to_animation_manager_;
 
+  base::flat_set<blink::ViewTransitionToken> same_doc_tokens_pending_;
+  base::flat_set<blink::ViewTransitionToken> same_doc_tokens_ready_;
+
   // The ids of the frame sinks that are currently being captured.
   // These frame sinks should not be throttled.
   base::flat_set<FrameSinkId> captured_frame_sink_ids_;
@@ -613,6 +660,12 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
   mojo::Receiver<mojom::FrameSinkManagerTestApi> test_api_receiver_{this};
 
   base::ObserverList<FrameSinkObserver>::Unchecked observer_list_;
+
+#if BUILDFLAG(IS_MAC)
+  // Only one ExternalBeginFrameSourceMojoMac object is created and is
+  // shared by all RootCompositorFrameSinks.
+  std::unique_ptr<ExternalBeginFrameSourceMojoMac> external_begin_frame_source_;
+#endif
 
   // Counts frames for test.
   std::optional<FrameCounter> frame_counter_;

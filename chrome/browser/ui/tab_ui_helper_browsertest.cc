@@ -16,6 +16,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/prerender_test_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -59,8 +60,7 @@ IN_PROC_BROWSER_TEST_F(TabUIHelperBrowserTest, TitleChangeIsNotified) {
             nullptr);
   tabs::TabInterface* const tab_interface =
       browser()->tab_strip_model()->GetActiveTab();
-  TabUIHelper* const tab_ui_helper =
-      tab_interface->GetTabFeatures()->tab_ui_helper();
+  TabUIHelper* const tab_ui_helper = TabUIHelper::From(tab_interface);
   EXPECT_EQ(tab_ui_helper->GetTitle(), u"Title Of Awesomeness");
   auto title_change_waiter =
       std::make_unique<MockTabUiHelperSubscriber>(tab_ui_helper);
@@ -112,11 +112,8 @@ IN_PROC_BROWSER_TEST_F(TabUIHelperWithPrerenderingTest,
       embedded_test_server()->GetURL("/favicon/title2_with_favicon.html");
   ASSERT_NE(ui_test_utils::NavigateToURL(browser(), initial_url), nullptr);
 
-  TabUIHelper* const tab_ui_helper = browser()
-                                         ->tab_strip_model()
-                                         ->GetActiveTab()
-                                         ->GetTabFeatures()
-                                         ->tab_ui_helper();
+  TabUIHelper* const tab_ui_helper =
+      TabUIHelper::From(browser()->tab_strip_model()->GetActiveTab());
   const std::u16string primary_title = tab_ui_helper->GetTitle();
   const ui::ImageModel primary_favicon = tab_ui_helper->GetFavicon();
   const bool primary_should_hide_throbber = tab_ui_helper->ShouldHideThrobber();

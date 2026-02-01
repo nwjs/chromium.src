@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/loading_attribute.h"
 #include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
@@ -21,9 +22,12 @@
 #include "third_party/blink/renderer/core/timing/navigation_id_generator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
+
+BASE_FEATURE(kSoftNavigationTraceEvents, base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -31,12 +35,8 @@ constexpr const char kTraceCategories[] = "loading,rail,devtools.timeline";
 
 constexpr const char kLCPCandidate[] = "largestContentfulPaint::Candidate";
 
-// A fixed navigationId for when we're emitting soft-navs related LCP trace
-// events; this is a valid UUIDv4. But, there is no corresponding navigation for
-// this ID, and therefore, DevTools will ignore these events.
-// TODO: Remove this once we introduce new trace events for soft-navs.
-constexpr const char kFixedNavigationIdForSoftNavs[] =
-    "deadbeef-dead-beef-dead-beefdeadbeef";
+constexpr const char kLCPCandidateForSoftNavs[] =
+    "largestContentfulPaint::CandidateForSoftNavigation";
 
 void PopulateFrameTraceData(TracedValue& value, const LocalFrame& frame) {
   value.SetBoolean("isMainFrame", frame.IsMainFrame());
@@ -128,17 +128,24 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulImage(
   const AtomicString& image_id =
       image_element ? image_element->GetIdAttribute() : AtomicString();
 
-  delegate_->EmitPerformanceEntry(largest_image.PaintTimingInfo(),
-                                  /*paint_size=*/largest_image.RecordedSize(),
-                                  /*load_time=*/largest_image.LoadTime(),
-                                  /*id=*/image_id, /*url=*/image_url,
-                                  /*element=*/image_element);
+  delegate_->EmitLcpPerformanceEntry(
+      largest_image.PaintTimingInfo(),
+      /*paint_size=*/largest_image.RecordedSize(),
+      /*load_time=*/largest_image.LoadTime(),
+      /*id=*/image_id, /*url=*/image_url,
+      /*element=*/image_element);
 
   if (LocalDOMWindow* window = window_performance_->DomWindow()) {
-    TRACE_EVENT_MARK_WITH_TIMESTAMP2(
-        kTraceCategories, kLCPCandidate, largest_image.PaintTime(), "data",
-        CreateWebExposedCandidateTraceData(largest_image), "frame",
-        GetFrameIdForTracing(window->GetFrame()));
+    if (delegate_->IsHardNavigation() ||
+        base::FeatureList::IsEnabled(kSoftNavigationTraceEvents)) {
+      TRACE_EVENT_MARK_WITH_TIMESTAMP2(
+          kTraceCategories,
+          delegate_->IsHardNavigation() ? kLCPCandidate
+                                        : kLCPCandidateForSoftNavs,
+          largest_image.PaintTime(), "data",
+          CreateWebExposedCandidateTraceData(largest_image), "frame",
+          GetFrameIdForTracing(window->GetFrame()));
+    }
   }
 }
 
@@ -161,16 +168,19 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulText(
       text_element ? text_element->GetIdAttribute() : AtomicString();
 
   // Always use paint time as start time for text LCP candidate.
-  delegate_->EmitPerformanceEntry(largest_text.PaintTimingInfo(),
-                                  /*paint_size=*/largest_text.RecordedSize(),
-                                  /*load_time=*/base::TimeTicks(),
-                                  /*id=*/text_id,
-                                  /*url=*/g_empty_string,
-                                  /*element=*/text_element);
+  delegate_->EmitLcpPerformanceEntry(largest_text.PaintTimingInfo(),
+                                     /*paint_size=*/largest_text.RecordedSize(),
+                                     /*load_time=*/base::TimeTicks(),
+                                     /*id=*/text_id,
+                                     /*url=*/g_empty_string,
+                                     /*element=*/text_element);
 
   if (LocalDOMWindow* window = window_performance_->DomWindow()) {
     TRACE_EVENT_MARK_WITH_TIMESTAMP2(
-        kTraceCategories, kLCPCandidate, largest_text.PaintTime(), "data",
+        kTraceCategories,
+        delegate_->IsHardNavigation() ? kLCPCandidate
+                                      : kLCPCandidateForSoftNavs,
+        largest_text.PaintTime(), "data",
         CreateWebExposedCandidateTraceData(largest_text), "frame",
         GetFrameIdForTracing(window->GetFrame()));
   }
@@ -193,17 +203,30 @@ bool LargestContentfulPaintCalculator::HasLargestTextPaintChangedForMetrics(
          largest_text_paint_size != latest_lcp_details_.largest_text_paint_size;
 }
 
-bool LargestContentfulPaintCalculator::NotifyMetricsIfLargestImagePaintChanged(
-    const ImageRecord& image_record) {
+std::pair<ImageRecord*, bool>
+LargestContentfulPaintCalculator::NotifyMetricsIfLargestImagePaintChanged() {
+  ImageRecord* largest_image = LargestPaintedOrPendingImage();
+  if (!largest_image) {
+    return {nullptr, false};
+  }
+  const ImageRecord& image_record = *largest_image;
+
   // TODO(crbug.com/449779010): Unify these.
   base::TimeTicks image_paint_time =
       delegate_->IsHardNavigation() && image_record.HasFirstAnimatedFrameTime()
           ? image_record.FirstAnimatedFrameTime()
           : image_record.PaintTime();
 
+  // For soft navs, we don't update metrics until there's a paint time.
+  // TODO(crbug.com/449779010): This should change to match hard navs once
+  // largest pending image is supported.
+  if (!delegate_->IsHardNavigation() && image_paint_time.is_null()) {
+    return {largest_image, false};
+  }
+
   if (!HasLargestImagePaintChangedForMetrics(image_paint_time,
                                              image_record.RecordedSize())) {
-    return false;
+    return {largest_image, false};
   }
 
   latest_lcp_details_.largest_contentful_paint_type =
@@ -275,14 +298,27 @@ bool LargestContentfulPaintCalculator::NotifyMetricsIfLargestImagePaintChanged(
     }
   }
 
-  return true;
+  return {largest_image, true};
 }
 
-bool LargestContentfulPaintCalculator::NotifyMetricsIfLargestTextPaintChanged(
-    const TextRecord& text_record) {
+std::pair<TextRecord*, bool>
+LargestContentfulPaintCalculator::NotifyMetricsIfLargestTextPaintChanged() {
+  if (!largest_text_) {
+    return {nullptr, false};
+  }
+  // For hard navs, `largest_text_` is updated during the presentation callback,
+  // so we always have paint time. But soft navs updates this during paint, so
+  // we may not.
+  // TODO(crbug.com/449779010): Unify soft and hard nav behavior.
+  if (!largest_text_->HasPaintTime()) {
+    CHECK(!delegate_->IsHardNavigation());
+    return {largest_text_.Get(), false};
+  }
+
+  const TextRecord& text_record = *largest_text_.Get();
   if (!HasLargestTextPaintChangedForMetrics(text_record.PaintTime(),
                                             text_record.RecordedSize())) {
-    return false;
+    return {largest_text_.Get(), false};
   }
 
   DCHECK(text_record.HasPaintTime());
@@ -294,7 +330,7 @@ bool LargestContentfulPaintCalculator::NotifyMetricsIfLargestTextPaintChanged(
     ReportMetricsCandidateToTrace(text_record);
   }
 
-  return true;
+  return {largest_text_.Get(), true};
 }
 
 void LargestContentfulPaintCalculator::UpdateLatestLcpDetailsTypeIfNeeded() {
@@ -318,9 +354,13 @@ void LargestContentfulPaintCalculator::UpdateLatestLcpDetailsTypeIfNeeded() {
   latest_lcp_details_.largest_contentful_paint_type =
       LargestContentfulPaintType::kText;
 }
+
 void LargestContentfulPaintCalculator::Trace(Visitor* visitor) const {
   visitor->Trace(window_performance_);
   visitor->Trace(delegate_);
+  visitor->Trace(largest_text_);
+  visitor->Trace(largest_painted_image_);
+  visitor->Trace(largest_pending_image_);
 }
 
 std::unique_ptr<TracedValue>
@@ -338,15 +378,17 @@ LargestContentfulPaintCalculator::CreateWebExposedCandidateTraceData(
   std::unique_ptr<TracedValue> value =
       CreateWebExposedCandidateTraceDataCommon(largest_image);
   value->SetString("type", "image");
-  value->SetDouble("imageDiscoveryTime",
-                   window_performance_->MonotonicTimeToDOMHighResTimeStamp(
-                       largest_image.GetMediaTiming()->DiscoveryTime()));
-  value->SetDouble("imageLoadStart",
-                   window_performance_->MonotonicTimeToDOMHighResTimeStamp(
-                       largest_image.GetMediaTiming()->LoadStart()));
-  value->SetDouble("imageLoadEnd",
-                   window_performance_->MonotonicTimeToDOMHighResTimeStamp(
-                       largest_image.GetMediaTiming()->LoadEnd()));
+  if (const MediaTiming* media_timing = largest_image.GetMediaTiming()) {
+    value->SetDouble("imageDiscoveryTime",
+                     window_performance_->MonotonicTimeToDOMHighResTimeStamp(
+                         media_timing->DiscoveryTime()));
+    value->SetDouble("imageLoadStart",
+                     window_performance_->MonotonicTimeToDOMHighResTimeStamp(
+                         media_timing->LoadStart()));
+    value->SetDouble("imageLoadEnd",
+                     window_performance_->MonotonicTimeToDOMHighResTimeStamp(
+                         media_timing->LoadEnd()));
+  }
   if (auto* html_image_element =
           DynamicTo<HTMLImageElement>(largest_image.GetNode())) {
     const AtomicString& loadingAttr =
@@ -367,14 +409,10 @@ LargestContentfulPaintCalculator::CreateWebExposedCandidateTraceDataCommon(
   value->SetBoolean("isOutermostMainFrame",
                     window->GetFrame()->IsOutermostMainFrame());
   value->SetBoolean("isMainFrame", window->GetFrame()->IsMainFrame());
-  // Set navigationId to this fixed string for soft navs, to avoid that the
-  // event gets associated with the hard navigation (e.g., in DevTools).
-  value->SetString("navigationId", delegate_->IsHardNavigation()
-                                       ? IdentifiersFactory::LoaderId(
-                                             window->document()->Loader())
-                                       : kFixedNavigationIdForSoftNavs);
-  // TODO(crbug.com/426595418): Clean up this field once we support an
-  // event for soft lcp to be issued (Interaction Contentful Paint).
+  if (delegate_->IsHardNavigation()) {
+    value->SetString("navigationId", IdentifiersFactory::LoaderId(
+                                         window->document()->Loader()));
+  }
   value->SetInteger("performanceTimelineNavigationId",
                     window_performance_->NavigationId());
   if (Node* node = record.GetNode()) {
@@ -427,6 +465,88 @@ void LargestContentfulPaintCalculator::ReportNoMetricsImageCandidateToTrace() {
 
   TRACE_EVENT2("loading", "LargestImagePaint::NoCandidate", "data",
                std::move(value), "frame", GetFrameIdForTracing(frame));
+}
+
+void LargestContentfulPaintCalculator::MaybeUpdateLargestText(
+    TextRecord* record) {
+  if (!largest_text_ ||
+      largest_text_->RecordedSize() < record->RecordedSize()) {
+    largest_text_ = record;
+  }
+}
+
+void LargestContentfulPaintCalculator::MaybeUpdateLargestPaintedImage(
+    ImageRecord* record) {
+  if (!largest_painted_image_ ||
+      largest_painted_image_->RecordedSize() < record->RecordedSize()) {
+    largest_painted_image_ = record;
+  }
+}
+
+bool LargestContentfulPaintCalculator::IsImageNeededForLcp(
+    uint64_t size) const {
+  // TODO(crbug.com/454067883): The `largest_painted_image_` isn't updated until
+  // presentation time for hard navs, so we end up getting more timings than
+  // needed. This probably isn't a big deal, but it's some extra work. Instead,
+  // we may want to track the size of the current largest candidate, and work
+  // off that. We may need that anyway when emitting candidates more frequently.
+  return !largest_painted_image_ ||
+         largest_painted_image_->RecordedSize() < size;
+}
+
+void LargestContentfulPaintCalculator::OnImageFirstPaint(ImageRecord* record) {
+  if (!largest_pending_image_ ||
+      largest_pending_image_->RecordedSize() < record->RecordedSize()) {
+    largest_pending_image_ = record;
+  }
+}
+
+void LargestContentfulPaintCalculator::OnPendingImageRemoved(
+    ImageRecord* record) {
+  // TODO(crbug.com/457794552): This causes metrics to fall back to the
+  // `largest_painted_image_`, but there are a couple problems with this:
+  //  - What if there's a larger pending image and the page unloads? We might
+  //    want to iterate through the list of pending image records to get the
+  //    next largest pending image.
+  //  - Metrics won't be updated until something else triggers calling
+  //    `NotifyMetricsIfLargestImagePaintChanged()`, e.g. a new largest text
+  //    or image paint. We should probably metrics sooner and not rely on this.
+  if (largest_pending_image_ == record) {
+    largest_pending_image_ = nullptr;
+  }
+}
+
+ImageRecord* LargestContentfulPaintCalculator::LargestPaintedOrPendingImage()
+    const {
+  if (!largest_painted_image_ ||
+      (largest_pending_image_ && (largest_painted_image_->RecordedSize() <
+                                  largest_pending_image_->RecordedSize()))) {
+    return largest_pending_image_.Get();
+  }
+  return largest_painted_image_.Get();
+}
+
+void LargestContentfulPaintCalculator::MaybeRecordRemovedCandidateUseCounter(
+    const ImageRecord& record) {
+  // Use `LargestImage()` instead of `largest_painted_image_` since it's
+  // what's used to determine the largest image candidate. This might not end
+  // up affecting metrics, but it could, and it could be emitted to
+  // performance timeline (depending on the largest text).
+  ImageRecord* largest_image = LargestPaintedOrPendingImage();
+  if (!largest_image || largest_image->RecordedSize() < record.RecordedSize()) {
+    UseCounter::Count(window_performance_->DomWindow(),
+                      WebFeature::kLcpCandidateRemovedWhilePaintTimePending);
+  }
+}
+
+void LargestContentfulPaintCalculator::MaybeRecordRemovedCandidateUseCounter(
+    const TextRecord& record) {
+  // This might not end up affecting metrics, but it could, and it could be
+  // emitted to performance timeline (depending on the largest image).
+  if (!largest_text_ || largest_text_->RecordedSize() < record.RecordedSize()) {
+    UseCounter::Count(window_performance_->DomWindow(),
+                      WebFeature::kLcpCandidateRemovedWhilePaintTimePending);
+  }
 }
 
 }  // namespace blink

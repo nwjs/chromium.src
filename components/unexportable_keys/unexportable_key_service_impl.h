@@ -13,6 +13,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "components/unexportable_keys/background_task_origin.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/ref_counted_unexportable_signing_key.h"
 #include "components/unexportable_keys/service_error.h"
@@ -20,8 +21,8 @@
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "crypto/signature_verifier.h"
 #include "crypto/unexportable_key.h"
-#include "third_party/abseil-cpp/absl/container/hash_container_defaults.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/hash_container_defaults.h"
 
 namespace unexportable_keys {
 
@@ -35,6 +36,7 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyServiceImpl
   // `task_manager` must outlive `UnexportableKeyServiceImpl`.
   explicit UnexportableKeyServiceImpl(
       UnexportableKeyTaskManager& task_manager,
+      BackgroundTaskOrigin task_origin,
       crypto::UnexportableKeyProvider::Config config);
 
   ~UnexportableKeyServiceImpl() override;
@@ -43,6 +45,18 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyServiceImpl
   // keys. If this returns false, all service methods will return
   // `ServiceError::kNoKeyProvider`.
   static bool IsUnexportableKeyProviderSupported(
+      crypto::UnexportableKeyProvider::Config config);
+
+  // Returns whether the current platform has a support for stateful
+  // unexportable signing keys. If this returns false, the service methods
+  // requiring stateful keys will be no-ops and will return one of the following
+  // results:
+  // - `ServiceError::kNoKeyProvider` if unexportable keys aren't supported
+  //    on the platform in general,
+  // - `ServiceError::kOperationNotSupported` if an operation cannot produce a
+  //   meaningful result without stateful key support
+  // - Empty result otherwise
+  static bool IsStatefulUnexportableKeyProviderSupported(
       crypto::UnexportableKeyProvider::Config config);
 
   // UnexportableKeyService:
@@ -61,12 +75,6 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyServiceImpl
       BackgroundTaskPriority priority,
       base::OnceCallback<void(ServiceErrorOr<std::vector<UnexportableKeyId>>)>
           callback) override;
-  void CopyKeyFromOtherService(
-      const UnexportableKeyService& other_service,
-      UnexportableKeyId key_id_from_other_service,
-      BackgroundTaskPriority priority,
-      base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback)
-      override;
   void SignSlowlyAsync(
       UnexportableKeyId key_id,
       base::span<const uint8_t> data,
@@ -85,6 +93,10 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyServiceImpl
   ServiceErrorOr<std::vector<uint8_t>> GetWrappedKey(
       UnexportableKeyId key_id) const override;
   ServiceErrorOr<crypto::SignatureVerifier::SignatureAlgorithm> GetAlgorithm(
+      UnexportableKeyId key_id) const override;
+  ServiceErrorOr<std::string> GetKeyTag(
+      UnexportableKeyId key_id) const override;
+  ServiceErrorOr<base::Time> GetCreationTime(
       UnexportableKeyId key_id) const override;
 
  private:
@@ -141,6 +153,7 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyServiceImpl
   }
 
   const raw_ref<UnexportableKeyTaskManager, DanglingUntriaged> task_manager_;
+  const BackgroundTaskOrigin task_origin_;
 
   const crypto::UnexportableKeyProvider::Config config_;
 

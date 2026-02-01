@@ -18,7 +18,6 @@
 #include "ash/public/cpp/login_types.h"
 #include "ash/public/cpp/peripherals_app_delegate.h"
 #include "ash/public/cpp/test/test_image_downloader.h"
-#include "ash/public/mojom/input_device_settings.mojom-shared.h"
 #include "ash/public/mojom/input_device_settings.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
@@ -1495,7 +1494,38 @@ TEST_F(InputDeviceSettingsControllerTest,
       Shell::Get()->session_controller()->GetActivePrefService());
 }
 
-TEST_F(InputDeviceSettingsControllerTest, RestoreDefaultKeyboardRemappings) {
+TEST_F(InputDeviceSettingsControllerTest,
+       RestoreDefaultKeyboardRemappingsExternalKeyboard) {
+  base::HistogramTester histogram_tester;
+
+  ui::DeviceDataManagerTestApi().SetKeyboardDevices({kSampleKeyboardUsb});
+  const mojom::KeyboardSettingsPtr settings = CreateNewKeyboardSettings();
+  settings->top_row_are_fkeys = kDefaultTopRowAreFKeys;
+  settings->modifier_remappings[ui::mojom::ModifierKey::kMeta] =
+      ui::mojom::ModifierKey::kAlt;
+  controller_->SetKeyboardSettings((DeviceId)kSampleKeyboardUsb.id,
+                                   settings->Clone());
+
+  EXPECT_EQ(observer_->num_keyboards_connected(), 1u);
+  EXPECT_EQ(keyboard_pref_handler_->num_keyboard_settings_initialized(), 1u);
+  EXPECT_EQ(controller_->GetKeyboardSettings((DeviceId)kSampleKeyboardUsb.id)
+                ->modifier_remappings.size(),
+            1u);
+
+  controller_->RestoreDefaultKeyboardRemappings(
+      (DeviceId)kSampleKeyboardUsb.id);
+
+  EXPECT_EQ(controller_->GetKeyboardSettings((DeviceId)kSampleKeyboardUsb.id)
+                ->modifier_remappings.size(),
+            0u);
+
+  histogram_tester.ExpectUniqueSample(
+      "ChromeOS.Settings.Device.Keyboard.External.Modifiers.NumberOfKeysReset",
+      /*sample=*/1u, /*expected_bucket_count=*/1u);
+}
+
+TEST_F(InputDeviceSettingsControllerTest,
+       RestoreDefaultKeyboardRemappingsInternalKeyboard) {
   base::HistogramTester histogram_tester;
 
   ui::DeviceDataManagerTestApi().SetKeyboardDevices(

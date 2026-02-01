@@ -462,8 +462,6 @@ CastMediaSinkServiceImpl::CreateCastSocketOpenParams(
                  kMaxLivenessTimeoutInSeconds);
   }
 
-  // TODO(crbug.com/41371793): Switching cast socket implementation to use
-  // network service will allow us to get back NetLog.
   return cast_channel::CastSocketOpenParams(
       sink.cast_data().ip_endpoint, base::Seconds(connect_timeout_in_seconds),
       base::Seconds(liveness_timeout_in_seconds),
@@ -773,7 +771,7 @@ void CastMediaSinkServiceImpl::SetCastAllowAllIPs(bool allow_all_ips) {
 }
 
 bool CastMediaSinkServiceImpl::HasSink(const MediaSink::Id& sink_id) {
-  return base::Contains(GetSinks(), sink_id);
+  return GetSinks().contains(sink_id);
 }
 
 void CastMediaSinkServiceImpl::DisconnectAndRemoveSink(

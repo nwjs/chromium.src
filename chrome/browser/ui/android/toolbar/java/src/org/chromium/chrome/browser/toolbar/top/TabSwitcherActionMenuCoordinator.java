@@ -240,13 +240,10 @@ public class TabSwitcherActionMenuCoordinator {
     }
 
     private void maybeBuildAddToGroup(ModelList itemList) {
-        if (!ChromeFeatureList.sTabGroupEntryPointsAndroid.isEnabled()) return;
-
         if (ChromeFeatureList.sTabModelInitFixes.isEnabled()) {
             TabModelSelector selector = mTabModelSelectorSupplier.get();
             if (selector == null || !selector.isTabStateInitialized()) return;
-            TabGroupModelFilter filter =
-                    selector.getTabGroupModelFilterProvider().getCurrentTabGroupModelFilter();
+            TabGroupModelFilter filter = selector.getCurrentTabGroupModelFilter();
             if (filter == null || !filter.isTabModelRestored()) return;
         }
 
@@ -282,7 +279,7 @@ public class TabSwitcherActionMenuCoordinator {
                         .withStartIconRes(
                                 IncognitoUtils.shouldOpenIncognitoAsWindow()
                                         ? R.drawable.ic_add_box_rounded_corner
-                                        : R.drawable.incognito_simple)
+                                        : R.drawable.ic_incognito_fill_24dp)
                         .withEnabled(enabled)
                         .build();
             case MenuItemType.CLOSE_ALL_INCOGNITO_TABS:
@@ -341,9 +338,7 @@ public class TabSwitcherActionMenuCoordinator {
         TabModelSelector tabModelSelector = mTabModelSelectorSupplier.get();
         if (tabModelSelector != null) {
             TabGroupModelFilter currentTabGroupModelFilter =
-                    tabModelSelector
-                            .getTabGroupModelFilterProvider()
-                            .getCurrentTabGroupModelFilter();
+                    tabModelSelector.getCurrentTabGroupModelFilter();
             assumeNonNull(currentTabGroupModelFilter);
             return currentTabGroupModelFilter.getTabGroupCount() != 0;
         }

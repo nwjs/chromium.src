@@ -14,6 +14,7 @@
 #include "base/containers/fixed_flat_set.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_tokenizer.h"
@@ -246,8 +247,7 @@ std::optional<double> TypeConverter<double>::FromString(
 
 std::optional<GURL> ui::metadata::TypeConverter<GURL>::FromString(
     const std::u16string& source_value) {
-  const GURL url =
-      url_formatter::FixupURL(base::UTF16ToUTF8(source_value), std::string());
+  const GURL url = url_formatter::FixupURL(base::UTF16ToUTF8(source_value));
   return url.is_valid() ? std::make_optional(url) : std::nullopt;
 }
 

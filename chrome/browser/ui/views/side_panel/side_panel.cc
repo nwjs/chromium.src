@@ -10,12 +10,12 @@
 #include "base/i18n/number_formatting.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
-#include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_animation_coordinator.h"
@@ -126,8 +126,9 @@ class SidePanelBorder : public views::Border {
 
     gfx::RectF scaled_contents_bounds_f = scaled_view_bounds_f;
     const float corner_radius =
-        dsf * view.GetLayoutProvider()->GetCornerRadiusMetric(
-                  views::ShapeContextTokens::kSidePanelContentRadius);
+        dsf * view.GetLayoutProvider()->GetDistanceMetric(
+                  ChromeDistanceMetric::
+                      DISTANCE_CONTENT_HEIGHT_SIDE_PANEL_CONTENT_RADIUS);
     const gfx::InsetsF insets_in_pixels(
         gfx::ConvertInsetsToPixels(GetInsets(), dsf));
     scaled_contents_bounds_f.Inset(insets_in_pixels);
@@ -264,14 +265,15 @@ class ContentParentView : public views::View, public views::ViewObserver {
   }
 
   gfx::RoundedCornersF GetRoundedCorners() {
+    ChromeDistanceMetric corner_radius =
+        type_ == SidePanelEntry::PanelType::kToolbar
+            ? ChromeDistanceMetric::
+                  DISTANCE_TOOLBAR_HEIGHT_SIDE_PANEL_CONTENT_RADIUS
+            : ChromeDistanceMetric::
+                  DISTANCE_CONTENT_HEIGHT_SIDE_PANEL_CONTENT_RADIUS;
     return should_round_corners_ && GetLayoutProvider()
                ? gfx::RoundedCornersF(
-                     GetLayoutProvider()->GetCornerRadiusMetric(
-                         type_ == SidePanelEntry::PanelType::kToolbar
-                             ? views::ShapeContextTokens::
-                                   kToolbarHeightSidePanelContentRadius
-                             : views::ShapeContextTokens::
-                                   kSidePanelContentRadius))
+                     GetLayoutProvider()->GetDistanceMetric(corner_radius))
                : gfx::RoundedCornersF();
   }
 
@@ -657,14 +659,6 @@ void SidePanel::OnAnimationSequenceProgressed(
     browser_view_->GetSidePanelAnimationContent()->layer()->SetOpacity(
         gfx::Tween::DoubleValueBetween(animation_value, 0.5, 1));
   } else if (animation_id == kSidePanelBoundsAnimation) {
-    const base::TimeTicks now = base::TimeTicks::Now();
-    const base::TimeDelta elapsed = now - last_animation_step_timestamp_;
-    last_animation_step_timestamp_ = now;
-
-    if (!largest_animation_step_time_.has_value() ||
-        elapsed > largest_animation_step_time_.value()) {
-      largest_animation_step_time_ = elapsed;
-    }
     InvalidateLayout();
   } else {
     NOTREACHED() << "Observed animation id is not handled";
@@ -705,12 +699,6 @@ void SidePanel::OnAnimationTypeEnded(
     default:
       NOTREACHED() << "Observed animation type is not handled";
   }
-
-  if (largest_animation_step_time_.has_value()) {
-    SidePanelUtil::RecordSidePanelAnimationMetrics(
-        type_, largest_animation_step_time_.value());
-  }
-
   InvalidateLayout();
 }
 
@@ -854,8 +842,6 @@ void SidePanel::UpdateVisibility(bool should_be_open, bool animate_transition) {
         view->SetVisible(false);
       }
       SetVisible(should_be_open);
-      largest_animation_step_time_.reset();
-      last_animation_step_timestamp_ = base::TimeTicks::Now();
       if (content_starting_bounds_.has_value()) {
         CHECK(content_parent_view_->children().size() == 1);
         browser_view_->SetSidePanelAnimationContent(
@@ -893,7 +879,17 @@ double SidePanel::GetAnimationValueFor(
 }
 
 bool SidePanel::ShouldShowAnimation() const {
-  return gfx::Animation::ShouldRenderRichAnimation() && !animations_disabled_;
+  bool should_show_animations =
+      gfx::Animation::ShouldRenderRichAnimation() && !animations_disabled_;
+#if BUILDFLAG(IS_WIN)
+  // Don't show open/close animations for the toolbar height panel on Windows
+  // due to jank. The "show from" animation should still run which is the only
+  // time |content_starting_bounds_| has a value.
+  if (type_ == SidePanelEntry::PanelType::kToolbar) {
+    should_show_animations &= content_starting_bounds_.has_value();
+  }
+#endif
+  return should_show_animations;
 }
 
 void SidePanel::AnnounceResize() {

@@ -317,8 +317,18 @@ class CORE_EXPORT HTMLElement : public Element {
       Element& top_layer_element,
       TopLayerElementType top_layer_element_type);
 
+  // HandlePopoverLightDismiss is only called when the LightDismissFromClick
+  // flag is disabled, and HandlePopoverLightDismissForClick is only called when
+  // LightDismissFromClick is enabled.
+  // HandlePopoverLightDismiss is called twice for each click, once for
+  // pointerdown and once for pointerup.
+  // HandlePopoverLightDismissForClick is only called once for each click and
+  // contains the relevant information from the corresponding pointerdown and
+  // pointerup events.
   static void HandlePopoverLightDismiss(const PointerEvent& event,
                                         const Node& node);
+  static void HandlePopoverLightDismissForClick(const Node& pointer_down_target,
+                                                const Node& pointer_up_target);
   void InvokePopover(Element& invoker);
   void SetPopoverFocusOnShow();
   // This hides all visible popovers up to, but not including,
@@ -358,8 +368,7 @@ class CORE_EXPORT HTMLElement : public Element {
   // See: crbug.com/1490919, https://open-ui.org/components/invokers.explainer/
   bool IsValidBuiltinCommand(HTMLElement& invoker,
                              CommandEventType command) override;
-  bool IsValidBuiltinPopoverCommand(HTMLElement& invoker,
-                                    CommandEventType command);
+  bool IsValidBuiltinPopoverCommand(CommandEventType command);
   bool HandleCommandInternal(HTMLElement& invoker,
                              CommandEventType command) override;
   // This is true if this element *can* be a command invoker: it is an element
@@ -368,9 +377,9 @@ class CORE_EXPORT HTMLElement : public Element {
   // function doesn't connect directly to the `command*` attributes themselves;
   // i.e. this will not change state if the `commandfor` attribute is changed.
   virtual bool CanBeCommandInvoker() const;
-  CommandEventType GetCommandEventType(const AtomicString& type,
-                                       ExecutionContext*) const;
-  bool HandleCommandForActivation();
+  static CommandEventType GetCommandEventType(const AtomicString& type,
+                                              ExecutionContext*);
+  virtual bool HandleCommandForActivation();
   Element* commandForElement() const;
   AtomicString command() const;
   void setCommand(const AtomicString& type);

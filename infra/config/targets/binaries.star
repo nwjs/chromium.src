@@ -803,6 +803,7 @@ targets.binaries.script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1458,6 +1459,14 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
+    name = "ios_swift_interop_xcuitests_module",
+    label = "//ios/chrome/test/swift_interop:ios_swift_interop_xcuitests_module",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "xctest",
+)
+
+targets.binaries.generated_script(
     name = "ios_components_unittests",
     label = "//ios/components:ios_components_unittests",
     # All references have been moved to starlark
@@ -1673,11 +1682,13 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "model_validation_tests",
     label = "//components/optimization_guide/internal/testing:model_validation_tests",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "model_validation_tests_light",
     label = "//components/optimization_guide/internal/testing:model_validation_tests_light",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
@@ -1775,21 +1786,25 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "ondevice_stability_tests",
     label = "//components/optimization_guide/internal/testing:ondevice_stability_tests",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "ondevice_stability_tests_light",
     label = "//components/optimization_guide/internal/testing:ondevice_stability_tests_light",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "ondevice_model_benchmark_tests",
     label = "//components/optimization_guide/internal/testing:ondevice_model_benchmark_tests",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "opt_target_coverage_test",
     label = "//components/optimization_guide/internal/testing:opt_target_coverage_test",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
@@ -1913,16 +1928,19 @@ targets.binaries.generated_script(
             "--smoke-test-mode",
         ],
     ),
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
     label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+    module_scheme = "flat",
 )
 
 targets.binaries.generated_script(
     name = "performance_test_suite_android_trichrome_chrome_google_bundle",
     label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
+    module_scheme = "flat",
 )
 
 targets.binaries.script(
@@ -2682,19 +2700,17 @@ targets.binaries.script(
 )
 
 targets.binaries.script(
-    name = "webview_trichrome_cts_tests",
-    label = "//android_webview/test:webview_trichrome_cts_tests",
+    name = "webview_64_32_cts_tests",
+    label = "//android_webview/test:webview_64_32_cts_tests",
     script = "//android_webview/tools/run_cts.py",
     # All references have been moved to starlark
     skip_usage_check = True,
     args = [
         "--skip-expected-failures",
-        "--additional-apk",
-        "apks/TrichromeLibrary.apk",
         "--use-webview-provider",
-        "apks/TrichromeWebView.apk",
+        "apks/SystemWebView6432.apk",
         "--apk-under-test",
-        "apks/TrichromeWebView.apk",
+        "apks/SystemWebView6432.apk",
         "--use-apk-under-test-flags-file",
         "-v",
         # Required for stack.py to find build artifacts for symbolization.
@@ -2705,54 +2721,8 @@ targets.binaries.script(
 )
 
 targets.binaries.script(
-    name = "webview_trichrome_64_32_cts_tests",
-    label = "//android_webview/test:webview_trichrome_64_32_cts_tests",
-    script = "//android_webview/tools/run_cts.py",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    args = [
-        "--skip-expected-failures",
-        "--additional-apk",
-        "apks/TrichromeLibrary6432.apk",
-        "--use-webview-provider",
-        "apks/TrichromeWebView6432.apk",
-        "--apk-under-test",
-        "apks/TrichromeWebView6432.apk",
-        "--use-apk-under-test-flags-file",
-        "-v",
-        # Required for stack.py to find build artifacts for symbolization.
-        "--output-directory",
-        ".",
-    ],
-    module_scheme = "junit",
-)
-
-targets.binaries.script(
-    name = "webview_trichrome_64_cts_tests",
-    label = "//android_webview/test:webview_trichrome_64_cts_tests",
-    script = "//android_webview/tools/run_cts.py",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    args = [
-        "--skip-expected-failures",
-        "--additional-apk",
-        "apks/TrichromeLibrary64.apk",
-        "--use-webview-provider",
-        "apks/TrichromeWebView64.apk",
-        "--apk-under-test",
-        "apks/TrichromeWebView64.apk",
-        "--use-apk-under-test-flags-file",
-        "-v",
-        # Required for stack.py to find build artifacts for symbolization.
-        "--output-directory",
-        ".",
-    ],
-    module_scheme = "junit",
-)
-
-targets.binaries.script(
-    name = "webview_trichrome_64_cts_hostside_tests",
-    label = "//android_webview/test:webview_trichrome_64_cts_hostside_tests",
+    name = "webview_64_cts_hostside_tests",
+    label = "//android_webview/test:webview_64_cts_hostside_tests",
     script = "//android_webview/tools/run_cts.py",
     # All references have been moved to starlark
     skip_usage_check = True,
@@ -2760,10 +2730,10 @@ targets.binaries.script(
         "--cts-gcs-path",
         "../../android_webview/tools/cts_config/webview_cts_hostside_gcs_path.json",
         "--skip-expected-failures",
-        "--additional-apk",
-        "apks/TrichromeLibrary64.apk",
         "--use-webview-provider",
-        "apks/TrichromeWebView64.apk",
+        "apks/SystemWebView64.apk",
+        "--apk-under-test",
+        "apks/SystemWebView64.apk",
         "--module-apk",
         "CtsHostsideWebViewTests.apk",
     ],

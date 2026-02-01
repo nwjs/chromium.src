@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -24,6 +25,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "services/media_session/public/cpp/features.h"
 #include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h"
+#include "third_party/blink/public/strings/grit/blink_strings.h"
 
 namespace content {
 
@@ -480,7 +482,7 @@ IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,
   gfx::Size new_size(50, 50);
   overlay_window()->UpdateNaturalSize(new_size);
 
-  EXPECT_EQ(window_controller()->GetWindowBounds().value(),
+  EXPECT_EQ(window_controller()->GetWindowBoundsInScreen().value(),
             gfx::Rect(new_size));
 }
 
@@ -695,7 +697,7 @@ IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,
   // The overlay window should have received the favicon image.
   ASSERT_EQ(overlay_window()->favicon_images().size(), 1u);
   const std::string icon_src = overlay_window()->favicon_images()[0].src.spec();
-  EXPECT_TRUE(base::Contains(icon_src, "test.ico"))
+  EXPECT_TRUE(icon_src.contains("test.ico"))
       << "The icon source: \"" << icon_src << "\" should contain \"test.ico\"";
 
   // The overlay window should be able to retrieve the favicon image.
@@ -715,7 +717,7 @@ IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,
       .WillOnce([](const std::vector<media_session::MediaImage>& images) {
         ASSERT_EQ(images.size(), 1u);
         const std::string icon_src = images[0].src.spec();
-        EXPECT_TRUE(base::Contains(icon_src, "new.ico"))
+        EXPECT_TRUE(icon_src.contains("new.ico"))
             << "The icon source: \"" << icon_src
             << "\" should contain \"new.ico\"";
       });
@@ -731,6 +733,31 @@ IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,
   ASSERT_EQ(true, EvalJs(shell(), "enterPictureInPicture();"));
 
   EXPECT_EQ(overlay_window()->source_title(), u"File on your device");
+}
+
+IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,
+                       SendsSourceTitleToOverlayWindow_DataUrl) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  const GURL test_page_url = embedded_test_server()->GetURL(
+      "example.com", "/media/picture_in_picture/one-video.html");
+  GURL data_url(base::StrCat(
+      {"data:text/html,<html><body><iframe width='400px' height='400px' "
+       "onload='document.title=\"iframe loaded\"' src='",
+       test_page_url.spec(), "'></iframe></html>"}));
+  ASSERT_TRUE(NavigateToURL(shell(), data_url));
+  WaitForTitle(u"iframe loaded");
+
+  auto* main_frame = shell()->web_contents()->GetPrimaryMainFrame();
+  RenderFrameHost* sub_frame = ChildFrameAt(main_frame, 0);
+  ASSERT_TRUE(sub_frame);
+
+  ASSERT_EQ(true, EvalJs(sub_frame, "play();"));
+  ASSERT_TRUE(ExecJs(sub_frame, "video.pause();"));
+  ASSERT_EQ(true, EvalJs(sub_frame, "enterPictureInPicture();"));
+  ASSERT_TRUE(web_contents_delegate()->is_in_picture_in_picture());
+
+  EXPECT_EQ(overlay_window()->source_title(), u"Data URL");
 }
 
 IN_PROC_BROWSER_TEST_F(VideoPictureInPictureContentBrowserTest,

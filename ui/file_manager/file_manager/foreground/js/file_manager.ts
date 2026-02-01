@@ -1034,7 +1034,7 @@ export class FileManager {
     this.taskController_ = new TaskController(
         this.volumeManager_, this.ui_, this.metadataModel_,
         this.directoryModel_, this.selectionHandler_,
-        this.metadataUpdateController_, this.crostini_, this.progressCenter);
+        this.metadataUpdateController_, this.progressCenter);
 
     // Create directory tree naming controller.
     this.directoryTreeNamingController_ = new DirectoryTreeNamingController(
@@ -1192,6 +1192,8 @@ export class FileManager {
               this.metadataModel_, this.ui_, moveMessage, copyMessage,
               this.fileTransferController_, this.directoryModel_);
         }
+        break;
+      default:
         break;
     }
   }

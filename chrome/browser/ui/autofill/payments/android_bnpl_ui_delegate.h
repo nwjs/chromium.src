@@ -12,18 +12,46 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/ui/payments/bnpl_ui_delegate.h"
 
 namespace autofill {
 
 struct AutofillErrorDialogContext;
 enum class AutofillProgressDialogType;
-struct BnplTosModel;
 
 namespace payments {
 
 struct BnplIssuerContext;
+struct BnplTosModel;
 class PaymentsAutofillClient;
+
+// A struct containing a BNPL ToS info to be shown on the bottomsheet screen.
+struct BnplIssuerTosDetail {
+ public:
+  BnplIssuerTosDetail(BnplIssuer::IssuerId issuer_id,
+                      bool is_linked_issuer,
+                      std::u16string issuer_name,
+                      std::vector<LegalMessageLine> legal_message_lines);
+  BnplIssuerTosDetail(const BnplIssuerTosDetail& other);
+  BnplIssuerTosDetail(BnplIssuerTosDetail&&);
+  BnplIssuerTosDetail& operator=(const BnplIssuerTosDetail& other);
+  BnplIssuerTosDetail& operator=(BnplIssuerTosDetail&&);
+  ~BnplIssuerTosDetail();
+  bool operator==(const BnplIssuerTosDetail&) const;
+
+  // Issuer that the ToS screen is being shown for.
+  BnplIssuer::IssuerId issuer_id;
+
+  // True if the selected issuer is a linked issuer.
+  bool is_linked_issuer;
+
+  // Display name of the BNPL issuer.
+  std::u16string issuer_name;
+
+  // Legal messages with links that are shown in screen footer.
+  std::vector<LegalMessageLine> legal_message_lines;
+};
 
 // Android implementation of the BnplUiDelegate interface. This class handles
 // the UI for the BNPL autofill flow on the Android platform.
@@ -38,7 +66,8 @@ class AndroidBnplUiDelegate : public BnplUiDelegate {
   void ShowSelectBnplIssuerUi(
       std::vector<BnplIssuerContext> bnpl_issuer_context,
       std::string app_locale,
-      base::OnceCallback<void(autofill::BnplIssuer)> selected_issuer_callback,
+      base::RepeatingCallback<void(autofill::BnplIssuer)>
+          selected_issuer_callback,
       base::OnceClosure cancel_callback,
       bool has_seen_ai_terms) override;
   void UpdateBnplIssuerDialogUi(
@@ -52,11 +81,6 @@ class AndroidBnplUiDelegate : public BnplUiDelegate {
                       base::OnceClosure cancel_callback) override;
   void CloseProgressUi(bool credit_card_fetched_successfully) override;
   void ShowAutofillErrorUi(AutofillErrorDialogContext context) override;
-
-  // Returns icons for showing BNPL issuer ToS screen based on the selected
-  // issuer.
-  static int GetDuoBrandedIconForBnplIssuer(BnplIssuer::IssuerId issuer_id,
-                                            bool is_dark_mode);
 
  private:
   const raw_ref<PaymentsAutofillClient> client_;

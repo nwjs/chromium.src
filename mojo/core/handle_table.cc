@@ -2,17 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/core/handle_table.h"
 
 #include <stdint.h>
 
 #include <limits>
 
+#include "base/compiler_specific.h"
 #include "base/trace_event/memory_dump_manager.h"
 
 namespace mojo {
@@ -111,8 +107,9 @@ base::Lock& HandleTable::GetLock() {
 
 MojoHandle HandleTable::AddDispatcher(scoped_refptr<Dispatcher> dispatcher) {
   // Oops, we're out of handles.
-  if (next_available_handle_ == MOJO_HANDLE_INVALID)
+  if (next_available_handle_ == MOJO_HANDLE_INVALID) {
     return MOJO_HANDLE_INVALID;
+  }
 
   MojoHandle handle = next_available_handle_++;
   const bool inserted = entries_.Add(handle, Entry(std::move(dispatcher)));
@@ -147,7 +144,7 @@ bool HandleTable::AddDispatchersFromTransit(
           entries_.Add(handle, Entry(dispatchers[i].dispatcher));
       DCHECK(inserted);
     }
-    handles[i] = handle;
+    UNSAFE_TODO(handles[i]) = handle;
   }
 
   return true;
@@ -181,7 +178,7 @@ MojoResult HandleTable::BeginTransit(
     std::vector<Dispatcher::DispatcherInTransit>* dispatchers) {
   dispatchers->reserve(dispatchers->size() + num_handles);
   for (size_t i = 0; i < num_handles; ++i) {
-    Entry* entry = entries_.GetMutable(handles[i]);
+    Entry* entry = entries_.GetMutable(UNSAFE_TODO(handles[i]));
     if (entry == nullptr) {
       return MOJO_RESULT_INVALID_ARGUMENT;
     }
@@ -190,10 +187,11 @@ MojoResult HandleTable::BeginTransit(
     }
 
     Dispatcher::DispatcherInTransit d;
-    d.local_handle = handles[i];
+    d.local_handle = UNSAFE_TODO(handles[i]);
     d.dispatcher = entry->dispatcher;
-    if (!d.dispatcher->BeginTransit())
+    if (!d.dispatcher->BeginTransit()) {
       return MOJO_RESULT_BUSY;
+    }
     entry->busy = true;
     dispatchers->push_back(d);
   }
@@ -224,8 +222,9 @@ void HandleTable::CancelTransit(
 
 void HandleTable::GetActiveHandlesForTest(std::vector<MojoHandle>* handles) {
   handles->clear();
-  for (const auto& entry : entries_.GetUnderlyingMap())
+  for (const auto& entry : entries_.GetUnderlyingMap()) {
     handles->push_back(entry.first);
+  }
 }
 
 // MemoryDumpProvider implementation.

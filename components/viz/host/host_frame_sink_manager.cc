@@ -74,6 +74,12 @@ void HostFrameSinkManager::SetConnectionLostCallback(
   connection_lost_callback_ = std::move(callback);
 }
 
+void HostFrameSinkManager::SetViewTransitionResourcesCapturedCallback(
+    const blink::ViewTransitionToken& token,
+    base::OnceClosure callback) {
+  view_transition_callbacks_[token] = std::move(callback);
+}
+
 void HostFrameSinkManager::RegisterFrameSinkId(
     const FrameSinkId& frame_sink_id,
     HostFrameSinkClient* client,
@@ -204,6 +210,13 @@ void HostFrameSinkManager::CreateRootCompositorFrameSink(
   display_hit_test_query_[frame_sink_id] =
       std::make_unique<HitTestQuery>(std::nullopt);
 }
+
+#if BUILDFLAG(IS_MAC)
+void HostFrameSinkManager::CreateCompositorDisplayLink(
+    mojom::CompositorDisplayLinkParamsPtr params) {
+  frame_sink_manager_->CreateCompositorDisplayLink(std::move(params));
+}
+#endif
 
 void HostFrameSinkManager::CreateCompositorFrameSink(
     const FrameSinkId& frame_sink_id,
@@ -341,9 +354,10 @@ void HostFrameSinkManager::EvictSurfaces(
 void HostFrameSinkManager::RequestCopyOfOutput(
     const SurfaceId& surface_id,
     std::unique_ptr<CopyOutputRequest> request,
-    bool capture_exact_surface_id) {
+    bool capture_exact_surface_id,
+    base::TimeDelta timeout) {
   frame_sink_manager_->RequestCopyOfOutput(surface_id, std::move(request),
-                                           capture_exact_surface_id);
+                                           capture_exact_surface_id, timeout);
 }
 
 void HostFrameSinkManager::SetupRenderInputRouterDelegateConnection(
@@ -561,6 +575,18 @@ void HostFrameSinkManager::OnVizTouchStateAvailable(
   }
 }
 
+void HostFrameSinkManager::OnViewTransitionResourcesCaptured(
+    const blink::ViewTransitionToken& transition_token) {
+  auto it = view_transition_callbacks_.find(transition_token);
+  if (it == view_transition_callbacks_.end()) {
+    return;
+  }
+
+  auto closure = std::move(it->second);
+  view_transition_callbacks_.erase(it);
+  std::move(closure).Run();
+}
+
 #if BUILDFLAG(IS_ANDROID)
 uint32_t HostFrameSinkManager::CacheBackBufferForRootSink(
     const FrameSinkId& root_sink_id) {
@@ -638,6 +664,7 @@ HostFrameSinkManager::GetFrameSinkManagerTestApi() {
 
 void HostFrameSinkManager::ClearUnclaimedViewTransitionResources(
     const blink::ViewTransitionToken& transition_token) {
+  view_transition_callbacks_.erase(transition_token);
   frame_sink_manager_->ClearUnclaimedViewTransitionResources(transition_token);
 }
 

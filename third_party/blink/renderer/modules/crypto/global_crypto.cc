@@ -30,22 +30,27 @@
 
 #include "third_party/blink/renderer/modules/crypto/global_crypto.h"
 
-#include "third_party/blink/renderer/core/frame/window_or_worker_global_scope.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/crypto/crypto.h"
 
 namespace blink {
 
-GlobalCrypto& GlobalCrypto::From(WindowOrWorkerGlobalScope& context) {
-  GlobalCrypto* supplement = context.GetGlobalCrypto();
+const char GlobalCrypto::kSupplementName[] = "GlobalCrypto";
+
+GlobalCrypto::GlobalCrypto(ExecutionContext& execution_context)
+    : Supplement<ExecutionContext>(execution_context) {}
+
+GlobalCrypto& GlobalCrypto::From(ExecutionContext& execution_context) {
+  GlobalCrypto* supplement =
+      Supplement<ExecutionContext>::From<GlobalCrypto>(execution_context);
   if (!supplement) {
-    supplement = MakeGarbageCollected<GlobalCrypto>();
-    context.SetGlobalCrypto(supplement);
+    supplement = MakeGarbageCollected<GlobalCrypto>(execution_context);
+    Supplement<ExecutionContext>::ProvideTo(execution_context, supplement);
   }
   return *supplement;
 }
-
-Crypto* GlobalCrypto::crypto(WindowOrWorkerGlobalScope& context) {
-  return GlobalCrypto::From(context).crypto();
+Crypto* GlobalCrypto::crypto(ExecutionContext& execution_context) {
+  return GlobalCrypto::From(execution_context).crypto();
 }
 
 Crypto* GlobalCrypto::crypto() const {
@@ -57,6 +62,7 @@ Crypto* GlobalCrypto::crypto() const {
 
 void GlobalCrypto::Trace(Visitor* visitor) const {
   visitor->Trace(crypto_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 }  // namespace blink

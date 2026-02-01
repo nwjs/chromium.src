@@ -16,6 +16,7 @@ import static org.chromium.base.GarbageCollectionTestUtils.canBeGarbageCollected
 import static org.chromium.base.test.transit.TransitAsserts.assertFinalDestination;
 import static org.chromium.base.test.transit.TransitAsserts.assertFinalDestinations;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getIndexOnUiThread;
 
 import android.graphics.Bitmap;
@@ -68,7 +69,6 @@ import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.transit.tabmodel.TabThumbnailsCapturedCarryOn;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.mojo.system.Pair;
 import org.chromium.ui.base.PageTransition;
@@ -135,7 +135,7 @@ public class TabSwitcherLayoutPTTest {
             CtaPageStation currentStation) {
         return currentStation
                 .openRegularTabSwitcherAnd()
-                .pickUpCarryOnAnd(
+                .enterStateAnd(
                         new TabThumbnailsCapturedCarryOn(
                                 currentStation.getTabModelSelector(), /* isIncognito= */ false))
                 .completeAndGet(RegularTabSwitcherStation.class);
@@ -146,7 +146,7 @@ public class TabSwitcherLayoutPTTest {
             CtaPageStation currentStation) {
         return currentStation
                 .openIncognitoTabSwitcherAnd()
-                .pickUpCarryOnAnd(
+                .enterStateAnd(
                         new TabThumbnailsCapturedCarryOn(
                                 currentStation.getTabModelSelector(), /* isIncognito= */ true))
                 .completeAndGet(IncognitoTabSwitcherStation.class);
@@ -236,7 +236,7 @@ public class TabSwitcherLayoutPTTest {
                         mStartPage,
                         3,
                         0,
-                        UrlConstants.NTP_URL,
+                        getOriginalNativeNtpUrl(),
                         RegularNewTabPageStation::newBuilder);
         // Make sure all thumbnails are there before switching tabs.
         RegularTabSwitcherStation tabSwitcherStation =
@@ -759,7 +759,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUPS_COLOR_UPDATE_GM3})
     public void testRenderGrid_TabGroupColor_2TabsInGroup() throws IOException {
         doTestRenderGrid_TabGroupColor_Parameterized(
                 /* isIncognito= */ false,
@@ -770,7 +769,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUPS_COLOR_UPDATE_GM3})
     public void testRenderGrid_TabGroupColor_Incognito_2TabsInGroup() throws IOException {
         doTestRenderGrid_TabGroupColor_Parameterized(
                 /* isIncognito= */ true,
@@ -781,7 +779,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUPS_COLOR_UPDATE_GM3})
     public void testRenderGrid_TabGroupColor_5TabsInGroup() throws IOException {
         doTestRenderGrid_TabGroupColor_Parameterized(
                 /* isIncognito= */ false,
@@ -792,7 +789,6 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUPS_COLOR_UPDATE_GM3})
     public void testRenderGrid_TabGroupColor_Incognito_5TabsInGroup() throws IOException {
         doTestRenderGrid_TabGroupColor_Parameterized(
                 /* isIncognito= */ true,

@@ -90,7 +90,7 @@ class SelectBnplIssuerDialogInteractiveUiTest : public InteractiveBrowserTest {
   }
 
   std::unique_ptr<SelectBnplIssuerDialogControllerImpl> controller_;
-  base::MockOnceCallback<void(BnplIssuer)> accept_callback_;
+  base::MockRepeatingCallback<void(BnplIssuer)> accept_callback_;
   base::MockOnceClosure cancel_callback_;
   base::test::ScopedFeatureList feature_list_{
       features::kAutofillEnableAiBasedAmountExtraction};
@@ -219,6 +219,32 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
                              return hover_button_container->children()[0].get();
                            }),
           PressButton(enabled_bnpl_issuer_hover_button_name),
+          WaitForShow(SelectBnplIssuerDialog::kThrobberId)));
+}
+
+// Ensures that an issuer with `kTemporarilyEligibleCheckoutAmountNotYetKnown`
+// is enabled and can be selected, triggering the throbber.
+IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
+                       TemporarilyEligibleBnplIssuerSelected) {
+  const std::string temp_eligible_button_name =
+      "Temp Eligible BNPL Issuer button";
+
+  EXPECT_CALL(accept_callback_, Run);
+
+  RunTestSequence(
+      InvokeUiAndWaitForShow({{GetTestBnplIssuerContext(
+          IssuerId::kBnplAffirm,
+          BnplIssuerEligibilityForPage::
+              kTemporarilyEligibleCheckoutAmountNotYetKnown)}}),
+      InAnyContext(
+          NameViewRelative(SelectBnplIssuerDialog::kBnplIssuerView,
+                           temp_eligible_button_name,
+                           [](views::View* container) {
+                             return container->children()[0].get();
+                           }),
+          CheckView(temp_eligible_button_name,
+                    [](views::View* view) { return view->GetEnabled(); }),
+          PressButton(temp_eligible_button_name),
           WaitForShow(SelectBnplIssuerDialog::kThrobberId)));
 }
 
@@ -446,7 +472,7 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
                 IDS_AUTOFILL_CARD_BNPL_SELECT_PROVIDER_FOOTNOTE_FOR_AI_AMOUNT_EXTRACTION_NOTE);
 
             // Verify the AI note text is present in the footnote.
-            EXPECT_TRUE(base::Contains(styled_label->GetText(), ai_note_text));
+            EXPECT_TRUE(styled_label->GetText().contains(ai_note_text));
 
             // Verify that none of the parts of the styled label that make up
             // the AI note are bold.
@@ -454,7 +480,7 @@ IN_PROC_BROWSER_TEST_F(SelectBnplIssuerDialogInteractiveUiTest,
               const views::Label* label_child =
                   views::AsViewClass<views::Label>(child);
               if (label_child &&
-                  base::Contains(ai_note_text, label_child->GetText())) {
+                  ai_note_text.contains(label_child->GetText())) {
                 EXPECT_NE(label_child->GetTextStyle(),
                           views::style::TextStyle::STYLE_EMPHASIZED);
               }

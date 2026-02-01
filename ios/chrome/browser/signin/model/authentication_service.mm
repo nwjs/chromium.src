@@ -413,6 +413,22 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
 void AuthenticationService::SignOut(
     signin_metrics::ProfileSignout signout_source,
     ProceduralBlock completion) {
+  ProfileManagerIOS* profile_manager =
+      GetApplicationContext()->GetProfileManager();
+  if (!profile_manager) {
+    CHECK_IS_TEST();
+  } else {
+    ProfileAttributesStorageIOS* attributes_storage =
+        profile_manager->GetProfileAttributesStorage();
+    const std::string& profile_name =
+        account_manager_service_->GetProfileName();
+    const bool is_personal_profile =
+        profile_name == attributes_storage->GetPersonalProfileName();
+    // Sign-out can only be in personal profile. With managed profile, to
+    // sign-out the window is switch to the personal profile, and then the
+    // sign-out can be done.
+    CHECK(is_personal_profile, base::NotFatalUntil::M150);
+  }
   if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     if (completion) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -613,14 +629,12 @@ bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
 
   SystemIdentityManager* system_identity_manager =
       GetApplicationContext()->GetSystemIdentityManager();
-  if (base::FeatureList::IsEnabled(switches::kAllowlistScopesForMdmErrors)) {
-    bool scope_limited_error_suppressed =
-        system_identity_manager->IsScopeLimitedError(error);
-    base::UmaHistogramBoolean("Signin.ScopeLimitedErrorSuppressed",
-                              scope_limited_error_suppressed);
-    if (scope_limited_error_suppressed) {
-      return false;
-    }
+  bool scope_limited_error_suppressed =
+      system_identity_manager->IsScopeLimitedError(error);
+  base::UmaHistogramBoolean("Signin.ScopeLimitedErrorSuppressed",
+                            scope_limited_error_suppressed);
+  if (scope_limited_error_suppressed) {
+    return false;
   }
 
   // Stop displaying the MDM error dialog on the NTP when

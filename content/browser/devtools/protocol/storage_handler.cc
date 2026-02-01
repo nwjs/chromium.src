@@ -18,6 +18,7 @@
 #include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -923,7 +924,9 @@ StorageHandler::IndexedDBObserver* StorageHandler::GetIndexedDBObserver() {
 }
 
 SharedStorageRuntimeManager* StorageHandler::GetSharedStorageRuntimeManager() {
-  DCHECK(storage_partition_);
+  if (!storage_partition_) {
+    return nullptr;
+  }
   return static_cast<StoragePartitionImpl*>(storage_partition_)
       ->GetSharedStorageRuntimeManager();
 }
@@ -1473,6 +1476,8 @@ void StorageHandler::ClearSharedStorageEntries(
 }
 
 Response StorageHandler::SetSharedStorageTracking(bool enable) {
+  // FIXME: this should remember the state and restore it
+  // once the StorageRunTimeManager or the storage partition is available.
   if (enable) {
     auto* manager = GetSharedStorageRuntimeManager();
     if (!manager) {

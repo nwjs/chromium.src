@@ -248,9 +248,9 @@ void FormStructureTest::CheckFormStructureTestData(
     auto form_structure = std::make_unique<FormStructure>(form);
 
     if (test_case.form_flags.determine_heuristic_type) {
-      const RegexPredictions regex_predictions =
-          DetermineRegexTypes(GeoIpCountryCode(""), LanguageCode(""),
-                              form_structure->ToFormData(), nullptr);
+      const RegexPredictions regex_predictions = DetermineRegexTypes(
+          GeoIpCountryCode(""), LanguageCode(""), form_structure->ToFormData(),
+          nullptr, /*ignore_small_forms=*/true);
       regex_predictions.ApplyTo(form_structure->fields());
       form_structure->RationalizeAndAssignSections(GeoIpCountryCode(""),
                                                    LanguageCode(""), nullptr);
@@ -302,18 +302,18 @@ void FormStructureTest::CheckFormStructureTestData(
     }
 
     for (size_t i = 0;
-         i < test_case.expected_field_types.expected_html_type.size(); i++) {
+         i < test_case.expected_field_types.expected_html_type.size(); ++i) {
       EXPECT_EQ(test_case.expected_field_types.expected_html_type[i],
                 form_structure->field(i)->html_type());
     }
     for (size_t i = 0;
          i < test_case.expected_field_types.expected_heuristic_type.size();
-         i++) {
+         ++i) {
       EXPECT_EQ(test_case.expected_field_types.expected_heuristic_type[i],
                 form_structure->field(i)->heuristic_type());
     }
     for (size_t i = 0;
-         i < test_case.expected_field_types.expected_overall_type.size(); i++) {
+         i < test_case.expected_field_types.expected_overall_type.size(); ++i) {
       EXPECT_THAT(
           form_structure->field(i)->Type().GetTypes(),
           ElementsAre(test_case.expected_field_types.expected_overall_type[i]));

@@ -60,13 +60,13 @@ mojom("mojom") {
   }
 
   public_deps = [
-    ":shared_image_format",
     ":surfaces",
     "//cc/mojom:mojom_browser_controls",
     "//cc/mojom:mojom_layer_trees",
     "//gpu/ipc/common:interfaces",
     "//media/mojo/mojom:video_encode",
     "//mojo/public/mojom/base",
+    "//services/viz/public/mojom/compositing:shared_image_format",
     "//services/viz/public/mojom/compositing/internal:singleplanar_format",
     "//skia/public/mojom",
     "//third_party/blink/public/mojom/tokens",
@@ -175,6 +175,16 @@ mojom("mojom") {
           cpp = "::viz::BeginFrameAck"
         },
       ]
+
+      if (is_mac) {
+        types += [
+          {
+            mojom = "viz.mojom.CADisplayLinkParams"
+            cpp = "::viz::CADisplayLinkParams"
+          },
+        ]
+      }
+
       traits_sources = [ "//services/viz/public/cpp/compositing/begin_frame_args_mojom_traits.cc" ]
       traits_headers =
           [ "//components/viz/common/frame_sinks/begin_frame_args.h" ]
@@ -575,7 +585,6 @@ mojom("mojom") {
       ]
       traits_headers = [ "//components/viz/common/quads/compositor_frame.h" ]
       traits_private_headers = [
-        "//gpu/ipc/common/mailbox_holder_mojom_traits.h",
         "//gpu/ipc/common/mailbox_mojom_traits.h",
         "//gpu/ipc/common/sync_token_mojom_traits.h",
         "//ipc/param_traits_utils.h",
@@ -708,30 +717,4 @@ mojom("surfaces") {
     "//mojo/public/mojom/base",
     "//ui/gfx/geometry/mojom",
   ]
-}
-
-mojom("shared_image_format") {
-  generate_java = true
-  sources = [ "compositing/shared_image_format.mojom" ]
-  enabled_features = []
-  if (use_ozone) {
-    enabled_features += [ "use_ozone" ]
-  }
-  cpp_typemaps = [
-    {
-      types = [
-        {
-          mojom = "viz.mojom.SharedImageFormat"
-          cpp = "::viz::SharedImageFormat"
-        },
-      ]
-      traits_headers = [ "//services/viz/public/cpp/compositing/shared_image_format_mojom_traits.h" ]
-      traits_sources = [ "//services/viz/public/cpp/compositing/shared_image_format_mojom_traits.cc" ]
-      traits_public_deps =
-          [ "//components/viz/common/resources:shared_image_format" ]
-    },
-  ]
-
-  public_deps =
-      [ "//services/viz/public/mojom/compositing/internal:singleplanar_format" ]
 }

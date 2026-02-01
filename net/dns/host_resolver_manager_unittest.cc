@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -3820,8 +3819,7 @@ DnsConfig CreateUpgradableDnsConfig() {
   config.allow_dns_over_https_upgrade = true;
 
   auto ProviderHasAddr = [](std::string_view provider, const IPAddress& addr) {
-    return base::Contains(GetDohProviderEntryForTesting(provider).ip_addresses,
-                          addr);
+    return GetDohProviderEntryForTesting(provider).ip_addresses.contains(addr);
   };
 
   // Cloudflare upgradeable IPs
@@ -10774,7 +10772,7 @@ TEST_F(HostResolverManagerDnsTest, ServfailHttpsInAddressRequestIsFatal) {
           BuildTestDnsResponse(kName, dns_protocol::kTypeHttps, /*answers=*/{},
                                /*authority=*/{}, /*additional=*/{},
                                dns_protocol::kRcodeSERVFAIL),
-          ERR_DNS_SERVER_FAILED),
+          ERR_DNS_SERVER_FAILURE),
       /*delay=*/false);
   rules.emplace_back(
       kName, dns_protocol::kTypeA, /*secure=*/true,
@@ -10795,7 +10793,7 @@ TEST_F(HostResolverManagerDnsTest, ServfailHttpsInAddressRequestIsFatal) {
       url::SchemeHostPort(url::kHttpsScheme, kName, 443),
       NetworkAnonymizationKey(), NetLogWithSource(), std::nullopt,
       resolve_context_.get()));
-  EXPECT_THAT(response.result_error(), IsError(ERR_DNS_SERVER_FAILED));
+  EXPECT_THAT(response.result_error(), IsError(ERR_DNS_SERVER_FAILURE));
   response.ExpectNoResults();
 
   // Expect result not cached.
@@ -10877,7 +10875,7 @@ TEST_F(HostResolverManagerDnsTest, RefusedHttpsInAddressRequestIsIgnored) {
           BuildTestDnsResponse(kName, dns_protocol::kTypeHttps, /*answers=*/{},
                                /*authority=*/{}, /*additional=*/{},
                                dns_protocol::kRcodeREFUSED),
-          ERR_DNS_SERVER_FAILED),
+          ERR_DNS_REFUSED),
       /*delay=*/false);
   rules.emplace_back(
       kName, dns_protocol::kTypeA, /*secure=*/true,
@@ -11535,7 +11533,7 @@ TEST_F(HostResolverManagerDnsTest,
           BuildTestDnsResponse(kName, dns_protocol::kTypeHttps, /*answers=*/{},
                                /*authority=*/{}, /*additional=*/{},
                                dns_protocol::kRcodeSERVFAIL),
-          ERR_DNS_SERVER_FAILED),
+          ERR_DNS_SERVER_FAILURE),
       /*delay=*/false);
   rules.emplace_back(
       kName, dns_protocol::kTypeA, /*secure=*/false,

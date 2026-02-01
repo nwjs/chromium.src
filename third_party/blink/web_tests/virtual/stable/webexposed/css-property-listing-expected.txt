@@ -142,11 +142,13 @@ All changes to this list should go through Blink's feature review process: http:
     column-count
     column-fill
     column-gap
+    column-height
     column-rule-color
     column-rule-style
     column-rule-width
     column-span
     column-width
+    column-wrap
     contain
     contain-intrinsic-block-size
     contain-intrinsic-height
@@ -404,6 +406,7 @@ All changes to this list should go through Blink's feature review process: http:
     text-emphasis-position
     text-emphasis-style
     text-indent
+    text-justify
     text-orientation
     text-overflow
     text-rendering
@@ -612,7 +615,9 @@ All changes to this list should go through Blink's feature review process: http:
         column-rule-width
     columns
         column-count
+        column-height
         column-width
+        column-wrap
     contain-intrinsic-size
         contain-intrinsic-height
         contain-intrinsic-width

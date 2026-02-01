@@ -81,6 +81,9 @@
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/skia/include/core/SkRegion.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
+#include "ui/gfx/android/rect_jni_conversion.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
@@ -99,30 +102,12 @@
 #include "chrome/android/chrome_jni_headers/TabWebContentsDelegateAndroidImpl_jni.h"
 
 using base::android::AttachCurrentThread;
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 using blink::mojom::FileChooserParams;
 using content::WebContents;
 
 namespace {
-
-static ScopedJavaLocalRef<jobject>
-JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRectF(JNIEnv* env,
-                                                      const gfx::RectF& rect) {
-  return ScopedJavaLocalRef<jobject>(
-      Java_TabWebContentsDelegateAndroidImpl_createRectF(
-          env, rect.x(), rect.y(), rect.right(), rect.bottom()));
-}
-
-static ScopedJavaLocalRef<jobject>
-JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRect(JNIEnv* env,
-                                                     const gfx::Rect& rect) {
-  return ScopedJavaLocalRef<jobject>(
-      Java_TabWebContentsDelegateAndroidImpl_createRect(
-          env, static_cast<int>(rect.x()), static_cast<int>(rect.y()),
-          static_cast<int>(rect.right()), static_cast<int>(rect.bottom())));
-}
 
 static ScopedJavaLocalRef<jobject>
 JNI_TabWebContentsDelegateAndroidImpl_CreateJavaWindowFeatures(
@@ -134,6 +119,23 @@ JNI_TabWebContentsDelegateAndroidImpl_CreateJavaWindowFeatures(
           window_features.bounds.width(), window_features.bounds.height(),
           window_features.has_x, window_features.has_y,
           window_features.has_width, window_features.has_height));
+}
+
+static ScopedJavaLocalRef<jobject>
+JNI_TabWebContentsDelegateAndroidImpl_CreateJavaPictureInPictureWindowOptions(
+    JNIEnv* env,
+    const blink::mojom::PictureInPictureWindowOptions& options) {
+  const display::Screen* screen = display::Screen::Get();
+  const display::Display display =
+      screen->GetDisplayNearestWindow(gfx::NativeWindow());
+
+  gfx::Rect bounds =
+      PictureInPictureWindowManager::GetInstance()
+          ->CalculateInitialPictureInPictureWindowBounds(options, display);
+
+  return ScopedJavaLocalRef<jobject>(
+      Java_TabWebContentsDelegateAndroidImpl_createPictureInPictureWindowOptions(
+          env, bounds, options.disallow_return_to_opener));
 }
 
 void ShowFramebustBlockMessageInternal(content::WebContents* web_contents,
@@ -245,15 +247,12 @@ void TabWebContentsDelegateAndroid::FindMatchRectsReply(
   // Create the details object.
   ScopedJavaLocalRef<jobject> details_object =
       Java_TabWebContentsDelegateAndroidImpl_createFindMatchRectsDetails(
-          env, version, rects.size(),
-          JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRectF(env,
-                                                                active_rect));
+          env, version, rects.size(), active_rect);
 
   // Add the rects
   for (size_t i = 0; i < rects.size(); ++i) {
     Java_TabWebContentsDelegateAndroidImpl_setMatchRectByIndex(
-        env, details_object, i,
-        JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRectF(env, rects[i]));
+        env, details_object, i, rects[i]);
   }
 
   Java_TabWebContentsDelegateAndroidImpl_onFindMatchRectsAvailable(
@@ -411,9 +410,17 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
             env, window_features);
     ScopedJavaLocalRef<jobject> jurl =
         url::GURLAndroid::FromNativeGURL(env, target_url);
+
+    ScopedJavaLocalRef<jobject> jpicture_in_picture_options;
+    if (new_contents->GetPictureInPictureOptions().has_value()) {
+      jpicture_in_picture_options =
+          JNI_TabWebContentsDelegateAndroidImpl_CreateJavaPictureInPictureWindowOptions(
+              env, new_contents->GetPictureInPictureOptions().value());
+    }
+
     handled = Java_TabWebContentsDelegateAndroidImpl_addNewContents(
         env, obj, jsource, jnew_contents, jurl, static_cast<jint>(disposition),
-        jwindow_features, user_gesture);
+        jwindow_features, user_gesture, jpicture_in_picture_options);
   }
 
   if (was_blocked)
@@ -426,24 +433,6 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
   }
 
   return nullptr;
-}
-
-void TabWebContentsDelegateAndroid::SetContentsBounds(
-    content::WebContents* source,
-    const gfx::Rect& bounds) {
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (!obj.is_null()) {
-    ScopedJavaLocalRef<jobject> jsource;
-    if (source) {
-      jsource = source->GetJavaWebContents();
-    }
-    ScopedJavaLocalRef<jobject> jbounds =
-        JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRect(env, bounds);
-
-    Java_TabWebContentsDelegateAndroidImpl_setContentsBounds(env, obj, jsource,
-                                                             jbounds);
-  }
 }
 
 void TabWebContentsDelegateAndroid::OnDidBlockNavigation(
@@ -533,14 +522,10 @@ void TabWebContentsDelegateAndroid::OnFindResultAvailable(
   const find_in_page::FindNotificationDetails& find_result =
       find_in_page::FindTabHelper::FromWebContents(web_contents)->find_result();
 
-  ScopedJavaLocalRef<jobject> selection_rect =
-      JNI_TabWebContentsDelegateAndroidImpl_CreateJavaRect(
-          env, find_result.selection_rect());
-
   // Create the details object.
   ScopedJavaLocalRef<jobject> details_object =
       Java_TabWebContentsDelegateAndroidImpl_createFindNotificationDetails(
-          env, find_result.number_of_matches(), selection_rect,
+          env, find_result.number_of_matches(), find_result.selection_rect(),
           find_result.active_match_ordinal(), find_result.final_update());
 
   Java_TabWebContentsDelegateAndroidImpl_onFindResultAvailable(env, obj,
@@ -791,7 +776,7 @@ void TabWebContentsDelegateAndroid::DraggableRegionsChanged(
 
 static void JNI_TabWebContentsDelegateAndroidImpl_OnRendererUnresponsive(
     JNIEnv* env,
-    const JavaParamRef<jobject>& java_web_contents) {
+    const JavaRef<jobject>& java_web_contents) {
   // Rate limit the number of stack dumps so we don't overwhelm our crash
   // reports.
   content::WebContents* web_contents =

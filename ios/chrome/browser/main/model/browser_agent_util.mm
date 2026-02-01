@@ -28,7 +28,6 @@
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
 #import "ios/chrome/browser/lens/model/lens_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
-#import "ios/chrome/browser/metrics/model/web_state_list_metrics_browser_agent.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
@@ -49,7 +48,7 @@
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/synced_window_delegate_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/tabs_dependency_installer_manager.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/view_source/model/view_source_browser_agent.h"
@@ -57,7 +56,6 @@
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
 #import "ios/chrome/browser/web/model/web_state_update_browser_agent.h"
-#import "ios/chrome/browser/web_state_list/model/session_metrics.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/public/provider/chrome/browser/app_utils/app_utils_api.h"
 
@@ -152,8 +150,7 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
     SendTabToSelfBrowserAgent::CreateForBrowser(browser);
   }
 
-  WebStateDelegateBrowserAgent::CreateForBrowser(
-      browser, TabInsertionBrowserAgent::FromBrowser(browser));
+  WebStateDelegateBrowserAgent::CreateForBrowser(browser);
 
   // ViewSourceBrowserAgent requires TabInsertionBrowserAgent, and is only used
   // in debug builds.
@@ -163,9 +160,6 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
 
   // UrlLoadingBrowserAgent requires UrlLoadingNotifierBrowserAgent.
   UrlLoadingBrowserAgent::CreateForBrowser(browser);
-
-  WebStateListMetricsBrowserAgent::CreateForBrowser(
-      browser, SessionMetrics::FromProfile(profile));
 
   // Normal profiles are the only ones to get tab usage recorder.
   if (!browser_is_off_record) {
@@ -201,7 +195,8 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   CredentialProviderBrowserAgent::CreateForBrowser(browser);
 #endif
 
-  if (!browser_is_off_record && IsPageActionMenuEnabled()) {
+  if (!browser_is_inactive && !browser_is_temporary && !browser_is_off_record &&
+      IsPageActionMenuEnabled()) {
     BwgBrowserAgent::CreateForBrowser(browser);
   }
 

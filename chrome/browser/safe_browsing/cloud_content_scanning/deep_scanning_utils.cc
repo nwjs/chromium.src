@@ -13,7 +13,6 @@
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 
@@ -27,23 +26,23 @@ constexpr int kMaxBytesPerSecond = 100 * 1024 * 1024;  // 100 MB/s
 std::string MaybeGetUnscannedReason(
     enterprise_connectors::ScanRequestUploadResult result) {
   switch (result) {
-    case enterprise_connectors::ScanRequestUploadResult::SUCCESS:
-    case enterprise_connectors::ScanRequestUploadResult::UNAUTHORIZED:
+    case enterprise_connectors::ScanRequestUploadResult::kSuccess:
+    case enterprise_connectors::ScanRequestUploadResult::kUnauthorized:
       // Don't report an unscanned file event on these results.
       return "";
 
-    case enterprise_connectors::ScanRequestUploadResult::FILE_TOO_LARGE:
+    case enterprise_connectors::ScanRequestUploadResult::kFileTooLarge:
       return enterprise_connectors::kFileTooLargeUnscannedReason;
-    case enterprise_connectors::ScanRequestUploadResult::TOO_MANY_REQUESTS:
+    case enterprise_connectors::ScanRequestUploadResult::kTooManyRequests:
       return enterprise_connectors::kTooManyRequestsUnscannedReason;
-    case enterprise_connectors::ScanRequestUploadResult::TIMEOUT:
+    case enterprise_connectors::ScanRequestUploadResult::kTimeout:
       return enterprise_connectors::kTimeoutUnscannedReason;
-    case enterprise_connectors::ScanRequestUploadResult::UNKNOWN:
-    case enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE:
-    case enterprise_connectors::ScanRequestUploadResult::FAILED_TO_GET_TOKEN:
-    case enterprise_connectors::ScanRequestUploadResult::INCOMPLETE_RESPONSE:
+    case enterprise_connectors::ScanRequestUploadResult::kUnknown:
+    case enterprise_connectors::ScanRequestUploadResult::kUploadFailure:
+    case enterprise_connectors::ScanRequestUploadResult::kFailedToGetToken:
+    case enterprise_connectors::ScanRequestUploadResult::kIncompleteResponse:
       return enterprise_connectors::kServiceUnavailableUnscannedReason;
-    case enterprise_connectors::ScanRequestUploadResult::FILE_ENCRYPTED:
+    case enterprise_connectors::ScanRequestUploadResult::kFileEncrypted:
       return enterprise_connectors::kFilePasswordProtectedUnscannedReason;
   }
 }
@@ -181,7 +180,7 @@ void MaybeReportDeepScanningVerdict(
         event_result);
   }
 
-  if (result != enterprise_connectors::ScanRequestUploadResult::SUCCESS) {
+  if (result != enterprise_connectors::ScanRequestUploadResult::kSuccess) {
     return;
   }
 
@@ -257,7 +256,7 @@ void RecordDeepScanMetrics(
     const enterprise_connectors::ScanRequestUploadResult& result,
     const enterprise_connectors::ContentAnalysisResponse& response) {
   // Don't record UMA metrics for this result.
-  if (result == enterprise_connectors::ScanRequestUploadResult::UNAUTHORIZED) {
+  if (result == enterprise_connectors::ScanRequestUploadResult::kUnauthorized) {
     return;
   }
   bool dlp_verdict_success = true;
@@ -280,7 +279,7 @@ void RecordDeepScanMetrics(
 
   // Update |success| so non-SUCCESS results don't log the bytes/sec metric.
   success &=
-      (result == enterprise_connectors::ScanRequestUploadResult::SUCCESS);
+      (result == enterprise_connectors::ScanRequestUploadResult::kSuccess);
 
   RecordDeepScanMetrics(is_cloud, access_point, duration, total_bytes,
                         result_value, success);
@@ -364,28 +363,28 @@ std::string BinaryUploadServiceResultToString(
     const enterprise_connectors::ScanRequestUploadResult& result,
     bool success) {
   switch (result) {
-    case enterprise_connectors::ScanRequestUploadResult::SUCCESS:
+    case enterprise_connectors::ScanRequestUploadResult::kSuccess:
       if (success)
         return "Success";
       else
         return "FailedToGetVerdict";
-    case enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE:
+    case enterprise_connectors::ScanRequestUploadResult::kUploadFailure:
       return "UploadFailure";
-    case enterprise_connectors::ScanRequestUploadResult::TIMEOUT:
+    case enterprise_connectors::ScanRequestUploadResult::kTimeout:
       return "Timeout";
-    case enterprise_connectors::ScanRequestUploadResult::FILE_TOO_LARGE:
+    case enterprise_connectors::ScanRequestUploadResult::kFileTooLarge:
       return "FileTooLarge";
-    case enterprise_connectors::ScanRequestUploadResult::FAILED_TO_GET_TOKEN:
+    case enterprise_connectors::ScanRequestUploadResult::kFailedToGetToken:
       return "FailedToGetToken";
-    case enterprise_connectors::ScanRequestUploadResult::UNKNOWN:
+    case enterprise_connectors::ScanRequestUploadResult::kUnknown:
       return "Unknown";
-    case enterprise_connectors::ScanRequestUploadResult::UNAUTHORIZED:
+    case enterprise_connectors::ScanRequestUploadResult::kUnauthorized:
       return "";
-    case enterprise_connectors::ScanRequestUploadResult::FILE_ENCRYPTED:
+    case enterprise_connectors::ScanRequestUploadResult::kFileEncrypted:
       return "FileEncrypted";
-    case enterprise_connectors::ScanRequestUploadResult::TOO_MANY_REQUESTS:
+    case enterprise_connectors::ScanRequestUploadResult::kTooManyRequests:
       return "TooManyRequests";
-    case enterprise_connectors::ScanRequestUploadResult::INCOMPLETE_RESPONSE:
+    case enterprise_connectors::ScanRequestUploadResult::kIncompleteResponse:
       return "IncompleteResponse";
   }
 }
@@ -400,7 +399,8 @@ void DecrementCrashKey(ScanningCrashKey key, int delta) {
   ModifyKey(key, -delta);
 }
 
-bool IsConsumerScanRequest(const BinaryUploadService::Request& request) {
+bool IsConsumerScanRequest(
+    const enterprise_connectors::BinaryUploadRequest& request) {
   if (request.cloud_or_local_settings().is_local_analysis()) {
     return false;
   }

@@ -13,7 +13,6 @@
 #include "chrome/browser/profiles/android/jni_headers/ProfileKey_jni.h"
 
 using base::android::AttachCurrentThread;
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -48,7 +47,7 @@ ScopedJavaLocalRef<jobject> ProfileKeyAndroid::GetOriginalKey(JNIEnv* env) {
   return original_key->GetJavaObject();
 }
 
-jboolean ProfileKeyAndroid::IsOffTheRecord(JNIEnv* env) {
+bool ProfileKeyAndroid::IsOffTheRecord(JNIEnv* env) {
   return key_->IsOffTheRecord();
 }
 

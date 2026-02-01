@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/public/cpp/bindings/message.h"
 
 #include <stddef.h>
@@ -16,8 +11,10 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_math.h"
@@ -112,7 +109,7 @@ void WriteMessageHeader(uint32_t name,
   header->flags = flags;
   header->trace_nonce = trace_nonce;
   // The payload immediately follows the header.
-  header->payload.Set(header + 1);
+  header->payload.Set(UNSAFE_TODO(header + 1));
   header->creation_timeticks_us = creation_timeticks_us;
 }
 
@@ -158,15 +155,16 @@ void CreateSerializedMessageObject(uint32_t name,
   CHECK_EQ(MOJO_RESULT_OK, rv);
   if (handles) {
     // Handle ownership has been taken by MojoAppendMessageData.
-    for (size_t i = 0; i < handles->size(); ++i)
+    for (size_t i = 0; i < handles->size(); ++i) {
       std::ignore = handles->at(i).release();
+    }
   }
 
   internal::Buffer payload_buffer(handle.get(), total_size, buffer,
                                   buffer_size);
 
   // Make sure we zero the memory first!
-  memset(payload_buffer.data(), 0, buffer_size);
+  UNSAFE_TODO(memset(payload_buffer.data(), 0, buffer_size));
   WriteMessageHeader(name, flags, trace_nonce, payload_interface_id_count,
                      &payload_buffer, creation_timeticks_us);
 
@@ -316,8 +314,9 @@ Message::Message(ScopedMessageHandle handle,
   uint32_t buffer_size;
   MojoResult attach_result = MojoAppendMessageData(
       handle_.get().value(), 0, nullptr, 0, nullptr, &buffer, &buffer_size);
-  if (attach_result != MOJO_RESULT_OK)
+  if (attach_result != MOJO_RESULT_OK) {
     return;
+  }
 
   payload_buffer_ = internal::Buffer(handle_.get(), 0, buffer, buffer_size);
   WriteMessageHeaderV1(header.name, header.flags, trace_nonce,
@@ -358,8 +357,9 @@ Message::Message(base::span<const uint8_t> payload,
   CHECK_EQ(MOJO_RESULT_OK, rv);
 
   // Handle ownership has been taken by MojoAppendMessageData.
-  for (auto& handle : handles)
+  for (auto& handle : handles) {
     std::ignore = handle.release();
+  }
 
   payload_buffer_ = internal::Buffer(buffer, payload.size(), payload.size());
   std::ranges::copy(payload, static_cast<uint8_t*>(payload_buffer_.data()));
@@ -448,8 +448,9 @@ void Message::Reset() {
 }
 
 const uint8_t* Message::payload() const {
-  if (version() < 2)
-    return data() + header()->num_bytes;
+  if (version() < 2) {
+    return UNSAFE_TODO(data() + header())->num_bytes;
+  }
 
   DCHECK(!header_v2()->payload.is_null());
   return static_cast<const uint8_t*>(header_v2()->payload.Get());
@@ -465,8 +466,10 @@ uint32_t Message::payload_num_bytes() const {
         reinterpret_cast<uintptr_t>(header_v2()->payload.Get());
     auto payload_end =
         reinterpret_cast<uintptr_t>(header_v2()->payload_interface_ids.Get());
-    if (!payload_end)
-      payload_end = reinterpret_cast<uintptr_t>(data() + data_num_bytes());
+    if (!payload_end) {
+      payload_end =
+          reinterpret_cast<uintptr_t>(UNSAFE_TODO(data() + data_num_bytes()));
+    }
     DCHECK_GE(payload_end, payload_begin);
     num_bytes = payload_end - payload_begin;
   }
@@ -538,8 +541,8 @@ void Message::SerializeHandles(AssociatedGroupController* group_controller) {
   new_message.set_receiver_connection_group(receiver_connection_group());
   *new_message.mutable_associated_endpoint_handles() =
       std::move(*mutable_associated_endpoint_handles());
-  memcpy(new_message.payload_buffer()->AllocateAndGet(payload_size), payload(),
-         payload_size);
+  UNSAFE_TODO(memcpy(new_message.payload_buffer()->AllocateAndGet(payload_size),
+                     payload(), payload_size));
   *this = std::move(new_message);
 
   DCHECK(group_controller);
@@ -557,7 +560,7 @@ void Message::SerializeHandles(AssociatedGroupController* group_controller) {
     ScopedInterfaceEndpointHandle& handle =
         (*mutable_associated_endpoint_handles())[i];
     DCHECK(handle.pending_association());
-    handles_fragment->storage()[i] =
+    UNSAFE_TODO(handles_fragment->storage()[i]) =
         group_controller->AssociateInterface(std::move(handle));
   }
   mutable_associated_endpoint_handles()->clear();
@@ -565,22 +568,25 @@ void Message::SerializeHandles(AssociatedGroupController* group_controller) {
 
 bool Message::DeserializeAssociatedEndpointHandles(
     AssociatedGroupController* group_controller) {
-  if (!serialized_)
+  if (!serialized_) {
     return true;
+  }
 
   auto& endpoint_handles = *mutable_associated_endpoint_handles();
   endpoint_handles.clear();
 
   uint32_t num_ids = payload_num_interface_ids();
-  if (num_ids == 0)
+  if (num_ids == 0) {
     return true;
+  }
 
   endpoint_handles.reserve(num_ids);
   uint32_t* ids = header_v2()->payload_interface_ids.Get()->storage();
   bool result = true;
   for (uint32_t i = 0; i < num_ids; ++i) {
-    auto handle = group_controller->CreateLocalEndpointHandle(ids[i]);
-    if (IsValidInterfaceId(ids[i]) && !handle.is_valid()) {
+    auto handle =
+        group_controller->CreateLocalEndpointHandle(UNSAFE_TODO(ids[i]));
+    if (IsValidInterfaceId(UNSAFE_TODO(ids[i])) && !handle.is_valid()) {
       // |ids[i]| itself is valid but handle creation failed. In that case, mark
       // deserialization as failed but continue to deserialize the rest of
       // handles.
@@ -588,7 +594,7 @@ bool Message::DeserializeAssociatedEndpointHandles(
     }
 
     endpoint_handles.push_back(std::move(handle));
-    ids[i] = kInvalidInterfaceId;
+    UNSAFE_TODO(ids[i]) = kInvalidInterfaceId;
   }
   return result;
 }
@@ -602,14 +608,15 @@ void Message::NotifyPeerClosureForSerializedHandles(
 
   const uint32_t* ids = header_v2()->payload_interface_ids.Get()->storage();
   for (uint32_t i = 0; i < num_ids; ++i) {
-    group_controller->NotifyLocalEndpointOfPeerClosure(ids[i]);
+    group_controller->NotifyLocalEndpointOfPeerClosure(UNSAFE_TODO(ids[i]));
   }
 }
 
 void Message::SerializeIfNecessary() {
   MojoResult rv = MojoSerializeMessage(handle_->value(), nullptr);
-  if (rv == MOJO_RESULT_FAILED_PRECONDITION)
+  if (rv == MOJO_RESULT_FAILED_PRECONDITION) {
     return;
+  }
 
   // Reconstruct this Message instance from the serialized message's handle.
   ScopedMessageHandle handle = std::move(handle_);
@@ -622,14 +629,16 @@ Message::TakeUnserializedContext(uintptr_t tag) {
   uintptr_t context_value = 0;
   MojoResult rv =
       MojoGetMessageContext(handle_->value(), nullptr, &context_value);
-  if (rv == MOJO_RESULT_NOT_FOUND)
+  if (rv == MOJO_RESULT_NOT_FOUND) {
     return nullptr;
+  }
   DCHECK_EQ(MOJO_RESULT_OK, rv);
 
   auto* context =
       reinterpret_cast<internal::UnserializedMessageContext*>(context_value);
-  if (context->tag() != tag)
+  if (context->tag() != tag) {
     return nullptr;
+  }
 
   // Detach the context from the message.
   rv = MojoSetMessageContext(handle_->value(), 0, nullptr, nullptr, nullptr);

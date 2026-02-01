@@ -15,9 +15,12 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
+import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.extensions.ShowAction;
 
@@ -26,19 +29,15 @@ import java.util.Objects;
 /** A JNI bridge to interact with extension actions for the toolbar. */
 @NullMarked
 @JNINamespace("extensions")
-public class ExtensionActionsBridge {
+public class ExtensionActionsBridge implements Destroyable {
+    private final @Nullable LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
     private long mNativeExtensionActionsBridge;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
 
-    @CalledByNative
-    @VisibleForTesting
-    public ExtensionActionsBridge(long nativeExtensionActionsBridge) {
-        mNativeExtensionActionsBridge = nativeExtensionActionsBridge;
-    }
-
-    /** Returns an instance for the given profile. */
-    public static ExtensionActionsBridge get(Profile profile) {
-        return ExtensionActionsBridgeJni.get().get(profile);
+    public ExtensionActionsBridge(ChromeAndroidTask task) {
+        mNativeExtensionActionsBridge =
+                ExtensionActionsBridgeJni.get()
+                        .init(this, task.getOrCreateNativeBrowserWindowPtr());
     }
 
     /** Represents the result of handling a key event. */
@@ -70,10 +69,12 @@ public class ExtensionActionsBridge {
         }
     }
 
-    @CalledByNative
-    private void destroy() {
+    @Override
+    public void destroy() {
         assert mNativeExtensionActionsBridge != 0;
+        ExtensionActionsBridgeJni.get().destroy(mNativeExtensionActionsBridge);
         mNativeExtensionActionsBridge = 0;
+        LifetimeAssert.destroy(mLifetimeAssert);
     }
 
     public void addObserver(Observer observer) {
@@ -244,7 +245,9 @@ public class ExtensionActionsBridge {
     public interface Natives {
         boolean extensionsEnabled(@JniType("Profile*") Profile profile);
 
-        ExtensionActionsBridge get(@JniType("Profile*") Profile profile);
+        long init(ExtensionActionsBridge bridge, long browserWindowInterfacePtr);
+
+        void destroy(long nativeExtensionActionsBridge);
 
         boolean areActionsInitialized(long nativeExtensionActionsBridge);
 

@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
@@ -31,7 +30,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
-#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
@@ -1580,7 +1578,6 @@ TEST_P(SQLDatabaseTest, PosixFilePermissions) {
     }
   } else {  // Truncate mode
     base::FilePath journal_path = Database::JournalPath(db_path_);
-    DLOG(ERROR) << "journal_path: " << journal_path;
     ASSERT_TRUE(base::PathExists(journal_path));
     EXPECT_TRUE(base::GetPosixFilePermissions(journal_path, &mode));
     ASSERT_EQ(mode, 0600);
@@ -1834,8 +1831,8 @@ TEST_P(SQLDatabaseTest, OnMemoryDump) {
 // worrying too much about what they generate (since that will change).
 TEST_P(SQLDatabaseTest, CollectDiagnosticInfo) {
   const std::string corruption_info = db_->CollectCorruptionInfo();
-  EXPECT_TRUE(base::Contains(corruption_info, "SQLITE_CORRUPT"));
-  EXPECT_TRUE(base::Contains(corruption_info, "integrity_check"));
+  EXPECT_TRUE(corruption_info.contains("SQLITE_CORRUPT"));
+  EXPECT_TRUE(corruption_info.contains("integrity_check"));
 
   // A statement to see in the results.
   static constexpr char kSimpleSql[] = "SELECT 'mountain'";
@@ -1846,7 +1843,7 @@ TEST_P(SQLDatabaseTest, CollectDiagnosticInfo) {
     DatabaseDiagnostics diagnostics;
     const std::string readonly_info =
         db_->CollectErrorInfo(SQLITE_READONLY, &s, &diagnostics);
-    EXPECT_TRUE(base::Contains(readonly_info, kSimpleSql));
+    EXPECT_TRUE(readonly_info.contains(kSimpleSql));
     EXPECT_EQ(diagnostics.sql_statement, kSimpleSql);
   }
 
@@ -1855,7 +1852,7 @@ TEST_P(SQLDatabaseTest, CollectDiagnosticInfo) {
     DatabaseDiagnostics diagnostics;
     const std::string full_info =
         db_->CollectErrorInfo(SQLITE_FULL, nullptr, &diagnostics);
-    EXPECT_FALSE(base::Contains(full_info, kSimpleSql));
+    EXPECT_FALSE(full_info.contains(kSimpleSql));
     EXPECT_TRUE(diagnostics.sql_statement.empty());
   }
 
@@ -1870,9 +1867,9 @@ TEST_P(SQLDatabaseTest, CollectDiagnosticInfo) {
     DatabaseDiagnostics diagnostics;
     const std::string error_info =
         db_->CollectErrorInfo(SQLITE_ERROR, &s, &diagnostics);
-    EXPECT_TRUE(base::Contains(error_info, kSimpleSql));
-    EXPECT_TRUE(base::Contains(error_info, "volcano"));
-    EXPECT_TRUE(base::Contains(error_info, "version: 4"));
+    EXPECT_TRUE(error_info.contains(kSimpleSql));
+    EXPECT_TRUE(error_info.contains("volcano"));
+    EXPECT_TRUE(error_info.contains("version: 4"));
     EXPECT_EQ(diagnostics.sql_statement, kSimpleSql);
     EXPECT_EQ(diagnostics.version, 4);
 
@@ -1898,14 +1895,14 @@ TEST_P(SQLDatabaseTest, CollectDiagnosticInfo) {
     const std::string error_info =
         db_->CollectErrorInfo(SQLITE_ERROR, &s, &diagnostics);
     // Expect that the error message contains the table name and a column error.
-    EXPECT_TRUE(base::Contains(diagnostics.error_message, "table"));
-    EXPECT_TRUE(base::Contains(diagnostics.error_message, "volcano"));
-    EXPECT_TRUE(base::Contains(diagnostics.error_message, "column"));
+    EXPECT_TRUE(diagnostics.error_message.contains("table"));
+    EXPECT_TRUE(diagnostics.error_message.contains("volcano"));
+    EXPECT_TRUE(diagnostics.error_message.contains("column"));
 
     // Expect that bound values are not present.
-    EXPECT_FALSE(base::Contains(diagnostics.error_message, "bound_value1"));
-    EXPECT_FALSE(base::Contains(diagnostics.error_message, "42"));
-    EXPECT_FALSE(base::Contains(diagnostics.error_message, "1234"));
+    EXPECT_FALSE(diagnostics.error_message.contains("bound_value1"));
+    EXPECT_FALSE(diagnostics.error_message.contains("42"));
+    EXPECT_FALSE(diagnostics.error_message.contains("1234"));
   }
 }
 
@@ -2190,6 +2187,52 @@ INSTANTIATE_TEST_SUITE_P(
            std::get<1>(info.param) ? "ExclusiveLock" : "NoExclusiveLock"});
     });
 
+class SQLDatabaseTestExclusiveFileLockWithSpecialChars
+    : public testing::Test,
+      public testing::WithParamInterface<base::FilePath::StringViewType> {
+ public:
+  ~SQLDatabaseTestExclusiveFileLockWithSpecialChars() override = default;
+
+  void SetUp() override {
+    db_ = std::make_unique<Database>(
+        DatabaseOptions().set_exclusive_database_file_lock(true),
+        test::kTestTag);
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir(GetParam()));
+    db_path_ = temp_dir_.GetPath().AppendASCII("database_test_locked.sqlite");
+  }
+
+ protected:
+  base::ScopedTempDir temp_dir_;
+  base::FilePath db_path_;
+  std::unique_ptr<Database> db_;
+};
+
+TEST_P(SQLDatabaseTestExclusiveFileLockWithSpecialChars, OpenDb) {
+  ASSERT_FALSE(base::PathExists(db_path_));
+  ASSERT_TRUE(db_->Open(db_path_));
+  ASSERT_TRUE(base::PathExists(db_path_));
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         SQLDatabaseTestExclusiveFileLockWithSpecialChars,
+                         ::testing::Values(FILE_PATH_LITERAL("!"),
+                                           FILE_PATH_LITERAL("#"),
+                                           FILE_PATH_LITERAL("$"),
+                                           FILE_PATH_LITERAL("&"),
+                                           FILE_PATH_LITERAL("'"),
+                                           FILE_PATH_LITERAL("()"),
+                                           FILE_PATH_LITERAL("+"),
+                                           FILE_PATH_LITERAL(","),
+                                           FILE_PATH_LITERAL(";"),
+                                           FILE_PATH_LITERAL("="),
+                                           FILE_PATH_LITERAL("@"),
+                                           FILE_PATH_LITERAL("[]"),
+                                           FILE_PATH_LITERAL("%"),
+                                           FILE_PATH_LITERAL("%21"),
+                                           FILE_PATH_LITERAL("%23"),
+                                           FILE_PATH_LITERAL("%3f"),
+                                           FILE_PATH_LITERAL("_"),
+                                           FILE_PATH_LITERAL(" ")));
 #else
 
 TEST(SQLInvalidDatabaseFlagsDeathTest, ExclusiveDatabaseLock) {
@@ -2347,7 +2390,14 @@ TEST_P(SQLDatabaseTest, WALCommitCallback) {
   wal_callback_pages.reset();
   previous_wal_callback_pages = 0;
 
+  base::HistogramTester histogram_tester;
   db.CheckpointDatabase();
+  histogram_tester.ExpectTotalCount("Sql.Database.ManualCheckpoint.Time.Test",
+                                    1);
+  histogram_tester.ExpectUniqueSample(
+      "Sql.Database.ManualCheckpoint.Result.Test", SQLITE_OK, 1);
+  histogram_tester.ExpectTotalCount(
+      "Sql.Database.ManualCheckpoint.FrameCount.Test", 1);
 
   // The WAL callback must not be called while running checkpoint.
   ASSERT_FALSE(wal_callback_pages.has_value());
@@ -2369,6 +2419,41 @@ TEST_P(SQLDatabaseTest, WALCommitCallback) {
     // The db file size should not change.
     ASSERT_EQ(CheckedGetFileSize(db_path_), previous_db_size);
   }
+}
+
+TEST_P(SQLDatabaseTest, WalAutocheckpoint) {
+  if (!IsWALEnabled()) {
+    GTEST_SKIP() << "WAL mode not enabled";
+  }
+
+  db_->Close();
+  Database::Delete(db_path_);
+
+  Database db(DatabaseOptions().set_wal_mode(true), test::kTestTag);
+  ASSERT_TRUE(db.Open(db_path_));
+
+  // `Database` installs its own hook, so the default auto-checkpoint is off.
+  EXPECT_EQ("0", ExecuteWithResult(&db, "PRAGMA wal_autocheckpoint"));
+
+  ASSERT_TRUE(
+      db.Execute("CREATE TABLE foo (id INTEGER UNIQUE, value INTEGER)"));
+
+  base::HistogramTester histogram_tester;
+  // Cause at least 1000 commits.
+  for (int i = 0; i < 1000; ++i) {
+    ASSERT_TRUE(db.Execute(
+        base::StringPrintf("INSERT INTO foo VALUES (%d, %d)", i, i)));
+  }
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Sql.Database.AutoCheckpoint.Time.Test"),
+      testing::Not(testing::IsEmpty()));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Sql.Database.AutoCheckpoint.Result.Test"),
+      testing::Contains(
+          testing::Field(&base::Bucket::min, testing::Eq(SQLITE_OK))));
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Sql.Database.AutoCheckpoint.FrameCount.Test"),
+              testing::Not(testing::IsEmpty()));
 }
 
 #if BUILDFLAG(IS_WIN)

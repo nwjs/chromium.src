@@ -4,16 +4,20 @@
 
 #include "third_party/blink/renderer/modules/ai/ai_interface_proxy.h"
 
+#include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
+const char AIInterfaceProxy::kSupplementName[] = "AIInterfaceProxy";
+
 // TODO(crbug.com/406770758): Consider refactoring to have this class own the
 // execution context as a member.
 AIInterfaceProxy::AIInterfaceProxy(ExecutionContext* execution_context)
-    : task_runner_(
+    : Supplement<ExecutionContext>(*execution_context),
+      task_runner_(
           execution_context->GetTaskRunner(TaskType::kInternalDefault)),
       language_detection_model_(
           MakeGarbageCollected<LanguageDetectionModel>()) {}
@@ -21,6 +25,7 @@ AIInterfaceProxy::AIInterfaceProxy(ExecutionContext* execution_context)
 AIInterfaceProxy::~AIInterfaceProxy() = default;
 
 void AIInterfaceProxy::Trace(Visitor* visitor) const {
+  Supplement<ExecutionContext>::Trace(visitor);
   visitor->Trace(translation_manager_remote_);
   visitor->Trace(language_detection_driver_);
   visitor->Trace(language_detection_model_);
@@ -67,11 +72,11 @@ HeapMojoRemote<mojom::blink::AIManager>& AIInterfaceProxy::GetAIManagerRemote(
 // static
 AIInterfaceProxy* AIInterfaceProxy::From(ExecutionContext* execution_context) {
   AIInterfaceProxy* translation_manager_proxy =
-      execution_context->GetAIInterfaceProxy();
+      Supplement<ExecutionContext>::From<AIInterfaceProxy>(*execution_context);
   if (!translation_manager_proxy) {
     translation_manager_proxy =
         MakeGarbageCollected<AIInterfaceProxy>(execution_context);
-    execution_context->SetAIInterfaceProxy(translation_manager_proxy);
+    ProvideTo(*execution_context, translation_manager_proxy);
   }
   return translation_manager_proxy;
 }

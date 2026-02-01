@@ -148,10 +148,12 @@ chromium-metrics-reviews@google.com.
   <token key="ApiRequestType">
     <variant name="ActivateTab"/>
     <variant name="AttachPanel"/>
+    <variant name="CancelActions"/>
     <variant name="CaptureScreenshot"/>
     <variant name="ClosePanel"/>
     <variant name="ClosePanelAndShutdown"/>
     <variant name="CreateActorTab"/>
+    <variant name="CreateSkill"/>
     <variant name="CreateTab"/>
     <variant name="CreateTask"/>
     <variant name="DetachPanel"/>
@@ -162,6 +164,7 @@ chromium-metrics-reviews@google.com.
     <variant name="GetContextFromTab"/>
     <variant name="GetModelQualityClientId"/>
     <variant name="GetOsMicrophonePermissionStatus"/>
+    <variant name="GetSkill"/>
     <variant name="GetUserProfileInfo"/>
     <variant name="GetZeroStateSuggestionsAndSubscribe"/>
     <variant name="GetZeroStateSuggestionsForFocusedTab"/>
@@ -209,6 +212,7 @@ chromium-metrics-reviews@google.com.
     <variant name="SetMaximumNumberOfPinnedTabs"/>
     <variant name="SetMicrophonePermissionState"/>
     <variant name="SetMinimumWidgetSize"/>
+    <variant name="SetOnboardingCompleted"/>
     <variant name="SetSyntheticExperimentState"/>
     <variant name="SetTabContextPermissionState"/>
     <variant name="SetWindowDraggableAreas"/>
@@ -217,12 +221,14 @@ chromium-metrics-reviews@google.com.
     <variant name="SubscribeToCaptureRegion"/>
     <variant name="SubscribeToPageMetadata"/>
     <variant name="SubscribeToPinCandidates"/>
+    <variant name="SubscribeToTabData"/>
     <variant name="SwitchConversation"/>
     <variant name="UninterruptActorTask"/>
     <variant name="UnpinAllTabs"/>
     <variant name="UnpinTabs"/>
     <variant name="UnsubscribeFromCaptureRegion"/>
     <variant name="UnsubscribeFromPinCandidates"/>
+    <variant name="UpdateSkill"/>
     <variant name="WebClientCreated"/>
     <variant name="WebClientInitialized"/>
   </token>
@@ -362,7 +368,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Focus.Settings.Shortcut.Customized" enum="BooleanEnabled"
-    expires_after="2026-03-22">
+    expires_after="2026-05-31">
   <owner>bryantchandler@chromium.org</owner>
   <owner>iwells@google.com</owner>
   <summary>
@@ -428,6 +434,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Fre.TotalTime.Accepted.Onboarding" units="ms"
+    expires_after="2026-08-03">
+  <owner>tommasin@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    Records the time elapsed from when the Trust-First Onboarding flow (side
+    panel) is first shown until the user accepts it (starts chat).
+  </summary>
+</histogram>
+
 <histogram name="Glic.Fre.TotalTime.Dismissed" units="ms"
     expires_after="2026-08-03">
   <owner>birnie@google.com</owner>
@@ -435,6 +451,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the time elapsed from when the FRE is first opened until it is
     dismissed by the user (e.g. closing the tab).
+  </summary>
+</histogram>
+
+<histogram name="Glic.Fre.TotalTime.Dismissed.Onboarding" units="ms"
+    expires_after="2026-08-03">
+  <owner>tommasin@chromium.org</owner>
+  <owner>zalmashni@google.com</owner>
+  <summary>
+    Records the time elapsed from when the Trust-First Onboarding flow (side
+    panel) is first shown until it is dismissed by the user (e.g. closing the
+    side panel).
   </summary>
 </histogram>
 
@@ -643,7 +670,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Host.WebView.AutoPlay" enum="WebViewAutoPlayProgress"
-    expires_after="2026-04-05">
+    expires_after="2026-06-07">
   <owner>carlosk@chromium.org</owner>
   <owner>dewittj@google.com</owner>
   <summary>
@@ -665,17 +692,24 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Instance.FirstActionInDaisyChainPanel"
-    enum="GlicDaisyChainFirstAction" expires_after="2025-12-31">
+<histogram name="Glic.Instance.FirstActionInDaisyChainPanel.{Source}"
+    enum="GlicDaisyChainFirstAction" expires_after="2026-12-31">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
     Records the first action that occurs on a tab that was created by
-    daisy-chaining (opening a link from the side panel). Recorded when a
-    significant action occurs (tab closed, side panel closed, input submitted,
-    conversation switched, daisy chain another tab) or records &quot;No
-    Action&quot; when tab helper is destroyed before any action occurs.
+    daisy-chaining (opening a link from the side panel), broken down by the
+    source of the daisy chain. Recorded when a significant action occurs (tab
+    closed, side panel closed, input submitted, conversation switched, daisy
+    chain another tab) or records &quot;No Action&quot; when tab helper is
+    destroyed before any action occurs.
   </summary>
+  <token key="Source">
+    <variant name="ActorAddTab"/>
+    <variant name="GlicContents"/>
+    <variant name="NewTab"/>
+    <variant name="TabContents"/>
+  </token>
 </histogram>
 
 <histogram name="Glic.Instance.Floaty.InitialMode" enum="GlicWebClientMode"
@@ -1155,15 +1189,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Instance.WebClient.MaxPrivateMemoryFootprint" units="MB"
+<histogram name="Glic.Instance.WebClient.MaxPrivateMemoryFootprint2" units="MB"
     expires_after="2026-12-09">
   <owner>birnie@google.com</owner>
   <owner>bryantchandler@google.com</owner>
   <summary>
     Records the maximum observed private memory footprint of the Glic WebClient
-    renderer process. Recorded when the Glic instance is shut down. Note that
-    this is the maximum value observed during the 30-minute sampling intervals,
-    not necessarily the absolute peak memory usage.
+    renderer process. Recorded exactly once per Glic instance lifecycle, when
+    the instance is permanently destroyed or hibernated. This value represents
+    the peak memory usage observed during any 30-minute interval within that
+    session.
   </summary>
 </histogram>
 
@@ -1178,16 +1213,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.Instance.WebUI.MaxPrivateMemoryFootprint" units="MB"
+<histogram name="Glic.Instance.WebUI.MaxPrivateMemoryFootprint2" units="MB"
     expires_after="2026-12-09">
   <owner>birnie@google.com</owner>
   <owner>bryantchandler@google.com</owner>
   <summary>
     Records the maximum observed private memory footprint of the Glic WebUI
-    renderer process. Recorded when the Glic instance is shut down. Note that
-    this is the maximum value observed during the 30-minute sampling intervals,
-    not necessarily the absolute peak memory usage. WebUI memory is expected to
-    be significantly lower than WebClient memory.
+    renderer process. Recorded exactly once per Glic instance lifecycle, when
+    the instance is permanently destroyed or hibernated. This value represents
+    the peak memory usage observed during any 30-minute interval within that
+    session. WebUI memory is expected to be significantly lower than WebClient
+    memory.
   </summary>
 </histogram>
 
@@ -1361,7 +1397,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PageContextFetcher.GetEncodedScreenshot.TimeoutAgnostic"
-    units="ms" expires_after="2026-04-12">
+    units="ms" expires_after="2026-06-21">
   <owner>cfredric@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
@@ -1401,6 +1437,14 @@ chromium-metrics-reviews@google.com.
     scaling) regardless of whether the timeout has already fired. Measure the
     time from start.
   </summary>
+</histogram>
+
+<histogram name="Glic.PageContextFetcher.GetScreenshotError"
+    enum="CopyFromSurfaceError" expires_after="2026-09-15">
+  <owner>bokan@google.com</owner>
+  <owner>dtapuska@google.com</owner>
+  <owner>chrome-synapse-team@google.com</owner>
+  <summary>Recorded when a page gets screenshot error from Viz.</summary>
 </histogram>
 
 <histogram name="Glic.PageContextFetcher.Total" units="ms"
@@ -1761,14 +1805,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ScrollTo.ErrorReason" enum="GlicScrollToErrorReason"
-    expires_after="2026-01-15">
+    expires_after="2027-01-15">
   <owner>liuwilliam@google.com</owner>
   <owner>adithyas@google.com</owner>
   <summary>Records the error reason when scrollTo() fails.</summary>
 </histogram>
 
 <histogram name="Glic.ScrollTo.MatchDuration.{MatchResult}" units="ms"
-    expires_after="2026-01-15">
+    expires_after="2027-01-15">
   <owner>liuwilliam@google.com</owner>
   <owner>adithyas@google.com</owner>
   <summary>Measures the time taken to match content for scrollTo().</summary>
@@ -1780,7 +1824,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ScrollTo.ScrollDistance" units="dip"
-    expires_after="2026-01-15">
+    expires_after="2027-01-15">
   <owner>liuwilliam@google.com</owner>
   <owner>adithyas@google.com</owner>
   <summary>
@@ -1790,7 +1834,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ScrollTo.SessionCount" units="count"
-    expires_after="2026-05-24">
+    expires_after="2027-01-15">
   <owner>liuwilliam@google.com</owner>
   <owner>adithyas@google.com</owner>
   <summary>
@@ -1800,7 +1844,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ScrollTo.UserPromptToScrollTime.{Mode}" units="ms"
-    expires_after="2026-01-15">
+    expires_after="2027-01-15">
   <owner>liuwilliam@google.com</owner>
   <owner>adithyas@google.com</owner>
   <summary>

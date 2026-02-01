@@ -64,7 +64,6 @@ TestSafeBrowsingBlockingPage::TestSafeBrowsingBlockingPage(
     const GURL& main_frame_url,
     const UnsafeResourceList& unsafe_resources,
     const BaseSafeBrowsingErrorUI::SBErrorDisplayOptions& display_options,
-    bool should_trigger_reporting,
     bool is_proceed_anyway_disabled,
     bool is_safe_browsing_surveys_enabled,
     base::OnceCallback<void(bool, SBThreatType)>
@@ -83,7 +82,6 @@ TestSafeBrowsingBlockingPage::TestSafeBrowsingBlockingPage(
               manager,
               blocked_page_shown_timestamp),
           display_options,
-          should_trigger_reporting,
           HistoryServiceFactory::GetForProfile(
               Profile::FromBrowserContext(web_contents->GetBrowserContext()),
               ServiceAccessType::EXPLICIT_ACCESS),
@@ -149,7 +147,6 @@ TestSafeBrowsingBlockingPageFactory::CreateSafeBrowsingPage(
     WebContents* web_contents,
     const GURL& main_frame_url,
     const SafeBrowsingBlockingPage::UnsafeResourceList& unsafe_resources,
-    bool should_trigger_reporting,
     std::optional<base::TimeTicks> blocked_page_shown_timestamp) {
   shown_interstitial_ = InterstitialShown::kConsumer;
   PrefService* prefs =
@@ -198,8 +195,7 @@ TestSafeBrowsingBlockingPageFactory::CreateSafeBrowsingPage(
 
   return new TestSafeBrowsingBlockingPage(
       delegate, web_contents, main_frame_url, unsafe_resources, display_options,
-      should_trigger_reporting, is_proceed_anyway_disabled,
-      is_safe_browsing_surveys_enabled,
+      is_proceed_anyway_disabled, is_safe_browsing_surveys_enabled,
       std::move(trust_safety_sentiment_service_trigger),
       base::BindOnce(
           &safe_browsing::MaybeIgnoreAbusiveNotificationAutoRevocation,
@@ -300,16 +296,6 @@ void FakeSafeBrowsingUIManager::OnThreatDetailsDone(
   threat_details_done_ = true;
 }
 
-void FakeSafeBrowsingUIManager::MaybeReportSafeBrowsingHit(
-    std::unique_ptr<HitReport> hit_report,
-    WebContents* web_contents) {
-  if (SafeBrowsingUIManager::ShouldSendHitReport(hit_report.get(),
-                                                 web_contents)) {
-    hit_report_count_++;
-    hit_report_sent_threat_source_ = hit_report.get()->threat_source;
-  }
-}
-
 void FakeSafeBrowsingUIManager::MaybeSendClientSafeBrowsingWarningShownReport(
     std::unique_ptr<ClientSafeBrowsingReportRequest> report,
     WebContents* web_contents) {
@@ -324,18 +310,8 @@ void FakeSafeBrowsingUIManager::MaybeSendClientSafeBrowsingWarningShownReport(
   }
 }
 
-bool FakeSafeBrowsingUIManager::hit_report_sent() {
-  return hit_report_count_ > 0;
-}
-int FakeSafeBrowsingUIManager::hit_report_count() {
-  return hit_report_count_;
-}
 bool FakeSafeBrowsingUIManager::report_sent() {
   return report_sent_;
-}
-std::optional<ThreatSource>
-FakeSafeBrowsingUIManager::hit_report_sent_threat_source() {
-  return hit_report_sent_threat_source_;
 }
 std::optional<bool> FakeSafeBrowsingUIManager::report_sent_is_async_check() {
   return report_sent_is_async_check_;

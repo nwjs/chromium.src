@@ -22,7 +22,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
@@ -207,11 +207,7 @@ IN_PROC_BROWSER_TEST_F(ExistingTabGroupSubMenuModelTest,
   }
   model_1->DeselectTabAt(0);
 
-  const ui::ListSelectionModel::SelectedIndices selection_indices =
-      model_1->selection_model().selected_indices();
-  std::vector<int> selected_indices =
-      std::vector<int>(selection_indices.begin(), selection_indices.end());
-  EXPECT_EQ(selected_indices.size(), size_t(3));
+  EXPECT_EQ(model_1->selection_model().size(), size_t(3));
   EXPECT_EQ(4u, menu_1.GetItemCount());
 
   // Move the 3 selected indices in model_1 to model_2.
@@ -389,7 +385,7 @@ class ExistingTabGroupSubMenuModelClosedSavedGroupsTest
   TabStripModel* tab_strip_model() { return browser()->tab_strip_model(); }
 
   TabStrip* tabstrip() {
-    return views::AsViewClass<TabStripRegionView>(
+    return views::AsViewClass<HorizontalTabStripRegionView>(
                browser()->GetBrowserView().tab_strip_view())
         ->tab_strip();
   }

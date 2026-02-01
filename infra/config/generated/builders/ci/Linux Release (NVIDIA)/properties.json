@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU Linux Builder",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -34,7 +34,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux Release (NVIDIA)",
-              "project": "chromium-m144"
+              "project": "chromium-m145"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -57,7 +57,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU Linux Builder",
-                "project": "chromium-m144"
+                "project": "chromium-m145"
               }
             }
           }
@@ -67,7 +67,7 @@
         {
           "bucket": "ci",
           "builder": "Linux Release (NVIDIA)",
-          "project": "chromium-m144"
+          "project": "chromium-m145"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -76,8 +76,7 @@
           "group": "tryserver.chromium.linux"
         }
       ],
-      "targets_spec_directory": "infra/config/generated/builders/ci/Linux Release (NVIDIA)/targets",
-      "targets_spec_directory_relative_to_source_dir": true
+      "targets_spec_directory": "infra/config/generated/builders/ci/Linux Release (NVIDIA)/targets"
     }
   },
   "$recipe_engine/resultdb/test_presentation": {

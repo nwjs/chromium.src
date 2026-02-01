@@ -24,6 +24,7 @@
 #include "base/version.h"
 #include "build/build_config.h"
 #include "chrome/updater/activity.h"
+#include "chrome/updater/branded_constants.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/crx_downloader_factory.h"
 #include "chrome/updater/external_constants.h"
@@ -147,7 +148,7 @@ GURL Configurator::CrashUploadURL() const {
 
 std::string Configurator::GetProdId() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return "updater";
+  return kProdId;
 }
 
 base::Version Configurator::GetBrowserVersion() const {

@@ -1,0 +1,16 @@
+rootWebArea
+++genericContainer ignored
+++++genericContainer ignored
+++++++tabPanel
+++++++++genericContainer
+++++++++++staticText name='One'
+++++++++++++inlineTextBox name='One'
+++++++++genericContainer
+++++++++++staticText name='Two'
+++++++++++++inlineTextBox name='Two'
+++++++++genericContainer
+++++++++++staticText name='Three'
+++++++++++++inlineTextBox name='Three'
+++++++tabList horizontal controlsIds=tabPanel
+++++++++tab selected=true
+++++++++tab selected=false

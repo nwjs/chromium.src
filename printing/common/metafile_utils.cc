@@ -215,6 +215,43 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
       tag->fTypeString = chrome_pdf::kPDFStructureTypeNonStruct;
       valid = true;
       break;
+    case ax::mojom::Role::kCheckBox: {
+      tag->fTypeString = chrome_pdf::kPDFStructureTypeForm;
+      tag->fAttributes.appendName(chrome_pdf::kPDFPrintFieldAttributeOwner,
+                                  chrome_pdf::kPDFPrintFieldRoleAttribute,
+                                  chrome_pdf::kPDFRoleRadioButtonAttribute);
+
+      // The default value of the "checked" attribute is "Off". All other
+      // CheckedStates options do not clearly apply to PDF.
+      if (ax_node->data().GetCheckedState() == ax::mojom::CheckedState::kTrue) {
+        tag->fAttributes.appendName(chrome_pdf::kPDFPrintFieldAttributeOwner,
+                                    chrome_pdf::kPDFPrintFieldCheckedAttribute,
+                                    chrome_pdf::kPDFCheckedOnAttribute);
+      }
+
+      // If the name comes from an attribute, it's unlikely to otherwise
+      // appear as text in the PDF, so provide this name as the Desc.
+      auto name_from = ax_node->GetNameFrom();
+      if (name_from == ax::mojom::NameFrom::kAttribute ||
+          name_from == ax::mojom::NameFrom::kTitle ||
+          name_from == ax::mojom::NameFrom::kCssAltText) {
+        // `appendTextString` does not copy, it only saves a `const char*`.
+        // The ax_node->data() is expected to persist, as part of the AXTree,
+        // until that value is read in `SkDocument::Close()`.
+        const std::string& name_ref = ax_node->data().GetStringAttribute(
+            ax::mojom::StringAttribute::kName);
+        if (!name_ref.empty()) {
+          tag->fAttributes.appendTextString(
+              chrome_pdf::kPDFPrintFieldAttributeOwner,
+              chrome_pdf::kPDFPrintFieldDescAttribute, name_ref.c_str());
+        }
+      }
+
+      // In case someone is printing to PDF a web page that is 100% checkboxes
+      // (no kStaticText nodes), the PDF should still be tagged.
+      valid = true;
+      break;
+    }
     default:
       tag->fTypeString = chrome_pdf::kPDFStructureTypeNonStruct;
       break;
@@ -273,7 +310,7 @@ namespace printing {
 sk_sp<SkDocument> MakePdfDocument(
     std::string_view creator,
     std::string_view title,
-    const ui::AXTreeUpdate& accessibility_tree,
+    ui::AXTree* tree,
     mojom::GenerateDocumentOutline generate_document_outline,
     SkWStream* stream) {
   SkPDF::Metadata metadata;
@@ -286,15 +323,12 @@ sk_sp<SkDocument> MakePdfDocument(
   metadata.fRasterDPI = 300.0f;
 
   SkPDF::StructureElementNode tag_root = {};
-  if (!accessibility_tree.nodes.empty()) {
-    ui::AXTree tree(accessibility_tree);
-    if (RecursiveBuildStructureTree(tree.root(), &tag_root)) {
-      metadata.fStructureElementTreeRoot = &tag_root;
-      metadata.fOutline =
-          generate_document_outline == mojom::GenerateDocumentOutline::kNone
-              ? SkPDF::Metadata::Outline::None
-              : SkPDF::Metadata::Outline::StructureElementHeaders;
-    }
+  if (tree && RecursiveBuildStructureTree(tree->root(), &tag_root)) {
+    metadata.fStructureElementTreeRoot = &tag_root;
+    metadata.fOutline =
+        generate_document_outline == mojom::GenerateDocumentOutline::kNone
+            ? SkPDF::Metadata::Outline::None
+            : SkPDF::Metadata::Outline::StructureElementHeaders;
   }
 
   return SkPDF::MakeDocument(stream, metadata);
@@ -319,7 +353,7 @@ sk_sp<SkDocument> MakeXpsDocument(SkWStream* stream) {
 }
 #endif
 
-sk_sp<SkData> SerializeOopPicture(SkPicture* pic, void* ctx) {
+SkSerialReturnType SerializeOopPicture(SkPicture* pic, void* ctx) {
   const auto* context = reinterpret_cast<const ContentToProxyTokenMap*>(ctx);
   uint32_t pic_id = pic->uniqueID();
   auto iter = context->find(pic_id);
@@ -350,7 +384,7 @@ sk_sp<SkPicture> DeserializeOopPicture(const void* data,
   return iter->second;
 }
 
-sk_sp<SkData> SerializeOopTypeface(SkTypeface* typeface, void* ctx) {
+SkSerialReturnType SerializeOopTypeface(SkTypeface* typeface, void* ctx) {
   auto* context = reinterpret_cast<TypefaceSerializationContext*>(ctx);
   SkTypefaceID typeface_id = typeface->uniqueID();
   bool data_included = context->insert(typeface_id).second;
@@ -399,7 +433,7 @@ sk_sp<SkTypeface> DeserializeOopTypeface(const void* data,
   return typeface;
 }
 
-sk_sp<SkData> SerializeRasterImage(SkImage* img, void* ctx) {
+SkSerialReturnType SerializeRasterImage(SkImage* img, void* ctx) {
   if (!img) {
     return nullptr;
   }

@@ -21,6 +21,8 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/extensions/api/side_panel/side_panel_api.h"
 #include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
@@ -293,7 +295,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
   }
 
   SidePanelCoordinator* coordinator() {
-    return browser()->GetFeatures().side_panel_coordinator();
+    return SidePanelCoordinator::From(browser());
   }
 
   SidePanelRegistry* global_registry() {
@@ -302,16 +304,6 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
 
   std::vector<raw_ptr<SidePanelRegistry, DanglingUntriaged>>
       contextual_registries_;
-};
-
-class SidePanelCoordinatorWithSideBySideTest : public SidePanelCoordinatorTest {
- public:
-  SidePanelCoordinatorWithSideBySideTest() {
-    scoped_feature_list_.InitWithFeatures({features::kSideBySide}, {});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ToggleSidePanel) {
@@ -653,8 +645,8 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelWidthMaxMin) {
             web_contents_width);
 }
 
-IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorWithSideBySideTest,
-                       ChangeSidePanelWidthMaxMin) {
+IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
+                       ChangeSidePanelWidthMaxMinWithSplitView) {
   Init();
 
   // Create split view.
@@ -685,16 +677,17 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorWithSideBySideTest,
       large_increment, true);
   views::test::RunScheduledLayout(&browser()->GetBrowserView());
 
+  MultiContentsView* multi_contents_view =
+      browser()->GetBrowserView().multi_contents_view();
   if (base::FeatureList::IsEnabled(features::kTabbedBrowserUseNewLayout)) {
-    EXPECT_EQ(browser()->GetBrowserView().multi_contents_view()->width(),
+    EXPECT_EQ(multi_contents_view->width(),
               GetMinWebContentsWidth() + views::Separator::kThickness);
   } else {
-    EXPECT_EQ(browser()->GetBrowserView().multi_contents_view()->width(),
-              GetMinWebContentsWidth());
-    EXPECT_EQ(
-        browser()->GetBrowserView().multi_contents_view()->width(),
-        browser()->GetBrowserView().multi_contents_view()->GetMinViewWidth() *
-            2);
+    EXPECT_EQ(multi_contents_view->width(), GetMinWebContentsWidth());
+    EXPECT_GT(
+        multi_contents_view->width(),
+        multi_contents_view->GetActiveContentsContainerView()->width() +
+            multi_contents_view->GetInactiveContentsContainerView()->width());
   }
 }
 
@@ -2514,8 +2507,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
   ASSERT_TRUE(guest_browser->profile()->IsGuestSession());
 
   // Check that pin button does not show in guest window.
-  auto* coordinator = guest_browser->GetFeatures().side_panel_coordinator();
-
+  auto* const coordinator = SidePanelCoordinator::From(guest_browser);
   coordinator->SetNoDelaysForTesting(true);
   coordinator->DisableAnimationsForTesting();
   coordinator->Show(SidePanelEntry::Id::kBookmarks);
@@ -3174,6 +3166,9 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_GT(content_x_at_first_step, content_x_at_second_step);
 }
 
+// TODO(crbug.com/467727720): Re-enable on Windows when the underlying jank is
+// resolved.
+#if !BUILDFLAG(IS_WIN)
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                        ClosingMidShowFromAnimationReparentsContentView) {
   // Deregister and reregister kAboutThisSite side panel with kToolbar
@@ -3233,6 +3228,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
   ASSERT_EQ(
       toolbar_height_side_panel->GetContentParentView()->children().size(), 1);
 }
+#endif
 
 IN_PROC_BROWSER_TEST_F(
     SidePanelCoordinatorTest,

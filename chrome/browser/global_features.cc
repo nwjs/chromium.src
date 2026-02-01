@@ -22,12 +22,16 @@
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "media/base/media_switches.h"
+#include "net/net_buildflags.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
 // This causes a gn error on Android builds, because gn does not understand
 // buildflags, so we include it only on platforms where it is used.
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"  // nogncheck
-#include "chrome/browser/glic/glic_profile_manager.h"               // nogncheck
+#include "chrome/browser/glic/glic_profile_manager.h"  // nogncheck
+#endif
+
+#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
 #include "chrome/browser/glic/host/glic_synthetic_trial_manager.h"  // nogncheck
 #include "chrome/browser/glic/public/glic_enabling.h"               // nogncheck
 #endif
@@ -51,6 +55,13 @@
 #include "chrome/browser/startup/startup_launch_manager.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+#include "chrome/browser/signin/bound_session_credentials/unexportable_key_obsolete_profile_garbage_collector.h"  // nogncheck
+#include "chrome/browser/signin/bound_session_credentials/unexportable_key_provider_config.h"  // nogncheck
+#include "components/unexportable_keys/features.h"
+#include "components/unexportable_keys/unexportable_key_service_impl.h"
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
 namespace {
 
@@ -82,28 +93,52 @@ void GlobalFeatures::ReplaceGlobalFeaturesForTesting(
   f = std::move(factory);
 }
 
-void GlobalFeatures::Init() {
+void GlobalFeatures::PreBrowserProcessInit() {
+  PreBrowserProcessInitCore();
+}
+
+void GlobalFeatures::PostBrowserProcessInit() {
 #if !BUILDFLAG(IS_ANDROID)
   startup_launch_manager_ =
       GetUserDataFactory().CreateInstance<StartupLaunchManager>(
           *g_browser_process, g_browser_process);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_GLIC)
+  PostBrowserProcessInitCore();
+
+#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
   if (glic::GlicEnabling::IsEnabledByFlags()) {
+#if !BUILDFLAG(ENABLE_GLIC_ANDROID)
     glic_profile_manager_ = std::make_unique<glic::GlicProfileManager>();
     glic_background_mode_manager_ =
         std::make_unique<glic::GlicBackgroundModeManager>(
             g_browser_process->status_tray());
+#endif
     synthetic_trial_manager_ =
         std::make_unique<glic::GlicSyntheticTrialManager>();
   }
 #endif
 
-  InitCoreFeatures();
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  if (unexportable_keys::UnexportableKeyServiceImpl::
+          IsStatefulUnexportableKeyProviderSupported(
+              unexportable_keys::GetDefaultConfig()) &&
+      base::FeatureList::IsEnabled(
+          unexportable_keys::kUnexportableKeyDeletion)) {
+    unexportable_key_obsolete_profile_garbage_collector_ = std::make_unique<
+        unexportable_keys::UnexportableKeyObsoleteProfileGarbageCollector>(
+        g_browser_process->profile_manager());
+  }
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 }
 
-void GlobalFeatures::InitCoreFeatures() {
+void GlobalFeatures::PreBrowserProcessInitCore() {
+#if !BUILDFLAG(IS_ANDROID)
+  global_browser_collection_ = std::make_unique<GlobalBrowserCollection>();
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
+void GlobalFeatures::PostBrowserProcessInitCore() {
   system_permissions_platform_handle_ = CreateSystemPermissionsPlatformHandle();
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   // TODO(crbug.com/463742800): Migrate WhatsNewRegistry (and other non-core
@@ -111,11 +146,19 @@ void GlobalFeatures::InitCoreFeatures() {
   whats_new_registry_ = CreateWhatsNewRegistry();
 
   default_browser_manager_ =
-      std::make_unique<default_browser::DefaultBrowserManager>(
-          default_browser::DefaultBrowserManager::CreateDefaultDelegate());
+      GetUserDataFactory()
+          .CreateInstance<default_browser::DefaultBrowserManager>(
+              *g_browser_process, g_browser_process,
+              default_browser::DefaultBrowserManager::CreateDefaultDelegate());
 #endif
 
   application_locale_storage_ = std::make_unique<ApplicationLocaleStorage>();
+
+#if BUILDFLAG(ENABLE_GLIC)
+  glic::GlicGlobalEnabling::Delegate glic_enabling_delegate;
+  glic_global_enabling_ =
+      std::make_unique<glic::GlicGlobalEnabling>(glic_enabling_delegate);
+#endif
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (base::FeatureList::IsEnabled(
@@ -142,13 +185,9 @@ void GlobalFeatures::InitCoreFeatures() {
         safe_browsing::ApplicationAdvancedProtectionStatusDetector>(
         g_browser_process->profile_manager());
   }
-
-#if !BUILDFLAG(IS_ANDROID)
-  global_browser_collection_ = std::make_unique<GlobalBrowserCollection>();
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-void GlobalFeatures::Shutdown() {
+void GlobalFeatures::PostMainMessageLoopRun() {
 #if BUILDFLAG(ENABLE_GLIC)
   if (glic_background_mode_manager_) {
     glic_background_mode_manager_->Shutdown();
@@ -158,12 +197,20 @@ void GlobalFeatures::Shutdown() {
     glic_profile_manager_->Shutdown();
     glic_profile_manager_.reset();
   }
+#endif
+#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
   synthetic_trial_manager_.reset();
 #endif
   audio_process_ml_model_forwarder_.reset();
   optimization_guide_global_feature_.reset();
 
   application_advanced_protection_status_detector_.reset();
+}
+
+void GlobalFeatures::PostDestroyThreads() {
+#if !BUILDFLAG(IS_ANDROID)
+  global_browser_collection_.reset();
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 std::unique_ptr<system_permission_settings::PlatformHandle>

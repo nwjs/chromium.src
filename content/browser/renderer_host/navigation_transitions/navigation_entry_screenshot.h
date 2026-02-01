@@ -70,8 +70,7 @@ class NavigationEntryScreenshotCache;
 class CONTENT_EXPORT NavigationEntryScreenshot
     : public cc::UIResourceClient,
       public base::SupportsUserData::Data,
-      public performance_scenarios::MatchingScenarioObserver,
-      private cc::TextureLayerClient {
+      public performance_scenarios::MatchingScenarioObserver {
  public:
   class SharedImageProvider : public base::RefCounted<SharedImageProvider>,
                               public cc::TextureLayerClient {
@@ -103,7 +102,7 @@ class CONTENT_EXPORT NavigationEntryScreenshot
 
     // Performs cleanup operations upon release of a created TextureLayer.
     // It is to be used as the callback returned by PrepareTransferableResource.
-    virtual void DoRelease(const gpu::SyncToken& sync_token, bool is_lost);
+    virtual void DoRelease(const gpu::SyncToken& sync_token, bool is_lost) = 0;
 
     bool pending_transferable_resource_ = false;
 
@@ -185,11 +184,16 @@ class CONTENT_EXPORT NavigationEntryScreenshot
         base::ScopedClosureRunner release_callback);
 
     raw_ptr<NavigationControllerDelegate> nav_controller_delegate_;
+    base::android::ScopedHardwareBufferHandle hardware_buffer_;
+    base::ScopedClosureRunner release_callback_;
+    const gfx::Size size_;
+
+    // Cached context and shared image must be listed after `hardware_buffer_`
+    // and its `release_callback_`. This guarantees that we wait for any sync
+    // tokens associated with the shared image to be flushed before the hardware
+    // buffer is destroyed.
     scoped_refptr<viz::RasterContextProvider> cached_context_provider_;
     scoped_refptr<gpu::ClientSharedImage> cached_shared_image_;
-    base::android::ScopedHardwareBufferHandle hardware_buffer_;
-    const gfx::Size size_;
-    base::ScopedClosureRunner release_callback_;
   };
 
   using ScreenshotCallback = base::RepeatingCallback<
@@ -266,14 +270,6 @@ class CONTENT_EXPORT NavigationEntryScreenshot
   void MaybeResetSharedImageProvider();
 
   const cc::UIResourceBitmap& GetBitmap() const;
-
-  // cc::TextureLayerClient
-  // Prepares a transferable resource for the shared image in this screenshot.
-  // This can only be called after running CreateTextureLayer and before the
-  // returned closure runs.
-  bool PrepareTransferableResource(
-      viz::TransferableResource* transferable_resource,
-      viz::ReleaseCallback* release_callback) override;
 
   // The uncompressed bitmap cached when navigating away from this navigation
   // entry.

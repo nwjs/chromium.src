@@ -14,7 +14,11 @@ import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate
 
 import java.util.function.Supplier;
 
-/** Implementation of {@link BrowserControlsVisibilityDelegate} for custom tabs. */
+/**
+ * Implementation of {@link BrowserControlsVisibilityDelegate} for custom tabs specific logic. It is
+ * a wrapper around the delegate provided by {@link BrowserControlsVisibilityManager}, allow setting
+ * constraint without changing the browser state logic (e.g. hide controls in TWA app mode).
+ */
 @NullMarked
 public class CustomTabBrowserControlsVisibilityDelegate extends BrowserControlsVisibilityDelegate {
     private final Supplier<BrowserControlsVisibilityManager> mBrowserControlsVisibilityManager;
@@ -22,7 +26,6 @@ public class CustomTabBrowserControlsVisibilityDelegate extends BrowserControlsV
 
     public CustomTabBrowserControlsVisibilityDelegate(
             Supplier<BrowserControlsVisibilityManager> controlsVisibilityManager) {
-        super(BrowserControlsState.BOTH);
         mBrowserControlsVisibilityManager = controlsVisibilityManager;
         getDefaultVisibilityDelegate().addObserver((constraints) -> updateVisibilityConstraints());
         updateVisibilityConstraints();

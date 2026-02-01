@@ -9,10 +9,8 @@
 #include <stdint.h>
 
 #include <memory>
-#include <set>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include "base/command_line.h"
@@ -26,8 +24,11 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace base {
+
+class TaskRunner;
 
 // Constants for GTest command-line flags.
 extern const char kGTestFilterFlag[];
@@ -313,7 +314,7 @@ class TestLauncher {
   bool force_run_broken_tests_;
 
   // Tests to retry in this iteration.
-  std::unordered_set<std::string> tests_to_retry_;
+  absl::flat_hash_set<std::string> tests_to_retry_;
 
   TestResultsTracker results_tracker_;
 

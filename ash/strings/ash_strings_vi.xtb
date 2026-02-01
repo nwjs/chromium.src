@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Ảnh gần đây <ph name="INDEX" /> trong tổng số <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Thu gọn Google Tasks</translation>
 <translation id="2208323208084708176">Chế độ màn hình đồng nhất</translation>
+<translation id="2210311543574621570">Bạn sẽ thấy bảng nhớ tạm khi nhấn và giữ Ctrl + V. Bạn có thể tắt lối tắt này bằng cách vô hiệu hoá cờ #clipboard-history-longpress trong chrome://flags.</translation>
 <translation id="2215920961700443347">Không có Internet. Vui lòng kết nối Internet rồi thử lại.</translation>
 <translation id="2222841058024245321">Không gian làm việc 7</translation>
 <translation id="2223384056430485343">Ở chế độ chia đôi màn hình</translation>
@@ -874,6 +875,7 @@ Hãy sạc thiết bị.</translation>
 <translation id="397105322502079400">Đang tính...</translation>
 <translation id="397726367135689299">Quá trình sạc pin có thể không ổn định.</translation>
 <translation id="3977512764614765090">Pin ở mức <ph name="PERCENTAGE" />% và đang sạc.</translation>
+<translation id="3978162107953847778">Chèn đường liên kết từ các vị trí như nhật ký duyệt web và Google Drive. Bạn cũng có thể chèn biểu tượng cảm xúc, tệp hình ảnh và nội dung khác. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Chuyển đầu ra âm thanh?</translation>
 <translation id="3984536049089846927">Trang tiếp theo</translation>
 <translation id="3986082989454912832">Trả lời</translation>
@@ -1024,7 +1026,6 @@ Một số tính năng bị hạn chế nhằm tăng thời lượng pin.</trans
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 thông báo quan trọng}other{# thông báo quan trọng}}</translation>
 <translation id="4450893287417543264">Không hiện lại</translation>
 <translation id="4451374464530248585">Phím tắt Alt + Mũi tên xuống đã thay đổi. Để sử dụng phím Page Down, hãy nhấn tổ hợp phím <ph name="LAUNCHER_KEY_NAME" /> + Mũi tên xuống.</translation>
-<translation id="4453876312474547652">Bạn sẽ thấy bảng nhớ tạm khi nhấn và giữ Ctrl + V. Bạn có thể tắt phím tắt này bằng cách vô hiệu hoá cờ #clipboard-history-longpress trong chrome://flags (os://flags nếu sử dụng Lacros).</translation>
 <translation id="445765352722456792">Tuỳ chỉnh đề xuất</translation>
 <translation id="4458688154122353284">Dừng ghi màn hình</translation>
 <translation id="445923051607553918">Tham gia mạng Wi-Fi</translation>
@@ -1600,6 +1601,7 @@ Chưa kết nối thiết bị nào.</translation>
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: Đang kích hoạt...</translation>
 <translation id="6274202259872570803">Video ghi lại chuyển động trên màn hình</translation>
+<translation id="6274422179279280249">Chèn đường liên kết, biểu tượng cảm xúc và nội dung khác. Bạn cũng có thể yêu cầu AI của Google trợ giúp viết nội dung. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Xem nguồn trang</translation>
 <translation id="6285871695023807425">Thêm vào Lịch</translation>
 <translation id="6288235558961782912">Bạn có thể thêm <ph name="USER_EMAIL_ADDRESS" /> lại sau nếu cha mẹ cho phép.</translation>
@@ -2190,6 +2192,7 @@ Mới cài đặt</translation>
 <translation id="8237964652943995219">Không gian làm việc tiếp theo: <ph name="DESK_NAME" />. Không gian làm việc số <ph name="DESK_INDEX" />/<ph name="DESK_COUNT" />.</translation>
 <translation id="8238817965863339552">Xem hướng dẫn nhanh để biết cách thao tác trên <ph name="PRODUCT_NAME" />. Thiết lập và sử dụng trong 5 bước.</translation>
 <translation id="8239034820133090126">Kích hoạt không gian làm việc ở bên phải</translation>
+<translation id="8241650983304689286">Thêm thẻ vào chế độ xem phân tách mới</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />, Pin điện thoại <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Hiện tất cả nội dung trên Google Drive</translation>
 <translation id="8257510091797044096">Thiết lập thiết bị của bạn</translation>

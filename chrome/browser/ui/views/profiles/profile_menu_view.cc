@@ -94,7 +94,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/vector_icons/vector_icons.h"
-#include "device/fido/features.h"
+#include "device/fido/public/features.h"
 #include "net/base/url_util.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -388,8 +388,8 @@ void ProfileMenuView::OnSyncErrorButtonClicked(
       chrome::ShowSettingsSubPage(&browser(), chrome::kSyncSetupSubPage);
       break;
     case syncer::SyncService::UserActionableError::kBookmarksLimitExceeded:
-      // TODO(crbug.com/452968646): Adjust this with providing the concrete
-      // help center article link.
+      ShowBookmarksLimitExceededHelp(
+          &browser(), SyncServiceFactory::GetForProfile(&profile()));
       break;
     case syncer::SyncService::UserActionableError::kNone:
       NOTREACHED();

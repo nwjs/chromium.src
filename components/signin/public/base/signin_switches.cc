@@ -37,7 +37,6 @@ const char kForceFreDefaultBrowserStep[] = "force-fre-default-browser-step";
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kAccountRetrievalWaitsForRestoration,
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kAllowlistScopesForMdmErrors, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -110,29 +109,29 @@ BASE_FEATURE(kChromeAndroidIdentitySurveyBookmarkPromo,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kChromeIdentitySurveyAddressBubbleSignin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyDiceWebSigninAccepted,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyDiceWebSigninDeclined,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyFirstRunSignin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyPasswordBubbleSignin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyProfileMenuDismissed,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyProfileMenuSignin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveyProfilePickerAddProfileSignin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveySigninInterceptProfileSeparation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveySigninPromoBubbleDismissed,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveySwitchProfileFromProfileMenu,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kChromeIdentitySurveySwitchProfileFromProfilePicker,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -144,6 +143,10 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "launch_delay_duration",
                    base::Milliseconds(3000));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kEnableAddSessionRedirect, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 #if BUILDFLAG(IS_IOS)
 BASE_FEATURE(kEnableASWebAuthenticationSession,
@@ -191,15 +194,6 @@ bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs) {
   return base::FeatureList::IsEnabled(kEnableChromeRefreshTokenBinding);
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kEnableErrorBadgeOnIdentityDisc,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kEnableIdentityInAuthError, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables binding the OAuthMultilogin cookies to a device with DBSC prototype.
@@ -280,7 +274,7 @@ constexpr base::FeatureParam<SeamlessSigninStringType>
 // management disclaimer when they open Chrome. Every time the primary signed in
 // account changes to a managed account, the management disclaimer will be
 // shown. This is only for desktop platforms.
-BASE_FEATURE(kEnforceManagementDisclaimer, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnforceManagementDisclaimer, base::FEATURE_ENABLED_BY_DEFAULT);
 // The delay between policy registration retry.
 const base::FeatureParam<base::TimeDelta>
     kPolicyDisclaimerRegistrationRetryDelay{
@@ -289,7 +283,7 @@ const base::FeatureParam<base::TimeDelta>
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kForcedDiceMigration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kForcedDiceMigration, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -310,24 +304,17 @@ BASE_FEATURE(kFRESignInAlternativeSecondaryButtonText,
 BASE_FEATURE(kFullscreenSignInPromoUseDate, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+#if !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kGlicEligibilitySeparateAccountCapability,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kHandleMdmErrorsForDasherAccounts,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
-// Enables a history sync educational tip in the magic stack on NTP.
-BASE_FEATURE(kHistoryOptInEducationalTip, base::FEATURE_ENABLED_BY_DEFAULT);
-// Determines which text should be shown on the history sync educational tip
-// button. No-op unless HistoryOptInEducationalTip is enabled.
-const base::FeatureParam<int> kHistoryOptInEducationalTipVariation(
-    &kHistoryOptInEducationalTip,
-    "history_opt_in_educational_tip_param",
-    1);
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kMakeAccountsAvailableInIdentityManager,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kIdentityInAuthErrorFollowUps, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 // When enabled a new library is used to fetch accounts via
@@ -398,6 +385,11 @@ constexpr base::FeatureParam<ProfilePickerVariation>
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 BASE_FEATURE(kProfilesReordering, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kRestrictDeviceManagementServiceOAuthScope,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 BASE_FEATURE(kRollbackDiceMigration, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -491,8 +483,11 @@ BASE_FEATURE(kSyncEnableBookmarksInTransportMode,
 // When enabled, Chrome will always use the /IssueToken endpoint to fetch access
 // tokens, no matter if a refresh token is bound or not.
 BASE_FEATURE(kUseIssueTokenToFetchAccessTokens,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+BASE_FEATURE(kUsePrimaryAndTonalButtonsForPromos,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 BASE_FEATURE(kWebSigninLeadsToImplicitlySignedInState,

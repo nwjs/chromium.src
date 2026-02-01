@@ -12,6 +12,7 @@
 #include "base/containers/contains.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "chrome/common/read_anything/read_anything_util.h"
 #include "chrome/renderer/accessibility/read_anything/read_aloud_traversal_utils.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
@@ -51,8 +52,7 @@ const ui::AXNode* GetUnignoredParentForSelection(const ui::AXNode* node) {
       // displayed as siblings, to avoid misnumbering.
       const std::string_view display =
           node->GetStringAttribute(ax::mojom::StringAttribute::kDisplay);
-      return base::Contains(display, "inline") ||
-             base::Contains(display, "list-item");
+      return display.contains("inline") || display.contains("list-item");
     };
     if (!should_skip(ancestor)) {
       return ancestor;
@@ -124,7 +124,8 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
     double font_size,
     bool links_enabled,
     bool images_enabled,
-    read_anything::mojom::Colors color) {
+    read_anything::mojom::Colors color,
+    read_anything::mojom::LineFocus line_focus) {
   line_spacing_ = line_spacing;
   letter_spacing_ = letter_spacing;
   font_name_ = std::move(font_name);
@@ -132,6 +133,7 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
   links_enabled_ = links_enabled;
   images_enabled_ = images_enabled;
   color_theme_ = color;
+  line_focus_ = line_focus;
 }
 
 void ReadAnythingAppModel::Reset(std::vector<ui::AXNodeID> content_node_ids) {
@@ -147,6 +149,14 @@ void ReadAnythingAppModel::ResetSelection() {
   selection_node_ids_.clear();
   start_ = SelectionEndpoint();
   end_ = SelectionEndpoint();
+}
+
+void ReadAnythingAppModel::ResetLineFocusSession() {
+  line_focus_session_start_time_ = std::optional<base::TimeTicks>();
+  line_focus_mouse_distance_ = 0;
+  line_focus_scroll_distance_ = 0;
+  line_focus_keyboard_lines_ = 0;
+  line_focus_speech_lines_ = 0;
 }
 
 bool ReadAnythingAppModel::PostProcessSelection() {
@@ -342,7 +352,7 @@ void ReadAnythingAppModel::ComputeDisplayNodeIdsForDistilledTree() {
         content_node->GetAncestorsCrossingTreeBoundaryAsQueue();
     while (!ancestors.empty()) {
       ui::AXNodeID ancestor_id = ancestors.front()->id();
-      if (base::Contains(display_node_ids_, ancestor_id)) {
+      if (display_node_ids_.contains(ancestor_id)) {
         break;
       }
       ancestors.pop();
@@ -388,7 +398,7 @@ ui::AXSerializableTree* ReadAnythingAppModel::GetTreeFromId(
 }
 
 bool ReadAnythingAppModel::ContainsTree(const ui::AXTreeID& tree_id) const {
-  return base::Contains(tree_infos_, tree_id);
+  return tree_infos_.contains(tree_id);
 }
 
 bool ReadAnythingAppModel::ContainsActiveTree() const {
@@ -660,7 +670,7 @@ void ReadAnythingAppModel::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
 }
 
 ukm::SourceId ReadAnythingAppModel::GetUkmSourceId() const {
-  if (base::Contains(tree_infos_, active_tree_id_)) {
+  if (tree_infos_.contains(active_tree_id_)) {
     ReadAnythingAppModel::AXTreeInfo* tree_info =
         tree_infos_.at(active_tree_id_).get();
     if (tree_info) {
@@ -677,7 +687,7 @@ void ReadAnythingAppModel::SetUkmSourceIdForTree(const ui::AXTreeID& tree,
   // tree_infos_. When this happens, we should keep track of the ukm_source_id,
   // and later, if the tree is added to tree_infos_ while it's still active,
   // we can try again to set the ukm source.
-  if (!base::Contains(tree_infos_, active_tree_id_)) {
+  if (!tree_infos_.contains(active_tree_id_)) {
     pending_ukm_sources_[tree] = ukm_source_id;
     return;
   }
@@ -686,7 +696,7 @@ void ReadAnythingAppModel::SetUkmSourceIdForTree(const ui::AXTreeID& tree,
 }
 
 void ReadAnythingAppModel::SetUkmSourceId(ukm::SourceId ukm_source_id) {
-  if (!base::Contains(tree_infos_, active_tree_id_)) {
+  if (!tree_infos_.contains(active_tree_id_)) {
     return;
   }
   ReadAnythingAppModel::AXTreeInfo* tree_info =
@@ -702,7 +712,7 @@ void ReadAnythingAppModel::SetUkmSourceId(ukm::SourceId ukm_source_id) {
 }
 
 int ReadAnythingAppModel::GetNumSelections() const {
-  if (base::Contains(tree_infos_, active_tree_id_)) {
+  if (tree_infos_.contains(active_tree_id_)) {
     ReadAnythingAppModel::AXTreeInfo* tree_info =
         tree_infos_.at(active_tree_id_).get();
     if (tree_info) {
@@ -713,7 +723,7 @@ int ReadAnythingAppModel::GetNumSelections() const {
 }
 
 void ReadAnythingAppModel::SetNumSelections(int num_selections) {
-  if (!base::Contains(tree_infos_, active_tree_id_)) {
+  if (!tree_infos_.contains(active_tree_id_)) {
     return;
   }
   ReadAnythingAppModel::AXTreeInfo* tree_info =

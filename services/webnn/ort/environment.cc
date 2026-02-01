@@ -16,6 +16,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split_win.h"
 #include "base/strings/utf_string_conversions.h"
+#include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "services/webnn/ort/logging.h"
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
@@ -116,6 +117,13 @@ bool IsDefaultCpuEpDevice(const OrtEpDevice* device) {
          kCpuExecutionProvider;
 }
 
+bool IsDmlEpDevice(const OrtEpDevice* device) {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+
+  return UNSAFE_BUFFERS(base::cstring_view(ort_api->EpDevice_EpName(device))) ==
+         kDmlExecutionProvider;
+}
+
 bool MatchesEpVendor(const OrtEpDevice* ep_device) {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
 
@@ -161,6 +169,23 @@ bool IsDiscreteGpu(const OrtEpDevice* device) {
   }
 
   return false;
+}
+
+bool IsSoftwareGpu(const OrtEpDevice* device) {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+
+  const OrtHardwareDevice* hardware_device = ort_api->EpDevice_Device(device);
+  if (ort_api->HardwareDevice_Type(hardware_device) !=
+      OrtHardwareDeviceType_GPU) {
+    return false;
+  }
+
+  // Starting with Windows 8, an adapter called the "Microsoft Basic Render
+  // Driver" is always present. This adapter has a VendorId of 0x1414 and a
+  // DeviceID of 0x8c.
+  // https://docs.microsoft.com/en-us/windows/desktop/direct3ddxgi/d3d10-graphics-programming-guide-dxgi#new-info-about-enumerating-adapters-for-windows-8
+  return ort_api->HardwareDevice_VendorId(hardware_device) == 0x1414 &&
+         ort_api->HardwareDevice_DeviceId(hardware_device) == 0x8c;
 }
 
 // Select the first device of specified hardware device type from the sorted
@@ -252,6 +277,11 @@ std::vector<const OrtEpDevice*> SelectEpDevicesForGpu(
 
   if (!first_gpu) {
     return SelectEpDevicesForCpu(sorted_devices);
+  } else if (IsDmlEpDevice(first_gpu) && IsSoftwareGpu(first_gpu)) {
+    // Skip DirectML EP for software GPU adaptor, because it will throw
+    // exception and cause GPU process to crash. See more details in
+    // crbug.com/466848120.
+    return SelectEpDevicesForCpu(sorted_devices);
   }
 
   std::vector<const OrtEpDevice*> selected_devices;
@@ -268,15 +298,21 @@ std::vector<const OrtEpDevice*> SelectEpDevicesForGpu(
   return selected_devices;
 }
 
-// Select the first NPU device with CPU fallback. If no NPU device is selected,
-// delegate to GPU device selection logic which selects the first GPU device
-// with CPU fallback.
+// Select the first NPU device with CPU fallback. If no NPU device is found or
+// blocklisted, delegate to GPU device selection logic which selects the first
+// GPU device with CPU fallback.
 std::vector<const OrtEpDevice*> SelectEpDevicesForNpu(
     base::span<const OrtEpDevice* const> sorted_devices) {
   const OrtEpDevice* first_npu = SelectFirstEpDeviceForDeviceType(
       sorted_devices, OrtHardwareDeviceType_NPU);
 
   if (!first_npu) {
+    return SelectEpDevicesForGpu(sorted_devices);
+  }
+
+  if (Environment::is_npu_blocklisted()) {
+    LOG(WARNING) << "[WebNN] [WARNING] NPU device is disabled to create "
+                    "ONNX Runtime context. Falling back to GPU.";
     return SelectEpDevicesForGpu(sorted_devices);
   }
 
@@ -488,19 +524,19 @@ const OrtEpDevice* SelectUserSpecifiedEpDevice(
 // static
 base::expected<scoped_refptr<Environment>, std::string>
 Environment::GetInstance(
-    const gpu::GPUInfo& gpu_info,
+    const gpu::GpuFeatureInfo& gpu_feature_info,
     const base::flat_map<std::string, mojom::EpPackageInfoPtr>&
         ep_package_info_map) {
   base::AutoLock auto_lock(GetLock());
   if (instance_) {
     return base::WrapRefCounted(instance_);
   }
-  return Create(gpu_info, ep_package_info_map);
+  return Create(gpu_feature_info, ep_package_info_map);
 }
 
 // static
 base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
-    const gpu::GPUInfo& gpu_info,
+    const gpu::GpuFeatureInfo& gpu_feature_info,
     const base::flat_map<std::string, mojom::EpPackageInfoPtr>&
         ep_package_info_map) {
   SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.CreateEnvironment");
@@ -520,10 +556,9 @@ base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
     return base::unexpected("Failed to create the ONNX Runtime environment.");
   }
 
-  // Get the ORT EP name and library path pair specified by
-  // `kWebNNOrtEpLibraryPathForTesting` switch if it exists and the switch value
-  // is valid.
-  std::optional<std::pair<std::string, base::FilePath>> specified_ep_path_info;
+  // If `kWebNNOrtEpLibraryPathForTesting` switch exists and the switch value is
+  // valid, register the EP via loading EP libraries from the specified path.
+  // Failure is ignored.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kWebNNOrtEpLibraryPathForTesting)) {
     std::wstring value =
@@ -535,38 +570,34 @@ base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
                    << switches::kWebNNOrtEpLibraryPathForTesting << ": "
                    << result.error() << " The switch will be ignored.";
     } else {
-      specified_ep_path_info = result.value();
+      std::pair<std::string, base::FilePath> ep_path_info =
+          std::move(result.value());
+      CALL_ORT_FUNC(ort_api->RegisterExecutionProviderLibrary(
+          env.get(), ep_path_info.first.c_str(),
+          ep_path_info.second.value().c_str()));
     }
   }
 
-  // Register known execution providers if they are not registered yet.
+  // Register EPs from `ep_package_info_map` if they are not registered yet.
   // Failure is ignored.
   for (const auto& [ep_name, package_info] : ep_package_info_map) {
     if (IsExecutionProviderRegistered(ort_api, env.get(), ep_name)) {
       continue;
     }
 
-    // First try to load EP libraries from the specified path by
-    // `kWebNNOrtEpLibraryPathForTesting` switch if the EP name matches the
-    // specified EP name. Otherwise, try to load it from the EP package info.
-    base::FilePath ep_library_path;
-    if (specified_ep_path_info && ep_name == specified_ep_path_info->first) {
-      ep_library_path = specified_ep_path_info->second;
-    } else {
-      if (!GetDependentEpPackages().contains(package_info->family_name)) {
-        if (platform_functions
-                ->InitializePackageDependency(package_info->family_name,
-                                              package_info->version)
-                .empty()) {
-          continue;
-        }
-        GetDependentEpPackages().insert(package_info->family_name);
+    if (!GetDependentEpPackages().contains(package_info->family_name)) {
+      if (platform_functions
+              ->InitializePackageDependency(package_info->family_name,
+                                            package_info->version)
+              .empty()) {
+        continue;
       }
-      ep_library_path = package_info->library_path;
+      GetDependentEpPackages().insert(package_info->family_name);
     }
 
     CALL_ORT_FUNC(ort_api->RegisterExecutionProviderLibrary(
-        env.get(), ep_name.c_str(), ep_library_path.value().c_str()));
+        env.get(), ep_name.c_str(),
+        package_info->library_path.value().c_str()));
   }
 
   if (ort_logging_level == ORT_LOGGING_LEVEL_VERBOSE ||
@@ -576,6 +607,8 @@ base::expected<scoped_refptr<Environment>, std::string> Environment::Create(
                  "Registered OrtEpDevice");
   }
 
+  is_npu_blocklisted_ =
+      gpu_feature_info.IsWorkaroundEnabled(gpu::DISABLE_WEBNN_FOR_NPU);
   return base::MakeRefCounted<Environment>(base::PassKey<Environment>(),
                                            std::move(env));
 }
@@ -608,7 +641,7 @@ void Environment::Release() const {
 // static
 std::vector<const OrtEpDevice*> Environment::SelectEpDevices(
     base::span<const OrtEpDevice* const> available_devices,
-    mojom::Device device_type) {
+    OrtHardwareDeviceType device_type) {
   // Try to select only one EP device by user switch first.
   std::vector<const OrtEpDevice*> selected_devices;
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -627,13 +660,13 @@ std::vector<const OrtEpDevice*> Environment::SelectEpDevices(
         SortEpDevices(available_devices);
     // Select devices based on the requested device type.
     switch (device_type) {
-      case mojom::Device::kCpu:
+      case OrtHardwareDeviceType_CPU:
         selected_devices = SelectEpDevicesForCpu(sorted_devices);
         break;
-      case mojom::Device::kGpu:
+      case OrtHardwareDeviceType_GPU:
         selected_devices = SelectEpDevicesForGpu(sorted_devices);
         break;
-      case mojom::Device::kNpu:
+      case OrtHardwareDeviceType_NPU:
         selected_devices = SelectEpDevicesForNpu(sorted_devices);
         break;
     }
@@ -649,7 +682,8 @@ base::span<const OrtEpDevice* const> Environment::GetRegisteredEpDevices()
   return GetRegisteredEpDevicesImpl(ort_api, this->get());
 }
 
-EpWorkarounds Environment::GetEpWorkarounds(mojom::Device device_type) const {
+EpWorkarounds Environment::GetEpWorkarounds(
+    OrtHardwareDeviceType device_type) const {
   EpWorkarounds workarounds;
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   base::span<const OrtEpDevice* const> registered_ep_devices =
@@ -670,7 +704,7 @@ EpWorkarounds Environment::GetEpWorkarounds(mojom::Device device_type) const {
 }
 
 std::vector<SessionConfigEntry> Environment::GetEpConfigEntries(
-    mojom::Device device_type) const {
+    OrtHardwareDeviceType device_type) const {
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   base::span<const OrtEpDevice* const> registered_ep_devices =
       GetRegisteredEpDevicesImpl(ort_api, this->get());
@@ -721,5 +755,7 @@ base::flat_set<std::wstring>& Environment::GetDependentEpPackages() {
   static base::NoDestructor<base::flat_set<std::wstring>> packages;
   return *packages;
 }
+
+bool Environment::is_npu_blocklisted_ = false;
 
 }  // namespace webnn::ort

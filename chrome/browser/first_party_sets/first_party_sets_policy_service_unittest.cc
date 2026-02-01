@@ -17,7 +17,6 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
-#include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "content/public/browser/first_party_sets_handler.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
@@ -171,6 +170,9 @@ class FirstPartySetsPolicyServiceTest
         FirstPartySetsPolicyServiceFactory::GetForBrowserContext(profile_);
     ASSERT_NE(service_, nullptr);
 
+    profile_->GetPrefs()->SetBoolean(
+        prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
+
     // We can't avoid eagerly initializing the service, due to
     // indirection/caching in the factory infrastructure. So we wait for the
     // initialization to complete, and then reset the instance so that we can
@@ -266,57 +268,16 @@ TEST_F(FirstPartySetsPolicyServiceTest,
   env().RunUntilIdle();
 }
 
-TEST_F(FirstPartySetsPolicyServiceTest,
-       FirstPartySetsEnabledWhenIn3pcdWith3pcsLimited) {
-  profile()->GetPrefs()->SetBoolean(
-      prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, false);
-
-  profile()->GetPrefs()->SetBoolean(prefs::kTrackingProtection3pcdEnabled,
-                                    true);
-  profile()->GetPrefs()->SetBoolean(prefs::kBlockAll3pcToggleEnabled, false);
-
-  service()->InitForTesting();
-  EXPECT_TRUE(service()->is_enabled());
-}
-
-TEST_F(FirstPartySetsPolicyServiceTest,
-       FirstPartySetsDisabledWhenIn3pcdWithAll3pcsBlocked) {
-  profile()->GetPrefs()->SetBoolean(
-      prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
-
-  profile()->GetPrefs()->SetBoolean(prefs::kTrackingProtection3pcdEnabled,
-                                    true);
-  profile()->GetPrefs()->SetBoolean(prefs::kBlockAll3pcToggleEnabled, true);
-
-  service()->InitForTesting();
-  EXPECT_FALSE(service()->is_enabled());
-}
-
-// Parameterized test class that controls whether the enabled pref status we are
-// setting is for the existing pref or the 3PCD prefs.
 class FirstPartySetsPolicyServicePrefTest
-    : public FirstPartySetsPolicyServiceTest,
-      public testing::WithParamInterface</*enable_3pcd=*/bool> {
+    : public FirstPartySetsPolicyServiceTest {
  public:
   void SetRwsEnabledViaPref(bool enabled) {
-    bool enable_3pcd = GetParam();
-    if (enable_3pcd) {
-      profile()->GetPrefs()->SetBoolean(prefs::kTrackingProtection3pcdEnabled,
-                                        true);
-      profile()->GetPrefs()->SetBoolean(prefs::kBlockAll3pcToggleEnabled,
-                                        !enabled);
-    } else {
-      profile()->GetPrefs()->SetBoolean(
-          prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, enabled);
-    }
+    profile()->GetPrefs()->SetBoolean(
+        prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, enabled);
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         FirstPartySetsPolicyServicePrefTest,
-                         testing::Bool());
-
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        IsSiteInManagedSet_SiteInConfig_PrefDisabled) {
   net::SchemefulSite example_site(GURL("https://example.test"));
   SetContextConfig(
@@ -332,7 +293,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
   env().RunUntilIdle();
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest, FindEntry_FpsDisabledByPref) {
+TEST_F(FirstPartySetsPolicyServicePrefTest, FindEntry_FpsDisabledByPref) {
   base::HistogramTester histogram_tester;
   net::SchemefulSite primary_site(GURL("https://primary.test"));
   net::SchemefulSite associate1_site(GURL("https://associate1.test"));
@@ -359,7 +320,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest, FindEntry_FpsDisabledByPref) {
   env().RunUntilIdle();
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        FindEntry_FpsEnabled_ReturnsEmptyUntilAllSetsReady) {
   net::SchemefulSite primary_site(GURL("https://primary.test"));
   net::SchemefulSite associate1_site(GURL("https://associate1.test"));
@@ -396,7 +357,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
   env().RunUntilIdle();
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        FindEntry_NumQueriesRecorded_BeforeConfigReady) {
   base::HistogramTester histogram_tester;
 
@@ -434,7 +395,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
   env().RunUntilIdle();
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        FindEntry_NumQueriesRecorded_AfterConfigReady) {
   base::HistogramTester histogram_tester;
 
@@ -467,7 +428,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
   EXPECT_EQ(service()->FindEntry(associate_site).value(), associate_entry);
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        ForEachEffectiveSetEntry_FPSDisabledByPref) {
   net::SchemefulSite primary_site(GURL("https://primary.test"));
   net::SchemefulSite associate_site(GURL("https://associate.test"));
@@ -499,7 +460,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
       }));
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        ForEachEffectiveSetEntry_ReturnsEmptyUntilAllSetsReady) {
   net::SchemefulSite primary_site(GURL("https://primary.test"));
   net::SchemefulSite associate_site(GURL("https://associate.test"));
@@ -550,7 +511,7 @@ TEST_P(FirstPartySetsPolicyServicePrefTest,
                                    Pair(associate_site, associate_entry)));
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        ForEachEffectiveSetEntry_WithNonEmptyConfig) {
   net::SchemefulSite primary_site(GURL("https://primary.test"));
   net::SchemefulSite associate_site(GURL("https://associate.test"));
@@ -800,7 +761,7 @@ TEST_F(FirstPartySetsPolicyServiceTest,
   EXPECT_NE(future.Take(), net::FirstPartySetMetadata());
 }
 
-TEST_P(FirstPartySetsPolicyServicePrefTest,
+TEST_F(FirstPartySetsPolicyServicePrefTest,
        ComputeFirstPartySetMetadata_PrefDisabled) {
   net::SchemefulSite test_primary(GURL("https://a.test"));
   net::FirstPartySetEntry test_entry(test_primary, net::SiteType::kPrimary);

@@ -644,8 +644,8 @@ bool TextfieldModel::Redo() {
 bool TextfieldModel::Cut() {
   if (!HasCompositionText() && HasSelection(true) &&
       !render_text_->obscured()) {
-    delegate_->WriteTextToClipboard(ui::ClipboardBuffer::kCopyPaste,
-                                    GetSelectedText());
+    ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste)
+        .WriteText(GetSelectedText());
     DeleteSelection();
     return true;
   }
@@ -655,8 +655,8 @@ bool TextfieldModel::Cut() {
 bool TextfieldModel::Copy() {
   if (!HasCompositionText() && HasSelection(true) &&
       !render_text_->obscured()) {
-    delegate_->WriteTextToClipboard(ui::ClipboardBuffer::kCopyPaste,
-                                    GetSelectedText());
+    ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste)
+        .WriteText(GetSelectedText());
     return true;
   }
   return false;
@@ -666,6 +666,10 @@ bool TextfieldModel::Paste() {
   std::u16string text;
   ui::Clipboard::GetForCurrentThread()->ReadText(
       ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr, &text);
+  return Paste(std::move(text));
+}
+
+bool TextfieldModel::Paste(std::u16string text) {
   if (text.empty()) {
     return false;
   }
@@ -682,7 +686,7 @@ bool TextfieldModel::Paste() {
   // space to a regular space), so don't call a more aggressive function like
   // CollapseWhitespace().
   base::TrimWhitespace(text, base::TRIM_ALL, &text);
-  // If the clipboard contains all whitespace then paste a single space.
+  // If the provided text contains all whitespace then paste a single space.
   if (text.empty()) {
     text = u" ";
   }

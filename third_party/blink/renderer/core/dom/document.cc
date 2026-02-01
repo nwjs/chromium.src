@@ -36,7 +36,6 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
@@ -73,6 +72,7 @@
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -108,11 +108,11 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
-#include "third_party/blink/renderer/core/css/css_selector_watch.h"
 #include "third_party/blink/renderer/core/css/css_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_style_sheet.h"
 #include "third_party/blink/renderer/core/css/cssom/caret_position.h"
 #include "third_party/blink/renderer/core/css/cssom/computed_style_property_map.h"
+#include "third_party/blink/renderer/core/css/document_style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/element_rule_collector.h"
 #include "third_party/blink/renderer/core/css/font_face_set_document.h"
 #include "third_party/blink/renderer/core/css/invalidation/style_invalidator.h"
@@ -235,7 +235,6 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/document_all_name_collection.h"
 #include "third_party/blink/renderer/core/html/document_name_collection.h"
-#include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
 #include "third_party/blink/renderer/core/html/forms/email_input_type.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -327,7 +326,6 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/timing/first_meaningful_paint_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
-#include "third_party/blink/renderer/core/patching/patch_supplement.h"
 #include "third_party/blink/renderer/core/permissions_policy/dom_feature_policy.h"
 #include "third_party/blink/renderer/core/permissions_policy/permissions_policy_parser.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
@@ -355,8 +353,6 @@
 #include "third_party/blink/renderer/core/view_transition/page_reveal_event.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
-#include "third_party/blink/renderer/core/xml/document_xpath_evaluator.h"
-#include "third_party/blink/renderer/core/xml/document_xslt.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser_rs.h"
 #include "third_party/blink/renderer/core/xml_names.h"
@@ -1419,7 +1415,8 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
     const V8UnionElementCreationOptionsOrString* string_or_options,
     ExceptionState& exception_state) {
   DCHECK(string_or_options);
-  CustomElementRegistry* registry = nullptr;
+  CustomElementRegistry* registry =
+      CustomElementRegistry::DefaultRegistry(*document);
   AtomicString is = AtomicString();
 
   switch (string_or_options->GetContentType()) {
@@ -1428,14 +1425,28 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
         kElementCreationOptions: {
       const ElementCreationOptions* options =
           string_or_options->GetAsElementCreationOptions();
-      // 3-1. If options["customElementRegistry"] exists, then set registry to
-      // it.
+      // 3-1. If options["is"] exists, then set "is" to it.
+      if (options->hasIs()) {
+        is = AtomicString(options->is());
+      }
+      // 3-2. If options["customElementRegistry"] exists:
       if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
           options->hasCustomElementRegistry()) {
+        // 3-2-1. If is is non-null, then throw a "notSupportedError"
+        // DOMException.
+        if (!is.IsNull()) {
+          exception_state.ThrowDOMException(
+              DOMExceptionCode::kNotSupportedError,
+              "The custom element registry and \"is\" option can't be set at "
+              "the same time.");
+          return std::pair(registry, is);
+        }
+        // 3-2-2. Set registry to options["customElementRegistry"]
         registry = options->customElementRegistry();
       }
-      // 3-2. If registry's "is scoped" is false and registry is not document's
-      // custom element registry, then throw a "NotSupportedError" DOMException.
+      // 3-3. If registry is non-null, and registry's "is scoped" is false and
+      // registry is not document's custom element registry, then throw a
+      // "NotSupportedError" DOMException.
       if (registry && registry->IsGlobalRegistry() &&
           registry != document->customElementRegistry()) {
         exception_state.ThrowDOMException(
@@ -1443,29 +1454,11 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
             "The registry provided is a global registry from another document");
         return std::pair(registry, is);
       }
-      // 3-3. If options["is"] exists, then set is to it.
-      if (options->hasIs())
-        is = AtomicString(options->is());
-      // 3-3. If registry is non-null and is is non-null, then throw a
-      // "notSupportedError" DOMException.
-      if (registry && !is.IsNull()) {
-        exception_state.ThrowDOMException(
-            DOMExceptionCode::kNotSupportedError,
-            "The custom element registry and is option can't be set at the "
-            "same time.");
-        return std::pair(registry, is);
-      }
-      // 4. If registry is null then set registry to the result of looking up a
-      // custom element registry given document.
-      if (!registry) {
-        registry = document->customElementRegistry();
-      }
       break;
     }
     case V8UnionElementCreationOptionsOrString::ContentType::kString:
       UseCounter::Count(document,
                         WebFeature::kDocumentCreateElement2ndArgStringHandling);
-      is = AtomicString(string_or_options->GetAsString());
       break;
   }
   // 5. Return registry and is.
@@ -1509,7 +1502,6 @@ Element* Document::CreateElementForBinding(
   // 5. Let element be the result of creating an element given ...
   Element* element = CreateElement(
       q_name, CreateElementFlags::ByCreateElement(), is, registry);
-
   return element;
 }
 
@@ -1598,13 +1590,10 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   CustomElementDefinition* definition = nullptr;
   // 2. If registry is "default", set registry to the result of looking
   // up a custom element registry given document.
-  // Note that this step is currently only applicable to scenario when
-  // scoped registry is disabled as a valid registry should be assigned for
-  // default cases while flattening options. We could overload
-  // Document::CreateElement without registry argument and assign
-  // default value in implementation if the use case is ever needed.
+  // Note that we need to assign default registry when scoped registry is
+  // disabled
   if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    registry = customElementRegistry();
+    registry = CustomElementRegistry::DefaultRegistry(*this);
   }
   if (flags.IsCustomElements() &&
       q_name.NamespaceURI() == html_names::xhtmlNamespaceURI) {
@@ -1622,7 +1611,7 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   }
 
   return CustomElement::CreateUncustomizedOrUndefinedElement(
-      *this, q_name, flags, is, registry, /*wait_for_registry=*/false);
+      *this, q_name, flags, is, registry, /*wait_for_registry*/ !registry);
 }
 
 DocumentFragment* Document::createDocumentFragment() {
@@ -2544,8 +2533,7 @@ static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
                                  kPseudoIdScrollButtonInlineStart,
                                  kPseudoIdScrollButtonInlineEnd,
                                  kPseudoIdScrollButtonBlockEnd,
-                                 kPseudoIdScrollMarker,
-                                 kPseudoIdOverscrollClientArea};
+                                 kPseudoIdScrollMarker};
   for (auto pseudo_id : pseudo_ids) {
     if (const PseudoElement* pseudo_element =
             element.GetPseudoElement(pseudo_id)) {
@@ -2827,8 +2815,7 @@ void Document::UpdateStyle() {
   // SetNeedsStyleRecalc should only happen on Element and Text nodes.
   DCHECK(!NeedsStyleRecalc());
 
-  bool should_record_stats;
-  TRACE_EVENT_CATEGORY_GROUP_ENABLED("blink,blink_style", &should_record_stats);
+  bool should_record_stats = TRACE_EVENT_CATEGORY_ENABLED("blink,blink_style");
 
   style_engine.SetStatsEnabled(should_record_stats);
   style_engine.UpdateStyleAndLayoutTree();
@@ -3637,6 +3624,13 @@ DocumentParser* Document::CreateParser() {
     return MakeGarbageCollected<HTMLDocumentParser>(*html_document,
                                                     parser_sync_policy_);
   }
+
+  // Use the Rust XML parser for situations like XMLHttpRequests and
+  // JS DOMParser, where no dom_window_ is available.
+  if (!GetFrame() && RuntimeEnabledFeatures::XMLRustForNonXsltEnabled()) {
+    return MakeGarbageCollected<XMLDocumentParserRs>(*this, View());
+  }
+
   // FIXME: this should probably pass the frame instead
   if (RuntimeEnabledFeatures::XMLParsingRustEnabled()) {
     return MakeGarbageCollected<XMLDocumentParserRs>(*this, View());
@@ -4868,7 +4862,8 @@ void Document::write(v8::Isolate* isolate,
     builder.Append(string);
   String string =
       TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
-                               "Document", "write", exception_state);
+                               trusted_types_names::kDocument,
+                               trusted_types_names::kWrite, exception_state);
   if (exception_state.HadException())
     return;
 
@@ -4883,7 +4878,8 @@ void Document::writeln(v8::Isolate* isolate,
     builder.Append(string);
   String string =
       TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
-                               "Document", "writeln", exception_state);
+                               trusted_types_names::kDocument,
+                               trusted_types_names::kWriteln, exception_state);
   if (exception_state.HadException())
     return;
 
@@ -4938,11 +4934,12 @@ void Document::Write(v8::Isolate* isolate,
     }
   }
   // Step 4: If isTrusted is false, set string to [... Get Trusted Type ...]
-  String string =
-      is_trusted ? builder.ReleaseString()
-                 : TrustedTypesCheckForHTML(builder.ReleaseString(),
-                                            GetExecutionContext(), "Document",
-                                            sink, exception_state);
+  String string = is_trusted
+                      ? builder.ReleaseString()
+                      : TrustedTypesCheckForHTML(
+                            builder.ReleaseString(), GetExecutionContext(),
+                            trusted_types_names::kDocument, AtomicString(sink),
+                            exception_state);
   if (exception_state.HadException()) {
     return;
   }
@@ -5530,8 +5527,8 @@ bool Document::CanAcceptChild(const Node* new_child,
   if (num_elements > 1 || num_doctypes > 1) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kHierarchyRequestError,
-        String::Format("Only one %s on document allowed.",
-                       num_elements > 1 ? "element" : "doctype"));
+        UNSAFE_TODO(String::Format("Only one %s on document allowed.",
+                                   num_elements > 1 ? "element" : "doctype")));
     return false;
   }
 
@@ -6626,8 +6623,8 @@ void Document::EnqueueVisualViewportResizeEvent() {
   scripted_animation_controller_->EnqueuePerFrameEvent(event);
 }
 
-void Document::DispatchEventsForPrinting() {
-  scripted_animation_controller_->DispatchEventsAndCallbacksForPrinting();
+void Document::DispatchMediaQueryListEvents() {
+  scripted_animation_controller_->DispatchMediaQueryListEventsAndCallbacks();
 }
 
 Document::EventFactorySet& Document::EventFactories() {
@@ -7157,8 +7154,7 @@ ScriptPromise<IDLBoolean> Document::hasPrivateToken(
              network::mojom::blink::HasTrustTokensResultPtr result) {
             // If there was a Mojo connection error, the promise was already
             // resolved and deleted.
-            if (!base::Contains(
-                    document->data_->pending_trust_token_query_resolvers_,
+            if (!document->data_->pending_trust_token_query_resolvers_.Contains(
                     resolver)) {
               return;
             }
@@ -7268,8 +7264,7 @@ ScriptPromise<IDLBoolean> Document::hasRedemptionRecord(
              network::mojom::blink::HasRedemptionRecordResultPtr result) {
             // If there was a Mojo connection error, the promise was already
             // resolved and deleted.
-            if (!base::Contains(
-                    document->data_->pending_trust_token_query_resolvers_,
+            if (!document->data_->pending_trust_token_query_resolvers_.Contains(
                     resolver)) {
               return;
             }
@@ -8335,6 +8330,54 @@ void Document::ResponsiveEmbeddedSizingChanged() {
   }
 }
 
+bool Document::TextScaleMetaTagPresent() const {
+  return RuntimeEnabledFeatures::TextScaleMetaTagEnabled() &&
+         text_scale_meta_tag_present_;
+}
+
+void Document::SetTextScaleMetaTagPresent(bool present) {
+  if (text_scale_meta_tag_present_ == present) {
+    return;
+  }
+  text_scale_meta_tag_present_ = present;
+  if (present) {
+    UseCounter::CountWebDXFeature(this, WebDXFeature::kDRAFT_MetaTextScale);
+  }
+  GetStyleEngine().InitialStyleChanged();
+  GetStyleEngine()
+      .EnsureEnvironmentVariables()
+      .UpdatePreferredTextScaleFromDocument();
+
+  if (LocalFrame* frame = GetFrame()) {
+    if (Settings* settings = GetSettings()) {
+      // If we are in a WebView and the meta tag is being flipped, we need to
+      // change the system font scale.
+      // No matter if the page just added or just removed meta,
+      // SetTextZoomFactor will do the right thing if we give it the original
+      // font scale factor here.
+      if (settings->GetScaleAllFontsIfNoMetaTextScaleTag() &&
+          !settings->GetTextAutosizingEnabled()) {
+        frame->SetTextZoomFactor(settings->GetAccessibilityFontScaleFactor());
+      }
+    }
+  }
+}
+
+void Document::TextScaleMetaChanged() {
+  if (const auto* root_element = documentElement()) {
+    for (const HTMLMetaElement& meta_element :
+         Traversal<HTMLMetaElement>::DescendantsOf(*root_element)) {
+      if (EqualIgnoringASCIICase(meta_element.GetName(), "text-scale")) {
+        SetTextScaleMetaTagPresent(
+            EqualIgnoringASCIICase(meta_element.Content(), "scale"));
+        // We only look at the first <meta name="text-scale"> tag.
+        return;
+      }
+    }
+  }
+  SetTextScaleMetaTagPresent(false);
+}
+
 void Document::SupportsReducedMotionMetaChanged() {
   auto* root_element = documentElement();
   if (!root_element)
@@ -8626,8 +8669,12 @@ void Document::RemoveFinishedTopLayerElements() {
   HeapVector<Member<Element>> to_remove;
   for (const auto& pending_removal : top_layer_elements_pending_removal_) {
     Element* element = pending_removal->element;
-    const ComputedStyle* style = element->GetComputedStyle();
-    if (!style || style->Overlay() == EOverlay::kNone) {
+    const ComputedStyle* style =
+        RuntimeEnabledFeatures::OverlayPropertyEnabled()
+            ? element->GetComputedStyle()
+            : ComputedStyle::NullifyEnsured(element->GetComputedStyle());
+    if (!style || (RuntimeEnabledFeatures::OverlayPropertyEnabled() &&
+                   style->Overlay() == EOverlay::kNone)) {
       to_remove.push_back(element);
     }
   }
@@ -8706,13 +8753,9 @@ HTMLElement* Document::TopmostPopoverOrHint() const {
   return nullptr;
 }
 void Document::SetPopoverPointerdownTarget(const HTMLElement* popover) {
+  CHECK(!RuntimeEnabledFeatures::LightDismissFromClickEnabled());
   DCHECK(!popover || popover->IsPopover());
   popover_pointerdown_target_ = popover;
-}
-
-void Document::SetPopoverPickerMousedownLocation(
-    std::optional<gfx::PointF> point) {
-  popover_picker_mousedown_location_ = point;
 }
 
 const HTMLDialogElement* Document::DialogPointerdownTarget() const {
@@ -8720,8 +8763,17 @@ const HTMLDialogElement* Document::DialogPointerdownTarget() const {
 }
 
 void Document::SetDialogPointerdownTarget(const HTMLDialogElement* dialog) {
+  CHECK(!RuntimeEnabledFeatures::LightDismissFromClickEnabled());
   DCHECK(!dialog || dialog->IsOpen());
   dialog_pointerdown_target_ = dialog;
+}
+
+HTMLDocument::PopoverPickerPointerdownInfo Document::PopoverPickerPointerdown()
+    const {
+  return popover_picker_pointerdown_info_;
+}
+void Document::SetPopoverPickerPointerdown(PopoverPickerPointerdownInfo info) {
+  popover_picker_pointerdown_info_ = std::move(info);
 }
 
 void Document::exitPointerLock() {
@@ -9464,6 +9516,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(popover_hint_stack_);
   visitor->Trace(popover_pointerdown_target_);
   visitor->Trace(dialog_pointerdown_target_);
+  visitor->Trace(popover_picker_pointerdown_info_);
   visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
   visitor->Trace(all_open_dialogs_);
@@ -9529,38 +9582,11 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(focused_element_change_observers_);
   visitor->Trace(pending_link_header_preloads_);
   visitor->Trace(elements_needing_shadow_tree_);
-  visitor->Trace(scroll_target_group_to_scrollable_areas_);
 #if BUILDFLAG(IS_ANDROID)
   visitor->Trace(payment_link_handler_);
 #endif  // BUILDFLAG(IS_ANDROID)
   visitor->Trace(view_transitions_);
-  visitor->Trace(ai_page_content_agent_);
-  visitor->Trace(anchor_element_metrics_sender_);
-  visitor->Trace(anchor_element_viewport_position_tracker_);
-  visitor->Trace(annotation_agent_container_impl_);
-  visitor->Trace(browsing_topics_document_supplement_);
-  visitor->Trace(css_selector_watch_);
-  visitor->Trace(credential_metrics_);
-  visitor->Trace(disabled_acceleration_counter_supplement_);
-  visitor->Trace(document_fenced_frames_);
-  visitor->Trace(document_metadata_server_);
-  visitor->Trace(document_parser_timing_);
-  visitor->Trace(document_speculation_rules_);
-  visitor->Trace(document_storage_access_);
-  visitor->Trace(document_xpath_evaluator_);
-  visitor->Trace(document_xslt_);
-  visitor->Trace(font_face_set_document_);
-  visitor->Trace(frame_metadata_observer_registry_);
-  visitor->Trace(inner_html_agent_);
-  visitor->Trace(inner_text_agent_);
-  visitor->Trace(interactive_detector_);
-  visitor->Trace(paint_timing_);
-  visitor->Trace(patch_supplement_);
-  visitor->Trace(picture_in_picture_controller_);
-  visitor->Trace(rtc_peer_connection_controller_);
-  visitor->Trace(render_blocking_metrics_reporter_);
-  visitor->Trace(route_map_);
-  visitor->Trace(transfer_to_gpu_texture_invoked_supplement_);
+  Supplementable<Document>::Trace(visitor);
   TreeScope::Trace(visitor);
   ContainerNode::Trace(visitor);
 }
@@ -10126,7 +10152,8 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   String compliant_html = TrustedTypesCheckForHTML(
-      html, context, "Document", "parseHTMLUnsafe", exception_state);
+      html, context, trusted_types_names::kDocument,
+      trusted_types_names::kParseHTMLUnsafe, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10141,12 +10168,14 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   String compliant_html = TrustedTypesCheckForHTML(
-      html, context, "Document", "parseHTMLUnsafe", exception_state);
+      html, context, trusted_types_names::kDocument,
+      trusted_types_names::kParseHTMLUnsafe, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
   Document* doc = parseHTMLInternal(context, compliant_html, exception_state);
-  SanitizerAPI::SanitizeUnsafeInternal(doc, options, exception_state);
+  SanitizerAPI::SanitizeUnsafeInternal(
+      /*context_element*/ doc, /*root_element*/ doc, options, exception_state);
   return doc;
 }
 
@@ -10157,7 +10186,8 @@ Document* Document::parseHTML(ExecutionContext* context,
                               ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   Document* doc = parseHTMLInternal(context, html, exception_state);
-  SanitizerAPI::SanitizeSafeInternal(doc, options, exception_state);
+  SanitizerAPI::SanitizeSafeInternal(
+      /*context_element*/ doc, /*root_element*/ doc, options, exception_state);
   return doc;
 }
 
@@ -10185,91 +10215,6 @@ VisitedLinkState& Document::GetVisitedLinkState() {
     visited_link_state_ = MakeGarbageCollected<VisitedLinkState>(*this);
   }
   return *visited_link_state_;
-}
-
-namespace {
-
-// Recursively traverses the DOM tree to find all elements with
-// scroll-target-group properties and collects their descendant
-// HTMLAnchorElements.
-void RecalcScrollTargetGroupRelations(Element& element,
-                                      Element* scroll_target_group_container) {
-  if (scroll_target_group_container && element.HasTagName(html_names::kATag)) {
-    if (To<HTMLAnchorElement>(element).ScrollTargetElement()) {
-      ScrollMarkerGroupData& data =
-          scroll_target_group_container->EnsureScrollTargetGroupData();
-      data.AddToFocusGroup(element);
-    }
-  }
-  if (const ComputedStyle* style = element.GetComputedStyle()) {
-    if (!style->ScrollTargetGroupNone()) {
-      scroll_target_group_container = &element;
-      element.GetDocument().AddScrollTargetGroup(
-          &element.EnsureScrollTargetGroupData());
-    }
-  }
-  for (Element* child = element.firstElementChild(); child;
-       child = child->nextElementSibling()) {
-    RecalcScrollTargetGroupRelations(*child, scroll_target_group_container);
-  }
-}
-
-}  // namespace
-
-void Document::UpdateScrollTargetGroupRelations() {
-  if (!needs_scroll_target_group_relations_update_) {
-    return;
-  }
-  if (scroll_target_group_to_scrollable_areas_.empty()) {
-    return;
-  }
-  for (auto& [scroll_marker_group, scrollable_areas] :
-       scroll_target_group_to_scrollable_areas_) {
-    for (PaintLayerScrollableArea* scrollable_area : scrollable_areas) {
-      scrollable_area->RemoveScrollMarkerGroupContainerData(
-          scroll_marker_group);
-    }
-    scroll_marker_group->ClearFocusGroup();
-  }
-  scroll_target_group_to_scrollable_areas_.clear();
-  if (document_element_) {
-    RecalcScrollTargetGroupRelations(*document_element_, nullptr);
-  }
-  needs_scroll_target_group_relations_update_ = false;
-}
-
-void Document::UpdateScrollTargetGroupToScrollableAreasMap() {
-  if (!needs_scroll_target_groups_map_update_) {
-    return;
-  }
-  for (auto& [scroll_target_group, scrollable_areas] :
-       scroll_target_group_to_scrollable_areas_) {
-    scroll_target_group->UpdateScrollableAreaSubscriptions(scrollable_areas);
-    scroll_target_group->UpdateSelectedScrollMarker();
-  }
-  needs_scroll_target_groups_map_update_ = false;
-}
-
-void Document::AddScrollTargetGroup(
-    ScrollMarkerGroupData* scroll_marker_group) {
-  scroll_target_group_to_scrollable_areas_.insert(
-      scroll_marker_group, HeapHashSet<Member<PaintLayerScrollableArea>>());
-  needs_scroll_target_group_relations_update_ = true;
-}
-
-void Document::RemoveScrollTargetGroup(
-    ScrollMarkerGroupData* scroll_marker_group_data) {
-  auto it =
-      scroll_target_group_to_scrollable_areas_.find(scroll_marker_group_data);
-  if (it == scroll_target_group_to_scrollable_areas_.end()) {
-    return;
-  }
-  for (PaintLayerScrollableArea* scrollable_area : it->value) {
-    scrollable_area->RemoveScrollMarkerGroupContainerData(
-        scroll_marker_group_data);
-  }
-  scroll_target_group_to_scrollable_areas_.erase(it);
-  needs_scroll_target_group_relations_update_ = true;
 }
 
 net::SchemefulSite Document::GetCachedTopFrameSite(VisitedLinkPassKey) {
@@ -10306,6 +10251,26 @@ CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
   }
   return nullptr;
 }
+
+void Document::AddOverscrollCommandTarget(const AtomicString& target) {
+  auto result = overscroll_command_targets_.insert(target);
+  if (result.is_new_entry) {
+    if (auto* element = getElementById(target)) {
+      element->OverscrollTargetStateChanged();
+    }
+  }
+}
+
+void Document::RemoveOverscrollCommandTarget(const AtomicString& target) {
+  bool erased_last = overscroll_command_targets_.erase(target);
+  if (erased_last) {
+    if (auto* element = getElementById(target)) {
+      element->OverscrollTargetStateChanged();
+    }
+  }
+}
+
+template class CORE_TEMPLATE_EXPORT Supplement<Document>;
 
 }  // namespace blink
 

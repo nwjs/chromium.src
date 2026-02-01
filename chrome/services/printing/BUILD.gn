@@ -80,11 +80,13 @@ source_set("lib") {
     deps += [
       "//chrome/common/printing",
       "//components/crash/core/common",
+      "//components/printing/common",
       "//ui/gfx",
     ]
 
     if (is_linux) {
       deps += [
+        "//content/public/common",
         "//ui/linux:linux_ui",
         "//ui/linux:linux_ui_factory",
       ]

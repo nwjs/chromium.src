@@ -96,11 +96,11 @@ void BrowserList::AddBrowser(Browser* browser) {
 
   if (browser->profile()->IsGuestSession()) {
     base::UmaHistogramCounts100("Browser.WindowCount.Guest",
-                                GetGuestBrowserCount());
+                                chrome::GetGuestBrowserCount());
   } else if (browser->profile()->IsIncognitoProfile()) {
     base::UmaHistogramCounts100(
         "Browser.WindowCount.Incognito",
-        GetOffTheRecordBrowsersActiveForProfile(browser->profile()));
+        chrome::GetOffTheRecordBrowsersActiveForProfile(browser->profile()));
   }
 }
 
@@ -338,51 +338,6 @@ void BrowserList::NotifyBrowserNoLongerActive(Browser* browser) {
   for (BrowserListObserver& observer : observers_.Get()) {
     observer.OnBrowserNoLongerActive(browser);
   }
-}
-
-// static
-bool BrowserList::IsOffTheRecordBrowserActive() {
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->profile()->IsOffTheRecord()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// static
-int BrowserList::GetOffTheRecordBrowsersActiveForProfile(Profile* profile) {
-  BrowserList* list = BrowserList::GetInstance();
-  return std::ranges::count_if(*list, [profile](Browser* browser) {
-    return browser->profile()->IsSameOrParent(profile) &&
-           browser->profile()->IsOffTheRecord() && !browser->is_type_devtools();
-  });
-}
-
-// static
-size_t BrowserList::GetIncognitoBrowserCount() {
-  BrowserList* list = BrowserList::GetInstance();
-  return std::ranges::count_if(*list, [](Browser* browser) {
-    return browser->profile()->IsIncognitoProfile() &&
-           !browser->is_type_devtools();
-  });
-}
-
-// static
-size_t BrowserList::GetGuestBrowserCount() {
-  BrowserList* list = BrowserList::GetInstance();
-  return std::ranges::count_if(*list, [](Browser* browser) {
-    return browser->profile()->IsGuestSession() && !browser->is_type_devtools();
-  });
-}
-
-// static
-bool BrowserList::IsOffTheRecordBrowserInUse(Profile* profile) {
-  BrowserList* list = BrowserList::GetInstance();
-  return std::ranges::any_of(*list, [profile](Browser* browser) {
-    return browser->profile()->IsSameOrParent(profile) &&
-           browser->profile()->IsOffTheRecord();
-  });
 }
 
 ////////////////////////////////////////////////////////////////////////////////

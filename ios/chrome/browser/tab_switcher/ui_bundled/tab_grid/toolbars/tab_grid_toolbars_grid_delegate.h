@@ -10,6 +10,7 @@
 @protocol TabGridToolbarsGridDelegate
 
 - (void)closeAllButtonTapped:(id)sender;
+- (void)closeOtherTabsButtonTapped:(id)sender;
 - (void)doneButtonTapped:(id)sender;
 - (void)newTabButtonTapped:(id)sender;
 - (void)selectAllButtonTapped:(id)sender;
@@ -18,6 +19,9 @@
 - (void)closeSelectedTabs:(id)sender;
 - (void)shareSelectedTabs:(id)sender;
 - (void)selectTabsButtonTapped:(id)sender;
+- (void)pageActionMenuEntrypointTapped:(id)sender;
+- (void)createNewTabGroupButtonTapped:(id)sender;
+- (void)deleteBrowsingDataButtonTapped:(id)sender;
 
 @end
 

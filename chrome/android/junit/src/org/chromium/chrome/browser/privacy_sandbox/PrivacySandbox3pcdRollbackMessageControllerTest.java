@@ -32,11 +32,9 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
@@ -59,7 +57,6 @@ import org.chromium.url.JUnitTestGURLs;
 /** Unit tests for {@link PrivacySandbox3pcdRollbackMessageController}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@Features.EnableFeatures(ChromeFeatureList.ROLL_BACK_MODE_B)
 public class PrivacySandbox3pcdRollbackMessageControllerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -68,12 +65,12 @@ public class PrivacySandbox3pcdRollbackMessageControllerTest {
 
     @Mock PrefService mPrefService;
     @Mock private Tab mTab;
-    @Mock private ActivityTabProvider mActivityTabProvider;
     @Mock private SettingsNavigation mSettingsNavigation;
     @Mock private Context mContext;
     @Mock private MessageDispatcher mMessageDispatcher;
     @Mock private Profile mProfile;
 
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private PrivacySandbox3pcdRollbackMessageController mController;
 
     private PropertyModel showMessage() {

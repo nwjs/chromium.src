@@ -32,6 +32,7 @@ class TabMenuModel : public ui::SimpleMenuModel {
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSplitTabsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kArrangeSplitTabsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSwapSplitTabsMenuItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAddNewTabAdjacentMenuItem);
 
   TabMenuModel(ui::SimpleMenuModel::Delegate* delegate,
                TabMenuModelDelegate* tab_menu_model_delegate,
@@ -53,6 +54,7 @@ class TabMenuModel : public ui::SimpleMenuModel {
       add_to_existing_comparison_table_submenu_;
   std::unique_ptr<ui::SimpleMenuModel> swap_with_split_submenu_;
   std::unique_ptr<ui::SimpleMenuModel> arrange_split_view_submenu_;
+  std::unique_ptr<ui::SimpleMenuModel> glic_tab_sub_menu_model_;
 
   raw_ptr<TabMenuModelDelegate> tab_menu_model_delegate_;
 };

@@ -18,7 +18,7 @@
 #include "chrome/browser/component_updater/app_provisioning_component_installer.h"
 #include "chrome/browser/component_updater/chrome_origin_trials_component_installer.h"
 #include "chrome/browser/component_updater/commerce_heuristics_component_installer.h"
-#include "chrome/browser/component_updater/cookie_readiness_list_component_installer.h"
+#include "chrome/browser/component_updater/cookie_readiness_list_component_remover.h"
 #include "chrome/browser/component_updater/crl_set_component_installer.h"
 #include "chrome/browser/component_updater/crowd_deny_component_installer.h"
 #include "chrome/browser/component_updater/desktop_sharing_hub_component_remover.h"
@@ -26,9 +26,8 @@
 #include "chrome/browser/component_updater/hyphenation_component_installer.h"
 #include "chrome/browser/component_updater/masked_domain_list_component_remover.h"
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
-#include "chrome/browser/component_updater/open_cookie_database_component_installer.h"
+#include "chrome/browser/component_updater/open_cookie_database_component_remover.h"
 #include "chrome/browser/component_updater/pki_metadata_component_installer.h"
-#include "chrome/browser/component_updater/pnacl_component_installer.h"
 #include "chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.h"
 #include "chrome/browser/component_updater/probabilistic_reveal_token_component_remover.h"
 #include "chrome/browser/component_updater/ssl_error_assistant_component_installer.h"
@@ -47,15 +46,11 @@
 #include "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #include "components/component_updater/installer_policies/plus_address_blocklist_component_installer.h"
 #include "components/component_updater/installer_policies/safety_tips_component_installer.h"
+#include "components/on_device_translation/buildflags/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
-#include "components/services/on_device_translation/buildflags/buildflags.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "third_party/widevine/cdm/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
-
-#if BUILDFLAG(IS_MAC)
-#include "chrome/browser/component_updater/recovery_component_installer.h"
-#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #include "chrome/browser/component_updater/recovery_improved_component_installer.h"
@@ -76,6 +71,7 @@
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "base/system/sys_info.h"
 #include "chrome/browser/apps/app_service/chrome_app_deprecation/chrome_app_deprecation.h"
 #include "chrome/browser/component_updater/smart_dim_component_installer.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -119,17 +115,12 @@ namespace component_updater {
 
 void RegisterComponentsForUpdate() {
 
-#if 0
-#if BUILDFLAG(IS_WIN)
-  RegisterRecoveryImprovedComponent(cus, g_browser_process->local_state());
-#endif  // BUILDFLAG(IS_WIN)
-#endif  // 0
-
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   auto* const cus = g_browser_process->component_updater();
+
   RegisterRecoveryImprovedComponent(cus, g_browser_process->local_state());
-  RegisterRecoveryComponent(cus, g_browser_process->local_state());
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
 
 #if BUILDFLAG(ENABLE_MEDIA_FOUNDATION_WIDEVINE_CDM)
   RegisterMediaFoundationWidevineCdmComponent(cus);
@@ -169,24 +160,21 @@ void RegisterComponentsForUpdate() {
     // TODO(crbug.com/456488732): Delete this call in M156.
     UnregisterAntiFingerprintingBlockedDomainListComponent(cus, path);
 
+    // Clean up remaining state for Open Cookie Database component.
+    //
+    // TODO(crbug.com/473796598): Remove this code in M146+.
+    DeleteOpenCookieDatabase(path);
+
+    // Clean up remaining state for Cookie Readiness List component.
+    //
+    // TODO(crbug.com/473796598): Remove this code in M146+.
+    DeleteCookieReadinessList(path);
+
 #if BUILDFLAG(IS_CHROMEOS)
     // Lacros is sunsetted. While rootfs Lacros was already taken care of,
     // stateful Lacros needs to be cleaned up just like a regular component.
     // TODO(crbug.com/380780352): Remove this after the stepping stone.
     component_updater::DeleteStatefulLacros(path);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-    // NaCl and PNaCl are no longer supported, clean up remaining component.
-    // PNaCl on Chrome OS is on rootfs and there is no need to clean it up. But
-    // Chrome4ChromeOS on Linux doesn't contain PNaCl so clean up component
-    // installer when running on Linux. See crbug.com/422121 for more details.
-    // Win and Mac were cleaned up previously.
-#if BUILDFLAG(IS_CHROMEOS)
-    if (!base::SysInfo::IsRunningOnChromeOS()) {
-#endif  // BUILDFLAG(IS_CHROMEOS)
-      DeletePnaclComponent(path);
-#if BUILDFLAG(IS_CHROMEOS)
-    }
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
   RegisterSSLErrorAssistantComponent(cus);
@@ -230,7 +218,8 @@ void RegisterComponentsForUpdate() {
   RegisterRealTimeUrlChecksAllowlistComponent(cus);
 #endif  // BUIDLFLAG(IS_ANDROID)
 
-  RegisterAutofillStatesComponent(cus, g_browser_process->local_state());
+  // TODO(crbug.com/466086121) - Remove this cleanup code in M153+.
+  DeleteAutofillStatesComponent(path);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   ManageScreenAIComponentRegistration(cus, g_browser_process->local_state());
@@ -251,22 +240,11 @@ void RegisterComponentsForUpdate() {
       cus, g_browser_process->local_state());
 #endif  // BUILDFLAG(ENABLE_ON_DEVICE_TRANSLATION)
 
-  RegisterOpenCookieDatabaseComponent(cus);
-
-  RegisterCookieReadinessListComponent(cus);
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   RegisterAmountExtractionHeuristicRegexesComponent(cus);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableAmountExtractionTesting)) {
-    RegisterAmountExtractionHeuristicRegexesComponent(cus);
-  }
-#endif  // BUIDLFLAG(IS_ANDROID)
+        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   RegisterWasmTtsEngineComponent(cus, g_browser_process->local_state());

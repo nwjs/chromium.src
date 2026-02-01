@@ -10,7 +10,7 @@ import {CustomizeChromeSection} from 'chrome://new-tab-page/customize_chrome.moj
 import {ActionChipsApiProxyImpl, VoiceSearchAction} from 'chrome://new-tab-page/lazy_load.js';
 import type {Module} from 'chrome://new-tab-page/lazy_load.js';
 import {ComposeboxProxyImpl, counterfactualLoad, ModuleDescriptor, ModuleRegistry} from 'chrome://new-tab-page/lazy_load.js';
-import {$$, BackgroundManager, BrowserCommandProxy, CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, CustomizeButtonsProxy, CustomizeDialogPage, NewTabPageProxy, NtpCustomizeChromeEntryPoint, NtpElement, SearchboxBrowserProxy, VoiceAction, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
+import {$$, BackgroundManager, BrowserCommandProxy, CONTEXTUAL_ENTRYPOINT_ELEMENT_ID, CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, CustomizeButtonsProxy, CustomizeDialogPage, NewTabPageProxy, NtpCustomizeChromeEntryPoint, NtpElement, SearchboxBrowserProxy, VoiceAction, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import type {AppElement, CustomizeButtonsElement} from 'chrome://new-tab-page/new_tab_page.js';
 import type {PageRemote} from 'chrome://new-tab-page/new_tab_page.mojom-webui.js';
 import {NtpBackgroundImageSource, PageCallbackRouter, PageHandlerRemote} from 'chrome://new-tab-page/new_tab_page.mojom-webui.js';
@@ -982,6 +982,7 @@ suite('NewTabPageAppTest', () => {
     suiteSetup(() => {
       loadTimeData.overrideValues({
         searchboxLensSearch: true,
+        ntpRealboxNextEnabled: true,
       });
     });
 
@@ -1010,6 +1011,31 @@ suite('NewTabPageAppTest', () => {
 
       // Assert.
       assertStyle($$(app, '#searchbox')!, 'visibility', 'visible');
+    });
+
+    test('scrim is visible when Lens upload dialog is open', async () => {
+      // Arrange.
+      callbackRouterRemote.setTheme(createTheme());
+      await callbackRouterRemote.$.flushForTesting();
+
+      // Act.
+      $$(app, '#searchbox')!.dispatchEvent(new Event('open-lens-search'));
+      await microtasksFinished();
+
+      // Assert.
+      const dialog = app.shadowRoot.querySelector('ntp-lens-upload-dialog');
+      assertTrue(!!dialog);
+      const scrim = getScrim();
+      assertTrue(!!scrim);
+      assertFalse(scrim.hidden);
+
+      // Act.
+      scrim.click();
+      await microtasksFinished();
+
+      // Assert.
+      assertTrue(scrim.hidden);
+      assertFalse(!!app.shadowRoot.querySelector('ntp-lens-upload-dialog'));
     });
   });
 
@@ -1253,7 +1279,7 @@ suite('NewTabPageAppTest', () => {
 
       assertEquals('test input', composebox.$.input.value);
 
-      //First ESC: Clear Input (Content present)
+      // First ESC: Clear Input (Content present)
       const closePromise1 = eventToPromise('close-composebox', composebox);
       let closedAfterFirstEsc = false;
       closePromise1.then(() => closedAfterFirstEsc = true);
@@ -2048,6 +2074,7 @@ suite('NewTabPageAppTest', () => {
     suiteSetup(() => {
       loadTimeData.overrideValues({
         ntpRealboxNextEnabled: true,
+        realboxLayoutMode: 'Compact',
       });
     });
 
@@ -2103,6 +2130,13 @@ suite('NewTabPageAppTest', () => {
                                    '#input')!.value);
       assertStyle($$(app, '#searchbox')!, 'visibility', 'hidden');
     });
+
+    test('Contextual entrypoint IPH', () => {
+      assertTrue(app.getSortedAnchorStatusesForTesting().some(
+          ([anchorId, hasAnchor]: [string, boolean]) => {
+            return anchorId === CONTEXTUAL_ENTRYPOINT_ELEMENT_ID && hasAnchor;
+          }));
+    });
   });
 
   suite('ActionChips', () => {
@@ -2133,18 +2167,21 @@ suite('NewTabPageAppTest', () => {
         actionChipsPageRemote.onActionChipsChanged([
           {
             title: 'TabContext',
+            subtitle: 'tab-subtitle',
             suggestion: 'tab-suggestion',
             type: ChipType.kRecentTab,
             tab: fakeTab,
           },
           {
             title: 'Nano Banana',
+            subtitle: 'image-subtitle',
             suggestion: 'image-suggestion',
             type: ChipType.kImage,
             tab: null,
           },
           {
             title: 'DeepSearch',
+            subtitle: 'ds-subtitle',
             suggestion: 'ds-suggestion',
             type: ChipType.kDeepSearch,
             tab: null,
@@ -2194,6 +2231,40 @@ suite('NewTabPageAppTest', () => {
               const chips = $$(app, 'ntp-action-chips')!;
               assertEquals(!!chips, isActionChipsVisible);
             }));
+
+    test('Show background when non-GM3 theme', async () => {
+      // Arrange.
+      const theme = createTheme({isGm3: false});
+      callbackRouterRemote.setTheme(theme);
+      await callbackRouterRemote.$.flushForTesting();
+
+      // Assert.
+      const chips = $$(app, 'ntp-action-chips')!;
+      assertTrue(chips.showBackground);
+    });
+
+    test('Show background when background image', async () => {
+      // Arrange.
+      const theme = createTheme({isGm3: true});
+      theme.backgroundImage = createBackgroundImage('https://img.png');
+      callbackRouterRemote.setTheme(theme);
+      await callbackRouterRemote.$.flushForTesting();
+
+      // Assert.
+      const chips = $$(app, 'ntp-action-chips')!;
+      assertTrue(chips.showBackground);
+    });
+
+    test('Do not show background when GM2 w/ no background image', async () => {
+      // Arrange.
+      const theme = createTheme({isGm3: true});
+      callbackRouterRemote.setTheme(theme);
+      await callbackRouterRemote.$.flushForTesting();
+
+      // Assert.
+      const chips = $$(app, 'ntp-action-chips')!;
+      assertFalse(chips.showBackground);
+    });
 
     test(
         'Nano Banana chip click opens composebox create image mode',
@@ -2258,9 +2329,11 @@ suite('NewTabPageAppTest', () => {
     test(
         'Deep dive chip click opens composebox with context and suggestion',
         async () => {
-          const suggestion = 'Help me with this page';
+          const subtitle = 'Help me with this page subtitle';
+          const suggestion = 'Help me with this page suggestion';
           actionChipsPageRemote.onActionChipsChanged([{
             title: 'Deep dive',
+            subtitle: subtitle,
             suggestion: suggestion,
             type: ChipType.kDeepDive,
             tab: {
@@ -2280,6 +2353,10 @@ suite('NewTabPageAppTest', () => {
               actionChipsElement.shadowRoot.getElementById('deep-dive-0');
           assertTrue(!!deepDiveChip);
 
+          const chipBody = deepDiveChip.querySelector('.chip-body');
+          assertTrue(!!chipBody);
+          assertEquals(subtitle, chipBody.textContent.trim());
+
           // Act.
           deepDiveChip.click();
           await microtasksFinished();
@@ -2295,5 +2372,72 @@ suite('NewTabPageAppTest', () => {
           assertTrue(!!composebox.$.input);
           assertEquals(suggestion, composebox.$.input.value);
         });
+  });
+
+  suite('ThreadsRail', () => {
+    async function setThreadsRailEnabled(enabled: boolean) {
+      loadTimeData.overrideValues({enableThreadsRail: enabled});
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      app = document.createElement('ntp-app');
+      document.body.appendChild(app);
+      await microtasksFinished();
+    }
+
+    test('threads rail is not visible when feature disabled', async () => {
+      await setThreadsRailEnabled(false);
+      const searchbox = $$(app, '#searchbox');
+      assertTrue(!!searchbox);
+      searchbox.dispatchEvent(new CustomEvent('open-composebox', {
+        detail: {searchboxText: '', contextFiles: []},
+      }));
+      await microtasksFinished();
+
+      const threadsRail = app.shadowRoot.querySelector('cr-threads-rail');
+      assertFalse(!!threadsRail);
+    });
+
+    test('threads rail is visible when feature enabled', async () => {
+      await setThreadsRailEnabled(true);
+      const searchbox = $$(app, '#searchbox');
+      assertTrue(!!searchbox);
+      searchbox.dispatchEvent(new CustomEvent('open-composebox', {
+        detail: {searchboxText: '', contextFiles: []},
+      }));
+      await microtasksFinished();
+
+      const threadsRail = app.shadowRoot.querySelector('cr-threads-rail');
+      assertTrue(!!threadsRail);
+    });
+
+    test('records impression metric when threads rail is shown', async () => {
+      await setThreadsRailEnabled(true);
+      // Act: Open composebox to show threads rail.
+      ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
+        detail: {searchboxText: '', contextFiles: []},
+      })));
+      await microtasksFinished();
+
+      // Assert: Verify impression metric is recorded.
+      assertEquals(1, metrics.count('NewTabPage.ThreadsRail.Shown', true));
+    });
+
+    test('clicking threads rail records click', async () => {
+      await setThreadsRailEnabled(true);
+      // Arrange: Open composebox.
+      ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
+        detail: {searchboxText: '', contextFiles: []},
+      })));
+      await microtasksFinished();
+
+      const threadsRail = app.shadowRoot.querySelector('cr-threads-rail');
+      assertTrue(!!threadsRail);
+
+      // Act.
+      threadsRail.click();
+
+      // Assert.
+      assertEquals(
+          1, metrics.count('NewTabPage.Click', NtpElement.THREADS_RAIL));
+    });
   });
 });

@@ -20,17 +20,17 @@
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/authentication/ui_bundled/re_signin_infobar_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
-#import "ios/chrome/browser/browser_container/ui_bundled/browser_container_view_controller.h"
-#import "ios/chrome/browser/browser_view/model/browser_view_visibility_audience.h"
+#import "ios/chrome/browser/browser_content/ui_bundled/browser_content_view_controller.h"
 #import "ios/chrome/browser/browser_view/public/browser_view_visibility_state.h"
+#import "ios/chrome/browser/browser_view/public/browser_view_visibility_state_changed_callback.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_view_controller+private.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/key_commands_provider.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/safe_area_provider.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
+#import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
 #import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
-#import "ios/chrome/browser/default_promo/ui_bundled/default_promo_non_modal_presentation_delegate.h"
+#import "ios/chrome/browser/default_browser/promo/non_modal/coordinator/default_promo_non_modal_presentation_delegate.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
-#import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
+#import "ios/chrome/browser/first_run/public/first_run_util.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_reason.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
@@ -49,22 +49,20 @@
 #import "ios/chrome/browser/ntp/ui_bundled/logo_animation_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
-#import "ios/chrome/browser/popup_menu/ui_bundled/overflow_menu/feature_flags.h"
-#import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_coordinator.h"
+#import "ios/chrome/browser/popup_menu/coordinator/popup_menu_coordinator.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/shared/public/prototypes/diamond/utils.h"
 #import "ios/chrome/browser/shared/ui/util/named_guide.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/url_with_title.h"
@@ -83,12 +81,12 @@
 #import "ios/chrome/browser/tabs/ui_bundled/background_tab_animation_view.h"
 #import "ios/chrome/browser/tabs/ui_bundled/foreground_tab_animation_view.h"
 #import "ios/chrome/browser/tabs/ui_bundled/switch_to_tab_animation_view.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/accessory/toolbar_accessory_presenter.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/buttons/toolbar_configuration.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/fullscreen/toolbars_size.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/fullscreen/toolbars_size_broadcasting_util.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/public/omnibox_position_util.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/toolbar_coordinator.h"
+#import "ios/chrome/browser/toolbar/coordinator/toolbar_coordinator.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/accessory/toolbar_accessory_presenter.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/buttons/toolbar_configuration.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_broadcasting_util.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/omnibox_position_util.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/voice/ui_bundled/voice_search_notification_names.h"
@@ -245,17 +243,16 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   // Used to fetch snapshots.
   raw_ptr<SnapshotBrowserAgent> _snapshotBrowserAgent;
 
+  // Callback invoked when the browser view visibility changes.
+  BrowserViewVisibilityStateChangedCallback
+      _browserViewVisibilityStateChangedCallback;
+
   // Used to get the layout guide center.
   LayoutGuideCenter* _layoutGuideCenter;
 
   // Whether the Lens Overlay is currently active and visible for the browser
   // view.
   BOOL _lensOverlayVisible;
-
-  // TODO(crbug.com/429955447): Remove when diamond prototype is cleaned.
-  ToolbarType _diamondToolbarType;
-  NSArray<NSLayoutConstraint*>* _diamondToolbarTopConstraints;
-  NSArray<NSLayoutConstraint*>* _diamondToolbarBottomConstraints;
 }
 
 // Activates/deactivates the object. This will enable/disable the ability for
@@ -263,12 +260,9 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 // not active, the UI will not react to changes in the active web state, so
 // generally an inactive BVC should not be visible.
 @property(nonatomic, assign, getter=isActive) BOOL active;
-// Consumer that gets notified of the visibility of the browser view.
-@property(nonatomic, weak) id<BrowserViewVisibilityAudience>
-    browserViewVisibilityAudience;
-// Browser container view controller.
+// Browser content view controller.
 @property(nonatomic, strong)
-    BrowserContainerViewController* browserContainerViewController;
+    BrowserContentViewController* browserContentViewController;
 // Invisible button used to dismiss the keyboard.
 @property(nonatomic, strong) UIButton* typingShield;
 // The visibility state of the browser view. Value will be set to `kVisible` on
@@ -294,7 +288,8 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 @property(nonatomic, strong) TabStripCoordinator* tabStripCoordinator;
 // A weak reference to the view of the tab strip on tablet.
 @property(nonatomic, weak) UIView* tabStripView;
-
+// Constraint for the top of the tab strip view.
+@property(nonatomic, strong) NSLayoutConstraint* tabStripTopConstraint;
 // Returns the header views, all the chrome on top of the page, including the
 // ones that cannot be scrolled off screen by full screen.
 @property(nonatomic, strong, readonly) NSArray<HeaderDefinition*>* headerViews;
@@ -315,8 +310,8 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 // Command handler for popup menu commands.
 @property(nonatomic, weak) id<PopupMenuCommands> popupMenuCommandsHandler;
 
-// Command handler for application commands.
-@property(nonatomic, weak) id<ApplicationCommands> applicationCommandsHandler;
+// Command handler for scene commands.
+@property(nonatomic, weak) id<SceneCommands> sceneHandler;
 
 // Command handler for find in page commands.
 @property(nonatomic, weak) id<FindInPageCommands> findInPageCommandsHandler;
@@ -367,16 +362,16 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
 #pragma mark - Object lifecycle
 
-- (instancetype)
-    initWithBrowserContainerViewController:
-        (BrowserContainerViewController*)browserContainerViewController
-                       keyCommandsProvider:
-                           (KeyCommandsProvider*)keyCommandsProvider
-                              dependencies:(BrowserViewControllerDependencies)
-                                               dependencies {
+- (instancetype)initWithBrowserContentViewController:
+                    (BrowserContentViewController*)browserContentViewController
+                                 keyCommandsProvider:
+                                     (KeyCommandsProvider*)keyCommandsProvider
+                                        dependencies:
+                                            (BrowserViewControllerDependencies)
+                                                dependencies {
   self = [super initWithNibName:nil bundle:base::apple::FrameworkBundle()];
   if (self) {
-    _browserContainerViewController = browserContainerViewController;
+    _browserContentViewController = browserContentViewController;
     _keyCommandsProvider = keyCommandsProvider;
     _sideSwipeCoordinator = dependencies.sideSwipeCoordinator;
     [_sideSwipeCoordinator setSideSwipeUIControllerDelegate:self];
@@ -391,7 +386,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
     self.textZoomHandler = dependencies.textZoomHandler;
     self.helpHandler = dependencies.helpHandler;
     self.popupMenuCommandsHandler = dependencies.popupMenuCommandsHandler;
-    self.applicationCommandsHandler = dependencies.applicationCommandsHandler;
+    self.sceneHandler = dependencies.sceneHandler;
     self.findInPageCommandsHandler = dependencies.findInPageCommandsHandler;
     _isOffTheRecord = dependencies.isOffTheRecord;
     _visibilityState = BrowserViewVisibilityState::kNotInViewHierarchy;
@@ -425,7 +420,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 #pragma mark - Public Properties
 
 - (UIView*)contentArea {
-  return self.browserContainerViewController.view;
+  return self.browserContentViewController.view;
 }
 
 - (void)setInfobarBannerOverlayContainerViewController:
@@ -468,6 +463,16 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   [self updateOverlayContainerOrder];
 }
 
+- (const BrowserViewVisibilityStateChangedCallback&)
+    browserViewVisibilityStateChangedCallback {
+  return _browserViewVisibilityStateChangedCallback;
+}
+
+- (void)setBrowserViewVisibilityStateChangedCallback:
+    (const BrowserViewVisibilityStateChangedCallback&)callback {
+  _browserViewVisibilityStateChangedCallback = callback;
+}
+
 #pragma mark - Private Properties
 
 - (BOOL)isContentAreaObstructed {
@@ -482,11 +487,12 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   if (_visibilityState == state) {
     return;
   }
-  BrowserViewVisibilityState previousState = _visibilityState;
-  _visibilityState = state;
-  [self.browserViewVisibilityAudience
-      browserViewDidTransitionToVisibilityState:state
-                                      fromState:previousState];
+  const BrowserViewVisibilityState previousState =
+      std::exchange(_visibilityState, state);
+  if (_browserViewVisibilityStateChangedCallback) {
+    _browserViewVisibilityStateChangedCallback.Run(_visibilityState,
+                                                   previousState);
+  }
   [self updateBroadcastState];
   self.contentArea.accessibilityElementsHidden = self.contentAreaObstructed;
 }
@@ -911,9 +917,9 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
               forControlEvents:UIControlEventTouchUpInside];
   self.view.autoresizingMask = initialViewAutoresizing;
 
-  [self addChildViewController:self.browserContainerViewController];
+  [self addChildViewController:self.browserContentViewController];
   [self.view addSubview:self.contentArea];
-  [self.browserContainerViewController didMoveToParentViewController:self];
+  [self.browserContentViewController didMoveToParentViewController:self];
   [self.view addSubview:self.typingShield];
   [super viewDidLoad];
 
@@ -974,7 +980,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
   // Update the tab strip placement.
   if (self.tabStripView) {
-    [self showTabStripView:self.tabStripView];
+    self.tabStripTopConstraint.constant = self.headerOffset;
   }
 }
 
@@ -1085,9 +1091,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   // TODO(crbug.com/40432185): Support size changes for all popups and modal
   // dialogs.
   [self.helpHandler hideAllHelpBubbles];
-  if (!IsNewOverflowMenuEnabled()) {
-    [self.popupMenuCommandsHandler dismissPopupMenuAnimated:NO];
-  }
 
   __weak BrowserViewController* weakSelf = self;
 
@@ -1356,9 +1359,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   if (!height) {
     return 0.0;
   }
-  if (IsDiamondPrototypeEnabled()) {
-    return kDiamondToolbarHeight;
-  }
 
   // Add the safe area inset to the toolbar height.
   CGFloat unsafeHeight = self.rootSafeAreaInsets.bottom;
@@ -1420,14 +1420,9 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   // The bottom toolbar can be constraint to the keyboard in some cases.
   self.secondaryToolbarHeightConstraint.priority = UILayoutPriorityRequired - 1;
   self.secondaryToolbarHeightConstraint.active = YES;
-  if (IsDiamondPrototypeEnabled()) {
-    AddSameConstraintsToSides(self.view, toolbarView,
-                              LayoutSides::kLeading | LayoutSides::kTrailing);
-  } else {
-    AddSameConstraintsToSides(
-        self.view, toolbarView,
-        LayoutSides::kBottom | LayoutSides::kLeading | LayoutSides::kTrailing);
-  }
+  AddSameConstraintsToSides(
+      self.view, toolbarView,
+      LayoutSides::kBottom | LayoutSides::kLeading | LayoutSides::kTrailing);
 }
 
 // Adds constraints to the primary and secondary toolbars, anchoring them to the
@@ -1476,13 +1471,19 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
         self.tabStripView = tabStripViewController.view;
         [self.view addSubview:self.tabStripView];
         [tabStripViewController didMoveToParentViewController:self];
-        CGRect tabStripFrame =
-            CGRectMake(0, self.headerOffset, self.view.bounds.size.width,
-                       TabStripCollectionViewConstants.height);
-        self.tabStripView.frame = tabStripFrame;
-        self.tabStripView.autoresizingMask =
-            (UIViewAutoresizingFlexibleWidth |
-             UIViewAutoresizingFlexibleBottomMargin);
+        self.tabStripView.translatesAutoresizingMaskIntoConstraints = NO;
+        self.tabStripTopConstraint = [self.tabStripView.topAnchor
+            constraintEqualToAnchor:self.view.topAnchor
+                           constant:self.headerOffset];
+        [NSLayoutConstraint activateConstraints:@[
+          self.tabStripTopConstraint,
+          [self.tabStripView.leadingAnchor
+              constraintEqualToAnchor:self.view.leadingAnchor],
+          [self.tabStripView.trailingAnchor
+              constraintEqualToAnchor:self.view.trailingAnchor],
+          [self.tabStripView.heightAnchor
+              constraintEqualToConstant:TabStripCollectionViewConstants.height],
+        ]];
       }
       [self.view insertSubview:primaryToolbarView
                   aboveSubview:self.tabStripView];
@@ -1526,27 +1527,9 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
     UIView* secondaryToolbarView =
         self.toolbarCoordinator.secondaryToolbarViewController.view;
 
-    if (IsDiamondPrototypeEnabled()) {
-      _diamondToolbarTopConstraints = @[
-        [secondaryToolbarView.topAnchor
-            constraintEqualToAnchor:primaryToolbarView.topAnchor],
-        [secondaryToolbarView.bottomAnchor
-            constraintEqualToAnchor:primaryToolbarView.bottomAnchor],
-        [contentAreaGuide.bottomAnchor
-            constraintEqualToAnchor:self.view.bottomAnchor],
-      ];
-      _diamondToolbarBottomConstraints = @[
-        [secondaryToolbarView.bottomAnchor
-            constraintEqualToAnchor:self.view.bottomAnchor],
-        [contentAreaGuide.bottomAnchor
-            constraintEqualToAnchor:secondaryToolbarView.topAnchor],
-      ];
-      [self diamondToolbarTypeChanged:_diamondToolbarType];
-    } else {
-      [contentAreaGuide.bottomAnchor
-          constraintEqualToAnchor:secondaryToolbarView.topAnchor]
-          .active = YES;
-    }
+    [contentAreaGuide.bottomAnchor
+        constraintEqualToAnchor:secondaryToolbarView.topAnchor]
+        .active = YES;
 
     AddSameConstraintsToSides(self.view, contentAreaGuide, contentSides);
   }
@@ -1599,12 +1582,11 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
       // TODO(crbug.com/41407753): For a newly created WebState, the session
       // will not be restored until LoadIfNecessary call. Remove when fixed.
       self.currentWebState->GetNavigationManager()->LoadIfNecessary();
-      self.browserContainerViewController.contentView = nil;
-      self.browserContainerViewController.contentViewController =
-          viewController;
+      self.browserContentViewController.contentView = nil;
+      self.browserContentViewController.contentViewController = viewController;
       [NTPCoordinator constrainNamedGuideForFeedIPH];
     } else {
-      self.browserContainerViewController.contentView = view;
+      self.browserContentViewController.contentView = view;
     }
     // Resize horizontal viewport if Smooth Scrolling is on.
     if (ios::provider::IsFullscreenSmoothScrollingSupported()) {
@@ -1746,15 +1728,18 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
     if (isPrimaryToolbar && !CanShowTabStrip(self)) {
       self.primaryToolbarOffsetConstraint.constant = yOrigin;
     }
-    CGRect frame = [header.view frame];
-    frame.origin.y = yOrigin;
-    [header.view setFrame:frame];
-    if (header.behaviour != Overlap) {
-      height += CGRectGetHeight(frame);
-    }
 
     if (header.view == self.tabStripView) {
+      self.tabStripTopConstraint.constant = yOrigin;
       [self setNeedsStatusBarAppearanceUpdate];
+    } else {
+      CGRect frame = [header.view frame];
+      frame.origin.y = yOrigin;
+      [header.view setFrame:frame];
+    }
+
+    if (header.behaviour != Overlap) {
+      height += CGRectGetHeight(header.view.frame);
     }
   }
 }
@@ -1835,8 +1820,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 
   // Update the tab strip visibility.
   if (self.tabStripView) {
-    [self showTabStripView:self.tabStripView];
-    [self.tabStripView layoutSubviews];
     const bool canShowTabStrip = CanShowTabStrip(self);
     [self.tabStripCoordinator hideTabStrip:!canShowTabStrip];
     _fakeStatusBarView.hidden = !canShowTabStrip;
@@ -1854,25 +1837,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   [self setNeedsStatusBarAppearanceUpdate];
 
   self.fullscreenController->BrowserTraitCollectionChangedEnd();
-}
-
-// Shows the `tabStripView`.
-- (void)showTabStripView:(UIView*)tabStripView {
-  DCHECK([self isViewLoaded]);
-  DCHECK(tabStripView);
-  self.tabStripView = tabStripView;
-  CGRect tabStripFrame = [self.tabStripView frame];
-  tabStripFrame.origin = CGPointZero;
-  // TODO(crbug.com/41023322): Move the origin.y below to -setUpViewLayout.
-  // because the CGPointZero above will break reset the offset, but it's not
-  // clear what removing that will do.
-  tabStripFrame.origin.y = self.headerOffset;
-  tabStripFrame.size.width = CGRectGetWidth([self view].bounds);
-  [self.tabStripView setFrame:tabStripFrame];
-
-  UIView* primaryToolbar =
-      self.toolbarCoordinator.primaryToolbarViewController.view;
-  [self.view insertSubview:tabStripView belowSubview:primaryToolbar];
 }
 
 // On iOS 26, returns the top inset with corner adapation, otherwise returns 0.
@@ -2144,9 +2108,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   if (!height) {
     return 0.0;
   }
-  if (IsDiamondPrototypeEnabled()) {
-    return kDiamondCollapsedToolbarHeight;
-  }
   // Height is non-zero only when bottom omnibox is enabled.
   return self.rootSafeAreaInsets.bottom + height;
 }
@@ -2354,7 +2315,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 #pragma mark - TabConsumer (Public)
 
 - (void)resetTab {
-  self.browserContainerViewController.contentView = nil;
+  self.browserContentViewController.contentView = nil;
 }
 
 - (void)prepareForNewTabAnimation {
@@ -2606,6 +2567,9 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
   ForegroundTabAnimationView* animatedView =
       [[ForegroundTabAnimationView alloc] initWithFrame:frame];
   animatedView.contentView = newPage;
+  animatedView.backgroundView =
+      [self.contentArea snapshotViewAfterScreenUpdates:NO];
+
   __weak UIView* weakAnimatedView = animatedView;
   auto completionBlock = ^() {
     [weakAnimatedView removeFromSuperview];
@@ -2654,7 +2618,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
                    }]
             forControlEvents:UIControlEventTouchUpInside];
       } else {
-        DCHECK(self.applicationCommandsHandler);
+        DCHECK(self.sceneHandler);
         __weak __typeof(self) weakSelf = self;
         [self.blockingView.secondaryButton
                    addAction:[UIAction actionWithHandler:^(UIAction* action) {
@@ -2666,7 +2630,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
                        base::RecordAction(base::UserMetricsAction(
                            "IOS.IncognitoLock.Overlay.SeeOtherTabs"));
                      }
-                     [weakSelf.applicationCommandsHandler
+                     [weakSelf.sceneHandler
                          displayTabGridInMode:TabGridOpeningMode::kRegular];
                    }]
             forControlEvents:UIControlEventTouchUpInside];
@@ -2684,7 +2648,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
     [firstResponder resignFirstResponder];
     // Close presented view controllers, e.g. share sheets.
     if (self.presentedViewController) {
-      [self.applicationCommandsHandler dismissModalDialogsWithCompletion:nil];
+      [self.sceneHandler dismissModalDialogsWithCompletion:nil];
     }
 
   } else {
@@ -2854,6 +2818,7 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
 }
 
 - (void)layoutToolbarHeightChangeWithAnimation:(BOOL)animated {
+  CHECK(!IsChromeNextIaEnabled());
   if (!self.viewLoaded) {
     return;
   }
@@ -2925,23 +2890,6 @@ const CGFloat kMultilineOmniboxAnimationDuration = 0.3f;
                      [self.view layoutIfNeeded];
                    }
                    completion:nil];
-}
-
-- (void)diamondToolbarTypeChanged:(ToolbarType)type {
-  CHECK(IsDiamondPrototypeEnabled());
-  _diamondToolbarType = type;
-  switch (type) {
-    case ToolbarType::kPrimary:
-      [NSLayoutConstraint
-          deactivateConstraints:_diamondToolbarBottomConstraints];
-      [NSLayoutConstraint activateConstraints:_diamondToolbarTopConstraints];
-      break;
-
-    case ToolbarType::kSecondary:
-      [NSLayoutConstraint deactivateConstraints:_diamondToolbarTopConstraints];
-      [NSLayoutConstraint activateConstraints:_diamondToolbarBottomConstraints];
-      break;
-  }
 }
 
 #pragma mark - LogoAnimationControllerOwnerOwner (Public)

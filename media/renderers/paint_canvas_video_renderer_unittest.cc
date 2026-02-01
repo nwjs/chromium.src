@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include <array>
+#include <bit>
 
 #include "base/containers/heap_array.h"
 #include "base/containers/span.h"
@@ -515,7 +516,7 @@ uint32_t MaybeConvertABGRToARGB(uint32_t abgr) {
     SK_A32_SHIFT == 24
   return abgr;
 #else
-  return (base::ByteSwap(abgr & 0x00FFFFFF) >> 8) | (abgr & 0xFF000000);
+  return (std::byteswap(abgr & 0x00FFFFFF) >> 8) | (abgr & 0xFF000000);
 #endif
 }
 
@@ -1146,12 +1147,12 @@ class PaintCanvasVideoRendererWithGLTest : public testing::Test {
     display_ = gl::GLSurfaceTestSupport::InitializeOneOff();
     enable_pixels_.emplace();
     media_context_ = base::MakeRefCounted<viz::TestInProcessContextProvider>(
-        viz::TestContextType::kGpuRaster, /*support_locking=*/false);
+        viz::TestContextType::kRaster, /*support_locking=*/false);
     gpu::ContextResult result = media_context_->BindToCurrentSequence();
     ASSERT_EQ(result, gpu::ContextResult::kSuccess);
 
     raster_context_ = base::MakeRefCounted<viz::TestInProcessContextProvider>(
-        viz::TestContextType::kGpuRaster, /*support_locking=*/false);
+        viz::TestContextType::kRaster, /*support_locking=*/false);
     result = raster_context_->BindToCurrentSequence();
     ASSERT_EQ(result, gpu::ContextResult::kSuccess);
 

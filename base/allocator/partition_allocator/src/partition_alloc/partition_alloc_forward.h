@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef PARTITION_ALLOC_PARTITION_ALLOC_FORWARD_H_
 #define PARTITION_ALLOC_PARTITION_ALLOC_FORWARD_H_
 
@@ -70,6 +65,11 @@ struct SlotSpanMetadata;
 class PartitionStatsDumper;
 
 struct PartitionRoot;
+
+struct PurgeState {
+  uint16_t generation = 0;
+  uint16_t next_bucket_index = 0;
+};
 
 namespace internal {
 // Declare PartitionRootLock() for thread analysis. Its implementation

@@ -13,7 +13,6 @@
 #include "base/containers/flat_map.h"
 #include "base/files/scoped_file.h"
 #include "base/functional/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -65,8 +64,9 @@ class WaylandBufferManagerHost : public ozone::mojom::WaylandBufferManagerHost {
   // Called by WaylandFrameManager if overlay data is invalid.
   void OnCommitOverlayError(const std::string& message);
 
-  // Returns supported buffer formats either from zwp_linux_dmabuf or wl_drm.
-  wl::BufferFormatsWithModifiersMap GetSupportedBufferFormats() const;
+  // Returns supported shared image formats either from zwp_linux_dmabuf or
+  // wl_drm.
+  wl::SharedImageFormatsWithModifiersMap GetSupportedSharedImageFormats() const;
 
   bool SupportsDmabuf() const;
   bool SupportsAcquireFence() const;

@@ -11,6 +11,14 @@
   @androidx.annotation.Keep <methods>;
 }
 
+# File: ../../third_party/androidx/androidx_biometric.flags
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Temporary fix until this change is landed upstream in AndroidX.
+-dontwarn android.hardware.fingerprint.FingerprintManager**
+
 # File: ../../third_party/androidx/androidx_fragment.flags
 # Copyright 2020 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
@@ -233,6 +241,15 @@
 # Should be removed once we use Android V SDK. b/336753747
 -keep class !cr_allowunused,androidx.privacysandbox.ads.adservices.internal.ContinuationOutcomeReceiver {
   <methods>;
+}
+
+# Allow R8 to optimize away proto lite functionality that is not used.
+-assumenosideeffects class com.google.protobuf.ManifestSchemaFactory {
+    com.google.protobuf.MessageInfoFactory getDescriptorMessageInfoFactory();
+}
+-assumenosideeffects class com.google.protobuf.SchemaUtil {
+    java.lang.Class getGeneratedMessageClass();
+    java.lang.Class getUnknownFieldSetSchemaClass();
 }
 
 # File: ../../build/android/dcheck_is_off.flags

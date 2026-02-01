@@ -288,6 +288,7 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
       const ExtensionId& extension_id) {
     return static_cast<extensions::ExtensionContextMenuModel*>(
         GetExtensionsToolbarContainer()
+            ->GetToolbarViewModel()
             ->GetActionForId(extension_id)
             ->GetContextMenu(extensions::ExtensionContextMenuModel::
                                  ContextMenuSource::kMenuItem));
@@ -874,11 +875,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // Show the extension side panel. This should show the tab-scoped side panel.
   side_panel_ui->Show(extension_key);
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return browser()
-        ->GetFeatures()
-        .side_panel_coordinator()
-        ->IsSidePanelEntryShowing(extension_key,
-                                  /*for_tab=*/true);
+    return browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+        extension_key,
+        /*for_tab=*/true);
   }));
 
   // Disable the extension's side panel for the current tab.
@@ -1005,7 +1004,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
     RunSetOptions(*extension, first_tab_id, "default_path.html",
                   /*enabled=*/true);
     waiter.WaitForRegistration();
-    browser()->GetFeatures().side_panel_coordinator()->Show(
+    SidePanelCoordinator::From(browser())->Show(
         {browser()->GetActiveTabInterface()->GetHandle(), extension_key},
         /*open_trigger=*/std::nullopt, /*suppress_animations=*/true);
 
@@ -1911,6 +1910,42 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 }
 
+// Tests calling `sidePanel.open()` with `kCurrentWindowId` opens the side panel
+// in the current window.
+IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
+                       OpenSidePanel_CurrentWindow) {
+  const Extension* extension = LoadSidePanelExtension();
+  ASSERT_TRUE(extension);
+
+  // Register a global side panel.
+  RunSetOptions(*extension, /*tab_id=*/std::nullopt, "panel.html",
+                /*enabled=*/true);
+
+  // Open a second browser window.
+  Browser* second_browser = CreateBrowser(browser()->profile());
+  ASSERT_TRUE(second_browser);
+
+  SidePanelUI* const first_side_panel_ui =
+      browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const second_side_panel_ui =
+      second_browser->GetFeatures().side_panel_ui();
+
+  EXPECT_FALSE(
+      first_side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
+  EXPECT_FALSE(
+      second_side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
+
+  // Run `sidePanel.open()` with `kCurrentWindowId`.
+  // Since this test runs the function manually with no specific window,
+  // `WINDOW_ID_CURRENT` should fall back to the foremost one.
+  RunOpenPanelForWindow(*extension, extension_misc::kCurrentWindowId);
+
+  EXPECT_FALSE(
+      first_side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
+  EXPECT_TRUE(
+      second_side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
+}
+
 // Tests that extension context menus show the "(Open / Close) side panel" menu
 // item when appropriate, and that the menu item toggles the global side panel.
 IN_PROC_BROWSER_TEST_F(
@@ -2194,31 +2229,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   // Close the panel by calling the API with only the `windowId` specified.
   RunClosePanel(*extension, /*tab_id=*/std::nullopt, GetCurrentWindowId());
 
-  WaitForSidePanelClose();
-  EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
-}
-
-// Tests closing the global side panel using both tabId and windowId when no
-// contextual panel is present.
-IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
-                       CloseGlobalSidePanel_WithTabAndWindowId) {
-  // Load an extension with a global panel.
-  scoped_refptr<const Extension> extension = LoadExtension(
-      test_data_dir_.AppendASCII("api_test/side_panel/simple_default"));
-  ASSERT_TRUE(extension);
-  SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
-  ASSERT_TRUE(
-      SidePanelRegistry::From(browser())->GetEntryForKey(extension_key));
-
-  // Show the global panel and verify it is visible.
-  side_panel_ui->Show(extension_key);
-  ASSERT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
-
-  // Call close() with both the current tabId and windowId.
-  RunClosePanel(*extension, GetCurrentTabId(), GetCurrentWindowId());
-
-  // The panel should close successfully.
   WaitForSidePanelClose();
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 }

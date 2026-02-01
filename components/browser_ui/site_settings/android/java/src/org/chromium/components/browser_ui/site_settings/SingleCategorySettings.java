@@ -48,7 +48,9 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.UsedByReflection;
@@ -64,9 +66,11 @@ import org.chromium.components.browser_ui.settings.LearnMorePreference;
 import org.chromium.components.browser_ui.settings.ManagedPreferenceDelegate;
 import org.chromium.components.browser_ui.settings.ManagedPreferencesUtils;
 import org.chromium.components.browser_ui.settings.SearchUtils;
+import org.chromium.components.browser_ui.settings.SearchViewProvider;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
 import org.chromium.components.browser_ui.site_settings.AddExceptionPreference.SiteAddedCallback;
 import org.chromium.components.browser_ui.site_settings.AutoDarkMetrics.AutoDarkSettingsChangeSource;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
@@ -128,6 +132,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 FragmentSettingsNavigation,
                 TriStateCookieSettingsPreference.OnCookiesDetailsRequested,
                 CustomDividerFragment,
+                SearchViewProvider,
                 WebsitePreference.OnStorageAccessWebsiteDetailsRequested {
     @IntDef({
         GlobalToggleLayout.BINARY_TOGGLE,
@@ -198,7 +203,9 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
     private @Nullable Set<String> mSelectedDomains;
 
-    private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
+    private final SettableObservableSupplier<String> mPageTitle =
+            ObservableSuppliers.createMonotonic();
+    private @MonotonicNonNull SearchViewProvider.Observer mSearchViewObserver;
 
     @Override
     public void onCookiesDetailsRequested(@CookieControlsMode int cookieSettingsState) {
@@ -569,6 +576,11 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     }
 
     @Override
+    public void setSearchViewObserver(SearchViewProvider.Observer observer) {
+        mSearchViewObserver = observer;
+    }
+
+    @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         menu.clear();
         inflater.inflate(R.menu.website_preferences_menu, menu);
@@ -578,6 +590,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 mSearchItem,
                 mSearch,
                 getActivity(),
+                assumeNonNull(mSearchViewObserver),
                 (query) -> {
                     boolean queryHasChanged =
                             mSearch == null
@@ -596,9 +609,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                             R.string.menu_help);
             help.setIcon(
                     TraceEventVectorDrawableCompat.create(
-                            getResources(),
-                            R.drawable.ic_help_and_feedback,
-                            getContext().getTheme()));
+                            getResources(), R.drawable.ic_help_24dp, getContext().getTheme()));
         }
     }
 
@@ -1257,6 +1268,10 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 return R.string.website_settings_serial_port_page_description;
             } else if (mCategory.getType() == SiteSettingsCategory.Type.LOCAL_NETWORK_ACCESS) {
                 return R.string.website_settings_local_network_access_page_description;
+            } else if (mCategory.getType() == SiteSettingsCategory.Type.LOCAL_NETWORK) {
+                return R.string.website_settings_local_network_page_description;
+            } else if (mCategory.getType() == SiteSettingsCategory.Type.LOOPBACK_NETWORK) {
+                return R.string.website_settings_loopback_network_page_description;
             } else if (mCategory.getType() == SiteSettingsCategory.Type.WINDOW_MANAGEMENT) {
                 return R.string.website_settings_window_management_page_description;
             } else if (mCategory.getType() == SiteSettingsCategory.Type.AUTO_PICTURE_IN_PICTURE) {
@@ -2004,4 +2019,15 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     public @SettingsFragment.AnimationType int getAnimationType() {
         return SettingsFragment.AnimationType.PROPERTY;
     }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mSearchViewObserver != null) mSearchViewObserver.onUpdated(false);
+    }
+
+    // TODO(crbug.com/444470792): Determine what pieces of logic are dynamic and need handling.
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(
+                    SingleCategorySettings.class.getName(), R.xml.website_preferences);
 }

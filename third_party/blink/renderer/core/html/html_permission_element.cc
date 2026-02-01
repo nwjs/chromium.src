@@ -35,7 +35,6 @@
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
-#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
@@ -63,6 +62,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
+#include "third_party/blink/renderer/platform/web_test_support.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
@@ -414,7 +414,7 @@ Node::InsertionNotificationRequest HTMLPermissionElement::InsertedInto(
     ContainerNode& insertion_point) {
   HTMLElement::InsertedInto(insertion_point);
   if (!is_cache_registered_ && !permission_descriptors_.empty()) {
-    CachedPermissionStatus::From(GetDocument().domWindow())
+    CachedPermissionStatus::From(GetExecutionContext())
         ->RegisterClient(this, permission_descriptors_);
     is_cache_registered_ = true;
   }
@@ -466,10 +466,9 @@ void HTMLPermissionElement::RemovedFrom(ContainerNode& insertion_point) {
     disable_reason_expire_timer_.Stop();
   }
   intersection_rect_ = std::nullopt;
-  LocalDOMWindow* window = GetDocument().domWindow();
-  if (window && is_cache_registered_) {
-    CachedPermissionStatus::From(window)->UnregisterClient(
-        this, permission_descriptors_);
+  if (is_cache_registered_) {
+    CachedPermissionStatus::From(GetExecutionContext())
+        ->UnregisterClient(this, permission_descriptors_);
     is_cache_registered_ = false;
   }
   EnsureUnregisterPageEmbeddedPermissionControl();
@@ -638,13 +637,13 @@ void HTMLPermissionElement::UpdatePermissionStatusAndAppearance() {
   UpdateAppearance();
 }
 
-void HTMLPermissionElement::SetPreciseLocation() {
-  // This attribute can only be set once, and can not be modified afterwards.
-  if (is_precise_location_) {
+void HTMLPermissionElement::SetPreciseLocation(bool is_precise_location) {
+  if (is_precise_location_ == is_precise_location) {
     return;
   }
-
-  is_precise_location_ = true;
+  DisableClickingTemporarily(DisableReason::kAttributeChanged,
+                             kDefaultDisableTimeout);
+  is_precise_location_ = is_precise_location;
   UpdateAppearance();
 }
 
@@ -694,6 +693,8 @@ String HTMLPermissionElement::DisableReasonToString(DisableReason reason) {
       return "intersection occluded or distorted";
     case DisableReason::kInvalidStyle:
       return "invalid style";
+    case DisableReason::kAttributeChanged:
+      return "an attribute changed";
     case DisableReason::kUnknown:
       NOTREACHED();
   }
@@ -716,6 +717,8 @@ HTMLPermissionElement::DisableReasonToUserInteractionDeniedReason(
           kIntersectionVisibilityOccludedOrDistorted;
     case DisableReason::kInvalidStyle:
       return UserInteractionDeniedReason::kInvalidStyle;
+    case DisableReason::kAttributeChanged:
+      return UserInteractionDeniedReason::kAttributeChanged;
     case DisableReason::kUnknown:
       NOTREACHED();
   }
@@ -735,6 +738,8 @@ AtomicString HTMLPermissionElement::DisableReasonToInvalidReasonString(
       return AtomicString("intersection_occluded_or_distorted");
     case DisableReason::kInvalidStyle:
       return AtomicString("style_invalid");
+    case DisableReason::kAttributeChanged:
+      return AtomicString("attribute_changed");
     case DisableReason::kUnknown:
       NOTREACHED();
   }
@@ -839,7 +844,7 @@ void HTMLPermissionElement::AttributeChanged(
   MaybeRegisterPageEmbeddedPermissionControl();
 
   if (params.name == html_names::kPreciselocationAttr) {
-    SetPreciseLocation();
+    SetPreciseLocation(params.new_value != nullptr);
   }
 
   HTMLElement::AttributeChanged(params);

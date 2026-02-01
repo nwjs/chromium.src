@@ -158,11 +158,14 @@ public class ToolbarProgressBarLayer implements TopControlLayer {
                                         TopControlType.TOOLBAR)
                                 + hairlineHeight;
 
-                int captureHeightDiff =
-                        mControlContainer.getToolbarCaptureHeight()
-                                - mControlContainer.getToolbarHeight()
-                                - mControlContainer.getToolbarHairlineHeight();
-                yOffset += captureHeightDiff;
+                int captureHeight = mControlContainer.getToolbarCaptureHeight();
+                if (captureHeight > 0) {
+                    int captureHeightDiff =
+                            captureHeight
+                                    - mControlContainer.getToolbarHeight()
+                                    - mControlContainer.getToolbarHairlineHeight();
+                    yOffset += captureHeightDiff;
+                }
             } else if (toolbarPosition == ControlsPosition.BOTTOM) {
                 yOffset =
                         -(mBottomControlsStacker.getHeightFromLayerToBottom(LayerType.PROGRESS_BAR)
@@ -181,6 +184,8 @@ public class ToolbarProgressBarLayer implements TopControlLayer {
         // When mIsToolbarPositionCustomizationEnabled, this is handled in
         // ToolbarPositionController. Avoid doing duplicate work.
         if (mIsToolbarPositionCustomizationEnabled) return;
+
+        if (mProgressBarContainer.getParent() == null) return;
 
         Runnable progressBarChangeRunnable =
                 () -> {

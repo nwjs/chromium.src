@@ -15,7 +15,8 @@ import androidx.preference.Preference;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -24,6 +25,7 @@ import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.ManagedPreferenceDelegate;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.TextMessagePreference;
+import org.chromium.components.browser_ui.settings.search.BaseSearchIndexProvider;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -48,7 +50,8 @@ public class RwsCookieSettings extends BaseSiteSettingsFragment
     private TextMessagePreference mBulletTwo;
     private TextMessagePreference mBulletThree;
 
-    private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
+    private final SettableObservableSupplier<String> mPageTitle =
+            ObservableSuppliers.createMonotonic();
 
     @Override
     @Initializer
@@ -81,7 +84,8 @@ public class RwsCookieSettings extends BaseSiteSettingsFragment
             mBulletTwo.setIcon(
                     SettingsUtils.getTintedIcon(getContext(), R.drawable.permission_cookie));
             mBulletThree.setSummary(getContext().getString(bulletThreeId));
-            mBulletThree.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.broken_24));
+            mBulletThree.setIcon(
+                    SettingsUtils.getTintedIcon(getContext(), R.drawable.ic_broken_24dp));
         } else if (pageState == CookieControlsMode.INCOGNITO_ONLY) {
             mSubtitle.setTitle(
                     R.string.website_settings_category_cookie_allow_third_party_subtitle);
@@ -175,4 +179,9 @@ public class RwsCookieSettings extends BaseSiteSettingsFragment
     public @AnimationType int getAnimationType() {
         return AnimationType.PROPERTY;
     }
+
+    // TODO(crbug.com/444470792): Determine what pieces of logic are dynamic and need handling.
+    public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+            new BaseSearchIndexProvider(
+                    RwsCookieSettings.class.getName(), R.xml.rws_cookie_settings);
 }

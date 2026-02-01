@@ -4,10 +4,12 @@
 
 #include "third_party/blink/renderer/platform/mediastream/audio_service_audio_processor_proxy.h"
 
-#include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/timer/timer.h"
 #include "media/base/audio_processor_controls.h"
+#include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -31,8 +33,8 @@ void AudioServiceAudioProcessorProxy::SetControls(
 
   stats_update_timer_.Start(
       FROM_HERE, kStatsUpdateInterval,
-      base::BindRepeating(&AudioServiceAudioProcessorProxy::RequestStats,
-                          weak_this_));
+      blink::BindRepeating(&AudioServiceAudioProcessorProxy::RequestStats,
+                           weak_this_));
 }
 
 void AudioServiceAudioProcessorProxy::Stop() {
@@ -51,7 +53,7 @@ AudioServiceAudioProcessorProxy::GetStats(bool has_remote_tracks) {
 }
 
 void AudioServiceAudioProcessorProxy::MaybeUpdateNumPreferredCaptureChannels(
-    uint32_t num_channels) {
+    int32_t num_channels) {
   if (num_preferred_capture_channels_ >= num_channels)
     return;
 
@@ -59,16 +61,17 @@ void AudioServiceAudioProcessorProxy::MaybeUpdateNumPreferredCaptureChannels(
 
   // Posting the task only when update is needed, to avoid spamming the main
   // thread.
-  main_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&AudioServiceAudioProcessorProxy::
-                                    SetPreferredNumCaptureChannelsOnMainThread,
-                                weak_this_, num_channels));
+  PostCrossThreadTask(
+      *main_task_runner_, FROM_HERE,
+      CrossThreadBindOnce(&AudioServiceAudioProcessorProxy::
+                              SetPreferredNumCaptureChannelsOnMainThread,
+                          weak_this_, num_channels));
 }
 
 void AudioServiceAudioProcessorProxy::RequestStats() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_checker_);
   if (processor_controls_) {
-    processor_controls_->GetStats(base::BindOnce(
+    processor_controls_->GetStats(blink::BindOnce(
         &AudioServiceAudioProcessorProxy::UpdateStats, weak_this_));
   }
 }
@@ -83,9 +86,13 @@ void AudioServiceAudioProcessorProxy::UpdateStats(
 }
 
 void AudioServiceAudioProcessorProxy::
-    SetPreferredNumCaptureChannelsOnMainThread(uint32_t num_channels) {
+    SetPreferredNumCaptureChannelsOnMainThread(int32_t num_channels) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_checker_);
   if (processor_controls_) {
+    // With the current construct, this is never called unless |num_channels| is
+    // 2 or larger. That concept works due to how |AudioProcessor| is designed
+    // to assume a minimum of 1 preferred channels.
+    CHECK_GT(num_channels, 1);
     processor_controls_->SetPreferredNumCaptureChannels(num_channels);
   }
 }

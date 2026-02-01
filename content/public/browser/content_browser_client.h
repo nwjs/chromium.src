@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
@@ -60,7 +61,7 @@
 #include "media/base/picture_in_picture_events_info.h"
 #include "media/mojo/mojom/media_service.mojom-forward.h"
 #include "media/mojo/mojom/remoting.mojom-forward.h"
-#include "media/mojo/mojom/speech_recognizer.mojom.h"
+#include "media/mojo/mojom/speech_recognizer.mojom-forward.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -266,7 +267,6 @@ class ResponsivenessCalculatorDelegate;
 class SerialDelegate;
 class ServiceWorkerContext;
 class SiteInstance;
-class SpeculationHostDelegate;
 class SpeechRecognitionManagerDelegate;
 class StoragePartition;
 class TracingDelegate;
@@ -1243,19 +1243,6 @@ class CONTENT_EXPORT ContentBrowserClient {
       const url::Origin& top_frame_origin,
       const url::Origin& reporting_origin);
 
-  // Returns whether cookie deprecation label should be allowed for the
-  // profile. Defaults to false to ensure no traffic label is sent by default.
-  virtual bool IsCookieDeprecationLabelAllowed(
-      content::BrowserContext* browser_context);
-
-  // Returns whether cookie deprecation label should be allowed for the
-  // profile in a given context. Defaults to false to ensure no traffic label
-  // is sent by default.
-  virtual bool IsCookieDeprecationLabelAllowedForContext(
-      content::BrowserContext* browser_context,
-      const url::Origin& top_frame_origin,
-      const url::Origin& context_origin);
-
   // Returns whether cookies should be allowed for requests to `url`, fetched
   // from contexts whose storage is keyed on `storage_key`.
   // The `web_contents` parameter should be `nullptr` for requests coming from
@@ -1712,7 +1699,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // The exposed interfaces are grouped by the WebUI controller type. For any
   // given WebUI page, only the interfaces corresponding to its controller type
   // will be exposed.
-  virtual void RegisterWebUIInterfaceBrokers(
+  virtual void RegisterTrustedWebUIInterfaceBrokers(
+      WebUIBrowserInterfaceBrokerRegistry& registry) {}
+  virtual void RegisterUntrustedWebUIInterfaceBrokers(
       WebUIBrowserInterfaceBrokerRegistry& registry) {}
 
   // Allows the embedder to register browser channel-associated interfaces that
@@ -2593,8 +2582,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void OnNetworkServiceDataUseUpdate(
       GlobalRenderFrameHostId render_frame_host_id,
       int32_t network_traffic_annotation_id_hash,
-      int64_t recv_bytes,
-      int64_t sent_bytes);
+      base::ByteSize recv_bytes,
+      base::ByteSize sent_bytes);
 
   // Returns the absolute path to a directory in which sandboxed out-of-process
   // Storage Service instances should be confined. By default this is empty, and
@@ -2629,11 +2618,6 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Returns the user agent. Content may cache this value.
   virtual std::string GetUserAgent();
-
-  // Returns the user agent, allowing for preferences (i.e. enterprise policy).
-  // Default to the non-context |GetUserAgent| above.
-  virtual std::string GetUserAgentBasedOnPolicy(
-      content::BrowserContext* context);
 
   // Returns user agent metadata. Content may cache this value.
   virtual blink::UserAgentMetadata GetUserAgentMetadata();
@@ -2895,6 +2879,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Whether v8 feature flag overrides are disallowed for the given `site_url`.
   virtual bool DisallowV8FeatureFlagOverridesForSite(const GURL& site_url);
 
+  // Whether Advanced Protection is enabled for Android.
+  // Returns false if build is not Android.
+  virtual bool IsAndroidAdvancedProtectionEnabled();
+
   // Returns the URL-Keyed Metrics service for chrome:ukm.
   virtual ukm::UkmService* GetUkmService();
 
@@ -2945,12 +2933,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // be used to make heuristics based preconnects.
   virtual std::unique_ptr<AnchorElementPreconnectDelegate>
   CreateAnchorElementPreconnectDelegate(RenderFrameHost& render_frame_host);
-
-  // Allows the embedder to provide a SpeculationHostDelegate that will be used
-  // to process speculation rules provided by the document hosted by
-  // `render_frame_host`.
-  virtual std::unique_ptr<SpeculationHostDelegate>
-  CreateSpeculationHostDelegate(RenderFrameHost& render_frame_host);
 
   // Allows the embedder to provide a PrefetchServiceDelegate that will be used
   // to make prefetches.
@@ -3051,14 +3033,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsThirdPartyStoragePartitioningAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_level_origin);
-
-  // This functions returns whether or not the user's preferences allow access
-  // to unpartitioned storage in a third-party context for the given url.
-  virtual bool IsUnpartitionedStorageAccessAllowedByUserPreference(
-      content::BrowserContext* browser_context,
-      const GURL& url,
-      const net::SiteForCookies& site_for_cookies,
-      const url::Origin& top_frame_origin);
 
   // Checks whether credentials should be included in fenced frame automatic
   // beacon requests, based on user cookie settings. Any cookies sent in an
@@ -3401,6 +3375,13 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns std::nullopt if there is no overridden value.
   virtual std::optional<bool> GetOverrideValueForStaticStorageQuota(
       BrowserContext* browser_context);
+
+  // Returns a URL prefix for a server that resolves DNS TXT records or the
+  // empty string if this is not supported.
+  // The record to query will be appended to this string (url-escaped). The
+  // returned data must be JSON in the the format described here:
+  // https://developers.google.com/speed/public-dns/docs/doh/json
+  virtual std::string GetDnsTxtResolverUrlPrefix();
 };
 
 }  // namespace content

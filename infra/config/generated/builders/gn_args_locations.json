@@ -1,5 +1,7 @@
 {
   "chromium": {
+    "android-desktop-arm64-official": "ci/android-desktop-arm64-official/gn-args.json",
+    "android-desktop-x64-official": "ci/android-desktop-x64-official/gn-args.json",
     "android-official": "ci/android-official/gn-args.json",
     "linux-official": "ci/linux-official/gn-args.json",
     "mac-official": "ci/mac-official/gn-args.json",
@@ -13,6 +15,7 @@
     "Android x64 Builder All Targets (dbg)": "ci/Android x64 Builder All Targets (dbg)/gn-args.json",
     "Android x86 Builder (dbg)": "ci/Android x86 Builder (dbg)/gn-args.json",
     "android-10-arm64-rel": "ci/android-10-arm64-rel/gn-args.json",
+    "android-10-x86-nofieldtrial-rel": "ci/android-10-x86-nofieldtrial-rel/gn-args.json",
     "android-10-x86-rel": "ci/android-10-x86-rel/gn-args.json",
     "android-12-x64-rel": "ci/android-12-x64-rel/gn-args.json",
     "android-12l-x64-rel-cq": "ci/android-12l-x64-rel-cq/gn-args.json",
@@ -30,6 +33,12 @@
     "android-cronet-x64-dbg": "ci/android-cronet-x64-dbg/gn-args.json",
     "android-cronet-x86-dbg": "ci/android-cronet-x86-dbg/gn-args.json",
     "android-webview-13-x64-hostside-rel": "ci/android-webview-13-x64-hostside-rel/gn-args.json"
+  },
+  "chromium.android.desktop": {
+    "android-desktop-arm64-compile-dbg": "ci/android-desktop-arm64-compile-dbg/gn-args.json",
+    "android-desktop-arm64-compile-rel": "ci/android-desktop-arm64-compile-rel/gn-args.json",
+    "android-desktop-x64-compile-dbg": "ci/android-desktop-x64-compile-dbg/gn-args.json",
+    "android-desktop-x64-compile-rel": "ci/android-desktop-x64-compile-rel/gn-args.json"
   },
   "chromium.chromiumos": {
     "chromeos-amd64-generic-dbg": "ci/chromeos-amd64-generic-dbg/gn-args.json",
@@ -67,7 +76,8 @@
     "GPU Win x64 Builder": "ci/GPU Win x64 Builder/gn-args.json"
   },
   "chromium.gpu.fyi": {
-    "GPU FYI Android arm64 Builder": "ci/GPU FYI Android arm64 Builder/gn-args.json"
+    "GPU FYI Android arm64 Builder": "ci/GPU FYI Android arm64 Builder/gn-args.json",
+    "GPU FYI Mac arm64 Builder": "ci/GPU FYI Mac arm64 Builder/gn-args.json"
   },
   "chromium.linux": {
     "Linux Builder": "ci/Linux Builder/gn-args.json",
@@ -112,6 +122,8 @@
     "win11-blink-rel": "try/win11-blink-rel/gn-args.json"
   },
   "tryserver.chromium": {
+    "android-desktop-arm64-official": "try/android-desktop-arm64-official/gn-args.json",
+    "android-desktop-x64-official": "try/android-desktop-x64-official/gn-args.json",
     "android-official": "try/android-official/gn-args.json",
     "linux-official": "try/linux-official/gn-args.json",
     "mac-official": "try/mac-official/gn-args.json",
@@ -120,6 +132,7 @@
   },
   "tryserver.chromium.android": {
     "android-10-arm64-rel": "try/android-10-arm64-rel/gn-args.json",
+    "android-10-x86-rel": "try/android-10-x86-rel/gn-args.json",
     "android-12-x64-rel": "try/android-12-x64-rel/gn-args.json",
     "android-12l-x64-rel-cq": "try/android-12l-x64-rel-cq/gn-args.json",
     "android-13-x64-rel": "try/android-13-x64-rel/gn-args.json",
@@ -139,6 +152,10 @@
     "android-cronet-arm-rel": "try/android-cronet-arm-rel/gn-args.json",
     "android-cronet-x64-dbg": "try/android-cronet-x64-dbg/gn-args.json",
     "android-cronet-x86-dbg-10-tests": "try/android-cronet-x86-dbg-10-tests/gn-args.json",
+    "android-desktop-arm64-compile-dbg": "try/android-desktop-arm64-compile-dbg/gn-args.json",
+    "android-desktop-arm64-compile-rel": "try/android-desktop-arm64-compile-rel/gn-args.json",
+    "android-desktop-x64-compile-dbg": "try/android-desktop-x64-compile-dbg/gn-args.json",
+    "android-desktop-x64-rel": "try/android-desktop-x64-rel/gn-args.json",
     "android-x64-rel": "try/android-x64-rel/gn-args.json",
     "android-x86-rel": "try/android-x86-rel/gn-args.json",
     "android_compile_dbg": "try/android_compile_dbg/gn-args.json",
@@ -193,6 +210,7 @@
     "linux_optional_gpu_tests_rel": "try/linux_optional_gpu_tests_rel/gn-args.json"
   },
   "tryserver.chromium.mac": {
+    "gpu-fyi-cq-mac-arm64": "try/gpu-fyi-cq-mac-arm64/gn-args.json",
     "ios-simulator": "try/ios-simulator/gn-args.json",
     "ios-simulator-full-configs": "try/ios-simulator-full-configs/gn-args.json",
     "mac-rel": "try/mac-rel/gn-args.json",

@@ -1160,6 +1160,10 @@ Called by update_protocol_commands_enum.py.-->
       label="SRIMessageSignatureIssue::ValidationFailedIntegrityMismatch"/>
   <int value="113"
       label="ElementAccessibilityIssue::InteractiveContentSummaryDescendant"/>
+  <int value="114"
+      label="GenericIssue::AutofillAndManualTextPolicyControlledFeaturesInfo"/>
+  <int value="115" label="GenericIssue::AutofillPolicyControlledFeatureInfo"/>
+  <int value="116" label="GenericIssue::ManualTextPolicyControlledFeatureInfo"/>
 </enum>
 
 <enum name="DevToolsIssuesPanelIssueExpanded">
@@ -1605,6 +1609,16 @@ Called by update_protocol_commands_enum.py.-->
   <int value="2" label="Recording finished"/>
 </enum>
 
+<enum name="DevToolsRemoteDebuggingConnectionPermission">
+  <int value="0" label="Allowed"/>
+  <int value="1" label="Denied"/>
+</enum>
+
+<enum name="DevToolsRemoteDebuggingServerAction">
+  <int value="0" label="Started"/>
+  <int value="1" label="Stopped"/>
+</enum>
+
 <enum name="DevToolsSwatchActivated">
   <int value="0" label="Variable link"/>
   <int value="1" label="Animation name link"/>
@@ -1618,7 +1632,7 @@ Called by update_protocol_commands_enum.py.-->
   <int value="9" label="Position fallback link"/>
   <int value="10" label="Position try link"/>
   <int value="11" label="Attribute link"/>
-  <int value="12" label="Masonry editor"/>
+  <int value="12" label="Grid-lanes editor"/>
 </enum>
 
 <enum name="DevToolsSyncSetting">

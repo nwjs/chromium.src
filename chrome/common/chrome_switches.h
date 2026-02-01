@@ -297,7 +297,7 @@ extern const char kGuest[];
 extern const char kForceNtpMobilePromo[];
 #endif
 
-#if BUILDFLAG(ENABLE_GLIC)
+#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
 extern const char kGlicGuestURL[];
 extern const char kGlicAlwaysOpenFre[];
 extern const char kGlicFreURL[];
@@ -310,6 +310,8 @@ extern const char kGlicSkipReloadAfterNavigation[];
 extern const char kGlicHostLogging[];
 extern const char kGlicAdminRedirectPatterns[];
 extern const char kGlicAlwaysShowWebActuationToggle[];
+extern const char kGlicResetMultiInstanceEnabledByTier[];
+extern const char kGlicForceG1StatusForMultiInstance[];
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

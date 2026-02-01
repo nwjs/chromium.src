@@ -5,12 +5,12 @@
 #include "services/network/shared_dictionary/shared_dictionary_manager_on_disk.h"
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/token.h"
@@ -22,6 +22,7 @@
 #include "services/network/public/cpp/request_destination.h"
 #include "services/network/shared_dictionary/shared_dictionary_cache.h"
 #include "services/network/shared_dictionary/shared_dictionary_storage_on_disk.h"
+#include "services/network/shared_dictionary/shared_dictionary_storage_result.h"
 
 namespace network {
 namespace {
@@ -268,7 +269,7 @@ class SharedDictionaryManagerOnDisk::MismatchingEntryDeletionTask
       entry->Doom();
       ++invalid_disk_cache_entry_count_;
     } else if (disk_cache_key_tokens_.erase(*token) != 1) {
-      if (!base::Contains(writing_disk_cache_key_tokens_, *token)) {
+      if (!writing_disk_cache_key_tokens_.contains(*token)) {
         // 7) If the disk cache key token is not in the metadata, and is not in
         //    the set of tokens currently being written by the manager, deletes
         //    the entry.
@@ -511,13 +512,14 @@ SharedDictionaryManagerOnDisk::~SharedDictionaryManagerOnDisk() = default;
 
 scoped_refptr<SharedDictionaryStorage>
 SharedDictionaryManagerOnDisk::CreateStorage(
-    const net::SharedDictionaryIsolationKey& isolation_key) {
+    const net::SharedDictionaryIsolationKey& isolation_key,
+    SharedDictionaryStorageEvictionReason previous_eviction_reason) {
   return base::MakeRefCounted<SharedDictionaryStorageOnDisk>(
       weak_factory_.GetWeakPtr(), isolation_key,
       base::ScopedClosureRunner(
           base::BindOnce(&SharedDictionaryManager::OnStorageDeleted,
                          GetWeakPtr(), isolation_key)),
-      dictionary_cache_);
+      dictionary_cache_, previous_eviction_reason);
 }
 
 void SharedDictionaryManagerOnDisk::SetCacheMaxSize(uint64_t cache_max_size) {
@@ -665,11 +667,16 @@ void SharedDictionaryManagerOnDisk::OnDictionaryWrittenInDatabase(
         result) {
   CHECK(writing_disk_cache_key_tokens_.erase(info.disk_cache_key_token()) == 1);
   if (!result.has_value()) {
+    base::UmaHistogramEnumeration(
+        "Net.SharedDictionaryOnDisk.StorageResult",
+        SharedDictionaryStorageResult::kErrorDatabaseWriteFailed);
     disk_cache_.DoomEntry(info.disk_cache_key_token().ToString(),
                           base::DoNothing());
     return;
   }
 
+  base::UmaHistogramEnumeration("Net.SharedDictionaryOnDisk.StorageResult",
+                                SharedDictionaryStorageResult::kSuccess);
   base::UmaHistogramMemoryKB("Net.SharedDictionaryManagerOnDisk.DictionarySize",
                              info.size());
   base::UmaHistogramMemoryMB(

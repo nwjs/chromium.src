@@ -33,19 +33,32 @@ bool IsExplorerRunningAtMediumOrLower() {
 }  // namespace
 
 TEST(ElevationUtil, RunDeElevated) {
-  if (!::IsUserAnAdmin() || !IsExplorerRunningAtMediumOrLower()) {
-    GTEST_SKIP();
-  }
-
   ASSERT_OK_AND_ASSIGN(Process process,
-                       RunDeElevated(CommandLine::FromString(L"more.com")));
+                       RunDeElevated(CommandLine::FromString(kMoreExecutable)));
   ASSERT_TRUE(process.IsValid());
 
   absl::Cleanup terminate_process = [&] {
     EXPECT_TRUE(process.Terminate(0, false));
   };
 
-  ASSERT_TRUE(IsProcessRunningAtMediumOrLower(process.Pid()));
+  if (::IsUserAnAdmin() && IsExplorerRunningAtMediumOrLower()) {
+    ASSERT_TRUE(IsProcessRunningAtMediumOrLower(process.Pid()));
+  }
+}
+
+TEST(ElevationUtil, RunDeElevatedExplicitExplorerPid) {
+  ASSERT_OK_AND_ASSIGN(Process process,
+                       RunDeElevated(CommandLine::FromString(kMoreExecutable),
+                                     GetExplorerPid()));
+  ASSERT_TRUE(process.IsValid());
+
+  absl::Cleanup terminate_process = [&] {
+    EXPECT_TRUE(process.Terminate(0, false));
+  };
+
+  if (::IsUserAnAdmin() && IsExplorerRunningAtMediumOrLower()) {
+    ASSERT_TRUE(IsProcessRunningAtMediumOrLower(process.Pid()));
+  }
 }
 
 TEST(ElevationUtil, RunDeElevatedFails) {

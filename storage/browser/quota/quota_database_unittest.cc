@@ -17,7 +17,6 @@
 #include <memory>
 #include <set>
 
-#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -384,12 +383,12 @@ TEST_P(QuotaDatabaseTest, GetBucketsForHost) {
   ASSERT_OK_AND_ASSIGN(std::set<BucketInfo> result,
                        db->GetBucketsForHost("example.com"));
   ASSERT_EQ(result.size(), 2U);
-  EXPECT_TRUE(base::Contains(result, example_bucket1));
-  EXPECT_TRUE(base::Contains(result, example_bucket2));
+  EXPECT_TRUE(result.contains(example_bucket1));
+  EXPECT_TRUE(result.contains(example_bucket2));
 
   ASSERT_OK_AND_ASSIGN(result, db->GetBucketsForHost("google.com"));
   ASSERT_EQ(result.size(), 1U);
-  EXPECT_TRUE(base::Contains(result, google_bucket));
+  EXPECT_TRUE(result.contains(google_bucket));
 }
 
 TEST_P(QuotaDatabaseTest, GetBucketsForStorageKey) {
@@ -626,8 +625,8 @@ TEST_P(QuotaDatabaseTest, GetAllStorageKeys) {
   std::ignore = db->CreateBucketForTesting(storage_key2, "bucket_b");
 
   ASSERT_OK_AND_ASSIGN(std::set<StorageKey> result, db->GetAllStorageKeys());
-  ASSERT_TRUE(base::Contains(result, storage_key1));
-  ASSERT_TRUE(base::Contains(result, storage_key2));
+  ASSERT_TRUE(result.contains(storage_key1));
+  ASSERT_TRUE(result.contains(storage_key2));
 }
 
 TEST_P(QuotaDatabaseTest, BucketLastModifiedBetween) {
@@ -854,8 +853,6 @@ TEST_P(QuotaDatabaseTest, OpenCorruptedDatabase) {
     expecter.ExpectError(SQLITE_CORRUPT);
     auto db = CreateDatabase(/*is_incognito=*/false);
     ASSERT_TRUE(EnsureOpened(db.get()));
-    histograms.ExpectBucketCount("Quota.DatabaseSpecificError.Open",
-                                 sql::SqliteLoggedResultCode::kCorrupt, 1);
     EXPECT_TRUE(expecter.SawExpectedErrors());
 
     // Ensure no nested transactions after reentrant calls to EnsureOpened()
@@ -995,7 +992,6 @@ TEST_P(QuotaDatabaseTest, UpdateOrCreateBucket_CorruptedDatabase) {
     EXPECT_EQ(sqlite_error_code,
               static_cast<int>(sql::SqliteResultCode::kCorrupt));
   }
-  histograms.ExpectTotalCount("Quota.DatabaseSpecificError.GetBucket", 1);
 }
 
 TEST_P(QuotaDatabaseTest, Expiration) {

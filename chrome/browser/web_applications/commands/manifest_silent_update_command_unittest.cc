@@ -4,6 +4,9 @@
 
 #include "chrome/browser/web_applications/commands/manifest_silent_update_command.h"
 
+#include <utility>
+#include <vector>
+
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -14,7 +17,7 @@
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
 #include "chrome/browser/web_applications/manifest_update_utils.h"
-#include "chrome/browser/web_applications/mojom/user_display_mode.mojom-data-view.h"
+#include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/test/fake_web_app_origin_association_manager.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/fake_web_contents_manager.h"
@@ -24,13 +27,16 @@
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
+#include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
@@ -369,7 +375,10 @@ TEST_F(ManifestSilentUpdateCommandTest, DisplayOverrideUpdatedSilently) {
   auto& new_manifest = GetPageManifest();
   std::vector<DisplayMode> new_display_override = {DisplayMode::kMinimalUi,
                                                    DisplayMode::kBrowser};
-  new_manifest->display_override = new_display_override;
+  for (const auto& display_mode : new_display_override) {
+    new_manifest->display_override.push_back(
+        blink::Manifest::DisplayOverride::Create(display_mode));
+  }
 
   EXPECT_EQ(RunManifestUpdateAndGetResult(),
             ManifestSilentUpdateCheckResult::kAppSilentlyUpdated);
@@ -1296,7 +1305,7 @@ TEST_F(ManifestSilentUpdateCommandTest, NoIconToIcons) {
   EXPECT_TRUE(IsAppUpdated(result));
 }
 
-TEST_F(ManifestSilentUpdateCommandTest, OpenInBrowserTabNoUpdate) {
+TEST_F(ManifestSilentUpdateCommandTest, OpenInBrowserTabUpdate) {
   auto web_app_install_info =
       WebAppInstallInfo::CreateWithStartUrlForTesting(kAppUrl);
   web_app_install_info->title = u"A Basic Web App";
@@ -1307,7 +1316,7 @@ TEST_F(ManifestSilentUpdateCommandTest, OpenInBrowserTabNoUpdate) {
 
   SetupBasicInstallablePageState();
   ManifestSilentUpdateCheckResult result = RunManifestUpdateAndGetResult();
-  EXPECT_FALSE(IsAppUpdated(result));
+  EXPECT_TRUE(IsAppUpdated(result));
 }
 
 TEST_F(ManifestSilentUpdateCommandTest, IconDownloadFailure) {

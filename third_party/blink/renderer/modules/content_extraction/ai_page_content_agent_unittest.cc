@@ -57,6 +57,8 @@
 
 namespace blink {
 using ClickabilityReason = mojom::blink::AIPageContentClickabilityReason;
+using InteractionDisabledReason =
+    mojom::blink::AIPageContentInteractionDisabledReason;
 
 namespace {
 
@@ -1711,6 +1713,73 @@ TEST_F(AIPageContentAgentTest, ContentVisibilityHidden) {
   CheckAnnotatedRole(hidden_container,
                      mojom::blink::AIPageContentAnnotatedRole::kContentHidden);
   EXPECT_TRUE(hidden_container.children_nodes.empty());
+}
+
+TEST_F(AIPageContentAgentTest, ContentVisibilityHiddenActionable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    #hidden {"
+      "      content-visibility: hidden"
+      "    }"
+      "  </style>"
+      "  <div id=hidden>hidden text</div>visible text"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  // Actionable mode exercises geometry and hit-testing paths used in
+  // production APC requests.
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& hidden_container = *root.children_nodes[0];
+  CheckContainerNode(hidden_container);
+  CheckAnnotatedRole(hidden_container,
+                     mojom::blink::AIPageContentAnnotatedRole::kContentHidden);
+  // Content-visibility hidden subtrees are represented but not expanded.
+  EXPECT_TRUE(hidden_container.children_nodes.empty());
+  // The container itself is laid out; actionable mode should capture its
+  // geometry without forcing layout on descendants.
+  EXPECT_TRUE(hidden_container.content_attributes->geometry);
+
+  const auto& visible_text_node = *root.children_nodes[1];
+  CheckTextNode(visible_text_node, "visible text");
+  ASSERT_TRUE(visible_text_node.content_attributes->geometry);
+  EXPECT_FALSE(visible_text_node.content_attributes->geometry
+                   ->visible_bounding_box.IsEmpty());
+}
+
+TEST_F(AIPageContentAgentTest, ContentVisibilityHiddenIframeActionable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body><style>iframe { content-visibility: hidden }</style>"
+      "<iframe srcdoc='<div>hidden iframe text</div>'></iframe>"
+      "  visible text</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  // Actionable mode exercises iframe geometry and traversal paths.
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& iframe_node = *root.children_nodes[0];
+  CheckIframeNode(iframe_node);
+  CheckAnnotatedRole(iframe_node,
+                     mojom::blink::AIPageContentAnnotatedRole::kContentHidden);
+  // The iframe container is laid out, but its subtree should not be traversed
+  // when display locks block layout/prepaint on children.
+  EXPECT_TRUE(iframe_node.children_nodes.empty());
+  ASSERT_TRUE(iframe_node.content_attributes->geometry);
+
+  const auto& visible_text_node = *root.children_nodes[1];
+  CheckTextNode(visible_text_node, "  visible text");
+  ASSERT_TRUE(visible_text_node.content_attributes->geometry);
+  EXPECT_FALSE(visible_text_node.content_attributes->geometry
+                   ->visible_bounding_box.IsEmpty());
 }
 
 TEST_F(AIPageContentAgentTest, ContentVisibilityAuto) {
@@ -3629,7 +3698,10 @@ TEST_F(AIPageContentAgentTest, LabelWithForDescendant) {
   CheckTextNode(*label.children_nodes[1], "Check me!");
 }
 
-TEST_F(AIPageContentAgentTest, SVG) {
+TEST_F(AIPageContentAgentTest, SVGWithText) {
+  ScopedAIPageContentIncludeSVGSubtreeForTest scoped_feature(
+      /*enabled=*/true);
+
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
       "<body>"
@@ -3645,9 +3717,16 @@ TEST_F(AIPageContentAgentTest, SVG) {
 
   const auto& svg = *ContentRootNode().children_nodes[0];
   EXPECT_EQ(svg.content_attributes->attribute_type,
-            mojom::blink::AIPageContentAttributeType::kSVG);
-  ASSERT_TRUE(svg.content_attributes->svg_data);
-  EXPECT_EQ(svg.content_attributes->svg_data->inner_text, "Hello SVG Text!");
+            mojom::blink::AIPageContentAttributeType::kSvgRoot);
+  ASSERT_TRUE(svg.content_attributes->svg_root_data);
+  EXPECT_EQ(svg.content_attributes->svg_root_data->inner_text,
+            "Hello SVG Text!");
+
+  const auto& text_child = *svg.children_nodes[0];
+  EXPECT_EQ(text_child.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kText);
+  // Note that whitespace is kept.
+  CheckTextNode(text_child, "      Hello SVG Text!    ");
 }
 
 TEST_F(AIPageContentAgentTest, SVGWithNoText) {
@@ -3666,9 +3745,73 @@ TEST_F(AIPageContentAgentTest, SVGWithNoText) {
 
   const auto& svg = *ContentRootNode().children_nodes[0];
   EXPECT_EQ(svg.content_attributes->attribute_type,
-            mojom::blink::AIPageContentAttributeType::kSVG);
-  ASSERT_TRUE(svg.content_attributes->svg_data);
-  EXPECT_FALSE(svg.content_attributes->svg_data->inner_text);
+            mojom::blink::AIPageContentAttributeType::kSvgRoot);
+  ASSERT_TRUE(svg.content_attributes->svg_root_data);
+  EXPECT_FALSE(svg.content_attributes->svg_root_data->inner_text);
+
+  // Only visible text nodes are extracted.
+  EXPECT_EQ(svg.children_nodes.size(), 0u);
+}
+
+TEST_F(AIPageContentAgentTest, SVGSubtreeContainersAreKept) {
+  ScopedAIPageContentIncludeSVGSubtreeForTest scoped_feature(
+      /*enabled=*/true);
+
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <svg width='400' height='200'>"
+      "    <a href='example.html'>"
+      "      <image/>"
+      "      <rect width='10%' height='10%' fill='red'/>"
+      "      <text x='50%' y='50/%' font-size='24'>"
+      "        Hello SVG Text!"
+      "      </text>"
+      "    </a>"
+      "  </svg>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+  auto& document = *helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  document.getElementsByTagName(AtomicString("image"))
+      ->item(0)
+      ->setAttribute(html_names::kSrcAttr, AtomicString(kSmallImage));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& svg = *ContentRootNode().children_nodes[0];
+  EXPECT_EQ(svg.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kSvgRoot);
+  ASSERT_TRUE(svg.content_attributes->svg_root_data);
+  EXPECT_EQ(svg.content_attributes->svg_root_data->inner_text,
+            "Hello SVG Text!");
+
+  ASSERT_EQ(svg.children_nodes.size(), 1u);
+  const auto& a_child = *svg.children_nodes[0];
+  EXPECT_EQ(a_child.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kContainer);
+  ASSERT_TRUE(a_child.content_attributes->node_interaction_info);
+  EXPECT_FALSE(a_child.content_attributes->node_interaction_info
+                   ->clickability_reasons.empty());
+
+  ASSERT_EQ(a_child.children_nodes.size(), 3u);
+
+  const auto& image_child = *a_child.children_nodes[0];
+  EXPECT_EQ(image_child.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kImage);
+
+  // Non-text, non-image elements are processed as generic containers.
+  const auto& rect_child = *a_child.children_nodes[1];
+  EXPECT_EQ(rect_child.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kContainer);
+
+  const auto& text_child = *a_child.children_nodes[2];
+  EXPECT_EQ(text_child.content_attributes->attribute_type,
+            mojom::blink::AIPageContentAttributeType::kText);
+  // Note that whitespace is kept.
+  CheckTextNode(text_child, "        Hello SVG Text!      ");
+  ASSERT_TRUE(text_child.content_attributes->node_interaction_info);
+  EXPECT_TRUE(text_child.content_attributes->node_interaction_info
+                  ->clickability_reasons.empty());
 }
 
 TEST_F(AIPageContentAgentTest, Canvas) {
@@ -3739,6 +3882,10 @@ TEST_F(AIPageContentAgentTest, DisabledButton) {
   const auto& button = *root.children_nodes.at(0);
   CheckHitTestableButNotInteractive(button);
   EXPECT_TRUE(button.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(
+      button.content_attributes->node_interaction_info
+          ->interaction_disabled_reasons,
+      testing::UnorderedElementsAre(InteractionDisabledReason::kDisabled));
 }
 
 TEST_F(AIPageContentAgentTest, InertButton) {
@@ -3848,6 +3995,10 @@ TEST_F(AIPageContentAgentTest, AriaDisabled) {
   CheckContainerNode(section);
   CheckHitTestableButNotInteractive(section);
   EXPECT_TRUE(section.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(
+      section.content_attributes->node_interaction_info
+          ->interaction_disabled_reasons,
+      testing::UnorderedElementsAre(InteractionDisabledReason::kAriaDisabled));
 
   // The child is also not actionable.
   ASSERT_EQ(section.children_nodes.size(), 1u);
@@ -3855,6 +4006,10 @@ TEST_F(AIPageContentAgentTest, AriaDisabled) {
   CheckHitTestableButNotInteractive(input);
   // Parent element `aria-disable` value overrides child element's.
   EXPECT_TRUE(input.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(
+      input.content_attributes->node_interaction_info
+          ->interaction_disabled_reasons,
+      testing::UnorderedElementsAre(InteractionDisabledReason::kAriaDisabled));
 }
 
 TEST_F(AIPageContentAgentTest, DisabledInheritance) {
@@ -3883,10 +4038,18 @@ TEST_F(AIPageContentAgentTest, DisabledInheritance) {
   CheckHitTestableButNotInteractive(fieldset);
   ASSERT_EQ(fieldset.children_nodes.size(), 1u);
   EXPECT_TRUE(fieldset.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(
+      fieldset.content_attributes->node_interaction_info
+          ->interaction_disabled_reasons,
+      testing::UnorderedElementsAre(InteractionDisabledReason::kDisabled));
 
   const auto& button = *fieldset.children_nodes.at(0);
   CheckHitTestableButNotInteractive(button);
   EXPECT_TRUE(button.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(
+      button.content_attributes->node_interaction_info
+          ->interaction_disabled_reasons,
+      testing::UnorderedElementsAre(InteractionDisabledReason::kDisabled));
 }
 
 TEST_F(AIPageContentAgentTest, Fieldset) {
@@ -4105,10 +4268,6 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonMouseHover) {
       div_node.content_attributes->node_interaction_info->clickability_reasons,
       testing::Contains(
           mojom::blink::AIPageContentClickabilityReason::kMouseHover));
-  EXPECT_THAT(
-      div_node.content_attributes->node_interaction_info->clickability_reasons,
-      testing::Contains(
-          mojom::blink::AIPageContentClickabilityReason::kMouseEvents));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonMouseClick) {
@@ -4131,10 +4290,6 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonMouseClick) {
       div_node.content_attributes->node_interaction_info->clickability_reasons,
       testing::Contains(
           mojom::blink::AIPageContentClickabilityReason::kMouseClick));
-  EXPECT_THAT(
-      div_node.content_attributes->node_interaction_info->clickability_reasons,
-      testing::Contains(
-          mojom::blink::AIPageContentClickabilityReason::kMouseEvents));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonKeyEvents) {
@@ -4237,7 +4392,6 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonMultipleReasons) {
       testing::UnorderedElementsAre(
           mojom::blink::AIPageContentClickabilityReason::kClickableControl,
           mojom::blink::AIPageContentClickabilityReason::kClickEvents,
-          mojom::blink::AIPageContentClickabilityReason::kMouseEvents,
           mojom::blink::AIPageContentClickabilityReason::kMouseHover,
           mojom::blink::AIPageContentClickabilityReason::kMouseClick,
           mojom::blink::AIPageContentClickabilityReason::kKeyEvents,
@@ -4695,6 +4849,121 @@ TEST_F(AIPageContentAgentTest, StructuralWrapperWithoutPaintGeometry) {
   const auto& child_geometry = *child_node->content_attributes->geometry;
   EXPECT_FALSE(child_geometry.visible_bounding_box.IsEmpty());
   EXPECT_FALSE(child_geometry.outer_bounding_box.IsEmpty());
+}
+
+TEST_F(AIPageContentAgentTest, InlinePreWrapGeometry) {
+  // Inline wrappers that rely on white-space:pre-wrap frequently delegate all
+  // actual painting to anonymous block fragments generated for line wrapping.
+  // The legacy outer-bounding-box path used AbsoluteBoundingBoxRect() on the
+  // LayoutInline host, so it produced an empty rect even though the wrapped
+  // text occupied multiple lines. Mapping via GeometryMapper keeps outer and
+  // visible boxes consistent in these inlines-with-block-descendants cases.
+  ScopedAIPageContentOuterBoxMapToAncestorSpaceForTest enable_outer_box_mapping(
+      true);
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <style>
+        body { margin: 0; font: 16px/16px Ahem; }
+        #prewrap-inline { white-space: pre-wrap; }
+      </style>
+      <body>
+        <span id="prewrap-inline">
+          <span>Label:</span> Wrapped inline text.
+        </span>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://example.com"));
+
+  LoadAhem();
+  GetAIPageContentWithActionableElements();
+
+  const auto* entry_node = FindNodeBySelector("#prewrap-inline");
+  ASSERT_TRUE(entry_node);
+  ASSERT_TRUE(entry_node->content_attributes);
+  ASSERT_TRUE(entry_node->content_attributes->geometry);
+
+  const auto& geometry = *entry_node->content_attributes->geometry;
+  EXPECT_FALSE(geometry.outer_bounding_box.IsEmpty());
+  EXPECT_FALSE(geometry.visible_bounding_box.IsEmpty());
+  EXPECT_EQ(geometry.outer_bounding_box, geometry.visible_bounding_box);
+}
+
+TEST_F(AIPageContentAgentTest, IframeOuterBoxNotViewportClipped) {
+  // Enable the experimental outer-box mapping so GeometryMapper is used for
+  // both the visible and unclipped bounds.
+  ScopedAIPageContentOuterBoxMapToAncestorSpaceForTest enable_outer_box_mapping(
+      true);
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <style>
+        body { margin: 0; }
+        iframe {
+          border: none;
+          width: 200px;
+          height: 150px;
+        }
+      </style>
+      <body>
+        <iframe id="offscreen-frame" srcdoc="
+          <style>
+            body { margin: 0; height: 800px; position: relative; font: 10px/10px Ahem; }
+            #deep {
+              position: absolute;
+              left: 20px;
+              top: -10px;
+              width: 50px;
+              height: 40px;
+              background: lightgreen;
+            }
+          </style>
+          <body>
+            <a id='deep' href='#'>Deep target</a>
+          </body>">
+        </iframe>
+      </body>)HTML",
+      url_test_helpers::ToKURL("http://example.com"));
+
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  ASSERT_TRUE(document);
+  LocalFrameView* view = document->View();
+  ASSERT_TRUE(view);
+  test::RunPendingTasks();
+  view->UpdateAllLifecyclePhasesForTest();
+  auto* iframe_element = DynamicTo<HTMLIFrameElement>(
+      document->getElementById(AtomicString("offscreen-frame")));
+  ASSERT_TRUE(iframe_element);
+  LocalFrame* child_frame =
+      DynamicTo<LocalFrame>(iframe_element->ContentFrame());
+  ASSERT_TRUE(child_frame);
+  PageTestBase::LoadAhem(*child_frame);
+  if (LocalFrameView* child_view = child_frame->View()) {
+    test::RunPendingTasks();
+    child_view->UpdateAllLifecyclePhasesForTest();
+  }
+  Document* child_document = child_frame->GetDocument();
+  ASSERT_TRUE(child_document);
+
+  Element* deep = child_document->getElementById(AtomicString("deep"));
+  ASSERT_TRUE(deep);
+
+  GetAIPageContentWithActionableElements();
+
+  DOMNodeId deep_dom_node_id = DOMNodeIds::IdForNode(deep);
+  ASSERT_GE(deep_dom_node_id, 1);
+  const auto* deep_node = FindNodeByDomNodeId(deep_dom_node_id);
+  ASSERT_TRUE(deep_node);
+  ASSERT_TRUE(deep_node->content_attributes);
+  ASSERT_TRUE(deep_node->content_attributes->geometry);
+
+  // The element straddles the iframe's viewport top edge. When
+  // kSkipAncestorAndViewportClips is honored, MapToVisualRectInAncestorSpace
+  // skips that viewport clip so the outer box reports the true location in the
+  // embedder viewport, while the visible box remains clipped to the portion
+  // that is painted.
+  const auto& geometry = *deep_node->content_attributes->geometry;
+  EXPECT_EQ(geometry.outer_bounding_box, gfx::Rect(20, -10, 50, 40));
+  EXPECT_EQ(geometry.visible_bounding_box, gfx::Rect(20, 0, 50, 30));
 }
 
 TEST_F(AIPageContentAgentTest, InlineBlockFixedDescendantKeepsGeometry) {
@@ -5592,6 +5861,57 @@ TEST_F(AIPageContentAgentTest, LinkWithOverflowGeometry) {
   EXPECT_EQ(geometry.outer_bounding_box.width(), 20);
   EXPECT_EQ(geometry.visible_bounding_box.width(), 20);
   EXPECT_EQ(geometry.visible_bounding_box.height(), 20);
+}
+
+TEST_F(AIPageContentAgentTest, CursorNotAllowedButton) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+        <body>
+         <button style="cursor: not-allowed;">Text</button>
+        </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+  const auto& button = *root.children_nodes.at(0);
+  CheckHitTestableAndInteractive(button,
+                                 {ClickabilityReason::kClickableControl});
+  EXPECT_FALSE(button.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(button.content_attributes->node_interaction_info
+                  ->interaction_disabled_reasons,
+              testing::UnorderedElementsAre(
+                  InteractionDisabledReason::kCursorNotAllowed));
+}
+
+TEST_F(AIPageContentAgentTest, MultipleInteractionDisabledReasons) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+        <body>
+         <button disabled aria-disabled=true style="cursor: not-allowed;">
+           Text
+         </button>
+        </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+  const auto& button = *root.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(button);
+  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_disabled);
+  EXPECT_THAT(button.content_attributes->node_interaction_info
+                  ->interaction_disabled_reasons,
+              testing::UnorderedElementsAre(
+                  InteractionDisabledReason::kDisabled,
+                  InteractionDisabledReason::kAriaDisabled,
+                  InteractionDisabledReason::kCursorNotAllowed));
 }
 
 }  // namespace

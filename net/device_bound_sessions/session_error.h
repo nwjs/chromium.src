@@ -97,7 +97,8 @@ struct NET_EXPORT SessionError {
     kInvalidConfigJson = 78,
     kInvalidFederatedSessionProviderFailedToRestoreKey = 79,
     kFailedToUnwrapKey = 80,
-    kMaxValue = kFailedToUnwrapKey,
+    kSessionDeletedDuringRefresh = 81,
+    kMaxValue = kSessionDeletedDuringRefresh,
   };
   // LINT.ThenChange(//tools/metrics/histograms/enums.xml:DeviceBoundSessionError,//services/network/public/mojom/device_bound_sessions.mojom:DeviceBoundSessionError)
 
@@ -106,8 +107,8 @@ struct NET_EXPORT SessionError {
   explicit SessionError(ErrorType type);
   ~SessionError();
 
-  SessionError(const SessionError&) = delete;
-  SessionError& operator=(const SessionError&) = delete;
+  SessionError(const SessionError&);
+  SessionError& operator=(const SessionError&);
 
   SessionError(SessionError&&) noexcept;
   SessionError& operator=(SessionError&&) noexcept;
@@ -120,6 +121,10 @@ struct NET_EXPORT SessionError {
   bool IsServerError() const;
 
   ErrorType type;
+
+  bool operator==(const SessionError& other) const {
+    return type == other.type;
+  }
 };
 
 }  // namespace net::device_bound_sessions

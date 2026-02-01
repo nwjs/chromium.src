@@ -24,6 +24,7 @@
     aria-labelledby="label"
     class="disc-wrapper"
     id="button"
+    part="disc"
     role="radio"
     tabindex$="[[buttonTabIndex_]]"
     on-keydown="onInputKeydown_">
@@ -38,6 +39,8 @@
     <slot></slot>
   </span>
 </div>
+
+<slot name="additional-content"></slot>
 
 <template is="dom-if" if="[[showIndicator_(disabled, name, pref.*)]]">
   <cr-policy-pref-indicator pref="[[pref]]" on-click="onIndicatorClick_"

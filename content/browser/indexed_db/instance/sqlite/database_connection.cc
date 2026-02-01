@@ -91,7 +91,7 @@ enum class CompressionType : uint8_t {
 };
 
 // Used for tests.
-std::optional<base::ByteCount> g_max_blob_size_override;
+std::optional<base::ByteSize> g_max_blob_size_override;
 
 // The maximum number of bytes that will be stored in a single SQLite BLOB
 // column. If a blob is larger than this, it will be chunked into multiple rows
@@ -106,8 +106,8 @@ std::optional<base::ByteCount> g_max_blob_size_override;
 // well to lower the maximum string and blob length to something more in the
 // range of a few million if that is possible".
 // https://www.sqlite.org/limits.html
-base::ByteCount GetMaxBlobSize() {
-  return g_max_blob_size_override.value_or(base::MiB(5));
+base::ByteSize GetMaxBlobSize() {
+  return g_max_blob_size_override.value_or(base::MiBU(5));
 }
 
 // The separator used to join the strings when encoding an `IndexedDBKeyPath` of
@@ -955,10 +955,12 @@ Status DatabaseConnection::Init(std::optional<std::u16string_view> name) {
       return Fatal(Status::Corruption("Missing data format version"),
                    SpecificEvent::kV8FormatTooNewOrMissing);
     }
-    if (!current_data_format.IsAtLeast(
-            IndexedDBDataFormatVersion::Decode(data_format_version))) {
+    std::optional<IndexedDBDataFormatVersion> decoded =
+        IndexedDBDataFormatVersion::Decode(data_format_version);
+    if (!decoded || !current_data_format.IsAtLeast(*decoded)) {
       return Fatal(
-          Status::NotFound("Unintelligible data format version: too new"),
+          Status::NotFound(
+              "Unintelligible data format version: invalid or too new"),
           SpecificEvent::kV8FormatTooNewOrMissing);
     }
   }
@@ -1081,18 +1083,20 @@ Status DatabaseConnection::BeginTransaction(
   return Status::OK();
 }
 
-Status DatabaseConnection::CommitTransactionPhaseOne(
+StatusOr<bool> DatabaseConnection::CommitTransactionPhaseOne(
     base::PassKey<BackingStoreTransactionImpl>,
     const BackingStoreTransactionImpl& transaction,
     BlobWriteCallback callback,
     SerializeFsaCallback serialize_fsa_handle) {
+  if (transaction.mode() == blink::mojom::IDBTransactionMode::ReadOnly) {
+    return false;
+  }
+
   CHECK(blob_write_callback_.is_null());
   CHECK(blob_writers_.empty());
   CHECK_EQ(outstanding_external_object_writes_, 0U);
 
-  std::map<int64_t, IndexedDBExternalObject> blobs_to_commit =
-      std::move(blobs_staged_for_commit_);
-  for (auto& [blob_row_id, external_object] : blobs_to_commit) {
+  for (auto& [blob_row_id, external_object] : blobs_staged_for_commit_) {
     {
       // The blob may have been added and deleted in the same txn.
       sql::Statement statement(db_->GetCachedStatement(
@@ -1125,15 +1129,14 @@ Status DatabaseConnection::CommitTransactionPhaseOne(
                        blob_writers_weak_factory_.GetWeakPtr(), blob_row_id));
     blob_writers_[blob_row_id] = std::move(writer);
   }
+  blobs_staged_for_commit_.clear();
 
   if (outstanding_external_object_writes_ == 0) {
-    return std::move(callback).Run(
-        BlobWriteResult::kRunPhaseTwoAndReturnResult);
+    return false;
   }
 
-  CHECK_NE(transaction.mode(), blink::mojom::IDBTransactionMode::ReadOnly);
   blob_write_callback_ = std::move(callback);
-  return Status::OK();
+  return true;
 }
 
 std::optional<sql::StreamingBlobHandle>
@@ -1177,7 +1180,7 @@ void DatabaseConnection::OnBlobWriteComplete(int64_t blob_row_id,
   }
 
   if (--outstanding_external_object_writes_ == 0) {
-    std::move(blob_write_callback_).Run(BlobWriteResult::kRunPhaseTwoAsync);
+    std::move(blob_write_callback_).Run(Status::OK());
   }
 }
 
@@ -1203,8 +1206,7 @@ void DatabaseConnection::CancelBlobWriting() {
   blob_writers_.clear();
   outstanding_external_object_writes_ = 0;
   if (blob_write_callback_) {
-    std::move(blob_write_callback_)
-        .Run(base::unexpected(Status::IOError("Error")));
+    std::move(blob_write_callback_).Run(Status::IOError("Error"));
   }
 }
 
@@ -1355,7 +1357,8 @@ Status DatabaseConnection::DeleteObjectStore(
     base::PassKey<BackingStoreTransactionImpl>,
     int64_t object_store_id) {
   CHECK(HasActiveVersionChangeTransaction());
-  CHECK(metadata_.object_stores.contains(object_store_id));
+  auto it = metadata_.object_stores.find(object_store_id);
+  CHECK(it != metadata_.object_stores.end());
   {
     sql::Statement statement(db_->GetCachedStatement(
         SQL_FROM_HERE,
@@ -1381,7 +1384,7 @@ Status DatabaseConnection::DeleteObjectStore(
     statement.BindInt64(0, object_store_id);
     RETURN_STATUS_ON_ERROR(statement.Run());
   }
-  CHECK(metadata_.object_stores.erase(object_store_id) == 1);
+  metadata_.object_stores.erase(it);
   return Status::OK();
 }
 
@@ -1390,14 +1393,15 @@ Status DatabaseConnection::RenameObjectStore(
     int64_t object_store_id,
     const std::u16string& new_name) {
   CHECK(HasActiveVersionChangeTransaction());
-  CHECK(metadata_.object_stores.contains(object_store_id));
+  auto it = metadata_.object_stores.find(object_store_id);
+  CHECK(it != metadata_.object_stores.end());
 
   sql::Statement statement(db_->GetCachedStatement(
       SQL_FROM_HERE, "UPDATE object_stores SET name = ? WHERE id = ?"));
   statement.BindBlob(0, new_name);
   statement.BindInt64(1, object_store_id);
   RETURN_STATUS_ON_ERROR(statement.Run());
-  metadata_.object_stores.at(object_store_id).name = new_name;
+  it->second.name = new_name;
   return Status::OK();
 }
 
@@ -1406,10 +1410,10 @@ Status DatabaseConnection::CreateIndex(
     int64_t object_store_id,
     blink::IndexedDBIndexMetadata index) {
   CHECK(HasActiveVersionChangeTransaction());
-  CHECK(metadata_.object_stores.contains(object_store_id));
+  auto object_stores_it = metadata_.object_stores.find(object_store_id);
+  CHECK(object_stores_it != metadata_.object_stores.end());
 
-  blink::IndexedDBObjectStoreMetadata& object_store =
-      metadata_.object_stores.at(object_store_id);
+  blink::IndexedDBObjectStoreMetadata& object_store = object_stores_it->second;
   int64_t index_id = index.id;
   CHECK(!object_store.indexes.contains(index_id));
   CHECK_GT(index_id, object_store.max_index_id);
@@ -1751,8 +1755,9 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
     } else {
       // Write metadata and reserve space for the `bytes` column. Blob bytes are
       // not actually written yet though.
-      int main_chunk_size =
-          std::min(external_object.size(), GetMaxBlobSize().InBytes());
+      const int main_chunk_size = base::checked_cast<int>(
+          std::min(external_object.size(),
+                   base::checked_cast<int64_t>(GetMaxBlobSize().InBytes())));
       {
         sql::Statement statement(
             db_->GetCachedStatement(SQL_FROM_HERE,
@@ -1783,8 +1788,9 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
       int chunk_index = 1;
       for (int64_t bytes_written = main_chunk_size;
            bytes_written < external_object.size();) {
-        const int64_t chunk_size = std::min(
-            external_object.size() - bytes_written, GetMaxBlobSize().InBytes());
+        const int64_t chunk_size =
+            std::min(external_object.size() - bytes_written,
+                     base::checked_cast<int64_t>(GetMaxBlobSize().InBytes()));
         sql::Statement statement(
             db_->GetCachedStatement(SQL_FROM_HERE,
                                     "INSERT INTO overflow_blob_chunks "
@@ -2289,7 +2295,7 @@ StatusOr<mojo_base::BigBuffer> DatabaseConnection::Decompress(
 }
 
 // static
-void DatabaseConnection::OverrideMaxBlobSizeForTesting(base::ByteCount size) {
+void DatabaseConnection::OverrideMaxBlobSizeForTesting(base::ByteSize size) {
   g_max_blob_size_override = size;
 }
 

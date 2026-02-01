@@ -107,7 +107,6 @@ TAG_SPECIALIZATIONS = {
             'intel-gen-12',
             'intel-0xa2e',
             'intel-0xa011',
-            'intel-0xe20c',
             'intel-0x3e92',
             'intel-0x3e9b',
             'intel-0x4680',
@@ -231,6 +230,7 @@ TAG_HEADER = """\
 #         mesa_ge_23.2
 #         mesa_ge_24.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601
+#         nvidia_ge_32.0.15.8180 nvidia_lt_32.0.15.8180
 #         nvidia_ge_535.183.01 nvidia_lt_535.183.01 ]
 # ASan
 # tags: [ asan no-asan ]

@@ -365,7 +365,7 @@ bool SyncTest::CreateProfile(int index) {
 #if BUILDFLAG(IS_ANDROID)
   DCHECK_EQ(index, 0);
   Profile* profile = ProfileManager::GetLastUsedProfile();
-#else   // BUILDFLAG(IS_ANDROID)
+#else  // BUILDFLAG(IS_ANDROID)
   Profile* profile = nullptr;
 #if BUILDFLAG(IS_CHROMEOS)
   if (use_primary_user_profile_) {
@@ -749,11 +749,15 @@ bool SyncTest::SetupSyncWithMode(SetupSyncMode setup_mode,
   // local session-related data is rewritten), we need to ensure all
   // startup-based changes have propagated between the clients.
   //
-  // Tests that don't use self-notifications can't await quiescence.  They'll
-  // have to find their own way of waiting for an initial state if they really
-  // need such guarantees.
-  if (wait_condition != NO_WAITING && TestUsesSelfNotifications()) {
-    if (!AwaitQuiescence()) {
+  // Tests that don't use self-notifications or are allowlisted to run in E2E
+  // mode can't await quiescence. They'll have to find their own way of waiting
+  // for an initial state if they really need such guarantees.
+  if (wait_condition != NO_WAITING && TestUsesSelfNotifications() &&
+      !sync_integration_test_util::IsCurrentTestAllowlistedForE2EMode()) {
+    // Bypass E2E check because all tests are calling SetupSync(), and in this
+    // call site it's also verified that it's not called in E2E tests
+    // (implicitly via TestUsesSelfNotifications()).
+    if (!SyncServiceImplHarness::AwaitQuiescence(GetSyncClients())) {
       ADD_FAILURE() << "AwaitQuiescence() failed.";
       return false;
     }
@@ -1132,7 +1136,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(59 == syncer::GetNumDataTypes(),
+  static_assert(60 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1225,6 +1229,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 
   if (base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata)) {
     allowed_types.Put(syncer::AUTOFILL_VALUABLE_METADATA);
+  }
+
+  if (base::FeatureList::IsEnabled(syncer::kSyncSkill)) {
+    allowed_types.Put(syncer::SKILL);
   }
 
   if (base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {

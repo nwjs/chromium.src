@@ -39,7 +39,8 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeDelegate {
       const std::vector<D3D12_VIDEO_ENCODER_CODEC>& codecs);
 
   explicit D3D12VideoEncodeDelegate(
-      Microsoft::WRL::ComPtr<ID3D12VideoDevice3> video_device);
+      Microsoft::WRL::ComPtr<ID3D12VideoDevice3> video_device,
+      const gpu::GpuDriverBugWorkarounds& gpu_workarounds);
   virtual ~D3D12VideoEncodeDelegate();
 
   virtual EncoderStatus Initialize(VideoEncodeAccelerator::Config config);
@@ -180,6 +181,8 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeDelegate {
   // The metadata of the bitstream buffer for the last encode request.
   BitstreamBufferMetadata metadata_;
 
+  const gpu::GpuDriverBugWorkarounds gpu_workarounds_;
+
  private:
   // The video processor factory that may be changed for testing.
   base::RepeatingCallback<
@@ -192,13 +195,6 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeDelegate {
   // conversion.
   std::unique_ptr<D3D12VideoProcessorWrapper> video_processor_wrapper_;
   Microsoft::WRL::ComPtr<ID3D12Resource> processed_input_frame_;
-};
-
-// Records an ID3D12Resource pointer and a subresource index for a specific
-// subresource.
-struct D3D12PictureBuffer {
-  raw_ptr<ID3D12Resource> resource_ = nullptr;
-  UINT subresource_ = 0;
 };
 
 // A class to manage the decoded picture buffers for D3D12 video encode and
@@ -227,7 +223,7 @@ class D3D12VideoEncodeDecodedPictureBuffers {
                                   bool use_texture_array = false);
 
   // Get the unused buffer for current frame.
-  D3D12PictureBuffer GetCurrentFrame() const;
+  D3D12_VIDEO_ENCODER_RECONSTRUCTED_PICTURE GetCurrentFrame() const;
   // Insert the last picture buffer returned by |GetCurrentFrame()| into the
   // given index and move the old buffers with index no less than |position| to
   // the next index.

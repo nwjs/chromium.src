@@ -31,7 +31,6 @@
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/enterprise/connectors/test/fake_content_analysis_delegate.h"
 #include "chrome/browser/policy/dm_token_utils.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -40,6 +39,7 @@
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/analysis_settings.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -1579,12 +1579,12 @@ class ContentAnalysisDelegateResultHandlingTest
       policy::DMToken::CreateValidToken(kDmToken)};
 
   bool ResultIsFailClosed(ScanRequestUploadResult result) {
-    return result == ScanRequestUploadResult::UPLOAD_FAILURE ||
-           result == ScanRequestUploadResult::TIMEOUT ||
-           result == ScanRequestUploadResult::FAILED_TO_GET_TOKEN ||
-           result == ScanRequestUploadResult::TOO_MANY_REQUESTS ||
-           result == ScanRequestUploadResult::UNKNOWN ||
-           result == ScanRequestUploadResult::INCOMPLETE_RESPONSE;
+    return result == ScanRequestUploadResult::kUploadFailure ||
+           result == ScanRequestUploadResult::kTimeout ||
+           result == ScanRequestUploadResult::kFailedToGetToken ||
+           result == ScanRequestUploadResult::kTooManyRequests ||
+           result == ScanRequestUploadResult::kUnknown ||
+           result == ScanRequestUploadResult::kIncompleteResponse;
   }
 
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
@@ -1645,17 +1645,16 @@ TEST_P(ContentAnalysisDelegateResultHandlingTest, Test) {
 INSTANTIATE_TEST_SUITE_P(
     ,
     ContentAnalysisDelegateResultHandlingTest,
-    testing::Combine(
-        testing::Values(ScanRequestUploadResult::UNKNOWN,
-                        ScanRequestUploadResult::SUCCESS,
-                        ScanRequestUploadResult::UPLOAD_FAILURE,
-                        ScanRequestUploadResult::TIMEOUT,
-                        ScanRequestUploadResult::FILE_TOO_LARGE,
-                        ScanRequestUploadResult::FAILED_TO_GET_TOKEN,
-                        ScanRequestUploadResult::UNAUTHORIZED,
-                        ScanRequestUploadResult::FILE_ENCRYPTED),
-        testing::Bool(),
-        testing::Bool()));
+    testing::Combine(testing::Values(ScanRequestUploadResult::kUnknown,
+                                     ScanRequestUploadResult::kSuccess,
+                                     ScanRequestUploadResult::kUploadFailure,
+                                     ScanRequestUploadResult::kTimeout,
+                                     ScanRequestUploadResult::kFileTooLarge,
+                                     ScanRequestUploadResult::kFailedToGetToken,
+                                     ScanRequestUploadResult::kUnauthorized,
+                                     ScanRequestUploadResult::kFileEncrypted),
+                     testing::Bool(),
+                     testing::Bool()));
 
 // The following tests should only be executed on the OS that support LCAC.
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)

@@ -80,7 +80,7 @@ void PasswordStoreAndroidBackendReceiverBridgeImpl::SetConsumer(
 void PasswordStoreAndroidBackendReceiverBridgeImpl::OnCompleteWithLogins(
     JNIEnv* env,
     jint job_id,
-    const base::android::JavaParamRef<jbyteArray>& passwords) {
+    const base::android::JavaRef<jbyteArray>& passwords) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   DCHECK(consumer_);
   consumer_->OnCompleteWithLogins(
@@ -91,7 +91,7 @@ void PasswordStoreAndroidBackendReceiverBridgeImpl::OnCompleteWithLogins(
 void PasswordStoreAndroidBackendReceiverBridgeImpl::OnCompleteWithBrandedLogins(
     JNIEnv* env,
     jint job_id,
-    const base::android::JavaParamRef<jbyteArray>& passwords) {
+    const base::android::JavaRef<jbyteArray>& passwords) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   DCHECK(consumer_);
   consumer_->OnCompleteWithLogins(
@@ -103,7 +103,7 @@ void PasswordStoreAndroidBackendReceiverBridgeImpl::
     OnCompleteWithAffiliatedLogins(
         JNIEnv* env,
         jint job_id,
-        const base::android::JavaParamRef<jbyteArray>& passwords) {
+        const base::android::JavaRef<jbyteArray>& passwords) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   CHECK(consumer_);
   consumer_->OnCompleteWithLogins(
@@ -116,7 +116,7 @@ void PasswordStoreAndroidBackendReceiverBridgeImpl::OnError(
     jint job_id,
     jint error_type,
     jint api_error_code,
-    jboolean has_connection_result,
+    bool has_connection_result,
     jint connection_result_code) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   DCHECK(consumer_);

@@ -22,7 +22,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/WebApkSyncService_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
@@ -53,8 +52,8 @@ void OnGotAppsInfo(const JavaRef<jobject>& java_callback,
 
 static void JNI_WebApkSyncService_OnWebApkUsed(
     JNIEnv* env,
-    const JavaParamRef<jbyteArray>& java_webapk_specifics,
-    jboolean is_install) {
+    const JavaRef<jbyteArray>& java_webapk_specifics,
+    bool is_install) {
   if (!base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
     return;
   }
@@ -75,7 +74,7 @@ static void JNI_WebApkSyncService_OnWebApkUsed(
     return;
   }
   WebApkSyncServiceFactory::GetForProfile(profile)->OnWebApkUsed(
-      std::move(specifics), static_cast<bool>(is_install));
+      std::move(specifics), is_install);
 }
 
 static void JNI_WebApkSyncService_OnWebApkUninstalled(
@@ -113,7 +112,7 @@ static void JNI_WebApkSyncService_RemoveOldWebAPKsFromSync(
 static void JNI_WebApkSyncService_FetchRestorableApps(
     JNIEnv* env,
     Profile* profile,
-    const JavaParamRef<jobject>& java_callback) {
+    const JavaRef<jobject>& java_callback) {
   if (profile == nullptr ||
       !base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
     return;

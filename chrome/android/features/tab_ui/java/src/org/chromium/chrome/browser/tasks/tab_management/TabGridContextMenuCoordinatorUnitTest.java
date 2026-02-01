@@ -60,7 +60,7 @@ import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
-import org.chromium.ui.widget.RectProvider;
+import org.chromium.ui.widget.ViewRectProvider;
 import org.chromium.url.GURL;
 
 import java.util.List;
@@ -68,10 +68,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link TabGridContextMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({
-    ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID,
-    ChromeFeatureList.ANDROID_PINNED_TABS
-})
+@EnableFeatures({ChromeFeatureList.ANDROID_PINNED_TABS})
 public class TabGridContextMenuCoordinatorUnitTest {
     private static @TabId final int TAB_ID = 1;
     private static final int MENU_WIDTH = 300;
@@ -98,6 +95,7 @@ public class TabGridContextMenuCoordinatorUnitTest {
     @Mock private Profile mProfile;
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private ShowTabListEditor mShowTabListEditor;
+    @Mock private ViewRectProvider mViewRectProvider;
 
     private TabGridContextMenuCoordinator mCoordinator;
     private ModelList mMenuItemList;
@@ -138,11 +136,11 @@ public class TabGridContextMenuCoordinatorUnitTest {
         when(mTabModel.getTabById(anyInt())).thenReturn(mTab);
         when(mTab.getId()).thenReturn(TAB_ID);
         when(mBookmarkModel.hasBookmarkIdForTab(any())).thenReturn(false);
+        when(mViewRectProvider.isViewShown()).thenReturn(true);
     }
 
     @Test
     public void testShowMenu() {
-        RectProvider rectProvider = new RectProvider();
         mCoordinator = spy(mCoordinator);
         doNothing()
                 .when(mCoordinator)
@@ -155,10 +153,10 @@ public class TabGridContextMenuCoordinatorUnitTest {
                         anyInt(),
                         any(),
                         anyBoolean());
-        mCoordinator.showMenu(rectProvider, TAB_ID, /* focusable= */ true);
+        mCoordinator.showMenu(mViewRectProvider, TAB_ID, /* focusable= */ true);
         verify(mCoordinator)
                 .createAndShowMenu(
-                        eq(rectProvider),
+                        eq(mViewRectProvider),
                         eq(TAB_ID),
                         eq(true),
                         eq(false),
@@ -166,6 +164,23 @@ public class TabGridContextMenuCoordinatorUnitTest {
                         eq(HorizontalOrientation.LAYOUT_DIRECTION),
                         eq(mActivity),
                         eq(false));
+    }
+
+    @Test
+    public void testShowMenu_viewNotShown() {
+        when(mViewRectProvider.isViewShown()).thenReturn(false);
+        mCoordinator = spy(mCoordinator);
+        mCoordinator.showMenu(mViewRectProvider, TAB_ID, /* focusable= */ true);
+        verify(mCoordinator, never())
+                .createAndShowMenu(
+                        any(),
+                        anyInt(),
+                        anyBoolean(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyInt(),
+                        any(),
+                        anyBoolean());
     }
 
     @Test

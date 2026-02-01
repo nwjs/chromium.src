@@ -12,8 +12,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/scoped_multi_source_observation.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/transliterator.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -109,19 +109,15 @@ void PlusAddressSubmissionLogger::OnPlusAddressSuggestionShown(
   const AccountInfo account_info =
       identity_manager_->FindExtendedAccountInfo(core_account_info);
 
-  FormStructure* form_structure = manager.FindCachedFormById(form);
+  const FormStructure* form_structure = manager.FindCachedFormById(form);
   if (!form_structure) {
     return;
   }
-  auto it =
-      std::ranges::find_if(form_structure->fields(),
-                           [&field](const std::unique_ptr<AutofillField>& f) {
-                             return f->global_id() == field;
-                           });
-  if (it == form_structure->fields().end()) {
+  const AutofillField* autofill_field = form_structure->GetFieldById(field);
+  if (!autofill_field) {
     return;
   }
-  FormGlobalId renderer_form_id = (*it)->renderer_form_id();
+  FormGlobalId renderer_form_id = autofill_field->renderer_form_id();
 
   if (!records_.contains(&manager)) {
     managers_observation_.AddObservation(&manager);
@@ -144,10 +140,10 @@ void PlusAddressSubmissionLogger::OnPlusAddressSuggestionShown(
       .SetFieldCountRendererForm(ukm::GetExponentialBucketMinForCounts1000(
           field_count_in_renderer_form))
       .SetManagedProfile(account_info.IsManaged() == signin::Tribool::kTrue)
-      .SetPasswordFormType(base::to_underlying(form_type))
+      .SetPasswordFormType(std::to_underlying(form_type))
       .SetPlusAddressCount(
-          base::to_underlying(ToPlusAddressCountBucket(plus_address_count)))
-      .SetSuggestionContext(base::to_underlying(suggestion_context));
+          std::to_underlying(ToPlusAddressCountBucket(plus_address_count)))
+      .SetSuggestionContext(std::to_underlying(suggestion_context));
   records_[&manager].insert_or_assign(field, std::move(record));
 }
 

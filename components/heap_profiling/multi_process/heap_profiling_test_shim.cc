@@ -11,31 +11,31 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/heap_profiling/multi_process/jni_headers/HeapProfilingTestShim_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 static jlong JNI_HeapProfilingTestShim_Init(JNIEnv* env,
-                                            const JavaParamRef<jobject>& obj) {
+                                            const JavaRef<jobject>& obj) {
   HeapProfilingTestShim* profiler = new HeapProfilingTestShim(env, obj);
   return reinterpret_cast<intptr_t>(profiler);
 }
 
 HeapProfilingTestShim::HeapProfilingTestShim(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& obj) {}
+    const base::android::JavaRef<jobject>& obj) {}
 HeapProfilingTestShim::~HeapProfilingTestShim() = default;
 
 void HeapProfilingTestShim::Destroy(JNIEnv* env) {
   delete this;
 }
 
-jboolean HeapProfilingTestShim::RunTestForMode(
+bool HeapProfilingTestShim::RunTestForMode(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& mode,
-    jboolean dynamically_start_profiling,
-    const base::android::JavaParamRef<jstring>& stack_mode,
-    jboolean should_sample,
-    jboolean sample_everything) {
+    const base::android::JavaRef<jstring>& mode,
+    bool dynamically_start_profiling,
+    const base::android::JavaRef<jstring>& stack_mode,
+    bool should_sample,
+    bool sample_everything) {
   heap_profiling::TestDriver driver;
   heap_profiling::TestDriver::Options options;
   options.mode = heap_profiling::ConvertStringToMode(

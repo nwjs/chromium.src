@@ -23,6 +23,13 @@
   return [[ImageContentView alloc] initWithConfiguration:self];
 }
 
+- (CGSize)contentSize {
+  if (!CGSizeEqualToSize(_imageSize, CGSizeZero)) {
+    return _imageSize;
+  }
+  return _image.size;
+}
+
 #pragma mark - UIContentConfiguration
 
 - (id<UIContentView>)makeContentView {
@@ -42,6 +49,7 @@
   copy.imageSize = self.imageSize;
   copy.imageContentMode = self.imageContentMode;
   copy.imageTintColor = self.imageTintColor;
+  copy.imageCornerRadius = self.imageCornerRadius;
   copy.accessibilityID = self.accessibilityID;
   // LINT.ThenChange(image_content_configuration.h:Copy)
   return copy;

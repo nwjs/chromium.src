@@ -10,7 +10,7 @@ import android.view.View;
 
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -67,7 +68,7 @@ public class ToolbarButtonInProductHelpController
     private final AppMenuHandler mAppMenuHandler;
     private final UserEducationHelper mUserEducationHelper;
     private final Profile mProfile;
-    private final Supplier<@Nullable Tab> mCurrentTabSupplier;
+    private final NullableObservableSupplier<Tab> mCurrentTabSupplier;
     private final Supplier<Boolean> mIsInOverviewModeSupplier;
 
     /**
@@ -87,7 +88,7 @@ public class ToolbarButtonInProductHelpController
             AppMenuCoordinator appMenuCoordinator,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             Profile profile,
-            ObservableSupplier<@Nullable Tab> tabSupplier,
+            NullableObservableSupplier<Tab> tabSupplier,
             Supplier<Boolean> isInOverviewModeSupplier,
             View menuButtonAnchorView) {
         mActivity = activity;
@@ -129,6 +130,7 @@ public class ToolbarButtonInProductHelpController
                                 showTranslateMenuButtonTextBubble(tab);
                                 showPriceTrackingIph(tab);
                                 showPageSummaryIph(tab);
+                                maybeShowNewTabPageThemeCustomizationIph(tab);
                             }
 
                             private void handleIphForErrorPageShown(Tab tab) {
@@ -197,6 +199,32 @@ public class ToolbarButtonInProductHelpController
                                 R.string.iph_download_infobar_download_continuing_text)
                         .setAnchorView(mMenuButtonAnchorView)
                         .setOnShowCallback(() -> turnOnHighlightForMenuItem(R.id.downloads_menu_id))
+                        .setOnDismissCallback(this::turnOffHighlightForMenuItem)
+                        .build());
+    }
+
+    /** Attempts to show an IPH for New Tab Page theme customization. */
+    private void maybeShowNewTabPageThemeCustomizationIph(Tab tab) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+                || NtpCustomizationUtils
+                        .getNtpCustomizationBottomSheetShownFromSharedPreference()) {
+            return;
+        }
+        if (tab.isIncognitoBranded() || !UrlUtilities.isNtpUrl(tab.getUrl())) return;
+
+        showNewTabPageThemeCustomizationIph();
+    }
+
+    private void showNewTabPageThemeCustomizationIph() {
+        mUserEducationHelper.requestShowIph(
+                new IphCommandBuilder(
+                                mActivity.getResources(),
+                                FeatureConstants.NEW_TAB_PAGE_THEME_CUSTOMIZATION_FEATURE,
+                                R.string.new_tab_page_theme_customization_iph,
+                                R.string.new_tab_page_theme_customization_iph)
+                        .setAnchorView(mMenuButtonAnchorView)
+                        .setOnShowCallback(
+                                () -> turnOnHighlightForMenuItem(R.id.ntp_customization_id))
                         .setOnDismissCallback(this::turnOffHighlightForMenuItem)
                         .build());
     }
@@ -298,19 +326,17 @@ public class ToolbarButtonInProductHelpController
     }
 
     private void showAddToGroupIph() {
-        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled()) {
-            mUserEducationHelper.requestShowIph(
-                    new IphCommandBuilder(
-                                    mActivity.getResources(),
-                                    FeatureConstants.MENU_ADD_TO_GROUP,
-                                    R.string.tab_switcher_add_to_group_iph,
-                                    R.string.tab_switcher_add_to_group_iph)
-                            .setAnchorView(mMenuButtonAnchorView)
-                            .setOnShowCallback(
-                                    () -> turnOnHighlightForMenuItem(R.id.add_to_group_menu_id))
-                            .setOnDismissCallback(this::turnOffHighlightForMenuItem)
-                            .build());
-        }
+        mUserEducationHelper.requestShowIph(
+                new IphCommandBuilder(
+                                mActivity.getResources(),
+                                FeatureConstants.MENU_ADD_TO_GROUP,
+                                R.string.tab_switcher_add_to_group_iph,
+                                R.string.tab_switcher_add_to_group_iph)
+                        .setAnchorView(mMenuButtonAnchorView)
+                        .setOnShowCallback(
+                                () -> turnOnHighlightForMenuItem(R.id.add_to_group_menu_id))
+                        .setOnDismissCallback(this::turnOffHighlightForMenuItem)
+                        .build());
     }
 
     /**

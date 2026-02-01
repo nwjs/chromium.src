@@ -8,6 +8,7 @@
 
 #include "base/files/important_file_writer.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_view_util.h"
 #include "base/test/task_environment.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -140,11 +141,9 @@ BlobWriteCallback MockBlobStorageContext::CreateBlobWriteCallback(
     base::OnceClosure on_done) {
   *succeeded = false;
   return base::BindOnce(
-      [](bool* succeeded, base::OnceClosure on_done,
-         StatusOr<BlobWriteResult> result) {
-        *succeeded = result.has_value();
+      [](bool* succeeded, base::OnceClosure on_done, Status result) {
+        *succeeded = result.ok();
         std::move(on_done).Run();
-        return Status::OK();
       },
       succeeded, std::move(on_done));
 }

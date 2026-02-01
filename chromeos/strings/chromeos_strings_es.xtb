@@ -554,7 +554,7 @@
 <translation id="345256797477978759">Anclar ventana en la parte <ph name="DIRECTION" /> más grande de la pantalla</translation>
 <translation id="3456078764689556234">Se ha impreso la página <ph name="PRINTED_PAGES" /> de <ph name="TOTAL_PAGES" />.</translation>
 <translation id="345898999683440380">Escaneando página <ph name="PAGE_NUM" />. <ph name="PERCENTAGE_VALUE" /> % completado.</translation>
-<translation id="3459509316159669723">Imprimir</translation>
+<translation id="3459509316159669723">Imprimiendo</translation>
 <translation id="3462187165860821523">Actualizando <ph name="DEVICE_NAME" /></translation>
 <translation id="346423161771747987">Corriente</translation>
 <translation id="346539236881580388">Repetir foto</translation>
@@ -1181,7 +1181,6 @@
 <translation id="6205145102504628069">Movimiento de las nubes</translation>
 <translation id="6213737986933151570">CDMA1XRTT</translation>
 <translation id="6223752125779001553">No hay escáneres disponibles</translation>
-<translation id="6231648282154119906">Navegación segura de Google analizará automáticamente los archivos sospechosos como parte de la protección mejorada que has elegido</translation>
 <translation id="6232017090690406397">Batería</translation>
 <translation id="6234024205316847054">Mostrar detalles</translation>
 <translation id="6243280677745499710">Opción actual</translation>

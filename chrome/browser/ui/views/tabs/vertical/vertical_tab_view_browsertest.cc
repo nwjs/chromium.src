@@ -4,67 +4,110 @@
 
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_view.h"
 
+#include "base/functional/callback_helpers.h"
+#include "base/run_loop.h"
+#include "base/test/run_until.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
-#include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_feature.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/tab_network_state.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/tab_close_button.h"
+#include "chrome/browser/ui/views/tabs/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/vertical/root_tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_node.h"
-#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_icon.h"
+#include "chrome/browser/ui/views/test/vertical_tabs_browser_test_mixin.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
+#include "ui/events/base_event_utils.h"
+#include "ui/events/test/event_generator.h"
+#include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/widget/widget_utils.h"
 
-class VerticalTabViewTest : public InProcessBrowserTest {
+class TestWebContentsObserver : public content::WebContentsObserver {
  public:
-  VerticalTabViewTest() = default;
-  ~VerticalTabViewTest() override = default;
+  explicit TestWebContentsObserver(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {}
+  ~TestWebContentsObserver() override = default;
 
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatures({tabs::kVerticalTabs}, {});
-    InProcessBrowserTest::SetUp();
+  void DidStartLoading() override {
+    if (start_loading_callback_) {
+      std::move(start_loading_callback_).Run();
+    }
+  }
+
+  void SetStartLoadingCallback(base::OnceClosure callback) {
+    start_loading_callback_ = std::move(callback);
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::OnceClosure start_loading_callback_;
+};
+
+class VerticalTabViewTest
+    : public VerticalTabsBrowserTestMixin<InProcessBrowserTest> {
+ public:
+  RootTabCollectionNode* root_node() {
+    VerticalTabStripRegionView* region_view =
+        browser()
+            ->GetBrowserView()
+            .vertical_tab_strip_region_view_for_testing();
+    return region_view->root_node_for_testing();
+  }
+
+  content::WebContents* AppendPinnedTab() {
+    std::unique_ptr<content::WebContents> contents =
+        content::WebContents::Create(
+            content::WebContents::CreateParams(browser()->profile()));
+    content::WebContents* raw_contents = contents.get();
+    browser()->tab_strip_model()->InsertWebContentsAt(
+        browser()->tab_strip_model()->count(), std::move(contents),
+        ADD_INHERIT_OPENER | ADD_ACTIVE | ADD_PINNED);
+    return raw_contents;
+  }
 };
 
 IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, IconDataChanged) {
-  // Create view hierarchy from an arbitrary parent view since we don't
-  // currently support updates from the API.
-  std::unique_ptr<views::View> parent_view = std::make_unique<views::View>();
-  RootTabCollectionNode root_node(
-      browser()
-          ->GetFeatures()
-          .tab_strip_service_feature()
-          ->GetTabStripService(),
-      base::BindRepeating<TabCollectionNode::CustomAddChildView>(
-          &views::View::AddChildView, base::Unretained(parent_view.get())));
+  ASSERT_TRUE(embedded_test_server()->Start());
 
   // The initial tab is the first child of the unpinned collection which is the
   // second child of the root node.
-  TabCollectionNode* tab_node = root_node.children()[1]->children()[0].get();
-  VerticalTabIcon* icon =
-      static_cast<VerticalTabView*>(tab_node->get_view_for_testing())
-          ->icon_for_testing();
+  auto* icon = BrowserElementsViews::From(browser())->GetViewAs<TabIcon>(
+      kTabIconElementId);
 
-  // Expect the favicon to not be loading initially.
+  // Expect the favicon to be in the active state and not be loading initially.
+  EXPECT_TRUE(icon->GetActiveStateForTesting());
   EXPECT_FALSE(icon->GetShowingLoadingAnimation());
 
   // After changing network state, expect the favicon to be loading.
-  tabs_api::mojom::DataPtr tab_data = tab_node->data()->Clone();
-  tab_data->get_tab()->network_state = tabs_api::mojom::NetworkState::kLoading;
-  auto event = tabs_api::mojom::OnDataChangedEvent::New();
-  event->data = std::move(tab_data);
-  root_node.OnDataChanged(event);
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  TestWebContentsObserver observer(web_contents);
+  base::RunLoop run_loop;
+  observer.SetStartLoadingCallback(run_loop.QuitClosure());
+  browser()->OpenURL(
+      content::OpenURLParams(
+          embedded_test_server()->GetURL("/title1.html"), content::Referrer(),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK, false),
+      base::DoNothing());
+  run_loop.Run();
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
+
+  // After adding a new tab, the old tab is no longer activated so the icon
+  // should not be active.
+  NavigateToURLWithDisposition(browser(), GURL(url::kAboutBlankURL),
+                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                               ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_FALSE(icon->GetActiveStateForTesting());
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, TitleDataChanged) {
@@ -72,16 +115,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, TitleDataChanged) {
   GURL initial_url = embedded_test_server()->GetURL("/title2.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
 
-  // Create view hierarchy from an arbitrary parent view since we don't
-  // currently support updates from the API.
-  std::unique_ptr<views::View> parent_view = std::make_unique<views::View>();
-  RootTabCollectionNode root_node(
-      browser()
-          ->GetFeatures()
-          .tab_strip_service_feature()
-          ->GetTabStripService(),
-      base::BindRepeating<TabCollectionNode::CustomAddChildView>(
-          &views::View::AddChildView, base::Unretained(parent_view.get())));
   views::Label* title =
       BrowserElementsViews::From(browser())->GetViewAs<views::Label>(
           kVerticalTabTitleElementId);
@@ -97,98 +130,101 @@ IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, TitleDataChanged) {
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, AlertIndicatorDataChanged) {
-  // Create view hierarchy from an arbitrary parent view since we don't
-  // currently support updates from the API.
-  std::unique_ptr<views::View> parent_view = std::make_unique<views::View>();
-  RootTabCollectionNode root_node(
-      browser()
-          ->GetFeatures()
-          .tab_strip_service_feature()
-          ->GetTabStripService(),
-      base::BindRepeating<TabCollectionNode::CustomAddChildView>(
-          &views::View::AddChildView, base::Unretained(parent_view.get())));
-
   // The initial tab is the first child of the unpinned collection which is the
   // second child of the root node.
-  TabCollectionNode* tab_node = root_node.children()[1]->children()[0].get();
-  AlertIndicatorButton* alert_indicator =
-      static_cast<VerticalTabView*>(tab_node->get_view_for_testing())
-          ->alert_indicator_for_testing();
+  auto* alert_indicator =
+      BrowserElementsViews::From(browser())->GetViewAs<AlertIndicatorButton>(
+          kTabAlertIndicatorButtonElementId);
 
-  // Expect the alert indicator to not be visible initially.
-  EXPECT_FALSE(alert_indicator->GetVisible());
-  EXPECT_EQ(std::nullopt, alert_indicator->showing_alert_state());
+  // The alert indicator should not be visible initially.
+  ASSERT_FALSE(alert_indicator->GetVisible());
+  ASSERT_EQ(std::nullopt, alert_indicator->alert_state_for_testing());
+  ASSERT_EQ(std::nullopt, alert_indicator->showing_alert_state());
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
 
   // After changing the tab alert state, expect the indicator to be visible.
-  {
-    tabs_api::mojom::DataPtr tab_data = tab_node->data()->Clone();
-    tab_data->get_tab()->alert_states = {
-        tabs_api::mojom::AlertState::kAudioPlaying};
-    auto event = tabs_api::mojom::OnDataChangedEvent::New();
-    event->data = std::move(tab_data);
-    root_node.OnDataChanged(event);
-    EXPECT_TRUE(alert_indicator->GetVisible());
-    EXPECT_EQ(tabs::TabAlert::kAudioPlaying,
-              alert_indicator->alert_state_for_testing());
-  }
-
-  // After adding a tab alert, expect the indicator to be visible.
-  {
-    tabs_api::mojom::DataPtr tab_data = tab_node->data()->Clone();
-    tab_data->get_tab()->alert_states = {
-        tabs_api::mojom::AlertState::kAudioPlaying};
-    auto event = tabs_api::mojom::OnDataChangedEvent::New();
-    event->data = std::move(tab_data);
-    root_node.OnDataChanged(event);
-    EXPECT_TRUE(alert_indicator->GetVisible());
-    EXPECT_EQ(tabs::TabAlert::kAudioPlaying,
-              alert_indicator->alert_state_for_testing());
-  }
+  base::ScopedClosureRunner scoped_closure_runner = web_contents->MarkAudible();
+  web_contents->SetAudioMuted(false);
+  browser()->tab_strip_model()->NotifyTabChanged(
+      browser()->tab_strip_model()->GetActiveTab(), TabChangeType::kAll);
+  EXPECT_TRUE(alert_indicator->GetVisible());
+  EXPECT_EQ(tabs::TabAlert::kAudioPlaying,
+            alert_indicator->alert_state_for_testing());
+  EXPECT_EQ(tabs::TabAlert::kAudioPlaying,
+            alert_indicator->showing_alert_state());
 
   // After changing the tab alert, expect the indicator state to change.
-  {
-    tabs_api::mojom::DataPtr tab_data = tab_node->data()->Clone();
-    tab_data->get_tab()->alert_states = {
-        tabs_api::mojom::AlertState::kAudioMuting};
-    auto event = tabs_api::mojom::OnDataChangedEvent::New();
-    event->data = std::move(tab_data);
-    root_node.OnDataChanged(event);
-    EXPECT_TRUE(alert_indicator->GetVisible());
-    EXPECT_EQ(tabs::TabAlert::kAudioMuting,
-              alert_indicator->alert_state_for_testing());
-  }
+  web_contents->SetAudioMuted(true);
+  browser()->tab_strip_model()->NotifyTabChanged(
+      browser()->tab_strip_model()->GetActiveTab(), TabChangeType::kAll);
+  EXPECT_TRUE(alert_indicator->GetVisible());
+  EXPECT_EQ(tabs::TabAlert::kAudioMuting,
+            alert_indicator->alert_state_for_testing());
+  EXPECT_EQ(tabs::TabAlert::kAudioMuting,
+            alert_indicator->showing_alert_state());
 
   // After removing the tab alert, expect the indicator to still be visible
   // (because it is fading out).
-  {
-    tabs_api::mojom::DataPtr tab_data = tab_node->data()->Clone();
-    tab_data->get_tab()->alert_states = {};
-    auto event = tabs_api::mojom::OnDataChangedEvent::New();
-    event->data = std::move(tab_data);
-    root_node.OnDataChanged(event);
-    EXPECT_TRUE(alert_indicator->GetVisible());
-    EXPECT_EQ(std::nullopt, alert_indicator->alert_state_for_testing());
-  }
+  scoped_closure_runner.RunAndReset();
+  // There is a 2 second hysteresis for the audible state, controlled by
+  // RecentlyAudibleHelper. Fire the timer manually to remove the tab alert.
+  RecentlyAudibleHelper* recently_audible_helper =
+      RecentlyAudibleHelper::FromWebContents(web_contents);
+  recently_audible_helper->SetNotRecentlyAudibleForTesting();
+  recently_audible_helper->FireRecentlyAudibleTimerForTesting();
+  browser()->tab_strip_model()->NotifyTabChanged(
+      browser()->tab_strip_model()->GetActiveTab(), TabChangeType::kAll);
+  EXPECT_TRUE(alert_indicator->GetVisible());
+  EXPECT_EQ(std::nullopt, alert_indicator->alert_state_for_testing());
+  EXPECT_EQ(tabs::TabAlert::kAudioMuting,
+            alert_indicator->showing_alert_state());
+}
+
+// This test doesn't need the EnableTabMuting feature flag because it directly
+// calls NotifyClick() on the button controller.
+IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, AlertIndicatorMute) {
+  // The initial tab is the first child of the unpinned collection which is the
+  // second child of the root node.
+  auto* alert_indicator =
+      BrowserElementsViews::From(browser())->GetViewAs<AlertIndicatorButton>(
+          kTabAlertIndicatorButtonElementId);
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  base::ScopedClosureRunner scoped_closure_runner = web_contents->MarkAudible();
+  browser()->tab_strip_model()->NotifyTabChanged(
+      browser()->tab_strip_model()->GetActiveTab(), TabChangeType::kAll);
+
+  // Audio should be playing initially.
+  ASSERT_TRUE(alert_indicator->GetVisible());
+  ASSERT_EQ(tabs::TabAlert::kAudioPlaying,
+            alert_indicator->alert_state_for_testing());
+  ASSERT_FALSE(web_contents->IsAudioMuted());
+
+  // After clicking the alert indicator, audio should be muted.
+  alert_indicator->button_controller()->NotifyClick();
+  EXPECT_TRUE(alert_indicator->GetVisible());
+  EXPECT_EQ(tabs::TabAlert::kAudioMuting,
+            alert_indicator->alert_state_for_testing());
+  EXPECT_TRUE(web_contents->IsAudioMuted());
+
+  // After clicking the alert indicator again, audio should no longer be muted.
+  alert_indicator->button_controller()->NotifyClick();
+  EXPECT_TRUE(alert_indicator->GetVisible());
+  EXPECT_EQ(tabs::TabAlert::kAudioPlaying,
+            alert_indicator->alert_state_for_testing());
+  EXPECT_FALSE(web_contents->IsAudioMuted());
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, CloseButtonDataChanged) {
-  // Create view hierarchy from an arbitrary parent view since we don't
-  // currently support updates from the API.
-  std::unique_ptr<views::View> parent_view = std::make_unique<views::View>();
-  RootTabCollectionNode root_node(
-      browser()
-          ->GetFeatures()
-          .tab_strip_service_feature()
-          ->GetTabStripService(),
-      base::BindRepeating<TabCollectionNode::CustomAddChildView>(
-          &views::View::AddChildView, base::Unretained(parent_view.get())));
-
   // The initial tab is the first child of the unpinned collection which is the
   // second child of the root node.
-  TabCollectionNode* tab_node = root_node.children()[1]->children()[0].get();
-  TabCloseButton* close_button =
-      static_cast<VerticalTabView*>(tab_node->get_view_for_testing())
-          ->close_button_for_testing();
+  TabCollectionNode* tab_node = root_node()->children()[1]->children()[0].get();
+  VerticalTabView* tab_view =
+      static_cast<VerticalTabView*>(tab_node->get_view_for_testing());
+  TabCloseButton* close_button = tab_view->close_button_for_testing();
 
   // Expect the close button to be showing initially.
   EXPECT_TRUE(close_button->GetVisible());
@@ -199,4 +235,83 @@ IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, CloseButtonDataChanged) {
                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   EXPECT_FALSE(close_button->GetVisible());
+
+  ui::test::EventGenerator event_generator(
+      views::GetRootWindow(browser()->GetBrowserView().GetWidget()),
+      browser()->GetBrowserView().GetNativeWindow());
+
+  // After the mouse enters the tab, the close button should be showing.
+  event_generator.MoveMouseTo(tab_view->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(close_button->GetVisible());
+
+  // After the mouse exits the tab, the close button should be hidden.
+  event_generator.MoveMouseTo(gfx::Point());
+  EXPECT_FALSE(close_button->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, CloseButtonPressed) {
+  // Add a second tab.
+  NavigateToURLWithDisposition(browser(), GURL(url::kAboutBlankURL),
+                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                               ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  // The second tab is the second child of the unpinned collection which is the
+  // second child of the root node.
+  TabCollectionNode* tab_node = root_node()->children()[1]->children()[1].get();
+  VerticalTabView* tab_view =
+      static_cast<VerticalTabView*>(tab_node->get_view_for_testing());
+  TabCloseButton* close_button = tab_view->close_button_for_testing();
+  ASSERT_TRUE(close_button->GetVisible());
+
+  // Expect there to be two tabs initially.
+  ASSERT_EQ(2, browser()->tab_strip_model()->count());
+
+  // After pressing the close button, there should only be 1 tab remaining.
+  close_button->button_controller()->NotifyClick();
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+}
+
+// TODO(crbug.com/465540287): Determine how to test the background changing
+// based on active/selected/hovered states.
+
+IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, PinnedTabsHideCloseButton) {
+  AppendPinnedTab();
+
+  // The initial tab is the first child of the pinned collection which is the
+  // first child of the root node.
+  TabCollectionNode* tab_node = root_node()->children()[0]->children()[0].get();
+  VerticalTabView* tab =
+      static_cast<VerticalTabView*>(tab_node->get_view_for_testing());
+
+  // The favicon should be visible but the close button is not.
+  EXPECT_TRUE(tab->GetViewByElementId(kTabIconElementId)->GetVisible());
+  EXPECT_FALSE(
+      tab->GetViewByElementId(kTabAlertIndicatorButtonElementId)->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabViewTest, PinnedTabsRenderBorder) {
+  AppendPinnedTab();
+
+  const auto& pinned_node = root_node()->children()[0];
+  const auto& unpinned_node = root_node()->children()[1];
+
+  // The initial tab is the first child of the pinned collection which is the
+  // first child of the root node.
+  VerticalTabView* pinned_tab = static_cast<VerticalTabView*>(
+      pinned_node->children()[0].get()->get_view_for_testing());
+
+  EXPECT_TRUE(pinned_tab->GetBorder());
+
+  // Unpin the tab.
+  browser()->tab_strip_model()->SetTabPinned(0, false);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return unpinned_node->children().size() == 2u; }));
+
+  // The first child of the unpinned collection is the tab that has been
+  // unpinned.
+  VerticalTabView* unpinned_tab = static_cast<VerticalTabView*>(
+      unpinned_node->children()[0].get()->get_view_for_testing());
+
+  EXPECT_FALSE(unpinned_tab->GetBorder());
 }

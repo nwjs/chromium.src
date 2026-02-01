@@ -11,6 +11,8 @@
 #import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
 
 @protocol BWGCommands;
+@protocol ContextualPanelEntrypointIPHCommands;
+@protocol ContextualSheetCommands;
 @protocol LocationBarBadgeConsumer;
 @protocol LocationBarBadgeMediatorDelegate;
 class PrefService;
@@ -40,9 +42,17 @@ class Tracker;
 @property(nonatomic, weak) id<LocationBarBadgeMediatorDelegate> delegate;
 // The command handler for Gemini commands.
 @property(nonatomic, weak) id<BWGCommands> BWGCommandHandler;
+// The command handler for entrypoint in-product help commands.
+@property(nonatomic, weak) id<ContextualPanelEntrypointIPHCommands>
+    entrypointHelpHandler;
+// The command handler for contextual sheet commands.
+@property(nonatomic, weak) id<ContextualSheetCommands> contextualSheetHandler;
 
 // Cleans up mediator properties and variables.
 - (void)disconnect;
+
+// Cancels any ongoing or future loud moment for the current navigation.
+- (void)cancelContextualPanelEntrypointLoudMoment;
 
 @end
 

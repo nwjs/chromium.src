@@ -20,6 +20,8 @@ BASE_FEATURE(kContextualCueing, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicZeroStateSuggestions, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kZeroStateSuggestionsUseLegion, base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsContextualCueingEnabled() {
 #if BUILDFLAG(ENABLE_GLIC)
   // If the feature is overridden (e.g. via server-side config or command-line),
@@ -34,7 +36,7 @@ bool IsContextualCueingEnabled() {
     return base::FeatureList::IsEnabled(kContextualCueing);
   }
 
-  return glic::GlicEnabling::IsInRolloutLocation();
+  return glic::GlicEnabling::IsEnabledByFlags();
 #else
   return base::FeatureList::IsEnabled(kContextualCueing);
 #endif
@@ -54,7 +56,7 @@ bool IsZeroStateSuggestionsEnabled() {
     return base::FeatureList::IsEnabled(kGlicZeroStateSuggestions);
   }
 
-  return glic::GlicEnabling::IsInRolloutLocation();
+  return glic::GlicEnabling::IsEnabledByFlags();
 #else
   return false;
 #endif

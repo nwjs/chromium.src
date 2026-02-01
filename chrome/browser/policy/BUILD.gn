@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//components/services/on_device_translation/buildflags/features.gni")
+import("//components/on_device_translation/buildflags/features.gni")
 import("//components/signin/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 
@@ -159,6 +159,8 @@ source_set("test_support") {
   sources = [
     "cloud/cloud_policy_test_utils.cc",
     "cloud/cloud_policy_test_utils.h",
+    "cloud/mock_extension_install_policy_service.cc",
+    "cloud/mock_extension_install_policy_service.h",
     "policy_test_utils.cc",
     "policy_test_utils.h",
     "safe_browsing_policy_test.cc",
@@ -271,6 +273,7 @@ source_set("policy_specific_browser_tests") {
     "//chrome/browser/ui/autofill",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//components/heap_profiling/in_process",
     "//components/policy/core/common",
     "//components/prefs",
     "//components/proxy_config",

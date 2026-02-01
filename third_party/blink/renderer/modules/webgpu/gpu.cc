@@ -134,17 +134,21 @@ WebGPUExecutionContextToken GetExecutionContextToken(
 }  // anonymous namespace
 
 // static
+const char GPU::kSupplementName[] = "GPU";
+
+// static
 GPU* GPU::gpu(NavigatorBase& navigator) {
-  GPU* gpu = navigator.GetGPU();
+  GPU* gpu = Supplement<NavigatorBase>::From<GPU>(navigator);
   if (!gpu) {
     gpu = MakeGarbageCollected<GPU>(navigator);
-    navigator.SetGPU(gpu);
+    ProvideTo(navigator, gpu);
   }
   return gpu;
 }
 
 GPU::GPU(NavigatorBase& navigator)
-    : ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
+    : Supplement<NavigatorBase>(navigator),
+      ExecutionContextLifecycleObserver(navigator.GetExecutionContext()),
       wgsl_language_features_(MakeGarbageCollected<WGSLLanguageFeatures>(
           GatherWGSLLanguageFeatures())),
       mappable_buffer_handles_(
@@ -158,6 +162,7 @@ WGSLLanguageFeatures* GPU::wgslLanguageFeatures() const {
 
 void GPU::Trace(Visitor* visitor) const {
   ScriptWrappable::Trace(visitor);
+  Supplement<NavigatorBase>::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   visitor->Trace(mappable_buffers_);
   visitor->Trace(wgsl_language_features_);
@@ -199,12 +204,11 @@ void GPU::OnRequestAdapterCallback(
     wgpu::StringView error_message) {
   GPUAdapter* gpu_adapter = nullptr;
 
-  // wgpu::RequestAdapterStatus is part of the stable API, so is safe to log to
-  // histograms. The macro + `to_underlying` converts the enum to an int to
-  // calculate the max range.
+  // wgpu::RequestAdapterStatus is part of the stable API, so is safe to log to histograms.
+  // The macro + `to_underlying` converts the enum to an int to calculate the max range.
   UMA_HISTOGRAM_ENUMERATION(
       "GPU.RequestAdapterStatus.WebGPU", status,
-      base::to_underlying(wgpu::RequestAdapterStatus::Error) + 1);
+      std::to_underlying(wgpu::RequestAdapterStatus::Error) + 1);
 
   switch (status) {
     case wgpu::RequestAdapterStatus::Success:
@@ -302,8 +306,12 @@ void GPU::RequestAdapterImpl(
       return;
     }
 
+    Platform::WebGPUReplyThread reply_thread(
+        IsWebGPUMultithreadedWorker(execution_context)
+            ? Platform::WebGPUReplyThread::kIOThread
+            : Platform::WebGPUReplyThread::kMainThread);
     CreateWebGPUGraphicsContext3DProviderAsync(
-        execution_context->Url(),
+        execution_context->Url(), reply_thread,
         execution_context->GetTaskRunner(TaskType::kWebGPU),
         CrossThreadBindOnce(
             [](CrossThreadHandle<GPU> gpu_handle,
@@ -373,17 +381,17 @@ void GPU::RequestAdapterImpl(
 
   wgpu::RequestAdapterOptions dawn_options =
       AsDawnType(options, execution_context);
-  auto* callback = MakeWGPUOnceCallback(resolver->WrapCallbackInScriptScope(
-      BindOnce(&GPU::OnRequestAdapterCallback, WrapPersistent(this),
-               WrapPersistent(script_state), WrapPersistent(options))));
 
   if (dawn_options.featureLevel == wgpu::FeatureLevel::Compatibility) {
     UseCounter::Count(execution_context,
                       WebFeature::kWebGPUFeatureLevelCompatibility);
   }
 
+  auto* callback = MakeWGPUOnceCallback(resolver->WrapCallbackInScriptScope(
+      BindOnce(&GPU::OnRequestAdapterCallback, WrapPersistent(this),
+               WrapPersistent(script_state), WrapPersistent(options))));
   dawn_control_client_->GetWGPUInstance().RequestAdapter(
-      &dawn_options, wgpu::CallbackMode::AllowSpontaneous,
+      &dawn_options, wgpu::CallbackMode::AllowProcessEvents,
       callback->UnboundCallback(), callback->AsUserdata());
   dawn_control_client_->EnsureFlush(
       *execution_context->GetAgent()->event_loop());

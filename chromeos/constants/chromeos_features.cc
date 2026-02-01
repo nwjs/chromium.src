@@ -49,15 +49,6 @@ BASE_FEATURE(kDataMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 // Disables blur on various system surfaces.
 BASE_FEATURE(kDisableSystemBlur, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Disable idle sockets closing on memory pressure for NetworkContexts that
-// belong to Profiles. It only applies to Profiles because the goal is to
-// improve perceived performance of web browsing within the ChromeOS user
-// session by avoiding re-estabshing TLS connections that require client
-// certificates.
-BASE_FEATURE(kDisableIdleSocketsCloseOnMemoryPressure,
-             "disable_idle_sockets_close_on_memory_pressure",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Disables translation services of the Quick Answers V2.
 BASE_FEATURE(kDisableQuickAnswersV2Translation,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -210,11 +201,6 @@ bool IsQuickShareV2Enabled() {
 // Enables the Office files upload workflow to improve Office files support.
 BASE_FEATURE(kUploadOfficeToCloud, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the Office files upload workflow for enterprise users to improve
-// Office files support.
-BASE_FEATURE(kUploadOfficeToCloudForEnterprise,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables syncing of user's Office files upload workflow preferences for
 // enterprise users, such as whether to ask before moving files to the cloud.
 BASE_FEATURE(kUploadOfficeToCloudSync, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -301,10 +287,6 @@ BASE_FEATURE(kNotebookLmAppShelfPin, base::FEATURE_ENABLED_BY_DEFAULT);
 // Resets the act of pinning the NotebookLM preinstalled app to the shelf, used
 // for manual testing.
 BASE_FEATURE(kNotebookLmAppShelfPinReset, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables support for protocols handlers registered via web app manifest.
-BASE_FEATURE(kWebAppManifestProtocolHandlerSupport,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether Vids is preinstalled.
 BASE_FEATURE(kVidsAppPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -464,11 +446,6 @@ bool IsUploadOfficeToCloudEnabled() {
   return base::FeatureList::IsEnabled(kUploadOfficeToCloud);
 }
 
-bool IsUploadOfficeToCloudForEnterpriseEnabled() {
-  return base::FeatureList::IsEnabled(kUploadOfficeToCloud) &&
-         base::FeatureList::IsEnabled(kUploadOfficeToCloudForEnterprise);
-}
-
 bool IsUploadOfficeToCloudSyncEnabled() {
   return base::FeatureList::IsEnabled(kUploadOfficeToCloudSync);
 }
@@ -505,10 +482,6 @@ bool IsSystemBlurEnabled() {
 
 bool IsFeatureManagementHistoryEmbeddingEnabled() {
   return base::FeatureList::IsEnabled(kFeatureManagementHistoryEmbedding);
-}
-
-bool IsWebAppManifestProtocolHandlerSupportEnabled() {
-  return base::FeatureList::IsEnabled(kWebAppManifestProtocolHandlerSupport);
 }
 
 }  // namespace chromeos::features

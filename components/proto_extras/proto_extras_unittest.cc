@@ -279,6 +279,37 @@ TEST(ProtoExtrasToValueTest, OptionalEmptyMessageField) {
   })!"));
 }
 
+TEST(ProtoExtrasToValueTest, TestDebugRedacted) {
+  TestMessage message;
+
+  // `redacted_field` is optional, so it should not be present by default.
+  EXPECT_EQ(ToValue(message), base::test::ParseJson(R"!({
+    "double_field": 0.0,
+    "int32_field": 0,
+    "enum_field": "UNKNOWN",
+    "uint64_field": "0",
+  })!"));
+
+  message.set_redacted_field(6);
+  EXPECT_EQ(ToValue(message), base::test::ParseJson(R"!({
+    "double_field": 0.0,
+    "int32_field": 0,
+    "enum_field": "UNKNOWN",
+    "uint64_field": "0",
+    "redacted_field": "<secret>",
+  })!"));
+
+  message.set_redacted_string_field("13 bytes long");
+  EXPECT_EQ(ToValue(message), base::test::ParseJson(R"!({
+    "double_field": 0.0,
+    "int32_field": 0,
+    "enum_field": "UNKNOWN",
+    "uint64_field": "0",
+    "redacted_field": "<secret>",
+    "redacted_string_field": "<13-byte secret>",
+  })!"));
+}
+
 TEST(ProtoExtrasProto2ToValueTest, Basic) {
   TestMessageProto2 message;
   const std::string expected_empty_message_str = R"({})";
@@ -519,7 +550,6 @@ TEST(ProtoExtrasEquality, OptionalEmptyMessageField) {
   EXPECT_EQ(msg1, msg2);
 }
 
-
 TEST(ProtoExtrasEquality, MapField) {
   TestMessage msg1;
   TestMessage msg2;
@@ -757,6 +787,17 @@ TEST(ProtoExtrasProto2ToValueTest, TestEditionMessage) {
   ASSERT_TRUE(result.is_dict());
   EXPECT_EQ(ToValue(message), base::test::ParseJson(R"!({
     "text": "test"
+  })!"));
+}
+
+TEST(ProtoExtrasProto2ToValueTest, TestCustomSerialization) {
+  CustomSerializedMessage message;
+  EXPECT_EQ(ToValue(message), base::Value("custom serialized"));
+
+  CustomSerializedMessageEmbedder embedder;
+  embedder.mutable_message()->set_int_field(3);
+  EXPECT_EQ(ToValue(embedder), base::test::ParseJson(R"!({
+    "message": "custom serialized"
   })!"));
 }
 

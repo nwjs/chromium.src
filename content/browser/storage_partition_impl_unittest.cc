@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -28,6 +27,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
@@ -37,14 +37,17 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
+#include "components/services/storage/dom_storage/dom_storage_constants.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
-#include "components/services/storage/dom_storage/leveldb/local_storage_database.pb.h"
+#include "components/services/storage/dom_storage/test_support/dom_storage_database_testing.h"
 #include "components/services/storage/public/cpp/constants.h"
 #include "components/services/storage/public/mojom/local_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
@@ -83,6 +86,7 @@
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
+#include "net/base/net_errors.h"
 #include "net/base/network_isolation_key.h"
 #include "net/base/schemeful_site.h"
 #include "net/base/test_completion_callback.h"
@@ -108,7 +112,6 @@
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom-shared.h"
-#include "third_party/leveldatabase/env_chromium.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -323,27 +326,16 @@ class RemoveInterestGroupTester {
 
 class RemoveLocalStorageTester {
  public:
-  RemoveLocalStorageTester(content::BrowserTaskEnvironment* task_environment,
-                           TestBrowserContext* browser_context)
-      : task_environment_(task_environment),
-        storage_partition_(browser_context->GetDefaultStoragePartition()),
-        dom_storage_context_(storage_partition_->GetDOMStorageContext()) {}
+  explicit RemoveLocalStorageTester(TestBrowserContext* browser_context)
+      : browser_context_(browser_context) {}
 
   RemoveLocalStorageTester(const RemoveLocalStorageTester&) = delete;
   RemoveLocalStorageTester& operator=(const RemoveLocalStorageTester&) = delete;
 
-  ~RemoveLocalStorageTester() {
-    // Tests which bring up a real Local Storage context need to shut it down
-    // and wait for the database to be closed before terminating; otherwise the
-    // TestBrowserContext may fail to delete its temp dir, and it will not be
-    // happy about that.
-    static_cast<DOMStorageContextWrapper*>(dom_storage_context_)->Shutdown();
-    task_environment_->RunUntilIdle();
-  }
+  ~RemoveLocalStorageTester() = default;
 
   // Returns true, if the given origin URL exists.
   bool DOMStorageExistsForOrigin(const url::Origin& origin) {
-    GetLocalStorageUsage();
     for (size_t i = 0; i < infos_.size(); ++i) {
       if (origin == infos_[i].storage_key.origin())
         return true;
@@ -356,154 +348,112 @@ class RemoveLocalStorageTester {
                              const url::Origin& origin3) {
     // NOTE: Tests which call this method depend on implementation details of
     // how exactly the Local Storage subsystem stores persistent data.
+    // NOTE: it's very important to avoid creating the local storage
+    // database/C++ objects before calling this method. That happens when the
+    // storage partition is first created/accessed.
 
     base::RunLoop open_loop;
     auto database = storage::AsyncDomStorageDatabase::Open(
         storage::StorageType::kLocalStorage,
-        storage_partition_->GetPath().Append(storage::kLocalStoragePath),
+        // Technically this should be the partition path, but in this context
+        // it's the same path, and calling `GetStoragePartition()` too early
+        // will cause a race against DOMStorageContextWrapper/LocalStorageImpl
+        // creation.
+        browser_context_->GetPath().Append(storage::kLocalStoragePath),
         storage::kLocalStorageLeveldbName, /*memory_dump_id=*/std::nullopt,
-        base::SingleThreadTaskRunner::GetCurrentDefault(),
         base::BindLambdaForTesting([&](storage::DbStatus status) {
           ASSERT_TRUE(status.ok());
           open_loop.Quit();
         }));
     open_loop.Run();
 
-    base::RunLoop populate_loop;
-    database->database().PostTaskWithThisObject(
-        base::BindLambdaForTesting([&](storage::DomStorageDatabase* db) {
-          PopulateDatabase(&db->GetLevelDB(), origin1, origin2, origin3);
-          populate_loop.Quit();
-        }));
-    populate_loop.Run();
-
-    // Ensure that this database is fully closed before returning.
+    PopulateDatabase(database.get(), origin1, origin2, origin3);
     database.reset();
-    task_environment_->RunUntilIdle();
 
+    // This will trigger creating the `StoragePartitionImpl`, the
+    // `DOMStorageContextWrapper`, etc. It shouldn't race `database->database()`
+    // destruction because the `DomStorageDatabase` used internally will run on
+    // the same sequenced task runner, so opening it will be enqueued behind
+    // destruction activities.
+    GetLocalStorageUsage();
     EXPECT_TRUE(DOMStorageExistsForOrigin(origin1));
     EXPECT_TRUE(DOMStorageExistsForOrigin(origin2));
     EXPECT_TRUE(DOMStorageExistsForOrigin(origin3));
   }
 
-  static void PopulateDatabase(storage::DomStorageDatabaseLevelDB* db,
+  static void PopulateLocalStorageMap(storage::AsyncDomStorageDatabase* db,
+                                      const url::Origin& origin,
+                                      base::Time last_accessed,
+                                      base::Time last_modified) {
+    // Create an ID for the map using `origin`.
+    storage::DomStorageDatabase::MapLocator map_locator{
+        storage::kLocalStorageSessionId,
+        blink::StorageKey::CreateFirstParty(origin)};
+
+    // Write a key/value pair to the database for the map.
+    storage::FakeCommitter committer(db, map_locator.Clone());
+    ASSERT_NO_FATAL_FAILURE(
+        committer.PutMapKeyValueSync(/*key=*/{'X'}, /*value=*/{}));
+
+    // Write the map's usage metadata to the database.
+    storage::DomStorageDatabase::Metadata usage;
+    usage.map_metadata.push_back({
+        .map_locator = map_locator.Clone(),
+        .last_accessed = last_accessed,
+        .last_modified = last_modified,
+        .total_size = base::ByteSize{16},
+    });
+    ASSERT_NO_FATAL_FAILURE(storage::PutMetadataSync(*db, std::move(usage)));
+  }
+
+  static void PopulateDatabase(storage::AsyncDomStorageDatabase* db,
                                const url::Origin& origin1,
                                const url::Origin& origin2,
                                const url::Origin& origin3) {
-    storage::LocalStorageAreaAccessMetaData access_data;
-    storage::LocalStorageAreaWriteMetaData write_data;
-    std::map<std::vector<uint8_t>, std::vector<uint8_t>> entries;
-
     base::Time now = base::Time::Now();
-    access_data.set_last_accessed(now.ToInternalValue());
-    write_data.set_last_modified(now.ToInternalValue());
-    write_data.set_size_bytes(16);
-    ASSERT_TRUE(db->Put(CreateAccessMetaDataKey(origin1),
-                        base::as_byte_span(access_data.SerializeAsString()))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateWriteMetaDataKey(origin1),
-                        base::as_byte_span(write_data.SerializeAsString()))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateDataKey(origin1), {}).ok());
+    ASSERT_NO_FATAL_FAILURE(PopulateLocalStorageMap(
+        db, origin1, /*last_accessed=*/now, /*last_modified=*/now));
 
     base::Time one_day_ago = now - base::Days(1);
-    access_data.set_last_accessed(one_day_ago.ToInternalValue());
-    write_data.set_last_modified(one_day_ago.ToInternalValue());
-    ASSERT_TRUE(db->Put(CreateAccessMetaDataKey(origin2),
-                        base::as_byte_span(access_data.SerializeAsString()))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateWriteMetaDataKey(origin2),
-                        base::as_byte_span((write_data.SerializeAsString())))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateDataKey(origin2), {}).ok());
+    ASSERT_NO_FATAL_FAILURE(
+        PopulateLocalStorageMap(db, origin2, /*last_accessed=*/one_day_ago,
+                                /*last_modified=*/one_day_ago));
 
     base::Time sixty_days_ago = now - base::Days(60);
-    access_data.set_last_accessed(sixty_days_ago.ToInternalValue());
-    write_data.set_last_modified(sixty_days_ago.ToInternalValue());
-    ASSERT_TRUE(db->Put(CreateAccessMetaDataKey(origin3),
-                        base::as_byte_span(access_data.SerializeAsString()))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateWriteMetaDataKey(origin3),
-                        base::as_byte_span(write_data.SerializeAsString()))
-                    .ok());
-    ASSERT_TRUE(db->Put(CreateDataKey(origin3), {}).ok());
+    ASSERT_NO_FATAL_FAILURE(
+        PopulateLocalStorageMap(db, origin3, /*last_accessed=*/sixty_days_ago,
+                                /*last_modified=*/sixty_days_ago));
   }
 
- private:
-  static std::vector<uint8_t> CreateDataKey(const url::Origin& origin) {
-    auto origin_str = origin.Serialize();
-    std::vector<uint8_t> serialized_origin(origin_str.begin(),
-                                           origin_str.end());
-    std::vector<uint8_t> key = {'_'};
-    key.insert(key.end(), serialized_origin.begin(), serialized_origin.end());
-    key.push_back(0);
-    key.push_back('X');
-    return key;
-  }
-
-  static std::vector<uint8_t> CreateAccessMetaDataKey(
-      const url::Origin& origin) {
-    const auto kMetaPrefix = std::to_array<uint8_t>({
-        'M',
-        'E',
-        'T',
-        'A',
-        'A',
-        'C',
-        'C',
-        'E',
-        'S',
-        'S',
-        ':',
-    });
-    auto origin_str = origin.Serialize();
-    std::vector<uint8_t> serialized_origin(origin_str.begin(),
-                                           origin_str.end());
-    std::vector<uint8_t> key;
-    key.reserve(std::size(kMetaPrefix) + serialized_origin.size());
-    key.insert(key.end(), kMetaPrefix.data(),
-               base::span<const uint8_t>(kMetaPrefix)
-                   .subspan(std::size(kMetaPrefix))
-                   .data());
-    key.insert(key.end(), serialized_origin.begin(), serialized_origin.end());
-    return key;
-  }
-
-  static std::vector<uint8_t> CreateWriteMetaDataKey(
-      const url::Origin& origin) {
-    const auto kMetaPrefix = std::to_array<uint8_t>({'M', 'E', 'T', 'A', ':'});
-    auto origin_str = origin.Serialize();
-    std::vector<uint8_t> serialized_origin(origin_str.begin(),
-                                           origin_str.end());
-    std::vector<uint8_t> key;
-    key.reserve(std::size(kMetaPrefix) + serialized_origin.size());
-    key.insert(key.end(), kMetaPrefix.data(),
-               base::span<const uint8_t>(kMetaPrefix)
-                   .subspan(std::size(kMetaPrefix))
-                   .data());
-    key.insert(key.end(), serialized_origin.begin(), serialized_origin.end());
-    return key;
+  // Clears LocalStorage according to parameters, and refreshes the local cache
+  // of metadata.
+  void ClearLocalStorage(
+      content::StoragePartition* partition,
+      const base::Time delete_begin,
+      const base::Time delete_end,
+      BrowsingDataFilterBuilder* filter_builder,
+      StoragePartition::StorageKeyPolicyMatcherFunction storage_key_matcher) {
+    base::RunLoop run_loop;
+    partition->ClearData(StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
+                         StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
+                         filter_builder, std::move(storage_key_matcher),
+                         nullptr, false, delete_begin, delete_end,
+                         run_loop.QuitClosure());
+    run_loop.Run();
+    GetLocalStorageUsage();
   }
 
   void GetLocalStorageUsage() {
-    base::RunLoop loop;
-    dom_storage_context_->GetLocalStorageUsage(
-        base::BindOnce(&RemoveLocalStorageTester::OnGotLocalStorageUsage,
-                       base::Unretained(this), loop.QuitClosure()));
-    loop.Run();
+    base::test::TestFuture<const std::vector<content::StorageUsageInfo>&>
+        future;
+    browser_context_->GetDefaultStoragePartition()
+        ->GetDOMStorageContext()
+        ->GetLocalStorageUsage(future.GetCallback());
+    infos_ = future.Get();
   }
 
-  void OnGotLocalStorageUsage(
-      base::OnceClosure quit_closure,
-      const std::vector<content::StorageUsageInfo>& infos) {
-    infos_ = infos;
-    std::move(quit_closure).Run();
-  }
-
-  // We don't own these pointers.
-  const raw_ptr<BrowserTaskEnvironment> task_environment_;
-  const raw_ptr<StoragePartition> storage_partition_;
-  raw_ptr<DOMStorageContext> dom_storage_context_;
+ private:
+  raw_ptr<TestBrowserContext> browser_context_;
 
   std::vector<content::StorageUsageInfo> infos_;
 };
@@ -746,11 +696,11 @@ void ClearStuff(
     const base::Time delete_end,
     BrowsingDataFilterBuilder* filter_builder,
     StoragePartition::StorageKeyPolicyMatcherFunction storage_key_matcher,
-    base::RunLoop* run_loop) {
+    base::OnceClosure on_completed) {
   partition->ClearData(
       remove_mask, StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
       filter_builder, std::move(storage_key_matcher), nullptr, false,
-      delete_begin, delete_end, run_loop->QuitClosure());
+      delete_begin, delete_end, std::move(on_completed));
 }
 
 void ClearData(content::StoragePartition* partition, base::RunLoop* run_loop) {
@@ -850,10 +800,7 @@ bool FilterMatchesCookie(const CookieDeletionFilterPtr& filter,
 
 class StoragePartitionImplTest : public testing::Test {
  public:
-  StoragePartitionImplTest()
-      : task_environment_(content::BrowserTaskEnvironment::IO_MAINLOOP,
-                          base::test::TaskEnvironment::TimeSource::MOCK_TIME),
-        browser_context_(new TestBrowserContext()) {
+  StoragePartitionImplTest() : browser_context_(new TestBrowserContext()) {
     feature_list_.InitWithFeatures({network::features::kInterestGroupStorage,
                                     network::features::kSharedStorageAPI},
                                    {});
@@ -881,14 +828,13 @@ class StoragePartitionImplTest : public testing::Test {
 
   TestBrowserContext* browser_context() { return browser_context_.get(); }
 
-  content::BrowserTaskEnvironment* task_environment() {
-    return &task_environment_;
-  }
+  base::test::TaskEnvironment* task_environment() { return &task_environment_; }
 
  private:
   base::test::ScopedCommandLine command_line_;
   base::test::ScopedFeatureList feature_list_;
-  content::BrowserTaskEnvironment task_environment_;
+  content::BrowserTaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<TestBrowserContext> browser_context_;
   scoped_refptr<storage::MockQuotaManager> quota_manager_;
 };
@@ -896,8 +842,7 @@ class StoragePartitionImplTest : public testing::Test {
 class StoragePartitionShaderClearTest : public testing::Test {
  public:
   StoragePartitionShaderClearTest()
-      : task_environment_(content::BrowserTaskEnvironment::IO_MAINLOOP),
-        browser_context_(new TestBrowserContext()) {
+      : browser_context_(new TestBrowserContext()) {
     InitGpuDiskCacheFactorySingleton();
 
     gpu::GpuDiskCacheType type = gpu::GpuDiskCacheType::kGlShaders;
@@ -925,8 +870,14 @@ class StoragePartitionShaderClearTest : public testing::Test {
   }
 
   int32_t Size() {
-    net::TestInt32CompletionCallback cb;
-    return cb.GetResult(cache_->Size(cb.callback()));
+    base::test::TestFuture<int32_t> future;
+    base::expected<int32_t, net::Error> result =
+        cache_->Size(future.GetCallback());
+    if (result.has_value()) {
+      return result.value();
+    }
+    CHECK_EQ(result.error(), net::ERR_IO_PENDING);
+    return future.Get();
   }
 
   TestBrowserContext* browser_context() { return browser_context_.get(); }
@@ -1413,7 +1364,7 @@ TEST_F(StoragePartitionImplTest, RemoveUnprotectedLocalStorageForever) {
   auto mock_policy = base::MakeRefCounted<storage::MockSpecialStoragePolicy>();
   mock_policy->AddProtected(kOrigin1.GetURL());
 
-  RemoveLocalStorageTester tester(task_environment(), browser_context());
+  RemoveLocalStorageTester tester(browser_context());
 
   tester.AddDOMStorageTestData(kOrigin1, kOrigin2, kOrigin3);
 
@@ -1421,20 +1372,10 @@ TEST_F(StoragePartitionImplTest, RemoveUnprotectedLocalStorageForever) {
       browser_context()->GetDefaultStoragePartition());
   partition->OverrideSpecialStoragePolicyForTesting(mock_policy.get());
 
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          &ClearStuff, StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
-          partition, base::Time(), base::Time::Max(),
-          /*filter_builder=*/nullptr,
-          base::BindRepeating(&DoesOriginMatchForUnprotectedWeb), &run_loop));
-  run_loop.Run();
-  // ClearData only guarantees that tasks to delete data are scheduled when its
-  // callback is invoked. It doesn't guarantee data has actually been cleared.
-  // So run all scheduled tasks to make sure data is cleared.
-  base::RunLoop().RunUntilIdle();
-
+  tester.ClearLocalStorage(
+      partition, base::Time(), base::Time::Max(),
+      /*filter_builder=*/nullptr,
+      base::BindRepeating(&DoesOriginMatchForUnprotectedWeb));
   EXPECT_TRUE(tester.DOMStorageExistsForOrigin(kOrigin1));
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin3));
@@ -1449,7 +1390,7 @@ TEST_F(StoragePartitionImplTest, RemoveProtectedLocalStorageForever) {
   auto mock_policy = base::MakeRefCounted<storage::MockSpecialStoragePolicy>();
   mock_policy->AddProtected(kOrigin1.GetURL());
 
-  RemoveLocalStorageTester tester(task_environment(), browser_context());
+  RemoveLocalStorageTester tester(browser_context());
 
   tester.AddDOMStorageTestData(kOrigin1, kOrigin2, kOrigin3);
 
@@ -1457,22 +1398,10 @@ TEST_F(StoragePartitionImplTest, RemoveProtectedLocalStorageForever) {
       browser_context()->GetDefaultStoragePartition());
   partition->OverrideSpecialStoragePolicyForTesting(mock_policy.get());
 
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ClearStuff,
-                     StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
-                     partition, base::Time(), base::Time::Max(),
-                     /*filter_builder=*/nullptr,
-                     base::BindRepeating(
-                         &DoesOriginMatchForBothProtectedAndUnprotectedWeb),
-                     &run_loop));
-  run_loop.Run();
-  // ClearData only guarantees that tasks to delete data are scheduled when its
-  // callback is invoked. It doesn't guarantee data has actually been cleared.
-  // So run all scheduled tasks to make sure data is cleared.
-  base::RunLoop().RunUntilIdle();
-
+  tester.ClearLocalStorage(
+      partition, base::Time(), base::Time::Max(),
+      /*filter_builder=*/nullptr,
+      base::BindRepeating(&DoesOriginMatchForBothProtectedAndUnprotectedWeb));
   // Even if kOrigin1 is protected, it will be deleted since we specify
   // ClearData to delete protected data.
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
@@ -1485,7 +1414,7 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForLastWeek) {
   const url::Origin kOrigin2 = url::Origin::Create(GURL("http://host2:1/"));
   const url::Origin kOrigin3 = url::Origin::Create(GURL("http://host3:1/"));
 
-  RemoveLocalStorageTester tester(task_environment(), browser_context());
+  RemoveLocalStorageTester tester(browser_context());
 
   tester.AddDOMStorageTestData(kOrigin1, kOrigin2, kOrigin3);
 
@@ -1493,22 +1422,10 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForLastWeek) {
       browser_context()->GetDefaultStoragePartition());
   base::Time a_week_ago = base::Time::Now() - base::Days(7);
 
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ClearStuff,
-                     StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
-                     partition, a_week_ago, base::Time::Max(),
-                     /*filter_builder=*/nullptr,
-                     base::BindRepeating(
-                         &DoesOriginMatchForBothProtectedAndUnprotectedWeb),
-                     &run_loop));
-  run_loop.Run();
-  // ClearData only guarantees that tasks to delete data are scheduled when its
-  // callback is invoked. It doesn't guarantee data has actually been cleared.
-  // So run all scheduled tasks to make sure data is cleared.
-  base::RunLoop().RunUntilIdle();
-
+  tester.ClearLocalStorage(
+      partition, a_week_ago, base::Time::Max(),
+      /*filter_builder=*/nullptr,
+      base::BindRepeating(&DoesOriginMatchForBothProtectedAndUnprotectedWeb));
   // kOrigin1 and kOrigin2 do not have age more than a week.
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
@@ -1520,7 +1437,7 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForOrigins) {
   const url::Origin kOrigin2 = url::Origin::Create(GURL("http://host2:1/"));
   const url::Origin kOrigin3 = url::Origin::Create(GURL("http://host3:1/"));
 
-  RemoveLocalStorageTester tester(task_environment(), browser_context());
+  RemoveLocalStorageTester tester(browser_context());
 
   tester.AddDOMStorageTestData(kOrigin1, kOrigin2, kOrigin3);
 
@@ -1532,19 +1449,9 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForOrigins) {
   filter_builder->AddOrigin(kOrigin1);
   filter_builder->AddOrigin(kOrigin2);
 
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          &ClearStuff, StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
-          partition, base::Time::Min(), base::Time::Max(), filter_builder.get(),
-          StoragePartition::StorageKeyPolicyMatcherFunction(), &run_loop));
-  run_loop.Run();
-  // ClearData only guarantees that tasks to delete data are scheduled when its
-  // callback is invoked. It doesn't guarantee data has actually been cleared.
-  // So run all scheduled tasks to make sure data is cleared.
-  base::RunLoop().RunUntilIdle();
-
+  tester.ClearLocalStorage(partition, base::Time::Min(), base::Time::Max(),
+                           filter_builder.get(),
+                           StoragePartition::StorageKeyPolicyMatcherFunction());
   // kOrigin3 is not filtered by the filter builder.
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin2));
@@ -1557,7 +1464,7 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForOneOrigin) {
   const url::Origin kOrigin2 = url::Origin::Create(GURL("http://host2:1/"));
   const url::Origin kOrigin3 = url::Origin::Create(GURL("http://host3:1/"));
 
-  RemoveLocalStorageTester tester(task_environment(), browser_context());
+  RemoveLocalStorageTester tester(browser_context());
 
   tester.AddDOMStorageTestData(kOrigin1, kOrigin2, kOrigin3);
 
@@ -1565,16 +1472,10 @@ TEST_F(StoragePartitionImplTest, RemoveLocalStorageForOneOrigin) {
       browser_context()->GetDefaultStoragePartition());
 
   base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ClearDataForOrigin,
-                     StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
-                     partition, kUrl1, &run_loop));
+  ClearDataForOrigin(StoragePartitionImpl::REMOVE_DATA_MASK_LOCAL_STORAGE,
+                     partition, kUrl1, &run_loop);
   run_loop.Run();
-  // ClearData only guarantees that tasks to delete data are scheduled when its
-  // callback is invoked. It doesn't guarantee data has actually been cleared.
-  // So run all scheduled tasks to make sure data is cleared.
-  base::RunLoop().RunUntilIdle();
+  tester.GetLocalStorageUsage();
 
   // kOrigin1 should be cleared.
   EXPECT_FALSE(tester.DOMStorageExistsForOrigin(kOrigin1));
@@ -2534,7 +2435,7 @@ TEST_F(StoragePartitionImplSharedStorageTest,
                      partition, base::Time(), base::Time::Max(),
                      /*filter_builder=*/nullptr,
                      base::BindRepeating(&DoesOriginMatchForUnprotectedWeb),
-                     &clear_run_loop));
+                     clear_run_loop.QuitClosure()));
   clear_run_loop.Run();
 
   // ClearData only guarantees that tasks to delete data are scheduled when its
@@ -2573,7 +2474,7 @@ TEST_F(StoragePartitionImplSharedStorageTest,
                      /*filter_builder=*/nullptr,
                      base::BindRepeating(
                          &DoesOriginMatchForBothProtectedAndUnprotectedWeb),
-                     &clear_run_loop));
+                     clear_run_loop.QuitClosure()));
   clear_run_loop.Run();
 
   // ClearData only guarantees that tasks to delete data are scheduled when its
@@ -2611,7 +2512,7 @@ TEST_F(StoragePartitionImplSharedStorageTest, RemoveSharedStorageRecent) {
           /*filter_builder=*/nullptr,
           base::BindRepeating(
               &DoesOriginMatchForBothProtectedAndUnprotectedWeb),
-          &clear_run_loop));
+          clear_run_loop.QuitClosure()));
   clear_run_loop.Run();
 
   // ClearData only guarantees that tasks to delete data are scheduled when its
@@ -2641,10 +2542,13 @@ TEST_F(StoragePartitionImplLocalNetworkAccessTest,
       partition->CreateURLLoaderNetworkObserverForFrame(
           process()->GetDeprecatedID(), main_rfh()->GetRoutingID()));
 
-  base::test::TestFuture<bool> grant_permission;
+  base::test::TestFuture<network::mojom::LocalNetworkAccessResult> lna_result;
   observer->OnLocalNetworkAccessPermissionRequired(
-      base::BindOnce(grant_permission.GetCallback()));
-  EXPECT_FALSE(grant_permission.Get());
+      network::mojom::TransportType::kDirect,
+      network::mojom::IPAddressSpace::kLocal,
+      base::BindOnce(lna_result.GetCallback()));
+  EXPECT_EQ(network::mojom::LocalNetworkAccessResult::kDenied,
+            lna_result.Get());
 }
 
 // Tests triggering the Local Network Access permission check for a subframe
@@ -2672,10 +2576,13 @@ TEST_F(StoragePartitionImplLocalNetworkAccessTest,
   mojo::Remote<network::mojom::URLLoaderNetworkServiceObserver> observer(
       partition->CreateURLLoaderNetworkObserverForNavigationRequest(*request));
 
-  base::test::TestFuture<bool> grant_permission;
+  base::test::TestFuture<network::mojom::LocalNetworkAccessResult> lna_result;
   observer->OnLocalNetworkAccessPermissionRequired(
-      base::BindOnce(grant_permission.GetCallback()));
-  EXPECT_FALSE(grant_permission.Get());
+      network::mojom::TransportType::kDirect,
+      network::mojom::IPAddressSpace::kLocal,
+      base::BindOnce(lna_result.GetCallback()));
+  EXPECT_EQ(network::mojom::LocalNetworkAccessResult::kDenied,
+            lna_result.Get());
 }
 
 // Tests triggering the Local Network Access permission check for a worker
@@ -2694,10 +2601,13 @@ TEST_F(StoragePartitionImplLocalNetworkAccessTest,
       partition->CreateURLLoaderNetworkObserverForServiceOrSharedWorker(
           network::mojom::kBrowserProcessId, worker_origin));
 
-  base::test::TestFuture<bool> grant_permission;
+  base::test::TestFuture<network::mojom::LocalNetworkAccessResult> lna_result;
   observer->OnLocalNetworkAccessPermissionRequired(
-      base::BindOnce(grant_permission.GetCallback()));
-  EXPECT_FALSE(grant_permission.Get());
+      network::mojom::TransportType::kDirect,
+      network::mojom::IPAddressSpace::kLocal,
+      base::BindOnce(lna_result.GetCallback()));
+  EXPECT_EQ(network::mojom::LocalNetworkAccessResult::kDenied,
+            lna_result.Get());
 }
 
 TEST_F(StoragePartitionImplTest, ClearDataStorageKeyDeletesPartitionedCookies) {

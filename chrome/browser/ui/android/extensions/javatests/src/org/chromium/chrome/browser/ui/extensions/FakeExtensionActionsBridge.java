@@ -11,10 +11,12 @@ import android.view.KeyEvent;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.extensions.ShowAction;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -28,8 +30,27 @@ import java.util.function.Function;
  */
 @NullMarked
 public class FakeExtensionActionsBridge {
-    /** A map of profile IDs to their corresponding {@link ProfileModel}. */
-    private final TreeMap<Long, ProfileModel> mProfileModels = new TreeMap<>();
+    /**
+     * A map of task IDs to their corresponding {@link TaskModel}.
+     *
+     * <p>Task IDs is a concept internal to this class, identifying a {@link ChromeAndroidTask} that
+     * is associated with {@link TaskModel}. It is defined to be identical to the native browser
+     * window interface pointer as returned by {@link
+     * ChromeAndroidTask#getOrCreateNativeBrowserWindowPtr()}. We ensure that it is non-zero to
+     * avoid potential bugs with mocked {@link ChromeAndroidTask}.
+     */
+    private final TreeMap<Long, TaskModel> mTaskModels = new TreeMap<>();
+
+    /**
+     * A map of bridge IDs to their corresponding task IDs.
+     *
+     * <p>Bridge IDs is a concept internal to this class, identifying a {@link
+     * ExtensionActionsBridge} by a unique long. An increasing non-negative long is assigned to a
+     * {@link ExtensionActionsBridge} as it is initialized.
+     *
+     * <p>Note that we never remove items from this map, which should be fine for tests.
+     */
+    private final TreeMap<Long, Long> mBridgeIdToTaskId = new TreeMap<>();
 
     public FakeExtensionActionsBridge() {}
 
@@ -47,42 +68,37 @@ public class FakeExtensionActionsBridge {
     }
 
     /**
-     * Returns the {@link ProfileModel} for the given {@link Profile}, or null if it doesn't exist.
+     * Returns the {@link TaskModel} for the given {@link ChromeAndroidTask}, or null if it doesn't
+     * exist.
      */
-    public @Nullable ProfileModel getProfileModel(Profile profile) {
-        return mProfileModels.get(computeProfileId(profile));
+    public @Nullable TaskModel getTaskModel(ChromeAndroidTask task) {
+        return mTaskModels.get(computeTaskId(task));
     }
 
     /**
-     * Returns the {@link ProfileModel} for the given {@link Profile}, creating it if it doesn't
-     * exist.
+     * Returns the {@link TaskModel} for the given {@link ChromeAndroidTask}, creating it if it
+     * doesn't exist.
      */
-    public ProfileModel getOrCreateProfileModel(Profile profile) {
-        long profileId = computeProfileId(profile);
-        ProfileModel model = mProfileModels.get(profileId);
+    public TaskModel getOrCreateTaskModel(ChromeAndroidTask task) {
+        long browserId = computeTaskId(task);
+        TaskModel model = mTaskModels.get(browserId);
         if (model == null) {
-            model = new ProfileModel(profile);
-            mProfileModels.put(profileId, model);
+            model = new TaskModel(task);
+            mTaskModels.put(browserId, model);
         }
         return model;
     }
 
-    /** Clears all {@link ProfileModel} created. */
+    /** Clears all {@link TaskModel} created. */
     public void clear() {
-        mProfileModels.clear();
+        mTaskModels.clear();
     }
 
-    /** Computes the long ID for the given {@link Profile}. */
-    private static long computeProfileId(Profile profile) {
-        profile.ensureNativeInitialized();
-        long id = profile.getNativeBrowserContextPointer();
-        if (id == 0) {
-            // Profile must be a mock because this should never happen for a real Profile object, so
-            // use a hash code instead. We compute the ID so that it never collide with real Profile
-            // pointers, assuming that they're aligned by 4 or 8 bytes.
-            id = ((long) System.identityHashCode(profile) << 2) | 1;
-        }
-        return id;
+    /** Computes the task ID for the given {@link ChromeAndroidTask}. */
+    private static long computeTaskId(ChromeAndroidTask task) {
+        long taskId = task.getOrCreateNativeBrowserWindowPtr();
+        assert taskId != 0 : "ChromeAndroidTask#getOrCreateNativeBrowserWindowPtr() returned 0";
+        return taskId;
     }
 
     /** Creates a new transparent icon. */
@@ -93,32 +109,31 @@ public class FakeExtensionActionsBridge {
     }
 
     /**
-     * A fake model for a profile, which contains a set of extension actions and other
-     * profile-specific states.
+     * A fake model for a browser window (task), which contains a set of extension actions and other
+     * window-specific states.
      */
-    public static class ProfileModel {
-        /** The profile associated with this model. */
-        private final Profile mProfile;
+    public static class TaskModel {
+        /** The task associated with this model. */
+        private final ChromeAndroidTask mTask;
 
-        /** The bridge for this profile. */
-        private final ExtensionActionsBridge mBridge;
+        /** The active bridges for this task, keyed by their bridge IDs. */
+        private final TreeMap<Long, ExtensionActionsBridge> mActiveBridges = new TreeMap<>();
 
         /** Whether the model has been initialized. */
         private boolean mInitialized;
 
-        /** The key event handler for this profile. */
+        /** The key event handler for this task. */
         private @Nullable KeyEventHandler mKeyEventHandler;
 
         /** A map of action IDs to functions that return the action data for a given tab ID. */
         private final TreeMap<String, Function<Integer, ActionData>> mActionFuncs = new TreeMap<>();
 
-        private ProfileModel(Profile profile) {
-            mProfile = profile;
-            mBridge = new ExtensionActionsBridge(computeProfileId(profile));
+        private TaskModel(ChromeAndroidTask task) {
+            mTask = task;
         }
 
-        public ExtensionActionsBridge getBridge() {
-            return mBridge;
+        private Collection<ExtensionActionsBridge> getActiveBridges() {
+            return List.copyOf(mActiveBridges.values());
         }
 
         /** Returns whether the model has been initialized. */
@@ -135,16 +150,18 @@ public class FakeExtensionActionsBridge {
         public void setInitialized(boolean initialized) {
             mInitialized = initialized;
             if (mInitialized) {
-                getBridge().onActionModelInitialized();
+                for (ExtensionActionsBridge bridge : getActiveBridges()) {
+                    bridge.onActionModelInitialized();
+                }
             }
         }
 
-        /** Returns the {@link KeyEventHandler} for this profile. */
+        /** Returns the {@link KeyEventHandler} for this task. */
         public @Nullable KeyEventHandler getKeyEventHandler() {
             return mKeyEventHandler;
         }
 
-        /** Sets the {@link KeyEventHandler} for this profile. */
+        /** Sets the {@link KeyEventHandler} for this task. */
         public void setKeyEventHandler(@Nullable KeyEventHandler keyEventHandler) {
             mKeyEventHandler = keyEventHandler;
         }
@@ -171,9 +188,13 @@ public class FakeExtensionActionsBridge {
             mActionFuncs.put(actionId, actionFunc);
 
             if (update) {
-                getBridge().onActionUpdated(actionId);
+                for (ExtensionActionsBridge bridge : getActiveBridges()) {
+                    bridge.onActionUpdated(actionId);
+                }
             } else {
-                getBridge().onActionAdded(actionId);
+                for (ExtensionActionsBridge bridge : getActiveBridges()) {
+                    bridge.onActionAdded(actionId);
+                }
             }
         }
 
@@ -197,7 +218,9 @@ public class FakeExtensionActionsBridge {
             assert mActionFuncs.containsKey(actionId);
 
             mActionFuncs.put(actionId, actionFunc);
-            getBridge().onActionIconUpdated(actionId);
+            for (ExtensionActionsBridge bridge : getActiveBridges()) {
+                bridge.onActionIconUpdated(actionId);
+            }
         }
 
         /** Removes an extension action. It does nothing if the action ID is not registered. */
@@ -206,7 +229,9 @@ public class FakeExtensionActionsBridge {
                 return;
             }
             mActionFuncs.remove(actionId);
-            getBridge().onActionRemoved(actionId);
+            for (ExtensionActionsBridge bridge : getActiveBridges()) {
+                bridge.onActionRemoved(actionId);
+            }
         }
 
         /** Returns the list of all action IDs, sorted lexicographically. */
@@ -302,40 +327,46 @@ public class FakeExtensionActionsBridge {
         }
 
         @Override
-        public ExtensionActionsBridge get(Profile profile) {
-            return getProfileModelOrThrow(computeProfileId(profile)).getBridge();
+        public long init(ExtensionActionsBridge bridge, long taskId) {
+            long bridgeId = allocateBridgeId(taskId);
+            TaskModel taskModel = getTaskModelByTaskIdOrThrow(taskId);
+            taskModel.mActiveBridges.put(bridgeId, bridge);
+            // Use the bridge ID as the native bridge pointer.
+            return bridgeId;
         }
 
         @Override
-        public boolean areActionsInitialized(long nativeExtensionActionsBridge) {
-            return getProfileModelOrThrow(nativeExtensionActionsBridge).isInitialized();
+        public void destroy(long bridgeId) {
+            getTaskModelByBridgeIdOrThrow(bridgeId).mActiveBridges.remove(bridgeId);
         }
 
         @Override
-        public String[] getActionIds(long nativeExtensionActionsBridge) {
-            return getProfileModelOrThrow(nativeExtensionActionsBridge)
-                    .getIds()
-                    .toArray(String[]::new);
+        public boolean areActionsInitialized(long bridgeId) {
+            return getTaskModelByBridgeIdOrThrow(bridgeId).isInitialized();
         }
 
         @Override
-        public @Nullable ExtensionAction getAction(
-                long nativeExtensionActionsBridge, String actionId, int tabId) {
-            return getProfileModelOrThrow(nativeExtensionActionsBridge)
+        public String[] getActionIds(long bridgeId) {
+            return getTaskModelByBridgeIdOrThrow(bridgeId).getIds().toArray(String[]::new);
+        }
+
+        @Override
+        public @Nullable ExtensionAction getAction(long bridgeId, String actionId, int tabId) {
+            return getTaskModelByBridgeIdOrThrow(bridgeId)
                     .getAction(actionId, tabId)
                     .toExtensionAction(actionId);
         }
 
         @Override
         public @Nullable Bitmap getActionIcon(
-                long nativeExtensionActionsBridge,
+                long bridgeId,
                 String actionId,
                 int tabId,
                 @Nullable WebContents webContents,
                 int canvasWidthDp,
                 int canvasHeightDp,
                 float scaleFactor) {
-            return getProfileModelOrThrow(nativeExtensionActionsBridge)
+            return getTaskModelByBridgeIdOrThrow(bridgeId)
                     .getAction(actionId, tabId)
                     // The current icon test implementation merely returns a pre-defined icon and
                     // therefore does not need use the canvas dimensions, scale factor, or
@@ -345,11 +376,8 @@ public class FakeExtensionActionsBridge {
 
         @Override
         public @ShowAction int runAction(
-                long nativeExtensionActionsBridge,
-                String actionId,
-                int tabId,
-                WebContents webContents) {
-            return getProfileModelOrThrow(nativeExtensionActionsBridge)
+                long bridgeId, String actionId, int tabId, WebContents webContents) {
+            return getTaskModelByBridgeIdOrThrow(bridgeId)
                     .getAction(actionId, tabId)
                     .getActionRunner()
                     .runAction();
@@ -357,9 +385,9 @@ public class FakeExtensionActionsBridge {
 
         @Override
         public ExtensionActionsBridge.HandleKeyEventResult handleKeyDownEvent(
-                long nativeExtensionActionsBridge, KeyEvent keyEvent) {
+                long bridgeId, KeyEvent keyEvent) {
             KeyEventHandler keyEventHandler =
-                    getProfileModelOrThrow(nativeExtensionActionsBridge).getKeyEventHandler();
+                    getTaskModelByBridgeIdOrThrow(bridgeId).getKeyEventHandler();
             if (keyEventHandler == null) {
                 return new ExtensionActionsBridge.HandleKeyEventResult(false, "");
             }
@@ -367,15 +395,36 @@ public class FakeExtensionActionsBridge {
         }
 
         /**
-         * Returns the {@link ProfileModel} for the given profile ID, or throws a {@link
-         * RuntimeException} if it doesn't exist.
+         * Returns the {@link TaskModel} for the given task ID.
+         *
+         * @throws RuntimeException if the task ID is not known.
          */
-        private ProfileModel getProfileModelOrThrow(long profileId) {
-            ProfileModel model = mProfileModels.get(profileId);
+        private TaskModel getTaskModelByTaskIdOrThrow(long taskId) {
+            TaskModel model = mTaskModels.get(taskId);
             if (model == null) {
-                throw new RuntimeException("ProfileModel not created for profile " + profileId);
+                throw new RuntimeException("TaskModel not created for task " + taskId);
             }
             return model;
+        }
+
+        /** Allocates a new bridge ID for the given task ID. */
+        private long allocateBridgeId(long taskId) {
+            long bridgeId = mBridgeIdToTaskId.size() + 1L; // Start bridge IDs at 1.
+            mBridgeIdToTaskId.put(bridgeId, taskId);
+            return bridgeId;
+        }
+
+        /**
+         * Returns the {@link TaskModel} for the given bridge ID.
+         *
+         * @throws RuntimeException if the bridge ID is not known.
+         */
+        private TaskModel getTaskModelByBridgeIdOrThrow(long bridgeId) {
+            Long taskId = mBridgeIdToTaskId.get(bridgeId);
+            if (taskId == null) {
+                throw new RuntimeException("Bridge " + bridgeId + " not known");
+            }
+            return getTaskModelByTaskIdOrThrow(taskId);
         }
     }
 }

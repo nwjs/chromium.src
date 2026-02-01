@@ -55,7 +55,6 @@
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
-#include "services/network/public/mojom/ip_address_space.mojom-forward.h"
 #include "services/network/public/mojom/ip_address_space.mojom-shared.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -109,6 +108,7 @@ class SharedDictionaryManager;
 class SharedResourceChecker;
 class SlopBucket;
 class TrustTokenUrlLoaderInterceptor;
+class DevtoolsDurableMessageWriter;
 
 class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
     : public mojom::URLLoader,
@@ -185,7 +185,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
           accept_ch_frame_observer,
       bool shared_storage_writable_eligible,
       SharedResourceChecker& shared_resource_checker,
-      base::WeakPtr<DevtoolsDurableMessage> devtools_durable_message);
+      std::unique_ptr<DevtoolsDurableMessageWriter>
+          maybe_durable_message_writer);
 
   URLLoader(const URLLoader&) = delete;
   URLLoader& operator=(const URLLoader&) = delete;
@@ -783,8 +784,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   // Permissions policy of the request.
   const std::optional<network::PermissionsPolicy> permissions_policy_;
 
-  // DevTools Durable Message instance, if enabled.
-  base::WeakPtr<DevtoolsDurableMessage> devtools_durable_message_;
+  // DevTools Durable Message instances, if enabled.
+  std::unique_ptr<DevtoolsDurableMessageWriter> durable_message_writer_;
 
   // Keeps track of raw body sizes transmitted to DevTools.
   int64_t devtools_durable_message_raw_size_ = 0;

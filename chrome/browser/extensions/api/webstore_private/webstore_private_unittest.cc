@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "base/version_info/version_info.h"
@@ -47,6 +48,10 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/mv2_experiment_stage.h"
 #endif
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "components/enterprise/promotion_types.h"
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -745,10 +750,7 @@ class WebstorePrivateBeginInstallWithManifest3FrictionDialogTest
     : public WebstorePrivateBeginInstallWithManifest3Test,
       public testing::WithParamInterface<FrictionDialogTestCase> {
  public:
-  WebstorePrivateBeginInstallWithManifest3FrictionDialogTest() {
-    feature_list_.InitAndEnableFeature(
-        extensions_features::kSafeBrowsingCrxAllowlistShowWarnings);
-  }
+  WebstorePrivateBeginInstallWithManifest3FrictionDialogTest() = default;
 
   void SetUp() override {
     WebstorePrivateBeginInstallWithManifest3Test::SetUp();
@@ -758,9 +760,6 @@ class WebstorePrivateBeginInstallWithManifest3FrictionDialogTest
     // without calling `webstorePrivate.completeInstall`.
     WebstorePrivateApi::ClearPendingApprovalsForTesting();
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_P(WebstorePrivateBeginInstallWithManifest3FrictionDialogTest,
@@ -910,5 +909,46 @@ TEST_P(WebstorePrivateManifestV2DeprecationUnitTest,
   EXPECT_EQ(expected, *response);
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+#if !BUILDFLAG(IS_ANDROID)
+class WebstorePrivateLogEnterprisePromoShownFunctionTest
+    : public WebstorePrivateApiTestBase {
+ protected:
+  base::HistogramTester histogram_tester_;
+};
+
+TEST_F(WebstorePrivateLogEnterprisePromoShownFunctionTest,
+       HistogramRecordedDisplay) {
+  auto function =
+      base::MakeRefCounted<WebstorePrivateLogEnterprisePromoShownFunction>();
+
+  api_test_utils::RunFunction(function.get(), "[]", profile());
+
+  histogram_tester_.ExpectUniqueSample(
+      "Enterprise.CwsPromotionBannerEvent",
+      static_cast<int>(enterprise::CwsPromotionBannerEvent::kDisplayed), 1);
+}
+
+class WebstorePrivateOnEnterprisePromoClickFunctionTest
+    : public WebstorePrivateApiTestBase {
+ protected:
+  base::HistogramTester histogram_tester_;
+};
+
+TEST_F(WebstorePrivateOnEnterprisePromoClickFunctionTest,
+       HistogramRecordedClick) {
+  PrefService* prefs = profile()->GetPrefs();
+  prefs->SetBoolean(pref_names::kHasDismissedEnterprisePromotion, false);
+  auto function =
+      base::MakeRefCounted<WebstorePrivateOnEnterprisePromoClickFunction>();
+
+  api_test_utils::RunFunction(function.get(), "[]", profile());
+
+  histogram_tester_.ExpectUniqueSample(
+      "Enterprise.CwsPromotionBannerEvent",
+      static_cast<int>(enterprise::CwsPromotionBannerEvent::kClicked), 1);
+  EXPECT_TRUE(prefs->GetBoolean(pref_names::kHasDismissedEnterprisePromotion));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace extensions

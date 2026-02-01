@@ -11,6 +11,7 @@ import 'chrome://resources/cr_components/searchbox/searchbox.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/cr_components/composebox/composebox.js';
+import 'chrome://resources/cr_components/composebox/threads_rail.js';
 
 import {GlifAnimationState} from '//resources/cr_components/composebox/context_menu_entrypoint.js';
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
@@ -93,7 +94,8 @@ export enum NtpElement {
   CUSTOMIZE_DIALOG = 10,  // Obsolete
   WALLPAPER_SEARCH_BUTTON = 11,
   ACTION_CHIPS = 12,
-  MAX_VALUE = ACTION_CHIPS,
+  THREADS_RAIL = 13,
+  MAX_VALUE = THREADS_RAIL,
 }
 
 /**
@@ -126,6 +128,8 @@ const MSAL_IFRAME_ORIGIN = 'chrome-untrusted://ntp-microsoft-auth';
 
 export const CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID =
     'CustomizeButtonsHandler::kCustomizeChromeButtonElementId';
+export const CONTEXTUAL_ENTRYPOINT_ELEMENT_ID =
+    'NewTabPageUI::kRealboxContextualEntrypointElementId';
 
 // 900px ~= 561px (max value for --ntp-search-box-width) * 1.5 + some margin.
 const realboxCanShowSecondarySideMediaQueryList =
@@ -324,6 +328,15 @@ export class AppElement extends AppElementBase {
       contextMenuGlifAnimationState_: {type: String},
       undoAutoRemovalCallback_: {type: Object},
       undoAutoRemovalMessage_: {type: Object},
+
+      /**
+       * Whether to show the AIM threads rail when composebox is open.
+       */
+      enableThreadsRail_: {type: Boolean},
+
+      /* Whether to show the model picker in the contextual action menu. */
+      showModelPicker_: {type: Boolean},
+      showCanvas_: {type: Boolean},
     };
   }
 
@@ -412,12 +425,16 @@ export class AppElement extends AppElementBase {
       GlifAnimationState.INELIGIBLE;
   protected accessor undoAutoRemovalCallback_: (() => void)|null = null;
   protected accessor undoAutoRemovalMessage_: string|null = null;
-  protected enableModalComposebox_: boolean =
-      loadTimeData.getBoolean('enableModalComposebox');
   protected ephemeralContextMenuDescriptionEnabled_: boolean =
       loadTimeData.getBoolean('enableEphemeralContextMenuDescription') ?? false;
   protected showContextMenuDescription_: boolean =
       loadTimeData.getBoolean('composeboxShowContextMenuDescription');
+  protected accessor enableThreadsRail_: boolean =
+      loadTimeData.getBoolean('enableThreadsRail');
+  protected accessor showModelPicker_: boolean =
+      loadTimeData.getBoolean('showModelPicker');
+  protected accessor showCanvas_: boolean =
+      loadTimeData.getBoolean('showCanvas');
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -635,6 +652,12 @@ export class AppElement extends AppElementBase {
     if (!this.modulesEnabled_) {
       this.recordBrowserPromoMetrics_();
     }
+
+    if (this.ntpRealboxNextEnabled_ && this.realboxLayoutMode_ !== '') {
+      this.registerHelpBubble(
+          CONTEXTUAL_ENTRYPOINT_ELEMENT_ID,
+          ['#searchbox', '#context', '#contextEntrypoint'], {fixed: true});
+    }
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -679,6 +702,7 @@ export class AppElement extends AppElementBase {
 
     if (this.ntpRealboxNextEnabled_ && [
           'showComposebox_',
+          'showLensUploadDialog_',
           'searchboxInputFocused_',
           'composeboxInputFocused_',
         ].some((prop) => changedPrivateProperties.has(prop))) {
@@ -705,8 +729,8 @@ export class AppElement extends AppElementBase {
        *   5. The onclick handler of the scrim runs and sets showComposebox_ to
        *      false, and everything works as desired.
        */
-      this.showScrim_ = this.showComposebox_ || this.searchboxInputFocused_ ||
-          this.composeboxInputFocused_;
+      this.showScrim_ = this.showComposebox_ || this.showLensUploadDialog_ ||
+          this.searchboxInputFocused_ || this.composeboxInputFocused_;
     }
   }
 
@@ -742,7 +766,7 @@ export class AppElement extends AppElementBase {
     }
 
     if (changedPrivateProperties.has('showComposebox_') &&
-        this.showComposebox_ && this.enableModalComposebox_) {
+        this.showComposebox_) {
       const composeboxDialog =
           this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
       assert(composeboxDialog);
@@ -753,6 +777,11 @@ export class AppElement extends AppElementBase {
         changedPrivateProperties.has('theme_') ||
         changedPrivateProperties.has('showComposebox_')) {
       this.updateOneGoogleBarAppearance_();
+    }
+
+    if (changedPrivateProperties.has('showComposebox_') &&
+        this.showComposebox_ && this.enableThreadsRail_) {
+      recordBoolean('NewTabPage.ThreadsRail.Shown', true);
     }
   }
 
@@ -871,6 +900,15 @@ export class AppElement extends AppElementBase {
     }
   }
 
+  protected onScrimClick_() {
+    if (this.showComposebox_ && this.composeboxCloseByClickOutside_) {
+      this.onComposeboxClickOutside_();
+    }
+    if (this.showLensUploadDialog_) {
+      this.onCloseLensSearch_();
+    }
+  }
+
   protected onComposeboxClickOutside_() {
     const composebox =
         this.shadowRoot.querySelector<ComposeboxElement>('#composebox');
@@ -885,12 +923,10 @@ export class AppElement extends AppElementBase {
   }
 
   protected closeComposebox_(e: CustomEvent) {
-    if (this.enableModalComposebox_) {
-      const composeboxDialog =
-          this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
-      assert(composeboxDialog);
-      composeboxDialog.close();
-    }
+    const composeboxDialog =
+        this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
+    assert(composeboxDialog);
+    composeboxDialog.close();
 
     const composeboxText = e.detail.composeboxText;
 
@@ -967,8 +1003,9 @@ export class AppElement extends AppElementBase {
         return !this.showBackgroundImage_;
       case NtpWallpaperSearchButtonHideCondition.THEME_SET:
         return this.colorSourceIsBaseline && !this.showBackgroundImage_;
+      default:
+        return false;
     }
-    return false;
   }
 
   protected onWallpaperSearchClick_() {
@@ -1267,6 +1304,8 @@ export class AppElement extends AppElementBase {
       case CustomizeDialogPage.WALLPAPER_SEARCH:
         section = CustomizeChromeSection.kWallpaperSearch;
         break;
+      default:
+        break;
     }
     this.customizeButtonsHandler_.setCustomizeChromeSidePanelVisible(
         visible, section, SidePanelOpenTrigger.kNewTabPage);
@@ -1341,6 +1380,11 @@ export class AppElement extends AppElementBase {
         case $$(this, '#modules'):
           recordClick(NtpElement.MODULE);
           return;
+        case $$(this, '#threadsRail'):
+          recordClick(NtpElement.THREADS_RAIL);
+          return;
+        default:
+          break;
       }
     }
 
@@ -1355,6 +1399,8 @@ export class AppElement extends AppElementBase {
           case $$(customizeButtonsElement, '#wallpaperSearchButton'):
             recordClick(NtpElement.WALLPAPER_SEARCH_BUTTON);
             return;
+          default:
+            break;
         }
       }
     }
@@ -1366,8 +1412,9 @@ export class AppElement extends AppElementBase {
     return !!this.theme_ && this.theme_.isDark;
   }
 
-  protected themeHasBackgroundImage_(): boolean {
-    return !!this.theme_ && !!this.theme_.backgroundImage;
+  protected showActionChipsBackground_(): boolean {
+    return !!this.theme_ &&
+        (!!this.theme_.backgroundImage || !this.theme_.isGm3);
   }
 
   protected showThemeAttribution_(): boolean {
@@ -1382,6 +1429,8 @@ export class AppElement extends AppElementBase {
       case 'composebox-input-focus-changed':
         this.composeboxInputFocused_ = e.detail.value;
         break;
+      default:
+        assertNotReached();
     }
   }
 

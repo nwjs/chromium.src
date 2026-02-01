@@ -168,6 +168,7 @@ NSString* GetPromoLabelString(
         kEnterpriseManagementDisclaimerAfterSignin:
     case signin_metrics::AccessPoint::kNtpFeaturePromo:
     case signin_metrics::AccessPoint::kEnterpriseDialogAfterSigninInterception:
+    case signin_metrics::AccessPoint::kCredentialExchangeImport:
       // Nothing prevents instantiating ConsistencyDefaultAccountViewController
       // with an arbitrary entry point, API-wise. In doubt, no label is a good,
       // generic default that fits all entry points.
@@ -355,14 +356,10 @@ NSString* GetPromoLabelString(
 #pragma mark -  IdentityManagerObserver
 
 - (void)onAccountsOnDeviceChanged {
-  if (base::FeatureList::IsEnabled(switches::kEnableIdentityInAuthError)) {
-    if (_accountManagerService &&
-        !_accountManagerService->IsValidIdentity(self.selectedIdentity)) {
-      // The currently selected identity is not valid anymore. Let’s select the
-      // default identity instead.
-      [self selectDefaultIdentity];
-    }
-  } else {
+  if (_accountManagerService &&
+      !_accountManagerService->IsValidIdentity(self.selectedIdentity)) {
+    // The currently selected identity is not valid anymore. Let’s select the
+    // default identity instead.
     [self selectDefaultIdentity];
   }
 }

@@ -9,51 +9,59 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.ThreadUtils.ThreadChecker;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.build.annotations.RequiresNonNull;
 
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
- * Concrete implementation of {@link ObservableSupplier} to be used by classes owning the
- * ObservableSupplier and providing it as a dependency to others.
+ * Implementation for Settable{NonNull}ObservableSupplier.
+ *
+ * <p>Since this class is both nullable and non-null, it should only be used directly when needing
+ * to create subclasses. All normal uses should be done through interface types; creation should be
+ * done via ObservableSuppliers.
  *
  * <p>This class must only be accessed from a single thread.
- *
- * <pre>
- * To use:
- *   1. Create a new ObservableSupplierImpl<E> to pass as a dependency
- *   2. Call {@link #set(Object)} when the real object becomes available. {@link #set(Object)} may
- *      be called multiple times. Observers will be notified each time a new object is set.
- * </pre>
- *
- * @param <E> The type of the wrapped object.
  */
 @NullMarked
-public class ObservableSupplierImpl<E extends @Nullable Object> implements ObservableSupplier<E> {
-    private final ThreadChecker mThreadChecker = new ThreadChecker();
+@SuppressWarnings("NullAway") // Implementation for both Nullable and NonNull.
+// TODO(455874046): Remove "T extends @Nullable Object".
+public class ObservableSupplierImpl<T extends @Nullable Object>
+        extends BaseObservableSupplierImpl<T>
+        implements Supplier<T>,
+                SettableNullableObservableSupplier<T>,
+                SettableObservableSupplier<T>,
+                SettableNonNullObservableSupplier<T> {
+    protected final ThreadChecker mThreadChecker = new ThreadChecker();
+    protected @Nullable ObserverList<Callback<T>> mObservers = new ObserverList<>();
 
-    private @Nullable E mObject;
-    protected final ObserverList<Callback<E>> mObservers = new ObserverList<>();
-
+    @Deprecated // Migrate to ObservableSuppliers.*
     public ObservableSupplierImpl() {
-        // Guard against creation on Instrumentation thread, since this is basically always a bug.
+        this(null, /* allowSetToNull= */ null);
+    }
+
+    @Deprecated // Migrate to ObservableSuppliers.*
+    public ObservableSupplierImpl(T initialValue) {
+        this(initialValue, /* allowSetToNull= */ null);
+    }
+
+    protected ObservableSupplierImpl(@Nullable T initialValue, @Nullable Boolean allowSetToNull) {
+        super(initialValue, allowSetToNull);
+        // Guard against creation on Instrumentation thread, since this causes the ThreadChecker
+        // to be associated with it (it should be UI thread).
         assert !ThreadUtils.runningOnInstrumentationThread();
     }
 
-    public ObservableSupplierImpl(E initialValue) {
-        mObject = initialValue;
-    }
-
     @Override
-    @SuppressWarnings("NullAway") // Cannot specify that mObject is @Nullable only when E is.
-    public @Nullable E addObserver(Callback<E> obs, @NotifyBehavior int behavior) {
+    public T addObserver(Callback<T> obs, @NotifyBehavior int behavior) {
+        assert mObservers != null; // Check not destroyed.
         // ObserverList has its own ThreadChecker.
         mObservers.addObserver(obs);
 
         boolean notify = shouldNotifyOnAdd(behavior) && mObject != null;
         if (notify) {
-            E currentObject = mObject;
+            T currentObject = mObject;
             if (shouldPostOnAdd(behavior)) {
                 ThreadUtils.assertOnUiThread();
                 ThreadUtils.postOnUiThread(
@@ -71,41 +79,49 @@ public class ObservableSupplierImpl<E extends @Nullable Object> implements Obser
     }
 
     @Override
-    public void removeObserver(Callback<E> obs) {
-        // ObserverList has its own ThreadChecker.
-        mObservers.removeObserver(obs);
+    public void removeObserver(Callback<T> obs) {
+        // Check not destroyed.
+        if (mObservers != null) {
+            mObservers.removeObserver(obs);
+        }
     }
 
-    /**
-     * Set the object supplied by this supplier. This will notify registered callbacks that the
-     * dependency is available if the object changes. Object equality is used when deciding if the
-     * object has changed, not reference equality.
-     *
-     * @param object The object to supply.
-     */
-    public void set(E object) {
-        mThreadChecker.assertOnValidThread();
-        if (Objects.equals(object, mObject)) {
+    @Override
+    public void set(T object) {
+        // Sometimes ObservableSupplierImpl::set is linked directly to an event that does not get
+        // destroyed, so it's easier to ignore set() after destroy() than to have callers have to
+        // track the state. It can also be hard to ensure queued callbacks that call set() are
+        // cancelled, so again, just ignore after destroy().
+        if (mObservers != null) {
+            mThreadChecker.assertOnValidThread();
+            assert object != null || !Boolean.FALSE.equals(mAllowSetToNull)
+                    : "set(null) called on a non-nullable supplier";
+            T prevValue = mObject;
+            mObject = object;
+            callObservers(prevValue);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("NullAway")
+    public void destroy() {
+        mObservers = null;
+        mObject = null;
+    }
+
+    @RequiresNonNull("mObservers")
+    private void callObservers(T prevValue) {
+        T value = mObject;
+        if (Objects.equals(prevValue, value)) {
             return;
         }
-
-        mObject = object;
-
-        for (Callback<E> observer : mObservers) {
-            observer.onResult(object);
+        for (Callback<T> observer : mObservers) {
+            observer.onResult(value);
         }
     }
 
-    /**
-     * This should be @Nullable even for non-@Nullable T, since the constructor does not guarantee
-     * the value is set.
-     *
-     * <p>For now, this is marked with @NullUnmarked in order to suppress warnings.
-     * https://crbug.com/430320400 will track figuring out the nullability properly.
-     */
     @Override
-    @NullUnmarked
-    public E get() {
+    public T get() {
         // Allow instrumentation thread access since tests often access variables for asserts.
         // https://crbug.com/1173814
         mThreadChecker.assertOnValidOrInstrumentationThread();
@@ -113,9 +129,9 @@ public class ObservableSupplierImpl<E extends @Nullable Object> implements Obser
     }
 
     /** Returns if there are any observers currently. */
-    public boolean hasObservers() {
-        // ObserverList has its own ThreadChecker.
-        return !mObservers.isEmpty();
+    @Override
+    public int getObserverCount() {
+        return mObservers == null ? 0 : mObservers.size();
     }
 
     /** Returns whether the observer should be notified on being added. */

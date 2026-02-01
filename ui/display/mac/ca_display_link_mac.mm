@@ -11,22 +11,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/trace_event/trace_event.h"
-
-namespace {
-
-NSScreen* GetNSScreenFromDisplayID(CGDirectDisplayID display_id) {
-  for (NSScreen* screen in NSScreen.screens) {
-    CGDirectDisplayID screenNumber =
-        [screen.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
-    if (screenNumber == display_id) {
-      return screen;
-    }
-  }
-
-  return nullptr;
-}
-
-}  // namespace
+#include "ui/display/mac/screen_utils_mac.h"
 
 API_AVAILABLE(macos(14.0))
 @interface CADisplayLinkTarget : NSObject {
@@ -52,31 +37,34 @@ namespace ui {
 
 namespace {
 API_AVAILABLE(macos(14.0))
-ui::VSyncParamsMac ComputeVSyncParametersMac(CADisplayLink* display_link) {
+ui::VSyncParamsMac ComputeVSyncParametersMac(CADisplayLink* display_link,
+                                             base::TimeDelta min_interval) {
   // The time interval that represents when the last frame displayed.
   base::TimeTicks callback_time =
       base::TimeTicks() + base::Seconds(display_link.timestamp);
   // The time interval that represents when the next frame displays.
-  base::TimeTicks next_callback_time =
+  base::TimeTicks target_time =
       base::TimeTicks() + base::Seconds(display_link.targetTimestamp);
 
   bool times_valid = true;
-  base::TimeDelta current_interval = next_callback_time - callback_time;
+  base::TimeDelta interval = base::Seconds(1) * display_link.duration;
 
-  // Sanity check.
-  if (callback_time.is_null() || next_callback_time.is_null() ||
-      !current_interval.is_positive()) {
-    times_valid = false;
+  // Sanity check. Use default values if needed.
+  if (callback_time.is_null() || target_time.is_null() ||
+      !interval.is_positive()) {
+    interval = min_interval;
+    callback_time = base::TimeTicks::Now();
+    target_time = callback_time + interval;
   }
 
   ui::VSyncParamsMac params;
   params.callback_times_valid = times_valid;
   params.callback_timebase = callback_time;
-  params.callback_interval = current_interval;
+  params.callback_interval = interval;
 
   params.display_times_valid = times_valid;
-  params.display_timebase = next_callback_time + 0.5 * current_interval;
-  params.display_interval = current_interval;
+  params.display_timebase = target_time;
+  params.display_interval = interval;
 
   return params;
 }
@@ -105,41 +93,36 @@ void CADisplayLinkMac::Step() {
     consecutive_vsyncs_with_no_callbacks_ = 0;
 
     ui::VSyncParamsMac params =
-        ComputeVSyncParametersMac(objc_state_->display_link);
+        ComputeVSyncParametersMac(objc_state_->display_link, min_interval_);
 
     // UnregisterCallback() might be called while running the callbacks.
     vsync_callback_->callback_for_displaylink_thread_.Run(params);
   }
 }
 
-double CADisplayLinkMac::GetRefreshRate() const {
-  NSScreen* screen = GetNSScreenFromDisplayID(display_id_);
-  return 1.0 / screen.minimumRefreshInterval;
+base::TimeDelta CADisplayLinkMac::GetRefreshInterval() const {
+  return display::GetNSScreenRefreshInterval(display_id_);
 }
 
 void CADisplayLinkMac::GetRefreshIntervalRange(
     base::TimeDelta& min_interval,
     base::TimeDelta& max_interval,
     base::TimeDelta& granularity) const {
-  NSScreen* screen = GetNSScreenFromDisplayID(display_id_);
-  min_interval = base::Seconds(1) * screen.minimumRefreshInterval;
-  // No support for dynamic refresh range for now. Just return the minimum
-  // interval instead of using screen.maximumRefreshInterval and
-  // screen.displayUpdateGranularity.
-  max_interval = min_interval;
-  granularity = min_interval;
+  display::GetNSScreenRefreshIntervalRange(display_id_, min_interval,
+                                           max_interval, granularity);
 }
 
 // static
-scoped_refptr<DisplayLinkMac> CADisplayLinkMac::GetForDisplayOnCurrentThread(
+scoped_refptr<DisplayLinkMac> CADisplayLinkMac::GetForDisplay(
     CGDirectDisplayID display_id) {
   if (@available(macos 14.0, *)) {
     scoped_refptr<CADisplayLinkMac> display_link(
         new CADisplayLinkMac(display_id));
     auto* objc_state = display_link->objc_state_.get();
 
-    NSScreen* screen = GetNSScreenFromDisplayID(display_id);
+    NSScreen* screen = display::GetNSScreenFromDisplayID(display_id);
     if (!screen) {
+      RecordDisplayLinkCreation(false);
       return nullptr;
     }
 
@@ -148,8 +131,11 @@ scoped_refptr<DisplayLinkMac> CADisplayLinkMac::GetForDisplayOnCurrentThread(
                                                     selector:@selector(step:)];
 
     if (!objc_state->display_link) {
+      RecordDisplayLinkCreation(false);
       return nullptr;
     }
+
+    RecordDisplayLinkCreation(true);
 
     // Pause CADisplaylink callback until a request for start.
     objc_state->display_link.paused = YES;

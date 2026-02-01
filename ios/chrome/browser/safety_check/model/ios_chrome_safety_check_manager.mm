@@ -20,7 +20,7 @@
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/primary_account_change_event.h"
 #import "components/version_info/version_info.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_constants.h"
+#import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -357,9 +357,9 @@ void IOSChromeSafetyCheckManager::OnPrimaryAccountChanged(
   SetInsecurePasswordCounts({/* compromised */ 0, /* dismissed */ 0,
                              /* reused */ 0, /* weak */ 0});
 
-  // Reset the password check state to default. This updates the prefs and
+  // Set the password check state to `kSignedOut`. This updates the prefs and
   // notifies observers (e.g., `SafetyCheckNotificationClient`) of the change.
-  SetPasswordCheckState(PasswordSafetyCheckState::kDefault);
+  SetPasswordCheckState(PasswordSafetyCheckState::kSignedOut);
 
   previous_insecure_password_counts_ = insecure_password_counts_;
   previous_password_check_state_ = password_check_state_;
@@ -726,6 +726,16 @@ RunningSafetyCheckState
 IOSChromeSafetyCheckManager::GetRunningCheckStateForTesting() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return running_safety_check_state_;
+}
+
+void IOSChromeSafetyCheckManager::SetUpdateChromeCheckStateForTesting(
+    UpdateChromeSafetyCheckState state) {
+  SetUpdateChromeCheckState(state);
+}
+
+void IOSChromeSafetyCheckManager::SetSafeBrowsingCheckStateForTesting(
+    SafeBrowsingSafetyCheckState state) {
+  SetSafeBrowsingCheckState(state);
 }
 
 void IOSChromeSafetyCheckManager::SetPasswordCheckStateForTesting(

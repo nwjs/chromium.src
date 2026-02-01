@@ -26,13 +26,13 @@ base::Value::Dict CreateCommandValue(const ui::Command& command, bool active) {
 
 }  // namespace
 
-ExtensionFunction::ResponseAction GetAllCommandsFunction::Run() {
+ExtensionFunction::ResponseAction CommandsGetAllFunction::Run() {
   base::Value::List command_list;
 
   extensions::CommandService* command_service =
       extensions::CommandService::Get(browser_context());
 
-  // TODO(crbug.com/40124879): We should be able to check what
+  // TODO(crbug.com/466310522): We should be able to check what
   // type of action (if any) the extension has, and just check for
   // that one.
   extensions::Command browser_action;

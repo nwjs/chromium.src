@@ -33,6 +33,7 @@
 
 #include <limits>
 
+#include "base/functional/callback_helpers.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "cc/input/main_thread_scrolling_reason.h"
@@ -290,11 +291,7 @@ bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
                                      mojom::blink::ScrollType scroll_type,
                                      cc::ScrollSourceType source_type,
                                      mojom::blink::ScrollBehavior behavior,
-                                     ScrollCallback on_finish,
                                      bool targeted_scroll) {
-  if (on_finish)
-    RegisterScrollCompleteCallback(std::move(on_finish));
-
   ScrollableArea::ScrollCallback run_scroll_complete_callbacks(BindOnce(
       [](WeakPersistent<ScrollableArea> area, ScrollCompletionMode mode) {
         if (area) {
@@ -407,13 +404,6 @@ bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
 
   std::move(run_scroll_complete_callbacks).Run(ScrollCompletionMode::kFinished);
   return true;
-}
-
-bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
-                                     mojom::blink::ScrollType type,
-                                     cc::ScrollSourceType source_type,
-                                     mojom::blink::ScrollBehavior behavior) {
-  return SetScrollOffset(offset, type, source_type, behavior, ScrollCallback());
 }
 
 const LayoutObject* ScrollableArea::GetScrollInitialTarget() const {
@@ -917,6 +907,8 @@ void ScrollableArea::SetScrollbarsHiddenIfOverlayInternal(bool hidden) {
   if (!GetPageScrollbarTheme().UsesOverlayScrollbars())
     return;
 
+  hidden = hidden && !ShouldAvoidHidingOverlayScrollbars();
+
   if (scrollbars_hidden_if_overlay_ == static_cast<unsigned>(hidden))
     return;
 
@@ -1114,7 +1106,7 @@ void ScrollableArea::DidCompositorScroll(const gfx::PointF& position,
 
   SetScrollOffset(new_offset, mojom::blink::ScrollType::kCompositor,
                   source_type, mojom::blink::ScrollBehavior::kInstant,
-                  ScrollCallback(), targeted_scroll);
+                  targeted_scroll);
 }
 
 Scrollbar* ScrollableArea::GetScrollbar(
@@ -1167,29 +1159,26 @@ void ScrollableArea::SnapAfterScrollbarScrolling(
                         orientation == kVerticalScrollbar, source_type);
 }
 
-bool ScrollableArea::SnapAtCurrentPosition(
-    bool scrolled_x,
-    bool scrolled_y,
-    cc::ScrollSourceType source_type,
-    base::ScopedClosureRunner on_finish) {
+bool ScrollableArea::SnapAtCurrentPosition(bool scrolled_x,
+                                           bool scrolled_y,
+                                           cc::ScrollSourceType source_type) {
   DCHECK(IsRootFrameViewport() || !GetLayoutBox()->IsGlobalRootScroller());
   gfx::PointF current_position = ScrollPosition();
   return SnapForEndPosition(current_position, scrolled_x, scrolled_y,
-                            source_type, std::move(on_finish));
+                            source_type);
 }
 
 bool ScrollableArea::SnapForEndPosition(const gfx::PointF& end_position,
                                         bool scrolled_x,
                                         bool scrolled_y,
-                                        cc::ScrollSourceType source_type,
-                                        base::ScopedClosureRunner on_finish) {
+                                        cc::ScrollSourceType source_type) {
   DCHECK(IsRootFrameViewport() || !GetLayoutBox()->IsGlobalRootScroller());
   std::unique_ptr<cc::SnapSelectionStrategy> strategy =
       cc::SnapSelectionStrategy::CreateForEndPosition(end_position, scrolled_x,
                                                       scrolled_y);
   return PerformSnapping(*strategy, source_type,
                          mojom::blink::ScrollBehavior::kSmooth,
-                         std::move(on_finish));
+                         /*preserve_pinned_marker=*/false);
 }
 
 bool ScrollableArea::SnapForDirection(ScrollDirectionPhysical direction) {
@@ -1205,7 +1194,8 @@ bool ScrollableArea::SnapForDirection(ScrollDirectionPhysical direction) {
   // Only called for arrow key press scrolls, which are relative scrolls.
   // https://drafts.csswg.org/css-scroll-snap-1/#scroll-types
   return PerformSnapping(*strategy, cc::ScrollSourceType::kRelativeScroll,
-                         mojom::blink::ScrollBehavior::kSmooth);
+                         mojom::blink::ScrollBehavior::kSmooth,
+                         /*preserve_pinned_marker=*/false);
 }
 
 bool ScrollableArea::SnapForPageScroll(ScrollDirectionPhysical direction) {
@@ -1214,7 +1204,9 @@ bool ScrollableArea::SnapForPageScroll(ScrollDirectionPhysical direction) {
       PageScrollSnapStrategy(direction);
   // Only called for PgUp/PgDn key press scrolls, which are relative scrolls.
   // https://drafts.csswg.org/css-scroll-snap-1/#scroll-types
-  return PerformSnapping(*strategy, cc::ScrollSourceType::kRelativeScroll);
+  return PerformSnapping(*strategy, cc::ScrollSourceType::kRelativeScroll,
+                         mojom::blink::ScrollBehavior::kSmooth,
+                         /*preserve_pinned_marker=*/false);
 }
 
 bool ScrollableArea::SnapForDocumentScroll(ScrollDirectionPhysical direction) {
@@ -1250,14 +1242,13 @@ void ScrollableArea::SnapAfterLayout() {
       cc::SnapSelectionStrategy::CreateForTargetElement(current_position);
   PerformSnapping(*strategy, cc::ScrollSourceType::kStationaryScroll,
                   mojom::blink::ScrollBehavior::kInstant,
-                  base::ScopedClosureRunner(), true);
+                  /*preserve_pinned_marker=*/true);
 }
 
 bool ScrollableArea::PerformSnapping(
     const cc::SnapSelectionStrategy& strategy,
     cc::ScrollSourceType source_type,
     mojom::blink::ScrollBehavior scroll_behavior,
-    base::ScopedClosureRunner on_finish,
     bool preserve_pinned_marker) {
   std::optional<gfx::PointF> snap_point = GetSnapPositionAndSetTarget(strategy);
   if (!snap_point) {
@@ -1282,11 +1273,9 @@ bool ScrollableArea::PerformSnapping(
       targeted_scroll = group->SelectedMarkerIsPinned();
     }
   }
-  if (!SetScrollOffset(
-          ScrollPositionToOffset(snap_point.value()),
-          mojom::blink::ScrollType::kProgrammatic, source_type, scroll_behavior,
-          IgnoreArgs<ScrollableArea::ScrollCompletionMode>(on_finish.Release()),
-          targeted_scroll)) {
+  if (!SetScrollOffset(ScrollPositionToOffset(snap_point.value()),
+                       mojom::blink::ScrollType::kProgrammatic, source_type,
+                       scroll_behavior, targeted_scroll)) {
     // If no scroll happens, e.g. we got here because of a layout change, we
     // need to re-compute snapped targets and fire scrollsnapchange if
     // necessary.

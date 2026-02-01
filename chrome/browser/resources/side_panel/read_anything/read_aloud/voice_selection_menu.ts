@@ -17,7 +17,10 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {openMenu, spinnerDebounceTimeout, ToolbarEvent} from '../shared/common.js';
+import type {ShowAtConfigPrefs} from '../content/read_anything_types.js';
+import {SettingsOption, ToolbarEvent} from '../content/read_anything_types.js';
+import type {ToolbarMenu} from '../menus/menu_util.js';
+import {openMenu, spinnerDebounceTimeout} from '../shared/common.js';
 import {ReadAloudSettingsChange} from '../shared/metrics_browser_proxy.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
@@ -27,6 +30,7 @@ import type {LanguageMenuElement} from './language_menu.js';
 import {isGoogle} from './voice_language_conversions.js';
 // </if>
 // clang-format on
+
 import {areVoicesEqual, convertLangOrLocaleForVoicePackManager, isNatural, NotificationType} from './voice_language_conversions.js';
 import {VoiceNotificationManager} from './voice_notification_manager.js';
 import type {VoiceNotificationListener} from './voice_notification_manager.js';
@@ -63,7 +67,7 @@ interface VoiceDropdownItem {
 const VoiceSelectionMenuElementBase = WebUiListenerMixinLit(CrLitElement);
 
 export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
-    implements VoiceNotificationListener {
+    implements VoiceNotificationListener, ToolbarMenu {
   static get is() {
     return 'voice-selection-menu';
   }
@@ -88,6 +92,7 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
       showLanguageMenuDialog_: {type: Boolean},
       downloadingMessages_: {type: Boolean},
       voiceGroups_: {type: Object},
+      nonModal: {type: Boolean},
     };
   }
 
@@ -96,6 +101,7 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
   accessor previewVoicePlaying: SpeechSynthesisVoice|null = null;
   accessor enabledLangs: string[] = [];
   accessor availableVoices: SpeechSynthesisVoice[] = [];
+  accessor nonModal: boolean = false;
 
   // The current notifications that should be used in the voice menu.
   private accessor currentNotifications_:
@@ -152,16 +158,30 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
     };
   }
 
-  onVoiceSelectionMenuClick(targetElement: HTMLElement) {
+  open(anchor: HTMLElement, showAtConfig?: ShowAtConfigPrefs) {
+    showAtConfig = {
+      ...showAtConfig,
+      maxX:
+          document.body.clientWidth - this.spBodyPadding_ - anchor.clientWidth,
+    };
+    this.onVoiceSelectionMenuClick(anchor, showAtConfig);
+  }
+
+  close() {
+    this.$.voiceSelectionMenu.get().close();
+  }
+
+  onVoiceSelectionMenuClick(
+      targetElement: HTMLElement, showAtConfig?: ShowAtConfigPrefs) {
+    const showAt = {
+      minX: this.spBodyPadding_,
+      maxX: document.body.clientWidth - this.spBodyPadding_,
+      ...(showAtConfig || {}),
+    };
     this.notificationManager_.addListener(this);
 
     const menu = this.$.voiceSelectionMenu.get();
-    openMenu(
-        menu, targetElement, {
-          minX: this.spBodyPadding_,
-          maxX: document.body.clientWidth - this.spBodyPadding_,
-        },
-        this.onMenuShown.bind(this));
+    openMenu(menu, targetElement, showAt, this.onMenuShown.bind(this));
   }
 
   private onMenuShown() {
@@ -251,6 +271,9 @@ export class VoiceSelectionMenuElement extends VoiceSelectionMenuElementBase
 
     const selectedVoice = this.getVoiceItemForEvent_(e).voice;
     this.fire(ToolbarEvent.VOICE, {selectedVoice});
+    this.fire(
+        ToolbarEvent.CLOSE_ALL_MENUS,
+        {previousId: SettingsOption.VOICE_SELECTION});
   }
 
   protected onVoicePreviewClick_(e: Event) {

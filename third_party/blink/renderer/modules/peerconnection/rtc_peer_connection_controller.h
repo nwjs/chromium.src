@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -28,8 +29,9 @@ enum class ComplexSdpCategory {
 
 class RTCPeerConnectionController
     : public GarbageCollected<RTCPeerConnectionController>,
-      public GarbageCollectedMixin {
+      public Supplement<Document> {
  public:
+  static const char kSupplementName[];
   static RTCPeerConnectionController& From(Document&);
 
   void MaybeReportComplexSdp(ComplexSdpCategory);
@@ -39,7 +41,6 @@ class RTCPeerConnectionController
   void Trace(Visitor*) const override;
 
  private:
-  Member<Document> document_;
   bool has_reported_ukm_ = false;
 };
 

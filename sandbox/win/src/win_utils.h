@@ -72,17 +72,17 @@ bool IsPipe(const std::wstring& path);
 // Converts a NTSTATUS code to a Win32 error code.
 DWORD GetLastErrorFromNtStatus(NTSTATUS status);
 
-// Returns the address of the main exe module in memory taking in account
-// address space layout randomization. This uses the process' PEB to extract
-// the base address. This should only be called on new, suspended processes.
-void* GetProcessBaseAddress(HANDLE process);
-
 // Returns true if the string contains a NUL ('\0') character.
 bool ContainsNulCharacter(std::wstring_view str);
 
 // Call in a sandboxed process before target lockdown where modules should be
 // pre-loaded to support the infrastructure underlying crypto::RandBytes.
 void WarmupRandomnessInfrastructure();
+
+// Filters an environment to only include those that have an entry in `to_keep`.
+std::wstring FilterEnvironment(
+    const wchar_t* env,
+    const base::span<const std::wstring_view> to_keep);
 
 }  // namespace sandbox
 

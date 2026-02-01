@@ -389,16 +389,7 @@ public class TabGridDialogMediator
                     }
 
                     @Override
-                    public void willCloseTab(Tab tab, boolean didCloseAlone) {
-                        if (ChromeFeatureList.sTabCollectionAndroid.isEnabled()) return;
-
-                        onTabClose(tab);
-                    }
-
-                    @Override
                     public void didRemoveTabForClosure(Tab tab) {
-                        if (!ChromeFeatureList.sTabCollectionAndroid.isEnabled()) return;
-
                         onTabClose(tab);
                     }
 
@@ -563,53 +554,51 @@ public class TabGridDialogMediator
             }
         }
 
-        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled()) {
-            TabGroupModelFilter filter = mCurrentTabGroupModelFilterSupplier.get();
-            assumeNonNull(filter);
-            if (profile != null && modalDialogManager != null) {
-                TabGroupCreationDialogManager tabGroupCreationDialogManager =
-                        new TabGroupCreationDialogManager(activity, modalDialogManager, null);
-                TabGroupCreationCallback tabGroupCreationCallback =
-                        groupId -> tabGroupCreationDialogManager.showDialog(groupId, filter);
+        TabGroupModelFilter filter = mCurrentTabGroupModelFilterSupplier.get();
+        assumeNonNull(filter);
+        if (profile != null && modalDialogManager != null) {
+            TabGroupCreationDialogManager tabGroupCreationDialogManager =
+                    new TabGroupCreationDialogManager(activity, modalDialogManager, null);
+            TabGroupCreationCallback tabGroupCreationCallback =
+                    groupId -> tabGroupCreationDialogManager.showDialog(groupId, filter);
 
-                // Dismiss the dialog if open. The dialog should be open when the bottom sheet is
-                // visible.
-                TabMovedCallback tabMovedCallback = () -> hideDialog(true);
-                mTabGroupListBottomSheetCoordinator =
-                        new TabGroupListBottomSheetCoordinator(
-                                activity,
-                                profile,
-                                tabGroupCreationCallback,
-                                tabMovedCallback,
-                                filter,
-                                bottomSheetController,
-                                true,
-                                false);
+            // Dismiss the dialog if open. The dialog should be open when the bottom sheet is
+            // visible.
+            TabMovedCallback tabMovedCallback = () -> hideDialog(true);
+            mTabGroupListBottomSheetCoordinator =
+                    new TabGroupListBottomSheetCoordinator(
+                            activity,
+                            profile,
+                            tabGroupCreationCallback,
+                            tabMovedCallback,
+                            filter,
+                            bottomSheetController,
+                            true,
+                            false);
 
-                CollaborationService collaborationService =
-                        CollaborationServiceFactory.getForProfile(profile);
-                ShowTabListEditor showTabListEditor =
-                        tabId -> {
-                            setupAndShowTabListEditor(mCurrentTabGroupId);
-                            TabListEditorController tabListEditorController =
-                                    mTabListEditorControllerSupplier.get();
-                            assumeNonNull(tabListEditorController);
-                            tabListEditorController.selectTabs(
-                                    Set.of(TabListEditorItemSelectionId.createTabId(tabId)));
-                        };
-                mTabGridContextMenuCoordinator =
-                        new TabGridContextMenuCoordinator(
-                                activity,
-                                tabBookmarkerSupplier,
-                                profile,
-                                filter,
-                                mTabGroupListBottomSheetCoordinator,
-                                tabGroupCreationDialogManager,
-                                shareDelegateSupplier,
-                                mTabGroupSyncService,
-                                collaborationService,
-                                showTabListEditor);
-            }
+            CollaborationService collaborationService =
+                    CollaborationServiceFactory.getForProfile(profile);
+            ShowTabListEditor showTabListEditor =
+                    tabId -> {
+                        setupAndShowTabListEditor(mCurrentTabGroupId);
+                        TabListEditorController tabListEditorController =
+                                mTabListEditorControllerSupplier.get();
+                        assumeNonNull(tabListEditorController);
+                        tabListEditorController.selectTabs(
+                                Set.of(TabListEditorItemSelectionId.createTabId(tabId)));
+                    };
+            mTabGridContextMenuCoordinator =
+                    new TabGridContextMenuCoordinator(
+                            activity,
+                            tabBookmarkerSupplier,
+                            profile,
+                            filter,
+                            mTabGroupListBottomSheetCoordinator,
+                            tabGroupCreationDialogManager,
+                            shareDelegateSupplier,
+                            mTabGroupSyncService,
+                            collaborationService,
+                            showTabListEditor);
         }
 
         mBottomSheetObserver =
@@ -865,7 +854,7 @@ public class TabGridDialogMediator
     private void updateColorProperties(Context context, boolean isIncognito) {
         @ColorInt
         int dialogBackgroundColor =
-                TabUiThemeProvider.getTabGridDialogBackgroundColor(context, isIncognito);
+                TabUiThemeProvider.getTabGroupDialogBackgroundColor(context, isIncognito);
         ColorStateList tintList =
                 isIncognito
                         ? AppCompatResources.getColorStateList(
@@ -888,8 +877,8 @@ public class TabGridDialogMediator
         @ColorInt
         int hairlineColor =
                 isIncognito
-                        ? ContextCompat.getColor(context, R.color.divider_line_bg_color_light)
-                        : SemanticColorUtils.getDividerLineBgColor(context);
+                        ? ContextCompat.getColor(context, R.color.divider_color_light)
+                        : SemanticColorUtils.getDividerColor(context);
 
         mModel.set(TabGridDialogProperties.DIALOG_BACKGROUND_COLOR, dialogBackgroundColor);
         mModel.set(TabGridDialogProperties.HAIRLINE_COLOR, hairlineColor);

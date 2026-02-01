@@ -64,9 +64,9 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT MemoryChunk {
   //   size: the size of the memory block to allocate.
   //
   // Returns:
-  //   the pointer to the allocated memory block, or nullptr if out of
+  //   the span to the allocated memory block, or an empty span if out of
   //   memory.
-  void* Alloc(uint32_t size) { return allocator_.Alloc(size); }
+  base::span<uint8_t> Alloc(uint32_t size) { return allocator_.Alloc(size); }
 
   // Gets the offset to a memory block given the base memory and the address.
   // It translates nullptr to FencedAllocator::kInvalidOffset.
@@ -158,16 +158,17 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT MappedMemoryManager {
   //   shm_id: pointer to variable to receive the shared memory id.
   //   shm_offset: pointer to variable to receive the shared memory offset.
   //   option: defaults to kLoseContextOnOOM, but may be kReturnNullOnOOM.
-  //           Passing kReturnNullOnOOM will gracefully fail and return nullptr
-  //           on OOM instead of losing the context. Callers should be careful
-  //           to check error conditions.
+  //           Passing kReturnNullOnOOM will gracefully fail and return empty
+  //           span on OOM instead of losing the context. Callers should be
+  //           careful to check error conditions.
   // Returns:
-  //   pointer to allocated block of memory. nullptr if failure.
-  void* Alloc(uint32_t size,
-              int32_t* shm_id,
-              uint32_t* shm_offset,
-              TransferBufferAllocationOption option =
-                  TransferBufferAllocationOption::kLoseContextOnOOM);
+  //   span of allocated block of memory. Empty span if failure.
+  base::span<uint8_t> Alloc(
+      uint32_t size,
+      int32_t* shm_id,
+      uint32_t* shm_offset,
+      TransferBufferAllocationOption option =
+          TransferBufferAllocationOption::kLoseContextOnOOM);
 
   // Frees a block of memory.
   //
@@ -234,13 +235,7 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ScopedMappedMemoryPtr {
   ScopedMappedMemoryPtr(uint32_t size,
                         CommandBufferHelper* helper,
                         MappedMemoryManager* mapped_memory_manager)
-      : buffer_(nullptr),
-        size_(0),
-        shm_id_(0),
-        shm_offset_(0),
-        flush_after_release_(false),
-        helper_(helper),
-        mapped_memory_manager_(mapped_memory_manager) {
+      : helper_(helper), mapped_memory_manager_(mapped_memory_manager) {
     Reset(size);
   }
 
@@ -251,15 +246,13 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ScopedMappedMemoryPtr {
     Release();
   }
 
-  bool valid() const { return buffer_ != nullptr; }
+  bool valid() const { return buffer_.data() != nullptr; }
 
   void SetFlushAfterRelease(bool flush_after_release) {
     flush_after_release_ = flush_after_release;
   }
 
-  uint32_t size() const {
-    return size_;
-  }
+  uint32_t size() const { return buffer_.size(); }
 
   int32_t shm_id() const {
     return shm_id_;
@@ -269,30 +262,21 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ScopedMappedMemoryPtr {
     return shm_offset_;
   }
 
-  void* address() const {
-    return buffer_;
-  }
+  void* address() const { return buffer_.data(); }
 
-  base::span<uint8_t> as_byte_span() {
-    // TODO(kelsen): Change `buffer_` to raw_span;
-    return UNSAFE_TODO(base::span(static_cast<uint8_t*>(buffer_), size_));
-  }
+  base::span<uint8_t> as_byte_span() { return buffer_; }
 
-  base::span<const uint8_t> as_byte_span() const {
-    // TODO(kelsen): Change `buffer_` to raw_span;
-    return UNSAFE_TODO(base::span(static_cast<const uint8_t*>(buffer_), size_));
-  }
+  base::span<const uint8_t> as_byte_span() const { return buffer_; }
 
   void Release();
 
   void Reset(uint32_t new_size);
 
  private:
-  raw_ptr<void> buffer_;
-  uint32_t size_;
-  int32_t shm_id_;
-  uint32_t shm_offset_;
-  bool flush_after_release_;
+  base::raw_span<uint8_t> buffer_;
+  int32_t shm_id_ = 0;
+  uint32_t shm_offset_ = 0;
+  bool flush_after_release_ = false;
   raw_ptr<CommandBufferHelper> helper_;
   raw_ptr<MappedMemoryManager> mapped_memory_manager_;
 };

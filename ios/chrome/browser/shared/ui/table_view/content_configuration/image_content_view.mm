@@ -20,10 +20,13 @@
     (ImageContentConfiguration*)configuration {
   self = [super initWithFrame:CGRectZero];
   if (self) {
+    self.translatesAutoresizingMaskIntoConstraints = NO;
     _widthConstraint = [self.widthAnchor
         constraintEqualToConstant:configuration.imageSize.width];
     _heightConstraint = [self.heightAnchor
         constraintEqualToConstant:configuration.imageSize.height];
+
+    self.layer.masksToBounds = YES;
 
     [self
         setContentCompressionResistancePriority:UILayoutPriorityDefaultHigh + 1
@@ -69,6 +72,7 @@
   self.contentMode = _configuration.imageContentMode;
   self.tintColor = _configuration.imageTintColor;
   self.accessibilityIdentifier = _configuration.accessibilityID;
+  self.layer.cornerRadius = _configuration.imageCornerRadius;
   _widthConstraint.constant = _configuration.imageSize.width;
   _heightConstraint.constant = _configuration.imageSize.height;
 

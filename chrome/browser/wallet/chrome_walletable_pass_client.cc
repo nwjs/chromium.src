@@ -19,7 +19,10 @@
 #include "components/strike_database/strike_database.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/variations/service/variations_service.h"
+#include "components/wallet/core/browser/network/wallet_http_client.h"
+#include "components/wallet/core/browser/network/wallet_http_client_impl.h"
 #include "content/public/browser/web_contents.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace wallet {
 
@@ -70,8 +73,19 @@ GeoIpCountryCode ChromeWalletablePassClient::GetGeoIpCountryCode() {
       g_browser_process->variations_service()->GetStoredPermanentCountry()));
 }
 
+WalletHttpClient* ChromeWalletablePassClient::GetWalletHttpClient() {
+  if (!wallet_http_client_) {
+    Profile* profile =
+        Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
+    wallet_http_client_ = std::make_unique<WalletHttpClientImpl>(
+        IdentityManagerFactory::GetForProfile(profile),
+        profile->GetURLLoaderFactory());
+  }
+  return wallet_http_client_.get();
+}
+
 void ChromeWalletablePassClient::ShowWalletablePassConsentBubble(
-    optimization_guide::proto::PassCategory pass_category,
+    PassCategory pass_category,
     WalletablePassBubbleResultCallback callback) {
   if (!consent_bubble_controller_) {
     consent_bubble_controller_ =

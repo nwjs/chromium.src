@@ -86,6 +86,10 @@ public class WebViewCachedFlags {
                             // Add new CachedFlags here along with their default state.
                             Map.ofEntries(
                                     Map.entry(
+                                            AwFeatures
+                                                    .WEBVIEW_STOP_BROWSER_STARTUP_IN_IS_MULTI_PROCESS_ENABLED,
+                                            DefaultState.DISABLED),
+                                    Map.entry(
                                             AwFeatures.WEBVIEW_MOVE_WORK_TO_PROVIDER_INIT,
                                             DefaultState.DISABLED),
                                     Map.entry(
@@ -118,6 +122,9 @@ public class WebViewCachedFlags {
                                     Map.entry(
                                             AwFeatures
                                                     .WEBVIEW_OPT_IN_TO_GMS_BIND_SERVICE_OPTIMIZATION,
+                                            DefaultState.DISABLED),
+                                    Map.entry(
+                                            AwFeatures.WEBVIEW_ENABLE_API_CALL_USER_ACTIONS,
                                             DefaultState.DISABLED)));
         }
     }

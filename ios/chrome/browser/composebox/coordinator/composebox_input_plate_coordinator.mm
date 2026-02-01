@@ -11,6 +11,7 @@
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/contextual_search/contextual_search_service.h"
 #import "components/contextual_search/contextual_search_session_handle.h"
+#import "components/lens/lens_overlay_invocation_source.h"
 #import "components/omnibox/browser/location_bar_model_impl.h"
 #import "components/omnibox/composebox/ios/composebox_query_controller_ios.h"
 #import "components/search_engines/template_url_service.h"
@@ -25,8 +26,10 @@
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_view_controller.h"
+#import "ios/chrome/browser/composebox/ui/composebox_input_plate_view_controller_delegate.h"
 #import "ios/chrome/browser/composebox/ui/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/ui/composebox_snackbar_presenter.h"
+#import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
@@ -41,6 +44,9 @@
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -52,6 +58,7 @@
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_utils.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_util.h"
@@ -146,6 +153,8 @@ const CGFloat kSnackbarBottomMargin = 10;
   query_controller_config_params->enable_multi_context_input_flow = true;
   query_controller_config_params->enable_viewport_images = true;
   query_controller_config_params
+      ->use_separate_request_ids_for_multi_context_viewport_images = false;
+  query_controller_config_params
       ->prioritize_suggestions_for_the_first_attached_document = true;
 
   _contextualService =
@@ -154,7 +163,8 @@ const CGFloat kSnackbarBottomMargin = 10;
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
       contextualSearchSession = _contextualService->CreateSession(
           std::move(query_controller_config_params),
-          contextual_search::ContextualSearchSource::kOmnibox);
+          contextual_search::ContextualSearchSource::kOmnibox,
+          lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
 
   FaviconLoader* faviconLoader =
       IOSChromeFaviconLoaderFactory::GetForProfile(self.profile);
@@ -238,6 +248,11 @@ const CGFloat kSnackbarBottomMargin = 10;
 
 - (UIViewController*)inputViewController {
   return _viewController;
+}
+
+/// Shows the debug UI.
+- (void)showOmniboxDebugUI {
+  [_omniboxCoordinator toggleOmniboxDebuggerView];
 }
 
 #pragma mark - ComposeboxInputPlateViewControllerDelegate
@@ -326,7 +341,7 @@ const CGFloat kSnackbarBottomMargin = 10;
     (ComposeboxInputPlateViewController*)composeboxViewController {
   PHPickerConfiguration* config = [[PHPickerConfiguration alloc]
       initWithPhotoLibrary:PHPhotoLibrary.sharedPhotoLibrary];
-  config.selectionLimit = [_mediator maxNumberOfGalleryItemsAllowed];
+  config.selectionLimit = [_mediator maxNumberOfAttachmentsAllowed];
   config.filter = [PHPickerFilter imagesFilter];
   _picker = [[PHPickerViewController alloc] initWithConfiguration:config];
   _picker.delegate = self;
@@ -384,6 +399,51 @@ const CGFloat kSnackbarBottomMargin = 10;
   [_omniboxCoordinator acceptInput];
 }
 
+- (void)didFailToAttachDueToIneligibleAttachments:
+    (ComposeboxInputPlateViewController*)composeboxViewController {
+  CHECK_EQ(_viewController, composeboxViewController);
+  switch (_modeHolder.mode) {
+    case ComposeboxMode::kRegularSearch:
+    case ComposeboxMode::kAIM:
+      [self showMaxAttachmentSnackbarError];
+      return;
+    case ComposeboxMode::kImageGeneration:
+      [self showMaxAttachmentForImageGenerationSnackbarError];
+      return;
+  }
+  NOTREACHED();
+}
+
+- (BOOL)tabExistsOnCurrentProfile:(TabInfo*)tabInfo {
+  if (self.profile != tabInfo.profile) {
+    return NO;
+  }
+
+  BrowserList* browserList = BrowserListFactory::GetForProfile(tabInfo.profile);
+  WebStateSearchCriteria tabSearchCriteria = WebStateSearchCriteria{
+      .identifier = tabInfo.tabID,
+      .pinned_state = WebStateSearchCriteria::PinnedState::kAny,
+  };
+
+  return GetBrowserForTabWithCriteria(browserList, tabSearchCriteria,
+                                      /*is_otr_tab*/ _theme.incognito);
+}
+
+- (web::WebState*)webStateForTabOnCurrentProfile:(TabInfo*)tabInfo {
+  if (self.profile != tabInfo.profile) {
+    return nullptr;
+  }
+
+  BrowserList* browserList = BrowserListFactory::GetForProfile(tabInfo.profile);
+  WebStateSearchCriteria tabSearchCriteria = WebStateSearchCriteria{
+      .identifier = tabInfo.tabID,
+      .pinned_state = WebStateSearchCriteria::PinnedState::kAny,
+  };
+
+  return GetWebStateForTabWithCriteria(browserList, tabSearchCriteria,
+                                       _theme.incognito);
+}
+
 #pragma mark - PHPickerViewControllerDelegate
 
 - (void)picker:(PHPickerViewController*)picker
@@ -414,7 +474,13 @@ const CGFloat kSnackbarBottomMargin = 10;
 
 - (void)imagePickerController:(UIImagePickerController*)picker
     didFinishPickingMediaWithInfo:(NSDictionary<NSString*, id>*)info {
-  [picker dismissViewControllerAnimated:YES completion:nil];
+  __weak __typeof(self) weakSelf = self;
+
+  [picker dismissViewControllerAnimated:YES
+                             completion:^{
+                               [weakSelf focusComposebox];
+                             }];
+
   UIImage* image = info[UIImagePickerControllerOriginalImage];
   if (!image) {
     return;
@@ -424,13 +490,22 @@ const CGFloat kSnackbarBottomMargin = 10;
 }
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController*)picker {
-  [picker dismissViewControllerAnimated:YES completion:nil];
+  __weak __typeof(self) weakSelf = self;
+
+  [picker dismissViewControllerAnimated:YES
+                             completion:^{
+                               [weakSelf focusComposebox];
+                             }];
 }
 
 #pragma mark - ComposeboxInputPlateMediatorDelegate
 
 - (void)reloadAutocompleteSuggestionsRestarting:(BOOL)restart {
   [_omniboxCoordinator clearSuggestionsWithRestartAutocomplete:restart];
+}
+
+- (void)refineWithText:(NSString*)text {
+  [_omniboxCoordinator refineWithText:text];
 }
 
 - (void)showAttachmentLimitError {
@@ -503,7 +578,8 @@ const CGFloat kSnackbarBottomMargin = 10;
 
   _tabPickerCoordinator = [[ComposeboxTabPickerCoordinator alloc]
       initWithBaseViewController:_viewController
-                         browser:self.browser];
+                         browser:self.browser
+                           theme:_theme];
   _tabPickerCoordinator.delegate = _mediator;
   _tabPickerCoordinator.composeboxTabPickerHandler = self;
   [_tabPickerCoordinator start];
@@ -515,6 +591,10 @@ const CGFloat kSnackbarBottomMargin = 10;
 }
 
 #pragma mark - Private helpers
+
+- (void)focusComposebox {
+  [_omniboxCoordinator focusOmnibox];
+}
 
 /// Dismisses the composebox via a command to the browser coordinator.
 - (void)dismissComposebox {
@@ -542,6 +622,18 @@ const CGFloat kSnackbarBottomMargin = 10;
     offset += _viewController.inputHeight + kSnackbarBottomMargin;
   }
   [_snackbarPresenter showUnableToAddAttachmentSnackbarWithBottomOffset:offset];
+}
+
+/// Displays a snackbar error indicating the maximum number of attachments has
+/// been reached.
+- (void)showMaxAttachmentForImageGenerationSnackbarError {
+  [self createSnackbarPresenterIfNeeded];
+  CGFloat offset = _viewController.keyboardHeight;
+  if (!_theme.isTopInputPlate) {
+    offset += _viewController.inputHeight + kSnackbarBottomMargin;
+  }
+  [_snackbarPresenter
+      showAttachmentLimitForImageGenerationSnackbarWithBottomOffset:offset];
 }
 
 - (void)createSnackbarPresenterIfNeeded {

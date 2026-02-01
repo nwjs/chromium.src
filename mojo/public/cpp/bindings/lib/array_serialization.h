@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_LIB_ARRAY_SERIALIZATION_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_LIB_ARRAY_SERIALIZATION_H_
 
@@ -17,7 +12,9 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/compiler_specific.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/types/is_instantiation.h"
 #include "mojo/public/cpp/bindings/array_data_view.h"
 #include "mojo/public/cpp/bindings/lib/array_internal.h"
 #include "mojo/public/cpp/bindings/lib/message_fragment.h"
@@ -91,20 +88,16 @@ class ArrayIterator<Traits, MaybeConstUserType, false> {
 // difference between ArrayTraits and MapTraits.
 template <typename MojomType,
           typename MaybeConstUserType,
-          typename UserTypeIterator,
-          typename EnableType = void>
+          typename UserTypeIterator>
 struct ArraySerializer;
 
 // Handles serialization and deserialization of arrays of pod types.
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-struct ArraySerializer<
-    MojomType,
-    MaybeConstUserType,
-    UserTypeIterator,
-    std::enable_if_t<BelongsTo<typename MojomType::Element,
-                               MojomTypeCategory::kPOD>::value>> {
+  requires(
+      BelongsTo<typename MojomType::Element, MojomTypeCategory::kPOD>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using DataElement = typename Data::Element;
@@ -127,32 +120,47 @@ struct ArraySerializer<
         << "Primitive type should not have array validate params";
 
     size_t size = input->GetSize();
-    if (size == 0)
+    if (size == 0) {
       return;
+    }
 
     Data* output = fragment.data();
-    if constexpr (HasGetDataMethod<Traits, MaybeConstUserType>::value) {
+    // std::optional<> is considered a POD type by MojomTypeCategory, but it is
+    // not safe to memcpy.
+    if constexpr (requires { Traits::GetData(input->input()); } &&
+                  !base::is_instantiation<DataElement, std::optional>) {
       auto data = Traits::GetData(input->input());
-      memcpy(output->storage(), data, size * sizeof(DataElement));
+      // SAFETY: The GetData and output storage types need to be spanified.
+      UNSAFE_TODO(
+          { memcpy(output->storage(), data, size * sizeof(DataElement)); });
     } else {
-      for (size_t i = 0; i < size; ++i)
+      for (size_t i = 0; i < size; ++i) {
         output->at(i) = input->GetNext();
+      }
     }
   }
 
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     if (input->size()) {
-      if constexpr (HasGetDataMethod<Traits, UserType>::value) {
+      // std::optional<> is considered a POD type by MojomTypeCategory, but it
+      // is not safe to memcpy.
+      if constexpr (requires { Traits::GetData(*output); } &&
+                    !base::is_instantiation<DataElement, std::optional>) {
         auto data = Traits::GetData(*output);
-        memcpy(data, input->storage(), input->size() * sizeof(DataElement));
+        // SAFETY: The GetData and output storage types need to be spanified.
+        UNSAFE_TODO({
+          memcpy(data, input->storage(), input->size() * sizeof(DataElement));
+        });
       } else {
         ArrayIterator<Traits, UserType> iterator(*output);
-        for (size_t i = 0; i < input->size(); ++i)
+        for (size_t i = 0; i < input->size(); ++i) {
           iterator.GetNext() = static_cast<DataElement>(input->at(i));
+        }
       }
     }
     return true;
@@ -163,13 +171,10 @@ struct ArraySerializer<
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-  requires(!base::is_instantiation<typename MojomType::Element, std::optional>)
-struct ArraySerializer<
-    MojomType,
-    MaybeConstUserType,
-    UserTypeIterator,
-    typename std::enable_if<BelongsTo<typename MojomType::Element,
-                                      MojomTypeCategory::kEnum>::value>::type> {
+  requires(
+      !base::is_instantiation<typename MojomType::Element, std::optional> &&
+      BelongsTo<typename MojomType::Element, MojomTypeCategory::kEnum>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using DataElement = typename Data::Element;
@@ -190,19 +195,22 @@ struct ArraySerializer<
 
     Data* output = fragment.data();
     size_t size = input->GetSize();
-    for (size_t i = 0; i < size; ++i)
-      Serialize<Element>(input->GetNext(), output->storage() + i);
+    for (size_t i = 0; i < size; ++i) {
+      Serialize<Element>(input->GetNext(), UNSAFE_TODO(output->storage() + i));
+    }
   }
 
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     ArrayIterator<Traits, UserType> iterator(*output);
     for (size_t i = 0; i < input->size(); ++i) {
-      if (!Deserialize<Element>(input->at(i), &iterator.GetNext()))
+      if (!Deserialize<Element>(input->at(i), &iterator.GetNext())) {
         return false;
+      }
     }
     return true;
   }
@@ -212,13 +220,10 @@ struct ArraySerializer<
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-  requires(base::is_instantiation<typename MojomType::Element, std::optional>)
-struct ArraySerializer<
-    MojomType,
-    MaybeConstUserType,
-    UserTypeIterator,
-    std::enable_if_t<BelongsTo<typename MojomType::Element,
-                               MojomTypeCategory::kEnum>::value>> {
+  requires(
+      base::is_instantiation<typename MojomType::Element, std::optional> &&
+      BelongsTo<typename MojomType::Element, MojomTypeCategory::kEnum>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using DataElement = typename Data::Element;
@@ -279,12 +284,9 @@ struct ArraySerializer<
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-struct ArraySerializer<MojomType,
-                       MaybeConstUserType,
-                       UserTypeIterator,
-                       typename std::enable_if<BelongsTo<
-                           typename MojomType::Element,
-                           MojomTypeCategory::kBoolean>::value>::type> {
+  requires(BelongsTo<typename MojomType::Element,
+                     MojomTypeCategory::kBoolean>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Traits = ArrayTraits<UserType>;
   using Data = typename MojomTypeTraits<MojomType>::Data;
@@ -303,17 +305,20 @@ struct ArraySerializer<MojomType,
 
     Data* output = fragment.data();
     size_t size = input->GetSize();
-    for (size_t i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i) {
       output->at(i) = input->GetNext();
+    }
   }
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     ArrayIterator<Traits, UserType> iterator(*output);
-    for (size_t i = 0; i < input->size(); ++i)
+    for (size_t i = 0; i < input->size(); ++i) {
       iterator.GetNext() = input->at(i);
+    }
     return true;
   }
 };
@@ -322,16 +327,13 @@ struct ArraySerializer<MojomType,
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-struct ArraySerializer<
-    MojomType,
-    MaybeConstUserType,
-    UserTypeIterator,
-    typename std::enable_if<BelongsTo<
-        typename MojomType::Element,
-        MojomTypeCategory::kAssociatedInterface |
-            MojomTypeCategory::kAssociatedInterfaceRequest |
-            MojomTypeCategory::kHandle | MojomTypeCategory::kInterface |
-            MojomTypeCategory::kInterfaceRequest>::value>::type> {
+  requires(
+      BelongsTo<typename MojomType::Element,
+                MojomTypeCategory::kAssociatedInterface |
+                    MojomTypeCategory::kAssociatedInterfaceRequest |
+                    MojomTypeCategory::kHandle | MojomTypeCategory::kInterface |
+                    MojomTypeCategory::kInterfaceRequest>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using Element = typename MojomType::Element;
@@ -370,8 +372,9 @@ struct ArraySerializer<
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     ArrayIterator<Traits, UserType> iterator(*output);
     for (size_t i = 0; i < input->size(); ++i) {
       bool result =
@@ -387,14 +390,11 @@ struct ArraySerializer<
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-struct ArraySerializer<MojomType,
-                       MaybeConstUserType,
-                       UserTypeIterator,
-                       typename std::enable_if<BelongsTo<
-                           typename MojomType::Element,
-                           MojomTypeCategory::kArray | MojomTypeCategory::kMap |
-                               MojomTypeCategory::kString |
-                               MojomTypeCategory::kStruct>::value>::type> {
+  requires(BelongsTo<typename MojomType::Element,
+                     MojomTypeCategory::kArray | MojomTypeCategory::kMap |
+                         MojomTypeCategory::kString |
+                         MojomTypeCategory::kStruct>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using Element = typename MojomType::Element;
@@ -425,13 +425,15 @@ struct ArraySerializer<MojomType,
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     ArrayIterator<Traits, UserType> iterator(*output);
     for (size_t i = 0; i < input->size(); ++i) {
       if (!Deserialize<Element>(input->at(i).Get(), &iterator.GetNext(),
-                                message))
+                                message)) {
         return false;
+      }
     }
     return true;
   }
@@ -466,12 +468,9 @@ struct ArraySerializer<MojomType,
 template <typename MojomType,
           typename MaybeConstUserType,
           typename UserTypeIterator>
-struct ArraySerializer<MojomType,
-                       MaybeConstUserType,
-                       UserTypeIterator,
-                       typename std::enable_if<
-                           BelongsTo<typename MojomType::Element,
-                                     MojomTypeCategory::kUnion>::value>::type> {
+  requires(
+      BelongsTo<typename MojomType::Element, MojomTypeCategory::kUnion>::value)
+struct ArraySerializer<MojomType, MaybeConstUserType, UserTypeIterator> {
   using UserType = typename std::remove_const<MaybeConstUserType>::type;
   using Data = typename MojomTypeTraits<MojomType>::Data;
   using Element = typename MojomType::Element;
@@ -485,7 +484,7 @@ struct ArraySerializer<MojomType,
     size_t size = input->GetSize();
     for (size_t i = 0; i < size; ++i) {
       MessageFragment<DataElement> inlined_union_element(fragment.message());
-      inlined_union_element.Claim(fragment->storage() + i);
+      inlined_union_element.Claim(UNSAFE_TODO(fragment->storage() + i));
       decltype(auto) next = input->GetNext();
       Serialize<Element>(next, inlined_union_element, true);
 
@@ -502,12 +501,14 @@ struct ArraySerializer<MojomType,
   static bool DeserializeElements(Data* input,
                                   UserType* output,
                                   Message* message) {
-    if (!Traits::Resize(*output, input->size()))
+    if (!Traits::Resize(*output, input->size())) {
       return false;
+    }
     ArrayIterator<Traits, UserType> iterator(*output);
     for (size_t i = 0; i < input->size(); ++i) {
-      if (!Deserialize<Element>(&input->at(i), &iterator.GetNext(), message))
+      if (!Deserialize<Element>(&input->at(i), &iterator.GetNext(), message)) {
         return false;
+      }
     }
     return true;
   }
@@ -525,8 +526,9 @@ struct Serializer<ArrayDataView<Element>, MaybeConstUserType> {
   static void Serialize(MaybeConstUserType& input,
                         MessageFragment<Data>& fragment,
                         const ContainerValidateParams* validate_params) {
-    if (CallIsNullIfExists<Traits>(input))
+    if (CallIsNullIfExists<Traits>(input)) {
       return;
+    }
 
     const size_t size = Traits::GetSize(input);
 
@@ -545,8 +547,9 @@ struct Serializer<ArrayDataView<Element>, MaybeConstUserType> {
   }
 
   static bool Deserialize(Data* input, UserType* output, Message* message) {
-    if (!input)
+    if (!input) {
       return CallSetToNullIfExists<Traits>(output);
+    }
     return Impl::DeserializeElements(input, output, message);
   }
 };

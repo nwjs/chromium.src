@@ -233,7 +233,7 @@ std::optional<SessionID> BrowserTabStripModelDelegate::CreateHistoricalTab(
   if (service && browser_->CanSupportWindowFeature(
                      Browser::WindowFeature::kFeatureTabStrip)) {
     return service->CreateHistoricalTab(
-        sessions::ContentLiveTab::GetForWebContents(contents),
+        sessions::ContentLiveTab::GetOrCreateForWebContents(contents),
         browser_->tab_strip_model()->GetIndexOfWebContents(contents));
   }
   return std::nullopt;
@@ -280,20 +280,6 @@ bool BrowserTabStripModelDelegate::RunUnloadListenerBeforeClosing(
 bool BrowserTabStripModelDelegate::ShouldRunUnloadListenerBeforeClosing(
     content::WebContents* contents) {
   return browser_->ShouldRunUnloadListenerBeforeClosing(contents);
-}
-
-bool BrowserTabStripModelDelegate::ShouldDisplayFavicon(
-    content::WebContents* contents) const {
-  // Don't show favicon when on an interstitial.
-  security_interstitials::SecurityInterstitialTabHelper*
-      security_interstitial_tab_helper = security_interstitials::
-          SecurityInterstitialTabHelper::FromWebContents(contents);
-  if (security_interstitial_tab_helper &&
-      security_interstitial_tab_helper->IsDisplayingInterstitial()) {
-    return false;
-  }
-
-  return browser_->ShouldDisplayFavicon(contents);
 }
 
 bool BrowserTabStripModelDelegate::CanReload() const {

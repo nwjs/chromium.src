@@ -19,7 +19,13 @@
 
 using enum safe_browsing::ExtendedReportingLevel;
 
+namespace safe_browsing {
 namespace {
+
+const SafeBrowsingState kStandardSecurityBundleDefault =
+    SafeBrowsingState::STANDARD_PROTECTION;
+const SafeBrowsingState kEnhancedSecurityBundleDefault =
+    SafeBrowsingState::ENHANCED_PROTECTION;
 
 // Update the correct UMA metric based on which pref was changed and which UI
 // the change was made on.
@@ -69,7 +75,20 @@ GURL GetSimplifiedURL(const GURL& url) {
 
 }  // namespace
 
-namespace safe_browsing {
+SecuritySettingsBundleSetting GetSecurityBundleSetting(
+    const PrefService& prefs) {
+  auto security_settings_bundle =
+      prefs.GetInteger(prefs::kSecuritySettingsBundle);
+  return (security_settings_bundle ==
+                  static_cast<int>(SecuritySettingsBundleSetting::ENHANCED)
+              ? SecuritySettingsBundleSetting::ENHANCED
+              : SecuritySettingsBundleSetting::STANDARD);
+}
+
+void SetSecurityBundleSetting(PrefService& prefs,
+                              SecuritySettingsBundleSetting bundle) {
+  prefs.SetInteger(prefs::kSecuritySettingsBundle, static_cast<int>(bundle));
+}
 
 SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs) {
   if (IsEnhancedProtectionEnabled(prefs)) {
@@ -78,6 +97,16 @@ SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs) {
     return SafeBrowsingState::STANDARD_PROTECTION;
   } else {
     return SafeBrowsingState::NO_SAFE_BROWSING;
+  }
+}
+
+SafeBrowsingState GetDefaultSafeBrowsingState(
+    SecuritySettingsBundleSetting bundle_setting) {
+  switch (bundle_setting) {
+    case SecuritySettingsBundleSetting::STANDARD:
+      return kStandardSecurityBundleDefault;
+    case SecuritySettingsBundleSetting::ENHANCED:
+      return kEnhancedSecurityBundleDefault;
   }
 }
 
@@ -98,7 +127,6 @@ void EnableSafeBrowsingSettingSetLocallyPref(PrefService* prefs) {
 
 void SetSafeBrowsingState(PrefService* prefs,
                           SafeBrowsingState state,
-
                           bool is_esb_enabled_by_account_integration) {
   bool tailored_security_pref_registered =
       prefs->FindPreference(
@@ -221,12 +249,22 @@ void RecordExtendedReportingMetrics(const PrefService& prefs) {
 
 void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
+      ::prefs::kBundledSettingsCheckedMigrateUserToEnhancedBundle, false);
+  registry->RegisterBooleanPref(
       prefs::kJavascriptOptimizerBlockedForUnfamiliarSites, false);
+  registry->RegisterBooleanPref(
+      prefs::kMigratedToJavascriptOptimizerBlockedForUnfamiliarSites, false);
+
   // TODO(crbug.com/422747384): Implement correct logic to set bundle level
   // based on user's safe browsing status.
-  registry->RegisterIntegerPref(prefs::kSecuritySettingsBundle,
-                                SecuritySettingsBundleLevel::STANDARD);
+  registry->RegisterIntegerPref(
+      prefs::kSecuritySettingsBundle,
+      static_cast<int>(SecuritySettingsBundleSetting::STANDARD));
+  registry->RegisterIntegerPref(
+      prefs::kSecuritySettingsBundleMigrationToastState,
+      static_cast<int>(SecuritySettingsBundleToastState::kNone));
   registry->RegisterListPref(prefs::kSafeBrowsingCsdPingTimestamps);
+  registry->RegisterListPref(prefs::kSafeBrowsingCsdIntelligentScanTimestamps);
   registry->RegisterBooleanPref(prefs::kSafeBrowsingScoutReportingEnabled,
                                 false);
   registry->RegisterBooleanPref(
@@ -574,9 +612,7 @@ bool MatchesPasswordProtectionChangePasswordURL(const GURL& url,
 }
 
 bool IsExtendedReportingDeprecated() {
-  return base::FeatureList::IsEnabled(kExtendedReportingRemovePrefDependency) ||
-         base::FeatureList::IsEnabled(
-             kExtendedReportingRemovePrefDependencyIos);
+  return base::FeatureList::IsEnabled(kExtendedReportingRemovePrefDependency);
 }
 
 }  // namespace safe_browsing

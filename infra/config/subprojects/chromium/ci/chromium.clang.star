@@ -1027,6 +1027,7 @@ clang_tot_linux_builder(
             "linux-jammy",
         ],
     ),
+    free_space = builders.free_space.high,
     short_name = "asn",
 )
 
@@ -1118,7 +1119,7 @@ clang_tot_linux_builder(
             "msan",
             "release",
             "x64",
-            # TODO(crbug.com/450862240) enable "remoteexec" here
+            "remoteexec",
         ],
     ),
     targets = targets.bundle(

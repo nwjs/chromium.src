@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -15,8 +16,11 @@ class RemotePlaybackObserver;
 // Interface exposing RemotePlayback to core/. It is meant to replace
 // WebRemotePlaybackClient in the long run when there will be no need to expose
 // this outside of Blink.
-class CORE_EXPORT RemotePlaybackController : public GarbageCollectedMixin {
+class CORE_EXPORT RemotePlaybackController
+    : public Supplement<HTMLMediaElement> {
  public:
+  static const char kSupplementName[];
+
   static RemotePlaybackController* From(HTMLMediaElement&);
 
   virtual void AddObserver(RemotePlaybackObserver*) = 0;
@@ -29,7 +33,7 @@ class CORE_EXPORT RemotePlaybackController : public GarbageCollectedMixin {
   void Trace(Visitor*) const override;
 
  protected:
-  RemotePlaybackController() = default;
+  explicit RemotePlaybackController(HTMLMediaElement&);
 
   // To be called by RemotePlayback implementation to register its
   // implementation.

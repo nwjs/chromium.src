@@ -4,7 +4,7 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ToolbarEvent} from '../shared/common.js';
+import {ToolbarEvent} from '../content/read_anything_types.js';
 
 import type {LineSpacingMenuElement} from './line_spacing_menu.js';
 
@@ -16,6 +16,7 @@ export function getHtml(this: LineSpacingMenuElement) {
     label="$i18n{lineSpacingTitle}"
     event-name="${ToolbarEvent.LINE_SPACING}"
     .menuItems="${this.options_}"
+    .nonModal="${this.nonModal}"
     current-selected-index="${this.restoredLineSpacingIndex_()}"
     @line-spacing-change="${this.onLineSpacingChange_}">
 </simple-action-menu>

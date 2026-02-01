@@ -33,35 +33,33 @@ class MostVisitedSitesBridge {
   void OnHomepageStateChanged(JNIEnv* env);
 
   void SetObserver(JNIEnv* env,
-                   const base::android::JavaParamRef<jobject>& j_observer,
+                   const base::android::JavaRef<jobject>& j_observer,
                    jint num_sites);
 
   void SetHomepageClient(JNIEnv* env,
-                         const base::android::JavaParamRef<jobject>& j_client);
+                         const base::android::JavaRef<jobject>& j_client);
 
-  jboolean AddCustomLinkTo(JNIEnv* env,
-                           const std::u16string& name,
-                           const GURL& url,
-                           jint pos);
+  bool AddCustomLinkTo(JNIEnv* env,
+                       const std::u16string& name,
+                       const GURL& url,
+                       jint pos);
 
-  jboolean AddCustomLink(JNIEnv* env,
-                         const std::u16string& name,
-                         const GURL& url);
+  bool AddCustomLink(JNIEnv* env, const std::u16string& name, const GURL& url);
 
-  jboolean AssignCustomLink(JNIEnv* env,
-                            const GURL& key_url,
-                            const std::u16string& j_name,
-                            const GURL& url);
+  bool AssignCustomLink(JNIEnv* env,
+                        const GURL& key_url,
+                        const std::u16string& j_name,
+                        const GURL& url);
 
-  jboolean DeleteCustomLink(JNIEnv* env, const GURL& key_url);
+  bool DeleteCustomLink(JNIEnv* env, const GURL& key_url);
 
-  jboolean HasCustomLink(JNIEnv* env, const GURL& key_url);
+  bool HasCustomLink(JNIEnv* env, const GURL& key_url);
 
-  jboolean ReorderCustomLink(JNIEnv* env, const GURL& key_url, jint new_pos);
+  bool ReorderCustomLink(JNIEnv* env, const GURL& key_url, jint new_pos);
 
   void AddOrRemoveBlockedUrl(JNIEnv* env,
-                             const base::android::JavaParamRef<jobject>& j_url,
-                             jboolean add_url);
+                             const base::android::JavaRef<jobject>& j_url,
+                             bool add_url);
   void RecordPageImpression(JNIEnv* env,
                             jint jtiles_count);
   void RecordTileImpression(JNIEnv* env,
@@ -70,7 +68,7 @@ class MostVisitedSitesBridge {
                             jint jicon_type,
                             jint jtitle_source,
                             jint jsource,
-                            const base::android::JavaParamRef<jobject>& jurl);
+                            const base::android::JavaRef<jobject>& jurl);
   void RecordOpenedMostVisitedItem(
       JNIEnv* env,
       jint index,

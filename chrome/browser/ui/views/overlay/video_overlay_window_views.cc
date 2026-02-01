@@ -828,7 +828,9 @@ void VideoOverlayWindowViews::UpdateControlsVisibility(bool is_visible,
 
   // If the controls are becoming visible, and the title and scrim can be
   // hidden, stop the initial hide timer.
-  if (wanted_visibility && can_hide_title_and_scrim) {
+  if ((wanted_visibility && can_hide_title_and_scrim) ||
+      base::FeatureList::IsEnabled(
+          media::kVideoPipForceTrustedForMediaPlaybackForTesting)) {
     initial_title_hide_timer_.Stop();
   }
 
@@ -1518,7 +1520,17 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
       top_controls_bounds.bottom_left(),
       {bounds.width(), bounds.height() - (2 * top_controls_bounds.height())});
 
-  title_view_->SetSize(bounds.size());
+  // TODO(crbug.com/433972713): Set to default behavior once fix is confirmed.
+  if (base::FeatureList::IsEnabled(
+          media::kVideoPipDisplaySmoothnessOptimization)) {
+    title_view_->SetBoundsRect(
+        {top_controls_bounds.x(), top_controls_bounds.y(),
+         top_controls_bounds.width() - kOriginRightMargin,
+         kFaviconTopMargin + kFaviconSize.height()});
+  } else {
+    title_view_->SetSize(bounds.size());
+  }
+
   playback_controls_container_view_->SetSize(bounds.size());
   vc_controls_container_view_->SetSize(bounds.size());
   controls_top_scrim_view_->SetBoundsRect(
@@ -2077,6 +2089,11 @@ bool VideoOverlayWindowViews::HasHighMediaEngagement(
 }
 
 bool VideoOverlayWindowViews::IsTrustedForMediaPlayback() const {
+  if (base::FeatureList::IsEnabled(
+          media::kVideoPipForceTrustedForMediaPlaybackForTesting)) {
+    return true;
+  }
+
   content::MediaSession* media_session =
       content::MediaSession::GetIfExists(GetController()->GetWebContents());
   if (!media_session) {

@@ -5,7 +5,6 @@
 #ifndef CONTENT_BROWSER_PICTURE_IN_PICTURE_DOCUMENT_PICTURE_IN_PICTURE_WINDOW_CONTROLLER_IMPL_H_
 #define CONTENT_BROWSER_PICTURE_IN_PICTURE_DOCUMENT_PICTURE_IN_PICTURE_WINDOW_CONTROLLER_IMPL_H_
 
-#include <map>
 #include <set>
 
 #include "base/functional/callback.h"
@@ -48,7 +47,7 @@ class CONTENT_EXPORT DocumentPictureInPictureWindowControllerImpl
   void CloseAndFocusInitiator() override;
   void OnWindowDestroyed(bool should_pause_video) override;
   WebContents* GetWebContents() override;
-  std::optional<gfx::Rect> GetWindowBounds() override;
+  std::optional<gfx::Rect> GetWindowBoundsInScreen() override;
   WebContents* GetChildWebContents() override;
   std::optional<url::Origin> GetOrigin() override;
 

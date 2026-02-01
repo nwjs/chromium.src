@@ -157,18 +157,8 @@ void DummyCallback(
 }  // namespace
 
 WindowController*
-ExtensionFunctionDispatcher::Delegate::GetExtensionWindowController() const {
+ExtensionFunctionDispatcher::Delegate::GetExtensionWindowController() {
   return nullptr;
-}
-
-content::WebContents*
-ExtensionFunctionDispatcher::Delegate::GetAssociatedWebContents() const {
-  return nullptr;
-}
-
-content::WebContents*
-ExtensionFunctionDispatcher::Delegate::GetVisibleWebContents() const {
-  return GetAssociatedWebContents();
 }
 
 ExtensionFunctionDispatcher::ExtensionFunctionDispatcher(
@@ -557,19 +547,8 @@ void ExtensionFunctionDispatcher::OnExtensionFunctionCompleted(
   }
 }
 
-WindowController*
-ExtensionFunctionDispatcher::GetExtensionWindowController() const {
+WindowController* ExtensionFunctionDispatcher::GetExtensionWindowController() {
   return delegate_ ? delegate_->GetExtensionWindowController() : nullptr;
-}
-
-content::WebContents*
-ExtensionFunctionDispatcher::GetAssociatedWebContents() const {
-  return delegate_ ? delegate_->GetAssociatedWebContents() : nullptr;
-}
-
-content::WebContents*
-ExtensionFunctionDispatcher::GetVisibleWebContents() const {
-  return delegate_ ? delegate_->GetVisibleWebContents() : nullptr;
 }
 
 void ExtensionFunctionDispatcher::AddResponseTarget(ExtensionFunction* func) {

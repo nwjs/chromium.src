@@ -7,76 +7,215 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/ui/extensions/extensions_menu_view_platform_delegate.h"
+#include "chrome/browser/ui/extensions/extension_action_view_model.h"
 #include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/browser/ui/tabs/tab_list_interface_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "extensions/browser/permissions_manager.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_id.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace content {
 class WebContents;
 }  // namespace content
 
 class BrowserWindowInterface;
-class ExtensionsMenuViewPlatformDelegate;
-class ToolbarActionViewModel;
 
-// The platform agnostic controller for the extensions menu.
-// TODO(crbug.com/449814184): Move the observers from
-// ExtensionsMenuViewController here.
+// The platform agnostic model for the extensions menu.
 class ExtensionsMenuViewModel : public extensions::PermissionsManager::Observer,
                                 public ToolbarActionsModel::Observer,
                                 public TabListInterfaceObserver,
                                 public content::WebContentsObserver {
  public:
-  // Holds the information about how the extension's menu item should look like.
-  // This will be used by the platform delegate as needed.
-  struct MenuItemInfo {
-    enum class SiteAccessToggleState {
-      // Button is not visible.
-      kHidden,
-      // Button is visible and off.
-      kOff,
-      // Button is visible and on.
-      kOn,
-    };
+  // Defines the delegate interface for retrieving platform-specific
+  // information.
+  class Delegate {
+   public:
+    virtual ~Delegate() = default;
 
-    enum class SitePermissionsButtonAccess {
-      // Extension has no site access.
-      kNone,
-      // Extension has site access when clicked.
-      kOnClick,
-      // Extension has site access to this site.
-      kOnSite,
-      // Extension has site access to all sites.
-      kOnAllSites
-    };
+    // Creates the platform-agnostic action view model for the given
+    // `extension_id`. ExtensionsMenuViewModel will own the returned object, but
+    // the Delegate is responsible for constructing it with the necessary
+    // platform dependencies.
+    virtual std::unique_ptr<ExtensionActionViewModel> CreateActionViewModel(
+        const extensions::ExtensionId& extension_id) = 0;
+  };
 
-    enum class SitePermissionsButtonState {
-      // Button is not visible.
+  // Observer used to notify platforms about changes to the model.
+  class Observer : public base::CheckedObserver {
+   public:
+    // Notifies the delegate that the active web contents changed to
+    // `web_contents`, which may have impacted the model's content (e.g host
+    // access requests may have changed).
+    virtual void OnActiveWebContentsChanged(
+        content::WebContents* web_contents) = 0;
+
+    // Notifies the delegate that a new host access request was added
+    // with `extension_ind` on `index`.
+    virtual void OnHostAccessRequestAdded(
+        const extensions::ExtensionId& extension_id,
+        int index) = 0;
+
+    // Notifies the delegate that host access request with `extension_id` was
+    // updates on `index`.
+    virtual void OnHostAccessRequestUpdated(
+        const extensions::ExtensionId& extension_id,
+        int index) = 0;
+
+    // Notifies the delegate that the host access request for
+    // `extension_id` on `index` was removed.
+    virtual void OnHostAccessRequestRemoved(
+        const extensions::ExtensionId& extension_id,
+        int index) = 0;
+
+    // Notifies the delegate that host access requests on the current site were
+    // cleared.
+    virtual void OnHostAccessRequestsCleared() = 0;
+
+    virtual void OnShowHostAccessRequestsInToolbarChanged(
+        const extensions::ExtensionId& extension_id,
+        bool can_show_requests) = 0;
+
+    // Called when an action is added to the menu model at `index`.
+    virtual void OnActionAdded(ExtensionActionViewModel* action_model,
+                               int index) = 0;
+
+    // Called when an action is removed from the menu model at `index`.
+    virtual void OnActionRemoved(const ToolbarActionsModel::ActionId& action_id,
+                                 int index) = 0;
+
+    // Called when an action is updated in the menu model.
+    virtual void OnActionUpdated() = 0;
+
+    // Called after all actions are added in the menu model after menu model
+    // construction.
+    virtual void OnActionsInitialized() = 0;
+
+    // Notifies the delegate that the pinned toolbar actions have changed
+    virtual void OnToolbarPinnedActionsChanged() = 0;
+
+    // Notifies the delegate that the user permissions settings changed on the
+    // current site.
+    virtual void OnUserPermissionsSettingsChanged() = 0;
+  };
+
+  // The type of optional section to display in the menu.
+  enum class OptionalSection {
+    // A section alerting the user that a page reload is required for changes to
+    // take effect.
+    kReloadPage,
+    // A section listing extensions that have host access requests to the
+    // current
+    // site.
+    kHostAccessRequests,
+    // No optional section should be displayed.
+    kNone
+  };
+
+  // A generic structure for UI controls (buttons, toggles, radio buttons).
+  struct ControlState {
+    // Represents the availability and interactivity the control.
+    enum class Status {
+      // The control is not displayed.
       kHidden,
-      // Button is visible, but disabled.
+      // The control is displayed but cannot be interacted with.
       kDisabled,
-      // Button is visible and enabled.
-      kEnabled,
+      // The control is displayed and interactive.
+      kEnabled
     };
 
-    SiteAccessToggleState site_access_toggle_state;
-    SitePermissionsButtonAccess site_permissions_button_access;
-    SitePermissionsButtonState site_permissions_button_state;
+    ControlState();
+    ControlState(const ControlState&);
+    ControlState& operator=(const ControlState&);
+    ~ControlState();
+
+    // The interactivity status of the control.
+    Status status = Status::kHidden;
+    // The text label to display. Empty if not applicable.
+    std::u16string text;
+    // The accessible name. Empty if not applicable.
+    std::u16string accessible_name;
+    // The tooltip text label. Empty if not applicable.
+    std::u16string tooltip_text;
+    // The checked/toggled state. False for buttons with no on/off state.
+    bool is_on = false;
+  };
+
+  // Hold the information for an extension's host access request.
+  struct HostAccessRequest {
+    // The if of the extension.
+    extensions::ExtensionId extension_id;
+    // The display name for the extension.
+    std::u16string extension_name;
+    // The display icon for the extension.
+    ui::ImageModel extension_icon;
+  };
+
+  // Holds the information for an extension's site permissions in the extensions
+  // menu. This will be used by the platform delegate as needed.
+  struct ExtensionSitePermissionsState {
+    ExtensionSitePermissionsState();
+    ExtensionSitePermissionsState(const ExtensionSitePermissionsState&);
+    ExtensionSitePermissionsState& operator=(
+        const ExtensionSitePermissionsState&);
+    ~ExtensionSitePermissionsState();
+
+    // The display name for the extension.
+    std::u16string extension_name;
+    // THe display icon for the extension.
+    ui::ImageModel extension_icon;
+    // The state for the 'on click' site access option.
+    ControlState on_click_option;
+    // The state for the 'on site' site access option.
+    ControlState on_site_option;
+    // The state for the 'on all sites' site access option.
+    ControlState on_all_sites_option;
+    // The state for the 'show requests' toggle.
+    ControlState show_requests_toggle;
+  };
+
+  // Holds the information for the site settings in the extension's menu. This
+  // will be used by the platform delegate as needed.
+  struct SiteSettingsState {
+    // The resource ID for the text label.
+    std::u16string label;
+    // Whether to show a tooltip explaining why the setting is in its current
+    // state (e.g. if controlled by enterprise policy).
+    bool has_tooltip;
+    // The state of the site settings toggle.
+    ControlState toggle;
+  };
+
+  // Holds the information about how the extension's menu entry should look
+  // like. This will be used by the platform delegate as needed.
+  struct MenuEntryState {
+    MenuEntryState();
+    MenuEntryState(const MenuEntryState&);
+    MenuEntryState& operator=(const MenuEntryState&);
+    ~MenuEntryState();
+
+    // The state for the context menu button.
+    ControlState context_menu_button;
+    // The state for the site access toggle.
+    ControlState site_access_toggle;
+    // The state for the site permissions button.
+    ControlState site_permissions_button;
+    // Whether the extension is installed from an enterprise policy.
     bool is_enterprise;
   };
 
-  ExtensionsMenuViewModel(
-      BrowserWindowInterface* browser,
-      std::unique_ptr<ExtensionsMenuViewPlatformDelegate> platform_delegate);
+  ExtensionsMenuViewModel(BrowserWindowInterface* browser, Delegate* delegate);
   ExtensionsMenuViewModel(const ExtensionsMenuViewModel&) = delete;
   const ExtensionsMenuViewModel& operator=(const ExtensionsMenuViewModel&) =
       delete;
   ~ExtensionsMenuViewModel() override;
+
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
 
   // Updates the extension's site access for the current site.
   void UpdateSiteAccess(
@@ -100,15 +239,59 @@ class ExtensionsMenuViewModel : public extensions::PermissionsManager::Observer,
   // Revokes the extension's site access from the current site.
   void RevokeSiteAccess(const extensions::ExtensionId& extension_id);
 
-  // Update the extension's site setting for the current site.
+  // Update the site setting's for the current site.
   void UpdateSiteSetting(
       extensions::PermissionsManager::UserSiteSetting site_setting);
 
   // Reloads the current web contents.
   void ReloadWebContents();
 
-  // Returns the menu item info for extension with `model`.
-  MenuItemInfo GetMenuItemInfo(ToolbarActionViewModel* model);
+  // Returns true if the site permissions page can be shown for the given
+  // `extension_id`.
+  bool CanShowSitePermissionsPage(const extensions::ExtensionId& extension_id);
+
+  // Returns the state for the extension's context menu button.
+  ControlState GetContextMenuButtonState(
+      const extensions::ExtensionId& extension_id);
+  ControlState GetContextMenuButtonState(
+      ExtensionActionViewModel* action_model);
+
+  // Returns the host access request information for an extension.
+  HostAccessRequest GetHostAccessRequest(
+      const extensions::ExtensionId& extension_id,
+      const gfx::Size& icon_size);
+
+  // Returns the site access permissions state for an extension. This will crash
+  // if called when the user cannot modify the extension site permissions, as
+  // this method would compute invalid values.
+  ExtensionSitePermissionsState GetExtensionSitePermissionsState(
+      const extensions::ExtensionId& extension_id,
+      const gfx::Size& icon_size);
+
+  // Returns the show requests toggle state for an extension.
+  ControlState GetExtensionShowRequestsToggleState(
+      const extensions::ExtensionId& extension_id);
+
+  // Returns the menu item state for an extension.
+  MenuEntryState GetMenuEntryState(const extensions::ExtensionId& extension_id);
+
+  // Returns the optional section to display in the menu.
+  OptionalSection GetOptionalSection();
+
+  // Returns the site settings for the current web contents.
+  SiteSettingsState GetSiteSettingsState();
+
+  // Returns a read-only reference to the list of sorted action view models.
+  const std::vector<std::unique_ptr<ExtensionActionViewModel>>&
+  action_models() {
+    return action_models_;
+  }
+
+  // Returns the id's of the extensions that have valid host access requests for
+  // the current site.
+  const std::vector<extensions::ExtensionId>& host_access_requests() {
+    return host_access_requests_;
+  }
 
   // PermissionsManager::Observer:
   void OnHostAccessRequestAdded(const extensions::ExtensionId& extension_id,
@@ -148,13 +331,46 @@ class ExtensionsMenuViewModel : public extensions::PermissionsManager::Observer,
   void DidFinishNavigation(content::NavigationHandle* handle) override;
 
  private:
+  // Populates `action_models_` and `host_access_requests_` after actions
+  // have been initialized.
+  void Populate();
+
+  // Adds `extension_id` to `host_access_requests` in the correct sorted
+  // order and notifies observers.
+  void AddHostAccessRequest(const extensions::ExtensionId& extension_id);
+
+  // Removes `extension_id` from `host_access_requests` and notifies
+  // observers.
+  void RemoveHostAccessRequest(const extensions::ExtensionId& extension_id);
+
+  // Updates `host_access_requests_` with the extensions that have active host
+  // access requests, clearing any existent ones. This should be called when
+  // actions are initialized, or on page navigations.
+  void UpdateHostAccessRequests();
+
+  // Returns the extension action view model for the given `extension_id`.
+  ExtensionActionViewModel* GetActionViewModel(
+      const extensions::ExtensionId& extension_id) const;
+
+  // Updates the model when web contents changed, and notifies observers.
+  void OnWebContentsChanged(content::WebContents* web_contents);
+
   content::WebContents* GetActiveWebContents();
 
   // The browser window that the extensions menu is in.
   raw_ptr<BrowserWindowInterface> browser_;
 
-  // The delegate that handles platform-specific UI.
-  std::unique_ptr<ExtensionsMenuViewPlatformDelegate> platform_delegate_;
+  // The observers that handles platform-specific UI.
+  base::ObserverList<Observer> observers_;
+
+  // The delegate to retrieve platform-specific information.
+  raw_ptr<Delegate> delegate_;
+
+  // The actions models ordered alphabetically by their action name.
+  std::vector<std::unique_ptr<ExtensionActionViewModel>> action_models_;
+
+  // The extensions that have valid host access requests on the current site.
+  std::vector<extensions::ExtensionId> host_access_requests_;
 
   base::ScopedObservation<extensions::PermissionsManager,
                           extensions::PermissionsManager::Observer>

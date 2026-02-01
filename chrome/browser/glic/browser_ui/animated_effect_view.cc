@@ -47,23 +47,6 @@ int64_t TimeTicksToMicroseconds(base::TimeTicks tick) {
   return (tick - base::TimeTicks()).InMicroseconds();
 }
 
-std::vector<SkColor> GetParameterizedColors() {
-  std::vector<SkColor> colors;
-  if (base::FeatureList::IsEnabled(features::kGlicParameterizedShader)) {
-    std::vector<std::string> unparsed_colors =
-        base::SplitString(::features::kGlicParameterizedShaderColors.Get(), "#",
-                          base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-    for (const auto& unparsed : unparsed_colors) {
-      SkColor result;
-      if (!content::ParseHexColorString("#" + unparsed, &result)) {
-        return std::vector<SkColor>();
-      }
-      colors.push_back(result);
-    }
-  }
-  return colors;
-}
-
 std::vector<float> GetParameterizedFloats() {
   std::vector<float> floats;
   if (base::FeatureList::IsEnabled(features::kGlicParameterizedShader)) {
@@ -83,15 +66,13 @@ std::vector<float> GetParameterizedFloats() {
 
 }  // namespace
 
-AnimatedEffectView::AnimatedEffectView(Browser* browser,
+AnimatedEffectView::AnimatedEffectView(Profile* profile,
                                        std::unique_ptr<Tester> tester)
-    : browser_(browser),
-      creation_time_(base::TimeTicks::Now()),
+    : creation_time_(base::TimeTicks::Now()),
       tester_(std::move(tester)),
-      colors_(GetParameterizedColors()),
+      colors_(GetEffectColors()),
       floats_(GetParameterizedFloats()),
-      theme_service_(
-          ThemeServiceFactory::GetForProfile(browser->GetProfile())) {
+      theme_service_(ThemeServiceFactory::GetForProfile(profile)) {
   auto* gpu_data_manager = content::GpuDataManager::GetInstance();
   has_hardware_acceleration_ =
       gpu_data_manager->IsGpuRasterizationForUIEnabled();
@@ -253,6 +234,9 @@ void AnimatedEffectView::Show() {
   if (compositor_) {
     // The user can click on the glic icon after the window is shown. The
     // animation is already playing at that time.
+    // TODO(crbug.com/469102481): Remove logs after missing underlines cause is
+    // found.
+    VLOG(1) << "Show no-op, existing compositor";
     return;
   }
 
@@ -269,7 +253,8 @@ void AnimatedEffectView::Show() {
 
   skip_animation_cycle_ =
       gfx::Animation::PrefersReducedMotion() || ForceSimplifiedShader() ||
-      base::FeatureList::IsEnabled(features::kGlicForceNonSkSLBorder);
+      base::FeatureList::IsEnabled(features::kGlicForceNonSkSLBorder) ||
+      base::FeatureList::IsEnabled(features::kGlicDisableUnderlineAnimations);
 
   ui::Compositor* compositor = layer()->GetCompositor();
   if (!compositor) {
@@ -288,6 +273,7 @@ void AnimatedEffectView::Show() {
 
 void AnimatedEffectView::StopShowing() {
   if (!compositor_) {
+    VLOG(1) << "StopShowing no-op, no compositor";
     return;
   }
 
@@ -342,9 +328,29 @@ void AnimatedEffectView::ResetAnimationCycle() {
   }
 }
 
+std::vector<SkColor> AnimatedEffectView::GetEffectColors() {
+  std::vector<SkColor> colors;
+  if (base::FeatureList::IsEnabled(features::kGlicParameterizedShader)) {
+    std::vector<std::string> unparsed_colors =
+        base::SplitString(::features::kGlicParameterizedShaderColors.Get(), "#",
+                          base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    for (const auto& unparsed : unparsed_colors) {
+      SkColor result;
+      if (!content::ParseHexColorString("#" + unparsed, &result)) {
+        return std::vector<SkColor>();
+      }
+      colors.push_back(result);
+    }
+  }
+  return colors;
+}
+
 float AnimatedEffectView::GetOpacity(base::TimeTicks timestamp) {
   auto ramp_up_duration = skip_animation_cycle_ ? kFastOpacityRampUpDuration
                                                 : kOpacityRampUpDuration;
+  if (base::FeatureList::IsEnabled(features::kGlicDisableUnderlineAnimations)) {
+    ramp_up_duration = base::Milliseconds(0);
+  }
   if (!first_ramp_down_frame_.is_null()) {
     // The ramp up opacity could be any value between 0-1 during the ramp up
     // time. Thus, the ramping down opacity must be deducted from the value of

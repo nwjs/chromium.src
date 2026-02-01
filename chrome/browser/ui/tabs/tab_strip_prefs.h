@@ -13,6 +13,13 @@ class Profile;
 
 namespace tabs {
 
+enum class TabSearchPosition {
+  kLeadingHorizontalTabstrip,
+  kTrailingHorizontalTabstrip,
+  kToolbarButton,
+  kVerticalTabstrip,
+};
+
 // Returns the default behavior per platform for tab search position.
 bool GetDefaultTabSearchRightAligned();
 
@@ -20,7 +27,7 @@ bool GetDefaultTabSearchRightAligned();
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
 // Return the value of the preference for TabSearchPosition.
-bool GetTabSearchTrailingTabstrip(const Profile* profile);
+TabSearchPosition GetTabSearchPosition(const Profile* profile);
 
 void SetTabSearchRightAlignedForTesting(bool is_right_aligned);
 

@@ -15,9 +15,9 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom-data-view.h"
-#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom-forward.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_generator.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_metrics.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/tab_id_generator.h"
 #include "components/google/core/common/google_util.h"
 #include "components/history/core/browser/history_service.h"
@@ -37,6 +37,8 @@
 #include "url/mojom/url.mojom.h"
 
 namespace {
+using ::action_chips::RecordActionChipsRetrievalLatencyMetrics;
+using ::action_chips::RecordImpressionMetrics;
 using ::action_chips::mojom::ActionChip;
 using ::action_chips::mojom::ActionChipPtr;
 using ::action_chips::mojom::ChipType;
@@ -88,19 +90,6 @@ TabInterface* FindMostRecentTab(content::WebUI& web_ui) {
   }
 
   return most_recent_tab;
-}
-
-// Helper method to record impression metrics for the generated chips.
-void RecordImpressionMetrics(const std::vector<ActionChipPtr>& chips) {
-  for (const auto& chip : chips) {
-    base::UmaHistogramEnumeration("NewTabPage.ActionChips.Shown", chip->type);
-  }
-}
-
-// Helper method to record latency metrics for action chips retrieval.
-void RecordActionChipsRetrievalLatencyMetrics(base::TimeDelta latency) {
-  base::UmaHistogramTimes(
-      "NewTabPage.ActionChips.Handler.ActionChipsRetrievalLatency", latency);
 }
 
 bool IsTabReadyForActionChipsRetrieval(content::WebContents* web_contents,

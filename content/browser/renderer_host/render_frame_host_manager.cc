@@ -15,7 +15,6 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -23,11 +22,11 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/named_trigger.h"
 #include "base/trace_event/typed_macros.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/expected.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
@@ -888,10 +887,12 @@ void RenderFrameHostManager::DidNavigateFrame(
     bool clear_proxies_on_commit,
     const blink::FramePolicy& frame_policy,
     bool allow_paint_holding,
-    const ViewTransitionCommitInfo& view_transition_commit_info) {
+    const ViewTransitionCommitInfo& view_transition_commit_info,
+    const base::optional_ref<const GURL> navigation_request_url) {
   CommitPendingIfNecessary(render_frame_host, was_caused_by_user_gesture,
                            is_same_document_navigation, clear_proxies_on_commit,
-                           allow_paint_holding, view_transition_commit_info);
+                           allow_paint_holding, view_transition_commit_info,
+                           navigation_request_url);
 
   // Make sure any dynamic changes to this frame's sandbox flags and permissions
   // policy that were made prior to navigation take effect.  This should only
@@ -929,7 +930,8 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
     bool is_same_document_navigation,
     bool clear_proxies_on_commit,
     bool allow_paint_holding,
-    const ViewTransitionCommitInfo& view_transition_commit_info) {
+    const ViewTransitionCommitInfo& view_transition_commit_info,
+    const base::optional_ref<const GURL> navigation_request_url) {
   if (!speculative_render_frame_host_) {
     // There's no speculative RenderFrameHost so it must be that the current
     // RenderFrameHost completed a navigation.
@@ -940,7 +942,8 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
     // A cross-RenderFrameHost navigation completed, so show the new renderer.
     CommitPending(std::move(speculative_render_frame_host_),
                   std::move(stored_page_to_restore_), clear_proxies_on_commit,
-                  allow_paint_holding, view_transition_commit_info);
+                  allow_paint_holding, view_transition_commit_info,
+                  navigation_request_url);
 
     if (GetNavigationQueueingFeatureLevel() >=
         NavigationQueueingFeatureLevel::kAvoidRedundantCancellations) {
@@ -1136,8 +1139,8 @@ void RenderFrameHostManager::PrepareForCollectingPage(
     // new cross-process, cross-BrowsingInstance navigation, as well as any
     // restored proxies which are also in a different BrowsingInstance.
     if (group->IsRelatedSiteInstanceGroup(it.second->site_instance_group())) {
-      DCHECK(base::Contains(*render_view_hosts,
-                            it.second->GetRenderViewHost()->GetSafeRef()));
+      DCHECK(render_view_hosts->contains(
+          it.second->GetRenderViewHost()->GetSafeRef()));
       auto pair = proxy_hosts->insert({it.first, std::move(it.second)});
       bool insertion_took_place = pair.second;
       // There should be only one proxy for any given SiteInstanceGroup, so this
@@ -1195,7 +1198,8 @@ void RenderFrameHostManager::UpdateOpener(
 
 void RenderFrameHostManager::UnloadOldFrame(
     std::unique_ptr<RenderFrameHostImpl> old_render_frame_host,
-    const ViewTransitionCommitInfo& view_transition_commit_info) {
+    const ViewTransitionCommitInfo& view_transition_commit_info,
+    const base::optional_ref<const GURL> navigation_request_url) {
   TRACE_EVENT1("navigation", "RenderFrameHostManager::UnloadOldFrame",
                "FrameTreeNode id", frame_tree_node_->frame_tree_node_id());
 
@@ -1264,7 +1268,7 @@ void RenderFrameHostManager::UnloadOldFrame(
                 "old_render_frame_host", old_render_frame_host,
                 "bfcache_eligibility",
                 bfcache_eligibility.flattened_reasons.ToString());
-    if (view_transition_commit_info.has_view_transition_resources) {
+    if (view_transition_commit_info.HasViewTransitionResources()) {
       base::UmaHistogramBoolean("Navigation.ViewTransition.PerformsUnload",
                                 !can_store);
     }
@@ -1305,7 +1309,7 @@ void RenderFrameHostManager::UnloadOldFrame(
           std::make_unique<BackForwardCacheImpl::Entry>(std::move(stored_page));
       // Ensures RenderViewHosts are not reused while they are in the cache.
       for (const auto& rvh : entry->render_view_hosts()) {
-        rvh->EnterBackForwardCache();
+        rvh->EnterBackForwardCache(navigation_request_url);
       }
       back_forward_cache.StoreEntry(std::move(entry));
       return;
@@ -1339,10 +1343,10 @@ void RenderFrameHostManager::UnloadOldFrame(
   // which has security implications if exceeded (https://crbug.com/1177674).
   if (features::ShouldAckCOREarlyForViewTransition() &&
       !old_render_frame_host->GetParentOrOuterDocument() &&
-      view_transition_commit_info.has_view_transition_resources) {
-    old_render_frame_host->GetProcess()->DelayProcessShutdown(
-        base::Seconds(4), base::TimeDelta(),
-        old_render_frame_host->GetSiteInstance()->GetSiteInfo());
+      view_transition_commit_info.HasViewTransitionResources() &&
+      view_transition_commit_info.delay_layer_tree_view_deletion) {
+    view_transition_commit_info.view_transition_resources
+        ->MaybeDelayProcessShutdown(base::Seconds(4), *old_render_frame_host);
   }
 
   // Create a replacement proxy for the old RenderFrameHost when we're switching
@@ -1735,13 +1739,15 @@ void RenderFrameHostManager::PerformEarlyRenderFrameHostSwapIfNeeded(
   }
 
   const RenderFrameHostManager::ViewTransitionCommitInfo
-      view_transition_commit_info{.has_view_transition_resources =
-                                      request->HasViewTransitionResources()};
+      view_transition_commit_info(
+          request->GetViewTransitionResources(),
+          request->HasViewTransitionDelayLayerTreeViewDeletion());
   CommitPending(
       std::move(speculative_render_frame_host_),
       /*pending_stored_page=*/nullptr,
       request->browsing_context_group_swap().ShouldClearProxiesOnCommit(),
-      /*allow_paint_holding=*/false, view_transition_commit_info);
+      /*allow_paint_holding=*/false, view_transition_commit_info,
+      /*navigation_request_url=*/request->GetURL());
   request->SetAssociatedRFHType(
       NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
 
@@ -5036,7 +5042,8 @@ void RenderFrameHostManager::CommitPending(
     std::unique_ptr<StoredPage> pending_stored_page,
     bool clear_proxies_on_commit,
     bool allow_paint_holding,
-    const ViewTransitionCommitInfo& view_transition_commit_info) {
+    const ViewTransitionCommitInfo& view_transition_commit_info,
+    const base::optional_ref<const GURL> navigation_request_url) {
   TRACE_EVENT1("navigation", "RenderFrameHostManager::CommitPending",
                "FrameTreeNode id", frame_tree_node_->frame_tree_node_id());
   CHECK(pending_rfh);
@@ -5169,9 +5176,9 @@ void RenderFrameHostManager::CommitPending(
       for (auto& proxy : proxy_hosts_to_restore) {
         // We only cache pages when swapping BrowsingInstance, so we should
         // never be reusing SiteInstanceGroups.
-        CHECK(!base::Contains(
-            render_frame_host_->browsing_context_state()->proxy_hosts(),
-            proxy.second->site_instance_group()->GetId()));
+        CHECK(!render_frame_host_->browsing_context_state()
+                   ->proxy_hosts()
+                   .contains(proxy.second->site_instance_group()->GetId()));
         proxy.second->site_instance_group()->AddObserver(
             render_frame_host_->browsing_context_state().get());
         TRACE_EVENT_INSTANT(
@@ -5392,7 +5399,8 @@ void RenderFrameHostManager::CommitPending(
   // Unload the old frame now that the new one is visible.
   // This will unload it and schedule it for deletion when the unload ack
   // arrives (or immediately if the process isn't live).
-  UnloadOldFrame(std::move(old_render_frame_host), view_transition_commit_info);
+  UnloadOldFrame(std::move(old_render_frame_host), view_transition_commit_info,
+                 navigation_request_url);
 
   // Since the new RenderFrameHost is now committed, there must be no proxies
   // for its SiteInstance. Delete any existing ones.
@@ -5885,11 +5893,13 @@ void RenderFrameHostManager::CreateNewFrameForInnerDelegateAttachIfNecessary() {
   // WebContents::AttachToOuterWebContentsFrame is called.
   speculative_render_frame_host_->SwapIn();
   const RenderFrameHostManager::ViewTransitionCommitInfo
-      view_transition_commit_info{.has_view_transition_resources = false};
+      view_transition_commit_info(nullptr,
+                                  /*delay_layer_tree_view_deletion=*/false);
   CommitPending(std::move(speculative_render_frame_host_),
                 /*pending_stored_page=*/nullptr,
                 /*clear_proxies_on_commit=*/false,
-                /*allow_paint_holding=*/false, view_transition_commit_info);
+                /*allow_paint_holding=*/false, view_transition_commit_info,
+                /*navigation_request_url=*/std::nullopt);
   NotifyPrepareForInnerDelegateAttachComplete(true /* success */);
 }
 

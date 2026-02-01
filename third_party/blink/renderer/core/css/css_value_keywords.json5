@@ -1229,14 +1229,15 @@
     "span",
 
     // grid-lanes-direction
-    // row
-    // row-reverse
-    // column
-    // column-reverse
-
-    // grid-lanes-fill
     // normal
-    // reverse
+    // row
+    // column
+    "fill-reverse",
+    "track-reverse",
+
+    // grid-lanes-pack
+    // normal
+    // dense
 
     // grid-template-{columns|rows}
     "minmax",
@@ -1296,11 +1297,13 @@
     "column-over-row",
 
     // column-rule-break
+    // auto
     // none
     "intersection",
     "spanning-item",
 
     // row-rule-break
+    // auto
     // none
     // intersection
     // spanning-item
@@ -1481,6 +1484,10 @@
     "blur",
     "drop-shadow",
     "url",
+
+    // Route matching, such as @route, @navigation, and :link-to().
+    "url-pattern",
+    "navigation-param",
 
     // colors
     "rgb",
@@ -1813,8 +1820,8 @@
     // Layered @import rule
     "layer",
 
-    // if(route())
-    "route",
+    // if(navigation())
+    "navigation",
 
     // supports in import rule: @import supports()
     "supports",
@@ -2071,6 +2078,10 @@
 
     // block-ellipsis
     "no-ellipsis",
+
+    // text-indent
+    "each-line",
+    // "hanging",
 
     // text-justify
     // "auto",

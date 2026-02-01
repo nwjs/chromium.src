@@ -11,6 +11,7 @@
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/extensions/mv2_disabled_dialog_controller.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
@@ -20,6 +21,8 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/files/safe_base_name.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 class Browser;
 class ControlledHomeDialogControllerInterface;
@@ -145,7 +148,8 @@ void ShowExtensionInstallBlockedByParentDialog(
     base::OnceClosure done_callback);
 
 // Shows a dialog when the user tries to upload an extension to their account.
-void ShowUploadExtensionToAccountDialog(Browser* browser,
+void ShowUploadExtensionToAccountDialog(Profile* profile,
+                                        gfx::NativeWindow parent,
                                         const Extension& extension,
                                         base::OnceClosure accept_callback,
                                         base::OnceClosure cancel_callback);

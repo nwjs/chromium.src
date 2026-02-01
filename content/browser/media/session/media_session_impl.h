@@ -551,7 +551,7 @@ class MediaSessionImpl : public MediaSession,
   // currently actively used, false otherwise.
   bool IsActivelyUsingCameraOrMicrophone() const;
 
-  // Returns true if we can enter browser initiated automatic
+  // Returns true if we can enter browser-initiated automatic
   // picture-in-picture, false otherwise.
   bool CanEnterBrowserInitiatedAutomaticPictureInPicture() const;
 
@@ -560,6 +560,13 @@ class MediaSessionImpl : public MediaSession,
   // is registered by the browser (the user did not provide an
   // `enterpictureinpicture` action handler).
   void MaybeEnterBrowserInitiatedAutomaticPictureInPicture();
+
+  // Records the UKM for browser-initiated automatic picture-in-picture.
+  void RecordBrowserInitiatedAutomaticPictureInPictureUkm(bool is_dry_run);
+
+  // Returns true if browser-initiated picture in picture is enabled. This will
+  // be true if either the main feature or the dry run feature is enabled.
+  bool IsBrowserInitiatedPictureInPictureEnabled() const;
 
   // Notifies a player of the last known auto picture-in-picture information.
   // This is used to keep newly added players updated with the latest

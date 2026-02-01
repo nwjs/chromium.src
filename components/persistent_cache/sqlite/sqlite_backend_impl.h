@@ -10,6 +10,7 @@
 
 #include "base/component_export.h"
 #include "base/files/file_path.h"
+#include "base/gtest_prod_util.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
 #include "base/types/expected.h"
@@ -52,6 +53,11 @@ class COMPONENT_EXPORT(PERSISTENT_CACHE) SqliteBackendImpl : public Backend {
   // mapped into the process's address space).
   static std::optional<SqliteVfsFileSet> BindToFileSet(
       PendingBackend pending_backend);
+
+  // Executes `statement` on the underlying database. Returns a SQLite result
+  // code in case of error.
+  base::expected<void, int> ExecuteStatementForTesting(
+      base::cstring_view statement);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(PersistentCacheTest, RecoveryFromTransientError);

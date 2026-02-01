@@ -248,7 +248,7 @@ search-animated-glow {
 #input {
   background-color: inherit;
   border: none;
-  caret-color: var(--google-blue-500);
+  caret-color: var(--color-composebox-font-light);
   color: var(--color-composebox-font-light);
   field-sizing: content;
   mask-image: linear-gradient(transparent 7px, black calc(var(--text-input-top-spacing) + 7px));
@@ -258,7 +258,8 @@ search-animated-glow {
   resize: none;
 }
 
-#input:focus {
+:host(:not([disable-caret-color-animation])) #input:focus {
+  caret-color: var(--google-blue-500);
   animation: color-change 5s infinite;
 }
 
@@ -462,12 +463,12 @@ search-animated-glow {
 #submitContainer:has(#submitIcon[disabled]) {
   cursor: not-allowed;
 }
-#submitContainer:has(#submitIcon[disabled]) #submitOverlay {
-  pointer-events: none;
+
+#submitContainer:has(#submitIcon[disabled]):hover #submitOverlay {
+  background-color: transparent;
 }
 
 #submitContainer #submitIcon[disabled] {
-  pointer-events: none;
   opacity: 0.4;
 }
 
@@ -544,7 +545,7 @@ search-animated-glow {
 
 :host([searchbox-next-enabled][searchbox-layout-mode="Compact"]) {
   --expanded-border-radius: var(--cr-composebox-expanded-border-radius, 30px);
-  --input-bottom-spacing: 10px;
+  --input-bottom-spacing: 16px;
 }
 
 :host([searchbox-next-enabled][searchbox-layout-mode="Compact"]) #iconContainer {
@@ -570,7 +571,7 @@ search-animated-glow {
 }
 
 :host([searchbox-next-enabled][searchbox-layout-mode="Compact"]) #context {
-  margin-top: -48px;
+  margin-top: var(--cr-composebox-context-margin-top, -48px);
 }
 
 :host([expanding_][show-dropdown_][searchbox-next-enabled][searchbox-layout-mode="Compact"]) cr-composebox-dropdown {
@@ -672,7 +673,7 @@ contextual-entrypoint-and-carousel::part(voice-icon) {
 }
 
 :host([show-submit_][submit-enabled_][searchbox-layout-mode='TallBottomContext'][show-dropdown_]) #submitContainer {
-  top: 58px;
+  top: var(--cr-composebox-submit-container-top, 58px);
 }
 
 :host([show-submit_][submit-enabled_][searchbox-layout-mode='TallBottomContext'][show-dropdown_][context-files-size_="0"]) contextual-entrypoint-and-carousel::part(carousel-divider) {
@@ -694,7 +695,7 @@ contextual-entrypoint-and-carousel::part(voice-icon) {
 
 :host([show-submit_][submit-enabled_][searchbox-layout-mode='TallBottomContext'][show-dropdown_]) contextual-entrypoint-and-carousel::part(voice-icon) {
   bottom: unset;
-  top: 60px;
+  top: var(--cr-composebox-voice-icon-top, 60px);
 }
 
 :host([searchbox-next-enabled]) contextual-entrypoint-and-carousel::part(context-menu-entrypoint-icon) {
@@ -735,7 +736,7 @@ cr-composebox-voice-search {
   @starting-style {
     opacity: 0;  /* Since hidden elements have no previous state. */
   }
-  transition: opacity 100ms ease-in-out, display 200ms allow-discrete;
+  transition: opacity 90ms ease-in-out, display 100ms allow-discrete;
   z-index: 2;
 }
 

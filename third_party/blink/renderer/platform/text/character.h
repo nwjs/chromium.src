@@ -50,6 +50,8 @@
 
 namespace blink {
 
+struct JustificationContext;
+
 class PLATFORM_EXPORT Character {
   STATIC_ONLY(Character);
 
@@ -117,11 +119,11 @@ class PLATFORM_EXPORT Character {
   static unsigned ExpansionOpportunityCount(TextJustify method,
                                             base::span<const LChar>,
                                             TextDirection,
-                                            bool& is_after_expansion);
+                                            JustificationContext&);
   static unsigned ExpansionOpportunityCount(TextJustify method,
                                             base::span<const UChar>,
                                             TextDirection,
-                                            bool& is_after_expansion);
+                                            JustificationContext&);
 
   static bool IsUprightInMixedVertical(UChar32 character);
 
@@ -259,6 +261,8 @@ class PLATFORM_EXPORT Character {
   // and that script code is not USCRIPT_COMMON or USCRIPT_INHERITED.
   static bool HasLikelyScript(UChar32);
   static UScriptCode GetScriptBasedOnUnicodeBlock(UChar32);
+  // https://drafts.csswg.org/css-text-4/#cursive-script
+  static bool IsCursiveScript(UChar32);
 
   static bool IsModernGeorgianUppercase(UChar32 c) {
     return IsInRange(c, 0x1C90, 0x1CBF);

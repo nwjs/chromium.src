@@ -26,6 +26,7 @@
 #include "components/contextual_tasks/public/prefs.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_constants.h"
@@ -43,23 +44,43 @@ void OpenUrlInNewTab(content::WebUI* web_ui, const GURL& url) {
   Navigate(&params);
 }
 
-std::vector<contextual_tasks::mojom::TabPtr> TabsFromContext(
-    std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
+void PopulateContextualResources(
+    contextual_tasks::ContextualTaskContext* context,
+    std::vector<contextual_tasks::mojom::TabPtr>& tabs,
+    std::vector<contextual_tasks::mojom::UploadedFilePtr>& files,
+    std::vector<contextual_tasks::mojom::ImagePtr>& images) {
   if (!context) {
-    return {};
+    return;
   }
-
-  std::vector<contextual_tasks::mojom::TabPtr> tabs;
 
   for (const auto& attachment : context->GetUrlAttachments()) {
-    auto tab = contextual_tasks::mojom::Tab::New();
-    tab->tab_id = attachment.GetTabSessionId().id();
-    tab->title = base::UTF16ToUTF8(attachment.GetTitle());
-    tab->url = attachment.GetURL();
-    tabs.push_back(std::move(tab));
+    switch (attachment.GetResourceType()) {
+      case contextual_tasks::ResourceType::kWebpage: {
+        auto tab = contextual_tasks::mojom::Tab::New();
+        tab->tab_id = attachment.GetTabSessionId().id();
+        tab->title = base::UTF16ToUTF8(attachment.GetTitle());
+        tab->url = attachment.GetURL();
+        tabs.push_back(std::move(tab));
+        break;
+      }
+      case contextual_tasks::ResourceType::kPdf: {
+        auto file = contextual_tasks::mojom::UploadedFile::New();
+        file->name = base::UTF16ToUTF8(attachment.GetTitle());
+        file->url = attachment.GetURL();
+        files.push_back(std::move(file));
+        break;
+      }
+      case contextual_tasks::ResourceType::kImage: {
+        auto image = contextual_tasks::mojom::Image::New();
+        image->title = base::UTF16ToUTF8(attachment.GetTitle());
+        image->url = attachment.GetURL();
+        images.push_back(std::move(image));
+        break;
+      }
+      case contextual_tasks::ResourceType::kUnknown:
+        break;
+    }
   }
-
-  return tabs;
 }
 
 }  // namespace
@@ -167,6 +188,23 @@ void ContextualTasksPageHandler::OnTabClickedFromSourcesMenu(int32_t tab_id,
         tab_id, url,
         webui::GetBrowserWindowInterface(
             web_ui_controller_->web_ui()->GetWebContents()));
+  }
+}
+
+void ContextualTasksPageHandler::OnFileClickedFromSourcesMenu(const GURL& url) {
+  if (ui_service_) {
+    ui_service_->OnFileClickedFromSourcesMenu(
+        url, webui::GetBrowserWindowInterface(
+                 web_ui_controller_->web_ui()->GetWebContents()));
+  }
+}
+
+void ContextualTasksPageHandler::OnImageClickedFromSourcesMenu(
+    const GURL& url) {
+  if (ui_service_) {
+    ui_service_->OnImageClickedFromSourcesMenu(
+        url, webui::GetBrowserWindowInterface(
+                 web_ui_controller_->web_ui()->GetWebContents()));
   }
 }
 
@@ -283,7 +321,7 @@ void ContextualTasksPageHandler::UpdateContextForTask(
     const base::Uuid& task_id) {
   if (!base::FeatureList::IsEnabled(
           contextual_tasks::kContextualTasksContextLibrary)) {
-    web_ui_controller_->page()->OnContextUpdated({});
+    web_ui_controller_->page()->OnContextUpdated({}, {}, {});
     return;
   }
   contextual_tasks_service_->GetContextForTask(
@@ -293,8 +331,12 @@ void ContextualTasksPageHandler::UpdateContextForTask(
           [](base::WeakPtr<ContextualTasksPageHandler> self,
              std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
             if (self && self->web_ui_controller_->page()) {
+              std::vector<contextual_tasks::mojom::TabPtr> tabs;
+              std::vector<contextual_tasks::mojom::UploadedFilePtr> files;
+              std::vector<contextual_tasks::mojom::ImagePtr> images;
+              PopulateContextualResources(context.get(), tabs, files, images);
               self->web_ui_controller_->page()->OnContextUpdated(
-                  TabsFromContext(std::move(context)));
+                  std::move(tabs), std::move(files), std::move(images));
             }
           },
           weak_ptr_factory_.GetWeakPtr()));

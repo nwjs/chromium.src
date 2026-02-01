@@ -10,7 +10,7 @@
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/suggestions/payments/merchant_promo_code_suggestion_generator.h"
-#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 
 namespace autofill {
@@ -61,25 +61,6 @@ bool MerchantPromoCodeManager::OnGetSingleFieldSuggestions(
       form_structure.ToFormData(), field, &form_structure, &autofill_field,
       client, on_suggestion_data_returned);
   return suggestions_generated;
-}
-
-void MerchantPromoCodeManager::SendPromoCodeSuggestions(
-    std::vector<const AutofillOfferData*> promo_code_offers,
-    const FormFieldData& field,
-    SingleFieldFillRouter::OnSuggestionsReturnedCallback
-        on_suggestions_returned) {
-  // If the input box content equals any of the available promo codes, then
-  // assume the promo code has been filled, and don't show any suggestions.
-  for (const AutofillOfferData* promo_code_offer : promo_code_offers) {
-    if (field.value() == base::ASCIIToUTF16(promo_code_offer->GetPromoCode())) {
-      std::move(on_suggestions_returned).Run(field.global_id(), {});
-      return;
-    }
-  }
-
-  std::move(on_suggestions_returned)
-      .Run(field.global_id(),
-           GetPromoCodeSuggestionsFromPromoCodeOffers(promo_code_offers));
 }
 
 }  // namespace autofill

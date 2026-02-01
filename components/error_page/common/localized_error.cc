@@ -364,6 +364,12 @@ const LocalizedErrorMap net_error_options[] = {
    SUGGEST_NONE,
    SHOW_NO_BUTTONS
   },
+  {net::ERR_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR,
+   IDS_ERRORPAGES_HEADING_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR,
+   IDS_ERRORPAGES_SUMMARY_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR,
+   SUGGEST_NONE,
+   SHOW_NO_BUTTONS,
+  },
 };
 // clang-format on
 
@@ -516,6 +522,8 @@ std::u16string GetStringWithPlaceholder(int resource_id,
     case IDS_ERRORPAGES_HEADING_BLOCKED_SCHEME:
     case IDS_ERRORPAGES_HEADING_NOT_FOUND:
     case IDS_ERRORPAGES_SUMMARY_BAD_SSL_CLIENT_AUTH_CERT:
+    case IDS_ERRORPAGES_SUMMARY_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR:
+    case IDS_ERRORPAGES_SUMMARY_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR_SCHEME:
     case IDS_ERRORPAGES_SUMMARY_CONNECTION_CLOSED:
     case IDS_ERRORPAGES_SUMMARY_CONNECTION_FAILED:
     case IDS_ERRORPAGES_SUMMARY_CONNECTION_REFUSED:
@@ -596,8 +604,9 @@ const char* GetIconClassForError(const std::string& error_domain,
                                  int error_code) {
   return LocalizedError::IsOfflineError(error_domain, error_code)
              ? "icon-offline"
-         : error_code == net::ERR_BLOCKED_BY_ADMINISTRATOR ? "icon-info"
-                                                           : "icon-generic";
+         : LocalizedError::IsBlockedByAdministratorError(error_code)
+             ? "icon-info"
+             : "icon-generic";
 }
 
 base::Value::Dict SingleEntryDictionary(std::string_view path, int message_id) {
@@ -910,7 +919,7 @@ void AddSuggestionsDetails(int error_code,
 #endif
 
   if (suggestions & SUGGEST_CONTACT_ADMINISTRATOR &&
-      error_code == net::ERR_BLOCKED_BY_ADMINISTRATOR) {
+      LocalizedError::IsBlockedByAdministratorError(error_code)) {
     AddSuggestionDetailDictionaryToList(
         suggestions_details, IDS_ERRORPAGES_SUGGESTION_VIEW_POLICIES_HEADER,
         IDS_ERRORPAGES_SUGGESTION_VIEW_POLICIES_BODY);
@@ -936,6 +945,13 @@ LocalizedError::PageState::PageState(PageState&& other) = default;
 LocalizedError::PageState& LocalizedError::PageState::operator=(
     PageState&& other) = default;
 
+void LocalizedError::PageState::SetIsOfflineError(bool value) {
+  // We set this value twice: once for C++ consumers of PageState and once for
+  // the 'strings' dictionary which is sent to the JavaScript context.
+  is_offline_error = value;
+  strings.Set("isOfflineError", value);
+}
+
 LocalizedError::PageState LocalizedError::GetPageState(
     int error_code,
     const std::string& error_domain,
@@ -951,9 +967,10 @@ LocalizedError::PageState LocalizedError::GetPageState(
     bool is_blocked_by_extension,
     const base::Value::Dict* error_page_params) {
   LocalizedError::PageState result;
-  if (LocalizedError::IsOfflineError(error_domain, error_code)) {
-    result.is_offline_error = true;
+  result.SetIsOfflineError(
+      LocalizedError::IsOfflineError(error_domain, error_code));
 
+  if (result.is_offline_error) {
     // These strings are to be read by a screen reader during the dino game.
     result.strings.Set(
         "dinoGameA11yAriaLabel",
@@ -974,6 +991,24 @@ LocalizedError::PageState LocalizedError::GetPageState(
     result.strings.Set(
         "dinoGameA11yDescription",
         l10n_util::GetStringUTF16(IDS_ERRORPAGE_DINO_GAME_DESCRIPTION));
+    result.strings.Set(
+        "dinoGameInstructionsTouch",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGES_GAME_INSTRUCTIONS_TOUCH));
+    result.strings.Set(
+        "dinoGameInstructionsKeyboard",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGES_GAME_INSTRUCTIONS_KEYBOARD));
+    result.strings.Set(
+        "dinoGameInstructionsHybrid",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGES_GAME_INSTRUCTIONS_HYBRID));
+    result.strings.Set(
+        "dinoGameA11yAriaLabelTouch",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGE_DINO_ARIA_LABEL_TOUCH));
+    result.strings.Set(
+        "dinoGameA11yAriaLabelKeyboard",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGE_DINO_ARIA_LABEL_KEYBOARD));
+    result.strings.Set(
+        "dinoGameA11yAriaLabelHybrid",
+        l10n_util::GetStringUTF16(IDS_ERRORPAGE_DINO_ARIA_LABEL_HYBRID));
 
     if (EnableAltGameMode()) {
       result.strings.Set("enableAltGameMode", true);
@@ -1049,6 +1084,12 @@ LocalizedError::PageState LocalizedError::GetPageState(
       options.heading_resource_id = IDS_ERRORPAGES_HEADING_BLOCKED_SCHEME;
       host_name = base::UTF8ToUTF16(failed_url.GetScheme());
     }
+    if (error_code == net::ERR_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR &&
+        host_name.empty()) {
+      options.summary_resource_id =
+          IDS_ERRORPAGES_SUMMARY_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR_SCHEME;
+      host_name = base::UTF8ToUTF16(failed_url.GetScheme());
+    }
   }
 
   result.strings.Set("iconClass",
@@ -1104,7 +1145,7 @@ LocalizedError::PageState LocalizedError::GetPageState(
   std::u16string error_code_string;
   if (error_domain == Error::kNetErrorDomain) {
     // Non-internationalized error string, for debugging Chrome itself.
-    if (error_code != net::ERR_BLOCKED_BY_ADMINISTRATOR) {
+    if (!LocalizedError::IsBlockedByAdministratorError(error_code)) {
       error_code_string =
           base::ASCIIToUTF16(net::ErrorToShortString(error_code));
     }
@@ -1236,6 +1277,11 @@ bool LocalizedError::IsOfflineError(const std::string& error_domain,
            error_domain == Error::kNetErrorDomain) ||
           (error_code == error_page::DNS_PROBE_FINISHED_NO_INTERNET &&
            error_domain == Error::kDnsProbeErrorDomain));
+}
+
+bool LocalizedError::IsBlockedByAdministratorError(int error_code) {
+  return error_code == net::ERR_BLOCKED_BY_ADMINISTRATOR ||
+         error_code == net::ERR_BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR;
 }
 
 }  // namespace error_page

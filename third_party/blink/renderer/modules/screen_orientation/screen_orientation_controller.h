@@ -27,7 +27,8 @@ using device::mojom::blink::ScreenOrientationLockResult;
 class MODULES_EXPORT ScreenOrientationController final
     : public GarbageCollected<ScreenOrientationController>,
       public ExecutionContextLifecycleObserver,
-      public PageVisibilityObserver {
+      public PageVisibilityObserver,
+      public Supplement<LocalDOMWindow> {
  public:
   explicit ScreenOrientationController(LocalDOMWindow&);
 
@@ -45,7 +46,7 @@ class MODULES_EXPORT ScreenOrientationController final
   void unlock();
   bool MaybeHasActiveLock() const;
 
-  static const unsigned kSupplementIndex;
+  static const char kSupplementName[];
   static ScreenOrientationController* From(LocalDOMWindow&);
   static ScreenOrientationController* FromIfExists(LocalDOMWindow&);
 

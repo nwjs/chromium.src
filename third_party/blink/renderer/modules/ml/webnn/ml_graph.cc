@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph.h"
 
+#include "base/task/single_thread_task_runner.h"
 #include "base/types/expected_macros.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -54,12 +55,12 @@ base::expected<void, String> ValidateNamedMLTensors(
     }
     const auto& info = expected_named_descriptors.at(name);
     if (tensor->DataType() != info->data_type()) {
-      return base::unexpected(String::Format(
+      return base::unexpected(UNSAFE_TODO(String::Format(
           "The data type \"%s\""
           ", of the MLTensor with name \"%s\" "
           "doesn't match the expected data type (%s).",
           tensor->dataType().AsCStr(), name.Utf8().c_str(),
-          V8MLOperandDataType(ToBlinkDataType(info->data_type())).AsCStr()));
+          V8MLOperandDataType(ToBlinkDataType(info->data_type())).AsCStr())));
     }
     if (tensor->Shape() != info->shape()) {
       StringBuilder message;

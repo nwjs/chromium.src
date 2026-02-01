@@ -39,11 +39,13 @@ found in the LICENSE file.
   <dimen name="ntp_customization_theme_collections_recycler_view_margin_top">24dp</dimen>
   <dimen name="ntp_customization_single_theme_collection_recycler_view_margin_top">24dp</dimen>
   <dimen name="ntp_customization_theme_collections_list_item_background_radius">12dp</dimen>
-  <dimen name="ntp_customization_theme_collections_list_item_selected_background_inner_radius">8dp</dimen>
+  <dimen name="ntp_customization_theme_collections_list_item_selected_background_outer_radius">10dp</dimen>
+  <dimen name="ntp_customization_theme_collections_list_item_selected_background_inner_radius">6dp</dimen>
   <dimen name="ntp_customization_theme_collections_list_item_selected_background_width">4dp</dimen>
   <dimen name="ntp_customization_theme_collections_list_item_max_width">156dp</dimen>
   <dimen name="ntp_customization_theme_collections_list_item_height">84dp</dimen>
   <dimen name="ntp_customization_theme_collection_list_item_padding_horizontal">6dp</dimen>
   <dimen name="ntp_customization_theme_collection_list_item_padding_bottom">12dp</dimen>
   <dimen name="ntp_customization_gradient_toolbar_height">120dp</dimen>
+  <dimen name="ntp_customization_preview_dialog_bottom_gradient_height">240dp</dimen>
 </resources>

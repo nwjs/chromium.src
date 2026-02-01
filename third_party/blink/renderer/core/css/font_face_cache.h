@@ -29,8 +29,6 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_segmented_font_face.h"
-#include "third_party/blink/renderer/core/css/font_face.h"
-#include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -41,6 +39,8 @@
 namespace blink {
 
 class FontDescription;
+class FontFace;
+class StyleRuleFontFace;
 
 class CORE_EXPORT FontFaceCache final : public GarbageCollected<FontFaceCache> {
  public:
@@ -63,9 +63,6 @@ class CORE_EXPORT FontFaceCache final : public GarbageCollected<FontFaceCache> {
   const HeapLinkedHashSet<Member<FontFace>>& CssConnectedFontFaces() const {
     return css_connected_font_faces_;
   }
-
-  unsigned Version() const { return version_; }
-  void IncrementVersion();
 
   void Trace(Visitor*) const;
 
@@ -179,10 +176,6 @@ class CORE_EXPORT FontFaceCache final : public GarbageCollected<FontFaceCache> {
   // StyleEngine, which clears all those faces from the FontCache which are
   // originating from CSS, as opposed to those originating from JS.
   HeapLinkedHashSet<Member<FontFace>> css_connected_font_faces_;
-
-  // FIXME: See if this could be ditched
-  // Used to compare Font instances, and the usage seems suspect.
-  unsigned version_;
 };
 
 }  // namespace blink

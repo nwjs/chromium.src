@@ -25,7 +25,7 @@
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
-#include "gpu/command_buffer/common/mailbox_holder.h"
+#include "gpu/command_buffer/common/mailbox.h"
 #include "media/base/color_plane_layout.h"
 #include "media/base/limits.h"
 #include "media/base/simple_sync_token_client.h"
@@ -554,28 +554,28 @@ TEST(VideoFrame, WrapMappableSharedImage) {
     EXPECT_EQ(frame->layout().planes()[i].stride,
               static_cast<size_t>(coded_size.width()));
   }
-  EXPECT_EQ(frame->storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
+  EXPECT_EQ(frame->storage_type(), VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE);
   EXPECT_EQ(frame->coded_size(), coded_size);
   EXPECT_EQ(frame->visible_rect(), visible_rect);
   EXPECT_EQ(frame->timestamp(), timestamp);
   EXPECT_EQ(frame->HasSharedImage(), true);
   EXPECT_EQ(frame->HasReleaseMailboxCB(), true);
   EXPECT_EQ(frame->shared_image()->mailbox(), mailbox);
-  EXPECT_TRUE(frame->is_mappable_si_enabled());
+  EXPECT_TRUE(frame->HasMappableSharedImage());
 
   // Wrapped MappableSI frames must propagate the information of the wrappee.
   auto wrapped_frame = VideoFrame::WrapVideoFrame(
       frame, frame->format(), visible_rect, visible_rect.size());
   ASSERT_NE(wrapped_frame, nullptr);
   EXPECT_EQ(wrapped_frame->storage_type(),
-            VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
+            VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE);
   EXPECT_EQ(wrapped_frame->coded_size(), coded_size);
   EXPECT_EQ(wrapped_frame->visible_rect(), visible_rect);
   EXPECT_EQ(wrapped_frame->timestamp(), timestamp);
   EXPECT_EQ(wrapped_frame->HasSharedImage(), true);
   EXPECT_EQ(wrapped_frame->HasReleaseMailboxCB(), true);
   EXPECT_EQ(wrapped_frame->shared_image()->mailbox(), mailbox);
-  EXPECT_TRUE(wrapped_frame->is_mappable_si_enabled());
+  EXPECT_TRUE(wrapped_frame->HasMappableSharedImage());
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)

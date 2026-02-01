@@ -18,8 +18,7 @@ namespace payments {
 // Forwarding calls to a Java implementation.
 class CSPCheckerAndroid : public CSPChecker {
  public:
-  explicit CSPCheckerAndroid(
-      const base::android::JavaParamRef<jobject>& jbridge);
+  explicit CSPCheckerAndroid(const base::android::JavaRef<jobject>& jbridge);
   ~CSPCheckerAndroid() override;
 
   CSPCheckerAndroid(const CSPCheckerAndroid&) = delete;
@@ -29,7 +28,7 @@ class CSPCheckerAndroid : public CSPChecker {
   void Destroy(JNIEnv* env);
 
   // Message from Java to return the result.
-  void OnResult(JNIEnv* env, jint result_id, jboolean result);
+  void OnResult(JNIEnv* env, jint result_id, bool result);
 
   // Convert a Java-owned CSPCheckerAndroid* pointer into a weak pointer.
   static base::WeakPtr<CSPCheckerAndroid> GetWeakPtr(

@@ -221,12 +221,6 @@ class SynchronousCompositorProxyRegistry
         renderer_threads.push_back(
             viz::Thread{io_thread_id_, viz::Thread::Type::kIO});
       }
-      if (main_thread_id_ != base::kInvalidThreadId &&
-          base::FeatureList::IsEnabled(
-              ::features::kWebViewEnableADPFRendererMain)) {
-        renderer_threads.push_back(
-            viz::Thread{main_thread_id_, viz::Thread::Type::kMain});
-      }
       proxy_->SetThreads(renderer_threads);
     }
 
@@ -600,6 +594,19 @@ void WidgetInputHandlerManager::ObserveGestureEventOnMainThread(
       this, gesture_event, scroll_result);
   InputThreadTaskRunner()->PostTask(FROM_HERE,
                                     std::move(observe_gesture_event_closure));
+}
+
+void WidgetInputHandlerManager::PostHandwritingRadiusToInputThread(
+    int handwriting_radius) {
+  base::OnceClosure init_closure = base::BindOnce(
+      [](base::WeakPtr<WidgetInputHandlerManager> weak_ptr, int radius) {
+        if (weak_ptr && weak_ptr->input_handler_proxy_) {
+          weak_ptr->input_handler_proxy_->SetHandwritingRadiusOnInputThread(
+              radius);
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr(), handwriting_radius);
+  InputThreadTaskRunner()->PostTask(FROM_HERE, std::move(init_closure));
 }
 
 void WidgetInputHandlerManager::LogInputTimingUMA() {

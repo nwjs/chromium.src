@@ -120,16 +120,6 @@ COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxAttestationsLoadFromAPKAsset);
 #endif
 
-// Enables attribution reporting transitional debug reporting for the cookie
-// deprecation experiment.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kAttributionDebugReportingCookieDeprecationTesting);
-
-// Enables Private Aggregation debug reporting to be enabled during the
-// third-party cookie deprecation experiment.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivateAggregationDebugReportingCookieDeprecationTesting);
-
 // Prevents site-level exceptions from permitting Private Aggregation debug
 // reporting if third-party cookies are generally blocked.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -146,25 +136,9 @@ BASE_DECLARE_FEATURE(kRelatedWebsiteSetsDevUI);
 
 // Privacy UX features start
 
-// Enables fingerprinting protection setting UX.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kFingerprintingProtectionUx);
-
-// Enables showing IP Protection toggle on the settings page.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kIpProtectionUx);
-
 // Enables showing RWS UI.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kRelatedWebsiteSetsUi);
-
-// Feature for rolling back Mode B.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kRollBackModeB);
-
-// Forces Mode B rollback without checking the 3pcd onboarding pref.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<bool> kRollBackModeBForced;
 
 // Privacy UX features end
 
@@ -202,11 +176,6 @@ extern const base::FeatureParam<bool>
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxAdTopicsContentParity);
-
-// If true, adds the privacy sandbox notice to product messaging controller
-// queue.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxNoticeQueue);
 
 // Enables the `Always on` sentiment survey
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)

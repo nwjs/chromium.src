@@ -724,9 +724,13 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
 #pragma mark - AutofillDriverIOSBridge
 
 - (void)fillData:(const std::vector<autofill::FormFieldData::FillData>&)fields
-         section:(const autofill::Section&)section
-         inFrame:(web::WebFrame*)frame {
-  [_autofillAgent fillData:fields section:section inFrame:frame];
+           section:(const autofill::Section&)section
+           inFrame:(web::WebFrame*)frame
+    withActionType:(autofill::mojom::FormActionType)actionType {
+  [_autofillAgent fillData:fields
+                   section:section
+                   inFrame:frame
+            withActionType:(autofill::mojom::FormActionType::kFill)];
 }
 
 - (void)fillSpecificFormField:(const autofill::FieldRendererId&)field
@@ -736,8 +740,7 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
 }
 
 - (void)handleParsedForms:
-            (const std::vector<
-                raw_ptr<autofill::FormStructure, VectorExperimental>>&)forms
+            (const std::vector<raw_ref<const autofill::FormStructure>>&)forms
                   inFrame:(web::WebFrame*)frame {
   if (![_delegate respondsToSelector:@selector(autofillController:
                                                      didFindForms:frameID:)]) {
@@ -745,7 +748,7 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
   }
 
   NSMutableArray<CWVAutofillForm*>* autofillForms = [NSMutableArray array];
-  for (autofill::FormStructure* form : forms) {
+  for (const raw_ref<const autofill::FormStructure>& form : forms) {
     CWVAutofillForm* autofillForm =
         [[CWVAutofillForm alloc] initWithFormStructure:*form];
     [autofillForms addObject:autofillForm];
@@ -903,20 +906,12 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
   CWVPassword* password =
       [[CWVPassword alloc] initWithPasswordForm:credentials];
 
+  __weak CWVAutofillController* weakSelf = self;
   [self.delegate autofillController:self
         decideSavePolicyForPassword:password
                     decisionHandler:^(CWVPasswordUserDecision decision) {
-                      switch (decision) {
-                        case CWVPasswordUserDecisionYes:
-                          formPtr->Save();
-                          break;
-                        case CWVPasswordUserDecisionNever:
-                          formPtr->Blocklist();
-                          break;
-                        case CWVPasswordUserDecisionNotThisTime:
-                          // Do nothing.
-                          break;
-                      }
+                      [weakSelf onDecidedSavePolicy:decision
+                                    forPasswordForm:formPtr.get()];
                     }];
 }
 
@@ -938,17 +933,12 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
   CWVPassword* password =
       [[CWVPassword alloc] initWithPasswordForm:credentials];
 
+  __weak CWVAutofillController* weakSelf = self;
   [self.delegate autofillController:self
       decideUpdatePolicyForPassword:password
                     decisionHandler:^(CWVPasswordUserDecision decision) {
-                      // Marking a password update as "never" makes no sense as
-                      // the password has already been saved.
-                      DCHECK_NE(decision, CWVPasswordUserDecisionNever)
-                          << "A password update can only be accepted or "
-                             "ignored.";
-                      if (decision == CWVPasswordUserDecisionYes) {
-                        formPtr->Save();
-                      }
+                      [weakSelf onDecidedUpdatePolicy:decision
+                                      forPasswordForm:formPtr.get()];
                     }];
 }
 
@@ -1050,6 +1040,48 @@ CWVAutofillProgressDialogType ToCWVAutofillProgressDialogType(
 - (void)sharedPasswordController:(SharedPasswordController*)controller
              didAcceptSuggestion:(FormSuggestion*)suggestion {
   // No op.
+}
+
+#pragma mark - Private
+
+- (void)onDecidedSavePolicy:(CWVPasswordUserDecision)decision
+            forPasswordForm:(password_manager::PasswordFormManagerForUI*)form {
+  // The state may be invalid by the time this is called.
+  if (![self hasValidState]) {
+    return;
+  }
+  switch (decision) {
+    case CWVPasswordUserDecisionYes:
+      form->Save();
+      break;
+    case CWVPasswordUserDecisionNever:
+      form->Blocklist();
+      break;
+    case CWVPasswordUserDecisionNotThisTime:
+      // Do nothing.
+      break;
+  }
+}
+
+- (void)onDecidedUpdatePolicy:(CWVPasswordUserDecision)decision
+              forPasswordForm:
+                  (password_manager::PasswordFormManagerForUI*)form {
+  // The state may be invalid by the time this is called.
+  if (![self hasValidState]) {
+    return;
+  }
+  // Marking a password update as "never" makes no sense as
+  // the password has already been saved.
+  DCHECK_NE(decision, CWVPasswordUserDecisionNever)
+      << "A password update can only be accepted or "
+         "ignored.";
+  if (decision == CWVPasswordUserDecisionYes) {
+    form->Save();
+  }
+}
+
+- (BOOL)hasValidState {
+  return _webState && _passwordManagerClient;
 }
 
 @end

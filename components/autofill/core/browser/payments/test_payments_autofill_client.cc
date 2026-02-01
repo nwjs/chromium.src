@@ -261,18 +261,10 @@ TestPaymentsAutofillClient::GetCardUnmaskPromptModel() {
 VirtualCardEnrollmentManager*
 TestPaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   if (!virtual_card_enrollment_manager_) {
-    PaymentsNetworkInterfaceVariation payments_network_interface;
-    if (base::FeatureList::IsEnabled(
-            features::
-                kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment)) {
-      payments_network_interface = GetMultipleRequestPaymentsNetworkInterface();
-    } else {
-      payments_network_interface = GetPaymentsNetworkInterface();
-    }
     virtual_card_enrollment_manager_ =
         std::make_unique<VirtualCardEnrollmentManager>(
             &client_->GetPersonalDataManager().payments_data_manager(),
-            payments_network_interface, &client_.get());
+            GetMultipleRequestPaymentsNetworkInterface(), &client_.get());
   }
 
   return virtual_card_enrollment_manager_.get();
@@ -383,7 +375,13 @@ bool TestPaymentsAutofillClient::ShowTouchToFillIban(
   return false;
 }
 
-bool TestPaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+bool TestPaymentsAutofillClient::ShowTouchToFillAffiliatedLoyaltyCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
+  return false;
+}
+
+bool TestPaymentsAutofillClient::ShowTouchToFillForAllLoyaltyCards(
     base::WeakPtr<TouchToFillDelegate> delegate,
     std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
   return false;
@@ -418,7 +416,7 @@ bool TestPaymentsAutofillClient::ShowTouchToFillError(
 }
 
 bool TestPaymentsAutofillClient::ShowTouchToFillBnplTos(
-    BnplTosModel bnpl_tos_model,
+    payments::BnplTosModel bnpl_tos_model,
     base::OnceClosure accept_callback,
     base::OnceClosure cancel_callback) {
   return false;
@@ -460,7 +458,8 @@ void TestPaymentsAutofillClient::ShowCreditCardUploadSaveAndFillDialog(
     const LegalMessageLines& legal_message_lines,
     CardSaveAndFillDialogCallback callback) {}
 
-void TestPaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog() {}
+void TestPaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog(
+    CardSaveAndFillDialogCallback callback) {}
 
 void TestPaymentsAutofillClient::HideCreditCardSaveAndFillDialog() {}
 

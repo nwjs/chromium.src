@@ -22,7 +22,6 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/TabStripSceneLayer_jni.h"
 
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 
 namespace android {
@@ -134,9 +133,8 @@ void TabStripSceneLayer::SetConstants(JNIEnv* env,
       reorder_background_corner_radius);
 }
 
-void TabStripSceneLayer::SetContentTree(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& jcontent_tree) {
+void TabStripSceneLayer::SetContentTree(JNIEnv* env,
+                                        const JavaRef<jobject>& jcontent_tree) {
   SceneLayer* content_tree = FromJavaObject(env, jcontent_tree);
   if (content_tree_ &&
       (!content_tree_->layer()->parent() ||
@@ -159,9 +157,9 @@ void TabStripSceneLayer::SetContentTree(
 
 void TabStripSceneLayer::BeginBuildingFrame(
     JNIEnv* env,
-    jboolean visible,
-    const JavaParamRef<jobject>& jresource_manager,
-    const JavaParamRef<jobject>& jlayer_title_cache) {
+    bool visible,
+    const JavaRef<jobject>& jresource_manager,
+    const JavaRef<jobject>& jlayer_title_cache) {
   write_index_ = 0;
   group_write_index_ = 0;
   background_layer_->SetHideLayerAndSubtree(!visible);
@@ -190,9 +188,8 @@ void TabStripSceneLayer::FinishBuildingFrame(JNIEnv* env) {
                             group_title_layers_.end());
 }
 
-void TabStripSceneLayer::UpdateOffsetTag(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& joffset_tag) {
+void TabStripSceneLayer::UpdateOffsetTag(JNIEnv* env,
+                                         const JavaRef<jobject>& joffset_tag) {
   viz::OffsetTag tag = cc::android::FromJavaOffsetTag(env, joffset_tag);
   layer()->SetOffsetTag(tag);
 }
@@ -263,12 +260,12 @@ void TabStripSceneLayer::UpdateNewTabButton(
     jfloat x,
     jfloat y,
     jfloat touch_target_offset,
-    jboolean visible,
-    jboolean should_apply_hover_highlight,
+    bool visible,
+    bool should_apply_hover_highlight,
     jint tint,
     jint background_tint,
     jfloat button_alpha,
-    jboolean is_keyboard_focused,
+    bool is_keyboard_focused,
     jint keyboard_focus_ring_resource_id,
     jint keyboard_focus_ring_color) {
   DCHECK(resource_manager_);
@@ -296,12 +293,12 @@ void TabStripSceneLayer::UpdateModelSelectorButton(
     jint bg_resource_id,
     jfloat x,
     jfloat y,
-    jboolean visible,
-    jboolean should_apply_hover_highlight,
+    bool visible,
+    bool should_apply_hover_highlight,
     jint tint,
     jint background_tint,
     jfloat button_alpha,
-    jboolean is_keyboard_focused,
+    bool is_keyboard_focused,
     jint keyboard_focus_ring_resource_id,
     jint keyboard_focus_ring_color) {
   DCHECK(resource_manager_);
@@ -457,7 +454,7 @@ void TabStripSceneLayer::PutStripTabLayer(
     jint id,
     jint close_resource_id,
     jint close_hover_bg_resource_id,
-    jboolean is_close_keyboard_focused,
+    bool is_close_keyboard_focused,
     jint close_keyboard_focus_ring_resource_id,
     jint divider_resource_id,
     jint handle_resource_id,
@@ -467,11 +464,11 @@ void TabStripSceneLayer::PutStripTabLayer(
     jint divider_tint,
     jint handle_tint,
     jint handle_outline_tint,
-    jboolean foreground,
-    jboolean shouldShowTabOutline,
-    jboolean close_pressed,
-    jboolean should_hide_favicon,
-    jboolean should_show_media_indicator,
+    bool foreground,
+    bool shouldShowTabOutline,
+    bool close_pressed,
+    bool should_hide_favicon,
+    bool should_show_media_indicator,
     jint media_indicator_resource_id,
     jint media_indicator_tint,
     jfloat media_indicator_width,
@@ -487,18 +484,18 @@ void TabStripSceneLayer::PutStripTabLayer(
     jfloat close_button_padding,
     jfloat close_button_alpha,
     jfloat width_to_hide_tab_title,
-    jboolean is_start_divider_visible,
-    jboolean is_end_divider_visible,
-    jboolean is_loading,
+    bool is_start_divider_visible,
+    bool is_end_divider_visible,
+    bool is_loading,
     jfloat spinner_rotation,
     jfloat opacity,
-    jboolean is_keyboard_focused,
+    bool is_keyboard_focused,
     jint keyboard_focus_ring_resource_id,
     jint keyboard_focus_ring_color,
     jint keyboard_focus_ring_offset,
     jint stroke_width,
     jfloat folio_foot_length,
-    jboolean is_pinned) {
+    bool is_pinned) {
   DCHECK(layer_title_cache_);
   scoped_refptr<TabHandleLayer> layer = GetNextTabLayer(layer_title_cache_);
 
@@ -557,11 +554,11 @@ void TabStripSceneLayer::PutStripTabLayer(
 
 void TabStripSceneLayer::PutGroupIndicatorLayer(
     JNIEnv* env,
-    jboolean incognito,
-    jboolean foreground,
-    jboolean collapsed,
-    jboolean show_bubble,
-    const base::android::JavaParamRef<jobject>& jgroup_token,
+    bool incognito,
+    bool foreground,
+    bool collapsed,
+    bool show_bubble,
+    const base::android::JavaRef<jobject>& jgroup_token,
     jint tint,
     jint reorder_background_tint,
     jint bubble_tint,
@@ -576,7 +573,7 @@ void TabStripSceneLayer::PutGroupIndicatorLayer(
     jfloat bottom_indicator_height,
     jfloat bubble_padding,
     jfloat bubble_size,
-    jboolean is_keyboard_focused,
+    bool is_keyboard_focused,
     jint keyboard_focus_ring_resource_id,
     jint keyboard_focus_ring_color,
     jint keyboard_focus_ring_offset,
@@ -657,7 +654,7 @@ SkColor TabStripSceneLayer::GetBackgroundColor() {
 }
 
 static jlong JNI_TabStripSceneLayer_Init(JNIEnv* env,
-                                         const JavaParamRef<jobject>& jobj) {
+                                         const JavaRef<jobject>& jobj) {
   // This will automatically bind to the Java object and pass ownership there.
   TabStripSceneLayer* scene_layer = new TabStripSceneLayer(env, jobj);
   return reinterpret_cast<intptr_t>(scene_layer);

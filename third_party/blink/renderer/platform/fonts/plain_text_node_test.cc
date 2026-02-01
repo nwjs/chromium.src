@@ -4,10 +4,12 @@
 
 #include "third_party/blink/renderer/platform/fonts/plain_text_node.h"
 
+#include "skia/ext/font_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_test_info.h"
+#include "third_party/blink/renderer/platform/text/text_run.h"
 
 namespace blink {
 
@@ -43,6 +45,8 @@ class PlainTextNodeTest : public testing::Test {
   static constexpr bool kDirectionalOverride = true;
   static constexpr bool kNormalizeSpace = true;
   static constexpr bool kSupportsBidi = true;
+
+  void SetUp() override { skia::InitializeFontRendering(); }
 };
 
 TEST_F(PlainTextNodeTest, NormalizeSpacesAndMaybeBidiNoConversion) {

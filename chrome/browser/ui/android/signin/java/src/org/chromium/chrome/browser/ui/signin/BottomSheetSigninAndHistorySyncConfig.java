@@ -10,6 +10,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.google_apis.gaia.CoreAccountId;
 
 import java.lang.annotation.Retention;
@@ -24,21 +26,14 @@ import java.util.Objects;
 public final class BottomSheetSigninAndHistorySyncConfig {
 
     /** The sign-in step that should be shown to the user when there's no account on the device. */
-    @IntDef({
-        NoAccountSigninMode.BOTTOM_SHEET,
-        NoAccountSigninMode.ADD_ACCOUNT,
-        NoAccountSigninMode.NO_SIGNIN
-    })
+    @IntDef({NoAccountSigninMode.BOTTOM_SHEET, NoAccountSigninMode.NO_SIGNIN})
     @Retention(RetentionPolicy.SOURCE)
     public @interface NoAccountSigninMode {
         /** Show the 0-account version of the sign-in bottom sheet. */
         int BOTTOM_SHEET = 0;
 
-        /** Bring the user to GMS Core to add an account, then sign-in with the new account. */
-        int ADD_ACCOUNT = 1;
-
         /** No sign-in should be done, the entry point should not be visible to the user. */
-        int NO_SIGNIN = 2;
+        int NO_SIGNIN = 1;
     }
 
     /** The sign-in step that should be shown to the user when there's 1+ accounts on the device. */
@@ -66,6 +61,7 @@ public final class BottomSheetSigninAndHistorySyncConfig {
     public final @HistorySyncConfig.OptInMode int historyOptInMode;
     public final @Nullable CoreAccountId selectedCoreAccountId;
     public final boolean shouldShowSigninSnackbar;
+    public final @Nullable @SigninSurveyController.SigninSurveyType Integer signinSurveyType;
 
     /** Builder for {@link BottomSheetSigninAndHistorySyncConfig}. */
     public static class Builder {
@@ -77,6 +73,7 @@ public final class BottomSheetSigninAndHistorySyncConfig {
         private @WithAccountSigninMode int mWithAccountSigninMode;
         private @Nullable CoreAccountId mSelectedCoreAccountId;
         private boolean mShouldShowSigninSnackbar;
+        private @Nullable @SigninSurveyController.SigninSurveyType Integer mSigninSurveyType;
 
         /**
          * Constructor of the Builder.
@@ -137,6 +134,14 @@ public final class BottomSheetSigninAndHistorySyncConfig {
         }
 
         /**
+         * @param type A {@link SigninSurveyController.SigninSurveyType} to show after sign-in.
+         */
+        public Builder signinSurveyType(@SigninSurveyController.SigninSurveyType int type) {
+            mSigninSurveyType = type;
+            return this;
+        }
+
+        /**
          * Builds the {@link BottomSheetSigninAndHistorySyncConfig} instance.
          *
          * <p>This method asserts that all necessary fields are correctly set before creating the
@@ -153,7 +158,8 @@ public final class BottomSheetSigninAndHistorySyncConfig {
                     mWithAccountSigninMode,
                     mHistoryOptInMode,
                     mSelectedCoreAccountId,
-                    mShouldShowSigninSnackbar);
+                    mShouldShowSigninSnackbar,
+                    mSigninSurveyType);
         }
     }
 
@@ -164,15 +170,19 @@ public final class BottomSheetSigninAndHistorySyncConfig {
             @WithAccountSigninMode int withAccountSigninMode,
             @HistorySyncConfig.OptInMode int historyOptInMode,
             @Nullable CoreAccountId selectedCoreAccountId,
-            boolean shouldShowSigninSnackbar) {
+            boolean shouldShowSigninSnackbar,
+            @Nullable @SigninSurveyController.SigninSurveyType Integer signinSurveyType) {
         assert bottomSheetStrings != null;
         assert historySyncConfig != null;
         if (withAccountSigninMode == WithAccountSigninMode.SEAMLESS_SIGNIN) {
+            assert SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
             assert selectedCoreAccountId != null
                     : "Must provide a nonnullable CoreAccountId for seamless sign-in flow";
             assert shouldShowSigninSnackbar
                     : "Must enable sign-in snackbar for seamless sign-in flow";
         }
+        assert !shouldShowSigninSnackbar
+                || SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
         this.bottomSheetStrings = bottomSheetStrings;
         this.historySyncConfig = historySyncConfig;
         this.noAccountSigninMode = noAccountSigninMode;
@@ -180,6 +190,7 @@ public final class BottomSheetSigninAndHistorySyncConfig {
         this.historyOptInMode = historyOptInMode;
         this.selectedCoreAccountId = selectedCoreAccountId;
         this.shouldShowSigninSnackbar = shouldShowSigninSnackbar;
+        this.signinSurveyType = signinSurveyType;
     }
 
     @Override
@@ -196,7 +207,8 @@ public final class BottomSheetSigninAndHistorySyncConfig {
                 && withAccountSigninMode == other.withAccountSigninMode
                 && historyOptInMode == other.historyOptInMode
                 && Objects.equals(selectedCoreAccountId, other.selectedCoreAccountId)
-                && shouldShowSigninSnackbar == other.shouldShowSigninSnackbar;
+                && shouldShowSigninSnackbar == other.shouldShowSigninSnackbar
+                && Objects.equals(signinSurveyType, other.signinSurveyType);
     }
 
     @Override
@@ -208,6 +220,7 @@ public final class BottomSheetSigninAndHistorySyncConfig {
                 withAccountSigninMode,
                 historyOptInMode,
                 selectedCoreAccountId,
-                shouldShowSigninSnackbar);
+                shouldShowSigninSnackbar,
+                signinSurveyType);
     }
 }

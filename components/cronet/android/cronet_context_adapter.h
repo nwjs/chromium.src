@@ -51,7 +51,7 @@ class CronetContextAdapter : public CronetContext::Callback {
   // Called on init Java thread to initialize URLRequestContext.
   void InitRequestContextOnInitThread(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& jcaller);
+      const base::android::JavaRef<jobject>& jcaller);
 
   // Releases all resources for the request context and deletes the object.
   // Blocks until network thread is destroyed after running all pending tasks.
@@ -73,14 +73,14 @@ class CronetContextAdapter : public CronetContext::Callback {
   // Starts NetLog logging to file. This can be called on any thread.
   // Return false if |jfile_name| cannot be opened.
   bool StartNetLogToFile(JNIEnv* env,
-                         const base::android::JavaParamRef<jstring>& jfile_name,
-                         jboolean jlog_all);
+                         const base::android::JavaRef<jstring>& jfile_name,
+                         bool jlog_all);
 
   // Starts NetLog logging to disk with a bounded amount of disk space. This
   // can be called on any thread.
   void StartNetLogToDisk(JNIEnv* env,
-                         const base::android::JavaParamRef<jstring>& jdir_name,
-                         jboolean jlog_all,
+                         const base::android::JavaRef<jstring>& jdir_name,
+                         bool jlog_all,
                          jint jmax_size);
 
   // Stops NetLog logging to file. This can be called on any thread. This will
@@ -100,11 +100,10 @@ class CronetContextAdapter : public CronetContext::Callback {
   // device offline checks when computing the effective connection type or when
   // writing the prefs. This should only be used for testing. This can be
   // called only after the network quality estimator has been enabled.
-  void ConfigureNetworkQualityEstimatorForTesting(
-      JNIEnv* env,
-      jboolean use_local_host_requests,
-      jboolean use_smaller_responses,
-      jboolean disable_offline_check);
+  void ConfigureNetworkQualityEstimatorForTesting(JNIEnv* env,
+                                                  bool use_local_host_requests,
+                                                  bool use_smaller_responses,
+                                                  bool disable_offline_check);
 
   bool URLRequestContextExistsForTesting(jlong network);
 

@@ -361,6 +361,11 @@ public class Features {
     // WebViewNavigationListener.onFirstContentfulPaint()
     public static final String WEB_VIEW_NAVIGATION_LISTENER_V1 = "WEB_VIEW_NAVIGATION_LISTENER_V1";
 
+    // WebViewNavigationListener.onFirstContentfulPaintMillis
+    // WebViewNavigationListener.onLargestContentfulPaintMillis
+    // WebViewNavigationListener.onPerformanceMarkMillis
+    public static final String WEB_VIEW_NAVIGATION_LISTENER_V2 = "WEB_VIEW_NAVIGATION_LISTENER_V2";
+
     // WebViewNavigationListener.onNavigationCompleted() firing on non-committed
     // navigations
     public static final String ON_NAVIGATION_COMPLETED_NON_COMMITTED =
@@ -435,4 +440,7 @@ public class Features {
 
     // Profile.addQuicHints
     public static final String ADD_QUIC_HINTS_V1 = "ADD_QUIC_HINTS_V1";
+
+    // WebViewBuilder.applyTo
+    public static final String WEBVIEW_BUILDER_V2 = "WEBVIEW_BUILDER_V2";
 }

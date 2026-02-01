@@ -14,6 +14,7 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/to_vector.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/environment.h"
@@ -25,7 +26,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/memory_pressure_listener_registry.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -45,6 +45,7 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/scoped_message_error_crash_key.h"
+#include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "mojo/public/cpp/system/functions.h"
 #include "net/base/address_list.h"
@@ -615,6 +616,11 @@ void NetworkService::RegisterNetworkContext(NetworkContext* network_context) {
       ->transport_security_state()
       ->SetCTEmergencyDisabled(!ct_enforcement_enabled_);
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
+
+  if (tls_13_early_data_enabled_.has_value()) {
+    network_context->SetTLS13EarlyDataEnabled(
+        tls_13_early_data_enabled_.value());
+  }
 }
 
 void NetworkService::DeregisterNetworkContext(NetworkContext* network_context) {
@@ -864,16 +870,6 @@ void NetworkService::SetEncryptionKey(const std::string& encryption_key) {
   OSCrypt::SetRawEncryptionKey(encryption_key);
 }
 
-void NetworkService::OnMemoryPressure(
-    base::MemoryPressureLevel memory_pressure_level) {
-  // Forward the notification to the registry of MemoryPressureListeners.
-  base::SingleThreadTaskRunner::GetMainThreadDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          &base::MemoryPressureListenerRegistry::NotifyMemoryPressure,
-          memory_pressure_level));
-}
-
 void NetworkService::OnPeerToPeerConnectionsCountChange(uint32_t count) {
   network_quality_estimator_manager_->GetNetworkQualityEstimator()
       ->OnPeerToPeerConnectionsCountChange(count);
@@ -1074,6 +1070,7 @@ void NetworkService::DecodeContentEncoding(
 }
 
 void NetworkService::SetTLS13EarlyDataEnabled(bool enabled) {
+  tls_13_early_data_enabled_ = enabled;
   for (NetworkContext* network_context : network_contexts_) {
     network_context->SetTLS13EarlyDataEnabled(enabled);
   }
@@ -1209,4 +1206,44 @@ void NetworkService::SetTpcdMetadataGrants(
     const std::vector<ContentSettingPatternSource>& settings) {
   tpcd_metadata_manager_->SetGrants(settings);
 }
+
+void NetworkService::AddDurableMessageCollector(
+    mojo::PendingReceiver<network::mojom::DurableMessageCollector> receiver) {
+  if (!durable_message_collector_manager_) {
+    durable_message_collector_manager_ =
+        std::make_unique<DevtoolsDurableMessageCollectorManager>();
+  }
+  durable_message_collector_manager_->AddCollector(std::move(receiver));
+}
+
+std::unique_ptr<DevtoolsDurableMessageWriter>
+NetworkService::MaybeCreateDurableMessageWriter(
+    const base::UnguessableToken& throttling_profile_id,
+    const std::string& devtools_request_id) {
+  if (!throttling_profile_id || devtools_request_id.empty()) {
+    return nullptr;
+  }
+
+  if (!durable_message_collector_manager_) {
+    return nullptr;
+  }
+
+  std::vector<DevtoolsDurableMessageCollector*> collectors =
+      durable_message_collector_manager_->GetCollectorsEnabledForProfile(
+          throttling_profile_id);
+  if (collectors.empty()) {
+    return nullptr;
+  }
+
+  std::vector<base::WeakPtr<DevtoolsDurableMessage>> messages;
+  for (auto* collector : collectors) {
+    if (!collector) {
+      continue;
+    }
+    messages.push_back(collector->CreateDurableMessage(devtools_request_id));
+  }
+  return std::make_unique<MultipleDurableMessageWriterImpl>(
+      std::move(messages));
+}
+
 }  // namespace network

@@ -24,7 +24,9 @@
 
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
+#include "third_party/blink/renderer/core/css/css_crossfade_value.h"
 #include "third_party/blink/renderer/core/css/css_gradient_value.h"
+#include "third_party/blink/renderer/core/css/css_image_set_value.h"
 #include "third_party/blink/renderer/core/css/css_light_dark_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
@@ -38,6 +40,16 @@
 namespace blink {
 
 namespace {
+
+bool MayReturnNullRenderingStyleForPseudoElement(
+    PseudoId pseudo_id,
+    const ComputedStyle* parent_style) {
+  if (pseudo_id != kPseudoIdScrollMarkerGroup) {
+    return true;
+  }
+  CHECK(parent_style);
+  return parent_style->ScrollMarkerGroupNone();
+}
 
 Element* ComputeStyledElement(const StyleRequest& style_request,
                               Element& element) {
@@ -133,6 +145,9 @@ EInsideLink StyleResolverState::InsideLink() const {
 
 const ComputedStyle* StyleResolverState::TakeStyle() {
   if (had_no_matched_properties_ &&
+      MayReturnNullRenderingStyleForPseudoElement(
+          element_context_.GetElement().GetPseudoIdForStyling(),
+          parent_style_) &&
       pseudo_request_type_ == StyleRequest::kForRenderer) {
     return nullptr;
   }
@@ -383,11 +398,31 @@ const CSSValue& StyleResolverState::ResolveLightDarkPair(
   return value;
 }
 
-const CSSValue& StyleResolverState::ResolveGradient(const CSSValue& value) {
+const CSSValue& StyleResolverState::ResolveGradients(
+    const CSSValue& value) const {
   if (const auto* gradient_value =
-          DynamicTo<cssvalue::CSSGradientValue>(&value)) {
-    return *gradient_value->ResolveValuesIfNeeded(
-        css_to_length_conversion_data_);
+          DynamicTo<cssvalue::CSSGradientValue>(value)) {
+    return gradient_value->ResolveValuesIfNeeded(*this);
+  }
+  if (const auto* image_set_value = DynamicTo<CSSImageSetValue>(value)) {
+    return image_set_value->ResolveValuesIfNeeded(*this);
+  }
+  if (const auto* cross_fade_value =
+          DynamicTo<cssvalue::CSSCrossfadeValue>(value)) {
+    return cross_fade_value->ResolveValuesIfNeeded(*this);
+  }
+  return value;
+}
+
+CSSValue& StyleResolverState::ResolveGradients(CSSValue& value) const {
+  if (auto* gradient_value = DynamicTo<cssvalue::CSSGradientValue>(value)) {
+    return gradient_value->ResolveValuesIfNeeded(*this);
+  }
+  if (auto* image_set_value = DynamicTo<CSSImageSetValue>(value)) {
+    return image_set_value->ResolveValuesIfNeeded(*this);
+  }
+  if (auto* cross_fade_value = DynamicTo<cssvalue::CSSCrossfadeValue>(value)) {
+    return cross_fade_value->ResolveValuesIfNeeded(*this);
   }
   return value;
 }

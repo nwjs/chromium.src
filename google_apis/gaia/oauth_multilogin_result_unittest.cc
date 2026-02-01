@@ -215,7 +215,7 @@ TEST(OAuthMultiloginResultTest, TryParseCookiesFromValue) {
           net::CookieSameSite::UNSPECIFIED,
           net::CookiePriority::COOKIE_PRIORITY_HIGH)};
 
-  EXPECT_EQ((int)result.cookies().size(), 4);
+  EXPECT_EQ(result.cookies().size(), 4u);
 
   EXPECT_TRUE(result.cookies()[0].IsEquivalent(cookies[0]));
   EXPECT_TRUE(result.cookies()[1].IsEquivalent(cookies[1]));
@@ -855,7 +855,7 @@ TEST(OAuthMultiloginResultTest, ParseRealResponseFromGaia_2021_10) {
 
   result.TryParseCookiesFromValue(base::test::ParseJsonDict(data));
 
-  ASSERT_EQ((int)result.cookies().size(), 31);
+  ASSERT_EQ(result.cookies().size(), 31u);
 
   EXPECT_THAT(
       result.cookies(),
@@ -1054,8 +1054,7 @@ TEST(OAuthMultiloginResultTest, NoDeviceBoundSessionInfo) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {}
@@ -1094,8 +1093,7 @@ TEST(OAuthMultiloginResultTest, ReuseExistingDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1147,8 +1145,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "name": "__Secure-Google-Cookie",
@@ -1158,8 +1155,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1292,8 +1288,7 @@ TEST(OAuthMultiloginResultTest, UnknownDeviceBoundSessionDomain) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1347,8 +1342,7 @@ TEST(OAuthMultiloginResultTest, IsNotDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1396,8 +1390,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewDeviceBoundSessionInvalidPayload) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1457,8 +1450,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewStandardDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "name": "__Secure-Google-Cookie",
@@ -1468,8 +1460,7 @@ TEST(OAuthMultiloginResultTest, RegisterNewStandardDeviceBoundSession) {
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -1625,8 +1616,7 @@ TEST(OAuthMultiloginResultTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "name": "__Secure-Google-Cookie",
@@ -1636,8 +1626,7 @@ TEST(OAuthMultiloginResultTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},

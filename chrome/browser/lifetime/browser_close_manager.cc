@@ -11,7 +11,6 @@
 #include <ranges>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
@@ -26,6 +25,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -84,9 +84,12 @@ void BrowserCloseManager::CancelBrowserClose() {
   }
 
   browser_shutdown::SetTryingToQuit(false);
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    browser->ResetTryToCloseWindow();
-  }
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [](BrowserWindowInterface* browser) {
+        browser->GetBrowserForMigrationOnly()->ResetTryToCloseWindow();
+        return true;
+      },
+      BrowserCollection::Order::kCreation);
 }
 
 void BrowserCloseManager::TryToCloseBrowsers() {
@@ -95,13 +98,21 @@ void BrowserCloseManager::TryToCloseBrowsers() {
   // stop closing. CallBeforeUnloadHandlers prompts the user and calls
   // OnBrowserReportCloseable with the result. If the user confirms the close,
   // this will trigger TryToCloseBrowsers to try again.
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    if (browser->TryToCloseWindow(
-            false, base::BindRepeating(
-                       &BrowserCloseManager::OnBrowserReportCloseable, this))) {
-      current_browser_ = browser;
-      return;
-    }
+  bool should_stop = false;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [this, &should_stop](BrowserWindowInterface* browser) {
+        if (browser->GetBrowserForMigrationOnly()->TryToCloseWindow(
+                false,
+                base::BindRepeating(
+                    &BrowserCloseManager::OnBrowserReportCloseable, this))) {
+          current_browser_ = browser;
+          should_stop = true;
+        }
+        return !should_stop;
+      },
+      BrowserCollection::Order::kCreation);
+  if (should_stop) {
+    return;
   }
 
   // This is the success endpoint. If we get here, all beforeunload handlers
@@ -231,10 +242,6 @@ void BrowserCloseManager::CloseBrowsers() {
           // happen.
           browser_window->GetTabStripModel()->CloseAllTabs();
           browser->SynchronouslyDestroyBrowser();
-
-          // Destroying the browser should have removed it from the browser
-          // list.
-          DCHECK(!base::Contains(*BrowserList::GetInstance(), browser));
         }
         return true;
       });

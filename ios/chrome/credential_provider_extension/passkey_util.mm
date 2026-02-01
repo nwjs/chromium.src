@@ -12,8 +12,8 @@
 #import "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #import "components/webauthn/core/browser/gpm_user_verification_policy.h"
 #import "components/webauthn/core/browser/passkey_model_utils.h"
-#import "device/fido/fido_types.h"
 #import "device/fido/fido_user_verification_requirement.h"
+#import "device/fido/public/fido_types.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/common/credential_provider/ASPasskeyCredentialIdentity+credential.h"
 #import "ios/chrome/common/credential_provider/archivable_credential+passkey.h"
@@ -36,12 +36,13 @@ void Append(std::vector<uint8_t>& container, NSData* data) {
 // passkey request.
 webauthn::passkey_model_utils::ExtensionInputData
 ExtensionInputDataFromPRFInputs(NSArray<NSData*>* prf_inputs) {
-  if (prf_inputs) {
+  if ([prf_inputs count] > 0) {
     return webauthn::passkey_model_utils::ExtensionInputData(
-        ([prf_inputs count] > 0) ? base::apple::NSDataToSpan(prf_inputs[0])
-                                 : std::vector<uint8_t>(),
-        ([prf_inputs count] > 1) ? base::apple::NSDataToSpan(prf_inputs[1])
-                                 : std::vector<uint8_t>());
+        {base::apple::NSDataToSpan(prf_inputs[0]),
+         ([prf_inputs count] > 1)
+             ? std::optional<base::span<const uint8_t>>(
+                   base::apple::NSDataToSpan(prf_inputs[1]))
+             : std::nullopt});
   }
   return webauthn::passkey_model_utils::ExtensionInputData();
 }

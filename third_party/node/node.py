@@ -26,7 +26,8 @@ def GetBinaryPath():
     'Windows': ('win', 'node.exe'),
   }[platform.system()])
 
-def RunNode(cmd_parts, stdout=None):
+
+def RunNodeRaw(cmd_parts, stdout=None):
   cmd = [GetBinaryPath()] + cmd_parts
   process = None
   if is_win:
@@ -51,13 +52,22 @@ def RunNode(cmd_parts, stdout=None):
         pass
   signal.signal(signal.SIGTERM, kill_process)
   stdout, stderr = process.communicate()
+  return process.returncode, stdout, stderr
 
-  if process.returncode != 0:
-    # Handle cases where stderr is empty, even though the command failed, for
-    # example https://github.com/microsoft/TypeScript/issues/615
-    err = stderr if len(stderr) > 0 else stdout
-    raise RuntimeError('Command \'%s\' failed\n%s' % (' '.join(cmd), err))
-
+def RunNode(cmd_parts, stdout=None):
+  code, stdout, stderr = RunNodeRaw(cmd_parts, stdout)
+  if code != 0:
+    errs = []
+    if len(stderr) > 0:
+      errs.append("stderr:\n" + stderr)
+    if len(stdout) > 0:
+      # Handle cases where stderr is empty, even though the command failed, for
+      # example https://github.com/microsoft/TypeScript/issues/615
+      errs.append("stdout:\n" + stdout)
+    errs.append("exit=%d" % code)
+    cmd = [GetBinaryPath()] + cmd_parts
+    raise RuntimeError('Command \'%s\' failed\n%s' % (
+        ' '.join(cmd), '\n'.join(errs)))
   return stdout
 
 if __name__ == '__main__':

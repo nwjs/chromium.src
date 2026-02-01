@@ -28,8 +28,8 @@ class FileOpeningJobTest : public testing::Test {
 
   void OnGotFileData(std::unique_ptr<FileAnalysisRequest> request,
                      enterprise_connectors::ScanRequestUploadResult result,
-                     BinaryUploadService::Request::Data data) {
-    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+                     enterprise_connectors::BinaryUploadRequest::Data data) {
+    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
     EXPECT_TRUE(data.contents.empty());
     EXPECT_FALSE(data.mime_type.empty());
     EXPECT_EQ(3u, data.size);

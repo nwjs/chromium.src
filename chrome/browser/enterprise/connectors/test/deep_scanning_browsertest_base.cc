@@ -41,7 +41,7 @@ class UnresponsiveFilesRequestHandler : public FilesRequestHandler {
 
   static std::unique_ptr<FilesRequestHandler> Create(
       ContentAnalysisInfo* content_analysis_info,
-      safe_browsing::BinaryUploadService* upload_service,
+      BinaryUploadService* upload_service,
       Profile* profile,
       GURL url,
       const std::string& source,
@@ -60,8 +60,7 @@ class UnresponsiveFilesRequestHandler : public FilesRequestHandler {
   void UploadFileForDeepScanning(
       enterprise_connectors::ScanRequestUploadResult result,
       const base::FilePath& path,
-      std::unique_ptr<safe_browsing::BinaryUploadService::Request> request)
-      override {
+      std::unique_ptr<BinaryUploadRequest> request) override {
     // Do nothing.
   }
 };

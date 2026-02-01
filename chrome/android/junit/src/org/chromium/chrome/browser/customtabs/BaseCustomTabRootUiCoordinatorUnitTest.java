@@ -39,7 +39,9 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -111,7 +113,6 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
 
     @Mock private ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
-    @Mock private ActivityTabProvider mTabProvider;
     @Mock private CustomTabActivityTabProvider mCustomTabProvider;
     @Mock private ObservableSupplier<BookmarkModel> mBookmarkModelSupplier;
     @Mock private ObservableSupplier<TabBookmarker> mTabBookmarkerSupplier;
@@ -127,7 +128,6 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private ActivityWindowAndroid mWindowAndroid;
     @Mock private OneshotSupplier<ChromeAndroidTask> mChromeAndroidTask;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
-    @Mock private ObservableSupplier<LayoutManagerImpl> mLayoutManagerSupplier;
     @Mock private MenuOrKeyboardActionController mMenuOrKeyboardActionController;
     @Mock private Supplier<Integer> mActivityThemeColorSupplier;
     @Mock private ObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
@@ -161,7 +161,10 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private IdentityManager mIdentityManager;
     @Mock private Supplier<BrowserServicesThemeColorProvider> mBrowserServicesColorProviderSupplier;
 
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private ObservableSupplierImpl<Profile> mProfileSupplier;
+    private final SettableObservableSupplier<LayoutManagerImpl> mLayoutManagerSupplier =
+            ObservableSuppliers.createMonotonic();
     private AppCompatActivity mActivity;
     private BaseCustomTabRootUiCoordinator mBaseCustomTabRootUiCoordinator;
 
@@ -193,7 +196,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
                 new BaseCustomTabRootUiCoordinator(
                         mActivity,
                         mShareDelegateSupplier,
-                        mTabProvider,
+                        mActivityTabProvider,
                         mCustomTabProvider,
                         mProfileSupplier,
                         mBookmarkModelSupplier,
@@ -281,6 +284,8 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
                 BaseCustomTabRootUiCoordinator.isGoogleBottomBarEnabled(null));
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     @MediumTest
     public void testInitProfileDependantFeatures_callsInitDefaultSearchEngine() {

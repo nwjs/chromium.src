@@ -12,13 +12,19 @@ import android.content.ServiceConnection;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.hardware.display.DisplayManager;
+import android.os.Bundle;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.Window;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.TextAttribute;
 import android.webkit.WebViewDelegate;
+
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -152,6 +158,31 @@ public interface AconfigFlaggedApiDelegate {
     }
 
     /**
+     * Calls {@link
+     * android.view.accessibility.AccessibilityEvent#setTextChangeTypes(@TextChangeTypes int types)}
+     * method if supported.
+     */
+    default void setTextChangeTypes(AccessibilityEvent event, int subType) {}
+
+    /**
+     * Calls {@link android.view.inputmethod.TextAttribute#isTextSuggestionSelected()} method if
+     * supported.
+     */
+    default boolean isTextSuggestionSelected(@Nullable TextAttribute textAttribute) {
+        return false;
+    }
+
+    /**
+     * Sets {@link
+     * android.view.inputmethod.EditorInfo.TYPE_TEXT_FLAG_ENABLE_TEXT_SUGGESTION_SELECTED} if
+     * supported.
+     *
+     * @param outAttrs The {@link android.view.inputmethod.EditorInfo} object used to describe the
+     *     attributes of the input connection being created.
+     */
+    default void setTextFlagEnableTextSuggestionSelected(EditorInfo outAttrs) {}
+
+    /**
      * Calls the {@link android.content.Context#rebindService(ServiceConnection, BindServiceFlags)}
      * method if supported.
      *
@@ -215,5 +246,131 @@ public interface AconfigFlaggedApiDelegate {
     default @Nullable SelectionActionMenuClientWrapper getSelectionActionMenuClient(
             WebViewDelegate delegate) {
         return null;
+    }
+
+    /**
+     * Sets the sort direction on the CollectionItemInfoCompat Builder. This may call
+     * setSortDirection on the CollectionItemInfoCompat builder if the API is available.
+     *
+     * @param builder The CollectionItemInfoCompat.Builder instance to modify.
+     * @param sortDirection An integer representing the sort direction.
+     */
+    default void setCollectionItemSortDirection(
+            AccessibilityNodeInfoCompat.CollectionItemInfoCompat.Builder builder,
+            int sortDirection) {}
+
+    /**
+     * Attempts to add the CONTENT_CHANGE_TYPE_SORT_DIRECTION to the given AccessibilityEvent.
+     *
+     * @param event The AccessibilityEvent object to modify.
+     * @return true if the event was modified to include the sort direction content change type,
+     *     false otherwise (e.g., API not available).
+     */
+    default boolean setSortDirectionContentChangeType(AccessibilityEvent event) {
+        return false;
+    }
+
+    /**
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#setSelection(@Nullable
+     * SelectionCompat selection)} if supported.
+     *
+     * @param info The node to which the extended selection is assigned.
+     * @param view The view whose virtual descendant is associated with the selection position.
+     * @param startVirtualDescendantId The ID of the virtual descendant within {@code view}'s
+     *     virtual subtree that contains the start selection position.
+     * @param startOffset The offset for a selection position within the start virtual descendant's
+     *     text content.
+     * @param endVirtualDescendantId The ID of the virtual descendant within {@code view}'s virtual
+     *     subtree that contains the end selection position.
+     * @param endOffset The offset for a selection position within the end virtual descendant's text
+     *     content.
+     */
+    default void setSelection(
+            AccessibilityNodeInfoCompat info,
+            android.view.View view,
+            int startVirtualDescendantId,
+            int startOffset,
+            int endVirtualDescendantId,
+            int endOffset) {}
+
+    /**
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#setSelection(@Nullable
+     * SelectionCompat selection)} if supported.
+     *
+     * @param info The node whose extended selection is cleared.
+     */
+    default void clearSelection(AccessibilityNodeInfoCompat info) {}
+
+    /**
+     * @return Id of
+     *     androidx.core.view.accessibility.AccessibilityNodeInfo.AccessibilityActionCompat.ACTION_SET_EXTENDED_SELECTION
+     */
+    default @Nullable Integer getActionSetExtendedSelectionId() {
+        return null;
+    }
+
+    /**
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#getSelection()} if
+     * supported.
+     *
+     * @param arguments Arguments sent with the ACTION_SET_EXTENDED_SELECTION action.
+     * @return Null if selection is empty or feature is not available, otherwise a pair of two
+     *     integers, representing startVirtualDescendentId and startOffset for the selection start
+     *     node.
+     */
+    default @Nullable Pair<Integer, Integer> getActionSetExtendedSelectionStartArgument(
+            Bundle arguments) {
+        return null;
+    }
+
+    /**
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#getSelection()} if
+     * supported.
+     *
+     * @param arguments Arguments sent with the ACTION_SET_EXTENDED_SELECTION action.
+     * @return Null if selection is empty or feature is not available, otherwise a pair of two
+     *     integers, representing startVirtualDescendentId and startOffset for the selection end
+     *     node.
+     */
+    default @Nullable Pair<Integer, Integer> getActionSetExtendedSelectionEndArgument(
+            Bundle arguments) {
+        return null;
+    }
+
+    /** Checks if native-only services are available on this build of Android */
+    default boolean areNativeOnlyServicesEnabled() {
+        return false;
+    }
+
+    /** Checks if {@link android.content.pm.webapp.WebAppManager} service is available. */
+    default boolean isWebAppServiceEnabled() {
+        return false;
+    }
+
+    /**
+     * Constructs {@link WebAppInstallRequest} and calls {@link
+     * android.content.pm.webapp.WebAppManager#install(@NonNull WebAppInstallRequest
+     * request, @NonNull @CallbackExecutor Executor executor, @NonNull ObjIntConsumer<String>
+     * callback)} with it if supported. Returns whether the method was successfully called.
+     *
+     * @param title The title of the web app to install.
+     * @param manifestUrl The manifest URL to install from.
+     * @param installSucceededCallback The callback to run when the install finished successfully.
+     * @param installFailedCallback The callback to run when the install failed.
+     * @param installCancelledCallback The callback to run when the user cancelled the installation.
+     */
+    default boolean installTwa(
+            String title,
+            String manifestUrl,
+            Runnable installSucceededCallback,
+            Runnable installFailedCallback,
+            Runnable installCancelledCallback) {
+        installFailedCallback.run();
+        return false;
+    }
+
+    /** Whether the feature to split the Android setting 'Show passwords' is enabled. */
+    default boolean isShowPasswordsSplitEnabled() {
+        return false;
     }
 }

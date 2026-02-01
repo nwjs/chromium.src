@@ -51,8 +51,12 @@
 
 namespace blink {
 
+// static
+const char FontFaceSetDocument::kSupplementName[] = "FontFaceSetDocument";
+
 FontFaceSetDocument::FontFaceSetDocument(Document& document)
     : FontFaceSet(*document.GetExecutionContext()),
+      Supplement<Document>(document),
       lcp_limit_timer_(document.GetTaskRunner(TaskType::kInternalLoading),
                        this,
                        &FontFaceSetDocument::LCPLimitReached) {}
@@ -215,10 +219,11 @@ Document* FontFaceSetDocument::GetDocument() const {
 }
 
 FontFaceSetDocument* FontFaceSetDocument::From(Document& document) {
-  FontFaceSetDocument* fonts = document.GetFontFaceSetDocument();
+  FontFaceSetDocument* fonts =
+      Supplement<Document>::From<FontFaceSetDocument>(document);
   if (!fonts) {
     fonts = MakeGarbageCollected<FontFaceSetDocument>(document);
-    document.SetFontFaceSetDocument(fonts);
+    Supplement<Document>::ProvideTo(document, fonts);
   }
 
   return fonts;
@@ -231,13 +236,15 @@ void FontFaceSetDocument::DidLayout(Document& document) {
     // existing tests depend on it firing after onload.
     return;
   }
-  if (FontFaceSetDocument* fonts = document.GetFontFaceSetDocument()) {
+  if (FontFaceSetDocument* fonts =
+          Supplement<Document>::From<FontFaceSetDocument>(document)) {
     fonts->DidLayout();
   }
 }
 
 size_t FontFaceSetDocument::ApproximateBlankCharacterCount(Document& document) {
-  if (FontFaceSetDocument* fonts = document.GetFontFaceSetDocument()) {
+  if (FontFaceSetDocument* fonts =
+          Supplement<Document>::From<FontFaceSetDocument>(document)) {
     return fonts->ApproximateBlankCharacterCount();
   }
   return 0;
@@ -262,6 +269,7 @@ void FontFaceSetDocument::LCPLimitReached(TimerBase*) {
 
 void FontFaceSetDocument::Trace(Visitor* visitor) const {
   visitor->Trace(lcp_limit_timer_);
+  Supplement<Document>::Trace(visitor);
   FontFaceSet::Trace(visitor);
 }
 

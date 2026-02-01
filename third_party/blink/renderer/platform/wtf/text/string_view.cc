@@ -14,6 +14,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/code_point_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_impl.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_internal.h"
+#include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf8.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -175,6 +177,13 @@ bool StringView::ContainsOnlyASCIIOrEmpty() const {
   return attrs.contains_only_ascii;
 }
 
+bool StringView::ContainsOnlyLatin1OrEmpty() const {
+  if (empty() || Is8Bit()) {
+    return true;
+  }
+  return std::ranges::all_of(Span16(), [](UChar ch) { return ch < 0x0100; });
+}
+
 bool StringView::SubstringContainsOnlyWhitespaceOrEmpty(unsigned from,
                                                         unsigned to) const {
   DCHECK_LE(from, to);
@@ -186,6 +195,18 @@ bool StringView::SubstringContainsOnlyWhitespaceOrEmpty(unsigned from,
     }
     return true;
   });
+}
+
+wtf_size_t StringView::find(UChar ch, wtf_size_t start) const {
+  if (empty()) {
+    return kNotFound;
+  }
+  return Is8Bit() ? blink::Find(Span8(), ch, start)
+                  : blink::Find(Span16(), ch, start);
+}
+
+bool StringView::contains(UChar ch) const {
+  return find(ch) != kNotFound;
 }
 
 String StringView::ToString() const {
@@ -340,6 +361,29 @@ CodePointIterator StringView::begin() const {
 
 CodePointIterator StringView::end() const {
   return CodePointIterator::End(*this);
+}
+
+StringView StringView::StripWhiteSpace() const {
+  return VisitCharacters(*this, [&](auto chars) {
+    const auto [start, len] = internal::StrippedMatchedCharactersRange(
+        chars, unicode::IsSpaceOrNewline);
+    if (start == 0 && len == length_) {
+      return *this;
+    }
+    return StringView(chars.subspan(start, len));
+  });
+}
+
+StringView StringView::StripWhiteSpace(
+    IsWhiteSpaceFunctionPtr predicate) const {
+  return VisitCharacters(*this, [&](auto chars) {
+    const auto [start, len] =
+        internal::StrippedMatchedCharactersRange(chars, predicate);
+    if (start == 0 && len == length_) {
+      return *this;
+    }
+    return StringView(chars.subspan(start, len));
+  });
 }
 
 std::ostream& operator<<(std::ostream& out, const StringView& string) {

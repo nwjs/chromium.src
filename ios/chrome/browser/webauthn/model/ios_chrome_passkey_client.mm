@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/webauthn/model/scoped_passkey_keychain_provider_override.h"
 #import "ios/chrome/common/credential_provider/passkey_keychain_provider.h"
 #import "ios/web/public/web_state.h"
 
@@ -31,14 +32,28 @@ IOSChromePasskeyClient::IOSChromePasskeyClient(web::WebState* web_state) {
   CHECK(web_state);
   web_state_ = web_state->GetWeakPtr();
   profile_ = ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  bool metrics_reporting_enabled =
-      GetApplicationContext()->GetLocalState()->GetBoolean(
-          metrics::prefs::kMetricsReportingEnabled);
-  passkey_keychain_provider_ =
-      std::make_unique<PasskeyKeychainProvider>(metrics_reporting_enabled);
 }
 
 IOSChromePasskeyClient::~IOSChromePasskeyClient() {}
+
+PasskeyKeychainProvider* IOSChromePasskeyClient::GetPasskeyKeychainProvider() {
+  // Returns the test provider if it's set, or the regular provider otherwise.
+  PasskeyKeychainProvider* test_provider =
+      ScopedPasskeyKeychainProviderOverride::Get();
+  if (test_provider) {
+    return test_provider;
+  }
+
+  if (!passkey_keychain_provider_) {
+    bool metrics_reporting_enabled =
+        GetApplicationContext()->GetLocalState()->GetBoolean(
+            metrics::prefs::kMetricsReportingEnabled);
+    passkey_keychain_provider_ =
+        std::make_unique<PasskeyKeychainProvider>(metrics_reporting_enabled);
+  }
+
+  return passkey_keychain_provider_.get();
+}
 
 bool IOSChromePasskeyClient::PerformUserVerification() {
   // TODO(crbug.com/460484682): Perform user verification.
@@ -53,8 +68,8 @@ void IOSChromePasskeyClient::FetchKeys(webauthn::ReauthenticatePurpose purpose,
       IdentityManagerFactory::GetForProfile(profile_)->GetPrimaryAccountInfo(
           signin::ConsentLevel::kSignin);
 
-  passkey_keychain_provider_->FetchKeys(account.gaia.ToNSString(), purpose,
-                                        std::move(callback));
+  GetPasskeyKeychainProvider()->FetchKeys(account.gaia.ToNSString(), purpose,
+                                          std::move(callback));
 }
 
 void IOSChromePasskeyClient::ShowSuggestionBottomSheet(

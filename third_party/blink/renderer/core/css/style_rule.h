@@ -34,11 +34,12 @@
 #include "third_party/blink/renderer/core/css/css_syntax_definition.h"
 #include "third_party/blink/renderer/core/css/css_variable_data.h"
 #include "third_party/blink/renderer/core/css/media_list.h"
+#include "third_party/blink/renderer/core/css/mixin_parameter_bindings.h"
 #include "third_party/blink/renderer/core/css/parser/css_at_rule_id.h"
 #include "third_party/blink/renderer/core/css/parser/css_lazy_property_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_nesting_type.h"
 #include "third_party/blink/renderer/core/css/style_scope.h"
-#include "third_party/blink/renderer/core/route_matching/route_preposition.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_preposition.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 
@@ -48,7 +49,7 @@ class CSSRule;
 class CSSStyleSheet;
 class MixinParameterBindings;
 class ExecutionContext;
-class RouteQuery;
+class NavigationQuery;
 
 class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
  public:
@@ -64,7 +65,7 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
     kPage,
     kPageMargin,
     kProperty,
-    kRoute,
+    kNavigation,
     kKeyframes,
     kKeyframe,
     kLayerBlock,
@@ -84,6 +85,7 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
     kContents,
     kPositionTry,
     kCustomMedia,
+    kRoute,
   };
 
   // Name of a cascade layer as given by an @layer rule, split at '.' into a
@@ -121,6 +123,7 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
   bool IsPageRuleMargin() const { return GetType() == kPageMargin; }
   bool IsPropertyRule() const { return GetType() == kProperty; }
   bool IsRouteRule() const { return GetType() == kRoute; }
+  bool IsNavigationRule() const { return GetType() == kNavigation; }
   bool IsStyleRule() const { return GetType() == kStyle; }
   bool IsScopeRule() const { return GetType() == kScope; }
   bool IsSupportsRule() const { return GetType() == kSupports; }
@@ -168,72 +171,6 @@ class CORE_EXPORT StyleRuleBase : public GarbageCollected<StyleRuleBase> {
                               bool trigger_use_counters) const;
 
   const uint8_t type_;
-};
-
-// A set of custom mixin bindings at some given point in the stylesheet,
-// i.e., which variable has which value (and which type is it supposed
-// to match; we cannot check this when binding, so it needs to happen
-// when substituting). Created when we @apply a mixin; StyleRules and
-// other interested parties can point to a MixinParameterBindings,
-// which contains its own bindings and then point backwards to the
-// next set of upper bindings (if any), and so on in a linked list.
-//
-// This will be converted to function context at the time of application.
-class MixinParameterBindings : public GarbageCollected<MixinParameterBindings> {
- public:
-  struct Binding {
-    DISALLOW_NEW();
-
-    Member<CSSVariableData> value;
-    Member<CSSVariableData> default_value;
-    CSSSyntaxDefinition syntax;
-
-    bool operator==(const Binding& other) const {
-      return base::ValuesEquivalent(value, other.value) &&
-             base::ValuesEquivalent(default_value, other.default_value) &&
-             syntax == other.syntax;
-    }
-
-    void Trace(Visitor* visitor) const {
-      visitor->Trace(value);
-      visitor->Trace(default_value);
-    }
-  };
-
-  MixinParameterBindings(HeapHashMap<String, Binding> bindings,
-                         const MixinParameterBindings* previous_in_env_chain)
-      : bindings_(bindings),
-        parent_mixin_(previous_in_env_chain),
-        hash_(ComputeHash()) {}
-
-  void Trace(Visitor* visitor) const {
-    visitor->Trace(parent_mixin_);
-    visitor->Trace(bindings_);
-  }
-
-  // NOTE: Equality here is only used for the MPC, where false negatives
-  // are OK. In particular, we compare bindings one level at a time;
-  // if we have an entry for e.g. “--foo: bar;” and the other side
-  // does not, we will return false even if a _parent_ of the other side
-  // does. Doing anything else would rapidly get very complicated when
-  // they can e.g. refer to each other with var().
-  bool operator==(const MixinParameterBindings& other) const;
-
-  const HeapHashMap<String, Binding>& GetBindings() const { return bindings_; }
-
-  const MixinParameterBindings* GetParentMixin() const { return parent_mixin_; }
-
-  // Returns a hash of all the bindings, mixed with the parents' hash.
-  // (We don't hash the CSSSyntaxDefinition, so there may be false positives
-  // in weird cases.) The same caveats as operator== apply.
-  unsigned GetHash() const { return hash_; }
-
- private:
-  unsigned ComputeHash() const;
-
-  HeapHashMap<String, Binding> bindings_;
-  Member<const MixinParameterBindings> parent_mixin_;
-  unsigned hash_;
 };
 
 // A single rule from a stylesheet. Contains a selector list (one or more
@@ -322,10 +259,10 @@ class CORE_EXPORT StyleRule : public StyleRuleBase {
   // Partial subset of the CSSSelector API.
   const CSSSelector* FirstSelector() const { return SelectorArray(); }
   const CSSSelector& SelectorAt(wtf_size_t index) const {
-    return UNSAFE_TODO(SelectorArray()[index]);
+    return UNSAFE_BUFFERS(SelectorArray()[index]);
   }
   CSSSelector& MutableSelectorAt(wtf_size_t index) {
-    return UNSAFE_TODO(SelectorArray()[index]);
+    return UNSAFE_BUFFERS(SelectorArray()[index]);
   }
   wtf_size_t SelectorIndex(const CSSSelector& selector) const {
     return static_cast<wtf_size_t>(&selector - FirstSelector());
@@ -384,9 +321,9 @@ class CORE_EXPORT StyleRule : public StyleRuleBase {
   bool HasParsedProperties() const;
 
   CSSSelector* SelectorArray() {
-    return reinterpret_cast<CSSSelector*>(
-        base::bits::AlignUp(UNSAFE_TODO(reinterpret_cast<uint8_t*>(this + 1)),
-                            alignof(CSSSelector)));
+    return reinterpret_cast<CSSSelector*>(base::bits::AlignUp(
+        UNSAFE_BUFFERS(reinterpret_cast<uint8_t*>(this + 1)),
+        alignof(CSSSelector)));
   }
   const CSSSelector* SelectorArray() const {
     return const_cast<StyleRule*>(this)->SelectorArray();
@@ -615,18 +552,22 @@ class CORE_EXPORT StyleRuleContainer : public StyleRuleCondition {
   Member<ContainerQuery> container_query_;
 };
 
-class StyleRuleRoute : public StyleRuleCondition {
+class StyleRuleNavigation : public StyleRuleCondition {
  public:
-  StyleRuleRoute(RouteQuery*, HeapVector<Member<StyleRuleBase>> child_rules);
-  StyleRuleRoute(const StyleRuleRoute&) = delete;
-  StyleRuleRoute(const StyleRuleRoute&, HeapVector<Member<StyleRuleBase>>);
+  StyleRuleNavigation(NavigationQuery*,
+                      HeapVector<Member<StyleRuleBase>> child_rules);
+  StyleRuleNavigation(const StyleRuleNavigation&) = delete;
+  StyleRuleNavigation(const StyleRuleNavigation&,
+                      HeapVector<Member<StyleRuleBase>>);
 
   void TraceAfterDispatch(Visitor*) const;
 
-  const RouteQuery& GetRouteQuery() const { return *route_query_; }
+  const NavigationQuery& GetNavigationQuery() const {
+    return *navigation_query_;
+  }
 
  private:
-  Member<RouteQuery> route_query_;
+  Member<NavigationQuery> navigation_query_;
 };
 
 class StyleRuleStartingStyle : public StyleRuleGroup {
@@ -852,9 +793,9 @@ struct DowncastTraits<StyleRuleProperty> {
 };
 
 template <>
-struct DowncastTraits<StyleRuleRoute> {
+struct DowncastTraits<StyleRuleNavigation> {
   static bool AllowFrom(const StyleRuleBase& rule) {
-    return rule.IsRouteRule();
+    return rule.IsNavigationRule();
   }
 };
 

@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/values.h"
 #include "components/prefs/default_pref_store.h"
 #include "components/prefs/pref_store.h"
@@ -18,8 +17,7 @@
 PrefRegistry::PrefRegistry()
     : defaults_(base::MakeRefCounted<DefaultPrefStore>()) {}
 
-PrefRegistry::~PrefRegistry() {
-}
+PrefRegistry::~PrefRegistry() {}
 
 uint32_t PrefRegistry::GetRegistrationFlags(std::string_view pref_name) const {
   const auto& it = registration_flags_.find(pref_name);
@@ -66,9 +64,9 @@ void PrefRegistry::RegisterPreference(std::string_view path,
       << "invalid preference type: " << orig_type;
   DCHECK(!defaults_->GetValue(path, nullptr))
       << "Trying to register a previously registered pref: " << path;
-  DCHECK(!base::Contains(registration_flags_, std::string(path)))
+  DCHECK(!registration_flags_.contains(std::string(path)))
       << "Trying to register a previously registered pref: " << path;
-  DCHECK(!base::Contains(registration_types_, std::string(path)))
+  DCHECK(!registration_types_.contains(std::string(path)))
       << "Trying to register a previously registered pref: " << path;
 
   defaults_->SetDefaultValue(path, std::move(default_value));

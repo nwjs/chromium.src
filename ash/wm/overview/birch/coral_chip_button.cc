@@ -4,6 +4,8 @@
 
 #include "ash/wm/overview/birch/coral_chip_button.h"
 
+#include <utility>
+
 #include "ash/birch/birch_coral_item.h"
 #include "ash/birch/birch_coral_provider.h"
 #include "ash/shell.h"
@@ -24,6 +26,7 @@
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/animated_image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
@@ -120,11 +123,11 @@ void CoralChipButton::Init(BirchItem* item) {
 
 void CoralChipButton::ExecuteCommand(int command_id, int event_flags) {
   switch (command_id) {
-    case base::to_underlying(
+    case std::to_underlying(
         BirchChipContextMenuModel::CommandId::kCoralNewDesk):
       static_cast<BirchCoralItem*>(item_)->LaunchGroup(this);
       break;
-    case base::to_underlying(
+    case std::to_underlying(
         BirchChipContextMenuModel::CommandId::kCoralSaveForLater): {
       // Show a toast if we already have the max amount of allowed coral saved
       // groups.

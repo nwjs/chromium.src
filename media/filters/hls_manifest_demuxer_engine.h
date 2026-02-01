@@ -23,7 +23,6 @@
 #include "media/filters/hls_demuxer_status.h"
 #include "media/filters/hls_network_access_impl.h"
 #include "media/filters/hls_rendition.h"
-#include "media/filters/hls_stats_reporter.h"
 #include "media/filters/manifest_demuxer.h"
 #include "media/formats/hls/media_playlist.h"
 #include "media/formats/hls/parse_status.h"
@@ -38,14 +37,15 @@ class MEDIA_EXPORT HlsManifestDemuxerEngine : public ManifestDemuxer::Engine,
                                               public HlsRenditionHost,
                                               public DataSourceInfo {
  public:
-  HlsManifestDemuxerEngine(
-      base::SequenceBound<HlsDataSourceProvider> dsp,
-      scoped_refptr<base::SequencedTaskRunner> task_runner,
-      base::RepeatingCallback<void(const MediaTrack&)> add_track,
-      base::RepeatingCallback<void(const MediaTrack&)> remove_track,
-      bool was_already_tainted,
-      GURL root_playlist_uri,
-      MediaLog* media_log);
+  using TrackStateCB =
+      base::RepeatingCallback<void(const MediaTrack&, MediaTrack::State)>;
+
+  HlsManifestDemuxerEngine(base::SequenceBound<HlsDataSourceProvider> dsp,
+                           scoped_refptr<base::SequencedTaskRunner> task_runner,
+                           std::unique_ptr<TrackManager> track_manager,
+                           bool was_already_tainted,
+                           GURL root_playlist_uri,
+                           MediaLog* media_log);
   ~HlsManifestDemuxerEngine() override;
 
   // DataSourceInfo implementation
@@ -281,10 +281,8 @@ class MEDIA_EXPORT HlsManifestDemuxerEngine : public ManifestDemuxer::Engine,
                                      hls::types::DecimalInteger version);
 
   scoped_refptr<base::SequencedTaskRunner> media_task_runner_;
-
-  // Track helper functions
-  base::RepeatingCallback<void(const MediaTrack&)> add_track_;
-  base::RepeatingCallback<void(const MediaTrack&)> remove_track_;
+  std::unique_ptr<TrackManager> track_manager_
+      GUARDED_BY_CONTEXT(media_sequence_checker_);
 
   // root playlist, either multivariant or media.
   GURL root_playlist_uri_;
@@ -335,9 +333,6 @@ class MEDIA_EXPORT HlsManifestDemuxerEngine : public ManifestDemuxer::Engine,
   // When renditions are added, this ensures that they are all of the same
   // liveness, and allows access to the liveness check later.
   std::optional<bool> is_seekable_ = std::nullopt;
-
-  hls::HlsStatsReporter stats_reporter_
-      GUARDED_BY_CONTEXT(media_sequence_checker_);
 
   // Ensure that safe member fields are only accessed on the media sequence.
   SEQUENCE_CHECKER(media_sequence_checker_);

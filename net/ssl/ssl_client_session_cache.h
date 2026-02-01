@@ -15,6 +15,7 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/lru_cache.h"
 #include "base/functional/bind.h"
+#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/memory_pressure_monitor.h"
 #include "base/memory/raw_ptr.h"
 #include "net/base/host_port_pair.h"
@@ -72,6 +73,7 @@ class NET_EXPORT SSLClientSessionCache : public base::MemoryPressureListener {
   static bool IsExpired(SSL_SESSION* session, time_t now);
 
   size_t size() const;
+  size_t max_size() const;
 
   // Returns the current generation number. When a new socket is initialized,
   // the `generation_number()` at the time should be recorded and used when

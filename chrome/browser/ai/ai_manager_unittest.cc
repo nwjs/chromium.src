@@ -19,16 +19,14 @@
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
-#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features_generated.h"
-#include "third_party/blink/public/mojom/ai/ai_common.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_common.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
-#include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_rewriter.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_summarizer.mojom.h"
@@ -91,46 +89,6 @@ TEST_F(AIManagerTest, NoUAFWithInvalidOnDeviceModelPath) {
   DeleteContents();
 
   task_environment()->RunUntilIdle();
-}
-
-// Tests the `AIUserDataSet`'s behavior of managing the lifetime of
-// `AILanguageModel`s.
-TEST_F(AIManagerTest, AIContextBoundObjectSet) {
-  mojo::Remote<blink::mojom::AILanguageModel> mock_session;
-  AITestUtils::MockCreateLanguageModelClient mock_create_language_model_client;
-  base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_language_model_client, OnResult(_, _))
-      .WillOnce(
-          [&](mojo::PendingRemote<blink::mojom::AILanguageModel> language_model,
-              blink::mojom::AILanguageModelInstanceInfoPtr info) {
-            EXPECT_TRUE(language_model);
-            mock_session = mojo::Remote<blink::mojom::AILanguageModel>(
-                std::move(language_model));
-            run_loop.Quit();
-          });
-
-  mojo::Remote<blink::mojom::AIManager> mock_remote = GetAIManagerRemote();
-  // Initially the `AIContextBoundObjectSet` is empty.
-  ASSERT_EQ(0u, GetAIManagerContextBoundObjectSetSize());
-
-  // After creating one `AILanguageModel`, the `AIContextBoundObjectSet`
-  // contains 1 element.
-  mock_remote->CreateLanguageModel(
-      mock_create_language_model_client.BindNewPipeAndPassRemote(),
-      blink::mojom::AILanguageModelCreateOptions::New(
-          /*sampling_params=*/nullptr,
-          /*initial_prompts=*/
-          std::vector<blink::mojom::AILanguageModelPromptPtr>(),
-          /*expected_inputs=*/std::nullopt,
-          /*expected_outputs=*/std::nullopt));
-  run_loop.Run();
-  ASSERT_EQ(1u, GetAIManagerContextBoundObjectSetSize());
-
-  // After resetting the session, the size of `AIContextBoundObjectSet` becomes
-  // empty again.
-  mock_session.reset();
-  ASSERT_TRUE(base::test::RunUntil(
-      [&] { return GetAIManagerContextBoundObjectSetSize() == 0u; }));
 }
 
 TEST_F(AIManagerTest, CanCreate) {

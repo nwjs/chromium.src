@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/core/frame/screen.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -15,15 +16,15 @@ class Screen;
 
 class ScreenScreenOrientation final
     : public GarbageCollected<ScreenScreenOrientation>,
-      public GarbageCollectedMixin {
+      public Supplement<Screen> {
  public:
-  static const unsigned kSupplementIndex;
+  static const char kSupplementName[];
 
   static ScreenScreenOrientation& From(Screen&);
 
   static ScreenOrientation* orientation(Screen&);
 
-  explicit ScreenScreenOrientation() = default;
+  explicit ScreenScreenOrientation(Screen& screen);
 
   void Trace(Visitor*) const override;
 

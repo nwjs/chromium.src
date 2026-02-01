@@ -100,7 +100,6 @@ FontCache::~FontCache() = default;
 void FontCache::Trace(Visitor* visitor) const {
   visitor->Trace(font_cache_clients_);
   visitor->Trace(font_platform_data_cache_);
-  visitor->Trace(fallback_list_shaper_cache_);
   visitor->Trace(font_data_cache_);
   visitor->Trace(font_fallback_map_);
 #if BUILDFLAG(IS_MAC)
@@ -146,17 +145,8 @@ const FontPlatformData* FontCache::GetFontPlatformData(
       this, font_description, creation_params, alternate_font_name);
 }
 
-ShapeCache* FontCache::GetShapeCache(const FallbackListCompositeKey& key) {
-  auto result = fallback_list_shaper_cache_.insert(key, nullptr);
-  if (result.is_new_entry) {
-    result.stored_value->value = MakeGarbageCollected<ShapeCache>();
-  }
-  return result.stored_value->value.Get();
-}
-
 void FontCache::AcceptLanguagesChanged(const String& accept_languages) {
   LayoutLocale::AcceptLanguagesChanged(accept_languages);
-  Get().InvalidateShapeCache();
 }
 
 const SimpleFontData* FontCache::GetFontData(
@@ -235,48 +225,20 @@ const SimpleFontData* FontCache::FallbackFontForCharacter(
   return result;
 }
 
-void FontCache::PurgeFallbackListShaperCache() {
-  TRACE_EVENT0("fonts,ui", "FontCache::PurgeFallbackListShaperCache");
-  for (auto& shape_cache : fallback_list_shaper_cache_.Values()) {
-    shape_cache->Clear();
-  }
-}
-
-void FontCache::InvalidateShapeCache() {
-  PurgeFallbackListShaperCache();
-}
-
-void FontCache::Purge() {
-  // Ideally we should never be forcing the purge while the
-  // FontCachePurgePreventer is in scope, but we call purge() at any timing
-  // via MemoryPressureListenerRegistry.
-  if (purge_prevent_count_)
-    return;
-
-  PurgeFallbackListShaperCache();
-}
-
 void FontCache::AddClient(FontCacheClient* client) {
   CHECK(client);
   DCHECK(!font_cache_clients_.Contains(client));
   font_cache_clients_.insert(client);
 }
 
-uint16_t FontCache::Generation() {
-  return generation_;
-}
-
 void FontCache::Invalidate() {
   TRACE_EVENT0("fonts,ui", "FontCache::Invalidate");
   font_platform_data_cache_.Clear();
   font_data_cache_.Clear();
-  generation_++;
 
   for (const auto& client : font_cache_clients_) {
     client->FontCacheInvalidated();
   }
-
-  Purge();
 }
 
 void FontCache::CrashWithFontInfo(const FontDescription* font_description) {
@@ -289,20 +251,6 @@ void FontCache::CrashWithFontInfo(const FontDescription* font_description) {
   base::debug::Alias(&num_families);
 
   NOTREACHED();
-}
-
-void FontCache::DumpShapeResultCache(
-    base::trace_event::ProcessMemoryDump* memory_dump) {
-  DCHECK(IsMainThread());
-  base::trace_event::MemoryAllocatorDump* dump =
-      memory_dump->CreateAllocatorDump("font_caches/shape_caches");
-  size_t shape_result_cache_size = 0;
-  for (const auto& shape_cache : fallback_list_shaper_cache_.Values()) {
-    shape_result_cache_size += shape_cache->ByteSize();
-  }
-  dump->AddScalar("size", "bytes", shape_result_cache_size);
-  memory_dump->AddSuballocation(dump->guid(),
-                                Partitions::kAllocatedObjectPoolName);
 }
 
 sk_sp<SkTypeface> FontCache::CreateTypefaceFromUniqueName(

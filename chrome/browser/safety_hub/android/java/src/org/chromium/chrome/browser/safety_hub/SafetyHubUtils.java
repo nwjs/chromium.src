@@ -39,7 +39,7 @@ class SafetyHubUtils {
     static void showPasswordCheckUi(
             Context context,
             Profile profile,
-            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
             @Nullable SettingsCustomTabLauncher settingsCustomTabLauncher) {
         PasswordManagerHelper passwordManagerHelper = PasswordManagerHelper.getForProfile(profile);
         String account = getAccountEmail(profile);
@@ -61,7 +61,7 @@ class SafetyHubUtils {
     static void showLocalPasswordCheckUi(
             Context context,
             Profile profile,
-            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
             SettingsCustomTabLauncher settingsCustomTabLauncher) {
         PasswordManagerHelper passwordManagerHelper = PasswordManagerHelper.getForProfile(profile);
         passwordManagerHelper.showPasswordCheckup(
@@ -136,6 +136,6 @@ class SafetyHubUtils {
 
     static Drawable getManagedIcon(Context context) {
         return SettingsUtils.getTintedIcon(
-                context, R.drawable.ic_business, R.color.default_icon_color_secondary_tint_list);
+                context, R.drawable.ic_domain, R.color.default_icon_color_secondary_tint_list);
     }
 }

@@ -43,6 +43,14 @@ namespace gtk {
 
 namespace {
 
+// GTK's internal response IDs use negative integers (eg. GTK_RESPONSE_CANCEL),
+// leaving zero and positive integers for application-defined response IDs. Use
+// zero for the accept response type since GTK will preselect
+// GTK_RESPONSE_ACCEPT as the default button, which should be avoided to prevent
+// an exploit where the user is instructed to hold Enter before the dialog
+// appears.
+constexpr GtkResponseType kResponseTypeAccept = static_cast<GtkResponseType>(0);
+
 // TODO(crbug.com/41469294): These getters will be unnecessary after
 // migrating to GtkFileChooserNative.
 const char* GettextPackage() {
@@ -181,8 +189,9 @@ SelectFileDialogLinuxGtk::DialogState::~DialogState() = default;
 
 SelectFileDialogLinuxGtk::SelectFileDialogLinuxGtk(
     Listener* listener,
-    std::unique_ptr<ui::SelectFilePolicy> policy)
-    : SelectFileDialogLinux(listener, std::move(policy)) {}
+    std::unique_ptr<ui::SelectFilePolicy> policy,
+    GtkUiPlatform* platform)
+    : SelectFileDialogLinux(listener, std::move(policy)), platform_(platform) {}
 
 SelectFileDialogLinuxGtk::~SelectFileDialogLinuxGtk() {
   // `OnFileChooserDestroy()` mutates `dialogs_`, so make a copy to avoid
@@ -221,7 +230,7 @@ void SelectFileDialogLinuxGtk::OnWindowDestroying(aura::Window* window) {
     GtkWidget* dialog = pair.first;
     auto& state = pair.second;
     if (state.parent == window) {
-      ClearAuraTransientParent(dialog, window);
+      ClearAuraTransientParent(dialog, window, platform_);
       window->RemoveObserver(this);
       state.parent = nullptr;
       return;
@@ -311,7 +320,7 @@ void SelectFileDialogLinuxGtk::SelectFileImpl(
 
   if (!GtkCheckVersion(4))
     gtk_widget_show_all(dialog);
-  gtk::GtkUi::GetPlatform()->ShowGtkWindow(GTK_WINDOW(dialog));
+  platform_->ShowGtkWindow(GTK_WINDOW(dialog));
 }
 
 void SelectFileDialogLinuxGtk::AddFilters(GtkFileChooser* chooser) {
@@ -412,8 +421,8 @@ GtkWidget* SelectFileDialogLinuxGtk::CreateFileOpenHelper(
     gfx::NativeWindow parent) {
   GtkWidget* dialog = GtkFileChooserDialogNew(
       title.c_str(), nullptr, GTK_FILE_CHOOSER_ACTION_OPEN, GetCancelLabel(),
-      GTK_RESPONSE_CANCEL, GetOpenLabel(), GTK_RESPONSE_ACCEPT);
-  SetGtkTransientForAura(dialog, parent);
+      GTK_RESPONSE_CANCEL, GetOpenLabel(), kResponseTypeAccept);
+  SetGtkTransientForAura(dialog, parent, platform_);
   AddFilters(GTK_FILE_CHOOSER(dialog));
 
   if (!default_path.empty()) {
@@ -452,8 +461,8 @@ GtkWidget* SelectFileDialogLinuxGtk::CreateSelectFolderDialog(
   GtkWidget* dialog = GtkFileChooserDialogNew(
       title_string.c_str(), nullptr, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
       GetCancelLabel(), GTK_RESPONSE_CANCEL, accept_button_label.c_str(),
-      GTK_RESPONSE_ACCEPT);
-  SetGtkTransientForAura(dialog, parent);
+      kResponseTypeAccept);
+  SetGtkTransientForAura(dialog, parent, platform_);
   GtkFileChooser* chooser = GTK_FILE_CHOOSER(dialog);
   if (type == SELECT_UPLOAD_FOLDER || type == SELECT_EXISTING_FOLDER)
     gtk_file_chooser_set_create_folders(chooser, FALSE);
@@ -510,8 +519,8 @@ GtkWidget* SelectFileDialogLinuxGtk::CreateSaveAsDialog(
   GtkWidget* dialog = GtkFileChooserDialogNew(
       title_string.c_str(), nullptr, GTK_FILE_CHOOSER_ACTION_SAVE,
       GetCancelLabel(), GTK_RESPONSE_CANCEL, GetSaveLabel(),
-      GTK_RESPONSE_ACCEPT);
-  SetGtkTransientForAura(dialog, parent);
+      kResponseTypeAccept);
+  SetGtkTransientForAura(dialog, parent, platform_);
 
   AddFilters(GTK_FILE_CHOOSER(dialog));
   if (!default_path.empty()) {
@@ -547,7 +556,8 @@ bool SelectFileDialogLinuxGtk::IsCancelResponse(gint response_id) {
   if (is_cancel)
     return true;
 
-  DCHECK(response_id == GTK_RESPONSE_ACCEPT);
+  DCHECK(response_id == GTK_RESPONSE_ACCEPT ||
+         response_id == kResponseTypeAccept);
   return false;
 }
 
@@ -619,7 +629,7 @@ void SelectFileDialogLinuxGtk::OnFileChooserDestroy(GtkWidget* dialog) {
   // while opening the file-picker.
   if (state.parent) {
     CHECK(dialog);
-    ClearAuraTransientParent(dialog, state.parent);
+    ClearAuraTransientParent(dialog, state.parent, platform_);
     state.parent->RemoveObserver(this);
   }
   state.signals.clear();

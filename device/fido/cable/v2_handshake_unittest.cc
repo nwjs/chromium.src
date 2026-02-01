@@ -10,16 +10,15 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/auto_spanification_helper.h"
-#include "base/containers/contains.h"
 #include "base/rand_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/cbor/reader.h"
 #include "components/cbor/values.h"
 #include "components/cbor/writer.h"
 #include "crypto/random.h"
-#include "device/fido/cable/cable_discovery_data.h"
-#include "device/fido/features.h"
-#include "device/fido/fido_constants.h"
+#include "device/fido/cable/pairing.h"
+#include "device/fido/public/features.h"
+#include "device/fido/public/fido_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/boringssl/src/include/openssl/ec.h"
 #include "third_party/boringssl/src/include/openssl/ec_key.h"
@@ -36,7 +35,7 @@ TEST(CableV2Encoding, TunnelServerURLs) {
   const tunnelserver::KnownDomainID kGoogleDomain(0);
   const GURL url = tunnelserver::GetNewTunnelURL(kGoogleDomain, tunnel_id);
 
-  EXPECT_TRUE(base::Contains(url.spec(), "//cable.ua5v.com/")) << url;
+  EXPECT_TRUE(url.spec().contains("//cable.ua5v.com/")) << url;
 
   // The hash function shouldn't change across releases, so test a hashed
   // domain.
@@ -44,7 +43,7 @@ TEST(CableV2Encoding, TunnelServerURLs) {
   const GURL hashed_url =
       tunnelserver::GetNewTunnelURL(kHashedDomain, tunnel_id);
 
-  EXPECT_TRUE(base::Contains(hashed_url.spec(), "//cable.wufkweyy3uaxb.com/"))
+  EXPECT_TRUE(hashed_url.spec().contains("//cable.wufkweyy3uaxb.com/"))
       << hashed_url;
 }
 

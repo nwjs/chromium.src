@@ -6,10 +6,15 @@
 #define IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_
 
 #import "base/feature_list.h"
+#import "ios/chrome/browser/intelligence/actuation/actuation_util.h"
 
 namespace base {
 class TimeDelta;
 }  // namespace base
+
+namespace optimization_guide::proto {
+class Action;
+}  // namespace optimization_guide::proto
 
 class PrefService;
 
@@ -25,8 +30,17 @@ BASE_DECLARE_FEATURE(kProactiveSuggestionsFramework);
 // Returns true if the proactive suggestions framework is enabled.
 bool IsProactiveSuggestionsFrameworkEnabled();
 
-// Feature flag controlling the page action menu.
+// Returns true if the popup blocker feature is enabled within the proactive
+// suggestions framework.
+bool IsProactiveSuggestionsFrameworkPopupBlockerEnabled();
+extern const char kProactiveSuggestionsFrameworkPopupBlocker[];
+
+// Page action menu feature flag, used to roll out and toggle in chrome://flags.
 BASE_DECLARE_FEATURE(kPageActionMenu);
+
+// Gemini killswitch, used to disable the feature in any locale, including
+// launched ones.
+BASE_DECLARE_FEATURE(kGeminiKillSwitch);
 
 // Returns true if the page action menu is enabled.
 bool IsPageActionMenuEnabled();
@@ -42,15 +56,18 @@ bool IsAskGeminiChipEnabled();
 bool IsAskGeminiChipIgnoreCriteria();
 extern const char kAskGeminiChipIgnoreCriteria[];
 
-// Returns true if a snackbar should be shown when a site is eligible for Ask
-// Gemini.
-bool IsAskGeminiSnackbarEnabled();
-extern const char kAskGeminiChipUseSnackbar[];
-
 // Returns true if the Ask Gemini chip should prepopulate the Gemini Floaty with
 // a prompt.
 bool IsAskGeminiChipPrepopulateFloatyEnabled();
 extern const char kAskGeminiChipPrepopulateFloaty[];
+
+// A variation that combines `kAskGeminiChipIgnoreCriteria` and
+// `kAskGeminiChipPrepopulateFloaty`.
+extern const char kAskGeminiChipPrepopulateAndIgnoreCriteria[];
+
+// Returns true if the Ask Gemini chip should allow non-consented users.
+bool IsAskGeminiChipAllowNonconsentedUsersEnabled();
+extern const char kAskGeminiChipAllowNonconsentedUsers[];
 
 // Feature flag controlling the cross-tab floaty chat persistence.
 BASE_DECLARE_FEATURE(kGeminiCrossTab);
@@ -128,6 +145,7 @@ bool IsGeminiAvailableForManagedAccounts();
 
 // Feature flag to show the AI Hub new badge.
 BASE_DECLARE_FEATURE(kAIHubNewBadge);
+bool IsAIHubNewBadgeEnabled();
 
 // Whether the Gemini consent pref should be deleted on account change.
 bool ShouldDeleteGeminiConsentPref();
@@ -247,15 +265,24 @@ bool IsGeminiOnboardingCardsEnabled();
 // Acts as a killswitch where the feature is enabled by default.
 BASE_DECLARE_FEATURE(kPageContextExtractorRefactored);
 
+// Feature flag to enable the refactored FRE flow (Gemini architecture).
+BASE_DECLARE_FEATURE(kGeminiRefactoredFRE);
+
+// Returns true if the Gemini refactored FRE is enabled.
+bool IsGeminiRefactoredFREEnabled();
+
 // Feature flag for displaying a sheet which shows the web page's self-reported
 // important images. Experimental.
 BASE_DECLARE_FEATURE(kWebPageReportedImagesSheet);
 bool IsWebPageReportedImagesSheetEnabled();
 
-// Feature flag for enabling passing an image from the long-press context menu
-// to Gemini.
-BASE_DECLARE_FEATURE(kImageContextMenuGeminiEntryPoint);
-bool IsImageContextMenuGeminiEntryPointEnabled();
+// Feature flag for enabling the image remixing tool in the Gemini floaty.
+BASE_DECLARE_FEATURE(kGeminiImageRemixTool);
+bool IsGeminiImageRemixToolEnabled();
+
+// Returns true if the Gemini FRE should show the image remix row.
+bool IsGeminiImageRemixToolShowFRERowEnabled();
+extern const char kGeminiImageRemixToolShowFRERow[];
 
 // Feature flag for enabling the Gemini eligibility ablation experiment.
 BASE_DECLARE_FEATURE(kGeminiEligibilityAblation);
@@ -268,5 +295,21 @@ bool IsGeminiLiveEnabled();
 // Feature flag for Gemini Personalization.
 BASE_DECLARE_FEATURE(kGeminiPersonalization);
 bool IsGeminiPersonalizationEnabled();
+
+// Feature flag for Gemini Copresence.
+BASE_DECLARE_FEATURE(kGeminiCopresence);
+bool IsGeminiCopresenceEnabled();
+
+// Feature flag for Gemini Dynamic Settings.
+BASE_DECLARE_FEATURE(kGeminiDynamicSettings);
+bool IsGeminiDynamicSettingsEnabled();
+
+// Feature flag for Actuation tools.
+BASE_DECLARE_FEATURE(kActuationTools);
+bool IsActuationEnabled();
+
+// Returns true if the specified tool is disabled via the "DisabledTools"
+// feature parameter of the `kActuationTools` feature.
+bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool);
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

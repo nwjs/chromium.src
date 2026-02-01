@@ -18,10 +18,8 @@
 #include "chrome/browser/profiles/android/jni_headers/Profile_jni.h"
 
 using jni_zero::AttachCurrentThread;
-using jni_zero::JavaParamRef;
 using jni_zero::JavaRef;
 using jni_zero::ScopedJavaLocalRef;
-
 
 // static
 Profile* Profile::FromJavaObject(const JavaRef<jobject>& obj) {
@@ -66,7 +64,7 @@ static ScopedJavaLocalRef<jobject> JNI_Profile_GetOriginalProfile(JNIEnv* env,
   return original_profile->GetJavaObject();
 }
 
-static jboolean JNI_Profile_IsInitialProfile(JNIEnv* env, jlong ptr) {
+static bool JNI_Profile_IsInitialProfile(JNIEnv* env, jlong ptr) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   return self->GetBaseName().value() == chrome::kInitialProfile;
 }
@@ -74,8 +72,8 @@ static jboolean JNI_Profile_IsInitialProfile(JNIEnv* env, jlong ptr) {
 static ScopedJavaLocalRef<jobject> JNI_Profile_GetOffTheRecordProfile(
     JNIEnv* env,
     jlong ptr,
-    const JavaParamRef<jobject>& j_otr_profile_id,
-    const jboolean j_create_if_needed) {
+    const JavaRef<jobject>& j_otr_profile_id,
+    const bool j_create_if_needed) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   Profile::OTRProfileID otr_profile_id =
       Profile::OTRProfileID::ConvertFromJavaOTRProfileID(env, j_otr_profile_id);
@@ -91,7 +89,7 @@ static ScopedJavaLocalRef<jobject> JNI_Profile_GetOffTheRecordProfile(
 static ScopedJavaLocalRef<jobject> JNI_Profile_GetPrimaryOtrProfile(
     JNIEnv* env,
     jlong ptr,
-    const jboolean j_create_if_needed) {
+    const bool j_create_if_needed) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   Profile* otr_profile = self->GetPrimaryOTRProfile(j_create_if_needed);
   if (!j_create_if_needed && !otr_profile) {
@@ -101,17 +99,17 @@ static ScopedJavaLocalRef<jobject> JNI_Profile_GetPrimaryOtrProfile(
   return otr_profile->GetJavaObject();
 }
 
-static jboolean JNI_Profile_HasOffTheRecordProfile(
+static bool JNI_Profile_HasOffTheRecordProfile(
     JNIEnv* env,
     jlong ptr,
-    const JavaParamRef<jobject>& j_otr_profile_id) {
+    const JavaRef<jobject>& j_otr_profile_id) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   Profile::OTRProfileID otr_profile_id =
       Profile::OTRProfileID::ConvertFromJavaOTRProfileID(env, j_otr_profile_id);
   return self->HasOffTheRecordProfile(otr_profile_id);
 }
 
-static jboolean JNI_Profile_HasPrimaryOtrProfile(JNIEnv* env, jlong ptr) {
+static bool JNI_Profile_HasPrimaryOtrProfile(JNIEnv* env, jlong ptr) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   return self->HasPrimaryOTRProfile();
 }
@@ -125,7 +123,7 @@ static ScopedJavaLocalRef<jobject> JNI_Profile_GetProfileKey(JNIEnv* env,
   return profile_key->GetJavaObject();
 }
 
-static jboolean JNI_Profile_IsChild(JNIEnv* env, jlong ptr) {
+static bool JNI_Profile_IsChild(JNIEnv* env, jlong ptr) {
   Profile* self = reinterpret_cast<Profile*>(ptr);
   return self->IsChild();
 }
@@ -137,7 +135,7 @@ static void JNI_Profile_Wipe(JNIEnv* env, jlong ptr) {
 
 static ScopedJavaLocalRef<jobject> JNI_Profile_FromWebContents(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jweb_contents) {
+    const JavaRef<jobject>& jweb_contents) {
   auto* web_contents = content::WebContents::FromJavaWebContents(jweb_contents);
   if (!web_contents) {
     return nullptr;

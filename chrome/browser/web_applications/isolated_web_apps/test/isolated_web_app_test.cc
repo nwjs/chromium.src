@@ -12,9 +12,9 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
 #include "chrome/browser/component_updater/iwa_key_distribution_component_installer.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/features.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
 #include "chrome/common/chrome_features.h"
-#include "components/webapps/isolated_web_apps/features.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -108,7 +108,7 @@ class IsolatedWebAppTest::IwaComponentWrapper {
   base::FilePath WriteIwaComponentData(const base::Version& version,
                                        const IwaKeyDistribution& component_data,
                                        bool is_preloaded) {
-    CHECK(!base::Contains(component_dirs_, version))
+    CHECK(!component_dirs_.contains(version))
         << " There's already an installed component with version " << version;
     std::unique_ptr<base::ScopedTempDir> dir =
         CreateIwaComponentDir(version, component_data, is_preloaded);
@@ -177,7 +177,7 @@ void IsolatedWebAppTest::SetUp() {
 
   // Do not require allowlisting app to install/update in normal tests.
   // Do not skip checks only when interaction with allowlist is tested.
-  IwaKeyDistributionInfoProvider::GetInstance()
+  IwaKeyDistributionInfoProvider::GetInstanceForTesting()
       .SkipManagedAllowlistChecksForTesting(true);
 }
 
@@ -208,7 +208,7 @@ void IsolatedWebAppTest::TearDown() {
   profile_ = nullptr;
   profile_manager_.DeleteAllTestingProfiles();
 
-  IwaKeyDistributionInfoProvider::GetInstance().DestroyInstanceForTesting();
+  IwaKeyDistributionInfoProvider::DestroyInstanceForTesting();
 
   env_.reset();
 }

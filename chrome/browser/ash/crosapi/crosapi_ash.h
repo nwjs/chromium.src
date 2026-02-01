@@ -13,7 +13,6 @@
 #include "chrome/browser/ash/crosapi/crosapi_id.h"
 #include "chromeos/crosapi/mojom/cros_display_config.mojom.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"
-#include "chromeos/crosapi/mojom/magic_boost.mojom-forward.h"
 #include "chromeos/crosapi/mojom/mahi.mojom-forward.h"
 #include "chromeos/crosapi/mojom/print_preview_cros.mojom-forward.h"
 #include "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom.h"
@@ -44,7 +43,6 @@ namespace crosapi {
 class DocumentScanAsh;
 class KeystoreServiceAsh;
 class LocalPrinterAsh;
-class VpnServiceAsh;
 
 // Implementation of Crosapi in Ash. It provides a set of APIs that
 // crosapi clients, such as lacros-chrome, can call into.
@@ -95,12 +93,6 @@ class CrosapiAsh : public mojom::Crosapi {
   void BindMediaSessionController(
       mojo::PendingReceiver<media_session::mojom::MediaControllerManager>
           receiver) override;
-  void BindNetworkChange(
-      mojo::PendingReceiver<mojom::NetworkChange> receiver) override;
-  void BindRemoteAppsLacrosBridge(
-      mojo::PendingReceiver<
-          chromeos::remote_apps::mojom::RemoteAppsLacrosBridge> receiver)
-      override;
   void BindSensorHalClient(
       mojo::PendingRemote<chromeos::sensors::mojom::SensorHalClient> remote)
       override;
@@ -115,8 +107,6 @@ class CrosapiAsh : public mojom::Crosapi {
   void BindVideoCaptureDeviceFactory(
       mojo::PendingReceiver<mojom::VideoCaptureDeviceFactory> receiver)
       override;
-  void BindVpnService(
-      mojo::PendingReceiver<mojom::VpnService> receiver) override;
   void BindGuestOsSkForwarderFactory(
       mojo::PendingReceiver<mojom::GuestOsSkForwarderFactory> receiver)
       override;
@@ -136,8 +126,6 @@ class CrosapiAsh : public mojom::Crosapi {
 
   ash::ProbeServiceAsh* probe_service_ash() { return probe_service_ash_.get(); }
 
-  VpnServiceAsh* vpn_service_ash() { return vpn_service_ash_.get(); }
-
  private:
   // Called when a connection is lost.
   void OnDisconnected();
@@ -153,7 +141,6 @@ class CrosapiAsh : public mojom::Crosapi {
   std::unique_ptr<ash::ProbeServiceAsh> probe_service_ash_;
   std::unique_ptr<ash::printing::PrintPreviewWebcontentsAdapterAsh>
       print_preview_webcontents_adapter_ash_;
-  std::unique_ptr<VpnServiceAsh> vpn_service_ash_;
 
   mojo::ReceiverSet<mojom::Crosapi, CrosapiId> receiver_set_;
   std::map<mojo::ReceiverId, base::OnceClosure> disconnect_handler_map_;

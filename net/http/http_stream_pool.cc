@@ -18,6 +18,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/notreached.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/features.h"
@@ -513,10 +514,8 @@ HttpStreamPool::Group* HttpStreamPool::GetGroupForTesting(
 }
 
 HttpStreamPool::Group& HttpStreamPool::GetOrCreateGroup(
-    const HttpStreamKey& stream_key,
-    const std::optional<QuicSessionAliasKey>& quic_session_alias_key) {
-  auto [result, inserted] =
-      groups_.try_emplace(stream_key, this, stream_key, quic_session_alias_key);
+    const HttpStreamKey& stream_key) {
+  auto [result, inserted] = groups_.try_emplace(stream_key, this, stream_key);
   return result->second;
 }
 

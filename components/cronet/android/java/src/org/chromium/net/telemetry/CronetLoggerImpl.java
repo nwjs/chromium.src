@@ -16,6 +16,7 @@ import org.chromium.net.ConnectionCloseSource;
 import org.chromium.net.impl.CronetLogger;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Logger for logging cronet's telemetry */
@@ -204,7 +205,11 @@ public class CronetLoggerImpl extends CronetLogger {
                             trafficInfo.getResponseBodySizeInBytes()),
                     trafficInfo.getResponseStatusCode(),
                     Hash.hash(trafficInfo.getNegotiatedProtocol()),
-                    (int) trafficInfo.getHeadersLatency().toMillis(),
+                    trafficInfo.getTimeToReceiveHeaderLastByteMicros() == -1
+                            ? -1
+                            : (int)
+                                    TimeUnit.MICROSECONDS.toMillis(
+                                            trafficInfo.getTimeToReceiveHeaderLastByteMicros()),
                     (int) trafficInfo.getTotalLatency().toMillis(),
                     trafficInfo.wasConnectionMigrationAttempted(),
                     trafficInfo.didConnectionMigrationSucceed(),
@@ -226,10 +231,27 @@ public class CronetLoggerImpl extends CronetLogger {
                     trafficInfo.getCronetVersion(),
                     convertToProtoCronetEngineBuilderInitializedSource(
                             trafficInfo.getCronetSource()),
-                    trafficInfo.getTimeToEstablishDNSMillis(),
-                    trafficInfo.getTimeToEstablishSSLMillis(),
-                    trafficInfo.getTimeToConnectMillis(),
-                    trafficInfo.getTimeToSendFirstByteMillis());
+                    trafficInfo.getTimeToEstablishDNSMicros() == -1
+                            ? -1
+                            : TimeUnit.MICROSECONDS.toMillis(
+                                    trafficInfo.getTimeToEstablishDNSMicros()),
+                    trafficInfo.getTimeToEstablishSSLMicros() == -1
+                            ? -1
+                            : TimeUnit.MICROSECONDS.toMillis(
+                                    trafficInfo.getTimeToEstablishSSLMicros()),
+                    trafficInfo.getTimeToConnectMicros() == -1
+                            ? -1
+                            : TimeUnit.MICROSECONDS.toMillis(trafficInfo.getTimeToConnectMicros()),
+                    trafficInfo.getTimeToSendFirstByteMicros() == -1
+                            ? -1
+                            : TimeUnit.MICROSECONDS.toMillis(
+                                    trafficInfo.getTimeToSendFirstByteMicros()),
+                    trafficInfo.getTimeToEstablishDNSMicros(),
+                    trafficInfo.getTimeToEstablishSSLMicros(),
+                    trafficInfo.getTimeToConnectMicros(),
+                    trafficInfo.getTimeToSendFirstByteMicros(),
+                    trafficInfo.getTimeToReceiveHeaderLastByteMicros(),
+                    OptionalBoolean.fromBoolean(trafficInfo.isProxied()).getValue());
         } catch (Exception e) {
             // using addAndGet because another thread might have modified samplesRateLimited's value
             mSamplesRateLimited.addAndGet(samplesRateLimitedCount);

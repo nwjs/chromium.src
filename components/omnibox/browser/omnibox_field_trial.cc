@@ -211,8 +211,6 @@ size_t OmniboxFieldTrial::GetProviderMaxMatches(
   return default_max_matches_per_provider;
 }
 
-
-
 void OmniboxFieldTrial::GetDefaultHUPScoringParams(
     HUPScoringParams* scoring_params) {
   ScoreBuckets* type_score_buckets = &scoring_params->typed_count_buckets;
@@ -590,24 +588,11 @@ const base::FeatureParam<bool> kZeroSuggestPrefetchDebounceFromLastRun(
     "ZeroSuggestPrefetchDebounceFromLastRun",
     true);
 
-// The maximum number of entries stored by the in-memory zero-suggest cache at
-// at any given time (LRU eviction policy is used to enforce this limit).
-const base::FeatureParam<int> kZeroSuggestCacheMaxSize(
-    &omnibox::kZeroSuggestInMemoryCaching,
-    "ZeroSuggestCacheMaxSize",
-    5);
-
-bool IsZeroSuggestPrefetchingEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kZeroSuggestPrefetching) ||
-         base::FeatureList::IsEnabled(omnibox::kZeroSuggestPrefetchingOnSRP) ||
-         base::FeatureList::IsEnabled(omnibox::kZeroSuggestPrefetchingOnWeb);
-}
-
 bool IsZeroSuggestPrefetchingEnabledInContext(
     metrics::OmniboxEventProto::PageClassification page_classification) {
   switch (page_classification) {
     case metrics::OmniboxEventProto::NTP_ZPS_PREFETCH:
-      return base::FeatureList::IsEnabled(omnibox::kZeroSuggestPrefetching);
+      return true;
     case metrics::OmniboxEventProto::SRP_ZPS_PREFETCH:
       return base::FeatureList::IsEnabled(
           omnibox::kZeroSuggestPrefetchingOnSRP);
@@ -649,24 +634,11 @@ bool IsHideSuggestionGroupHeadersEnabledInContext(
   }
 }
 
-bool IsDeterministicAimActionInTypedStateEnabled(
-    AutocompleteProviderClient* client) {
-  ui::DeviceFormFactor factor = ui::GetDeviceFormFactor();
-  if (!(factor == ui::DEVICE_FORM_FACTOR_PHONE ||
-        factor == ui::DEVICE_FORM_FACTOR_FOLDABLE)) {
-    return false;
-  }
-
-  return AimEligibilityService::GenericKillSwitchFeatureCheck(
-      client->GetAimEligibilityService(),
-      omnibox::kOmniboxAimShortcutTypedState);
-}
-
 bool IsAimOmniboxEntrypointEnabled(
     const AimEligibilityService* aim_eligibility_service) {
-  return AimEligibilityService::GenericKillSwitchFeatureCheck(
-      aim_eligibility_service, omnibox::kAiModeOmniboxEntryPoint,
-      omnibox::kAiModeOmniboxEntryPointEnUs);
+  // `aim_eligibility_service` can be null in tests.
+  return base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint) &&
+         aim_eligibility_service && aim_eligibility_service->IsAimEligible();
 }
 
 bool IsAimStarterPackEnabled(

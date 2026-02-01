@@ -7,6 +7,7 @@
 
 #include <optional>
 
+#include "base/gtest_prod_util.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
@@ -193,10 +194,6 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
   void OnMemoryPressure(
       base::MemoryPressureLevel memory_pressure_level) override;
 
-  // When the system is under memory pressure, this function is called every 5
-  // minutes to determine when it ends.
-  void CheckIfMemoryPressureEnded();
-
   // Returns true if an extra spare should be created.
   bool ShouldCreateExtraSpare() const;
 
@@ -226,10 +223,6 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
 
   base::MemoryPressureListenerRegistration
       memory_pressure_listener_registration_;
-
-  // If this timer is running, then the system is under memory pressure.
-  // TODO(380805024): Remove the polling timer when possible.
-  base::RepeatingTimer check_memory_pressure_timer_;
 
   // The clients who want to know when the spare render process host has
   // changed.

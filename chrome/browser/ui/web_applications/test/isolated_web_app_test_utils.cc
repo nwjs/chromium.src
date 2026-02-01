@@ -9,15 +9,18 @@
 #include <string_view>
 
 #include "base/files/file_path.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/browser_app_launcher.h"
+#include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
@@ -261,15 +264,6 @@ void CommitPendingIsolatedWebAppNavigation(content::WebContents* web_contents) {
   }
 
   CommitNavigation(content::NavigationSimulator::CreateFromPending(controller));
-}
-
-void IsolatedWebAppBrowserTestHarness::SetIwaManagedAllowlist(
-    const std::vector<web_package::SignedWebBundleId>& managed_allowlist,
-    const base::Version& component_version) {
-  base::ScopedAllowBlockingForTesting allow_blocking;
-  ASSERT_TRUE(test::UpdateKeyDistributionInfoWithAllowlist(
-                  component_version, std::move(managed_allowlist))
-                  .has_value());
 }
 
 }  // namespace web_app

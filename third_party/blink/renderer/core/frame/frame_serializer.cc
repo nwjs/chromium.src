@@ -1216,15 +1216,16 @@ function main(metadata) {
       case CSSRule::kNestedDeclarationsRule:
       case CSSRule::kMediaRule:
       case CSSRule::kMixinRule:
-      case CSSRule::kRouteRule:
+      case CSSRule::kNavigationRule:
       case CSSRule::kSupportsRule:
       case CSSRule::kContainerRule:
       case CSSRule::kLayerBlockRule:
       case CSSRule::kScopeRule:
       case CSSRule::kStartingStyleRule: {
-        CSSRuleList* rule_list = rule->cssRules();
-        for (unsigned i = 0; i < rule_list->length(); ++i) {
-          SerializeCSSRuleResources(rule_list->item(i));
+        if (CSSRuleList* rule_list = rule->cssRules()) {
+          for (unsigned i = 0; i < rule_list->length(); ++i) {
+            SerializeCSSRuleResources(rule_list->item(i));
+          }
         }
         break;
       }
@@ -1267,6 +1268,7 @@ function main(metadata) {
       case CSSRule::kFunctionRule:
       case CSSRule::kCustomMediaRule:
       case CSSRule::kContentsMixinRule:
+      case CSSRule::kRouteRule:
         break;
 
       // FIXME(sesse): We can reference external resources in a @contents

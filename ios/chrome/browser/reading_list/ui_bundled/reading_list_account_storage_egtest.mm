@@ -53,7 +53,7 @@ NSString* const kPage1Title = @"Page 1 Title";
 const char kPage1URL[] = "/page1";
 NSString* const kPage2Title = @"Page 2 Title";
 const char kPage2URL[] = "/page2";
-constexpr base::TimeDelta kLongPressDuration = base::Seconds(1);
+constexpr base::TimeDelta kLongPressDuration = base::Seconds(2);
 constexpr base::TimeDelta kSyncActiveTimeout = base::Seconds(5);
 
 id<GREYMatcher> SignedInSnackbar(NSString* email) {
@@ -117,7 +117,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   if (!error) {
     [[EarlGrey
         selectElementWithMatcher:grey_accessibilityID(
-                                     kTableViewNavigationDismissButtonId)]
+                                     kReadingListNavigationBarCloseButtonID)]
         performAction:grey_tap()];
   }
 
@@ -442,8 +442,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [[EarlGrey selectElementWithMatcher:VisibleLocalItemIcon(kPage1Title)]
       assertWithMatcher:grey_notNil()];
   // Close the Reading List.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewNavigationDismissButtonId)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kReadingListNavigationBarCloseButtonID)]
       performAction:grey_tap()];
   // Add Page 2 to the Reading List and verify that the snackbar containing the
   // user's email and an undo button appears.
@@ -481,8 +482,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [ChromeEarlGrey
       waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   // Close the Reading List.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewNavigationDismissButtonId)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kReadingListNavigationBarCloseButtonID)]
       performAction:grey_tap()];
   // Add Page 1 to the Reading List.
   AddURLToReadingListWithoutSnackbarDismiss(self.testServer->GetURL(kPage1URL));
@@ -519,8 +521,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [ChromeEarlGrey
       waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   // Close the Reading List.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewNavigationDismissButtonId)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kReadingListNavigationBarCloseButtonID)]
       performAction:grey_tap()];
   // Add Page 2 to the Reading List.
   AddURLToReadingListWithSnackbarDismiss(self.testServer->GetURL(kPage2URL),
@@ -543,7 +546,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 // Test that after sign-in with the Reading List promo, if two items are added
 // and one is removed, then after a sign-out and a new sign-in with the Reading
 // List sign-in promo with the same account, the removed item is not visible.
-- (void)testRemoveItemAfterSignInThenRefreshSignin {
+// TODO(crbug.com/474063690): Re-enable this test once it has been fixed.
+- (void)FLAKY_testRemoveItemAfterSignInThenRefreshSignin {
   // Sign-in with the Reading List Promo.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -559,8 +563,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [ChromeEarlGrey
       waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   // Close the Reading List.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewNavigationDismissButtonId)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kReadingListNavigationBarCloseButtonID)]
       performAction:grey_tap()];
   // Add pages to the Reading List and dismiss the snackbars.
   AddURLToReadingListWithSnackbarDismiss(self.testServer->GetURL(kPage1URL),
@@ -604,10 +609,6 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 // unread items sections should be shown correctly and remain so after a
 // sign-out & sign-in with the same account.
 - (void)testMoveItemThenRefreshSignIn {
-  // TODO(crbug.com/436556292): Re-enable the test on iOS26.
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-  }
   // Sign-in with the Reading List Promo.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
@@ -623,8 +624,9 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [ChromeEarlGrey
       waitForSyncTransportStateActiveWithTimeout:kSyncActiveTimeout];
   // Close the Reading List.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kTableViewNavigationDismissButtonId)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kReadingListNavigationBarCloseButtonID)]
       performAction:grey_tap()];
   // Add pages to the Reading List and dismiss the snackbars.
   AddURLToReadingListWithSnackbarDismiss(self.testServer->GetURL(kPage1URL),
@@ -634,30 +636,25 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
   // Mark Page 1 as read.
   OpenReadingList();
-  // TODO(crbug.com/446889046): Investigate if there is a better solution to fix
-  // flakiness on iOS26.
-  base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:VisibleReadingListItem(kPage1Title)];
   [[EarlGrey selectElementWithMatcher:VisibleReadingListItem(kPage1Title)]
       performAction:grey_longPressWithDuration(kLongPressDuration)];
   [[EarlGrey selectElementWithMatcher:ReadingListMarkAsReadButton()]
       performAction:grey_tap()];
-  // Wait one second since the reading list items may update multiple times.
-  // TODO(crbug.com/40268339): Check if this delay can be replaced by the use of
-  // waitForUIElementToAppearWithMatcher instead.
-  base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
   // Verify that the unread and the read sections headers are visible.
   NSString* readHeaderText =
       l10n_util::GetNSString(IDS_IOS_READING_LIST_READ_HEADER);
-  [[EarlGrey
-      selectElementWithMatcher:grey_allOf(grey_text(readHeaderText),
-                                          grey_sufficientlyVisible(), nil)]
-      assertWithMatcher:grey_notNil()];
+  // Wait until the header appears since the reading list items may update
+  // multiple times.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:grey_text(readHeaderText)];
+
   NSString* unreadHeaderText =
       l10n_util::GetNSString(IDS_IOS_READING_LIST_UNREAD_HEADER);
-  [[EarlGrey
-      selectElementWithMatcher:grey_allOf(grey_text(unreadHeaderText),
-                                          grey_sufficientlyVisible(), nil)]
-      assertWithMatcher:grey_notNil()];
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:grey_text(unreadHeaderText)];
+
   // Verify that both items are visible and only one of them is unread.
   [ChromeEarlGrey
       waitForUIElementToAppearWithMatcher:ReadingListItem(kPage1Title)];

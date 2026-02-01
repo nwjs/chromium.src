@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -24,6 +23,7 @@
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -284,8 +284,7 @@ scoped_refptr<Extension> LoadExtension(
   }
 
   std::vector<InstallWarning> warnings;
-  if (!ValidateExtension(extension.get(), &utf8_error, &warnings)) {
-    *error = base::UTF8ToUTF16(utf8_error);
+  if (!ValidateExtension(extension.get(), error, &warnings)) {
     return nullptr;
   }
   extension->AddInstallWarnings(std::move(warnings));
@@ -348,13 +347,15 @@ std::optional<base::Value::Dict> LoadManifest(
   return std::move(*root).TakeDict();
 }
 
-// TODO(crbug.com/41317803): Continue removing std::string errors and replacing
-// with std::u16string.
 bool ValidateExtension(const Extension* extension,
-                       std::string* error,
+                       std::u16string* error,
                        std::vector<InstallWarning>* warnings) {
   // Ask registered manifest handlers to validate their paths.
-  if (!ManifestHandler::ValidateExtension(extension, error, warnings)) {
+  std::string utf8_error;
+  // TODO(crbug.com/41317803): Continue removing std::string errors and
+  // replacing with std::u16string.
+  if (!ManifestHandler::ValidateExtension(extension, &utf8_error, warnings)) {
+    *error = base::UTF8ToUTF16(utf8_error);
     return false;
   }
 
@@ -382,8 +383,8 @@ bool ValidateExtension(const Extension* extension,
       // Only print one of the private keys because l10n_util doesn't have a way
       // to translate a list of strings.
       *error =
-          l10n_util::GetStringFUTF8(IDS_EXTENSION_CONTAINS_PRIVATE_KEY,
-                                    private_keys.front().LossyDisplayName());
+          l10n_util::GetStringFUTF16(IDS_EXTENSION_CONTAINS_PRIVATE_KEY,
+                                     private_keys.front().LossyDisplayName());
       return false;
     }
   } else {
@@ -610,8 +611,7 @@ MessageBundle* LoadMessageBundle(
   extension_l10n_util::GetAllLocales(&chrome_locales);
 
   base::FilePath default_locale_path = locale_path.AppendASCII(default_locale);
-  if (default_locale.empty() ||
-      !base::Contains(chrome_locales, default_locale) ||
+  if (default_locale.empty() || !chrome_locales.contains(default_locale) ||
       !base::PathExists(default_locale_path)) {
     *error = l10n_util::GetStringUTF8(
         IDS_EXTENSION_LOCALES_NO_DEFAULT_LOCALE_SPECIFIED);

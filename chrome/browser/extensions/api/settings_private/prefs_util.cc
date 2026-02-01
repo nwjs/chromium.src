@@ -58,7 +58,6 @@
 #include "components/permissions/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
-#include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/saved_tab_groups/public/pref_names.h"
@@ -189,7 +188,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillCreditCardEnabled] =
       settings_api::PrefType::kBoolean;
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[autofill::prefs::kAutofillPaymentMethodsMandatoryReauth] =
       settings_api::PrefType::kBoolean;
 #endif
@@ -356,6 +355,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kDnsOverHttpsMode] = settings_api::PrefType::kString;
   (*s_allowlist)[::prefs::kDnsOverHttpsTemplates] =
       settings_api::PrefType::kString;
+  (*s_allowlist)[::prefs::kDnsOverHttpsAutomaticModeFallbackToDoh] =
+      settings_api::PrefType::kBoolean;
 #if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[::prefs::kDnsOverHttpsSalt] = settings_api::PrefType::kString;
   (*s_allowlist)[::prefs::kDnsOverHttpsTemplatesWithIdentifiers] =
@@ -394,7 +395,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::safe_browsing::kGeneratedSecuritySettingsBundlePref] =
       settings_api::PrefType::kNumber;
 
-  // Tracking protection page
+  // Third-party cookie settings page
   (*s_allowlist)[::prefs::kCookieControlsMode] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::content_settings::kCookieDefaultContentSetting] =
@@ -405,15 +406,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kBlockAll3pcToggleEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kAllowAll3pcToggleEnabled] =
-      settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kTrackingProtectionLevel] =
-      settings_api::PrefType::kNumber;
   (*s_allowlist)[::prefs::kEnableDoNotTrack] = settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kIpProtectionEnabled] =
-      settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kFingerprintingProtectionEnabled] =
-      settings_api::PrefType::kBoolean;
 
   // Sync and personalization page.
   (*s_allowlist)[::prefs::kSearchSuggestEnabled] =
@@ -1547,13 +1540,13 @@ settings_private::SetPrefResult PrefsUtil::SetPref(const std::string& pref_name,
         return settings_private::SetPrefResult::PREF_TYPE_MISMATCH;
       }
 
-      std::string string_value = value->GetString();
+      std::string_view string_value = value->GetString();
       if (IsPrefTypeURL(pref_name)) {
-        GURL fixed = url_formatter::FixupURL(string_value, std::string());
+        GURL fixed = url_formatter::FixupURL(string_value);
         if (fixed.is_valid()) {
           string_value = fixed.spec();
         } else {
-          string_value = std::string();
+          string_value = "";
         }
       }
 

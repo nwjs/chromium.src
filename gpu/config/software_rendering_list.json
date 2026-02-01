@@ -1478,7 +1478,7 @@
     },
     {
       "id": 186,
-      "cr_bugs": [442791440],
+      "cr_bugs": [442791440, 475935650],
       "description": "Disable webgpu on vk via gl interop",
       "exceptions": [
         {
@@ -1486,6 +1486,11 @@
           "intel_gpu_generation": {
             "op": ">=",
             "value": "12"
+          },
+          "driver_vendor": "Mesa",
+          "driver_version": {
+            "op": ">=",
+            "value": "22.0"
           }
         }
       ],
@@ -1495,6 +1500,22 @@
     },
     {
       "id": 187,
+      "cr_bugs": [458062283],
+      "description": "Disable Graphite on very old Intel GPU generations due to crashiness",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "intel_gpu_generation": {
+        "op": "<=",
+        "value": "8"
+      },
+      "features": [
+        "skia_graphite"
+      ]
+    },
+    {
+      "id": 188,
       "cr_bugs": [467009161],
       "description": "Disable Graphite on D3D11 feature level below 12.0 due to crashiness",
       "os": {

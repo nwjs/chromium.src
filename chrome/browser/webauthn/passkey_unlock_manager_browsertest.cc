@@ -18,7 +18,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
-#include "device/fido/features.h"
+#include "device/fido/public/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -63,7 +63,7 @@ HandleEncryptionUnlockPageRequest(
 
 class MockPasskeyUnlockManagerObserver : public PasskeyUnlockManager::Observer {
  public:
-  MOCK_METHOD(void, OnPasskeyUnlockManagerStateChanged, (), (override));
+  MOCK_METHOD(void, OnPasskeyErrorUiStateChanged, (), (override));
   MOCK_METHOD(void, OnPasskeyUnlockManagerShuttingDown, (), (override));
   MOCK_METHOD(void, OnPasskeyUnlockManagerIsReady, (), (override));
 };
@@ -158,9 +158,9 @@ IN_PROC_BROWSER_TEST_F(PasskeyUnlockManagerBrowserTest,
   passkey_unlock_manager()->AddObserver(&observer);
 
   base::test::TestFuture<void> event_future;
-  EXPECT_CALL(observer, OnPasskeyUnlockManagerStateChanged())
+  EXPECT_CALL(observer, OnPasskeyErrorUiStateChanged())
       .WillOnce([&event_future]() {
-        // Signal the TestFuture when OnPasskeyUnlockManagerStateChanged is
+        // Signal the TestFuture when OnPasskeyErrorUiStateChanged is
         // called.
         event_future.SetValue();
       });

@@ -32,10 +32,6 @@
 #include "ui/gfx/android/surface_control_frame_rate.h"
 #endif
 
-#if BUILDFLAG(IS_WIN)
-#include "base/win/windows_types.h"
-#endif
-
 namespace gfx {
 namespace mojom {
 class DelegatedInkPointRenderer;
@@ -164,11 +160,6 @@ class GL_EXPORT Presenter : public base::RefCounted<Presenter> {
 
   // Tells the presenter to rely on implicit sync when presenting buffers.
   virtual void SetRelyOnImplicitSync() {}
-
-  // Tells the presenter to send
-  // gfx::SwapResult::SWAP_NON_SIMPLE_OVERLAYS_FAILED if a non-simple overlay
-  // submission fails (see gfx::OverlayType).
-  virtual void SetNotifyNonSimpleOverlayFailure() {}
 
  protected:
   friend class base::RefCounted<Presenter>;

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d_state.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <optional>
 
 #include "base/check.h"
@@ -12,6 +13,7 @@
 #include "base/compiler_specific.h"
 #include "base/dcheck_is_on.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "cc/paint/draw_looper.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/path_effect.h"
@@ -35,6 +37,7 @@
 #include "third_party/blink/renderer/core/paint/filter_effect_builder.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/filter_operations.h"
+#include "third_party/blink/renderer/core/style/shadow_data.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_filter.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
@@ -329,7 +332,10 @@ void CanvasRenderingContext2DState::SetGlobalAlpha(double alpha) {
   global_alpha_ = alpha;
   stroke_style_.ApplyToFlags(stroke_flags_, global_alpha_);
   fill_style_.ApplyToFlags(fill_flags_, global_alpha_);
-  image_flags_.setColor(ScaleAlpha(SK_ColorBLACK, alpha));
+  // TODO: Don't quantize the alpha to 8-bit.
+  image_flags_.setAlphaf(
+      base::ClampRound<uint8_t>(ClampTo<float>(alpha, 0.0f, 1.0f) * 255) /
+      255.0f);
 }
 
 void CanvasRenderingContext2DState::SetGlobalHDRHeadroom(double h) {
@@ -642,11 +648,15 @@ sk_sp<cc::DrawLooper>& CanvasRenderingContext2DState::EmptyDrawLooper() const {
   return empty_draw_looper_;
 }
 
+float CanvasRenderingContext2DState::ShadowBlurAsSigma() const {
+  return ShadowData::BlurRadiusToStdDev(ClampTo<float>(shadow_blur_));
+}
+
 sk_sp<cc::DrawLooper>& CanvasRenderingContext2DState::ShadowOnlyDrawLooper()
     const {
   if (!shadow_only_draw_looper_) {
     DrawLooperBuilder draw_looper_builder;
-    draw_looper_builder.AddShadow(shadow_offset_, ClampTo<float>(shadow_blur_),
+    draw_looper_builder.AddShadow(shadow_offset_, ShadowBlurAsSigma(),
                                   shadow_color_,
                                   DrawLooperBuilder::kShadowIgnoresTransforms,
                                   DrawLooperBuilder::kShadowRespectsAlpha);
@@ -659,7 +669,7 @@ sk_sp<cc::DrawLooper>&
 CanvasRenderingContext2DState::ShadowAndForegroundDrawLooper() const {
   if (!shadow_and_foreground_draw_looper_) {
     DrawLooperBuilder draw_looper_builder;
-    draw_looper_builder.AddShadow(shadow_offset_, ClampTo<float>(shadow_blur_),
+    draw_looper_builder.AddShadow(shadow_offset_, ShadowBlurAsSigma(),
                                   shadow_color_,
                                   DrawLooperBuilder::kShadowIgnoresTransforms,
                                   DrawLooperBuilder::kShadowRespectsAlpha);
@@ -673,7 +683,7 @@ sk_sp<PaintFilter>& CanvasRenderingContext2DState::ShadowOnlyImageFilter()
     const {
   using ShadowMode = DropShadowPaintFilter::ShadowMode;
   if (!shadow_only_image_filter_) {
-    const auto sigma = BlurRadiusToStdDev(shadow_blur_);
+    const auto sigma = ShadowBlurAsSigma();
     shadow_only_image_filter_ = sk_make_sp<DropShadowPaintFilter>(
         shadow_offset_.x(), shadow_offset_.y(), sigma, sigma,
         shadow_color_.toSkColor4f(), ShadowMode::kDrawShadowOnly, nullptr);
@@ -685,7 +695,7 @@ sk_sp<PaintFilter>&
 CanvasRenderingContext2DState::ShadowAndForegroundImageFilter() const {
   using ShadowMode = DropShadowPaintFilter::ShadowMode;
   if (!shadow_and_foreground_image_filter_) {
-    const auto sigma = BlurRadiusToStdDev(shadow_blur_);
+    const auto sigma = ShadowBlurAsSigma();
     // TODO(crbug/1308932): Remove FromColor and make all SkColor4f.
     shadow_and_foreground_image_filter_ = sk_make_sp<DropShadowPaintFilter>(
         shadow_offset_.x(), shadow_offset_.y(), sigma, sigma,

@@ -24,6 +24,7 @@ import '../internal/icons.html.js';
 // </if>
 
 import './autofill_ai_entries_list.js';
+import './walletable_pass_detection_toggle.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
@@ -75,6 +76,19 @@ export class SettingsAutofillAiSectionElement extends
       },
 
       /**
+       * Indicates whether the feature `kAutofillAiReauthRequired` is enabled.
+       */
+      // <if expr="is_win or is_macosx or is_chromeos">
+      autofillAiReauthOnViewingSensitiveDataEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'autofillAiReauthOnViewingSensitiveDataEnabled');
+        },
+      },
+      // </if>
+
+      /**
          A "fake" preference object that reflects the state of the opt-in
          toggle and the presence/absence of an enterprise policy.
          This allows leveraging the settings-toggle-button component
@@ -99,6 +113,15 @@ export class SettingsAutofillAiSectionElement extends
           return loadTimeData.getBoolean('isWalletServerStorageEnabled');
         },
       },
+
+      isUserEligibleForWalletablePassDetection_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'isUserEligibleForWalletablePassDetection');
+        },
+      },
+
       /**
         If true, Autofill AI does not depend on whether Autofill for addresses
         is enabled.
@@ -121,8 +144,12 @@ export class SettingsAutofillAiSectionElement extends
   }
 
   declare ineligibleUser: boolean;
+  // <if expr="is_win or is_macosx or is_chromeos">
+  declare private autofillAiReauthOnViewingSensitiveDataEnabled_: boolean;
+  // </if>
   declare private optedIn_: chrome.settingsPrivate.PrefObject;
   declare private isWalletServerStorageEnabled_: boolean;
+  declare private isUserEligibleForWalletablePassDetection_: boolean;
   declare private autofillAiIgnoresWhetherAddressFillingIsEnabled_: boolean;
 
   private entityDataManager_: EntityDataManagerProxy =

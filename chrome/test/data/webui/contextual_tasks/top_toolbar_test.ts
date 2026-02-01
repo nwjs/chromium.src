@@ -86,15 +86,18 @@ suite('TopToolbarTest', () => {
             '#sources');
     assertTrue(!!sourcesButton);
 
-    // Initially, there are no attached tabs, so the favicon group should not
-    // render any items.
+    // Initially, there are no attached tabs, so the sources button should be
+    // hidden and contain no items.
+    assertTrue(sourcesButton.hidden);
     assertFalse(!!sourcesButton.shadowRoot.querySelector('.favicon-item'));
 
     topToolbar.attachedTabs =
         [{tabId: 1, title: 'Tab 1', url: {url: 'https://example.com'}}];
     await microtasksFinished();
 
-    // After attaching a tab, the favicon group should render a favicon item.
+    // After attaching a tab, the sources button should be visible and contain
+    // items.
+    assertFalse(sourcesButton.hidden);
     assertTrue(!!sourcesButton.shadowRoot.querySelector('.favicon-item'));
   });
 
@@ -121,7 +124,7 @@ suite('TopToolbarTest', () => {
     // "Tabs". We expect only 1 header since we only have one type of item
     // (tabs) and the "Tabs" header should be hidden.
     const headers = sourcesMenuElement.shadowRoot.querySelectorAll('.header');
-    assertEquals(1, headers.length);
+    assertEquals(2, headers.length);
 
     // Click the first tab item.
     const tabButton = sourcesMenuElement.shadowRoot.querySelector<HTMLElement>(
@@ -133,6 +136,75 @@ suite('TopToolbarTest', () => {
         await proxy.handler.whenCalled('onTabClickedFromSourcesMenu');
     assertEquals(tabId, 1);
     assertDeepEquals(url, tab.url);
+  });
+
+  test('handles file sources menu interactions', async () => {
+    const file = {
+      name: 'Sample Document',
+      url: {url: 'https://example/sample.pdf'},
+    };
+    topToolbar.attachedFiles = [file];
+    await microtasksFinished();
+
+    const sourcesButton =
+        topToolbar.shadowRoot.querySelector<HTMLElement>('#sources');
+    assertTrue(!!sourcesButton);
+    sourcesButton.click();
+    await microtasksFinished();
+
+    const sourcesMenuElement = topToolbar.$.sourcesMenu.get();
+    const crActionMenu =
+        sourcesMenuElement.shadowRoot.querySelector('cr-action-menu');
+    assertTrue(!!crActionMenu);
+    assertTrue(crActionMenu.open);
+
+    // Expected headers: title, tab and files header
+    const headers = sourcesMenuElement.shadowRoot.querySelectorAll('.header');
+    assertEquals(2, headers.length);
+
+    // Click the first file item.
+    const fileButton = sourcesMenuElement.shadowRoot.querySelector<HTMLElement>(
+        'button.dropdown-item');
+    assertTrue(!!fileButton);
+    fileButton.click();
+
+    const url = await proxy.handler.whenCalled('onFileClickedFromSourcesMenu');
+    assertEquals(url, file.url);
+  });
+
+  test('handles image sources menu interactions', async () => {
+    const image = {
+      title: 'Test Image',
+      url: {url: 'https://www.example.com/example.jpeg'},
+    };
+    topToolbar.attachedImages = [image];
+    await microtasksFinished();
+
+    const sourcesButton =
+        topToolbar.shadowRoot.querySelector<HTMLElement>('#sources');
+    assertTrue(!!sourcesButton);
+    sourcesButton.click();
+    await microtasksFinished();
+
+    const sourcesMenuElement = topToolbar.$.sourcesMenu.get();
+
+    const crActionMenu =
+        sourcesMenuElement.shadowRoot.querySelector('cr-action-menu');
+    assertTrue(!!crActionMenu);
+    assertTrue(crActionMenu.open);
+
+    const headers = sourcesMenuElement.shadowRoot.querySelectorAll('.header');
+    assertEquals(2, headers.length);
+
+    // Click the first image item.
+    const imageButton =
+        sourcesMenuElement.shadowRoot.querySelector<HTMLElement>(
+            'button.dropdown-item');
+    assertTrue(!!imageButton);
+    imageButton.click();
+
+    const url = await proxy.handler.whenCalled('onImageClickedFromSourcesMenu');
+    assertEquals(url, image.url);
   });
 
   test('handles more menu interactions', async () => {
@@ -234,12 +306,12 @@ suite('TopToolbarTest', () => {
     ];
     await microtasksFinished();
 
-    const faviconItems =
-        sourcesButton.shadowRoot.querySelectorAll('.favicon-item');
+    const faviconItems = sourcesButton.shadowRoot.querySelectorAll(
+        '.favicon-item:not(#more-items)');
     assertEquals(faviconItems.length, 3);
     const moreItems =
-        sourcesButton.shadowRoot.querySelector<HTMLElement>('.more-items');
+        sourcesButton.shadowRoot.querySelector<HTMLElement>('#more-items');
     assertTrue(!!moreItems);
-    assertEquals(moreItems.textContent, '+1');
+    assertEquals(moreItems.innerText, '+1');
   });
 });

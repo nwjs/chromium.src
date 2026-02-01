@@ -68,6 +68,7 @@ public class TabItemPickerCoordinator {
     private final Callback<Boolean> mBackPressEnabledObserver;
     private final ArrayList<Integer> mPreselectedTabIds;
     private final int mAllowedSelectionCount;
+    private final boolean mIsSingleContextMode;
     private final Set<Integer> mCachedTabIdsSet = new HashSet<>();
     private @Nullable TabModelSelector mTabModelSelector;
     private @Nullable TabListEditorCoordinator mTabListEditorCoordinator;
@@ -81,7 +82,8 @@ public class TabItemPickerCoordinator {
             ViewGroup rootView,
             ViewGroup containerView,
             ArrayList<Integer> preselectedTabIds,
-            int allowedSelectionCount) {
+            int allowedSelectionCount,
+            boolean isSingleContextMode) {
 
         mProfileSupplier = profileSupplier;
         mWindowId = windowId;
@@ -91,6 +93,7 @@ public class TabItemPickerCoordinator {
         mContainerView = containerView;
         mPreselectedTabIds = preselectedTabIds;
         mAllowedSelectionCount = allowedSelectionCount;
+        mIsSingleContextMode = isSingleContextMode;
 
         mBackPressCallback =
                 new OnBackPressedCallback(/* enabled= */ false) {
@@ -230,11 +233,27 @@ public class TabItemPickerCoordinator {
 
         controller.getHandleBackPressChangedSupplier().addObserver(mBackPressEnabledObserver);
 
-        Profile profile = mProfileSupplier.get();
-        int currentTabIndex =
-                mTabModelSelector
-                        .getModel(profile == null ? false : profile.isIncognitoBranded())
-                        .index();
+        Tab currentTab = mTabModelSelector.getCurrentTab();
+        int currentTabIndex = 0;
+        if (currentTab != null) {
+            int indexInFilteredList = tabs.indexOf(currentTab);
+            if (indexInFilteredList != -1) {
+                currentTabIndex = indexInFilteredList;
+            }
+        } else if (!tabs.isEmpty()) {
+            // Find the last opened tab.
+            Tab mostRecentTab = tabs.get(0);
+            for (int i = 1; i < tabs.size(); i++) {
+                Tab tab = tabs.get(i);
+                // It is important to check if the tab is active, because we only want to scroll to
+                // something that's been opened in our current session.
+                if (tab.getTimestampMillis() > mostRecentTab.getTimestampMillis()
+                        && FuseboxTabUtils.isTabActive(tab)) {
+                    mostRecentTab = tab;
+                }
+            }
+            currentTabIndex = tabs.indexOf(mostRecentTab);
+        }
         RecyclerViewPosition position = new RecyclerViewPosition(currentTabIndex, 0);
 
         controller.show(
@@ -335,9 +354,7 @@ public class TabItemPickerCoordinator {
             TabModelSelector tabModelSelector) {
         boolean isIncognito = assumeNonNull(mProfileSupplier.get()).isIncognitoBranded();
         return new ObservableSupplierImpl<@Nullable TabGroupModelFilter>(
-                tabModelSelector
-                        .getTabGroupModelFilterProvider()
-                        .getTabGroupModelFilter(isIncognito));
+                tabModelSelector.getTabGroupModelFilter(isIncognito));
     }
 
     /** Creates a TabContentManager instance required by the TabListEditorCoordinator. */
@@ -397,7 +414,8 @@ public class TabItemPickerCoordinator {
                         CreationMode.ITEM_PICKER,
                         /* undoBarExplicitTrigger= */ null,
                         /* componentName= */ "TabItemPickerCoordinator",
-                        mAllowedSelectionCount);
+                        mAllowedSelectionCount,
+                        mIsSingleContextMode);
 
         mNavigationProvider =
                 new ItemPickerNavigationProvider(

@@ -13,9 +13,30 @@ from . import packages
 from . import errors
 
 
+def GetLinuxFlavor():
+    """Reads /etc/*-release to determine Linux OS flavor (Debian/Arch)."""
+    for release_file in ("/etc/lsb-release", "/etc/os-release"):
+        try:
+            with open(release_file, "r") as f:
+                result = f.read()
+                if "Ubuntu" in result or "Debian" in result:
+                    return packages.OsFlavor.Debian
+                elif "Arch" in result:
+                    return packages.OsFlavor.Arch
+                else:
+                    raise Exception(
+                        "Couldn't determine OS flavor from lsb-release "
+                        "(needed to install packages)")
+        except:
+            pass
+    else:
+        raise Exception(
+            "Couldn't read OS flavor from /etc/{os,lsb}-release file "
+            "(needed to install packages)")
+
 class RoboConfiguration:
     __slots__ = ('_sushi_branch_prefix', '_gn_commit_title',
-                 '_patches_commit_title', '_readme_chromium_commit_title',
+                 '_readme_chromium_commit_title',
                  '_origin_merge_base', '_llvm_path', '_autorename_git_file',
                  '_chrome_src', '_host_operating_system', '_host_architecture',
                  '_ffmpeg_home', '_relative_asan_directory', '_branch_name',
@@ -39,8 +60,6 @@ class RoboConfiguration:
         self._sushi_branch_prefix = "sushi-"
         # This is the title that we use for the commit with GN configs.
         self._gn_commit_title = "GN Configuration"
-        # Title of the commit with chromium/patches/README.
-        self._patches_commit_title = "Chromium patches file"
         # Title of the commit with README.chromium
         self._readme_chromium_commit_title = "README.chromium file"
 
@@ -71,8 +90,9 @@ class RoboConfiguration:
                 shell.log(f"On sushi branch: {self.sushi_branch_name()}")
 
         # Filename that we'll ask generate_gn.py to write git commands to.
-        # TODO: Should this use script_directory, or stay with ffmpeg?  As long
-        # as there's a .gitignore entry, either should be fine.
+        # TODO(crbug.com/450394703): Should this use script_directory, or stay
+        # with ffmpeg?  As long as there's a .gitignore entry, either should be
+        # fine.
         self._autorename_git_file = os.path.join(self.ffmpeg_home(), "scripts",
                                                  ".git_commands.sh")
 
@@ -152,9 +172,6 @@ class RoboConfiguration:
     def gn_commit_title(self):
         return self._gn_commit_title
 
-    def patches_commit_title(self):
-        return self._patches_commit_title
-
     def readme_chromium_commit_title(self):
         return self._readme_chromium_commit_title
 
@@ -206,25 +223,7 @@ class RoboConfiguration:
         if platform.system() == "Linux":
             self._host_operating_system = "linux"
 
-            for release_file in ("/etc/lsb-release", "/etc/os-release"):
-                try:
-                    with open(release_file, "r") as f:
-                        result = f.read()
-                        if "Ubuntu" in result or "Debian" in result:
-                            self._os_flavor = packages.OsFlavor.Debian
-                        elif "Arch" in result:
-                            self._os_flavor = packages.OsFlavor.Arch
-                        else:
-                            raise Exception(
-                                "Couldn't determine OS flavor from lsb-release "
-                                "(needed to install packages)")
-                        break
-                except:
-                    pass
-            else:
-                raise Exception(
-                    "Couldn't read OS flavor from /etc/{os,lsb}-release file "
-                    "(needed to install packages)")
+            self._os_flavor = GetLinuxFlavor()
         elif platform.system() == "Darwin":
             self._host_operating_system = "mac"
         elif platform.system() == "Windows" or "CYGWIN_NT" in platform.system(
@@ -266,11 +265,8 @@ class RoboConfiguration:
     def EnsurePathContainsLLVM(self):
         """Make sure that we have chromium's LLVM in $PATH.
 
-    We don't want folks to accidentally use the wrong clang.
-    """
-
-        llvm_path = os.path.join(self.chrome_src(), "third_party",
-                                 "llvm-build", "Release+Asserts", "bin")
+        We don't want folks to accidentally use the wrong clang.
+        """
         if self.llvm_path() not in os.environ["PATH"]:
             raise errors.UserInstructions(
                 f"Please add:\n{self.llvm_path()}\n to the beginning of $PATH"
@@ -315,12 +311,12 @@ class RoboConfiguration:
     def set_log_shell_calls(self, value):
         self._log_shell_calls = value
 
-    def Call(self, args, **kwargs):
+    def Call(self, args, on_console_line=None, **kwargs):
         """Run the command specified by |args| (see subprocess.call), optionally
     prompting the user."""
         if self.log_shell_calls():
             cmd = args if kwargs.get("shell", False) else " ".join(args)
-            print(f"  Command: [{os.getcwd()}] {cmd}")
+            shell.log(f"Command: [{os.getcwd()}] {cmd}", style=shell.Style.DIM)
             if self.prompt_on_call():
                 result = input("  Execute? [Y/s/n]: ").lower()
                 if result == "s":
@@ -329,7 +325,19 @@ class RoboConfiguration:
                 if result == "n":
                     print("    Exiting...")
                     sys.exit(0)
-                return shell.check_run(args, **kwargs)
+
+        # Default to rolling log if not specified.
+        if on_console_line is None:
+            on_console_line = shell.rolling_log
+            # Ensure stderr goes to console (not merged) so it's visible
+            # immediately.
+            if "stderr" not in kwargs:
+                kwargs["stderr"] = None
+
+        if on_console_line:
+            return shell.run_live(args, on_console_line, **kwargs)
+
+        return shell.check_run(args, **kwargs)
 
     def CheckCall(self, *args, **kwargs):
         if self.Call(*args, **kwargs):

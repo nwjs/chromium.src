@@ -62,7 +62,6 @@ static_library("extensions") {
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/guest_os",
     "//chrome/browser/ash/input_method",
-    "//chrome/browser/ash/input_method/japanese",
     "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/profiles",
@@ -104,6 +103,8 @@ static_library("test_support") {
   testonly = true
 
   sources = [
+    "scoped_app_window.cc",
+    "scoped_app_window.h",
     "test_external_cache.cc",
     "test_external_cache.h",
   ]

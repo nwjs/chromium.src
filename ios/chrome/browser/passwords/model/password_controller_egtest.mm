@@ -263,8 +263,7 @@ void LoginOnUff() {
     config.relaunch_policy = ForceRelaunchByKilling;
   }
 
-  if ([self
-          isRunningTest:@selector(DISABLED_testPasswordBreachEventReported)]) {
+  if ([self isRunningTest:@selector(FLAKY_testPasswordBreachEventReported)]) {
     config.features_enabled.push_back(
         password_manager::features::kMarkAllCredentialsAsLeaked);
   }
@@ -302,10 +301,10 @@ void LoginOnUff() {
 }
 
 - (std::optional<std::string_view>)enterpriseReportingEventForTest {
-  if ([self isRunningTest:@selector(FLAKY_testLoginEventReported)]) {
+  if ([self isRunningTest:@selector(testLoginEventReported)]) {
     return "loginEvent";
   } else if ([self isRunningTest:@selector
-                   (DISABLED_testPasswordBreachEventReported)]) {
+                   (FLAKY_testPasswordBreachEventReported)]) {
     return "passwordBreachEvent";
   }
   return std::nullopt;
@@ -884,9 +883,8 @@ void LoginOnUff() {
                                 password:passwordValue];
 }
 
-// TODO(crbug.com/428877349): Re-enable after fixing the test flakiness.
 // Tests that a login event is reported to an enterprise connector.
-- (void)FLAKY_testLoginEventReported {
+- (void)testLoginEventReported {
   [self loadLoginPage];
 
   // Simulate login.
@@ -917,7 +915,7 @@ void LoginOnUff() {
 
 // Tests that a password breach event is reported to an enterprise connector.
 // TODO(crbug.com/429140546): flaky on chromium/ci/ios-simulator-noncq.
-- (void)DISABLED_testPasswordBreachEventReported {
+- (void)FLAKY_testPasswordBreachEventReported {
   [self loadLoginPage];
 
   // Simulate login.
@@ -958,10 +956,9 @@ void LoginOnUff() {
                  @"Wrong domain in leaked username.");
 }
 
-// TODO(crbug.com/440644620): Find a solution to page loading flakes.
 // Tests that the password save flow via the infobar still works correctly
 // when the badge is removed.
-- (void)FLAKY_testSaveWithoutBadges {
+- (void)testSaveWithoutBadges {
   [self loadLoginPage];
 
   // Simulate user interacting with fields to trigger a capture of credentials.
@@ -998,10 +995,9 @@ void LoginOnUff() {
   GREYAssertEqual(1, credentialsCount, @"Wrong number of stored credentials.");
 }
 
-// TODO(crbug.com/440644620): Find a solution to page loading flakes.
 // Tests that the password update flow via the infobar still works correctly
 // when the badge is removed.
-- (void)FLAKY_testUpdateWithoutBadges {
+- (void)testUpdateWithoutBadges {
   // Load the page the first time an store credentials.
   [self loadLoginPage];
   [PasswordManagerAppInterface storeCredentialWithUsername:@"Eguser"

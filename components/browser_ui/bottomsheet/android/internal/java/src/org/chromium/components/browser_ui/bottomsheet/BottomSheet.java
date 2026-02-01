@@ -23,6 +23,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
@@ -239,7 +240,7 @@ class BottomSheet extends FrameLayout
 
         mMinHalfFullDistance =
                 getResources().getDimensionPixelSize(R.dimen.bottom_sheet_min_full_half_distance);
-        mSheetBgColor = SemanticColorUtils.getSheetBgColor(context);
+        mSheetBgColor = getNonModalBottomSheetBgColor(context);
         mGestureDetector = new BottomSheetSwipeDetector(context, this);
         mIsTouchEnabled = true;
     }
@@ -644,7 +645,7 @@ class BottomSheet extends FrameLayout
         // If the sheet contents are cleared out before #onSheetClosed is called, do not try to
         // retrieve the accessibility string.
         if (getCurrentSheetContent() != null) {
-            announceForAccessibility(
+            updateA11yPaneTitle(
                     getResources()
                             .getString(
                                     getCurrentSheetContent()
@@ -1076,7 +1077,7 @@ class BottomSheet extends FrameLayout
                     mCurrentState == SheetState.FULL
                             ? getCurrentSheetContent().getSheetFullHeightAccessibilityStringId()
                             : getCurrentSheetContent().getSheetHalfHeightAccessibilityStringId();
-            setAccessibilityPaneTitle(getResources().getString(resId));
+            updateA11yPaneTitle(getResources().getString(resId));
 
             // TalkBack will announce the content description if it has changed, so wait to set the
             // content description until after announcing full/half height.
@@ -1459,16 +1460,16 @@ class BottomSheet extends FrameLayout
             }
         }
 
-        int colorNoScrim = SemanticColorUtils.getSheetBgColor(getContext());
-        int colorOnScrim = getSheetOnScrimBackgroundColor(getContext());
+        int colorNonModal = getNonModalBottomSheetBgColor(getContext());
+        int colorModal = getModalBottomSheetBgColor(getContext());
 
         // Calculate the color based on the ratio between PEEK / FULL state.
         float maxOffset = getMaxOffsetPx();
         float minOffset = getPeekRatio() * mContainerHeight;
 
         boolean isResizableSheet = isHalfStateEnabled() || isPeekStateEnabled();
-        if (!isResizableSheet || maxOffset <= minOffset || colorOnScrim == colorNoScrim) {
-            int newColor = mSheetContent.hasCustomScrimLifecycle() ? colorNoScrim : colorOnScrim;
+        if (!isResizableSheet || maxOffset <= minOffset || colorModal == colorNonModal) {
+            int newColor = mSheetContent.hasCustomScrimLifecycle() ? colorNonModal : colorModal;
             udpateSheetBgColorTint(newColor);
             return;
         }
@@ -1477,9 +1478,7 @@ class BottomSheet extends FrameLayout
         float colorRatio = Math.max(0, currentOffset - minOffset) / (maxOffset - minOffset);
         int newColor =
                 ColorUtils.overlayColor(
-                        /* baseColor= */ colorNoScrim,
-                        /* overlayColor= */ colorOnScrim,
-                        colorRatio);
+                        /* baseColor= */ colorNonModal, /* overlayColor= */ colorModal, colorRatio);
         udpateSheetBgColorTint(newColor);
     }
 
@@ -1500,6 +1499,12 @@ class BottomSheet extends FrameLayout
 
     private void invalidateContentDesiredHeight() {
         mContentDesiredHeight = HEIGHT_UNSPECIFIED;
+    }
+
+    private void updateA11yPaneTitle(CharSequence msg) {
+        // Set the pane title for the container. The bottom sheet view is not always accessible
+        // e.g. when sheet is dismissed.
+        ViewCompat.setAccessibilityPaneTitle(mSheetContainer, msg);
     }
 
     /**
@@ -1544,7 +1549,17 @@ class BottomSheet extends FrameLayout
      * @param context The {@link Context} used to retrieve attrs, colors, and dimens.
      * @return The {@link ColorInt} for the background of a bottom sheet showing on a scrim
      */
-    private static @ColorInt int getSheetOnScrimBackgroundColor(Context context) {
-        return ContextCompat.getColor(context, R.color.sheet_on_scrim_bg_color);
+    private static @ColorInt int getModalBottomSheetBgColor(Context context) {
+        return ContextCompat.getColor(context, R.color.bottom_sheet_bg_color);
+    }
+
+    /**
+     * Get the color to use for non-modal bottom sheet.
+     *
+     * @param context The {@link Context} used to retrieve attrs, colors, and dimens.
+     * @return The {@link ColorInt} for the background of a bottom sheet showing on a scrim
+     */
+    private static @ColorInt int getNonModalBottomSheetBgColor(Context context) {
+        return SemanticColorUtils.getColorSurface(context);
     }
 }

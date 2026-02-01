@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
@@ -30,7 +31,7 @@
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
-#include "chrome/browser/actor/ui/mocks/mock_event_dispatcher.h"
+#include "chrome/browser/actor/ui/test_support/mock_event_dispatcher.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor_webui.mojom.h"
@@ -60,6 +61,7 @@ using testing::Field;
 using testing::Property;
 using testing::VariantWith;
 using ChangeTaskState = ui::UiEventDispatcher::ChangeTaskState;
+using StopTask = ui::UiEventDispatcher::StopTask;
 using AddTab = ui::UiEventDispatcher::AddTab;
 using enum ActorTask::StoppedReason;
 
@@ -246,8 +248,9 @@ class ExecutionEngineTest : public ChromeRenderViewHostTestHarness {
                                   /*requires_page_stabilization=*/true)));
     }
 
-    ActorKeyedService::Get(profile())->GetPolicyChecker().SetActOnWebForTesting(
-        true);
+    ActorKeyedService::Get(profile())
+        ->GetPolicyChecker()
+        .set_act_on_web_for_testing(true);
   }
 
   void TearDown() override {
@@ -410,8 +413,10 @@ TEST_F(ExecutionEngineTest, ActFailsWhenAddTabFails) {
           base::BindRepeating(MakeNotImplementedResult)));
   EXPECT_FALSE(
       Act(GURL("http://localhost/"), MakeClickCallback(kFakeContentNodeId)));
-  histograms_.ExpectUniqueSample(kActionResultHistogram,
-                                 mojom::ActionResultCode::kNotImplemented, 1);
+
+  // Because AddTab occurs before entering ExecutionEngine, we don't expect a
+  // result to be recorded.
+  histograms_.ExpectTotalCount(kActionResultHistogram, 0);
 }
 
 TEST_F(ExecutionEngineTest, ActFailsWhenTabDestroyed) {
@@ -443,9 +448,14 @@ TEST_F(ExecutionEngineTest, CrossOriginNavigationBeforeAction) {
   fake_chrome_render_frame.OverrideBinder(main_rfh());
 
   ActResultFuture result;
+  base::test::TestFuture<void> start_future;
+  ExecutionEngineStateWaiter state_waiter(start_future.GetCallback(),
+                                          *task_->GetExecutionEngine(),
+                                          ExecutionEngine::State::kStartAction);
   std::unique_ptr<ToolRequest> action =
       MakeClickCallback(kFakeContentNodeId).Run();
   task_->Act(ToRequestList(std::move(action)), result.GetCallback());
+  ASSERT_TRUE(start_future.Wait());
 
   // Before the action happens, commit a cross-origin navigation.
   ASSERT_FALSE(result.IsReady());
@@ -485,6 +495,10 @@ TEST_F(ExecutionEngineTest, CancelOngoingAction) {
 }
 
 TEST_F(ExecutionEngineTest, ActorTaskCompletedHistogram) {
+  base::test::ScopedFeatureList scoped_features;
+  scoped_features.InitAndEnableFeatureWithParameters(
+      features::kGlicActorUiGlobalTaskIndicator, {});
+
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://localhost/"));
 
@@ -503,6 +517,19 @@ TEST_F(ExecutionEngineTest, ActorTaskCompletedHistogram) {
   // Simulate time passing before the task stops
   const base::TimeDelta task_duration = base::Milliseconds(123);
   task_environment()->FastForwardBy(task_duration);
+
+  EXPECT_CALL(*task_mock_ui_event_dispatcher_,
+              OnActorTaskSyncChange(
+                  VariantWith<ui::MockUiEventDispatcher::RemoveTab>(_)))
+      .Times(testing::AnyNumber());
+  EXPECT_CALL(
+      *task_mock_ui_event_dispatcher_,
+      OnActorTaskSyncChange(VariantWith<StopTask>(AllOf(
+          Field(&StopTask::task_id, task_->id()),
+          Field(&StopTask::final_state, ActorTask::State::kFinished),
+          Field(&StopTask::title, task_->title()),
+          Field(&StopTask::last_acted_on_tab_handle, GetTab()->GetHandle())))))
+      .Times(1);
 
   task_->Stop(kTaskComplete);
   histograms_.ExpectTimeBucketCount(kActorTaskDurationCompletedHistogram,

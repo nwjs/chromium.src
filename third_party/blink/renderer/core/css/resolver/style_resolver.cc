@@ -157,7 +157,6 @@ bool IsPseudoElementWithUAStyle(PseudoId pseudo_id) {
     case kPseudoIdScrollButtonBlockEnd:
     case kPseudoIdScrollMarker:
     case kPseudoIdOverscrollAreaParent:
-    case kPseudoIdOverscrollClientArea:
       return true;
     default:
       return false;
@@ -257,13 +256,13 @@ bool HasAnimationsOrTransitions(const StyleResolverState& state) {
 }
 
 bool HasTimelines(const StyleResolverState& state) {
-  if (state.StyleBuilder().ScrollTimelineName()) {
+  if (!state.StyleBuilder().ScrollTimelineName().empty()) {
     return true;
   }
-  if (state.StyleBuilder().ViewTimelineName()) {
+  if (!state.StyleBuilder().ViewTimelineName().empty()) {
     return true;
   }
-  if (state.StyleBuilder().TimelineScope()) {
+  if (!state.StyleBuilder().TimelineScope().empty()) {
     return true;
   }
   if (ElementAnimations* element_animations = GetElementAnimations(state)) {
@@ -500,6 +499,9 @@ void ApplyLengthConversionFlags(StyleResolverState& state) {
   if (flags & static_cast<Flags>(Flag::kSiblingRelative)) {
     builder.SetHasSiblingFunctions();
   }
+  if (flags & static_cast<Flags>(Flag::kElementDependentRandom)) {
+    builder.SetHasElementDependentRandomFunctions();
+  }
 }
 
 void ApplyInertness(StyleResolverState& state) {
@@ -507,13 +509,17 @@ void ApplyInertness(StyleResolverState& state) {
   std::optional<bool> css_inert;
 
   if (state.StyleBuilder().Interactivity() == EInteractivity::kInert &&
-      !state.StyleBuilder().InteractivityIsInherited() &&
-      !state.StyleBuilder().IsCSSInert()) {
-    // If the computed value of 'interactivity' is 'inert', set the internal
-    // CSS inertness flag to true. With this flag set, it is not possible to
-    // escape CSS inertness in the subtree with 'interactivity' set to 'auto'
-    // in a descendant.
+      !state.StyleBuilder().InteractivityIsInherited()) {
+    // If we applied interactivity:inert to this element, we also need to
+    // set IsCSSInert to true. With this flag set, it is not possible to escape
+    // CSS inertness in the subtree with 'interactivity' set to 'auto' in a
+    // descendant.
+    //
     // TODO(crbug.com/413291835): This is not in line with the current spec.
+    //
+    // We explicitly set css_inert even if the inherited IsCSSInert is already
+    // true because we need independent property inheritance from an ancestor
+    // to stop by setting IsCSSInertIsInherited to false.
     css_inert = true;
   }
 
@@ -1415,7 +1421,6 @@ const ComputedStyle* StyleResolver::ResolveStyle(
 
   ApplyAnchorData(state);
   ApplyInertness(state);
-  ApplyTriggerData(state);
 
   IncrementResolvedStyleCounters(style_request, GetDocument());
   if (InvalidationTracingFlag::IsEnabled()) [[unlikely]] {
@@ -1747,17 +1752,17 @@ void StyleResolver::ApplyBaseStyleNoCache(
           {.origin = CascadeOrigin::kUserAgent});
     }
 
-    // UA rule: * { overlay: none !important }
-    // and
-    // UA rule: ::scroll-marker-group { contain: size !important; }
-    // Implemented here because DCHECKs ensures we don't add universal rules to
-    // the UA sheets. Note that this is a universal rule in any namespace.
-    // Adding this to the html.css would only do the override in the HTML
-    // namespace since the sheet has a default namespace.
-    cascade.MutableMatchResult().AddMatchedProperties(
-        UniversalOverlayUserAgentDeclaration(),
-        /*mixin_parameter_bindings=*/nullptr,
-        {.origin = CascadeOrigin::kUserAgent});
+    if (RuntimeEnabledFeatures::OverlayPropertyEnabled()) {
+      // UA rule: * { overlay: none !important }
+      // Implemented here because DCHECKs ensures we don't add universal rules
+      // to the UA sheets. Note that this is a universal rule in any namespace.
+      // Adding this to the html.css would only do the override in the HTML
+      // namespace since the sheet has a default namespace.
+      cascade.MutableMatchResult().AddMatchedProperties(
+          UniversalOverlayUserAgentDeclaration(),
+          /*mixin_parameter_bindings=*/nullptr,
+          {.origin = CascadeOrigin::kUserAgent});
+    }
 
     // This adds a CSSInitialColorValue to the cascade for the document
     // element. The CSSInitialColorValue will resolve to a color-scheme
@@ -3658,17 +3663,6 @@ StyleRulePositionTry* StyleResolver::ResolvePositionTryRule(
   }
 
   return position_try_rule;
-}
-
-void StyleResolver::ApplyTriggerData(StyleResolverState& state) {
-  if (state.GetPseudoId() != PseudoId::kPseudoIdNone) {
-    // TODO(crbug.com/451477493): Applying trigger data here would clobber the
-    // style of the pseudo's originating element. We should investigate a
-    // cleaner solution to this than making an exception here.
-    return;
-  }
-  CSSAnimations::UpdateNamedTriggers(
-      state.StyleBuilder(), state.AnimationUpdate(), state.GetElement());
 }
 
 }  // namespace blink

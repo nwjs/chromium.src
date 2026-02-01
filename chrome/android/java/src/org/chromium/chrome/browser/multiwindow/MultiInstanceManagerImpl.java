@@ -14,7 +14,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManager.DisplayListener;
-import android.util.Pair;
 import android.view.Display;
 
 import androidx.annotation.VisibleForTesting;
@@ -41,10 +40,11 @@ import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.RecreateObserver;
+import org.chromium.chrome.browser.lifecycle.StartStopWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.InstanceAllocationType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
-import org.chromium.chrome.browser.multiwindow.MultiWindowUtils.InstanceAllocationType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
@@ -78,7 +78,8 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
                 MultiWindowModeStateDispatcher.MultiWindowModeObserver,
                 DestroyObserver,
                 MenuOrKeyboardActionController.MenuOrKeyboardActionHandler,
-                TopResumedActivityChangedObserver {
+                TopResumedActivityChangedObserver,
+                StartStopWithNativeObserver {
 
     private @Nullable Boolean mMergeTabsOnResume;
 
@@ -269,6 +270,13 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
     @Override
     public void onTopResumedActivityChanged(boolean isTopResumedActivity) {}
 
+    // StartStopWithNativeObserver implementation.
+    @Override
+    public void onStartWithNative() {}
+
+    @Override
+    public void onStopWithNative() {}
+
     @Override
     public void onPauseWithNative() {
         removeOtherCTAStateObserver();
@@ -346,7 +354,7 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
             }
             return true;
         } else if (id == R.id.new_window_menu_id) {
-            openNewWindow("MobileMenuNewWindow", /* incognito= */ false, appSource);
+            openNewWindow(/* incognito= */ false, appSource);
             return true;
         } else if (id == R.id.new_incognito_window_menu_id) {
             TabModelOrchestrator tabModelOrchestrator = mTabModelOrchestratorSupplier.get();
@@ -355,7 +363,7 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
             if (tabModelSelector == null) return true;
             Profile profile = tabModelSelector.getCurrentModel().getProfile();
             if (profile != null && IncognitoUtils.isIncognitoModeEnabled(profile)) {
-                openNewWindow("MobileMenuNewIncognitoWindow", /* incognito= */ true, appSource);
+                openNewWindow(/* incognito= */ true, appSource);
             }
             return true;
         }
@@ -491,9 +499,7 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
 
         return intent;
     }
-    // TODO(crbug.com/455922432): Clean up the umaAction param.
-    protected void openNewWindow(
-            String umaAction, boolean incognito, @NewWindowAppSource int source) {
+    protected void openNewWindow(boolean incognito, @NewWindowAppSource int source) {
         Intent intent = createNewWindowIntent(incognito);
         if (intent == null) {
             return;
@@ -505,13 +511,15 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
                 MultiInstanceManager.NEW_WINDOW_APP_SOURCE_HISTOGRAM,
                 source,
                 NewWindowAppSource.NUM_ENTRIES);
-        RecordUserAction.record(umaAction);
     }
 
     @Override
-    public Pair<Integer, Integer> allocInstanceId(
-            int windowId, int taskId, boolean preferNew, @SupportedProfileType int profileType) {
-        return Pair.create(0, InstanceAllocationType.DEFAULT); // Use a default index 0.
+    public AllocatedIdInfo allocInstanceId(
+            int windowId, int taskId, boolean preferNew, boolean isIncognitoIntent) {
+        return new AllocatedIdInfo(
+                0,
+                InstanceAllocationType.DEFAULT,
+                SupportedProfileType.MIXED); // Use a default index 0.
     }
 
     @Override
@@ -557,10 +565,11 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
     }
 
     protected void cleanupSyncedTabGroups(TabModelSelector selector) {
-        TabGroupModelFilter filter =
-                selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(false);
+        TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
 
-        assumeNonNull(filter);
+        // Skip if there is no regular/normal windows.
+        if (filter == null) return;
+
         Profile profile = filter.getTabModel().getProfile();
         if (profile == null || !TabGroupSyncFeatures.isTabGroupSyncEnabled(profile)) return;
 

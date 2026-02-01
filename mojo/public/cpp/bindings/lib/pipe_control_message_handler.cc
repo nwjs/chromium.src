@@ -5,6 +5,7 @@
 #include "mojo/public/cpp/bindings/pipe_control_message_handler.h"
 
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "mojo/public/cpp/bindings/interface_id.h"
 #include "mojo/public/cpp/bindings/lib/serialization.h"
 #include "mojo/public/cpp/bindings/lib/validation_context.h"
@@ -61,11 +62,13 @@ PipeControlMessageHandler::IsPeerAssociatedEndpointClosedEvent(
 }
 
 bool PipeControlMessageHandler::Accept(Message* message) {
-  if (!Validate(message))
+  if (!Validate(message)) {
     return false;
+  }
 
-  if (message->name() == pipe_control::kRunOrClosePipeMessageId)
+  if (message->name() == pipe_control::kRunOrClosePipeMessageId) {
     return RunOrClosePipe(message);
+  }
 
   NOTREACHED();
 }

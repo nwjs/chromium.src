@@ -18,6 +18,7 @@
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_snapshot_provider_external_bitmap.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -36,11 +37,13 @@ namespace {
 
 bool ShouldCreateAcceleratedImages(
     viz::RasterContextProvider* raster_context_provider) {
-  if (!SharedGpuContext::IsGpuCompositingEnabled())
+  if (!raster_context_provider) {
     return false;
+  }
 
-  if (!raster_context_provider)
+  if (!SharedGpuContext::IsGpuCompositingEnabled()) {
     return false;
+  }
 
   if (raster_context_provider->GetGpuFeatureInfo().IsWorkaroundEnabled(
           DISABLE_IMAGEBITMAP_FROM_VIDEO_USING_GPU)) {
@@ -105,38 +108,34 @@ media::VideoTransformation ImageOrientationToVideoTransformation(
   };
 }
 
-bool WillCreateAcceleratedImagesFromVideoFrame(const media::VideoFrame* frame) {
+bool WillCreateAcceleratedImagesFromVideoFrame() {
   return ShouldCreateAcceleratedImages(GetRasterContextProvider().get());
 }
 
 scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
-    CanvasResourceProvider* resource_provider,
+    CanvasSnapshotProvider* snapshot_provider,
     media::PaintCanvasVideoRenderer* video_renderer,
     bool prefer_tagged_orientation,
     bool reinterpret_video_as_srgb) {
   DCHECK(frame);
-  if (!resource_provider) {
-    DLOG(ERROR) << "An external CanvasResourceProvider must be provided";
+  if (!snapshot_provider) {
+    DLOG(ERROR) << "An external CanvasSnapshotProvider must be provided";
     return nullptr;
   }
 
   auto raster_context_provider = GetRasterContextProvider();
-  if (resource_provider->IsAccelerated()) {
+  if (snapshot_provider->IsAccelerated()) {
     prefer_tagged_orientation = false;
   }
 
   const auto transform =
       frame->metadata().transformation.value_or(media::kNoTransformation);
 
-  // This method should only be called with context providers supporting OOP-R.
-  CHECK(!raster_context_provider ||
-        raster_context_provider->ContextCapabilities().gpu_rasterization);
-
   // If the provider isn't accelerated, avoid GPU round trips to upload frame
   // data from GpuMemoryBuffer backed frames which aren't mappable.
-  if (frame->HasMappableGpuBuffer() && !frame->IsMappable() &&
-      !resource_provider->IsAccelerated()) {
+  if (frame->HasMappableSharedImage() && !frame->IsMappable() &&
+      !snapshot_provider->IsAccelerated()) {
     frame = media::ConvertToMemoryMappedFrame(std::move(frame));
     if (!frame) {
       DLOG(ERROR) << "Failed to map VideoFrame.";
@@ -164,13 +163,13 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
   }
 
   media::PaintCanvasVideoRenderer::PaintParams params;
-  params.dest_rect = gfx::RectF(resource_provider->Size());
+  params.dest_rect = gfx::RectF(snapshot_provider->Size());
   params.transformation =
       prefer_tagged_orientation
           ? media::kNoTransformation
           : frame->metadata().transformation.value_or(media::kNoTransformation);
   params.reinterpret_as_srgb = reinterpret_video_as_srgb;
-  return resource_provider->DoExternalDrawAndSnapshot(
+  return snapshot_provider->DoExternalDrawAndSnapshot(
       [&](MemoryManagedPaintCanvas& canvas) {
         video_renderer->Paint(frame.get(), &canvas, media_flags, params,
                               raster_context_provider.get());
@@ -182,7 +181,7 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
 
 void DrawVideoFrameIntoCanvas(scoped_refptr<media::VideoFrame> frame,
                               cc::PaintCanvas* canvas,
-                              cc::PaintFlags& flags,
+                              const cc::PaintFlags& flags,
                               bool ignore_video_transformation) {
   viz::RasterContextProvider* raster_context_provider = nullptr;
   if (auto wrapper = SharedGpuContext::ContextProviderWrapper()) {
@@ -210,22 +209,35 @@ scoped_refptr<viz::RasterContextProvider> GetRasterContextProvider() {
       wrapper->ContextProvider().RasterContextProvider());
 }
 
-std::unique_ptr<CanvasResourceProvider> CreateResourceProviderForVideoFrame(
-    gfx::Size size,
-    viz::SharedImageFormat format,
-    SkAlphaType alpha_type,
-    const gfx::ColorSpace& color_space,
+CanvasSnapshotProvider::Info CreateSnapshotProviderInfoForVideoFrame(
+    const media::VideoFrame& frame,
+    std::optional<gfx::Size> scaled_size,
+    bool reinterpret_video_as_srgb) {
+  return {
+      .alpha_type = media::IsOpaque(frame.format()) ? kOpaque_SkAlphaType
+                                                    : kPremul_SkAlphaType,
+      .color_space = reinterpret_video_as_srgb ? gfx::ColorSpace::CreateSRGB()
+                                               : frame.CompatRGBColorSpace(),
+      // TODO(https://crbug.com/40230609): N32 may be incorrect when drawing
+      // high bit depth frames destined for a high bit depth canvas.
+      .format = GetN32FormatForCanvas(),
+      .size = scaled_size.value_or(frame.natural_size()),
+  };
+}
+
+std::unique_ptr<CanvasSnapshotProvider> CreateSnapshotProviderForVideo(
+    const CanvasSnapshotProvider::Info& info,
     viz::RasterContextProvider* raster_context_provider) {
   constexpr auto kShouldInitialize =
       CanvasResourceProvider::ShouldInitialize::kNo;
   if (!ShouldCreateAcceleratedImages(raster_context_provider)) {
-    return CanvasResourceProvider::CreateExternalBitmapProvider(
-        size, format, alpha_type, color_space);
+    return CanvasSnapshotProviderExternalBitmap::Create(info);
   }
+
   return CanvasResourceProvider::CreateSharedImageProvider(
-      size, format, alpha_type, color_space, kShouldInitialize,
-      SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
-      gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
+      info.size, info.format, info.alpha_type, info.color_space,
+      kShouldInitialize, SharedGpuContext::ContextProviderWrapper(),
+      RasterMode::kGPU, gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
 }
 
 }  // namespace blink

@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
@@ -15,12 +14,14 @@
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_impl.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
-#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
+#include "chrome/browser/safe_browsing/tailored_security/chrome_tailored_security_service.h"
+#include "chrome/browser/safe_browsing/tailored_security/tailored_security_service_factory.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/privacy_sandbox/privacy_sandbox_prompt_helper.h"
 #include "chrome/browser/ui/views/privacy_sandbox/privacy_sandbox_dialog_view.h"
+#include "chrome/browser/ui/views/safe_browsing/tailored_security_desktop_dialog_manager.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -28,7 +29,6 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
-#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/search_engines/search_engines_switches.h"
@@ -38,6 +38,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -57,7 +58,6 @@ class TestPrivacySandboxServiceImpl : public PrivacySandboxServiceImpl {
   TestPrivacySandboxServiceImpl(
       Profile* profile,
       privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
-      privacy_sandbox::TrackingProtectionSettings* tracking_protection_settings,
       scoped_refptr<content_settings::CookieSettings> cookie_settings,
       PrefService* pref_service,
       content::InterestGroupManager* interest_group_manager,
@@ -69,7 +69,6 @@ class TestPrivacySandboxServiceImpl : public PrivacySandboxServiceImpl {
       PrivacySandboxCountries* privacy_sandbox_countries)
       : PrivacySandboxServiceImpl(profile,
                                   privacy_sandbox_settings,
-                                  tracking_protection_settings,
                                   cookie_settings,
                                   pref_service,
                                   interest_group_manager,
@@ -100,7 +99,6 @@ std::unique_ptr<KeyedService> BuildPrivacySandboxServiceTest(
   Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<TestPrivacySandboxServiceImpl>(
       profile, PrivacySandboxSettingsFactory::GetForProfile(profile),
-      TrackingProtectionSettingsFactory::GetForProfile(profile),
       CookieSettingsFactory::GetForProfile(profile), profile->GetPrefs(),
       profile->GetDefaultStoragePartition()->GetInterestGroupManager(),
       GetProfileType(profile),
@@ -119,9 +117,6 @@ std::unique_ptr<KeyedService> BuildPrivacySandboxServiceTest(
 class PrivacySandboxQueueNoticeBrowserTest : public InProcessBrowserTest {
  public:
   void SetUpInProcessBrowserTestFixture() override {
-    feature_list_.InitWithFeatures(
-        {privacy_sandbox::kPrivacySandboxNoticeQueue}, {});
-
     create_services_subscription_ =
         BrowserContextDependencyManager::GetInstance()
             ->RegisterCreateServicesCallbackForTesting(
@@ -397,35 +392,69 @@ IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeWithSearchEngineBrowserTest,
   ASSERT_FALSE(queue_manager().IsHoldingHandle());
 }
 
-// TODO(crbug.com/409386887): This test can be removed once end-to-end tests are
-// written.
-class PrivacySandboxQueueNoticeFeatureDisabledBrowserTest
-    : public PrivacySandboxQueueNoticeBrowserTest {
- public:
-  void SetUpInProcessBrowserTestFixture() override {
-    feature_list_.InitWithFeatures(
-        /*enabled=*/{}, {privacy_sandbox::kPrivacySandboxNoticeQueue});
+class PrivacySandboxQueueNoticeWithEsbNoticeBrowserTest
+    : public PrivacySandboxQueueNoticeBrowserTest {};
 
-    create_services_subscription_ =
-        BrowserContextDependencyManager::GetInstance()
-            ->RegisterCreateServicesCallbackForTesting(
-                base::BindRepeating([](content::BrowserContext* context) {
-                  PrivacySandboxServiceFactory::GetInstance()
-                      ->SetTestingFactory(
-                          context,
-                          base::BindRepeating(&BuildPrivacySandboxServiceTest));
-                }));
-  }
-};
+// When the tailored security notice is showing, the privacy sandbox notice
+// should not.
+IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeWithEsbNoticeBrowserTest,
+                       EsbNoticeBlocksPrivacySandboxNotice) {
+  // Show tailored security dialog.
+  views::NamedWidgetShownWaiter waiter(
+      views::test::AnyWidgetTestPasskey{},
+      safe_browsing::kTailoredSecurityNoticeDialog);
+  static_cast<safe_browsing::ChromeTailoredSecurityService*>(
+      safe_browsing::TailoredSecurityServiceFactory::GetForProfile(
+          browser()->profile()))
+      ->OnSyncNotificationMessageRequest(true);
+  views::Widget* ts_widget = waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(ts_widget);
 
-// Navigate to a page and click a button.
-IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeFeatureDisabledBrowserTest,
-                       ShowAndClickPrompt) {
-  // Should not be queued after browser startup
-  ASSERT_FALSE(queue_manager().IsNoticeQueued());
-  ASSERT_FALSE(queue_manager().IsHoldingHandle());
+  // When we navigate to a valid page for PS notice, we should not show the
+  // notice as the tailored security notice is showing.
+  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUISettingsURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
 
-  // Navigate
+  EXPECT_TRUE(queue_manager().IsNoticeQueued());
+  EXPECT_FALSE(queue_manager().IsHoldingHandle());
+}
+
+// When the privacy sandbox notice is showing, the tailored security notice
+// should not.
+IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeWithEsbNoticeBrowserTest,
+                       PrivacySandboxNoticeBlocksEsbNotice) {
+  // Navigate to valid page for the privacy sandbox notice.
+  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUISettingsURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+
+  ASSERT_TRUE(queue_manager().IsHoldingHandle());
+
+  // Attempt to show the ESB Notice.
+  static_cast<safe_browsing::ChromeTailoredSecurityService*>(
+      safe_browsing::TailoredSecurityServiceFactory::GetForProfile(
+          browser()->profile()))
+      ->OnSyncNotificationMessageRequest(true);
+
+  EXPECT_FALSE(std::ranges::any_of(
+      views::test::WidgetTest::GetAllWidgets(), [](views::Widget* widget) {
+        return widget->GetName() ==
+               safe_browsing::kTailoredSecurityNoticeDialog;
+      }));
+}
+
+// The tailored security notice should show after the privacy sandbox notice.
+// TODO(crbug.com/466923026): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_EsbNoticeShowsAfterPS DISABLED_EsbNoticeShowsAfterPS
+#else
+#define MAYBE_EsbNoticeShowsAfterPS EsbNoticeShowsAfterPS
+#endif
+IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeWithEsbNoticeBrowserTest,
+                       MAYBE_EsbNoticeShowsAfterPS) {
   views::NamedWidgetShownWaiter waiter(
       views::test::AnyWidgetTestPasskey{},
       PrivacySandboxDialogView::kViewClassName);
@@ -438,9 +467,7 @@ IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeFeatureDisabledBrowserTest,
   auto* dialog_widget = static_cast<PrivacySandboxDialogView*>(
       waiter.WaitIfNeededAndGet()->widget_delegate()->GetContentsView());
 
-  // Before we click, should still be holding handle.
-  ASSERT_FALSE(queue_manager().IsNoticeQueued());
-  ASSERT_FALSE(queue_manager().IsHoldingHandle());
+  ASSERT_TRUE(queue_manager().IsHoldingHandle());
 
   // Click ack button.
   const std::string& code = element_path_ + ".click();";
@@ -448,9 +475,17 @@ IN_PROC_BROWSER_TEST_F(PrivacySandboxQueueNoticeFeatureDisabledBrowserTest,
                               content::EXECUTE_SCRIPT_DEFAULT_OPTIONS,
                               1 /* world_id */));
 
-  // After click, should release handle.
-  ASSERT_FALSE(queue_manager().IsNoticeQueued());
   ASSERT_FALSE(queue_manager().IsHoldingHandle());
-}
 
+  // Attempt to show the ESB Notice.
+  views::NamedWidgetShownWaiter esb_waiter(
+      views::test::AnyWidgetTestPasskey{},
+      safe_browsing::kTailoredSecurityNoticeDialog);
+  static_cast<safe_browsing::ChromeTailoredSecurityService*>(
+      safe_browsing::TailoredSecurityServiceFactory::GetForProfile(
+          browser()->profile()))
+      ->OnSyncNotificationMessageRequest(true);
+  views::Widget* ts_widget = esb_waiter.WaitIfNeededAndGet();
+  ASSERT_TRUE(ts_widget);
+}
 }  // namespace

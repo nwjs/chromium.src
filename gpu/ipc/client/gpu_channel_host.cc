@@ -23,6 +23,7 @@
 #include "gpu/ipc/common/gpu_watchdog_timeout.h"
 #include "ipc/ipc_channel.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "url/gurl.h"
 
 using base::AutoLock;
@@ -42,7 +43,7 @@ GpuChannelHost::GpuChannelHost(
       channel_id_(channel_id),
       gpu_info_(gpu_info),
       gpu_feature_info_(gpu_feature_info),
-      listener_(new Listener(), base::OnTaskRunnerDeleter(io_thread_)),
+      listener_(nullptr, base::OnTaskRunnerDeleter(io_thread_)),
       connection_tracker_(base::MakeRefCounted<ConnectionTracker>()),
       shared_image_interface_(
           this,
@@ -50,16 +51,34 @@ GpuChannelHost::GpuChannelHost(
           shared_image_capabilities),
       sync_point_graph_validation_enabled_(
           features::IsSyncPointGraphValidationEnabled()) {
-  mojo::PendingAssociatedRemote<mojom::GpuChannel> channel;
-  listener_->Initialize(std::move(handle),
-                        channel.InitWithNewEndpointAndPassReceiver(),
-                        io_thread_);
-  gpu_channel_ = mojo::SharedAssociatedRemote<mojom::GpuChannel>(
-      std::move(channel), io_thread_);
-  gpu_channel_.set_disconnect_handler(
-      base::BindOnce(&ConnectionTracker::OnDisconnectedFromGpuProcess,
-                     connection_tracker_),
-      io_thread_);
+  if (features::IsLegacyIpcDisabled()) {
+    gpu_channel_.emplace<SharedRemote>(
+        mojo::PendingRemote<mojom::GpuChannel>(std::move(handle), 0),
+        io_thread_);
+  } else {
+    listener_ = std::unique_ptr<Listener, base::OnTaskRunnerDeleter>(
+        new Listener(), base::OnTaskRunnerDeleter(io_thread_));
+    mojo::PendingAssociatedRemote<mojom::GpuChannel> channel;
+    listener_->Initialize(std::move(handle),
+                          channel.InitWithNewEndpointAndPassReceiver(),
+                          io_thread_);
+    gpu_channel_.emplace<SharedAssociatedRemote>(
+        mojo::SharedAssociatedRemote<mojom::GpuChannel>(std::move(channel),
+                                                        io_thread_));
+  }
+
+  std::visit(
+      [&](auto& gpu_channel_remote) {
+        // Test callers may pass an invalid handle, leaving `gpu_channel_remote`
+        // unbound.
+        if (gpu_channel_remote) {
+          gpu_channel_remote.set_disconnect_handler(
+              base::BindOnce(&ConnectionTracker::OnDisconnectedFromGpuProcess,
+                             connection_tracker_),
+              io_thread_);
+        }
+      },
+      gpu_channel_);
 
   next_image_id_.GetNext();
   for (int32_t i = 0;
@@ -68,7 +87,9 @@ GpuChannelHost::GpuChannelHost(
 }
 
 mojom::GpuChannel& GpuChannelHost::GetGpuChannel() {
-  return *gpu_channel_.get();
+  return *std::visit(
+      [](auto& gpu_channel_remote) { return gpu_channel_remote.get(); },
+      gpu_channel_);
 }
 
 uint32_t GpuChannelHost::OrderingBarrier(
@@ -83,21 +104,26 @@ uint32_t GpuChannelHost::OrderingBarrier(
     EnqueuePendingOrderingBarrier();
   }
 
-  unsigned int trace_event_flags = TRACE_EVENT_FLAG_FLOW_OUT;
+  bool terminating_flow = true;
   if (!pending_ordering_barrier_) {
+    terminating_flow = false;
     pending_ordering_barrier_.emplace();
     pending_ordering_barrier_->deferred_message_id =
         next_deferred_message_id_++;
-  } else {
-    trace_event_flags |= TRACE_EVENT_FLAG_FLOW_IN;
   }
 
   const uint64_t global_flush_id = GlobalFlushTracingId(
       channel_id_, pending_ordering_barrier_->deferred_message_id);
-  TRACE_EVENT_WITH_FLOW0(
-      "gpu,toplevel.flow", "CommandBuffer::OrderingBarrier",
-      TRACE_ID_WITH_SCOPE("CommandBuffer::Flush", global_flush_id),
-      trace_event_flags);
+  TRACE_EVENT("gpu,toplevel.flow", "CommandBuffer::OrderingBarrier",
+              [&](perfetto::EventContext& ctx) {
+                if (terminating_flow) {
+                  perfetto::TerminatingFlow::Global(
+                      global_flush_id, "CommandBuffer::Flush")(ctx);
+                } else {
+                  perfetto::Flow::Global(global_flush_id,
+                                         "CommandBuffer::Flush")(ctx);
+                }
+              });
 
   pending_ordering_barrier_->route_id = route_id;
   pending_ordering_barrier_->put_offset = put_offset;
@@ -230,6 +256,7 @@ void GpuChannelHost::VerifyFlush(uint32_t deferred_message_id) {
 
   // Flush is needed.
   if (ipc_needed) {
+    TRACE_EVENT0("gpu", "GpuChannelHost::VerifyFlush");
     mojo::SyncCallRestrictions::ScopedAllowSyncCall allow_sync;
     GetGpuChannel().Flush();
   }
@@ -242,10 +269,8 @@ void GpuChannelHost::EnqueuePendingOrderingBarrier() {
 
   const uint64_t global_flush_id = GlobalFlushTracingId(
       channel_id_, pending_ordering_barrier_->deferred_message_id);
-  TRACE_EVENT_WITH_FLOW0(
-      "gpu,toplevel.flow", "CommandBuffer::OrderingBarrier",
-      TRACE_ID_WITH_SCOPE("CommandBuffer::Flush", global_flush_id),
-      TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("gpu,toplevel.flow", "CommandBuffer::OrderingBarrier",
+              perfetto::Flow::Global(global_flush_id, "CommandBuffer::Flush"));
 
   DCHECK_LT(enqueued_deferred_message_id_,
             pending_ordering_barrier_->deferred_message_id);
@@ -293,10 +318,9 @@ void GpuChannelHost::InternalFlush(uint32_t deferred_message_id) {
             auto& flush = command_buffer_request->params->get_async_flush();
             const uint64_t global_flush_id =
                 GlobalFlushTracingId(channel_id_, flush->flush_id);
-            TRACE_EVENT_WITH_FLOW0(
-                "gpu,toplevel.flow", "GpuChannel::Flush",
-                TRACE_ID_WITH_SCOPE("CommandBuffer::Flush", global_flush_id),
-                TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
+            TRACE_EVENT("gpu,toplevel.flow", "GpuChannel::Flush",
+                        perfetto::Flow::Global(global_flush_id,
+                                               "CommandBuffer::Flush"));
           }
         }
       }
@@ -311,15 +335,19 @@ void GpuChannelHost::InternalFlush(uint32_t deferred_message_id) {
 }
 
 void GpuChannelHost::DestroyChannel() {
-  gpu_channel_.Disconnect();
+  std::visit([](auto& gpu_channel_remote) { gpu_channel_remote.Disconnect(); },
+             gpu_channel_);
   connection_tracker_->OnDisconnectedFromGpuProcess();
-  io_thread_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&Listener::Close, base::Unretained(listener_.get())));
+  if (!features::IsLegacyIpcDisabled()) {
+    io_thread_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&Listener::Close, base::Unretained(listener_.get())));
+  }
 }
 
 void GpuChannelHost::ResetChannelRemoteForTesting() {
-  gpu_channel_.reset();
+  std::visit([](auto& gpu_channel_remote) { gpu_channel_remote.reset(); },
+             gpu_channel_);
 }
 
 int32_t GpuChannelHost::ReserveImageId() {

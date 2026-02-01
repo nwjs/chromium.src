@@ -11,7 +11,6 @@
 #include <ranges>
 #include <variant>
 
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
@@ -20,7 +19,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/data_model/data_model_utils.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -178,8 +176,8 @@ bool PreferHeuristicOverHtml(FieldType heuristic_type,
     return true;
   }
 
-  return base::Contains(kAutofillHeuristicsVsHtmlOverrides,
-                        std::make_pair(heuristic_type, html_type));
+  return kAutofillHeuristicsVsHtmlOverrides.contains(
+      std::make_pair(heuristic_type, html_type));
 }
 
 // Returns whether the `heuristic_type` should be preferred over the
@@ -201,8 +199,8 @@ bool PreferHeuristicOverServer(FieldType heuristic_type,
     return true;
   }
 
-  if (base::Contains(kAutofillHeuristicsVsServerOverrides,
-                     std::make_pair(heuristic_type, server_type))) {
+  if (kAutofillHeuristicsVsServerOverrides.contains(
+          std::make_pair(heuristic_type, server_type))) {
     return true;
   }
 
@@ -461,10 +459,9 @@ AutofillField::AutofillField(FieldSignature field_signature) : AutofillField() {
   field_signature_ = field_signature;
 }
 
-AutofillField::AutofillField(const FormFieldData& field)
-    : FormFieldData(field),
-      field_signature_(
-          CalculateFieldSignatureByNameAndType(name(), form_control_type())) {
+AutofillField::AutofillField(const FormFieldData& field) {
+  UpdateFieldData(field);
+  initial_value_ = value();
   local_type_predictions_.fill(NO_SERVER_DATA);
 }
 
@@ -760,8 +757,14 @@ AutofillField::PredictionResult AutofillField::GetComputedPredictionResult()
 }
 
 const std::u16string& AutofillField::value_for_import() const {
-  const bool should_consider_value_for_import =
+  bool should_consider_value_for_import =
       IsSelectElement() || initial_value() != value();
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableImportOfUnchangedValuesForCountryAndState)) {
+    should_consider_value_for_import |=
+        Type().GetAddressType() == ADDRESS_HOME_COUNTRY ||
+        Type().GetAddressType() == ADDRESS_HOME_STATE;
+  }
   if (!should_consider_value_for_import) {
     return base::EmptyString16();
   }
@@ -818,6 +821,13 @@ base::optional_ref<const AutofillFormatString> AutofillField::format_string()
     return std::nullopt;
   }
   return format_string_;
+}
+
+void AutofillField::UpdateFieldData(const FormFieldData& field_data) {
+  FormFieldData::operator=(field_data);
+
+  field_signature_ =
+      CalculateFieldSignatureByNameAndType(name(), form_control_type());
 }
 
 bool AutofillField::IsCreditCardPrediction() const {

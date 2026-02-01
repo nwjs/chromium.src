@@ -9,26 +9,30 @@
 
 #import "base/ios/block_types.h"
 
-namespace bwg {
+namespace gemini {
 enum class EntryPoint;
 }
 
 // Commands relating to the BWG flow.
 @protocol BWGCommands
 
-// Starts the BWG flow.
-- (void)startBWGFlowWithEntryPoint:(bwg::EntryPoint)entryPoint;
+// Starts the Gemini flow with an entry point.
+- (void)startGeminiFlowWithEntryPoint:(gemini::EntryPoint)entryPoint;
 
-// Starts the BWG flow with a provided image as attachment.
-- (void)startBWGFlowWithImageAttachment:(UIImage*)image
-                             entryPoint:(bwg::EntryPoint)entryPoint;
+// Starts the Gemini flow with a provided image as attachment.
+- (void)startGeminiFlowWithImageAttachment:(UIImage*)image
+                                entryPoint:(gemini::EntryPoint)entryPoint;
 
-// Dismiss the BWG flow with a completion block.
-- (void)dismissBWGFlowWithCompletion:(ProceduralBlock)completion;
+// Dismiss the Gemini flow with a completion block.
+- (void)dismissGeminiFlowWithCompletion:(ProceduralBlock)completion;
 
 // Attempts to display the automatic BWG promo depending on whether the active
 // web state is eligible. If the page is ineligible, does nothing.
 - (void)showBWGPromoIfPageIsEligible;
+
+// Starts the FRE flow with a completion block.
+- (void)startGeminiFREWithCompletion:(void (^)(BOOL success))completion
+                      fromEntryPoint:(gemini::EntryPoint)entryPoint;
 
 @end
 

@@ -10,6 +10,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "net/base/load_states.h"
@@ -58,16 +59,23 @@ NextProtoSet CalculateAllowedAlpns(HttpStreamPool::Job::Delegate* delegate,
   //
   // Inlining this logic instead of calling HttpStreamPool::CanUseQuic() is an
   // optimization, to avoid the extra ShouldForceQuic() call.
+  //
+  // Note that IsQuicBroken() takes the hostname that we're establishing a UDP
+  // connection to, rather than the origin we're establishing a secure session
+  // with.
   if (!group->http_network_session()->IsQuicEnabled() ||
+      !group->quic_session_alias_key().destination().IsValid() ||
       !delegate->enable_alternative_services() ||
       !GURL::SchemeIsCryptographic(
           group->stream_key().destination().scheme()) ||
       group->pool()->IsQuicBroken(
-          group->stream_key().destination(),
+          group->quic_session_alias_key().destination(),
           group->stream_key().network_anonymization_key())) {
     allowed_alpns.RemoveAll(HttpStreamPool::kQuicBasedProtocols);
   }
 
+  // TODO(crbug.com/473856758): This can trigger for QUIC alt-service jobs when
+  // QUIC is marked a broken. Fix that.
   CHECK(!allowed_alpns.empty());
   return allowed_alpns;
 }

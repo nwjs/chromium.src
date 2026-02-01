@@ -9,20 +9,35 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/id_type.h"
+#include "build/build_config.h"
 #include "chrome/browser/contextual_cueing/caching_zero_state_suggestions_manager.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/page.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "ui/base/page_transition_types.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+// This include will be available on Android shortly.
+#include "chrome/browser/glic/widget/glic_window_controller.h"
+#endif
+
 namespace glic {
+namespace {
+
+mojom::ZeroStateSuggestionsV2Ptr MakeEmptySuggestionsPtr() {
+  auto suggestions_ptr = mojom::ZeroStateSuggestionsV2::New();
+  std::vector<mojom::SuggestionContentPtr> empty_suggestions;
+  suggestions_ptr->suggestions = std::move(empty_suggestions);
+  return suggestions_ptr;
+}
+
+}  // namespace
+#if !BUILDFLAG(IS_ANDROID)
 
 namespace {
 
@@ -34,13 +49,6 @@ BASE_FEATURE(kRefreshZeroStateSuggestionsOnFocusedTabChange,
 
 std::vector<std::string> EmptySuggestions() {
   return {};
-}
-
-mojom::ZeroStateSuggestionsV2Ptr MakeEmptySuggestionsPtr() {
-  auto suggestions_ptr = mojom::ZeroStateSuggestionsV2::New();
-  std::vector<mojom::SuggestionContentPtr> empty_suggestions;
-  suggestions_ptr->suggestions = std::move(empty_suggestions);
-  return suggestions_ptr;
 }
 
 mojom::ZeroStateSuggestionsV2Ptr MakePendingSuggestionsPtr() {
@@ -57,7 +65,7 @@ bool HasUserNavigationBeyondInitial(content::WebContents& web_contents) {
   // user selected default page.
   while (index > 0) {
     content::NavigationEntry* entry = controller.GetEntryAtIndex(index);
-    auto transition = base::to_underlying(entry->GetTransitionType());
+    auto transition = std::to_underlying(entry->GetTransitionType());
     bool automatic = 0 != (transition & (ui::PAGE_TRANSITION_FORWARD_BACK |
                                          ui::PAGE_TRANSITION_HOME_PAGE |
                                          ui::PAGE_TRANSITION_FROM_API |
@@ -412,5 +420,14 @@ void GlicZeroStateSuggestionsManager::FilterTabs(
           }),
       tabs.end());
 }
-
+#else
+void GlicZeroStateSuggestionsManager::ObserveZeroStateSuggestions(
+    bool is_notifying,
+    bool is_first_run,
+    const std::vector<std::string>& supported_tools,
+    glic::mojom::WebClientHandler::GetZeroStateSuggestionsAndSubscribeCallback
+        callback) {
+  std::move(callback).Run(MakeEmptySuggestionsPtr());
+}
+#endif
 }  // namespace glic

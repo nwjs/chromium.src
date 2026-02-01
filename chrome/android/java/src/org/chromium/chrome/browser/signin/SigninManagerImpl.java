@@ -15,7 +15,6 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
-import org.chromium.base.CollectionUtil;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.Log;
@@ -26,14 +25,9 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.bookmarks.BookmarkModel;
-import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
-import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
-import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
-import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.components.externalauth.ExternalAuthUtils;
@@ -62,7 +56,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -87,7 +80,6 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
      */
     private long mNativeSigninManagerAndroid;
 
-    private final Profile mProfile;
     private final AccountManagerFacade mAccountManagerFacade;
     private final IdentityManager mIdentityManager;
     private final IdentityMutator mIdentityMutator;
@@ -121,22 +113,16 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
     @VisibleForTesting
     static SigninManager create(
             long nativeSigninManagerAndroid,
-            @JniType("Profile*") Profile profile,
             @JniType("PrefService*") PrefService prefService,
             @JniType("signin::IdentityManager*") IdentityManager identityManager,
             IdentityMutator identityMutator) {
         assert nativeSigninManagerAndroid != 0;
-        assert profile != null;
         assert prefService != null;
         assert identityManager != null;
         assert identityMutator != null;
         final SigninManagerImpl signinManager =
                 new SigninManagerImpl(
-                        nativeSigninManagerAndroid,
-                        profile,
-                        prefService,
-                        identityManager,
-                        identityMutator);
+                        nativeSigninManagerAndroid, prefService, identityManager, identityMutator);
 
         AccountInfoServiceProvider.init(identityManager);
 
@@ -145,13 +131,11 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
 
     private SigninManagerImpl(
             long nativeSigninManagerAndroid,
-            Profile profile,
             PrefService prefService,
             IdentityManager identityManager,
             IdentityMutator identityMutator) {
         ThreadUtils.assertOnUiThread();
         mNativeSigninManagerAndroid = nativeSigninManagerAndroid;
-        mProfile = profile;
         mPrefService = prefService;
         mIdentityManager = identityManager;
         mIdentityMutator = identityMutator;
@@ -392,12 +376,6 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
             throw new IllegalStateException(
                     "The account should be on the device before it can be set as primary.");
         }
-        if (!SigninFeatureMap.isEnabled(
-                SigninFeatures.MAKE_ACCOUNTS_AVAILABLE_IN_IDENTITY_MANAGER)) {
-            seedThenReloadAllAccountsFromSystem(
-                    mAccountManagerFacade.getAccounts().getResult(),
-                    mSignInState.mCoreAccountInfo.getId());
-        }
         notifySignInAllowedChanged();
 
         Log.d(TAG, "Checking if account has policy management enabled");
@@ -556,7 +534,7 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
         mSignOutState = new SignOutState(signOutCallback, dataWipeAction);
         Log.i(TAG, "Signing out, dataWipeAction: %d", dataWipeAction);
 
-        mIdentityMutator.clearPrimaryAccount(signoutSource);
+        mIdentityMutator.removePrimaryAccountButKeepTokens(signoutSource);
 
         notifySignOutAllowedChanged();
         disableSyncAndWipeData(this::finishSignOut);
@@ -595,11 +573,6 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
 
         Log.d(TAG, "Signin flow aborted.");
         notifySignInAllowedChanged();
-        if (!SigninFeatureMap.isEnabled(
-                SigninFeatures.MAKE_ACCOUNTS_AVAILABLE_IN_IDENTITY_MANAGER)) {
-            seedThenReloadAllAccountsFromSystem(
-                    mAccountManagerFacade.getAccounts().getResult(), null);
-        }
     }
 
     @VisibleForTesting
@@ -615,14 +588,6 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
                                 SigninPreferencesManager.SigninPromoAccessPointId.NTP),
                         0);
         SignOutCallback signOutCallback = mSignOutState.mSignOutCallback;
-        if (mAccountManagerFacade.getAccounts().isFulfilled()
-                && !SigninFeatureMap.isEnabled(
-                        SigninFeatures.MAKE_ACCOUNTS_AVAILABLE_IN_IDENTITY_MANAGER)) {
-            // We don't reload the accounts if they are not yet available.
-            // They will be seeded in onCoreAccountInfosChanged() when they become available.
-            seedThenReloadAllAccountsFromSystem(
-                    mAccountManagerFacade.getAccounts().getResult(), null);
-        }
         mSignOutState = null;
 
         if (signOutCallback != null) signOutCallback.signOutComplete();
@@ -666,7 +631,8 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
         }
         mIdentityMutator.seedAccountsThenReloadAllAccountsWithPrimaryAccount(
                 accounts, primaryAccountId);
-        mIdentityManager.refreshAccountInfoIfStale(accounts);
+        // TODO(crbug.com/365057341): move this logic to the native seed and reload method.
+        mIdentityManager.refreshAccountInfoIfStale();
         // Should be called after re-seeding accounts to make sure that we get the new email.
         maybeUpdateLegacyPrimaryAccountEmail();
     }
@@ -684,7 +650,14 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
 
         switch (dataWipeOption) {
             case DataWipeOption.WIPE_SYNC_DATA:
-                wipeSyncUserDataOnly(wipeDataCallback);
+                SigninManagerImplJni.get()
+                        .wipeSyncUserData(
+                                mNativeSigninManagerAndroid,
+                                () -> {
+                                    mWipeUserDataInProgress = false;
+                                    wipeDataCallback.run();
+                                    notifyCallbacksWaitingForOperation();
+                                });
                 break;
             case DataWipeOption.WIPE_ALL_PROFILE_DATA:
                 SigninManagerImplJni.get()
@@ -697,41 +670,6 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
                                 });
                 break;
         }
-    }
-
-    // TODO(crbug.com/40806620): this function and disableSyncAndWipeData() have very similar
-    // functionality, but with different implementations.  Consider merging them.
-    // TODO(crbug.com/40806620): add test coverage for this function (including its effect on
-    // notifyCallbacksWaitingForOperation()), after resolving the TODO above.
-    private void wipeSyncUserDataOnly(Runnable wipeDataCallback) {
-        final BookmarkModel model = BookmarkModel.getForProfile(mProfile);
-        model.finishLoadingBookmarkModel(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        List<Integer> clearedTypes =
-                                new ArrayList<>(
-                                        Arrays.asList(
-                                                BrowsingDataType.HISTORY,
-                                                BrowsingDataType.CACHE,
-                                                BrowsingDataType.SITE_DATA,
-                                                BrowsingDataType.FORM_DATA));
-                        model.removeAllUserBookmarks();
-                        BrowsingDataBridge.getForProfile(mProfile)
-                                .clearBrowsingData(
-                                        new BrowsingDataBridge.OnClearBrowsingDataListener() {
-                                            @Override
-                                            public void onBrowsingDataCleared() {
-                                                assert mWipeUserDataInProgress;
-                                                mWipeUserDataInProgress = false;
-                                                wipeDataCallback.run();
-                                                notifyCallbacksWaitingForOperation();
-                                            }
-                                        },
-                                        CollectionUtil.integerCollectionToIntArray(clearedTypes),
-                                        TimePeriod.ALL_TIME);
-                    }
-                });
     }
 
     @Override
@@ -877,6 +815,10 @@ class SigninManagerImpl implements SigninManager, AccountsChangeObserver {
                 @JniType("base::RepeatingClosure") Runnable callback);
 
         void wipeGoogleServiceWorkerCaches(
+                long nativeSigninManagerAndroid,
+                @JniType("base::RepeatingClosure") Runnable callback);
+
+        void wipeSyncUserData(
                 long nativeSigninManagerAndroid,
                 @JniType("base::RepeatingClosure") Runnable callback);
 

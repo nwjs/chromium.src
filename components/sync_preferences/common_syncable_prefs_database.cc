@@ -24,7 +24,6 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/plus_addresses/core/common/plus_address_prefs.h"
-#include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/sharing_message/pref_names.h"
@@ -140,7 +139,7 @@ enum {
   kAutofillWorkMetadata = 89,
   kFacilitatedPaymentsA2AEnabled = 90,
   kFacilitatedPaymentsA2ATriggeredOnce = 91,
-  kFingerprintingProtectionEnabled = 92,
+  // kFingerprintingProtectionEnabled = 92, (deprecated)
   kAutofillNameAndEmailProfileSignature = 93,
   kAutofillNameAndEmailProfileNotSelectedCounter = 94,
   kAutofillAiLastVersionDeduped = 96,
@@ -159,6 +158,7 @@ enum {
   kShowAiModeOmniboxButton = 109,
   kAutofillAiSyncedOptInStatus = 110,
   kIOSPromoReminder = 111,
+  kAutofillAiReauthBeforeViewingSensitiveData = 112,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -190,6 +190,12 @@ constexpr auto kCommonSyncablePrefsAllowlist =
         {autofill::prefs::kAutofillAiTravelEntitiesEnabled,
          {syncable_prefs_ids::kAutofillAiTravelEntitiesEnabled,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_CHROMEOS)
+        {autofill::prefs::kAutofillAiReauthBeforeViewingSensitiveData,
+         {syncable_prefs_ids::kAutofillAiReauthBeforeViewingSensitiveData,
+          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+#endif
         {autofill::prefs::kAutofillAiSyncedOptInStatus,
          {syncable_prefs_ids::kAutofillAiSyncedOptInStatus, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -447,9 +453,6 @@ constexpr auto kCommonSyncablePrefsAllowlist =
           syncer::PRIORITY_PREFERENCES,
           PrefSensitivity::kExemptFromUserControlWhileSignedIn,
           MergeBehavior::kNone}},
-        {prefs::kFingerprintingProtectionEnabled,
-         {syncable_prefs_ids::kFingerprintingProtectionEnabled,
-          syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
         {autofill::prefs::kAutofillAmountExtractionAiTermsSeen,
          {syncable_prefs_ids::kAutofillAmountExtractionAiTermsSeen,
           syncer::PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},

@@ -46,14 +46,6 @@ class MockUnexportableKeyService : public UnexportableKeyService {
       (override));
   MOCK_METHOD(
       void,
-      CopyKeyFromOtherService,
-      (const UnexportableKeyService& other_service,
-       UnexportableKeyId key_id_from_other_service,
-       BackgroundTaskPriority priority,
-       base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback),
-      (override));
-  MOCK_METHOD(
-      void,
       SignSlowlyAsync,
       (UnexportableKeyId key_id,
        base::span<const uint8_t> data,
@@ -81,6 +73,14 @@ class MockUnexportableKeyService : public UnexportableKeyService {
               (const, override));
   MOCK_METHOD(ServiceErrorOr<crypto::SignatureVerifier::SignatureAlgorithm>,
               GetAlgorithm,
+              (UnexportableKeyId key_id),
+              (const, override));
+  MOCK_METHOD(ServiceErrorOr<std::string>,
+              GetKeyTag,
+              (UnexportableKeyId key_id),
+              (const, override));
+  MOCK_METHOD(ServiceErrorOr<base::Time>,
+              GetCreationTime,
               (UnexportableKeyId key_id),
               (const, override));
 };

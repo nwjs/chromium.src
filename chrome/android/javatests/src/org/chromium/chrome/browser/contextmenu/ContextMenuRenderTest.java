@@ -103,13 +103,6 @@ public class ContextMenuRenderTest {
                 () -> {
                     mListItems = new ModelList();
                     mAdapter = createAdapter(mListItems);
-
-                    sActivity.setContentView(R.layout.context_menu_fullscreen_container);
-                    mView = sActivity.findViewById(android.R.id.content);
-                    ((ViewStub) mView.findViewById(R.id.context_menu_stub)).inflate();
-                    mFrame = mView.findViewById(R.id.context_menu_frame);
-                    ContextMenuListView listView = mView.findViewById(R.id.context_menu_list_view);
-                    listView.setAdapter(mAdapter);
                 });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
@@ -158,7 +151,6 @@ public class ContextMenuRenderTest {
     @Feature({"RenderTest"})
     public void testContextMenu_itemsFromExtensions() throws IOException {
         // Test types of items that can be registered by extensions.
-        // TODO(crbug.com/418807464): Add more types of items here once they are ready.
 
         // We choose an arbitrary icon for testing.
         Bitmap testBitmap = drawableToBitmap(sActivity.getDrawable(R.drawable.lens_icon));
@@ -248,6 +240,8 @@ public class ContextMenuRenderTest {
                                             .with(TITLE, EXAMPLE_LABEL)
                                             .with(ENABLED, false)
                                             .build()));
+
+                    setUpContentView();
                 });
         mRenderTestRule.render(mFrame, "context_menu_items_from_extensions");
     }
@@ -272,6 +266,8 @@ public class ContextMenuRenderTest {
                             new ListItem(
                                     ContextMenuItemType.CONTEXT_MENU_ITEM_WITH_ICON_BUTTON,
                                     getShareItemModel("Share link")));
+
+                    setUpContentView();
                 });
         mRenderTestRule.render(mFrame, id);
     }
@@ -306,6 +302,8 @@ public class ContextMenuRenderTest {
                             new ListItem(
                                     ContextMenuItemType.CONTEXT_MENU_ITEM_WITH_ICON_BUTTON,
                                     getShareItemModel("Share image")));
+
+                    setUpContentView();
                 });
         mRenderTestRule.render(mFrame, id);
     }
@@ -351,6 +349,16 @@ public class ContextMenuRenderTest {
                 .with(ENABLED, true)
                 .with(ContextMenuItemWithIconButtonProperties.END_BUTTON_IMAGE, drawable)
                 .build();
+    }
+
+    private void setUpContentView() {
+        sActivity.setContentView(R.layout.context_menu_fullscreen_container);
+        mView = sActivity.findViewById(android.R.id.content);
+        ((ViewStub) mView.findViewById(R.id.context_menu_stub)).inflate();
+        mFrame = mView.findViewById(R.id.context_menu_frame);
+
+        ContextMenuListView listView = mView.findViewById(R.id.context_menu_list_view);
+        listView.setAdapter(mAdapter);
     }
 
     private static Bitmap drawableToBitmap(Drawable drawable) {

@@ -30,14 +30,12 @@ void TabStripModelAdapterImpl::RemoveModelObserver(
 
 void TabStripModelAdapterImpl::AddCollectionObserver(
     tabs::TabCollectionObserver* collection_observer) {
-  tab_strip_model_->Root(base::PassKey<TabStripModelAdapterImpl>())
-      ->AddObserver(collection_observer);
+  tab_strip_model_->Root()->AddObserver(collection_observer);
 }
 
 void TabStripModelAdapterImpl::RemoveCollectionObserver(
     tabs::TabCollectionObserver* collection_observer) {
-  tab_strip_model_->Root(base::PassKey<TabStripModelAdapterImpl>())
-      ->RemoveObserver(collection_observer);
+  tab_strip_model_->Root()->RemoveObserver(collection_observer);
 }
 
 std::vector<tabs::TabHandle> TabStripModelAdapterImpl::GetTabs() const {
@@ -103,7 +101,7 @@ void TabStripModelAdapterImpl::MoveTab(tabs::TabHandle tab,
   const tabs::TabCollection* collection = collection_handle.value().Get();
   const bool to_pinned =
       (collection->type() == tabs::TabCollection::Type::PINNED);
-  if (to_pinned != tab_strip_model_->IsTabPinned(index)) {
+  if (to_pinned != tab.Get()->IsPinned()) {
     // Modify the start position if tab has been moved from pinned to
     // unpinned or vice versa.
     index = tab_strip_model_->SetTabPinned(index, to_pinned);
@@ -287,7 +285,7 @@ InsertionParams TabStripModelAdapterImpl::CalculateInsertionParams(
 }
 
 const tabs::TabCollection* TabStripModelAdapterImpl::GetRoot() const {
-  return tab_strip_model_->Root(base::PassKey<TabStripModelAdapterImpl>());
+  return tab_strip_model_->Root();
 }
 
 tabs::TabCollectionHandle

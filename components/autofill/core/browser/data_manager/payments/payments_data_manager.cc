@@ -1102,6 +1102,14 @@ void PaymentsDataManager::SetAutofillHasSeenBnpl() {
 
 bool PaymentsDataManager::IsAutofillAmountExtractionAiTermsSeenPrefEnabled()
     const {
+  // The testing flag acts as a testing override to force the "AI terms not
+  // seen" flow.
+  if (base::FeatureList::IsEnabled(
+          features::
+              kAutofillAiBasedAmountExtractionIgnoreSeenTermsForTesting)) {
+    return false;
+  }
+
   return base::FeatureList::IsEnabled(
              features::kAutofillEnableAiBasedAmountExtraction) &&
          prefs::AmountExtractionAiTermsSeen(pref_service_);
@@ -1288,7 +1296,8 @@ bool PaymentsDataManager::IsPaymentMethodsMandatoryReauthEnabled() {
 }
 
 bool PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_CHROMEOS)
   // There is no need to show the promo if the feature is already enabled.
   if (prefs::IsPaymentMethodsMandatoryReauthEnabled(pref_service_)) {
 #if BUILDFLAG(IS_ANDROID)
@@ -1326,7 +1335,8 @@ bool PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo() {
   return allowed_by_strike_database;
 #else
   return false;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
+        // BUILDFLAG(IS_CHROMEOS)
 }
 
 void PaymentsDataManager::
@@ -1460,6 +1470,10 @@ void PaymentsDataManager::DeleteAllLocalCreditCards() {
     cards_to_delete.push_back(*card);
   }
   DeleteLocalCreditCards(cards_to_delete);
+}
+
+bool PaymentsDataManager::HasAllLocalCreditCards() const {
+  return server_credit_cards_.empty();
 }
 
 void PaymentsDataManager::UpdateCreditCard(const CreditCard& credit_card) {

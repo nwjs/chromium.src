@@ -43,7 +43,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -186,12 +189,13 @@ ui::ImageModel GetAvatarImageWithDottedRing(
 }
 
 class PrivateBaseStateProvider : public StateProvider,
-                                 public BrowserListObserver {
+                                 public BrowserCollectionObserver {
  public:
   explicit PrivateBaseStateProvider(Profile* profile,
                                     StateObserver* state_observer)
       : StateProvider(profile, state_observer) {
-    scoped_browser_list_observation_.Observe(BrowserList::GetInstance());
+    browser_collection_observer_.Observe(
+        GlobalBrowserCollection::GetInstance());
   }
   ~PrivateBaseStateProvider() override = default;
 
@@ -202,13 +206,17 @@ class PrivateBaseStateProvider : public StateProvider,
     return true;
   }
 
-  // BrowserListObserver:
-  void OnBrowserAdded(Browser* browser) final { RequestUpdate(); }
-  void OnBrowserRemoved(Browser* browser) final { RequestUpdate(); }
+  // BrowserCollectionObserver:
+  void OnBrowserCreated(BrowserWindowInterface* browser) final {
+    RequestUpdate();
+  }
+  void OnBrowserClosed(BrowserWindowInterface* browser) final {
+    RequestUpdate();
+  }
 
  private:
-  base::ScopedObservation<BrowserList, BrowserListObserver>
-      scoped_browser_list_observation_{this};
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observer_{this};
 };
 
 class GuestStateProvider : public PrivateBaseStateProvider {
@@ -227,7 +235,8 @@ class GuestStateProvider : public PrivateBaseStateProvider {
     // crbug.com/1178520.
     const int guest_window_count = 1;
 #else
-    const int guest_window_count = BrowserList::GetGuestBrowserCount();
+    const int guest_window_count =
+        static_cast<int>(chrome::GetGuestBrowserCount());
 #endif
     return l10n_util::GetPluralStringFUTF16(IDS_AVATAR_BUTTON_GUEST,
                                             guest_window_count);
@@ -269,7 +278,8 @@ class IncognitoStateProvider : public PrivateBaseStateProvider {
   std::u16string GetText() const override {
     return l10n_util::GetPluralStringFUTF16(
         IDS_AVATAR_BUTTON_INCOGNITO,
-        BrowserList::GetOffTheRecordBrowsersActiveForProfile(&profile()));
+        static_cast<int>(
+            chrome::GetOffTheRecordBrowsersActiveForProfile(&profile())));
   }
 
   std::optional<SkColor> GetHighlightColor(
@@ -1191,7 +1201,7 @@ class PasskeyStateProvider : public StateProvider,
   }
 
  private:
-  void OnPasskeyUnlockManagerStateChanged() final { RequestUpdate(); }
+  void OnPasskeyErrorUiStateChanged() final { RequestUpdate(); }
 
   void OnPasskeyUnlockManagerShuttingDown() final {
     passkey_manager_observation_.Reset();
@@ -1702,7 +1712,7 @@ class SigninPendingStateProvider : public StateProvider,
 class ManagementStateProvider : public StateProvider,
                                 public ProfileAttributesStorage::Observer,
                                 public policy::ManagementService::Observer,
-                                public BrowserListObserver {
+                                public BrowserCollectionObserver {
  public:
   explicit ManagementStateProvider(
       Profile* profile,
@@ -1710,13 +1720,13 @@ class ManagementStateProvider : public StateProvider,
       const AvatarToolbarButton* avatar_toolbar_button)
       : StateProvider(profile, state_observer),
         avatar_toolbar_button_(*avatar_toolbar_button) {
-    BrowserList::AddObserver(this);
+    browser_collection_observer_.Observe(
+        GlobalBrowserCollection::GetInstance());
     profile_observation_.Observe(&GetProfileAttributesStorage());
     management_observation_.Observe(
         policy::ManagementServiceFactory::GetForProfile(profile));
   }
-
-  ~ManagementStateProvider() override { BrowserList::RemoveObserver(this); }
+  ~ManagementStateProvider() override = default;
 
   // StateProvider:
   bool IsActive() const override {
@@ -1743,8 +1753,8 @@ class ManagementStateProvider : public StateProvider,
   }
 
  private:
-  // BrowserListObserver:
-  void OnBrowserAdded(Browser*) override {
+  // BrowserCollectionObserver:
+  void OnBrowserClosed(BrowserWindowInterface* browser) override {
     // This is required so that the enterprise text is shown when a profile is
     // opened.
     RequestUpdate();
@@ -1760,6 +1770,9 @@ class ManagementStateProvider : public StateProvider,
   void OnEnterpriseLabelUpdated() override { RequestUpdate(); }
 
   const raw_ref<const AvatarToolbarButton> avatar_toolbar_button_;
+
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observer_{this};
 
   base::ScopedObservation<ProfileAttributesStorage,
                           ProfileAttributesStorage::Observer>

@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/cancelable_callback.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
@@ -199,16 +200,16 @@ class EnclaveManager : public EnclaveManagerInterface {
   bool is_idle() const;
   // Returns true if the persistent state has been loaded from the disk. (Or
   // else the loading failed and an empty state is being used.)
-  bool is_loaded() const override;
+  bool IsLoaded() const override;
   // Returns true if the current user has been registered with the enclave.
-  bool is_registered() const override;
+  bool IsRegistered() const override;
   // Returns true if `StoreKeys` has been called and thus `AddDeviceToAccount`
   // or `AddDeviceAndPINToAccount` can be called.
   bool has_pending_keys() const;
   // Returns true if the current user has joined the security domain and has one
   // or more wrapped security domain secrets available. (This implies
-  // `is_registered`.)
-  bool is_ready() const override;
+  // `IsRegistered`.)
+  bool IsReady() const override;
   // Returns the number of times that `StoreKeys` has been called.
   unsigned store_keys_count() const;
 
@@ -547,6 +548,10 @@ class EnclaveManager : public EnclaveManagerInterface {
   void OpportunisticStoreKeysAddComplete(bool success);
   void NotifyObserversAboutOutOfContextRecoveryOutcome(
       OutOfContextRecoveryOutcome outcome);
+  void TemporarilyCachePendingOpportunisticKeys(
+      const GaiaId& gaia_id,
+      std::vector<std::vector<uint8_t>> keys,
+      int last_key_version);
 
   const base::FilePath file_path_;
   const raw_ptr<signin::IdentityManager> identity_manager_;
@@ -570,6 +575,8 @@ class EnclaveManager : public EnclaveManagerInterface {
   base::OnceClosure write_finished_callback_;
 
   std::unique_ptr<StoreKeysArgs> pending_keys_;
+  std::unique_ptr<StoreKeysArgs> opportunistic_pending_keys_;
+  base::CancelableOnceClosure opportunistic_pending_keys_invalidation_task_;
   std::unique_ptr<StateMachine> state_machine_;
   std::vector<base::OnceClosure> load_callbacks_;
   std::deque<std::unique_ptr<PendingAction>> pending_actions_;

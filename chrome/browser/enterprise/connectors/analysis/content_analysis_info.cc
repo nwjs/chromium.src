@@ -8,7 +8,6 @@
 #include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/enterprise/connectors/referrer_cache_utils.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/download/public/common/download_item.h"
@@ -27,7 +26,7 @@
 namespace enterprise_connectors {
 
 void ContentAnalysisInfo::InitializeRequest(
-    safe_browsing::BinaryUploadService::Request* request,
+    BinaryUploadRequest* request,
     bool include_enterprise_only_fields) {
   if (include_enterprise_only_fields) {
     if (settings().cloud_or_local_settings.is_cloud_analysis()) {
@@ -108,11 +107,12 @@ std::string ContentAnalysisInfo::GetContentAreaAccountEmail() const {
       email = GetActiveContentAreaUser(identity_manager(), referrer_url);
 
       if (!email.empty()) {
-        break;
+        return email;
       }
     }
   }
-  return email;
+
+  return GetDefaultActiveUser(identity_manager(), tab_url());
 }
 
 // static

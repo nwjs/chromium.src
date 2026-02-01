@@ -37,8 +37,9 @@
 #include "chrome/browser/ui/android/autofill/autofill_save_iban_bottom_sheet_bridge.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_test_helper.h"
+#include "chrome/browser/ui/autofill/autofill_message_controller.h"
 #include "chrome/browser/ui/autofill/autofill_snackbar_controller_impl.h"
-#include "chrome/browser/ui/autofill/payments/autofill_message_controller.h"
+#include "chrome/browser/ui/autofill/mock_autofill_message_controller.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/payments/android_bnpl_strategy.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_ui_info.h"
@@ -127,14 +128,6 @@ class MockAutofillSnackbarControllerImpl
                const CreditCard& filled_card,
                base::OnceClosure),
               (override));
-};
-
-class MockAutofillMessageController : public AutofillMessageController {
- public:
-  explicit MockAutofillMessageController(content::WebContents* web_contents)
-      : AutofillMessageController(web_contents) {}
-
-  MOCK_METHOD(void, Show, (std::unique_ptr<AutofillMessageModel>), (override));
 };
 #else  //! BUILDFLAG(IS_ANDROID)
 class MockSaveCardBubbleController : public SaveCardBubbleControllerImpl {
@@ -255,7 +248,7 @@ class ChromePaymentsAutofillClientTest
 
   MockAutofillMessageController* InjectMockAutofillMessageController() {
     std::unique_ptr<MockAutofillMessageController> mock =
-        std::make_unique<MockAutofillMessageController>(web_contents());
+        std::make_unique<MockAutofillMessageController>();
     MockAutofillMessageController* pointer = mock.get();
     chrome_payments_client()->SetAutofillMessageControllerForTesting(
         std::move(mock));
@@ -671,9 +664,9 @@ TEST_F(ChromePaymentsAutofillClientTest,
   chrome_payments_client()->OnCardDataAvailable(options);
 }
 
-// Test that calling `ShowLoyaltyCards` passes the correct lists of loyalty
-// cards.
-TEST_F(ChromePaymentsAutofillClientTest, ShowTouchToFillLoyaltyCard) {
+// Test that calling `ShowAffiliatedLoyaltyCards` passes the correct lists of
+// loyalty cards.
+TEST_F(ChromePaymentsAutofillClientTest, ShowTouchToFillAffiliatedLoyaltyCard) {
   MockTouchToFillPaymentMethodController* ttf_payment_method_controller =
       InjectMockTouchToFillPaymentMethodController();
 
@@ -695,19 +688,19 @@ TEST_F(ChromePaymentsAutofillClientTest, ShowTouchToFillLoyaltyCard) {
 
   const std::vector<LoyaltyCard> cards = {CreateLoyaltyCard(),
                                           affiliated_card_1, affiliated_card_2};
-  EXPECT_CALL(
-      *ttf_payment_method_controller,
-      ShowLoyaltyCards(_, _, ElementsAre(affiliated_card_1, affiliated_card_2),
-                       ElementsAreArray(cards), _));
+  EXPECT_CALL(*ttf_payment_method_controller,
+              ShowAffiliatedLoyaltyCards(
+                  _, _, ElementsAre(affiliated_card_1, affiliated_card_2),
+                  ElementsAreArray(cards), _));
 
-  chrome_payments_client()->ShowTouchToFillLoyaltyCard(/*delegate=*/nullptr,
-                                                       cards);
+  chrome_payments_client()->ShowTouchToFillAffiliatedLoyaltyCard(
+      /*delegate=*/nullptr, cards);
 }
 
-// Test that calling ShowLoyaltyCards checks/updates for IPH status correctly if
-// IPH was never shown before.
+// Test that calling ShowAffiliatedLoyaltyCards checks/updates for IPH status
+// correctly if IPH was never shown before.
 TEST_F(ChromePaymentsAutofillClientTest,
-       ShowTouchToFillLoyaltyCardFirstTimeUsage) {
+       ShowTouchToFillAffiliatedLoyaltyCardFirstTimeUsage) {
   MockTouchToFillPaymentMethodController* ttf_payment_method_controller =
       InjectMockTouchToFillPaymentMethodController();
   InjectFeatureEngagementMockTracker();
@@ -724,20 +717,20 @@ TEST_F(ChromePaymentsAutofillClientTest,
       ->NavigateAndCommit(GURL("https://example.com"));
 
   EXPECT_CALL(*ttf_payment_method_controller,
-              ShowLoyaltyCards(_, _, _, _,
-                               /*first_time_usage=*/true))
+              ShowAffiliatedLoyaltyCards(_, _, _, _,
+                                         /*first_time_usage=*/true))
       .WillOnce(Return(true));
   EXPECT_CALL(*tracker,
               NotifyEvent("keyboard_accessory_loyalty_cards_autofilled"));
 
-  chrome_payments_client()->ShowTouchToFillLoyaltyCard(/*delegate=*/nullptr,
-                                                       {CreateLoyaltyCard()});
+  chrome_payments_client()->ShowTouchToFillAffiliatedLoyaltyCard(
+      /*delegate=*/nullptr, {CreateLoyaltyCard()});
 }
 
-// Test that calling ShowLoyaltyCards does not update IPH status if IPH already
-// shown.
+// Test that calling ShowAffiliatedLoyaltyCards does not update IPH status if
+// IPH already shown.
 TEST_F(ChromePaymentsAutofillClientTest,
-       ShowTouchToFillLoyaltyCardNotFirstTimeUsage) {
+       ShowTouchToFillAffiliatedLoyaltyCardNotFirstTimeUsage) {
   MockTouchToFillPaymentMethodController* ttf_payment_method_controller =
       InjectMockTouchToFillPaymentMethodController();
   InjectFeatureEngagementMockTracker();
@@ -754,15 +747,15 @@ TEST_F(ChromePaymentsAutofillClientTest,
       ->NavigateAndCommit(GURL("https://example.com"));
 
   EXPECT_CALL(*ttf_payment_method_controller,
-              ShowLoyaltyCards(_, _, _, _,
-                               /*first_time_usage=*/false))
+              ShowAffiliatedLoyaltyCards(_, _, _, _,
+                                         /*first_time_usage=*/false))
       .WillOnce(Return(true));
   EXPECT_CALL(*tracker,
               NotifyEvent("keyboard_accessory_loyalty_cards_autofilled"))
       .Times(0);
 
-  chrome_payments_client()->ShowTouchToFillLoyaltyCard(/*delegate=*/nullptr,
-                                                       {CreateLoyaltyCard()});
+  chrome_payments_client()->ShowTouchToFillAffiliatedLoyaltyCard(
+      /*delegate=*/nullptr, {CreateLoyaltyCard()});
 }
 
 TEST_F(ChromePaymentsAutofillClientTest, ShowTouchToFillBnplIssuers) {

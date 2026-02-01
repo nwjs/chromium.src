@@ -56,11 +56,11 @@ class TabStoragePackagerAndroid : public TabStoragePackager {
   long ConsolidateTabData(
       JNIEnv* env,
       jlong timestamp_millis,
-      const jni_zero::JavaParamRef<jobject>& web_contents_state_buffer,
+      const jni_zero::JavaRef<jobject>& web_contents_state_buffer,
       std::optional<std::string> opener_app_id,
       jint theme_color,
       jlong last_navigation_committed_timestamp_millis,
-      jboolean tab_has_sensitive_content,
+      bool tab_has_sensitive_content,
       TabAndroid* tab);
   // Returns a pointer to an UnmappedTabStripCollectionStorageData (as a long in
   // Java). The caller is responsible for managing the lifecycle of the returned

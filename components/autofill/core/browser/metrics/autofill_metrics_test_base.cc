@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/iban_save_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/payments/test/mock_multiple_request_payments_network_interface.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/test_utils/autofill_form_test_utils.h"
@@ -71,14 +72,15 @@ MockAutofillDriver::MockAutofillDriver(TestAutofillClient* client)
       .WillByDefault(
           [this](mojom::FormActionType action_type,
                  mojom::ActionPersistence action_persistence,
-                 base::span<const FormFieldData> data,
-                 const url::Origin& triggered_origin,
+                 base::span<const FormFieldData> data, const FillId& fill_id,
+                 bool supports_refill, const url::Origin& triggered_origin,
                  const base::flat_map<FieldGlobalId, FieldType>& field_type_map,
                  const Section& section_for_clear_form_on_ios)
               -> base::flat_set<FieldGlobalId> {
             return TestAutofillDriver::ApplyFormAction(
-                action_type, action_persistence, data, triggered_origin,
-                field_type_map, section_for_clear_form_on_ios);
+                action_type, action_persistence, data, fill_id, supports_refill,
+                triggered_origin, field_type_map,
+                section_for_clear_form_on_ios);
           });
 }
 
@@ -132,6 +134,12 @@ void AutofillMetricsBaseTest::SetUpHelper() {
           autofill_client().GetIdentityManager(), &personal_data());
   payments_autofill_client().set_payments_network_interface(
       std::move(payments_network_interface));
+  auto multiple_request_payments_network_interface =
+      std::make_unique<payments::MockMultipleRequestPaymentsNetworkInterface>(
+          autofill_client().GetURLLoaderFactory(),
+          *autofill_client().GetIdentityManager());
+  payments_autofill_client().set_multiple_request_payments_network_interface(
+      std::move(multiple_request_payments_network_interface));
   test_api(*autofill_client().GetFormDataImporter())
       .set_credit_card_save_manager(
           std::make_unique<TestCreditCardSaveManager>(&autofill_client()));

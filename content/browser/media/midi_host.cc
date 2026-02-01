@@ -67,11 +67,8 @@ MidiHost::~MidiHost() {
 void MidiHost::BindReceiver(
     ChildProcessId render_process_id,
     midi::MidiService* midi_service,
-    RenderFrameHost*,  // Required for the BinderMapWithContext interface.
     mojo::PendingReceiver<midi::mojom::MidiSessionProvider> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  // NOTE: This is not the correct sequence to call RenderFrameHost::GetProcess
-  //       hence, we have the render_process_id passed in separately.
   mojo::MakeSelfOwnedReceiver(
       base::WrapUnique(new MidiHost(render_process_id, midi_service)),
       std::move(receiver));
@@ -110,8 +107,7 @@ void MidiHost::SetOutputPortState(uint32_t port, PortState state) {
 }
 
 void MidiHost::ReceiveMidiData(uint32_t port,
-                               const uint8_t* data,
-                               size_t length,
+                               base::span<const uint8_t> data,
                                base::TimeTicks timestamp) {
   TRACE_EVENT0("midi", "MidiHost::ReceiveMidiData");
 
@@ -126,7 +122,7 @@ void MidiHost::ReceiveMidiData(uint32_t port,
         std::make_unique<midi::MidiMessageQueue>(true);
   }
 
-  received_messages_queues_[port]->Add(data, length);
+  received_messages_queues_[port]->Add(data);
   std::vector<uint8_t> message;
   while (true) {
     received_messages_queues_[port]->Get(&message);

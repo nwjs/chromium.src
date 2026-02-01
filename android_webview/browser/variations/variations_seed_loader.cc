@@ -23,7 +23,7 @@
 
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ConvertUTF8ToJavaString;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 
 namespace android_webview {
 
@@ -55,7 +55,7 @@ bool IsSeedValid(AwVariationsSeed* seed) {
 }
 }  // namespace
 
-static jboolean JNI_VariationsSeedLoader_ParseAndSaveSeedProto(
+static bool JNI_VariationsSeedLoader_ParseAndSaveSeedProto(
     JNIEnv* env,
     std::string& seed_path) {
   // Parse the proto.
@@ -87,9 +87,9 @@ static jboolean JNI_VariationsSeedLoader_ParseAndSaveSeedProto(
   }
 }
 
-static jboolean JNI_VariationsSeedLoader_ParseAndSaveSeedProtoFromByteArray(
+static bool JNI_VariationsSeedLoader_ParseAndSaveSeedProtoFromByteArray(
     JNIEnv* env,
-    const JavaParamRef<jbyteArray>& seed_as_bytes) {
+    const JavaRef<jbyteArray>& seed_as_bytes) {
   // Parse the proto.
   std::unique_ptr<AwVariationsSeed> seed =
       std::make_unique<AwVariationsSeed>(AwVariationsSeed::default_instance());

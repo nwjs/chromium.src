@@ -103,7 +103,7 @@ class SyncServiceFactoryTest : public testing::Test {
 
   // Returns the collection of default datatypes.
   syncer::DataTypeSet DefaultDatatypes() {
-    static_assert(59 == syncer::GetNumDataTypes(),
+    static_assert(60 == syncer::GetNumDataTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled). Check similar "
                   "function in "
@@ -231,6 +231,10 @@ class SyncServiceFactoryTest : public testing::Test {
       datatypes.Put(syncer::CONTEXTUAL_TASK);
     }
 
+    if (base::FeatureList::IsEnabled(syncer::kSyncSkill)) {
+      datatypes.Put(syncer::SKILL);
+    }
+
     return datatypes;
   }
 
@@ -251,9 +255,18 @@ class SyncServiceFactoryTest : public testing::Test {
 #endif
 };
 
+// Test fixture for testing the kDisableSync flag.
+class SyncServiceFactoryTestDisableSync : public SyncServiceFactoryTest {
+ public:
+  void SetUp() override {
+    // Append the switch *before* the profile is built.
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(syncer::kDisableSync);
+    SyncServiceFactoryTest::SetUp();
+  }
+};
+
 // Verify that the disable sync flag disables creation of the sync service.
-TEST_F(SyncServiceFactoryTest, DisableSyncFlag) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(syncer::kDisableSync);
+TEST_F(SyncServiceFactoryTestDisableSync, DisableSyncFlag) {
   EXPECT_EQ(nullptr, SyncServiceFactory::GetForProfile(profile()));
 }
 

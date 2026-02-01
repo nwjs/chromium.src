@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/containers/lru_cache.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
@@ -22,6 +22,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
@@ -534,14 +536,15 @@ void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
   // can be blank for some web pages.
   if (!tab_data.last_committed_url.is_valid()) {
     domain_url = tab_data.visible_url;
-    title = tab_data.IsCrashed()
+    title = tab_data.is_crashed
                 ? l10n_util::GetStringUTF16(IDS_HOVER_CARD_CRASHED_TITLE)
                 : l10n_util::GetStringUTF16(IDS_TAB_LOADING_TITLE);
     alert_state_ = std::nullopt;
   } else {
     domain_url = tab_data.last_committed_url;
     title = tab_data.title;
-    alert_state_ = Tab::GetAlertStateToShow(tab_data.alert_state);
+    alert_state_ =
+        tabs::TabAlertController::GetAlertStateToShow(tab_data.alert_state);
   }
 
   std::u16string domain;
@@ -589,9 +592,9 @@ void TabHoverCardBubbleView::UpdateCardContent(const Tab* tab) {
   // tabs.
   const bool show_discard_status =
       !show_collaboration_messaging && tab_data.should_show_discard_status;
-  const base::ByteCount tab_memory_usage =
+  const base::ByteSize tab_memory_usage =
       tab_data.tab_resource_usage ? tab_data.tab_resource_usage->memory_usage()
-                                  : base::ByteCount(0);
+                                  : base::ByteSize(0);
   const bool is_high_memory_usage =
       tab_data.tab_resource_usage
           ? tab_data.tab_resource_usage->is_high_memory_usage()

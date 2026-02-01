@@ -9,6 +9,7 @@
 #include <string>
 #include <variant>
 
+#include "components/wallet/core/browser/data_models/boarding_pass.h"
 #include "components/wallet/core/browser/data_models/wallet_barcode.h"
 
 namespace optimization_guide::proto {
@@ -19,6 +20,16 @@ class WalletablePass;
 }  // namespace optimization_guide::proto
 
 namespace wallet {
+
+// Represents the category of a walletable pass.
+enum class PassCategory {
+  kUnspecified = 0,
+  kLoyaltyCard = 1,
+  kEventPass = 2,
+  kTransitTicket = 3,
+  kBoardingPass = 4,
+  kMaxValue = kBoardingPass,
+};
 
 // Represents a loyalty card with its relevant details.
 struct LoyaltyCard {
@@ -69,29 +80,6 @@ struct EventPass {
   std::string address;
   std::string owner_name;
   std::string issuer_name;
-
-  // The detected barcode.
-  std::optional<WalletBarcode> barcode;
-};
-
-// Represents a simplified boarding pass.
-struct BoardingPass {
-  static std::optional<BoardingPass> FromBCBP(const WalletBarcode& barcode);
-
-  BoardingPass();
-  BoardingPass(const BoardingPass&);
-  BoardingPass& operator=(const BoardingPass&);
-  BoardingPass(BoardingPass&&);
-  BoardingPass& operator=(BoardingPass&&);
-  ~BoardingPass();
-
-  bool operator==(const BoardingPass& other) const = default;
-
-  std::string airline;
-  std::string flight_code;
-  std::string origin;
-  std::string destination;
-  std::string date;
 
   // The detected barcode.
   std::optional<WalletBarcode> barcode;
@@ -150,6 +138,9 @@ struct WalletablePass {
   ~WalletablePass();
 
   bool operator==(const WalletablePass& other) const = default;
+
+  // Returns the pass category of the walletable pass.
+  PassCategory GetPassCategory() const;
 
   std::variant<LoyaltyCard, EventPass, BoardingPass, TransitTicket> pass_data;
 };

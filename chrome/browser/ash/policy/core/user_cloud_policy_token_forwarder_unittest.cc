@@ -32,7 +32,6 @@
 #include "components/policy/core/common/cloud/mock_cloud_policy_store.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
-#include "components/signin/public/identity_manager/scope_set.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "components/user_manager/fake_user_manager_delegate.h"
 #include "components/user_manager/scoped_user_manager.h"
@@ -69,6 +68,7 @@ class MockUserCloudPolicyManagerAsh : public UserCloudPolicyManagerAsh {
       const scoped_refptr<base::SequencedTaskRunner>& task_runner)
       : UserCloudPolicyManagerAsh(
             profile,
+            std::make_unique<MockCloudPolicyStore>(),
             std::make_unique<MockCloudPolicyStore>(),
             std::make_unique<MockCloudExternalDataManager>(),
             base::FilePath() /* component_policy_cache_path */,

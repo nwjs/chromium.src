@@ -8,10 +8,10 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/test/task_environment.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/country_type.h"
@@ -98,7 +98,7 @@ TEST_F(ProfileTokenQualityTest, GetObservationTypesForFieldType) {
 
   // Test that if more than `kMaxObservationsPerToken` observations are added,
   // only the first `kMaxObservationsPerToken` are returned.
-  for (size_t i = 0; i < ProfileTokenQuality::kMaxObservationsPerToken; i++) {
+  for (size_t i = 0; i < ProfileTokenQuality::kMaxObservationsPerToken; ++i) {
     test_api(quality).AddObservation(NAME_FIRST,
                                      ObservationType::kEditedToSimilarValue);
   }
@@ -122,7 +122,7 @@ TEST_F(ProfileTokenQualityTest, AddObservationsForFilledForm_Accepted) {
   // Accept field 1 as-is too. But since it has a derived type, it counts as
   // a partial accept for the middle name (its stored type).
 
-  FormStructure* form_structure =
+  const FormStructure* form_structure =
       autofill_manager().FindCachedFormById(form.global_id());
   EXPECT_TRUE(
       quality.AddObservationsForFilledForm(*form_structure, form, adm()));
@@ -156,7 +156,7 @@ TEST_F(ProfileTokenQualityTest, AddObservationsForFilledForm_Edited) {
   // Edit field 3 to a completely different token.
   EditFieldValue(form, 3, u"different value");
 
-  FormStructure* form_structure =
+  const FormStructure* form_structure =
       autofill_manager().FindCachedFormById(form.global_id());
   EXPECT_TRUE(
       quality.AddObservationsForFilledForm(*form_structure, form, adm()));
@@ -193,7 +193,7 @@ TEST_F(ProfileTokenQualityTest,
   EditFieldValue(form, 1,
                  other_profile.GetInfo(ADDRESS_HOME_STATE, adm().app_locale()));
 
-  FormStructure* form_structure =
+  const FormStructure* form_structure =
       autofill_manager().FindCachedFormById(form.global_id());
   EXPECT_TRUE(
       quality.AddObservationsForFilledForm(*form_structure, form, adm()));
@@ -215,7 +215,7 @@ TEST_F(ProfileTokenQualityTest, AddObservationsForFilledForm_SameField) {
   FormData form = GetFormWithTypes({NAME_FIRST});
   FillForm(form, profile);
 
-  FormStructure* form_structure =
+  const FormStructure* form_structure =
       autofill_manager().FindCachedFormById(form.global_id());
   EXPECT_TRUE(
       quality.AddObservationsForFilledForm(*form_structure, form, adm()));
@@ -238,7 +238,7 @@ TEST_F(ProfileTokenQualityTest, AddObservationsForFilledForm_DynamicChange) {
   FillForm(form, profile);
 
   FormStructure* form_structure =
-      autofill_manager().FindCachedFormById(form.global_id());
+      test_api(autofill_manager()).FindCachedFormById(form.global_id());
   form_structure->field(0)->SetTypeTo(AutofillType(NAME_LAST),
                                       AutofillPredictionSource::kHeuristics);
   EXPECT_TRUE(
@@ -300,14 +300,14 @@ TEST_F(ProfileTokenQualityTest,
   // Attempt loading observations for an unsupported type.
   ASSERT_FALSE(supported_types.contains(ADDRESS_HOME_LANDMARK));
   std::vector<uint8_t> serialized_observations = {
-      base::to_underlying(ObservationType::kAccepted), 0};
+      std::to_underlying(ObservationType::kAccepted), 0};
   profile.token_quality().LoadSerializedObservationsForStoredType(
       ADDRESS_HOME_LANDMARK, serialized_observations);
 
   // Attempt loading invalid observation types.
-  serialized_observations = {
-      base::to_underlying(ObservationType::kUnknown), 0,
-      base::to_underlying(ObservationType::kMaxValue) + 1, 0};
+  serialized_observations = {std::to_underlying(ObservationType::kUnknown), 0,
+                             std::to_underlying(ObservationType::kMaxValue) + 1,
+                             0};
   ASSERT_TRUE(supported_types.contains(NAME_FULL));
   profile.token_quality().LoadSerializedObservationsForStoredType(
       NAME_FULL, serialized_observations);
@@ -316,7 +316,7 @@ TEST_F(ProfileTokenQualityTest,
   serialized_observations.clear();
   for (size_t i = 0; i <= ProfileTokenQuality::kMaxObservationsPerToken; ++i) {
     serialized_observations.push_back(
-        base::to_underlying(ObservationType::kAccepted));
+        std::to_underlying(ObservationType::kAccepted));
     serialized_observations.push_back(0);
   }
   ASSERT_TRUE(supported_types.contains(ADDRESS_HOME_ZIP));
@@ -324,7 +324,7 @@ TEST_F(ProfileTokenQualityTest,
       ADDRESS_HOME_ZIP, serialized_observations);
 
   // Attempt loading serialized observations of odd size.
-  serialized_observations = {base::to_underlying(ObservationType::kAccepted)};
+  serialized_observations = {std::to_underlying(ObservationType::kAccepted)};
   ASSERT_TRUE(supported_types.contains(COMPANY_NAME));
   profile.token_quality().LoadSerializedObservationsForStoredType(
       COMPANY_NAME, serialized_observations);

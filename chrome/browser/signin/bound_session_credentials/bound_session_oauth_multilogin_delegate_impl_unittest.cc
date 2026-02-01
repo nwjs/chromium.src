@@ -4,6 +4,7 @@
 
 #include "chrome/browser/signin/bound_session_credentials/bound_session_oauth_multilogin_delegate_impl.h"
 
+#include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/protobuf_matchers.h"
@@ -94,8 +95,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {}
@@ -127,8 +127,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -186,8 +185,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "name": "__Secure-Google-Cookie",
@@ -197,8 +195,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -285,8 +282,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -347,8 +343,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "name": "__Secure-Google-Cookie",
@@ -358,8 +353,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -437,8 +431,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "token_binding_directed_response": {},
@@ -500,8 +493,7 @@ TEST_F(BoundSessionOAuthMultiLoginDelegateImplTest,
               "isSecure": true,
               "isHttpOnly": true,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             },
             {
               "domain": "GOOGLE_COM",

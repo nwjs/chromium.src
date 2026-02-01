@@ -29,6 +29,7 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
@@ -63,7 +64,7 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "third_party/skia/include/effects/SkGradientShader.h"
+#include "third_party/skia/include/effects/SkGradient.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -90,6 +91,7 @@
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/rect_based_targeting_utils.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
@@ -217,8 +219,9 @@ void Tab::SetShowHoverCardOnMouseHoverForTesting(bool value) {
   g_show_hover_card_on_mouse_hover = value;
 }
 
-Tab::Tab(TabSlotController* controller)
-    : controller_(controller),
+Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
+    : tab_handle_(handle),
+      controller_(controller),
       title_(new views::Label()),
       title_animation_(this) {
   DCHECK(controller);
@@ -230,10 +233,6 @@ Tab::Tab(TabSlotController* controller)
   SetNotifyEnterExitOnChild(true);
 
   SetID(VIEW_ID_TAB);
-
-  // This will cause calls to GetContentsBounds to return only the rectangle
-  // inside the tab shape, rather than to its extents.
-  SetBorder(views::CreateEmptyBorder(tab_style_views()->GetContentsInsets()));
 
   title_->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
   title_->SetElideBehavior(gfx::FADE_TAIL);
@@ -259,21 +258,18 @@ Tab::Tab(TabSlotController* controller)
       AddChildView(std::make_unique<AlertIndicatorButton>(this));
 
 #if BUILDFLAG(ENABLE_GLIC)
-  if (controller_->GetBrowser() &&
+  BrowserWindowInterface* const browser_window_interface =
+      controller_->GetBrowserWindowInterface();
+  if (browser_window_interface &&
       ((base::FeatureList::IsEnabled(features::kGlicMultitabUnderlines) &&
         glic::GlicEnabling::IsProfileEligible(
-            controller_->GetBrowser()->GetProfile())) ||
+            browser_window_interface->GetProfile())) ||
        base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks))) {
     glic_tab_underline_view_ = AddChildView(
         views::Builder<glic::TabUnderlineView>(
             glic::TabUnderlineView::Factory::Create(
                 std::make_unique<glic::TabUnderlineViewControllerImpl>(),
-                controller->GetBrowser(), this))
-            // Needed so that expectations of visibility that
-            // inform underline updates are correct on first show.
-            .SetVisible(false)
-            // `glic_tab_underline_view_` should never receive input events.
-            .SetCanProcessEventsWithinSubtree(false)
+                browser_window_interface, tab_handle_))
             .Build());
   }
 #endif
@@ -284,6 +280,10 @@ Tab::Tab(TabSlotController* controller)
       base::BindRepeating(&Tab::CloseButtonPressed, base::Unretained(this)),
       base::BindRepeating(&TabSlotController::OnMouseEventInTab,
                           base::Unretained(controller_))));
+
+  // This will cause calls to GetContentsBounds to return only the rectangle
+  // inside the tab shape, rather than to its extents.
+  UpdateInsets();
 
 #if BUILDFLAG(IS_CHROMEOS)
   showing_close_button_ = !controller_->IsLockedForOnTask();
@@ -396,14 +396,15 @@ void Tab::Layout(PassKey) {
   icon_->SetBoundsRect(favicon_bounds);
   icon_->SetVisible(showing_icon_);
 
-  const int after_title_padding = GetLayoutConstant(TAB_AFTER_TITLE_PADDING);
+  const int after_title_padding =
+      GetLayoutConstant(LayoutConstant::kTabAfterTitlePadding);
 
   int close_x = contents_rect.right();
   if (showing_close_button_) {
     // The visible size is the button's hover shape size. The actual size
     // includes the border insets for the button.
     const int close_button_visible_size =
-        GetLayoutConstant(TAB_CLOSE_BUTTON_SIZE);
+        GetLayoutConstant(LayoutConstant::kTabCloseButtonSize);
     const gfx::Size close_button_actual_size =
         close_button_->GetPreferredSize();
 
@@ -467,9 +468,9 @@ void Tab::Layout(PassKey) {
       // icon view width (which will include extra room for the alert
       // indicator), but rather the normal favicon width which is what it will
       // look like.
-      const int after_favicon = favicon_bounds.x() + icon_->GetInsets().left() +
-                                gfx::kFaviconSize +
-                                GetLayoutConstant(TAB_PRE_TITLE_PADDING);
+      const int after_favicon =
+          favicon_bounds.x() + icon_->GetInsets().left() + gfx::kFaviconSize +
+          GetLayoutConstant(LayoutConstant::kTabPreTitlePadding);
       title_left = std::max(title_left, after_favicon);
     }
     int title_right = contents_rect.right();
@@ -567,8 +568,8 @@ bool Tab::OnMousePressed(const ui::MouseEvent& event) {
   // Allow a right click from touch to drag, which corresponds to a long click.
   if (event.IsOnlyLeftMouseButton() ||
       (event.IsOnlyRightMouseButton() && event.flags() & ui::EF_FROM_TOUCH)) {
-    ui::ListSelectionModel original_selection;
-    original_selection = controller_->GetSelectionModel();
+    ui::ListSelectionModel original_selection =
+        controller_->GetSelectionModel();
     // Changing the selection may cause our bounds to change. If that happens
     // the location of the event may no longer be valid. Create a copy of the
     // event in the parents coordinate, which won't change, and recreate an
@@ -721,8 +722,8 @@ void Tab::OnGestureEvent(ui::GestureEvent* event) {
       // See comment in OnMousePressed() as to why we copy the event.
       ui::GestureEvent event_in_parent(*event, static_cast<View*>(this),
                                        parent());
-      ui::ListSelectionModel original_selection;
-      original_selection = controller_->GetSelectionModel();
+      ui::ListSelectionModel original_selection =
+          controller_->GetSelectionModel();
       if (!IsSelected()) {
         controller_->SelectTab(this, *event);
       }
@@ -806,7 +807,7 @@ void Tab::SetSplit(std::optional<split_tabs::SplitTabId> split) {
 gfx::Size Tab::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   return gfx::Size(GetTabSizeInfo().standard_width,
-                   GetLayoutConstant(TAB_HEIGHT));
+                   GetLayoutConstant(LayoutConstant::kTabHeight));
 }
 
 void Tab::PaintChildren(const views::PaintInfo& info) {
@@ -918,7 +919,7 @@ void Tab::ToggleTabAudioMute() {
 }
 
 bool Tab::IsApparentlyActive() const {
-  return tab_style_views()->GetApparentActiveState() == TabActive::kActive;
+  return tab_style_views()->IsApparentlyActive();
 }
 
 void Tab::AlertStateChanged() {
@@ -968,7 +969,7 @@ bool Tab::ShouldUpdateAccessibleName(TabRendererData& old_data,
   }
 
   return ((old_data.network_state != new_data.network_state) ||
-          old_data.crashed_status != new_data.crashed_status ||
+          old_data.is_crashed != new_data.is_crashed ||
           old_data.alert_state != new_data.alert_state ||
           old_data.should_show_discard_status !=
               new_data.should_show_discard_status ||
@@ -1006,8 +1007,10 @@ void Tab::SetData(TabRendererData data) {
   }
   title_->SetText(title);
 
-  const auto new_alert_state = GetAlertStateToShow(data_.alert_state);
-  const auto old_alert_state = GetAlertStateToShow(old.alert_state);
+  const auto new_alert_state =
+      tabs::TabAlertController::GetAlertStateToShow(data_.alert_state);
+  const auto old_alert_state =
+      tabs::TabAlertController::GetAlertStateToShow(old.alert_state);
   if (new_alert_state != old_alert_state) {
     alert_indicator_button_->TransitionToAlertState(new_alert_state);
   }
@@ -1076,16 +1079,6 @@ std::u16string Tab::GetTooltipText(const std::u16string& title,
   return result;
 }
 
-// static
-std::optional<tabs::TabAlert> Tab::GetAlertStateToShow(
-    const std::vector<tabs::TabAlert>& alert_states) {
-  if (alert_states.empty()) {
-    return std::nullopt;
-  }
-
-  return alert_states[0];
-}
-
 void Tab::SetShouldShowDiscardIndicator(bool enabled) {
   icon_->SetShouldShowDiscardIndicator(enabled);
 }
@@ -1111,6 +1104,17 @@ void Tab::MaybeAdjustLeftForPinnedTab(gfx::Rect* bounds,
 }
 
 void Tab::UpdateIconVisibility() {
+  // When a tab is less than it's minimum inactive width its implied that its
+  // collapsed, but some favicon functionality can escape the bounds of the tab
+  // causing artifacts. Fix this by explicitly disabling the visibility of the
+  // views in the tab if the width is such that it is collapsed.
+  if (width() < tab_style()->GetMinimumInactiveWidth()) {
+    showing_icon_ = false;
+    showing_alert_indicator_ = false;
+    showing_close_button_ = false;
+    return;
+  }
+
   // TODO(pkasting): This whole function should go away, and we should simply
   // compute child visibility state in Layout().
 
@@ -1125,14 +1129,15 @@ void Tab::UpdateIconVisibility() {
   showing_icon_ = showing_alert_indicator_ = false;
   extra_alert_indicator_padding_ = false;
 
-  if (height() < GetLayoutConstant(TAB_HEIGHT)) {
+  if (height() < GetLayoutConstant(LayoutConstant::kTabHeight)) {
     return;
   }
 
   const bool has_favicon = data().show_icon;
   bool has_alert_icon =
-      (alert_indicator_button_ ? alert_indicator_button_->showing_alert_state()
-                               : GetAlertStateToShow(data().alert_state))
+      (alert_indicator_button_
+           ? alert_indicator_button_->showing_alert_state()
+           : tabs::TabAlertController::GetAlertStateToShow(data().alert_state))
           .has_value();
 #if BUILDFLAG(ENABLE_GLIC)
   std::optional<tabs::TabAlert> current_alert_state =
@@ -1171,8 +1176,9 @@ void Tab::UpdateIconVisibility() {
       alert_indicator_button_->GetPreferredSize().width();
   // In case of touch optimized UI, the close button has an extra padding on the
   // left that needs to be considered.
-  const int close_button_width = GetLayoutConstant(TAB_CLOSE_BUTTON_SIZE) +
-                                 GetLayoutConstant(TAB_AFTER_TITLE_PADDING);
+  const int close_button_width =
+      GetLayoutConstant(LayoutConstant::kTabCloseButtonSize) +
+      GetLayoutConstant(LayoutConstant::kTabAfterTitlePadding);
   const bool large_enough_for_close_button =
       available_width >= (touch_ui ? kTouchMinimumContentsWidthForCloseButtons
                                    : kMinimumContentsWidthForCloseButtons);
@@ -1283,7 +1289,7 @@ void Tab::UpdateForegroundColors() {
 void Tab::CloseButtonPressed(const ui::Event& event) {
   if (!alert_indicator_button_ || !alert_indicator_button_->GetVisible()) {
     base::RecordAction(UserMetricsAction("CloseTab_NoAlertIndicator"));
-  } else if (GetAlertStateToShow(data_.alert_state) ==
+  } else if (tabs::TabAlertController::GetAlertStateToShow(data_.alert_state) ==
              tabs::TabAlert::kAudioPlaying) {
     base::RecordAction(UserMetricsAction("CloseTab_AudioIndicator"));
   } else {

@@ -5,6 +5,7 @@
 #include "components/wallet/core/browser/data_models/walletable_pass.h"
 
 #include "components/optimization_guide/proto/features/walletable_pass_extraction.pb.h"
+#include "components/wallet/core/browser/data_models/data_model_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace wallet {
@@ -88,6 +89,15 @@ TEST(WalletablePassTest, FromProto_Invalid) {
   std::optional<WalletablePass> result = WalletablePass::FromProto(proto);
 
   EXPECT_FALSE(result.has_value());
+}
+
+TEST(WalletablePassTest, PassCategoryToString) {
+  EXPECT_EQ(PassCategoryToString(PassCategory::kLoyaltyCard), "LoyaltyCard");
+  EXPECT_EQ(PassCategoryToString(PassCategory::kEventPass), "EventPass");
+  EXPECT_EQ(PassCategoryToString(PassCategory::kTransitTicket),
+            "TransitTicket");
+  EXPECT_EQ(PassCategoryToString(PassCategory::kBoardingPass), "BoardingPass");
+  EXPECT_EQ(PassCategoryToString(PassCategory::kUnspecified), "Unspecified");
 }
 
 }  // namespace wallet

@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
-#include "chrome/browser/ui/views/extensions/extension_action_platform_delegate_views.h"
+#include "chrome/browser/ui/views/extensions/extension_action_delegate_desktop.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
@@ -184,6 +184,41 @@ ToolbarActionViewModel* WebUIBrowserExtensionsContainer::GetActionForId(
   return it != actions_.end() ? it->second->model() : nullptr;
 }
 
+void WebUIBrowserExtensionsContainer::HideActivePopup() {
+  if (popup_owner_) {
+    popup_owner_->HidePopup();
+  }
+  DCHECK(!popup_owner_);
+}
+
+bool WebUIBrowserExtensionsContainer::CloseOverflowMenuIfOpen() {
+  if (extensions_menu_coordinator_->IsShowing()) {
+    extensions_menu_coordinator_->Hide();
+    return true;
+  }
+  return false;
+}
+
+bool WebUIBrowserExtensionsContainer::ShowToolbarActionPopupForAPICall(
+    const std::string& action_id,
+    ShowPopupCallback callback) {
+  NOTIMPLEMENTED();
+  return true;
+}
+
+void WebUIBrowserExtensionsContainer::ToggleExtensionsMenu() {
+  if (extensions_menu_coordinator_->IsShowing()) {
+    extensions_menu_coordinator_->Hide();
+  } else {
+    extensions_menu_coordinator_->Show(window_->GetExtensionsMenuButtonAnchor(),
+                                       this, this);
+  }
+}
+
+bool WebUIBrowserExtensionsContainer::HasAnyExtensions() const {
+  return !actions_.empty();
+}
+
 std::optional<extensions::ExtensionId>
 WebUIBrowserExtensionsContainer::GetPoppedOutActionId() const {
   return popped_out_action_;
@@ -221,21 +256,6 @@ void WebUIBrowserExtensionsContainer::SetPopupOwner(
   popup_owner_ = popup_owner;
 }
 
-void WebUIBrowserExtensionsContainer::HideActivePopup() {
-  if (popup_owner_) {
-    popup_owner_->HidePopup();
-  }
-  DCHECK(!popup_owner_);
-}
-
-bool WebUIBrowserExtensionsContainer::CloseOverflowMenuIfOpen() {
-  if (extensions_menu_coordinator_->IsShowing()) {
-    extensions_menu_coordinator_->Hide();
-    return true;
-  }
-  return false;
-}
-
 void WebUIBrowserExtensionsContainer::PopOutAction(
     const extensions::ExtensionId& action_id,
     base::OnceClosure closure) {
@@ -243,26 +263,6 @@ void WebUIBrowserExtensionsContainer::PopOutAction(
   popped_out_action_ = action_id;
   NotifyOfOneAction(action_id);
   NotifyActionPoppedOut(std::move(closure));
-}
-
-bool WebUIBrowserExtensionsContainer::ShowToolbarActionPopupForAPICall(
-    const std::string& action_id,
-    ShowPopupCallback callback) {
-  NOTIMPLEMENTED();
-  return true;
-}
-
-void WebUIBrowserExtensionsContainer::ToggleExtensionsMenu() {
-  if (extensions_menu_coordinator_->IsShowing()) {
-    extensions_menu_coordinator_->Hide();
-  } else {
-    extensions_menu_coordinator_->Show(window_->GetExtensionsMenuButtonAnchor(),
-                                       this);
-  }
-}
-
-bool WebUIBrowserExtensionsContainer::HasAnyExtensions() const {
-  return !actions_.empty();
 }
 
 void WebUIBrowserExtensionsContainer::ShowContextMenuAsFallback(
@@ -418,8 +418,8 @@ void WebUIBrowserExtensionsContainer::CreateActionForId(
       *this, browser_.get(),
       ExtensionActionViewModel::Create(
           action_id, &browser_.get(),
-          std::make_unique<ExtensionActionPlatformDelegateViews>(
-              &browser_.get(), this)));
+          std::make_unique<ExtensionActionDelegateDesktop>(&browser_.get(),
+                                                           this, this)));
   action_info->model()->RegisterCommand();
   actions_[action_id] = std::move(action_info);
 }

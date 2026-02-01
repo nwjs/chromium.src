@@ -8,7 +8,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <variant>
 
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
@@ -16,7 +15,6 @@
 #include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/signin/public/identity_manager/scope_set.h"
 #include "google_apis/gaia/core_account_id.h"
 
 class GoogleServiceAuthError;
@@ -191,21 +189,6 @@ class PrimaryAccountAccessTokenFetcher : public IdentityManager::Observer {
                                    Mode mode,
                                    ConsentLevel consent);
 
-  // TODO(crbug.com/425896213): Deprecated. Use one of the constructors above.
-  PrimaryAccountAccessTokenFetcher(const std::string& oauth_consumer_name,
-                                   IdentityManager* identity_manager,
-                                   const ScopeSet& scopes,
-                                   Mode mode,
-                                   ConsentLevel consent);
-
-  // TODO(crbug.com/425896213): Deprecated. Use one of the constructors above.
-  PrimaryAccountAccessTokenFetcher(const std::string& oauth_consumer_name,
-                                   IdentityManager* identity_manager,
-                                   const ScopeSet& scopes,
-                                   AccessTokenFetcher::TokenCallback callback,
-                                   Mode mode,
-                                   ConsentLevel consent);
-
   PrimaryAccountAccessTokenFetcher(const PrimaryAccountAccessTokenFetcher&) =
       delete;
   PrimaryAccountAccessTokenFetcher& operator=(
@@ -249,7 +232,7 @@ class PrimaryAccountAccessTokenFetcher : public IdentityManager::Observer {
   void OnAccessTokenFetchComplete(GoogleServiceAuthError error,
                                   AccessTokenInfo access_token_info);
 
-  std::variant<std::pair<std::string, ScopeSet>, OAuthConsumerId> client_info_;
+  OAuthConsumerId oauth_consumer_id_;
   raw_ptr<IdentityManager, DanglingUntriaged> identity_manager_;
 
   // Per the contract of this class, it is allowed for clients to delete this

@@ -11,7 +11,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/test/ash_test_base.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -387,7 +386,7 @@ TEST_F(PowerNotificationControllerTest,
   ASSERT_TRUE(notification);
   EXPECT_TRUE(notification->never_timeout());
   EXPECT_FALSE(notification->pinned());
-  EXPECT_TRUE(base::Contains((notification->message()), u"60W"))
+  EXPECT_TRUE(notification->message().contains(u"60W"))
       << notification->message();
 }
 
@@ -716,7 +715,7 @@ TEST_P(PowerNotificationControllerWithBatterySaverTest,
         message_center()->FindVisibleNotificationById("battery");
     const std::vector<message_center::ButtonInfo> buttons =
         notification->buttons();
-    EXPECT_EQ(static_cast<int>(buttons.size()), 1);
+    EXPECT_EQ(buttons.size(), 1u);
   }
 
   // Plug in charger.
@@ -759,7 +758,7 @@ TEST_P(PowerNotificationControllerWithBatterySaverTest,
         message_center()->FindVisibleNotificationById("battery");
     const std::vector<message_center::ButtonInfo> buttons =
         notification->buttons();
-    EXPECT_EQ(static_cast<int>(buttons.size()), 1);
+    EXPECT_EQ(buttons.size(), 1u);
 
     // Simulate Clicking Opt-Out/In
     notification->delegate()->Click(0, std::nullopt);

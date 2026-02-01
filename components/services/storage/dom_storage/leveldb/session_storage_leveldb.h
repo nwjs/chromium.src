@@ -14,6 +14,10 @@
 #include "components/services/storage/dom_storage/dom_storage_database.h"
 
 namespace storage {
+class DomStorageDatabaseLevelDB;
+
+// The "map-" prefix for all key/value pairs.
+inline constexpr const uint8_t kMapIdPrefix[] = {'m', 'a', 'p', '-'};
 
 // The "namespace-" prefix for all metadata entries.
 inline constexpr const uint8_t kNamespacePrefix[] = {'n', 'a', 'm', 'e', 's',
@@ -22,6 +26,10 @@ inline constexpr const uint8_t kNamespacePrefix[] = {'n', 'a', 'm', 'e', 's',
 // For metadata keys, splits the session id and storage key:
 // "namespace-<session_id>-<storage_key>".
 inline constexpr const uint8_t kNamespaceStorageKeySeparator = '-';
+
+// For key/value pairs, splits the map id and the script provided key:
+// "map-<map_id>-<key from script>".
+inline constexpr const uint8_t kMapIdKeySeparator = '-';
 
 // The "next-map-id" key.
 inline constexpr const uint8_t kNextMapIdKey[] = {'n', 'e', 'x', 't', '-', 'm',
@@ -81,25 +89,39 @@ class SessionStorageLevelDB : public DomStorageDatabase {
   SessionStorageLevelDB& operator=(const SessionStorageLevelDB&) = delete;
 
   // Implement the `DomStorageDatabase` interface:
-  DomStorageDatabaseLevelDB& GetLevelDB() override;
+  StatusOr<std::map<Key, Value>> ReadMapKeyValues(
+      MapLocator map_locator) override;
+  DbStatus UpdateMaps(std::vector<MapBatchUpdate> map_updates) override;
+  DbStatus CloneMap(MapLocator source_map, MapLocator target_map) override;
   StatusOr<Metadata> ReadAllMetadata() override;
   DbStatus PutMetadata(Metadata metadata) override;
+
+  // For each storage key, removes the metadata entry:
+  // "namespace-<session_id>-<storage_key>".
+  //
+  // For each deleted map, removes all key/value pairs using the prefix:
+  // "map-<map_id>-".
   DbStatus DeleteStorageKeysFromSession(
       std::string session_id,
-      std::vector<blink::StorageKey> storage_keys,
-      absl::flat_hash_set<int64_t> excluded_cloned_map_ids) override;
+      std::vector<blink::StorageKey> metadata_to_delete,
+      std::vector<MapLocator> maps_to_delete) override;
+
+  // For each session, removes the metadata entries prefixed with:
+  // "namespace-<session_id>-".
+  //
+  // For each deleted map, removes all key/value pairs using the prefix:
+  // "map-<map_id>-".
+  DbStatus DeleteSessions(std::vector<std::string> session_ids,
+                          std::vector<MapLocator> maps_to_delete) override;
+
+  DbStatus PurgeOrigins(std::set<url::Origin> origins) override;
   DbStatus RewriteDB() override;
 
   // Test-only functions.
+  DbStatus PutVersionForTesting(int64_t version) override;
   void MakeAllCommitsFailForTesting() override;
   void SetDestructionCallbackForTesting(base::OnceClosure callback) override;
-
-  // Returns `namespace-<session_id>-<storage_key>`.
-  //
-  // TODO(crbug.com/377242771): Make private after refactoring to support a
-  // swappable backend for SQLite.
-  static Key CreateMapMetadataKey(std::string session_id,
-                                  const blink::StorageKey& storage_key);
+  DomStorageDatabaseLevelDB& GetLevelDBForTesting();
 
  private:
   // Parses the value from the next map ID key in the LevelDB.  Converts the

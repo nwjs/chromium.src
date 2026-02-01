@@ -10,6 +10,8 @@
 #import <optional>
 #import <string>
 
+#include "base/time/time.h"
+
 enum class UpdateChromeSafetyCheckState;
 enum class PasswordSafetyCheckState;
 enum class SafeBrowsingSafetyCheckState;
@@ -106,6 +108,10 @@ std::optional<int> GetSafetyCheckReusedPasswordsCount();
 // (Magic Stack) module.
 std::optional<int> GetSafetyCheckCompromisedPasswordsCount();
 
+// Returns the background duration needed before opening the Home Surface upon
+// app open.
+base::TimeDelta GetReturnToHomeSurfaceDuration();
+
 // Returns the forced number of days since first run.
 std::optional<int> GetFirstRunRecency();
 
@@ -178,6 +184,10 @@ bool ShouldForceDisableComposeboxCreateImages();
 
 // Returns true if Composebox Pdf Upload eligibility should be disabled.
 bool ShouldForceDisableComposeboxPdfUpload();
+
+// Returns true if the Catalog items should be shown in Settings. Always true
+// in debug builds.
+bool ShouldShowCatalogItems();
 
 }  // namespace experimental_flags
 

@@ -10,12 +10,13 @@
 #include "base/location.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
+#include "base/scoped_observation.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/mac/app_mode_common.h"
 
 namespace apps {
@@ -29,10 +30,11 @@ void TerminateIfNoAppWindows() {
 }
 
 class AppShimTerminationManagerImpl : public AppShimTerminationManager,
-                                      public BrowserListObserver {
+                                      public BrowserCollectionObserver {
  public:
   AppShimTerminationManagerImpl() {
-    BrowserList::AddObserver(this);
+    browser_collection_observation_.Observe(
+        GlobalBrowserCollection::GetInstance());
 
     closing_all_browsers_subscription_ =
         chrome::AddClosingAllBrowsersCallback(base::BindRepeating(
@@ -57,8 +59,8 @@ class AppShimTerminationManagerImpl : public AppShimTerminationManager,
 
   bool ShouldRestoreSession() override { return !browser_session_running_; }
 
-  // BrowserListObserver:
-  void OnBrowserAdded(Browser* browser) override {
+  // BrowserCollectionObserver:
+  void OnBrowserCreated(BrowserWindowInterface* browser) override {
     // fix https://github.com/nwjs/nw.js/issues/7226 for nw1
     // browser_session_running_ will set to true once devtool is opened
     // hence the TerminateIfNoAppWindows function will never be called
@@ -70,6 +72,8 @@ class AppShimTerminationManagerImpl : public AppShimTerminationManager,
     //browser_session_running_ = !closing;
   }
 
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
   base::CallbackListSubscription closing_all_browsers_subscription_;
   bool browser_session_running_ = false;
 };

@@ -143,6 +143,35 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
         mTabObserver.onPageLoadFinished(mTab, mNtpGurl);
     }
 
+
+    /**
+     * Simulates opening a new incognito tab and finishing a page load with the given URL.
+     * This helper method is used to test scenarios with multiple tabs.
+     *
+     * @param url The URL to load in the new tab.
+     */
+    private void openNewTabAndLoadUrl(GURL url) {
+        Tab tab = Mockito.mock(Tab.class);
+        View tabView = Mockito.mock(View.class);
+        when(tab.isIncognitoBranded()).thenReturn(true);
+        when(tab.getView()).thenReturn(tabView);
+        when(mTabModelSelector.getCurrentTab()).thenReturn(tab);
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(tab.getUrl()).thenReturn(url);
+
+        mTabModelObserver.didAddTab(tab, 0, 0, false);
+        ArgumentCaptor<TabObserver> tabObserverCaptor = ArgumentCaptor.forClass(TabObserver.class);
+        verify(tab).addObserver(tabObserverCaptor.capture());
+
+        tabObserverCaptor.getValue().onPageLoadFinished(tab, url);
+
+        if (url.equals(mNtpGurl)) {
+            ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+            verify(tabView).post(runnableCaptor.capture());
+            runnableCaptor.getValue().run();
+        }
+    }
+
     @Test
     @DisableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP)
     public void testMaybeCreate_featureDisabled() {
@@ -337,31 +366,19 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":not_first_tab/true")
-    public void testAutofocusCondition_notFirstTab_andFirstTabOpened_autofocusFails() {
-        // Open first tab.
+    public void testAutofocusCondition_notFirstTab_autofocusSucceedsOnSecondNtp() {
         setUpManagerAndAddNewTab();
-        finishLoadingNtp();
 
-        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
-        verify(mTabView).post(runnableCaptor.capture());
-        runnableCaptor.getValue().run();
-
+        // Open first tab with a non-NTP URL. This should not be counted.
+        openNewTabAndLoadUrl(mOtherGurl);
         verify(mOmniboxStub, never()).setUrlBarFocus(anyBoolean(), any(), anyInt(), anyInt());
-    }
 
-    @Test
-    @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":not_first_tab/true")
-    public void testAutofocusCondition_notFirstTab_andSecondTabOpened_autofocusSucceeds() {
-        // Open first tab.
-        setUpManagerAndAddNewTab();
-        // Open second tab.
-        mTabModelObserver.didAddTab(mTab, 0, 0, false);
-        finishLoadingNtp();
+        // Open second tab and load NTP. This is the first NTP, so no autofocus.
+        openNewTabAndLoadUrl(mNtpGurl);
+        verify(mOmniboxStub, never()).setUrlBarFocus(anyBoolean(), any(), anyInt(), anyInt());
 
-        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
-        verify(mTabView).post(runnableCaptor.capture());
-        runnableCaptor.getValue().run();
-
+        // Open a third tab and load NTP. This is the second NTP, so autofocus should be triggered.
+        openNewTabAndLoadUrl(mNtpGurl);
         verify(mOmniboxStub)
                 .setUrlBarFocus(
                         true, null, OmniboxFocusReason.OMNIBOX_TAP, AutocompleteRequestType.SEARCH);
@@ -370,7 +387,7 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":with_prediction/true")
     public void testAutofocusCondition_withPrediction_autofocusFails() {
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = false;
+        IncognitoNtpOmniboxAutofocusManager.setAutofocusAllowedWithPredictionForTesting(false);
         setUpManagerAndAddNewTab();
         finishLoadingNtp();
 
@@ -379,13 +396,12 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
         runnableCaptor.getValue().run();
 
         verify(mOmniboxStub, never()).setUrlBarFocus(anyBoolean(), any(), anyInt(), anyInt());
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = null;
     }
 
     @Test
     @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP + ":with_prediction/true")
     public void testAutofocusCondition_withPrediction_autofocusSucceeds() {
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = true;
+        IncognitoNtpOmniboxAutofocusManager.setAutofocusAllowedWithPredictionForTesting(true);
         setUpManagerAndAddNewTab();
         finishLoadingNtp();
 
@@ -396,7 +412,6 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
         verify(mOmniboxStub)
                 .setUrlBarFocus(
                         true, null, OmniboxFocusReason.OMNIBOX_TAP, AutocompleteRequestType.SEARCH);
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = null;
     }
 
     @Test
@@ -438,7 +453,7 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
     public void
             testAutofocusCondition_combination_notFirstTabFails_predictionSucceeds_autofocusSucceeds() {
         // First tab, so not_first_tab fails.
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = true;
+        IncognitoNtpOmniboxAutofocusManager.setAutofocusAllowedWithPredictionForTesting(true);
         setUpManagerAndAddNewTab();
         finishLoadingNtp();
 
@@ -450,7 +465,6 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
         verify(mOmniboxStub)
                 .setUrlBarFocus(
                         true, null, OmniboxFocusReason.OMNIBOX_TAP, AutocompleteRequestType.SEARCH);
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = null;
     }
 
     @Test
@@ -460,7 +474,7 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
     public void testAutofocusCondition_allEnabled_allFailed_autofocusFails() {
         // Set all conditions to fail.
         // 1. with_prediction:
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = false;
+        IncognitoNtpOmniboxAutofocusManager.setAutofocusAllowedWithPredictionForTesting(false);
         // 2. with_hardware_keyboard:
         IncognitoNtpOmniboxAutofocusManager.setIsHardwareKeyboardAttachedForTesting(false);
         // 3. not_first_tab: This is the first tab, so it fails.
@@ -474,8 +488,6 @@ public class IncognitoNtpOmniboxAutofocusManagerUnitTest {
 
         // Should not autofocus because all conditions fail.
         verify(mOmniboxStub, never()).setUrlBarFocus(anyBoolean(), any(), anyInt(), anyInt());
-
-        IncognitoNtpOmniboxAutofocusManager.sAutofocusAllowedWithPredictionForTesting = null;
     }
 
     @Test

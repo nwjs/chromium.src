@@ -9,9 +9,10 @@
 #include "base/no_destructor.h"
 #include "chrome/browser/enterprise/connectors/analysis/page_print_analysis_request.h"
 #include "chrome/browser/enterprise/connectors/analysis/request_handler_base.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "components/enterprise/connectors/core/analysis_settings.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_request.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/safe_browsing/content/browser/web_ui/web_ui_content_info_singleton.h"
@@ -24,8 +25,7 @@ constexpr size_t kMaxPagePrintUploadSizeMetricsKB = 500 * 1024;
 
 bool ShouldNotUploadLargePage(const AnalysisSettings& settings,
                               size_t page_size) {
-  size_t max_page_size_bytes =
-      safe_browsing::BinaryUploadService::kMaxUploadSizeBytes;
+  size_t max_page_size_bytes = BinaryUploadService::kMaxUploadSizeBytes;
   if (base::FeatureList::IsEnabled(
           enterprise_connectors::kEnableNewUploadSizeLimit)) {
     max_page_size_bytes =
@@ -47,7 +47,7 @@ PagePrintRequestHandler::TestFactory* TestFactoryStorage() {
 // static
 std::unique_ptr<PagePrintRequestHandler> PagePrintRequestHandler::Create(
     ContentAnalysisInfo* content_analysis_info,
-    safe_browsing::BinaryUploadService* upload_service,
+    BinaryUploadService* upload_service,
     Profile* profile,
     GURL url,
     const std::string& printer_name,
@@ -80,7 +80,7 @@ PagePrintRequestHandler::~PagePrintRequestHandler() = default;
 
 PagePrintRequestHandler::PagePrintRequestHandler(
     ContentAnalysisInfo* content_analysis_info,
-    safe_browsing::BinaryUploadService* upload_service,
+    BinaryUploadService* upload_service,
     Profile* profile,
     GURL url,
     const std::string& printer_name,
@@ -193,7 +193,7 @@ void PagePrintRequestHandler::OnContentAnalysisResponse(
 }
 
 void PagePrintRequestHandler::FinishLargeDataRequestEarly(
-    std::unique_ptr<safe_browsing::BinaryUploadService::Request> request) {
+    std::unique_ptr<BinaryUploadRequest> request) {
   // We add the request here in case we never actually uploaded anything, so
   // it wasn't added in OnGetRequestData
   safe_browsing::WebUIContentInfoSingleton::GetInstance()
@@ -205,10 +205,10 @@ void PagePrintRequestHandler::FinishLargeDataRequestEarly(
       ->AddToDeepScanResponses(
           /*token=*/"",
           ScanRequestUploadResultToString(
-              ScanRequestUploadResult::FILE_TOO_LARGE),
+              ScanRequestUploadResult::kFileTooLarge),
           enterprise_connectors::ContentAnalysisResponse());
 
-  request->FinishRequest(ScanRequestUploadResult::FILE_TOO_LARGE,
+  request->FinishRequest(ScanRequestUploadResult::kFileTooLarge,
                          enterprise_connectors::ContentAnalysisResponse());
 }
 

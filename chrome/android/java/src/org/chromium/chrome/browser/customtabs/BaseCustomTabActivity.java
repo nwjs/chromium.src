@@ -48,6 +48,7 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.tabmodel.AllTabObserver;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
 import org.chromium.chrome.browser.browserservices.InstalledWebappDataRegister;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabProfileType;
@@ -433,6 +434,16 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
             protected OtrProfileId createOffTheRecordProfileId() {
                 switch (getIntentDataProvider().getCustomTabMode()) {
                     case CustomTabProfileType.INCOGNITO:
+                        // If an incognito popup is being created by Chrome, this should use
+                        // the same primary OTR profile associated with the requester's profile.
+                        if (getIntentDataProvider().getUiType() == CustomTabsUiType.POPUP) {
+                            if (!getIntentDataProvider().isOpenedByChrome()) {
+                                throw new IllegalStateException(
+                                        "Incognito CCTs should have unique OTR profiles unless"
+                                                + " Chrome opened them as a popup window.");
+                            }
+                            return null;
+                        }
                         return OtrProfileId.createUniqueIncognitoCctId();
                     case CustomTabProfileType.EPHEMERAL:
                         return OtrProfileId.createUnique("CCT:Ephemeral");
@@ -992,6 +1003,10 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         super.initializeCompositor();
         var tabModelOrchestrator = getCustomTabActivityTabFactory().getTabModelOrchestrator();
         tabModelOrchestrator.onNativeLibraryReady(getTabContentManager());
+        // This ensures that an off-the-record TabModel is the current model before it is needed.
+        tabModelOrchestrator
+                .getTabModelSelector()
+                .selectModel(mIntentDataProvider.isOffTheRecord());
 
         @BrowserWindowType Integer browserWindowType = getSupportedBrowserWindowType();
         if (browserWindowType != null) {
@@ -1151,7 +1166,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
 
     @Override
     public int getBaseStatusBarColor(Tab tab) {
-        // TODO(b/300419189): Pass the CCT Top Bar Color in AGSA intent after Google Bottom Bar is
+        // TODO(crbug.com/465719853): Pass the CCT Top Bar Color in AGSA intent after Google Bottom Bar is
         // launched
         if (GoogleBottomBarCoordinator.isFeatureEnabled()
                 && CustomTabsConnection.getInstance()
@@ -1375,6 +1390,13 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         if (mCustomTabBrowserControlsVisibilityDelegate == null) {
             mCustomTabBrowserControlsVisibilityDelegate =
                     new CustomTabBrowserControlsVisibilityDelegate(this::getBrowserControlsManager);
+
+            // TODO(crbug.com/470432106): Move this to root ui coordinator.
+            if (BrowserControlsUtils.isTopControlsRefactorOffsetEnabled()) {
+                getBaseCustomTabRootUiCoordinator()
+                        .getAppBrowserControlsVisibilityDelegate()
+                        .addDelegate(getCustomTabBrowserControlsVisibilityDelegate());
+            }
         }
         return mCustomTabBrowserControlsVisibilityDelegate;
     }
@@ -1621,6 +1643,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
                         getInsetObserver(),
                         getLifecycleDispatcher(),
                         getSavedInstanceState(),
+                        null,
                         getEdgeToEdgeManager().getEdgeToEdgeStateProvider());
 
         return mAppHeaderCoordinator;

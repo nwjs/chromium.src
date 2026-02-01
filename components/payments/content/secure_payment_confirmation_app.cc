@@ -35,9 +35,9 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "crypto/sha2.h"
-#include "device/fido/fido_transport_protocol.h"
-#include "device/fido/fido_types.h"
-#include "device/fido/public_key_credential_descriptor.h"
+#include "device/fido/public/fido_transport_protocol.h"
+#include "device/fido/public/fido_types.h"
+#include "device/fido/public/public_key_credential_descriptor.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "url/url_constants.h"
@@ -77,7 +77,8 @@ SecurePaymentConfirmationApp::SecurePaymentConfirmationApp(
     base::WeakPtr<PaymentRequestSpec> spec,
     mojom::SecurePaymentConfirmationRequestPtr request,
     std::unique_ptr<webauthn::InternalAuthenticator> authenticator,
-    std::vector<PaymentApp::PaymentEntityLogo> payment_entities_logos)
+    std::vector<PaymentApp::PaymentEntityLogo> payment_entities_logos,
+    bool is_error_dialog)
     : PaymentApp(/*icon_resource_id=*/0, PaymentApp::Type::INTERNAL),
       content::WebContentsObserver(web_contents_to_observe),
       authenticator_frame_routing_id_(
@@ -95,7 +96,8 @@ SecurePaymentConfirmationApp::SecurePaymentConfirmationApp(
       passkey_browser_binder_(std::move(passkey_browser_binder)),
       device_supports_browser_bound_keys_in_hardware_(
           device_supports_browser_bound_keys_in_hardware),
-      payment_entities_logos_(std::move(payment_entities_logos)) {
+      payment_entities_logos_(std::move(payment_entities_logos)),
+      is_error_dialog_(is_error_dialog) {
   app_method_names_.insert(methods::kSecurePaymentConfirmation);
 }
 

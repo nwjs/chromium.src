@@ -20,6 +20,7 @@
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
+#include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
 #include "components/one_time_tokens/core/browser/sms_otp_backend.h"
 #include "content/public/test/browser_test.h"
@@ -34,8 +35,9 @@ namespace {
 // the moment an SMS is received for one-time passwords (OTP).
 class FakeSmsOtpBackend : public one_time_tokens::SmsOtpBackend {
  public:
-  using CallbackType =
-      base::OnceCallback<void(const one_time_tokens::OtpFetchReply&)>;
+  using CallbackType = base::OnceCallback<void(
+      base::expected<one_time_tokens::OneTimeToken,
+                     one_time_tokens::OneTimeTokenRetrievalError>)>;
 
   FakeSmsOtpBackend() = default;
   ~FakeSmsOtpBackend() override = default;
@@ -44,7 +46,9 @@ class FakeSmsOtpBackend : public one_time_tokens::SmsOtpBackend {
   void RetrieveSmsOtp(CallbackType callback) override;
 
   // Simulates the reception of an SMS.
-  void NotifyCallbacks(const one_time_tokens::OtpFetchReply& reply);
+  void NotifyCallbacks(
+      base::expected<one_time_tokens::OneTimeToken,
+                     one_time_tokens::OneTimeTokenRetrievalError> reply);
 
   size_t num_callbacks() const { return callbacks_.size(); }
 
@@ -58,7 +62,8 @@ void FakeSmsOtpBackend::RetrieveSmsOtp(
 }
 
 void FakeSmsOtpBackend::NotifyCallbacks(
-    const one_time_tokens::OtpFetchReply& reply) {
+    base::expected<one_time_tokens::OneTimeToken,
+                   one_time_tokens::OneTimeTokenRetrievalError> reply) {
   for (auto& callback : callbacks_) {
     std::move(callback).Run(reply);
   }
@@ -73,8 +78,7 @@ class FakeAutofillCrowdsourcingManager : public AutofillCrowdsourcingManager {
   ~FakeAutofillCrowdsourcingManager() override = default;
 
   bool StartQueryRequest(
-      const std::vector<raw_ptr<const FormStructure, VectorExperimental>>&
-          forms,
+      const std::vector<FormData>& forms,
       std::optional<net::IsolationInfo> isolation_info,
       base::OnceCallback<void(std::optional<QueryResponse>)> callback) override;
 
@@ -89,19 +93,19 @@ FakeAutofillCrowdsourcingManager::FakeAutofillCrowdsourcingManager(
     : AutofillCrowdsourcingManager(autofill_client, channel) {}
 
 bool FakeAutofillCrowdsourcingManager::StartQueryRequest(
-    const std::vector<raw_ptr<const FormStructure, VectorExperimental>>& forms,
+    const std::vector<FormData>& forms,
     std::optional<net::IsolationInfo> isolation_info,
     base::OnceCallback<void(std::optional<QueryResponse>)> callback) {
   // Generate a response that classifies each field as a ONE_TIME_CODE field.
   std::vector<FormSignature> queried_form_signatures;
   AutofillQueryResponse response;
-  for (const FormStructure* form : forms) {
-    queried_form_signatures.push_back(form->form_signature());
+  for (const FormData& form : forms) {
+    queried_form_signatures.push_back(CalculateFormSignature(form));
     auto* form_suggestion = response.add_form_suggestions();
-    for (const auto& field : form->fields()) {
+    for (const FormFieldData& field : form.fields()) {
       auto* field_suggestion = form_suggestion->add_field_suggestions();
       field_suggestion->set_field_signature(
-          CalculateFieldSignatureForField(*field).value());
+          CalculateFieldSignatureForField(field).value());
       *field_suggestion->add_predictions() =
           test::CreateFieldPrediction(ONE_TIME_CODE, /*is_override=*/false);
     }
@@ -255,20 +259,17 @@ IN_PROC_BROWSER_TEST_P(OtpManagerWithWebOtpApiBrowserTest,
 
   // Simulate an OTP arriving.
   autofill_client().sms_otp_backend().NotifyCallbacks(
-      one_time_tokens::OtpFetchReply(
-          one_time_tokens::OneTimeToken(
-              one_time_tokens::OneTimeTokenType::kSmsOtp, "123456",
-              base::Time::Now()),
-          /*request_complete=*/true));
+      one_time_tokens::OneTimeToken(one_time_tokens::OneTimeTokenType::kSmsOtp,
+                                    "123456", base::Time::Now()));
 
   // Simulate click on field.
-  const std::map<FormGlobalId, std::unique_ptr<FormStructure>>& forms =
-      autofill_manager().form_structures();
+  std::vector<const FormStructure*> forms =
+      test_api(autofill_manager()).form_structures();
   ASSERT_EQ(forms.size(), 1u);
-  const std::unique_ptr<FormStructure>& form = forms.begin()->second;
-  const std::unique_ptr<AutofillField>& first_field = *form->fields().begin();
+  const FormStructure& form = *forms.front();
+  const AutofillField& first_field = *form.fields().front();
   autofill_manager().OnAskForValuesToFill(
-      form->ToFormData(), first_field->global_id(), gfx::Rect(),
+      form.ToFormData(), first_field.global_id(), gfx::Rect(),
       AutofillSuggestionTriggerSource::kFormControlElementClicked,
       /*password_request=*/std::nullopt);
   ASSERT_TRUE(autofill_manager().WaitForSuggestionsShown(1));

@@ -17,7 +17,6 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -33,9 +32,11 @@ import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.After;
 import org.junit.Before;
@@ -48,7 +49,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
@@ -69,6 +69,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.components.browser_ui.util.ChromeItemPickerExtras;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.content_public.browser.RenderWidgetHostView;
@@ -138,7 +139,10 @@ public class FuseboxMediatorUnitTest {
 
         ProfileResolverJni.setInstanceForTesting(mProfileResolverNatives);
 
-        mContext = RuntimeEnvironment.application;
+        mContext =
+                new ContextThemeWrapper(
+                        ApplicationProvider.getApplicationContext(),
+                        R.style.Theme_BrowserUI_DayNight);
         mResources = mContext.getResources();
         mModel = new PropertyModel(FuseboxProperties.ALL_KEYS);
 
@@ -237,7 +241,7 @@ public class FuseboxMediatorUnitTest {
         Intent data = mock(Intent.class);
         Bundle extras = mock(Bundle.class);
         when(data.getExtras()).thenReturn(extras);
-        when(data.getIntegerArrayListExtra(FuseboxMediator.EXTRA_ATTACHMENT_TAB_IDS))
+        when(data.getIntegerArrayListExtra(ChromeItemPickerExtras.EXTRA_ATTACHMENT_TAB_IDS))
                 .thenReturn(new ArrayList<>(tabIds));
         return data;
     }
@@ -780,12 +784,13 @@ public class FuseboxMediatorUnitTest {
         verify(mWindowAndroid).showCancelableIntent(mIntentCaptor.capture(), any(), any());
         Intent intent = mIntentCaptor.getValue();
         assertEquals(
-                FuseboxMediator.CHROME_ITEM_PICKER_ACTIVITY_CLASS,
+                ChromeItemPickerExtras.CHROME_ITEM_PICKER_ACTIVITY_CLASS,
                 intent.getComponent().getClassName());
-        assertNotNull(intent.getIntegerArrayListExtra(FuseboxMediator.EXTRA_PRESELECTED_TAB_IDS));
+        assertNotNull(
+                intent.getIntegerArrayListExtra(ChromeItemPickerExtras.EXTRA_PRESELECTED_TAB_IDS));
         assertEquals(
                 FuseboxAttachmentModelList.MAX_ATTACHMENTS,
-                intent.getIntExtra(FuseboxMediator.EXTRA_ALLOWED_SELECTION_COUNT, -1));
+                intent.getIntExtra(ChromeItemPickerExtras.EXTRA_ALLOWED_SELECTION_COUNT, -1));
     }
 
     @Test
@@ -800,14 +805,14 @@ public class FuseboxMediatorUnitTest {
         verify(mWindowAndroid).showCancelableIntent(mIntentCaptor.capture(), any(), any());
         Intent intent = mIntentCaptor.getValue();
         ArrayList<Integer> preselectedIds =
-                intent.getIntegerArrayListExtra(FuseboxMediator.EXTRA_PRESELECTED_TAB_IDS);
+                intent.getIntegerArrayListExtra(ChromeItemPickerExtras.EXTRA_PRESELECTED_TAB_IDS);
         assertNotNull(preselectedIds);
         assertEquals(2, preselectedIds.size());
         assertTrue(preselectedIds.contains(tab1.getId()));
         assertTrue(preselectedIds.contains(tab2.getId()));
         assertEquals(
                 FuseboxAttachmentModelList.MAX_ATTACHMENTS,
-                intent.getIntExtra(FuseboxMediator.EXTRA_ALLOWED_SELECTION_COUNT, -1));
+                intent.getIntExtra(ChromeItemPickerExtras.EXTRA_ALLOWED_SELECTION_COUNT, -1));
     }
 
     @Test
@@ -821,7 +826,7 @@ public class FuseboxMediatorUnitTest {
         verify(mWindowAndroid).showCancelableIntent(mIntentCaptor.capture(), any(), any());
         Intent intent = mIntentCaptor.getValue();
         int allowedSelectionCount =
-                intent.getIntExtra(FuseboxMediator.EXTRA_ALLOWED_SELECTION_COUNT, -1);
+                intent.getIntExtra(ChromeItemPickerExtras.EXTRA_ALLOWED_SELECTION_COUNT, -1);
         // The image and file attachments should count against the max, the tab should not.
         assertEquals(FuseboxAttachmentModelList.MAX_ATTACHMENTS - 2, allowedSelectionCount);
     }
@@ -843,7 +848,6 @@ public class FuseboxMediatorUnitTest {
         newlySelectedIds.add(103);
         newlySelectedIds.add(104);
         mMediator.updateCurrentlyAttachedTabs(newlySelectedIds);
-        verify(mSnackbarManager).showSnackbar(any());
         assertEquals(FuseboxAttachmentModelList.MAX_ATTACHMENTS, mAttachments.size());
 
         mMediator.onFilePickerClicked();
@@ -852,7 +856,6 @@ public class FuseboxMediatorUnitTest {
         mMediator.onImagePickerClicked();
         mMediator.onTabPickerClicked();
 
-        verify(mSnackbarManager, times(6)).showSnackbar(any());
         verify(mWindowAndroid, never()).showCancelableIntent(any(Intent.class), any(), any());
     }
 
@@ -907,12 +910,10 @@ public class FuseboxMediatorUnitTest {
         mAutocompleteRequestTypeSupplier.set(AutocompleteRequestType.IMAGE_GENERATION);
 
         assertTrue(mMediator.isMaxAttachmentCountReached(FuseboxAttachmentType.ATTACHMENT_TAB));
-        verify(mSnackbarManager).showSnackbar(any());
 
         clearInvocations(mSnackbarManager);
 
         assertTrue(mMediator.isMaxAttachmentCountReached(FuseboxAttachmentType.ATTACHMENT_TAB));
-        verify(mSnackbarManager).showSnackbar(any());
     }
 
     @Test
@@ -928,7 +929,6 @@ public class FuseboxMediatorUnitTest {
         }
 
         assertTrue(mMediator.isMaxAttachmentCountReached(FuseboxAttachmentType.ATTACHMENT_TAB));
-        verify(mSnackbarManager).showSnackbar(any());
     }
 
     @Test
@@ -954,7 +954,6 @@ public class FuseboxMediatorUnitTest {
             addAttachment("title" + i, "token" + i, FuseboxAttachmentType.ATTACHMENT_FILE);
         }
         assertTrue(mMediator.isMaxAttachmentCountReached(FuseboxAttachmentType.ATTACHMENT_FILE));
-        verify(mSnackbarManager).showSnackbar(any());
     }
 
     @Test

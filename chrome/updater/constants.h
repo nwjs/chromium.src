@@ -248,6 +248,10 @@ inline constexpr char kCmdLineExpectDeElevated[] = "expect-de-elevated";
 // is now trying to install the app per-user.
 inline constexpr char kCmdLinePrefersUser[] = "prefers-user";
 
+// The "installsource" switch allows an `installsource` that is reported in
+// pings to be user defined on the offline installer command line.
+inline constexpr char kInstallSourceSwitch[] = "installsource";
+
 // File system paths.
 //
 // The directory name where CRX apps get installed. This is provided for demo
@@ -280,10 +284,6 @@ inline constexpr char
         "event_logging_permission_provider_directory_name";
 #endif
 inline constexpr char kDevOverrideKeyDictPolicies[] = "dict_policies";
-
-// TODO(crbug.com/389965546): remove this once the checked-in old updater builds
-// recognize "dict_policies".
-inline constexpr char kDevOverrideKeyGroupPolicies[] = "group_policies";
 
 inline constexpr char kDevOverrideKeyOverinstallTimeout[] =
     "overinstall_timeout";
@@ -669,6 +669,7 @@ inline constexpr char kInstallSourceTaggedMetainstaller[] = "taggedmi";
 inline constexpr char kInstallSourceOffline[] = "offline";
 inline constexpr char kInstallSourcePolicy[] = "policy";
 inline constexpr char kInstallSourceOnDemand[] = "ondemand";
+inline constexpr char kInstallSourceEnterpriseMsi[] = "enterprisemsi";
 
 inline constexpr int kRegistrationSuccess = 0;
 inline constexpr int kRegistrationError = 1;

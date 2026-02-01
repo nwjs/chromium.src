@@ -50,19 +50,19 @@ static base::android::ScopedJavaLocalRef<jstring>
 JNI_ClientDataJsonImpl_BuildClientDataJson(
     JNIEnv* env,
     jint jclient_data_request_type,
-    const base::android::JavaParamRef<jstring>& jcaller_origin,
-    const base::android::JavaParamRef<jbyteArray>& jchallenge,
-    jboolean jis_cross_origin,
-    const base::android::JavaParamRef<jobject>& joptions_byte_buffer,
-    const base::android::JavaParamRef<jstring>& jrelying_party_id,
-    const base::android::JavaParamRef<jobject>& jtop_origin) {
+    const base::android::JavaRef<jstring>& jcaller_origin,
+    const base::android::JavaRef<jbyteArray>& jchallenge,
+    bool jis_cross_origin,
+    const base::android::JavaRef<jobject>& joptions_byte_buffer,
+    const base::android::JavaRef<jstring>& jrelying_party_id,
+    const base::android::JavaRef<jobject>& jtop_origin) {
   webauthn::ClientDataRequestType type =
       static_cast<webauthn::ClientDataRequestType>(jclient_data_request_type);
   std::string caller_origin =
       base::android::ConvertJavaStringToUTF8(env, jcaller_origin);
   std::vector<uint8_t> challenge;
   base::android::JavaByteArrayToByteVector(env, jchallenge, &challenge);
-  bool is_cross_origin = static_cast<bool>(jis_cross_origin);
+  bool is_cross_origin = jis_cross_origin;
 
   blink::mojom::PaymentOptionsPtr options;
   DeserializePaymentOptionsFromJavaByteBuffer(env, joptions_byte_buffer,

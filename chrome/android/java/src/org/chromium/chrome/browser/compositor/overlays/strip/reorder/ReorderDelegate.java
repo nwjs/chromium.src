@@ -14,7 +14,9 @@ import androidx.annotation.IntDef;
 
 import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -84,13 +86,11 @@ public class ReorderDelegate {
         /**
          * Update strip - resize all views on tab strip.
          *
-         * @param animate Whether to animate the resize.
          * @param tabToAnimate Tab to additionally animate. Must be null if animate is false.
          * @param animateTabAdded Run tab added animation on tabToAnimate if true. Run tab closed
          *     animation if false.
          */
-        void resizeTabStrip(
-                boolean animate, @Nullable StripLayoutTab tabToAnimate, boolean animateTabAdded);
+        void resizeTabStrip(@Nullable StripLayoutTab tabToAnimate, boolean animateTabAdded);
 
         /**
          * Requests an update to strip (view properties etc) based on current state (eg: reorder,
@@ -129,8 +129,8 @@ public class ReorderDelegate {
     private boolean mInitialized;
 
     // Reorder State.
-    private final ObservableSupplierImpl<Boolean> mInReorderModeSupplier =
-            new ObservableSupplierImpl<>(/* initialValue= */ false);
+    private final SettableNonNullObservableSupplier<Boolean> mInReorderModeSupplier =
+            ObservableSuppliers.createNonNull(false);
 
     /** The last x-position we processed for reorder. */
     private float mLastReorderX;
@@ -146,8 +146,8 @@ public class ReorderDelegate {
     private @Nullable ExternalViewDragDropReorderStrategy mExternalViewDragDropReorderStrategy;
 
     // Auto-scroll State.
-    private final ObservableSupplierImpl<Long> mLastReorderScrollTimeSupplier =
-            new ObservableSupplierImpl<>(INVALID_TIME);
+    private final SettableNonNullObservableSupplier<Long> mLastReorderScrollTimeSupplier =
+            ObservableSuppliers.createNonNull(INVALID_TIME);
     private int mReorderScrollState = REORDER_SCROLL_NONE;
 
     // ============================================================================================
@@ -155,7 +155,7 @@ public class ReorderDelegate {
     // ============================================================================================
 
     public boolean getInReorderMode() {
-        return Boolean.TRUE.equals(mInReorderModeSupplier.get());
+        return mInReorderModeSupplier.get();
     }
 
     public boolean isReorderingTab() {
@@ -175,16 +175,12 @@ public class ReorderDelegate {
             StripLayoutView interactingView, @ReorderType int reorderType) {
         boolean instanceOfTab = interactingView instanceof StripLayoutTab;
         boolean instanceOfGroup = interactingView instanceof StripLayoutGroupTitle;
-        boolean shouldDragDropGroup =
-                instanceOfGroup
-                        && ChromeFeatureList.isEnabled(
-                                ChromeFeatureList.TAB_STRIP_GROUP_DRAG_DROP_ANDROID);
         boolean isMultiSelectedTab =
                 instanceOfTab
                         && mModel.isTabMultiSelected(((StripLayoutTab) interactingView).getTabId())
                         && mModel.getMultiSelectedTabsCount() > 1;
         if (mSourceViewDragDropReorderStrategy != null
-                && (instanceOfTab || shouldDragDropGroup)
+                && (instanceOfTab || instanceOfGroup)
                 && reorderType == ReorderType.START_DRAG_DROP) {
             if (isMultiSelectedTab) {
                 // Record the number of tabs that are multi-selected when the user starts dragging
@@ -193,7 +189,7 @@ public class ReorderDelegate {
                 StripLayoutUtils.recordTabMultiSelectionTabCount(mModel);
             }
             return mSourceViewDragDropReorderStrategy;
-        } else if ((instanceOfTab || shouldDragDropGroup)
+        } else if ((instanceOfTab || instanceOfGroup)
                 && reorderType == ReorderType.DRAG_ONTO_STRIP) {
             // Only external views can be dragged onto strip during startReorderMode.
             assert mExternalViewDragDropReorderStrategy != null;
@@ -230,7 +226,8 @@ public class ReorderDelegate {
      * @param actionConfirmationManager The {@link ActionConfirmationManager} to show user prompts
      *     during reorder.
      * @param tabWidthSupplier The {@link Supplier} for tab width for reorder computations.
-     * @param groupIdToHideSupplier The {@link ObservableSupplierImpl} for the group ID to hide.
+     * @param groupIdToHideSupplier The {@link SettableNullableObservableSupplier} for the group ID
+     *     to hide.
      * @param containerView The tab strip container {@link View}.
      */
     @Initializer
@@ -243,7 +240,7 @@ public class ReorderDelegate {
             ActionConfirmationManager actionConfirmationManager,
             Supplier<Float> tabWidthSupplier,
             Supplier<Float> pinnedTabsBoundarySupplier,
-            ObservableSupplierImpl<@Nullable Token> groupIdToHideSupplier,
+            SettableNullableObservableSupplier<Token> groupIdToHideSupplier,
             View containerView) {
         mStripUpdateDelegate = stripUpdateDelegate;
         mScrollDelegate = scrollDelegate;

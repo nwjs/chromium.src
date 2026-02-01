@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_BROWSER_COMMAND_CONTROLLER_H_
 #define CHROME_BROWSER_UI_BROWSER_COMMAND_CONTROLLER_H_
 
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "chrome/browser/command_updater.h"
@@ -22,10 +21,6 @@
 #include "ui/actions/actions.h"
 #include "ui/base/window_open_disposition.h"
 
-#if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/fre/glic_fre.mojom.h"
-#endif
-
 class Browser;
 class BrowserWindow;
 class BrowserWindowInterface;
@@ -33,6 +28,10 @@ class Profile;
 
 namespace input {
 struct NativeWebKeyboardEvent;
+}
+
+namespace glic::mojom {
+enum class FreWebUiState;
 }
 
 namespace chrome {
@@ -121,8 +120,7 @@ class BrowserCommandController : public CommandUpdater,
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void TabBlockedStateChanged(content::WebContents* contents,
-                              int index) override;
+  void OnTabBlockedStateChanged(tabs::TabInterface* tab, int index) override;
 
   // Overridden from TabRestoreServiceObserver:
   void TabRestoreServiceChanged(sessions::TabRestoreService* service) override;

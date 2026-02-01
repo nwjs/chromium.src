@@ -39,6 +39,7 @@
 #include "third_party/blink/renderer/platform/mojo/mojo_binding_context.h"
 #include "third_party/blink/renderer/platform/p2p/network_list_manager.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace base {
@@ -52,9 +53,12 @@ class NetworkListObserver;
 // WebRTC worker threads.
 class PLATFORM_EXPORT P2PSocketDispatcher
     : public GarbageCollected<P2PSocketDispatcher>,
+      public Supplement<MojoBindingContext>,
       public blink::NetworkListManager,
       public network::mojom::blink::P2PNetworkNotificationClient {
  public:
+  static const char kSupplementName[];
+
   static P2PSocketDispatcher& From(MojoBindingContext& context);
 
   P2PSocketDispatcher(MojoBindingContext& context,
@@ -86,8 +90,6 @@ class PLATFORM_EXPORT P2PSocketDispatcher
 
   void OnConnectionError();
   void ReconnectP2PSocketManager();
-
-  Member<MojoBindingContext> mojo_binding_context_;
 
   scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
 

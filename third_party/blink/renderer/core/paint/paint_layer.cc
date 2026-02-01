@@ -284,7 +284,6 @@ const PaintLayer* PaintLayer::ContainingScrollContainerLayer(
     }
     is_fixed = container->GetLayoutObject().IsFixedPositioned();
   }
-  DCHECK(IsRootLayer());
   if (is_fixed_to_view)
     *is_fixed_to_view = true;
   return nullptr;
@@ -388,6 +387,7 @@ void PaintLayer::UpdateDescendantDependentFlags() {
     has_self_painting_layer_descendant_ = false;
     descendant_needs_check_position_visibility_ = false;
     has_backdrop_filter_descendant_ = false;
+    has_descendant_with_transform_anim_ = false;
 
     bool can_contain_abs =
         GetLayoutObject().CanContainAbsolutePositionObjects();
@@ -445,6 +445,13 @@ void PaintLayer::UpdateDescendantDependentFlags() {
           has_backdrop_filter_descendant_ ||
           child->HasBackdropFilterDescendant() ||
           child->GetLayoutObject().StyleRef().HasNonInitialBackdropFilter();
+
+      has_descendant_with_transform_anim_ =
+          has_descendant_with_transform_anim_ ||
+          child->HasDescendantWithTransformAnim() ||
+          child->GetLayoutObject()
+              .StyleRef()
+              .HasCurrentTransformRelatedAnimation();
     }
 
     // See SetInvisibleForPositionVisibility() for explanation for
@@ -769,9 +776,6 @@ void PaintLayer::RemoveChild(PaintLayer* old_child) {
 
 void PaintLayer::RemoveOnlyThisLayerAfterStyleChange(
     const ComputedStyle* old_style) {
-  if (!parent_)
-    return;
-
   if (old_style) {
     if (GetLayoutObject().IsStacked(*old_style))
       DirtyStackingContextZOrderLists();
@@ -792,17 +796,25 @@ void PaintLayer::RemoveOnlyThisLayerAfterStyleChange(
 
   PaintLayer* next_sib = NextSibling();
 
-  // Now walk our kids and reattach them to our parent.
+  // Now walk our kids to remove them, and potentially reattach to our parent.
+  //
+  // We might not have a parent if a layout-object is being reinserted into the
+  // layout-tree. This occurs if a layout-object undergoes a in-flow state
+  // change, and the children will be reattached within LayoutObject::AddLayers.
   PaintLayer* current = first_;
   while (current) {
     PaintLayer* next = current->NextSibling();
     RemoveChild(current);
-    parent_->AddChild(current, next_sib);
+    if (parent_) {
+      parent_->AddChild(current, next_sib);
+    }
     current = next;
   }
 
   // Remove us from the parent.
-  parent_->RemoveChild(this);
+  if (parent_) {
+    parent_->RemoveChild(this);
+  }
   layout_object_->DestroyLayer();
 }
 
@@ -856,10 +868,14 @@ void PaintLayer::UpdateStackingNode() {
 }
 
 bool PaintLayer::RequiresScrollableArea() const {
-  if (!GetLayoutBox())
+  const LayoutBox* box = GetLayoutBox();
+  if (!box) {
     return false;
-  if (GetLayoutObject().IsScrollContainer())
+  }
+  if (box->Style()->IsInternalOverscrollAreaAuto() ||
+      box->IsScrollContainer()) {
     return true;
+  }
   // Iframes with the resize property can be resized. This requires
   // scroll corner painting, which is implemented, in part, by
   // PaintLayerScrollableArea.
@@ -2333,8 +2349,14 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
     // changes. However, we do need to repaint the containing stacking
     // context, in order to generate new paint chunks in the correct order.
     // Raster invalidation will be issued if needed during paint.
-    if (auto* stacking_context = AncestorStackingContext())
+    if (auto* stacking_context = AncestorStackingContext()) {
       stacking_context->SetNeedsRepaint();
+    }
+    // We also need to invalidate intersection observer, which can be affected
+    // by z-index changes.
+    if (LocalFrameView* frame_view = GetLayoutObject().GetFrameView()) {
+      frame_view->SetIntersectionObservationState(LocalFrameView::kDesired);
+    }
   }
 
   if (old_style) {

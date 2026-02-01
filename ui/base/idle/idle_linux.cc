@@ -70,22 +70,35 @@ class DBusScreenSaverWatcher {
     kUnlocked,
   };
 
+  static DBusScreenSaverWatcher* GetInstance() {
+    static base::NoDestructor<DBusScreenSaverWatcher> instance;
+    return instance.get();
+  }
+
+  DBusScreenSaverWatcher(const DBusScreenSaverWatcher&) = delete;
+  DBusScreenSaverWatcher& operator=(const DBusScreenSaverWatcher&) = delete;
+
+  LockState lock_state() const { return lock_state_; }
+
+  base::CallbackListSubscription AddCallback(
+      base::RepeatingCallback<void(bool)> callback) {
+    return callbacks_.Add(std::move(callback));
+  }
+
+ private:
+  friend class base::NoDestructor<DBusScreenSaverWatcher>;
+
   DBusScreenSaverWatcher() : bus_(dbus_thread_linux::GetSharedSessionBus()) {
     TryCurrentService();
   }
 
-  LockState lock_state() const { return lock_state_; }
-
- private:
   ~DBusScreenSaverWatcher() = default;
 
   // Starts the initialisation sequence for the current service.  Failure at any
   // step will increment the service counter and re-start the process.
   void TryCurrentService() {
     // Detach the proxy, if we have one from the previous attempt.
-    if (proxy_) {
-      CHECK_GT(current_service_, 0u);
-      proxy_ = nullptr;
+    if (current_service_ > 0) {
       bus_->RemoveObjectProxy(
           kServices[current_service_ - 1].service_name,
           dbus::ObjectPath(kServices[current_service_ - 1].object_path),
@@ -121,10 +134,10 @@ class DBusScreenSaverWatcher {
     }
 
     // Now connect the ActiveChanged signal.
-    proxy_ = bus_->GetObjectProxy(
+    dbus::ObjectProxy* proxy = bus_->GetObjectProxy(
         kServices[current_service_].service_name,
         dbus::ObjectPath(kServices[current_service_].object_path));
-    proxy_->ConnectToSignal(
+    proxy->ConnectToSignal(
         kServices[current_service_].interface, kSignalName,
         base::BindRepeating(&DBusScreenSaverWatcher::OnActiveChanged,
                             weak_factory_.GetWeakPtr()),
@@ -153,7 +166,10 @@ class DBusScreenSaverWatcher {
     // make an explicit method call and check that no error is returned.
     dbus::MethodCall method_call(kServices[current_service_].interface,
                                  kMethodName);
-    proxy_->CallMethodWithErrorResponse(
+    dbus::ObjectProxy* proxy = bus_->GetObjectProxy(
+        kServices[current_service_].service_name,
+        dbus::ObjectPath(kServices[current_service_].object_path));
+    proxy->CallMethodWithErrorResponse(
         &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
         base::BindOnce(&DBusScreenSaverWatcher::OnGetActive,
                        weak_factory_.GetWeakPtr()));
@@ -179,7 +195,15 @@ class DBusScreenSaverWatcher {
     if (!reader.PopBool(&active) || reader.HasMoreData()) {
       return false;
     }
-    lock_state_ = active ? LockState::kLocked : LockState::kUnlocked;
+    LockState new_lock_state =
+        active ? LockState::kLocked : LockState::kUnlocked;
+    if (lock_state_ == new_lock_state) {
+      return true;
+    }
+
+    lock_state_ = new_lock_state;
+    callbacks_.Notify(lock_state_ == LockState::kLocked);
+
     return true;
   }
 
@@ -191,19 +215,24 @@ class DBusScreenSaverWatcher {
   size_t current_service_ = 0;
 
   scoped_refptr<dbus::Bus> bus_;
-  raw_ptr<dbus::ObjectProxy> proxy_ = nullptr;
+  base::RepeatingCallbackList<void(bool)> callbacks_;
 
   base::WeakPtrFactory<DBusScreenSaverWatcher> weak_factory_{this};
 };
 
-DBusScreenSaverWatcher* GetDBusScreenSaverWatcher() {
-  static base::NoDestructor<DBusScreenSaverWatcher> impl;
-  return impl.get();
-}
-
 }  // namespace
 
 #endif  // BUILDFLAG(USE_DBUS)
+
+base::CallbackListSubscription AddScreenLockCallback(
+    base::RepeatingCallback<void(bool)> callback) {
+#if BUILDFLAG(USE_DBUS)
+  return DBusScreenSaverWatcher::GetInstance()->AddCallback(
+      std::move(callback));
+#else
+  return {};
+#endif
+}
 
 int CalculateIdleTime() {
   auto* const screen = display::Screen::Get();
@@ -220,7 +249,7 @@ bool CheckIdleStateIsLocked() {
   }
 
 #if BUILDFLAG(USE_DBUS)
-  auto lock_state = GetDBusScreenSaverWatcher()->lock_state();
+  auto lock_state = DBusScreenSaverWatcher::GetInstance()->lock_state();
   if (lock_state != DBusScreenSaverWatcher::LockState::kUnknown) {
     return lock_state == DBusScreenSaverWatcher::LockState::kLocked;
   }

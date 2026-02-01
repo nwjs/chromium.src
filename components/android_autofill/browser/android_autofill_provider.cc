@@ -108,9 +108,6 @@ WebAuthnCredManDelegate* GetCredManDelegate(AutofillManager* manager) {
 }
 
 bool AllowCredManOnField(const FormFieldData& field) {
-  // TODO(crbug.com/380405846): Carefully clean up this check when the feature
-  // is launched such that it doesn't accidentally get launched for WebView.
-
   return field.parsed_autocomplete() && field.parsed_autocomplete()->webauthn;
 }
 
@@ -262,7 +259,8 @@ void AndroidAutofillProvider::StartNewSession(AndroidAutofillManager* manager,
     session_state_.emplace();
   }
 
-  FormStructure* form_structure = manager->FindCachedFormById(form.global_id());
+  const FormStructure* form_structure =
+      manager->FindCachedFormById(form.global_id());
   FormDataAndroid* cached_form =
       cached_data_ ? cached_data_->cached_form.get() : nullptr;
   const bool is_similar_to_cached_form =
@@ -494,7 +492,7 @@ void AndroidAutofillProvider::OnFormSubmitted(AndroidAutofillManager* manager,
   }
   CHECK(session_state_ && session_state_->manager);
 
-  if (FormStructure* form_structure =
+  if (const FormStructure* form_structure =
           session_state_->manager->FindCachedFormById(form.global_id());
       source == mojom::SubmissionSource::DOM_MUTATION_AFTER_AUTOFILL &&
       (!form_structure ||

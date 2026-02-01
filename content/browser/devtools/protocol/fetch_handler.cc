@@ -98,10 +98,13 @@ bool FetchHandler::MaybeCreateProxyForInterception(
     const base::UnguessableToken& frame_token,
     bool is_navigation,
     bool is_download,
-    network::mojom::URLLoaderFactoryOverride* intercepting_factory) {
-  return interceptor_ && interceptor_->CreateProxyForInterception(
-                             process_id, storage_partition, frame_token,
-                             is_navigation, is_download, intercepting_factory);
+    network::mojom::URLLoaderFactoryOverride* intercepting_factory,
+    mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
+        header_client) {
+  return interceptor_ &&
+         interceptor_->CreateProxyForInterception(
+             process_id, storage_partition, frame_token, is_navigation,
+             is_download, intercepting_factory, header_client);
 }
 
 void FetchHandler::Enable(
@@ -219,12 +222,9 @@ void FetchHandler::FailRequest(const String& requestId,
 }
 
 namespace {
-std::string GetReasonPhrase(int responseCode) {
-  if (const char* phrase = net::TryToGetHttpReasonPhrase(
-          static_cast<net::HttpStatusCode>(responseCode))) {
-    return phrase;
-  }
-  return "";
+std::string GetReasonPhrase(int response_code) {
+  return std::string(
+      net::GetHttpReasonPhrase(response_code, /*default_value=*/""));
 }
 }  // namespace
 

@@ -7,6 +7,7 @@
 #include "base/callback_list.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/process/kill.h"
 #include "build/build_config.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/sessions/session_restore.h"
@@ -33,10 +34,24 @@ BASE_FEATURE(kSessionRestoreShowThrobberOnVisible,
 
 }  // namespace
 
+DEFINE_USER_DATA(TabUIHelper);
+
 TabUIHelper::TabUIHelper(tabs::TabInterface& tab_interface)
-    : ContentsObservingTabFeature(tab_interface) {}
+    : ContentsObservingTabFeature(tab_interface),
+      scoped_unowned_user_data_(tab_interface.GetUnownedUserDataHost(), *this) {
+}
 
 TabUIHelper::~TabUIHelper() = default;
+
+// static
+const TabUIHelper* TabUIHelper::From(const tabs::TabInterface* tab) {
+  return Get(tab->GetUnownedUserDataHost());
+}
+
+// static
+TabUIHelper* TabUIHelper::From(tabs::TabInterface* tab) {
+  return Get(tab->GetUnownedUserDataHost());
+}
 
 std::u16string TabUIHelper::GetTitle() const {
   const tab_groups::SavedTabGroupWebContentsListener* wc_listener =
@@ -89,6 +104,19 @@ void TabUIHelper::SetWasActiveAtLeastOnce() {
   if (!base::FeatureList::IsEnabled(kSessionRestoreShowThrobberOnVisible)) {
     was_active_at_least_once_ = true;
   }
+}
+
+bool TabUIHelper::IsCrashed() {
+  const base::TerminationStatus crashed_status =
+      web_contents()->GetCrashedStatus();
+  return (crashed_status == base::TERMINATION_STATUS_PROCESS_WAS_KILLED ||
+#if BUILDFLAG(IS_CHROMEOS)
+          crashed_status ==
+              base::TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM ||
+#endif
+          crashed_status == base::TERMINATION_STATUS_PROCESS_CRASHED ||
+          crashed_status == base::TERMINATION_STATUS_ABNORMAL_TERMINATION ||
+          crashed_status == base::TERMINATION_STATUS_LAUNCH_FAILED);
 }
 
 base::CallbackListSubscription TabUIHelper::AddTitleUpdatedCallback(

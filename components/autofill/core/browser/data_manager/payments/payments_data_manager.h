@@ -5,7 +5,6 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_PAYMENTS_PAYMENTS_DATA_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MANAGER_PAYMENTS_PAYMENTS_DATA_MANAGER_H_
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -287,6 +286,9 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
 
   // Delete all local credit cards.
   void DeleteAllLocalCreditCards();
+
+  // Checks whether all credit cards are local.
+  bool HasAllLocalCreditCards() const;
 
   // Updates |credit_card| which already exists in the web database. This
   // can only be used on local credit cards.

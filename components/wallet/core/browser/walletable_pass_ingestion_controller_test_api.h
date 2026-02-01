@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/check_deref.h"
+#include "base/functional/bind.h"
 #include "base/memory/raw_ref.h"
 #include "components/wallet/core/browser/walletable_pass_ingestion_controller.h"
 #include "url/gurl.h"
@@ -25,27 +26,27 @@ class WalletablePassIngestionControllerTestApi {
       WalletablePassIngestionController* controller)
       : controller_(CHECK_DEREF(controller)) {}
 
-  std::optional<optimization_guide::proto::PassCategory> GetPassCategoryForURL(
-      const GURL& url) {
+  std::optional<PassCategory> GetPassCategoryForURL(const GURL& url) {
     return controller_->GetPassCategoryForURL(url);
   }
 
   void ExtractWalletablePass(
       const GURL& url,
-      optimization_guide::proto::PassCategory pass_category,
+      PassCategory pass_category,
       const optimization_guide::proto::AnnotatedPageContent&
           annotated_page_content) {
+    base::RepeatingClosure barrier = base::BindRepeating(
+        &WalletablePassIngestionController::FinishExtraction,
+        base::Unretained(&controller_.get()), url);
     controller_->ExtractWalletablePass(url, pass_category,
-                                       annotated_page_content);
+                                       annotated_page_content, barrier);
   }
 
   void StartWalletablePassDetectionFlow(const GURL& url) {
     controller_->StartWalletablePassDetectionFlow(url);
   }
 
-  void ShowConsentBubble(
-      const GURL& url,
-      optimization_guide::proto::PassCategory pass_category) {
+  void ShowConsentBubble(const GURL& url, PassCategory pass_category) {
     controller_->ShowConsentBubble(url, pass_category);
   }
 
@@ -53,9 +54,7 @@ class WalletablePassIngestionControllerTestApi {
     controller_->ShowSaveBubble(url, std::move(walletable_pass));
   }
 
-  void MaybeStartExtraction(
-      const GURL& url,
-      optimization_guide::proto::PassCategory pass_category) {
+  void MaybeStartExtraction(const GURL& url, PassCategory pass_category) {
     controller_->MaybeStartExtraction(url, pass_category);
   }
 

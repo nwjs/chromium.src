@@ -529,15 +529,14 @@ void SpdySessionPool::MakeCurrentSessionsGoingAway(Error error) {
   }
 }
 
-std::unique_ptr<base::Value> SpdySessionPool::SpdySessionPoolInfoToValue()
-    const {
-  base::Value::List list;
+base::Value SpdySessionPool::SpdySessionPoolInfoToValue() const {
+  auto list = base::Value::List::with_capacity(sessions_.size());
 
   for (const auto& session : sessions_) {
     list.Append(session->GetInfoAsValue());
   }
 
-  return std::make_unique<base::Value>(std::move(list));
+  return base::Value(std::move(list));
 }
 
 void SpdySessionPool::OnIPAddressChanged(
@@ -635,7 +634,7 @@ void SpdySessionPool::RemoveRequestForSpdySession(SpdySessionRequest* request) {
                        weak_ptr_factory_.GetWeakPtr(), request->key()));
   }
 
-  DCHECK(base::Contains(iter->second.request_set, request));
+  DCHECK(iter->second.request_set.contains(request));
   RemoveRequestInternal(iter, iter->second.request_set.find(request));
 }
 
@@ -655,7 +654,7 @@ void SpdySessionPool::MapKeyToAvailableSession(
     const SpdySessionKey& key,
     const base::WeakPtr<SpdySession>& session,
     std::set<std::string> dns_aliases) {
-  DCHECK(base::Contains(sessions_, session.get()));
+  DCHECK(sessions_.contains(session.get()));
   std::pair<AvailableSessionMap::iterator, bool> result =
       available_sessions_.emplace(key, session);
   CHECK(result.second);
@@ -947,12 +946,12 @@ void SpdySessionPool::AddConnectionManagementConfig(
   // We only want to use the connection management config for the session if the
   // feature is enabled.
   if (connection_management_config.connection_change_observer) {
-    if (!base::Contains(connection_change_notifier_map_, key)) {
+    if (!connection_change_notifier_map_.contains(key)) {
       connection_change_notifier_map_[key] =
           std::make_unique<ConnectionChangeNotifier>();
     }
     connection_change_notifier_map_[key]->AddObserver(
-        connection_management_config.connection_change_observer);
+        connection_management_config.connection_change_observer.get());
   }
 }
 

@@ -35,6 +35,7 @@
 #include "components/search_provider_logos/logo_common.h"
 #include "components/segmentation_platform/public/result.h"
 #include "components/themes/ntp_background_service_observer.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -135,9 +136,9 @@ class NewTabPageHandler
   void OnDismissModule(const std::string& module_id) override;
   void OnRestoreModule(const std::string& module_id) override;
   void SetModulesVisible(bool visible) override;
-  void SetModuleDisabled(const std::string& module_id, bool disabled) override;
   void SetModulesDisabled(const std::vector<std::string>& module_ids,
-                          bool disabled) override;
+                          bool disabled,
+                          bool is_user_action) override;
   void UpdateDisabledModules() override;
   void UpdateFooterVisibility() override;
   void OnModulesLoadedWithData(
@@ -221,7 +222,9 @@ class NewTabPageHandler
                                     const std::string& module_id,
                                     int delay_time_ms = 0);
   void MaybeShowWebstoreToast();
+
   void RecordModuleInteraction(const std::string& module_id);
+
   void IncrementDictPrefKeyCount(const std::string& pref_name,
                                  const std::string& key);
 
@@ -241,6 +244,8 @@ class NewTabPageHandler
   std::vector<std::string> GetModulesEligibleForRemoval() const;
   void SetStaleModulesDisabled(const std::vector<std::string>& module_ids,
                                bool disabled);
+
+  void TryShowRealboxContextualMenuIPH(ui::TrackedElement* element);
 
   // Synchronizes Microsoft module enablement with their current authentication
   // state. The return value indicates whether the modules should be considered
@@ -289,6 +294,8 @@ class NewTabPageHandler
   base::Value::Dict interaction_module_id_trigger_dict_;
   // Notifies this when the browser window context changes.
   base::CallbackListSubscription browser_window_changed_subscription_;
+  // Triggered when the searchbox's contextual menu entrypoint is displayed.
+  base::CallbackListSubscription searchbox_shown_subscription_;
 
   // These are located at the end of the list of member variables to ensure the
   // WebUI page is disconnected before other members are destroyed.

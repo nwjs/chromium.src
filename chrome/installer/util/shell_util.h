@@ -12,10 +12,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -75,7 +77,6 @@ class ShellUtil {
     SHORTCUT_LOCATION_DESKTOP = SHORTCUT_LOCATION_FIRST,
     SHORTCUT_LOCATION_QUICK_LAUNCH,
     SHORTCUT_LOCATION_START_MENU_ROOT,
-    SHORTCUT_LOCATION_START_MENU_CHROME_DIR_DEPRECATED,  // now placed in root
     SHORTCUT_LOCATION_START_MENU_CHROME_APPS_DIR,
     SHORTCUT_LOCATION_TASKBAR_PINS,   // base::win::Version::WIN7 +
     SHORTCUT_LOCATION_APP_SHORTCUTS,  // base::win::Version::WIN8 +
@@ -315,8 +316,10 @@ class ShellUtil {
   static const wchar_t* kDefaultFileAssociations[];
 
   // File extensions that Chrome registers itself as being capable of
-  // handling.
-  static const wchar_t* kPotentialFileAssociations[];
+  // handling as a web browser.
+  static constexpr std::array<std::wstring_view, 8> kPotentialFileAssociations =
+      {L".htm", L".html", L".mhtml", L".shtml",
+       L".svg", L".xht",  L".xhtml", L".webp"};
 
   // Protocols that Chrome registers itself as the default handler for
   // when the user makes Chrome the default browser.
@@ -392,13 +395,6 @@ class ShellUtil {
   // Populates the uninitialized members of |properties| with default values.
   static void AddDefaultShortcutProperties(const base::FilePath& target_exe,
                                            ShortcutProperties* properties);
-
-  // Move an existing shortcut from |old_location| to |new_location| for the
-  // set |shortcut_level|.  If the folder containing |old_location| is then
-  // empty, it will be removed.
-  static bool MoveExistingShortcut(ShortcutLocation old_location,
-                                   ShortcutLocation new_location,
-                                   const ShortcutProperties& properties);
 
   // This converts ShellUtil's `location`, `properties`, and `operation` into
   // their base::win equivalents so callers can get the behavior of
@@ -524,8 +520,9 @@ class ShellUtil {
   static bool ShowMakeChromeDefaultSystemUI(const base::FilePath& chrome_exe);
 
   // Opens the Windows settings dialog allowing the user to choose the default
-  // app for the given `file_extension`. It must be one of the extensions in
-  // `kPotentialFileAssociations`. The dialog will be parented to `parent_hwnd`.
+  // app for the given `file_extension`. It must be one of the extensions for
+  // which the browser is registered to handle. The dialog will be parented to
+  // `parent_hwnd`.
   // It reads:
   //   * Windows 10: "How do you want to open `file_extension` files from now
   //     on?"

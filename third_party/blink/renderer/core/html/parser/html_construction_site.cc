@@ -292,7 +292,10 @@ static inline void ExecuteTakeAllChildrenTask(HTMLConstructionSiteTask& task) {
 static inline void ExecuteRemoveChildrenTask(HTMLConstructionSiteTask& task) {
   DCHECK_EQ(task.operation, HTMLConstructionSiteTask::kRemoveChildren);
 
-  task.parent->ParserRemoveAllChildren();
+  // Note that there is currently no special "ParserRemoveChildren" method, as
+  // removing children by patch templates has the same effect as removing them
+  // with a JS call.
+  task.parent->RemoveChildren();
 }
 
 static inline void ExecuteReplaceChildTask(HTMLConstructionSiteTask& task) {
@@ -599,9 +602,9 @@ void HTMLConstructionSite::InsertHTMLHtmlStartTagBeforeHTML(
   DCHECK(document_);
   HTMLHtmlElement* element;
   if (const auto* is_attribute = token->GetAttributeItem(html_names::kIsAttr)) {
-    element = To<HTMLHtmlElement>(
-        document_->CreateElement(html_names::kHTMLTag, GetCreateElementFlags(),
-                                 is_attribute->Value(), /*registry*/ nullptr));
+    element = To<HTMLHtmlElement>(document_->CreateElement(
+        html_names::kHTMLTag, GetCreateElementFlags(), is_attribute->Value(),
+        CustomElementRegistry::DefaultRegistry(*document_)));
   } else {
     element = MakeGarbageCollected<HTMLHtmlElement>(*document_);
   }
@@ -1092,7 +1095,7 @@ void HTMLConstructionSite::InsertScriptElement(AtomicHTMLToken* token) {
   if (const auto* is_attribute = token->GetAttributeItem(html_names::kIsAttr)) {
     element = To<HTMLScriptElement>(OwnerDocumentForCurrentNode().CreateElement(
         html_names::kScriptTag, flags, is_attribute->Value(),
-        /*registry*/ nullptr));
+        CustomElementRegistry::DefaultRegistry(OwnerDocumentForCurrentNode())));
   } else {
     element = MakeGarbageCollected<HTMLScriptElement>(
         OwnerDocumentForCurrentNode(), flags);

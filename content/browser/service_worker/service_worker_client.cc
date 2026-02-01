@@ -9,7 +9,6 @@
 
 #include "base/check_is_test.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
 #include "base/notreached.h"
@@ -328,7 +327,7 @@ void ServiceWorkerClient::AddMatchingRegistration(
     return;
   }
   size_t key = registration->scope().spec().size();
-  if (base::Contains(matching_registrations_, key)) {
+  if (matching_registrations_.contains(key)) {
     return;
   }
   registration->AddListener(this);
@@ -799,7 +798,8 @@ GlobalRenderFrameHostId ServiceWorkerClient::GetRenderFrameHostId() const {
 
 int ServiceWorkerClient::GetProcessId() const {
   if (IsContainerForWindowClient()) {
-    return GetRenderFrameHostId().child_id;
+    // TODO(crbug.com/379869738) Remove GetUnsafeValue.
+    return GetRenderFrameHostId().child_id.GetUnsafeValue();
   }
   DCHECK(IsContainerForWorkerClient());
   return process_id_for_worker_client_;

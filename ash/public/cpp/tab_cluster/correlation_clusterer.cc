@@ -9,7 +9,6 @@
 #include <set>
 
 #include "ash/public/cpp/tab_cluster/undirected_graph.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
@@ -181,8 +180,8 @@ void CorrelationClusterer::MoveNodeToCluster(const int node,
   cluster_sizes_[old_cluster] -= 1;
   cluster_weights_[old_cluster] -= weight;
   if (cluster_sizes_[old_cluster] == 0) {
-    DCHECK_EQ(static_cast<int>(cluster_sizes_.erase(old_cluster)), 1);
-    DCHECK_EQ(static_cast<int>(cluster_weights_.erase(old_cluster)), 1);
+    DCHECK_EQ(cluster_sizes_.erase(old_cluster), 1u);
+    DCHECK_EQ(cluster_weights_.erase(old_cluster), 1u);
   }
   clustering_[node] = new_cluster;
   cluster_sizes_[new_cluster] += 1;
@@ -218,7 +217,7 @@ std::pair<std::optional<int>, double> CorrelationClusterer::BestMove(
       const auto neighbor = edge.first;
       const auto weight = edge.second;
       const int neighbor_cluster = clustering_[neighbor];
-      if (base::Contains(moving_nodes, neighbor)) {
+      if (moving_nodes.contains(neighbor)) {
         // Class 2 edge.
         if (node_cluster != neighbor_cluster) {
           class_2_currently_separate.Add(weight);

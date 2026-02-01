@@ -34,10 +34,10 @@
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/passwords/coordinator/password_utils.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_metrics.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/inline_promo_cell.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/inline_promo_item.h"
-#import "ios/chrome/browser/settings/ui_bundled/cells/settings_check_cell.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_check_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/create_password_manager_title_view.h"
@@ -49,14 +49,14 @@
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_consumer.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_settings_commands.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_table_view_constants.h"
+#import "ios/chrome/browser/settings/ui_bundled/settings_root_table_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller+toolbar_add.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller+toolbar_settings.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller.h"
-#import "ios/chrome/browser/settings/ui_bundled/utils/password_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/ui/elements/home_waiting_view.h"
-#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/image/image_names.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
@@ -309,6 +309,16 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   // Whether the VC is currently reloading data. Used to avoid modifying the
   // content while it is reloading.
   BOOL _isReloadingData;
+  // The button to close the password manager.
+  UIBarButtonItem* _closeButton;
+  // The button for the navigation bar to finish editing passwords.
+  UIBarButtonItem* _doneEditingButtonForNavigationBar;
+  // The button for the toolbar to finish editing passwords. When the search bar
+  // is active, the navigation bar is hidden. That is when this button is needed
+  // on the bottom toolbar.
+  UIBarButtonItem* _doneEditingButtonForToolbar;
+  // The button to start editing passwords.
+  UIBarButtonItem* _selectButton;
 }
 
 @synthesize manageAccountLinkItem = _manageAccountLinkItem;
@@ -414,10 +424,6 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   }
 }
 
-- (void)viewWillAppear:(BOOL)animated {
-  [super viewWillAppear:animated];
-}
-
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   _hasViewAppeared = YES;
@@ -433,6 +439,11 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
     [self logPercentageMetricForFavicons];
     _faviconMetricLogged = YES;
   }
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+  [super viewWillAppear:animated];
+  [self updateUIForEditState];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -647,8 +658,40 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
 }
 
 - (void)updateUIForEditState {
-  [super updateUIForEditState];
+  [self.navigationController setToolbarHidden:self.shouldHideToolbar
+                                     animated:YES];
+
+  self.navigationItem.rightBarButtonItem =
+      self.tableView.editing ? self.doneEditingButtonForNavigationBar
+                             : self.closeButton;
   [self updatedToolbarForEditState];
+}
+
+// Updates the toolbar based on the current edit state.
+- (void)updatedToolbarForEditState {
+  UIBarButtonItem* flexibleSpace = [[UIBarButtonItem alloc]
+      initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
+                           target:nil
+                           action:nil];
+
+  UIBarButtonItem* leadingButton = flexibleSpace;
+  UIBarButtonItem* trailingButton = flexibleSpace;
+  UIBarButtonItem* middleButton = flexibleSpace;
+  BOOL isEditing = self.tableView.editing;
+
+  if (_tableIsInSearchMode) {
+    trailingButton =
+        isEditing ? self.doneEditingButtonForToolbar : self.selectButton;
+    leadingButton =
+        isEditing ? self.deleteButton : self.settingsButtonInToolbar;
+  } else {
+    trailingButton = isEditing ? flexibleSpace : self.addOrSelectButton;
+    middleButton = isEditing ? self.deleteButton : flexibleSpace;
+    leadingButton = isEditing ? flexibleSpace : self.settingsButtonInToolbar;
+  }
+
+  [self setToolbarItems:@[ leadingButton, middleButton, trailingButton ]
+               animated:YES];
 }
 
 - (void)editButtonPressed {
@@ -656,23 +699,8 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   // because parent method -editButtonPressed is calling setEditing to change
   // the state).
   self.shouldEnableSearchBar = self.tableView.editing;
+  self.deleteButton.enabled = NO;
   [super editButtonPressed];
-}
-
-- (UIBarButtonItem*)customLeftToolbarButton {
-  return self.tableView.isEditing ? nil : self.settingsButtonInToolbar;
-}
-
-- (UIBarButtonItem*)customRightToolbarButton {
-  if (!self.tableView.isEditing) {
-    // Display Add button on the right side of the toolbar when the empty state
-    // is displayed. The Settings button will be on the left. When the tableView
-    // is not empty, the Add button is displayed in a row.
-    if ([self shouldShowEmptyStateView]) {
-      return self.addButtonInToolbar;
-    }
-  }
-  return nil;
 }
 
 #pragma mark - SettingsControllerProtocol
@@ -758,6 +786,9 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   _passwordProblemsItem.detailText =
       l10n_util::GetNSString(IDS_IOS_PASSWORD_CHECKUP_DESCRIPTION);
   _passwordProblemsItem.accessibilityTraits = UIAccessibilityTraitHeader;
+  _passwordProblemsItem.infoButtonTarget = self;
+  _passwordProblemsItem.infoButtonSelector =
+      @selector(didTapPasswordCheckInfoButton:);
   return _passwordProblemsItem;
 }
 
@@ -859,18 +890,12 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
 }
 
 - (void)didTapWidgetPromoCloseButton {
-  UmaHistogramEnumeration(kPasswordManagerWidgetPromoActionHistogram,
-                          PasswordManagerWidgetPromoAction::kClose);
-
   [self clearSectionWithIdentifier:SectionIdentifierWidgetPromo
                   withRowAnimation:UITableViewRowAnimationFade];
   [self.delegate notifyFETOfPasswordManagerWidgetPromoDismissal];
 }
 
 - (void)didTapWidgetPromoMoreInfoButton {
-  UmaHistogramEnumeration(kPasswordManagerWidgetPromoActionHistogram,
-                          PasswordManagerWidgetPromoAction::kOpenInstructions);
-
   [self.presentationDelegate showPasswordManagerWidgetPromoInstructions];
 }
 
@@ -2078,6 +2103,68 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   }
 }
 
+// Returns the button that closes the password manager.
+- (UIBarButtonItem*)closeButton {
+  if (!_closeButton) {
+    _closeButton = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemClose
+                             target:self
+                             action:@selector(closePasswordManager)];
+    _closeButton.accessibilityIdentifier = kSettingsDoneButtonId;
+  }
+  return _closeButton;
+}
+
+// Returns the button that starts editing passwords.
+- (UIBarButtonItem*)selectButton {
+  if (!_selectButton) {
+    _selectButton = [[UIBarButtonItem alloc]
+        initWithTitle:l10n_util::GetNSString(IDS_IOS_SETTINGS_TOOLBAR_SELECT)
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(editButtonPressed)];
+    _selectButton.accessibilityIdentifier = kSettingsToolbarEditButtonId;
+  }
+  return _selectButton;
+}
+
+// Returns the button for the navigation bar that finishes editing passwords.
+- (UIBarButtonItem*)doneEditingButtonForNavigationBar {
+  if (!_doneEditingButtonForNavigationBar) {
+    _doneEditingButtonForNavigationBar = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                             target:self
+                             action:@selector(editButtonPressed)];
+    _doneEditingButtonForNavigationBar.accessibilityIdentifier =
+        kSettingsToolbarEditDoneButtonId;
+  }
+  return _doneEditingButtonForNavigationBar;
+}
+
+// Returns the button for the toolbar that finishes editing passwords.
+- (UIBarButtonItem*)doneEditingButtonForToolbar {
+  if (!_doneEditingButtonForToolbar) {
+    _doneEditingButtonForToolbar =
+        [self createEditModeDoneButtonForToolbar:YES];
+  }
+  return _doneEditingButtonForToolbar;
+}
+
+// Returns either the "Add" button or the "Select" button based on the current
+// state.
+- (UIBarButtonItem*)addOrSelectButton {
+  return [self shouldShowEmptyStateView] ? [self addButtonInToolbar]
+                                         : [self selectButton];
+}
+
+// Closes the password manager.
+- (void)closePasswordManager {
+  SettingsNavigationController* navigationController =
+      base::apple::ObjCCast<SettingsNavigationController>(
+          self.navigationController);
+  [navigationController closeSettings];
+}
+
 #pragma mark - UITableViewDelegate
 
 - (void)tableView:(UITableView*)tableView
@@ -2249,15 +2336,8 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
           kWidgetPromoImageID;
       break;
     }
-    case ItemTypePasswordCheckStatus: {
-      SettingsCheckCell* passwordCheckCell =
-          base::apple::ObjCCastStrict<SettingsCheckCell>(cell);
-      [passwordCheckCell.infoButton
-                 addTarget:self
-                    action:@selector(didTapPasswordCheckInfoButton:)
-          forControlEvents:UIControlEventTouchUpInside];
+    case ItemTypePasswordCheckStatus:
       break;
-    }
     case ItemTypeSavedPassword:
     case ItemTypeBlocked: {
       // Load the favicon from cache.

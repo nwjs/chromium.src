@@ -127,7 +127,7 @@
 <translation id="1394698770495054737">完全模糊</translation>
 <translation id="1395878931462960119">{DAYS,plural, =1{1 天前}other{# 天前}}</translation>
 <translation id="1404963891829069586">「專注模式」音效</translation>
-<translation id="1407069428457324124">深色主題背景</translation>
+<translation id="1407069428457324124">深色主題</translation>
 <translation id="1410568680128842168"><ph name="DATE_CELL_TOOL_TIP" />。用方向鍵就可以喺日期之間移動。</translation>
 <translation id="141170878022560212">中間按鈕</translation>
 <translation id="1414271762428216854"><ph name="APP_NAME" />，已經安裝嘅應用程式</translation>
@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">第 <ph name="INDEX" /> 張近期相片 (共 <ph name="TOTAL_COUNT" /> 張)。</translation>
 <translation id="2201687081523799384">收合 Google Tasks</translation>
 <translation id="2208323208084708176">統一桌面模式</translation>
+<translation id="2210311543574621570">按住 Ctrl + V 鍵即可查看剪貼簿。你可在 chrome://flags 中停用 #clipboard-history-longpress 標記來關閉此快速鍵。</translation>
 <translation id="2215920961700443347">沒有互聯網連線。請連接互聯網，然後再試一次。</translation>
 <translation id="2222841058024245321">桌面 7</translation>
 <translation id="2223384056430485343">喺分割螢幕</translation>
@@ -693,7 +694,7 @@
 <translation id="3401474642070997151">如要自訂建議，請用右鍵點擊或按住建議</translation>
 <translation id="3405101454990027959">開啟麥克風存取權</translation>
 <translation id="3409584356742878290">顯示或隱藏 Developer Tools 檢查器</translation>
-<translation id="3410336247007142655">顯示深色主題背景設定</translation>
+<translation id="3410336247007142655">顯示深色主題設定</translation>
 <translation id="3413817803639110246">目前尚未有任何通知</translation>
 <translation id="3417835166382867856">搜尋分頁</translation>
 <translation id="3426253816581969877">按住 <ph name="MODIFIER_1" /><ph name="MODIFIER_2" /> 鍵並輕按 <ph name="KEY" /> 鍵，直到切換至您要開啟的視窗，然後鬆開手指</translation>
@@ -874,6 +875,7 @@
 <translation id="397105322502079400">計算中…</translation>
 <translation id="397726367135689299">電池充電可能不可靠。</translation>
 <translation id="3977512764614765090">電量有 <ph name="PERCENTAGE" />%，宜家差緊電。</translation>
+<translation id="3978162107953847778">從瀏覽記錄和「Google 雲端硬碟」等位置插入連結。你亦可插入 Emoji、圖像檔案等內容。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">要切換音訊輸出裝置嗎？</translation>
 <translation id="3984536049089846927">下一頁</translation>
 <translation id="3986082989454912832">接聽</translation>
@@ -1024,7 +1026,6 @@
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 則重要通知}other{# 則重要通知}}</translation>
 <translation id="4450893287417543264">不要再顯示</translation>
 <translation id="4451374464530248585">「Alt + 向下箭咀」的鍵盤快速鍵已變更。如要使用 Page Down 鍵，請按下<ph name="LAUNCHER_KEY_NAME" />鍵 + 向下箭咀。</translation>
-<translation id="4453876312474547652">按住 Ctrl + V 鍵查看剪貼簿。您可在 chrome://flags 中 (如使用 Lacros，則在 os://flags 中) 停用 #clipboard-history-longpress 標記來關閉此快速鍵。</translation>
 <translation id="445765352722456792">自訂建議</translation>
 <translation id="4458688154122353284">停止螢幕錄影</translation>
 <translation id="445923051607553918">加入 Wi-Fi 網絡</translation>
@@ -1070,7 +1071,7 @@
 <translation id="458210817642223147">錄製 GIF</translation>
 <translation id="4582666543382004902">已關閉熱點以使用 Wi-Fi。如要使用熱點，請關閉 Wi-Fi。</translation>
 <translation id="4585337515783392668">停止投放到不明嘅接收器</translation>
-<translation id="4596144739579517758">深色主題背景已關閉</translation>
+<translation id="4596144739579517758">深色主題已關閉</translation>
 <translation id="4596442969149038771"><ph name="USER" />已分享</translation>
 <translation id="4610493115106525653">輸出內容良好</translation>
 <translation id="4611292653554630842">登入</translation>
@@ -1307,7 +1308,7 @@
 <translation id="5331975486040154427">USB-C 裝置 (左側後方連接埠)</translation>
 <translation id="533282197239610265">顯示投放裝置</translation>
 <translation id="5344128444027639014"><ph name="BATTERY_PERCENTAGE" />% (右邊)</translation>
-<translation id="5352250171825660495">深色主題背景已開啟</translation>
+<translation id="5352250171825660495">深色主題已開啟</translation>
 <translation id="5354804064646502504">這種情況可能需要支付數據費用。
 未連接任何裝置。</translation>
 <translation id="5356963482258194581">在深色和淺色主題背景之間切換。請在桌面上按一下右鍵，並選取「桌布和樣式」。</translation>
@@ -1495,7 +1496,7 @@
 <translation id="5958529069007801266">受管使用者</translation>
 <translation id="596035801491797438">關閉「人臉操控」</translation>
 <translation id="5960410286721553511">查看手機最近的相片和媒體</translation>
-<translation id="5965524703725988602">切換深色主題背景。<ph name="STATE_TEXT" />。</translation>
+<translation id="5965524703725988602">切換深色主題。<ph name="STATE_TEXT" />。</translation>
 <translation id="5975235751479998104">向前循環切換視窗</translation>
 <translation id="5978382165065462689">透過「遠端協助」共用螢幕控制權。</translation>
 <translation id="5980301590375426705">結束訪客工作階段</translation>
@@ -1599,6 +1600,7 @@
 <translation id="6260038345397266744"><ph name="TITLE" />。<ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />：正在啟用…</translation>
 <translation id="6274202259872570803">螢幕截圖</translation>
+<translation id="6274422179279280249">你可插入連結、Emoji 等內容，亦可讓 Google AI 協助你寫作。<ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">查看網頁原始碼</translation>
 <translation id="6285871695023807425">新增至「日曆」</translation>
 <translation id="6288235558961782912">您可稍後在家長許可下重新新增 <ph name="USER_EMAIL_ADDRESS" />。</translation>
@@ -2062,7 +2064,7 @@
 <translation id="7875575368831396199"><ph name="DEVICE_TYPE" /> 上的藍牙似乎已關閉。請開啟藍牙，才能使用 Phone Hub。</translation>
 <translation id="7884446017008693258">熱點設定</translation>
 <translation id="7884902759927478774">取消分頁拖曳</translation>
-<translation id="7886169021410746335">調整私隱權設定</translation>
+<translation id="7886169021410746335">調整私隱設定</translation>
 <translation id="7886277072580235377">登出帳戶後，系統將清除您的互聯網工作階段。<ph name="LEARN_MORE" /></translation>
 <translation id="7893503627044934815">不想顯示此檔案</translation>
 <translation id="7895348134893321514">Tote</translation>
@@ -2188,6 +2190,7 @@
 <translation id="8237964652943995219">下一個桌面：<ph name="DESK_NAME" />。第 <ph name="DESK_INDEX" /> 個桌面，共 <ph name="DESK_COUNT" /> 個。</translation>
 <translation id="8238817965863339552">請觀看快速導覽，瞭解如何操作 <ph name="PRODUCT_NAME" />。只需 5 個步驟就能開始運作。</translation>
 <translation id="8239034820133090126">啟用右側桌面</translation>
+<translation id="8241650983304689286">將分頁加入新的分割檢視畫面</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />，訊號強度係 <ph name="SIGNAL_STRENGTH" />，手機電量係 <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">顯示所有「Google 雲端硬碟」內容</translation>
 <translation id="8257510091797044096">設定你的裝置</translation>
@@ -2350,7 +2353,7 @@
 <translation id="8847100217801213944">顯示華氏溫度</translation>
 <translation id="8849001918648564819">隱藏</translation>
 <translation id="8855885154700222542">全螢幕鍵</translation>
-<translation id="8858369206579825206">私隱權設定</translation>
+<translation id="8858369206579825206">私隱設定</translation>
 <translation id="8860366331836346216">新增 eSIM 卡</translation>
 <translation id="8869149849311827122">確定要停用滑鼠游標控制嗎？</translation>
 <translation id="8870509716567206129">應用程式不支援分割畫面。</translation>

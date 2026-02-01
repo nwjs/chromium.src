@@ -12,6 +12,7 @@
 #include <tuple>
 #include <vector>
 
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/dbus/utils/connect_to_signal.h"
@@ -103,7 +104,7 @@ class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
                          const std::string& signal_name,
                          bool success);
 
-  void OnServiceStarted(bool service_started);
+  void OnServiceStarted(uint32_t version);
 
   void CreateSession();
 

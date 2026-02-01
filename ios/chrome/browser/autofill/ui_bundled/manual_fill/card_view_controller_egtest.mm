@@ -8,8 +8,8 @@
 #import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/form_input_accessory/test/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
-#import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_matchers.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
@@ -226,14 +226,12 @@ void CheckChipButtonsOfLocalCard() {
   autofill::CreditCard card = autofill::test::GetCreditCard();
   std::string locale = l10n_util::GetLocaleOverride();
 
-  if (base::ios::IsRunningOnIOS18OrLater()) {
-  } else {
-    // On iOS 17.5, a rendering issue in tests prevents some cells from
-    // displaying correctly. This scroll action ensures their proper visibility.
-    [[EarlGrey
-        selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
-        performAction:grey_scrollInDirection(kGREYDirectionDown, 10)];
-  }
+  // A rendering issue in tests prevents some cells from displaying correctly.
+  // This scroll action ensures their proper visibility.
+  [[[EarlGrey
+      selectElementWithMatcher:manual_fill::CreditCardTableViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
 
   [[EarlGrey selectElementWithMatcher:LocalCardNumberChipButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
@@ -346,17 +344,9 @@ void DismissPaymentBottomSheet() {
       @"Unexpected histogram error for number of visible suggestions.");
 }
 
-// TODO(crbug.com/460721951): Test is failing on ios-simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testCardChipButtonsAreAllVisible \
-  DISABLED_testCardChipButtonsAreAllVisible
-#else
-#define MAYBE_testCardChipButtonsAreAllVisible testCardChipButtonsAreAllVisible
-#endif
-
 // Tests that the saved card chip buttons are all visible in the card
 // table view controller, and that they have the right accessibility label.
-- (void)MAYBE_testCardChipButtonsAreAllVisible {
+- (void)testCardChipButtonsAreAllVisible {
   [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard.
@@ -647,18 +637,22 @@ void DismissPaymentBottomSheet() {
 }
 
 // Tests that the "Add Payment Method..." action works on OTR.
-// TODO(crbug.com/462093327): Re-enable flaky test.
-- (void)FLAKY_testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
+- (void)testOTRAddPaymentMethodActionOpensAddPaymentMethodSettings {
+  [AutofillAppInterface saveLocalCreditCard];
+
   // Open a tab in incognito.
   [ChromeEarlGrey openNewIncognitoTab];
+  // Reloading the page will ensure that the payment bottom sheet is configured.
+  // Otherwise, it can get attached in-between the first tap and second tap
+  // which will result in a flaky test.
   [self loadURL];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
-
-  [AutofillAppInterface saveLocalCreditCard];
 
   // Bring up the keyboard.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
+  DismissPaymentBottomSheet();
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -738,17 +732,19 @@ void DismissPaymentBottomSheet() {
 
 // Tests that, after switching fields, the content size of the table view didn't
 // grow.
-// TODO(crbug.com/440045841): Re-enable when fixed.
-- (void)DISABLED_testCreditCardControllerKeepsRightSize {
-  // TODO(crbug.com/443204278): Fails on iOS 26 simulator.
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-  }
+- (void)testCreditCardControllerKeepsRightSize {
   [AutofillAppInterface saveLocalCreditCard];
+
+  // Reloading the page will ensure that the payment bottom sheet is configured.
+  // Otherwise, it can get attached in-between the first tap and second tap
+  // which will result in a flaky test.
+  [self loadURL];
 
   // Bring up the keyboard.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
+  DismissPaymentBottomSheet();
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -951,6 +947,9 @@ void DismissPaymentBottomSheet() {
   // Save a server card.
   [AutofillAppInterface saveMaskedCreditCard];
 
+  // Reloading the page will ensure that the payment bottom sheet is configured.
+  // Otherwise, it can get attached in-between the first tap and second tap
+  // which will result in a flaky test.
   [self loadURL];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
 
@@ -1057,6 +1056,9 @@ void DismissPaymentBottomSheet() {
   NSString* masked_card_last_digits =
       [AutofillAppInterface saveMaskedCreditCard];
 
+  // Reloading the page will ensure that the payment bottom sheet is configured.
+  // Otherwise, it can get attached in-between the first tap and second tap
+  // which will result in a flaky test.
   [self loadURL];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
 

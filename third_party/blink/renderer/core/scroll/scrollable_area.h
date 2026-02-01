@@ -28,7 +28,7 @@
 
 #include <set>
 
-#include "base/functional/callback_helpers.h"
+#include "base/functional/callback_forward.h"
 #include "base/gtest_prod_util.h"
 #include "base/notreached.h"
 #include "cc/input/scroll_snap_data.h"
@@ -57,7 +57,7 @@
 
 namespace base {
 class SingleThreadTaskRunner;
-}
+}  // namespace base
 
 namespace cc {
 class AnimationHost;
@@ -123,20 +123,12 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                   cc::ScrollSourceType source_type,
                                   ScrollCallback on_finish);
 
-  // See https://crbug.com/413002675: `on_finish` is not always executed at the
-  // end of the scroll (example: it may be executed while the scroll is in
-  // progress for animated programmatic scrolls).
-  virtual bool SetScrollOffset(const ScrollOffset&,
-                               mojom::blink::ScrollType,
-                               cc::ScrollSourceType,
-                               mojom::blink::ScrollBehavior,
-                               ScrollCallback on_finish,
-                               bool targeted_scroll = false);
   virtual bool SetScrollOffset(
       const ScrollOffset&,
       mojom::blink::ScrollType,
       cc::ScrollSourceType,
-      mojom::blink::ScrollBehavior = mojom::blink::ScrollBehavior::kInstant);
+      mojom::blink::ScrollBehavior = mojom::blink::ScrollBehavior::kInstant,
+      bool targeted_scroll = false);
   void ScrollBy(
       const ScrollOffset&,
       mojom::blink::ScrollType,
@@ -189,23 +181,16 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // SnapForDisplacement() return true if snapping was performed, and false
   // otherwise. Note that this does not necessarily mean that any scrolling was
   // performed as a result e.g., if we are already at the snap point.
-  // The scroll callback parameter is used to set the hover state dirty and
-  // send a scroll end event when the scroll ends without snap or the snap
-  // point is the same as the scroll position.
   //
   // SnapAtCurrentPosition() calls SnapForEndPosition() with the current
   // scroll position.
-  bool SnapAtCurrentPosition(
-      bool scrolled_x,
-      bool scrolled_y,
-      cc::ScrollSourceType source_type,
-      base::ScopedClosureRunner on_finish = base::ScopedClosureRunner());
-  bool SnapForEndPosition(
-      const gfx::PointF& end_position,
-      bool scrolled_x,
-      bool scrolled_y,
-      cc::ScrollSourceType source_type,
-      base::ScopedClosureRunner on_finish = base::ScopedClosureRunner());
+  bool SnapAtCurrentPosition(bool scrolled_x,
+                             bool scrolled_y,
+                             cc::ScrollSourceType source_type);
+  bool SnapForEndPosition(const gfx::PointF& end_position,
+                          bool scrolled_x,
+                          bool scrolled_y,
+                          cc::ScrollSourceType source_type);
   bool SnapForDirection(ScrollDirectionPhysical direction);
   bool SnapForPageScroll(ScrollDirectionPhysical direction);
   bool SnapForDocumentScroll(ScrollDirectionPhysical direction);
@@ -627,6 +612,9 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   virtual void UpdateScrollMarkers() {}
 
+  // Callback whenever the visual viewport changes scroll position or scale.
+  virtual void DidUpdateVisualViewport() {}
+
  protected:
   // Deduces the mojom::blink::ScrollBehavior based on the
   // element style and the parameter set by programmatic scroll into either
@@ -678,6 +666,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
     return nullptr;
   }
 
+  virtual bool ShouldAvoidHidingOverlayScrollbars() const { return false; }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ScrollableAreaTest,
                            PopupOverlayScrollbarShouldNotFadeOut);
@@ -711,13 +701,10 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   gfx::Size PageSize() const;
 
   // Returns true if a snap point was found.
-  bool PerformSnapping(
-      const cc::SnapSelectionStrategy& strategy,
-      cc::ScrollSourceType source_type,
-      mojom::blink::ScrollBehavior behavior =
-          mojom::blink::ScrollBehavior::kSmooth,
-      base::ScopedClosureRunner on_finish = base::ScopedClosureRunner(),
-      bool preserve_pinned_marker = false);
+  bool PerformSnapping(const cc::SnapSelectionStrategy& strategy,
+                       cc::ScrollSourceType source_type,
+                       mojom::blink::ScrollBehavior behavior,
+                       bool preserve_pinned_marker);
 
   void ScrollToScrollInitialTarget(const LayoutObject*);
 

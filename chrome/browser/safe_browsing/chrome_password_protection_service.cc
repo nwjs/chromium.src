@@ -109,8 +109,9 @@
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -689,7 +690,7 @@ void ChromePasswordProtectionService::MaybeStartThreatDetailsCollection(
   resource.url = web_contents->GetLastCommittedURL();
   resource.rfh_locator =
       security_interstitials::UnsafeResourceLocator::CreateForRenderFrameToken(
-          primary_main_frame_id.child_id,
+          primary_main_frame_id.child_id.value(),
           primary_main_frame->GetFrameToken().value());
   resource.token = token;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
@@ -2040,8 +2041,8 @@ int ChromePasswordProtectionService::GetStoredVerdictCount(
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 gfx::Size ChromePasswordProtectionService::GetCurrentContentAreaSize() const {
-  return BrowserView::GetBrowserViewForBrowser(
-             GetLastActiveBrowserWindowInterfaceWithAnyProfile())
+  return GetLastActiveBrowserWindowInterfaceWithAnyProfile()
+      ->capabilities()
       ->GetContentsSize();
 }
 #endif  // FULL_SAFE_BROWSING

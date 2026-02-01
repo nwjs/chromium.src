@@ -18,9 +18,11 @@ class Browser;
 class BrowserViewLayoutDelegate;
 class InfoBarContainerView;
 class MultiContentsView;
+class ProjectsPanelView;
 class SidePanel;
 class TabStrip;
-class TabStripRegionView;
+class HorizontalTabStripRegionView;
+class VerticalTabStripRegionView;
 class WebAppFrameToolbarView;
 
 namespace views {
@@ -54,8 +56,10 @@ struct BrowserViewLayoutViews {
   raw_ptr<views::View> top_container = nullptr;
   raw_ptr<WebAppFrameToolbarView> web_app_frame_toolbar = nullptr;
   raw_ptr<views::Label> web_app_window_title = nullptr;
-  raw_ptr<TabStripRegionView> tab_strip_region_view = nullptr;
-  raw_ptr<views::View> vertical_tab_strip_container = nullptr;
+  raw_ptr<HorizontalTabStripRegionView> horizontal_tab_strip_region_view =
+      nullptr;
+  raw_ptr<VerticalTabStripRegionView> vertical_tab_strip_region_view = nullptr;
+  raw_ptr<ProjectsPanelView> projects_panel_container = nullptr;
   raw_ptr<views::View> toolbar = nullptr;
   raw_ptr<InfoBarContainerView> infobar_container = nullptr;
   raw_ptr<views::View> contents_container = nullptr;
@@ -63,12 +67,6 @@ struct BrowserViewLayoutViews {
   raw_ptr<SidePanel> toolbar_height_side_panel = nullptr;
   raw_ptr<SidePanel> contents_height_side_panel = nullptr;
   raw_ptr<views::View> side_panel_animation_content = nullptr;
-
-  // TODO(crbug.com/424236535): These can be removed once `SideBySide` is
-  // launched.
-  raw_ptr<views::View> left_aligned_side_panel_separator = nullptr;
-  raw_ptr<views::View> right_aligned_side_panel_separator = nullptr;
-  raw_ptr<views::View> side_panel_rounded_corner = nullptr;
 
   // The contents separator used for when the top container is overlaid.
   // Note: when `SideBySide` feature is disabled, this separator is also
@@ -97,12 +95,6 @@ class BrowserViewLayout : public views::LayoutManager {
   // not specified). This value is used for the main browser window only, not
   // for popups.
   static constexpr int kMainBrowserContentsMinimumWidth = 500;
-
-  // The width of the vertical tab strip.
-  //
-  // TODO(https://crbug.com/439961053): This shouldn't be hard-coded and should
-  // be reported by the vertical tabstrip itself.
-  static constexpr int kMinVerticalTabStripWidth = 240;
 
   BrowserViewLayout(const BrowserViewLayout&) = delete;
   BrowserViewLayout& operator=(const BrowserViewLayout&) = delete;

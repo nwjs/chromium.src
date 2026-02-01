@@ -20,6 +20,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_type.h"
+#include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_i18n_api.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_format_provider.h"
@@ -501,7 +502,8 @@ void AddressComponent::ParseValueAndAssignSubcomponents() {
   // As a final fallback, parse using the fallback method.
   // In some countries (e.g. India), the parsing cannot be reliably implemented
   // and the fallback method does more harm than good.
-  if (!countries_not_supporting_fallback_parsing.contains(GetCountryCode())) {
+  if (!countries_not_supporting_fallback_parsing.contains(GetCountryCode()) ||
+      !base::FeatureList::IsEnabled(features::kAutofillUseINAddressModel)) {
     ParseValueAndAssignSubcomponentsByFallbackMethod();
   }
 }
@@ -608,7 +610,7 @@ void AddressComponent::ParseValueAndAssignSubcomponentsByFallbackMethod() {
   auto subcomponent_types = GetSubcomponentTypes();
 
   // Assign one space-separated token each to all but the last subcomponent.
-  for (size_t i = 0; (i + 1) < subcomponent_types.size(); i++) {
+  for (size_t i = 0; (i + 1) < subcomponent_types.size(); ++i) {
     // If there are no tokens left, parsing is done.
     if (token_iterator == space_separated_tokens.end()) {
       return;
@@ -1357,7 +1359,7 @@ bool AddressComponent::MergeTokenEquivalentComponent(
   std::vector<int> unmerged_indices;
   unmerged_indices.reserve(subcomponents_.size());
 
-  for (size_t i = 0; i < subcomponents_.size(); i++) {
+  for (size_t i = 0; i < subcomponents_.size(); ++i) {
     CHECK_EQ(subcomponents_[i]->GetStorageType(),
              other_subcomponents.at(i)->GetStorageType());
     // If the components can't be merged directly, store the unmerged index and

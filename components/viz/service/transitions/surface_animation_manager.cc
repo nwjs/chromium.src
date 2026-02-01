@@ -88,11 +88,8 @@ void ReplaceSharedElementWithRenderPass(
       /*mask_resource_id=*/kInvalidResourceId,
       /*mask_uv_rect=*/gfx::RectF(),
       /*mask_texture_size=*/gfx::Size(),
-      /*filters_scale=*/gfx::Vector2dF(1.0f, 1.0f),
-      /*filters_origin=*/gfx::PointF(),
       /*tex_coord_rect=*/tex_coord_rect,
-      /*force_anti_aliasing_off=*/false,
-      /*backdrop_filter_quality*/ 1.f);
+      /*force_anti_aliasing_off=*/false);
 }
 
 // This function swaps a SharedElementDrawQuad with a TextureDrawQuad.
@@ -105,7 +102,8 @@ void ReplaceSharedElementWithRenderPass(
 void ReplaceSharedElementWithTexture(
     CompositorRenderPass* target_render_pass,
     const SharedElementDrawQuad& shared_element_quad,
-    ResourceId resource_id) {
+    ResourceId resource_id,
+    const gfx::Size& resource_size) {
   auto* copied_quad_state =
       target_render_pass->CreateAndAppendSharedQuadState();
   *copied_quad_state = *shared_element_quad.shared_quad_state;
@@ -118,12 +116,14 @@ void ReplaceSharedElementWithTexture(
       /*visible_rect=*/shared_element_quad.visible_rect,
       /*needs_blending=*/shared_element_quad.needs_blending,
       /*resource_id=*/resource_id,
-      /*uv_top_left=*/gfx::PointF(0, 0),
-      /*uv_bottom_right=*/gfx::PointF(1, 1),
-      /*background_color=*/SkColors::kTransparent,
-      /*nearest_neighbor=*/false,
-      /*secure_output_only=*/false,
-      /*protected_video_type=*/gfx::ProtectedVideoType::kClear);
+      /*top_left=*/gfx::PointF(0, 0),
+      /*bottom_right=*/
+      gfx::PointF(resource_size.width(), resource_size.height()),
+      /*background=*/SkColors::kTransparent,
+      /*nearest=*/false,
+      /*secure_output=*/false,
+      /*video_type=*/gfx::ProtectedVideoType::kClear,
+      /*is_tex_coords_normalized=*/false);
 }
 
 }  // namespace
@@ -135,10 +135,13 @@ SurfaceAnimationManager::CreateWithSave(
     Surface* surface,
     gpu::SharedImageInterface* shared_image_interface,
     ReservedResourceIdTracker* id_tracker,
-    SaveDirectiveCompleteCallback sequence_id_finished_callback) {
+    SaveDirectiveCompleteCallback sequence_id_finished_callback,
+    ViewTransitionResourcesCapturedCallback
+        view_transition_resources_captured_callback) {
   return base::WrapUnique(new SurfaceAnimationManager(
       directive, surface, shared_image_interface, id_tracker,
-      std::move(sequence_id_finished_callback)));
+      std::move(sequence_id_finished_callback),
+      std::move(view_transition_resources_captured_callback)));
 }
 
 SurfaceAnimationManager::SurfaceAnimationManager(
@@ -146,9 +149,13 @@ SurfaceAnimationManager::SurfaceAnimationManager(
     Surface* surface,
     gpu::SharedImageInterface* shared_image_interface,
     ReservedResourceIdTracker* id_tracker,
-    SaveDirectiveCompleteCallback sequence_id_finished_callback)
+    SaveDirectiveCompleteCallback sequence_id_finished_callback,
+    ViewTransitionResourcesCapturedCallback
+        view_transition_resources_captured_callback)
     : transferable_resource_tracker_(id_tracker),
-      saved_frame_(directive, shared_image_interface),
+      saved_frame_(directive,
+                   shared_image_interface,
+                   std::move(view_transition_resources_captured_callback)),
       surface_id_(surface->surface_id()) {
   DCHECK(directive.type() == CompositorFrameTransitionDirective::Type::kSave);
 
@@ -232,7 +239,7 @@ void SurfaceAnimationManager::RefResources(
 }
 
 void SurfaceAnimationManager::UnrefResources(
-    const std::vector<ReturnedResource>& resources) {
+    const std::vector<ReturnedResourceViz>& resources) {
   if (transferable_resource_tracker_.is_empty())
     return;
   for (const auto& resource : resources) {
@@ -292,7 +299,8 @@ bool SurfaceAnimationManager::FilterSharedElementsWithRenderPassOrResource(
       manager_it->second->RefResources({transferable_resource});
 
       ReplaceSharedElementWithTexture(&copy_pass, shared_element_quad,
-                                      resource_list->back().id);
+                                      resource_list->back().id,
+                                      resource_list->back().GetSize());
       return true;
     }
   }

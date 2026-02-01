@@ -13,12 +13,13 @@
 #import "base/feature_list.h"
 #import "base/ios/block_types.h"
 #import "base/task/sequenced_task_runner.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_cells_constants.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_collection_utils.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_view_controller.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_collection_view.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/magic_stack/magic_stack_constants.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
+#import "components/feature_engagement/public/tracker.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_constants.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view.h"
+#import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
+#import "ios/chrome/browser/content_suggestions/ui/cells/content_suggestions_cells_constants.h"
+#import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
+#import "ios/chrome/browser/content_suggestions/ui/content_suggestions_view_controller.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_image_view.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
@@ -41,7 +42,7 @@
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/public/toolbar_utils.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/gradient_view.h"
@@ -347,8 +348,20 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
       presentInProductHelpWithType:InProductHelpType::kDiscoverFeedMenu];
 
   if (!IsFirstRunRecent(base::Days(3))) {
-    [self.helpHandler
-        presentInProductHelpWithType:InProductHelpType::kHomeCustomizationMenu];
+    if (IsNTPBackgroundCustomizationEnabled()) {
+      if (self.engagementTracker &&
+          self.engagementTracker->ShouldTriggerHelpUI(
+              feature_engagement::kIPHiOSPromoBackgroundCustomizationFeature)) {
+        [self.helpHandler presentInProductHelpWithType:
+                              InProductHelpType::kHomeBackgroundCustomization];
+        [self.delegate
+            showCustomizationMenuForUserEducationFromNewTabPageViewController:
+                self];
+      }
+    } else {
+      [self.helpHandler presentInProductHelpWithType:
+                            InProductHelpType::kHomeCustomizationMenu];
+    }
   }
 
   // Scrolls NTP into feed initially if `shouldScrollIntoFeed`.
@@ -1416,9 +1429,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 // Checks whether the feed top section is visible and updates the
 // `NTPContentDelegate`.
-// TODO(crbug.com/40843602): This function currently checks the visibility of
-// the entire feed top section, but it should only check the visibility of the
-// promo within it.
 - (void)updateFeedSigninPromoIsVisible {
   if (!self.feedTopSectionViewController) {
     return;
@@ -1807,6 +1817,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
       minimumHeight +=
           content_suggestions::HeaderBottomPadding(self.traitCollection) / 2;
     }
+  } else {
+    // Ensure that the header can be scrolled off screen on iPad.
+    minimumHeight +=
+        content_suggestions::HeaderBottomPadding(self.traitCollection) / 2;
   }
 
   return minimumHeight;

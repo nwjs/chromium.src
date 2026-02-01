@@ -105,6 +105,10 @@ const char kPhotosOAuth2Scope[] = "https://www.googleapis.com/auth/photos";
 extern const char kSecureConnectOAuth2Scope[] =
     "https://www.googleapis.com/auth/bce.secureconnect";
 
+// OAuth2 scope for access to personalized web search results.
+const char kSearchResultsOAuth2Scope[] =
+    "https://www.googleapis.com/auth/searchresults";
+
 // OAuth2 scope for access to Cast backdrop API.
 const char kCastBackdropOAuth2Scope[] =
     "https://www.googleapis.com/auth/cast.backdrop";
@@ -286,6 +290,13 @@ const char kLicenseCheckOAuth2Scope[] =
     "https://www.googleapis.com/auth/applicense.bytebot";
 // OAuth2 scope for manta.
 const char kMantaOAuth2Scope[] = "https://www.googleapis.com/auth/mdi.aratea";
+
+// OAuth2 scope for web history.
+const char kWebHistoryOAuth2Scope[] =
+    "https://www.googleapis.com/auth/webhistory";
+
+// OAuth2 scope for Legion.
+const char kLegionAuthScope[] = "https://www.googleapis.com/auth/paic-auth";
 
 // Used to build ClientOAuth requests.  These are the names of keys used when
 // building base::DictionaryValue that represent the json data that makes up

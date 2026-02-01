@@ -73,6 +73,10 @@ class MockSearchboxPage : public searchbox::mojom::Page {
                std::optional<composebox_query::mojom::FileUploadErrorType>));
   MOCK_METHOD(void, OnTabStripChanged, ());
   MOCK_METHOD(void,
+              OnInputStateChanged,
+              (composebox_query::mojom::InputStatePtr),
+              (override));
+  MOCK_METHOD(void,
               AddFileContext,
               (const base::UnguessableToken&,
                searchbox::mojom::SelectedFileInfoPtr));
@@ -81,6 +85,7 @@ class MockSearchboxPage : public searchbox::mojom::Page {
               (searchbox::mojom::TabInfoPtr));
   MOCK_METHOD(void, UpdateLensSearchEligibility, (bool eligible), (override));
   MOCK_METHOD(void, UpdateAimEligibility, (bool eligible), (override));
+  MOCK_METHOD(void, UpdateContentSharingPolicy, (bool enabled), (override));
   MOCK_METHOD(void, OnShowAiModePrefChanged, (bool canShow), (override));
 };
 

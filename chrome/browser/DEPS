@@ -43,6 +43,7 @@ include_rules = [
   "+components/legion",
   "+components/account_id",
   "+components/account_manager_core",
+  "+components/activity_reporter",
   "+components/affiliations",
   "+components/allocation_recorder",
   "+components/android_autofill/browser",
@@ -230,6 +231,7 @@ include_rules = [
   "+components/onc",
   "+components/open_from_clipboard",
   "+components/page_content_annotations/core",
+  "+components/on_device_translation",
   "+components/optimization_guide/content",
   "+components/optimization_guide",
   "+components/optimization_guide/optimization_guide_internals",
@@ -312,8 +314,8 @@ include_rules = [
   "+components/services/app_service/public",
   "+components/services/filesystem/public/mojom",
   "+components/services/heap_profiling",
-  "+components/services/on_device_translation/buildflags",
-  "+components/services/on_device_translation/public",
+  "+components/on_device_translation/buildflags",
+  "+components/on_device_translation/service/public",
   "+components/services/paint_preview_compositor/public/mojom",
   "+components/services/patch/content",
   "+components/services/patch/public",
@@ -327,8 +329,10 @@ include_rules = [
   "+components/sharing_message",
   "+components/signin/core/browser",
   "+components/signin/public",
+  "+components/skills:features",
   "+components/site_engagement",
   "+components/site_isolation",
+  "+components/skills",
   "+components/soda",
   "+components/spellcheck",
   "+components/sqlite_proto",
@@ -404,6 +408,7 @@ include_rules = [
   "+components/webui/flags",
   "+components/webui/version",
   "+components/zoom",
+  "+content/common/features.h",
   "+content/public/android/java/src/org/chromium/content/browser/webid",
   "+content/public/android/java/src/org/chromium/content_public/browser",
   "+content/public/android/java/src/org/chromium/content_public/common",
@@ -530,8 +535,6 @@ include_rules = [
 
   # No inclusion of WebKit from the browser, other than the ones in
   # WebKit/public/{mojom,common}.
-  # TODO(crbug.com/40649940) clarify dependency and remove or move these individual headers
-  # into public/common.
   "-third_party/blink",
   "+third_party/blink/public/common",
   "+third_party/blink/public/mojom",

@@ -15,6 +15,7 @@
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/common/safe_browsing/archive_analyzer_results.h"
 #include "chrome/common/safe_browsing/download_type_util.h"
+#include "components/enterprise/obfuscation/core/utils.h"
 #include "components/safe_browsing/content/common/file_type_policies.h"
 #include "components/safe_browsing/content/common/proto/download_file_types.pb.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -49,8 +50,12 @@ FileAnalyzer::Results::~Results() = default;
 FileAnalyzer::Results::Results(const FileAnalyzer::Results& other) = default;
 
 FileAnalyzer::FileAnalyzer(
-    scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor)
+    scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor,
+    bool is_obfuscated)
     : binary_feature_extractor_(binary_feature_extractor) {
+#if !BUILDFLAG(IS_ANDROID)
+  is_obfuscated_ = is_obfuscated;
+#endif
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 }
 
@@ -135,12 +140,18 @@ void FileAnalyzer::OnFileAnalysisFinished(FileAnalyzer::Results results) {
 void FileAnalyzer::StartExtractZipFeatures() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  auto callback = base::BindOnce(&FileAnalyzer::OnZipAnalysisFinished,
+                                 weakptr_factory_.GetWeakPtr());
   // We give the zip analyzer a weak pointer to this object.
-  zip_analyzer_ = SandboxedZipAnalyzer::CreateAnalyzer(
-      tmp_path_, password_,
-      base::BindOnce(&FileAnalyzer::OnZipAnalysisFinished,
-                     weakptr_factory_.GetWeakPtr()),
-      LaunchFileUtilService());
+  if (is_obfuscated_ &&
+      base::FeatureList::IsEnabled(
+          enterprise_obfuscation::kEnterpriseFileObfuscationArchiveAnalyzer)) {
+    zip_analyzer_ = SandboxedZipAnalyzer::CreateObfuscatedAnalyzer(
+        tmp_path_, password_, std::move(callback), LaunchFileUtilService());
+  } else {
+    zip_analyzer_ = SandboxedZipAnalyzer::CreateAnalyzer(
+        tmp_path_, password_, std::move(callback), LaunchFileUtilService());
+  }
   zip_analyzer_->Start();
 }
 
@@ -200,13 +211,19 @@ void FileAnalyzer::OnZipAnalysisFinished(
 void FileAnalyzer::StartExtractRarFeatures() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  auto callback = base::BindOnce(&FileAnalyzer::OnRarAnalysisFinished,
+                                 weakptr_factory_.GetWeakPtr());
   // We give the rar analyzer a weak pointer to this object. Since the
   // analyzer is refcounted, it might outlive the request.
-  rar_analyzer_ = SandboxedRarAnalyzer::CreateAnalyzer(
-      tmp_path_, password_,
-      base::BindOnce(&FileAnalyzer::OnRarAnalysisFinished,
-                     weakptr_factory_.GetWeakPtr()),
-      LaunchFileUtilService());
+  if (is_obfuscated_ &&
+      base::FeatureList::IsEnabled(
+          enterprise_obfuscation::kEnterpriseFileObfuscationArchiveAnalyzer)) {
+    rar_analyzer_ = SandboxedRarAnalyzer::CreateObfuscatedAnalyzer(
+        tmp_path_, password_, std::move(callback), LaunchFileUtilService());
+  } else {
+    rar_analyzer_ = SandboxedRarAnalyzer::CreateAnalyzer(
+        tmp_path_, password_, std::move(callback), LaunchFileUtilService());
+  }
   rar_analyzer_->Start();
 }
 

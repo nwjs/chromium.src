@@ -130,6 +130,26 @@ bool CopyPixelsToTexture(
     SharedContextState* shared_context_state,
     const std::vector<GrBackendSemaphore>& begin_semaphores,
     std::vector<GrBackendSemaphore>& end_semaphores) {
+  // We have implemented CompoundImageBacking::ProduceMemory() which can lead
+  // to a performance regression when it's underlying GPU backing holds the
+  // latest data. Previously, an unimplemented
+  // CompoundImageBacking::ProduceMemory() would return nullptr below,
+  // triggering a more efficient GPU-GPU copy fallback in
+  // CopySharedImageHelper::CopySharedImage(). With
+  // CompoundImageBacking::ProduceMemory() implementation, a GPU->CPU copy
+  // occurs internally in CompoundImageBacking first, followed by a CPU->GPU
+  // upload in this method, which is less performant than a direct GPU->GPU
+  // transfer.
+  // For cases where the underlying GPU backing has stale data compared to its
+  // shm backing, CompoundImageBacking::ProduceMemory() actually results in perf
+  // improvements as compared to GPU->GPU fallback since the fallback will now
+  // trigger a readback (from CSI's shm backing to its GPU backing) before
+  // actual GPU->GPU copy happens.
+  // TODO(crbug.com/470101115): Ideally SharedImageCopyManager will replace
+  // all copy operation here. But if perf regression is reported before that
+  // happens, we will need to fix this issue by adding some temporary
+  // workaround like querying CompoundImageBacking if its gpu backing has the
+  // latest data or not and choose copy path accordingly.
   auto source_shared_image =
       representation_factory->ProduceMemory(source_mailbox);
   if (!source_shared_image) {
@@ -313,11 +333,31 @@ base::expected<void, GLError> CopySharedImageHelper::CopySharedImage(
   // uncleared destination later, we do clear destination rect with black
   // color.
   if (!source_shared_image) {
-    auto* canvas = dest_scoped_access->surface()->getCanvas();
+    if (dest_format.is_single_plane()) {
+      auto* canvas = dest_scoped_access->surface()->getCanvas();
+      SkAutoCanvasRestore autoRestore(canvas, /*doSave=*/true);
+      canvas->clipRect(gfx::RectToSkRect(dest_rect));
+      canvas->clear(SkColors::kBlack);
+    } else {
+      std::array<SkSurface*, SkYUVAInfo::kMaxPlanes> yuva_sk_surfaces = {};
+      for (int plane_index = 0; plane_index < dest_format.NumberOfPlanes();
+           plane_index++) {
+        // Get surface per plane from destination scoped write access.
+        yuva_sk_surfaces[plane_index] =
+            dest_scoped_access->surface(plane_index);
+      }
 
-    SkAutoCanvasRestore autoRestore(canvas, /*doSave=*/true);
-    canvas->clipRect(gfx::RectToSkRect(dest_rect));
-    canvas->clear(SkColors::kBlack);
+      // TODO(crbug.com/41380578): This should really default to rec709.
+      SkYUVColorSpace yuv_color_space = kRec601_SkYUVColorSpace;
+      dest_shared_image->color_space().ToSkYUVColorSpace(
+          dest_format.MultiplanarBitDepth(), &yuv_color_space);
+
+      SkYUVAInfo yuva_info(gfx::SizeToSkISize(dest_shared_image->size()),
+                           ToSkYUVAPlaneConfig(dest_format),
+                           ToSkYUVASubsampling(dest_format), yuv_color_space);
+      skia::BlitRGBAToYUVA(/*src_image=*/nullptr, yuva_sk_surfaces, yuva_info,
+                           gfx::RectToSkRect(dest_rect));
+    }
 
     if (!dest_shared_image->IsCleared()) {
       dest_shared_image->SetClearedRect(new_cleared_rect);

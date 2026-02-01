@@ -6,13 +6,11 @@
 #define CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSIONS_MENU_SITE_PERMISSIONS_PAGE_VIEW_H_
 
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/common/extension_id.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view.h"
-
-namespace ui {
-class ImageModel;
-}  // namespace ui
 
 namespace views {
 class ImageView;
@@ -38,17 +36,13 @@ class ExtensionsMenuSitePermissionsPageView : public views::View {
       const ExtensionsMenuSitePermissionsPageView&) = delete;
   ~ExtensionsMenuSitePermissionsPageView() override = default;
 
-  // Updates the page contents with the given parameters.
-  void Update(const std::u16string& extension_name,
-              const ui::ImageModel& extension_icon,
-              const std::u16string& current_site,
-              extensions::PermissionsManager::UserSiteAccess user_site_access,
-              bool is_show_requests_toggle_on,
-              bool is_on_site_enabled,
-              bool is_on_all_sites_enabled);
+  // Updates the page contents with the given `site_permissions_state`.
+  void Update(ExtensionsMenuViewModel::ExtensionSitePermissionsState
+                  site_permissions_state);
 
-  // Updates `show_requests_toggle_` state to `is_on`.
-  void UpdateShowRequestsToggle(bool is_on);
+  // Updates `show_requests_toggle_` with the given toggle state.
+  void UpdateShowRequestsToggle(
+      ExtensionsMenuViewModel::ControlState toggle_state);
 
   extensions::ExtensionId extension_id() { return extension_id_; }
 

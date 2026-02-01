@@ -46,10 +46,6 @@ extern const char kForceFreDefaultBrowserStep[];
 // the first run after a restore operation.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kAccountRetrievalWaitsForRestoration);
-// Feature to allowlist certain scopes for which mdm errors will be shown. All
-// other scopes will be ignored.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kAllowlistScopesForMdmErrors);
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -139,6 +135,13 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kChromeIdentitySurveyLaunchWithDelayDuration);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+#if BUILDFLAG(IS_ANDROID)
+// After an account is added via the ADD_SESSION header it will be redirected to
+// the specified URL.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAddSessionRedirect);
+#endif
+
 #if BUILDFLAG(IS_IOS)
 // Features to enable using the ASWebAuthenticationSession to add accounts to
 // device.
@@ -162,18 +165,6 @@ BASE_DECLARE_FEATURE(kEnableChromeRefreshTokenBinding);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-#if BUILDFLAG(IS_IOS)
-// Show the error badge on the identity disc in the NTP.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableErrorBadgeOnIdentityDisc);
-#endif
-
-#if BUILDFLAG(IS_IOS)
-// Features to enable identities in auth error (stale token).
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableIdentityInAuthError);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -256,20 +247,22 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kFullscreenSignInPromoUseDate);
 #endif
 
+#if !BUILDFLAG(IS_IOS)
+// When enabled, GLIC will check a new CanUseGeminiInChrome account capability
+// to determine profile eligibility, instead of CanUseModelExecutionFeatures.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kGlicEligibilitySeparateAccountCapability);
+#endif
+
 // Feature to handle mdm errors on Enterprise and EDU accounts
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
 
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_IOS)
+// Follow-ups to EnableIdentityInAuthError.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kHistoryOptInEducationalTip);
-extern const base::FeatureParam<int> kHistoryOptInEducationalTipVariation;
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kMakeAccountsAvailableInIdentityManager);
-#endif  // BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kIdentityInAuthErrorFollowUps);
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -345,6 +338,12 @@ extern const base::FeatureParam<ProfilePickerVariation>
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfilesReordering);
+
+#if !BUILDFLAG(IS_ANDROID)
+// Kill switch for Device Management Service OAuth scope.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kRestrictDeviceManagementServiceOAuthScope);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // When enabled, rolls back the DICe migration for implicitly signed-in users.
@@ -430,6 +429,11 @@ BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUseIssueTokenToFetchAccessTokens);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+// If enabled, buttons for sign-in promos / intercepts will use consistent
+// primary - tonal button class pattern.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kUsePrimaryAndTonalButtonsForPromos);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // If enabled, web sign-in will implicitly sign the user in.

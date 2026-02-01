@@ -6,7 +6,6 @@
 
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/memory/ptr_util.h"
 #include "cc/animation/animation.h"
 #include "cc/animation/animation_events.h"
@@ -56,8 +55,9 @@ int TestLayer::transform_y() const {
 float TestLayer::brightness() const {
   for (unsigned i = 0; i < filters_.size(); ++i) {
     const FilterOperation& filter = filters_.at(i);
-    if (filter.type() == FilterOperation::BRIGHTNESS)
+    if (filter.type() == FilterOperation::BRIGHTNESS) {
       return filter.amount();
+    }
   }
 
   NOTREACHED();
@@ -66,8 +66,9 @@ float TestLayer::brightness() const {
 float TestLayer::invert() const {
   for (unsigned i = 0; i < backdrop_filters_.size(); ++i) {
     const FilterOperation& filter = backdrop_filters_.at(i);
-    if (filter.type() == FilterOperation::INVERT)
+    if (filter.type() == FilterOperation::INVERT) {
       return filter.amount();
+    }
   }
 
   NOTREACHED();
@@ -85,10 +86,12 @@ TestHostClient::~TestHostClient() {
 }
 
 void TestHostClient::ClearMutatedProperties() {
-  for (auto& kv : layers_in_pending_tree_)
+  for (auto& kv : layers_in_pending_tree_) {
     kv.second->ClearMutatedProperties();
-  for (auto& kv : layers_in_active_tree_)
+  }
+  for (auto& kv : layers_in_active_tree_) {
     kv.second->ClearMutatedProperties();
+  }
 }
 
 bool TestHostClient::IsOwnerThread() const {
@@ -116,8 +119,9 @@ void TestHostClient::SetElementFilterMutated(ElementId element_id,
                                              ElementListType list_type,
                                              const FilterOperations& filters) {
   TestLayer* layer = FindTestLayer(element_id, list_type);
-  if (layer)
+  if (layer) {
     layer->set_filters(filters);
+  }
 }
 
 void TestHostClient::SetElementBackdropFilterMutated(
@@ -125,16 +129,18 @@ void TestHostClient::SetElementBackdropFilterMutated(
     ElementListType list_type,
     const FilterOperations& backdrop_filters) {
   TestLayer* layer = FindTestLayer(element_id, list_type);
-  if (layer)
+  if (layer) {
     layer->set_backdrop_filters(backdrop_filters);
+  }
 }
 
 void TestHostClient::SetElementOpacityMutated(ElementId element_id,
                                               ElementListType list_type,
                                               float opacity) {
   TestLayer* layer = FindTestLayer(element_id, list_type);
-  if (layer)
+  if (layer) {
     layer->set_opacity(opacity);
+  }
 }
 
 void TestHostClient::SetElementTransformMutated(
@@ -142,8 +148,9 @@ void TestHostClient::SetElementTransformMutated(
     ElementListType list_type,
     const gfx::Transform& transform) {
   TestLayer* layer = FindTestLayer(element_id, list_type);
-  if (layer)
+  if (layer) {
     layer->set_transform(transform);
+  }
 }
 
 void TestHostClient::SetElementScrollOffsetMutated(
@@ -151,8 +158,9 @@ void TestHostClient::SetElementScrollOffsetMutated(
     ElementListType list_type,
     const gfx::PointF& scroll_offset) {
   TestLayer* layer = FindTestLayer(element_id, list_type);
-  if (layer)
+  if (layer) {
     layer->set_scroll_offset(scroll_offset);
+  }
 }
 
 void TestHostClient::ElementIsAnimatingChanged(
@@ -162,25 +170,29 @@ void TestHostClient::ElementIsAnimatingChanged(
     const PropertyAnimationState& state) {
   for (const auto& it : element_id_map) {
     TestLayer* layer = FindTestLayer(it.second, list_type);
-    if (!layer)
+    if (!layer) {
       continue;
+    }
 
     TargetProperty::Type target_property = it.first;
     int property = static_cast<int>(target_property);
-    if (mask.potentially_animating[property])
+    if (mask.potentially_animating[property]) {
       layer->set_has_potential_animation(target_property,
                                          state.potentially_animating[property]);
-    if (mask.currently_running[property])
+    }
+    if (mask.currently_running[property]) {
       layer->set_is_currently_animating(target_property,
                                         state.currently_running[property]);
+    }
   }
 }
 
 void TestHostClient::MaximumScaleChanged(ElementId element_id,
                                          ElementListType list_type,
                                          float maximum_scale) {
-  if (TestLayer* layer = FindTestLayer(element_id, list_type))
+  if (TestLayer* layer = FindTestLayer(element_id, list_type)) {
     layer->set_maximum_animation_scale(maximum_scale);
+  }
 }
 
 void TestHostClient::SetScrollOffsetForAnimation(
@@ -195,7 +207,7 @@ void TestHostClient::RegisterElementId(ElementId element_id,
   ElementIdToTestLayer& layers_in_tree = list_type == ElementListType::ACTIVE
                                              ? layers_in_active_tree_
                                              : layers_in_pending_tree_;
-  DCHECK(!base::Contains(layers_in_tree, element_id));
+  DCHECK(!layers_in_tree.contains(element_id));
   layers_in_tree[element_id] = TestLayer::Create();
 }
 
@@ -366,8 +378,9 @@ TestLayer* TestHostClient::FindTestLayer(ElementId element_id,
       list_type == ElementListType::ACTIVE ? layers_in_active_tree_
                                            : layers_in_pending_tree_;
   auto kv = layers_in_tree.find(element_id);
-  if (kv == layers_in_tree.end())
+  if (kv == layers_in_tree.end()) {
     return nullptr;
+  }
 
   DCHECK(kv->second);
   return kv->second.get();
@@ -442,10 +455,12 @@ void AnimationTimelinesTest::CreateTestLayer(
     bool needs_pending_value_observations) {
   CreateTestMainLayer();
 
-  if (needs_pending_value_observations)
+  if (needs_pending_value_observations) {
     CreateTestImplLayer(ElementListType::PENDING);
-  if (needs_active_value_observations)
+  }
+  if (needs_active_value_observations) {
     CreateTestImplLayer(ElementListType::ACTIVE);
+  }
 }
 
 void AnimationTimelinesTest::CreateTestMainLayer() {

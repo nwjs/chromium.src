@@ -4,7 +4,7 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ToolbarEvent} from '../shared/common.js';
+import {ToolbarEvent} from '../content/read_anything_types.js';
 
 import type {ColorMenuElement} from './color_menu.js';
 
@@ -15,6 +15,7 @@ export function getHtml(this: ColorMenuElement) {
     id="menu"
     label="$i18n{themeTitle}"
     .menuItems="${this.options_}"
+    .nonModal="${this.nonModal}"
     event-name="${ToolbarEvent.THEME}"
     current-selected-index="${this.restoredThemeIndex_()}"
     @theme-change="${this.onThemeChange_}">

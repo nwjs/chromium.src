@@ -1389,25 +1389,34 @@ TEST_F(PopupViewViewsTest, RemoveLine) {
                      SuggestionType::kAddressEntry,
                      SuggestionType::kManageAddress});
 
+  MockFunction<void(std::string_view)> check;
+  {
+    InSequence s;
+    EXPECT_CALL(controller(), RemoveSuggestion).Times(0);
+    EXPECT_CALL(check, Call("1: verify no RemoveSuggestion calls"));
+
+    EXPECT_CALL(controller(), RemoveSuggestion).Times(0);
+    EXPECT_CALL(check, Call("2: verify no RemoveSuggestion calls"));
+
+    EXPECT_CALL(controller(),
+                RemoveSuggestion(1, AutofillMetrics::SingleEntryRemovalMethod::
+                                        kKeyboardShiftDeletePressed));
+  }
+
   // If no cell is selected, pressing delete has no effect.
   EXPECT_FALSE(view().GetSelectedCell().has_value());
-  EXPECT_CALL(controller(), RemoveSuggestion).Times(0);
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
-  Mock::VerifyAndClearExpectations(&controller());
+  check.Call("1: verify no RemoveSuggestion calls");
 
   view().SetSelectedCell(CellIndex{1u, CellType::kContent},
                          PopupCellSelectionSource::kNonUserInput);
   EXPECT_EQ(view().GetSelectedCell(),
             std::make_optional<CellIndex>(1u, CellType::kContent));
 
-  EXPECT_CALL(controller(), RemoveSuggestion).Times(0);
   // If no shift key is pressed, no suggestion is removed.
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/false);
-  Mock::VerifyAndClearExpectations(&controller());
+  check.Call("2: verify no RemoveSuggestion calls");
 
-  EXPECT_CALL(controller(),
-              RemoveSuggestion(1, AutofillMetrics::SingleEntryRemovalMethod::
-                                      kKeyboardShiftDeletePressed));
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
 }
 
@@ -2061,27 +2070,6 @@ TEST_F(PopupViewViewsTest,
                          PopupCellSelectionSource::kMouse);
   task_environment()->FastForwardBy(PopupViewViews::kMouseOpenSubPopupDelay);
 }
-
-// TODO(crbug.com/40284129): Enable once the view shows itself properly.
-#if !BUILDFLAG(IS_MAC)
-// Tests that `GetPopupScreenLocation` returns the bounds and arrow position of
-// the popup.
-TEST_F(PopupViewViewsTest, GetPopupScreenLocation) {
-  CreateAndShowView({SuggestionType::kComposeResumeNudge});
-
-  using PopupScreenLocation = AutofillClient::PopupScreenLocation;
-  auto MatchesScreenLocation =
-      [](gfx::Rect bounds, PopupScreenLocation::ArrowPosition arrow_position) {
-        return Optional(
-            AllOf(Field(&PopupScreenLocation::bounds, bounds),
-                  Field(&PopupScreenLocation::arrow_position, arrow_position)));
-      };
-  EXPECT_THAT(
-      view().GetPopupScreenLocation(),
-      MatchesScreenLocation(widget().GetWindowBoundsInScreen(),
-                            PopupScreenLocation::ArrowPosition::kTopLeft));
-}
-#endif  // !BUILDFLAG(IS_MAC)
 
 // TODO(crbug.com/41496626): Rework into pixel tests and run on all available
 // platforms. The test below is a temporary solution to cover positioning

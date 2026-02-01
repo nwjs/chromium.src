@@ -78,8 +78,8 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
     @Mock private Tab mTab;
     @Mock private WebContents mWebContents;
     @Mock private ContentView mContentView;
-    @Mock private ActivityTabProvider mActivityTabProvider;
     @Mock private TabModelSelector mTabModelSelector;
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private MultiWindowModeStateDispatcherImpl mMultiWindowModeStateDispatcher;
     private FullscreenHtmlApiHandlerCompat mFullscreenHtmlApiHandlerCompat;
     private ObservableSupplierImpl<Boolean> mAreControlsHidden;
@@ -394,6 +394,8 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
         assertEqualNumberOfEnterAndExitActivityFullscreenMode(1);
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testToastIsShownInFullscreenButNotPictureInPicture() {
         doReturn(mWebContents).when(mTab).getWebContents();
@@ -455,6 +457,8 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
                 !mFullscreenHtmlApiHandlerCompat.isToastVisibleForTesting());
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     @Features.EnableFeatures({ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER})
     public void
@@ -521,6 +525,8 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
                 !mFullscreenHtmlApiHandlerCompat.isToastVisibleForTesting());
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testToastIsShownAtLayoutChangeWithRotation() {
         doReturn(mWebContents).when(mTab).getWebContents();

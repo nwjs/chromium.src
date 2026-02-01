@@ -21,15 +21,16 @@ class Element;
 // https://html.spec.whatwg.org/C/#custom-element-reactions
 class CORE_EXPORT CustomElementReactionStack final
     : public GarbageCollected<CustomElementReactionStack>,
-      public NameClient {
+      public NameClient,
+      public Supplement<Agent> {
  public:
-  CustomElementReactionStack() = default;
+  explicit CustomElementReactionStack(Agent& agent);
   CustomElementReactionStack(const CustomElementReactionStack&) = delete;
   CustomElementReactionStack& operator=(const CustomElementReactionStack&) =
       delete;
   ~CustomElementReactionStack() override = default;
 
-  void Trace(Visitor*) const;
+  void Trace(Visitor*) const override;
   const char* GetHumanReadableName() const override {
     return "CustomElementReactionStack";
   }
@@ -42,6 +43,7 @@ class CORE_EXPORT CustomElementReactionStack final
   void ClearQueue(Element&);
 
   static CustomElementReactionStack& From(Agent& agent);
+  static const char kSupplementName[];
 
  private:
   friend class ResetCustomElementReactionStackForTest;

@@ -6,7 +6,6 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/concurrent_closures.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
@@ -39,8 +38,7 @@ void LogAndIgnoreCallbackError(const std::string_view source_name,
 
 ActorUiTabController::ActorUiTabController(
     tabs::TabInterface& tab,
-    ActorKeyedService* actor_keyed_service,
-    std::unique_ptr<ActorUiTabControllerFactoryInterface> controller_factory)
+    ActorKeyedService* actor_keyed_service)
     : ActorUiTabControllerInterface(tab),
       tab_(tab),
       actor_keyed_service_(actor_keyed_service),
@@ -51,19 +49,9 @@ ActorUiTabController::ActorUiTabController(
                               base::Unretained(this))),
       scoped_unowned_user_data_(tab.GetUnownedUserDataHost(), *this) {
   CHECK(actor_keyed_service_);
-
-  RegisterTabSubscriptions();
 }
 
 ActorUiTabController::~ActorUiTabController() = default;
-
-void ActorUiTabController::RegisterTabSubscriptions() {
-  tab_subscriptions_.push_back(tab_->RegisterWillDetach(base::BindRepeating(
-      &ActorUiTabController::OnTabWillDetach, weak_factory_.GetWeakPtr())));
-  tab_subscriptions_.push_back(tab_->RegisterWillDiscardContents(
-      base::BindRepeating(&ActorUiTabController::OnTabWillDiscard,
-                          weak_factory_.GetWeakPtr())));
-}
 
 void ActorUiTabController::OnUiTabStateChange(const UiTabState& ui_tab_state,
                                               UiResultCallback callback) {
@@ -78,40 +66,6 @@ void ActorUiTabController::OnUiTabStateChange(const UiTabState& ui_tab_state,
 
   current_ui_tab_state_ = ui_tab_state;
   UpdateUi(std::move(callback));
-}
-
-void ActorUiTabController::OnTabWillDetach(
-    tabs::TabInterface* tab_interface,
-    tabs::TabInterface::DetachReason reason) {
-  // Reset the omnibox tab helper observation to ensure that it doesn't live
-  // longer than the web contents it is observing.
-  if (omnibox_tab_helper_observer_.IsObserving()) {
-    omnibox_tab_helper_observer_.Reset();
-  }
-}
-
-void ActorUiTabController::OnTabWillDiscard(
-    tabs::TabInterface* tab_interface,
-    content::WebContents* old_contents,
-    content::WebContents* new_contents) {
-  // Reset the observation of the omnibox tab helper since it is possible for
-  // the active tab to be discarded on CrOS.
-  if (omnibox_tab_helper_observer_.IsObserving()) {
-    omnibox_tab_helper_observer_.Reset();
-  }
-}
-
-void ActorUiTabController::UpdateOmniboxTabHelperObserver() {
-  if (current_ui_tab_state_.handoff_button.is_active) {
-    if (!omnibox_tab_helper_observer_.IsObserving()) {
-      if (auto* helper =
-              OmniboxTabHelper::FromWebContents(tab_->GetContents())) {
-        omnibox_tab_helper_observer_.Observe(helper);
-      }
-    }
-  } else {
-    omnibox_tab_helper_observer_.Reset();
-  }
 }
 
 [[nodiscard]] base::ScopedClosureRunner
@@ -217,13 +171,6 @@ void ActorUiTabController::UpdateUi(UiResultCallback callback) {
                      : base::DoNothing());
 }
 
-void ActorUiTabController::OnOmniboxFocusChanged(
-    OmniboxFocusState state,
-    OmniboxFocusChangeReason reason) {
-  is_focusing_omnibox_ = state != OmniboxFocusState::OMNIBOX_FOCUS_NONE;
-  UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError, "OnOmniboxFocusChanged"));
-}
-
 void ActorUiTabController::OnWebContentsAttached() {
   UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError, "OnWebContentsAttached"));
 }
@@ -273,8 +220,9 @@ bool ActorUiTabController::ComputeHandoffButtonVisibility() {
       return false;
     }
   }
-  UpdateOmniboxTabHelperObserver();
-  if (is_focusing_omnibox_) {
+  if (base::FeatureList::IsEnabled(
+          features::kGlicHandoffButtonHideWhenOmniboxPopupOpened) &&
+      window_controller->IsAnyOmniboxPopupOpened()) {
     return false;
   }
 
@@ -325,6 +273,11 @@ void ActorUiTabController::UpdateScrimBackground() {
     actor_overlay_background_changed_callback_.Run(
         should_show_scrim_background_);
   }
+}
+
+void ActorUiTabController::OnWindowOmniboxPopupVisibilityChanged() {
+  UpdateUi(base::BindOnce(&LogAndIgnoreCallbackError,
+                          "OnWindowOmniboxPopupVisibilityChanged"));
 }
 
 void ActorUiTabController::OnOverlayHoverStatusChanged(bool is_hovering) {

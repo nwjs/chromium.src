@@ -252,7 +252,7 @@ bool CheckStudyGoogleGroup(const Study::Filter& filter,
   if (filter.google_group_size() > 0) {
     if (std::ranges::none_of(filter.google_group(),
                              [&client_groups](int64_t group) {
-                               return base::Contains(client_groups, group);
+                               return client_groups.contains(group);
                              })) {
       // A google_group filter was specified, and the client is not a member of
       // any of the groups.
@@ -263,7 +263,7 @@ bool CheckStudyGoogleGroup(const Study::Filter& filter,
   if (filter.exclude_google_group_size() > 0) {
     if (std::ranges::any_of(filter.exclude_google_group(),
                             [&client_groups](int64_t group) {
-                              return base::Contains(client_groups, group);
+                              return client_groups.contains(group);
                             })) {
       // An exclude_google_group filter was specified, and the client is a
       // member of at least one of the groups.
@@ -308,14 +308,6 @@ bool ShouldAddStudy(const ProcessedStudy& processed_study,
                     const ClientFilterableState& client_state,
                     const VariationsLayers& layers) {
   const Study& study = *processed_study.study();
-
-  if (study.activation_type() == Study::STICKY_AFTER_QUERY &&
-      !client_state.is_sticky_activation_enabled) {
-    DVLOG(1) << "Filtered out study " << study.name()
-             << " due to unsupported STICKY_AFTER_QUERY activation type.";
-    return false;
-  }
-
   if (study.has_layer()) {
     if (!layers.IsLayerMemberActive(study.layer())) {
       DVLOG(1) << "Filtered out study " << study.name()

@@ -33,7 +33,7 @@ import type {CrLazyRenderLitElement} from 'chrome://resources/cr_elements/cr_laz
 import type {CrPageSelectorElement} from 'chrome://resources/cr_elements/cr_page_selector/cr_page_selector.js';
 import {FindShortcutMixinLit} from 'chrome://resources/cr_elements/find_shortcut_mixin_lit.js';
 import {WebUiListenerMixinLit} from 'chrome://resources/cr_elements/web_ui_listener_mixin_lit.js';
-import {assert} from 'chrome://resources/js/assert.js';
+import {assert, assertNotReachedCase} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {hasKeyModifiers} from 'chrome://resources/js/util.js';
@@ -66,8 +66,7 @@ function onDocumentClick(evt: Event) {
   const eventPath = e.composedPath() as HTMLElement[];
   let anchor: HTMLAnchorElement|null = null;
   if (eventPath) {
-    for (let i = 0; i < eventPath.length; i++) {
-      const element = eventPath[i];
+    for (const element of eventPath) {
       if (element.tagName === 'A' && (element as HTMLAnchorElement).href) {
         anchor = element as HTMLAnchorElement;
         break;
@@ -189,7 +188,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
       loadTimeData.getBoolean('unoPhase2FollowUp');
   protected accessor shouldShowHistorySyncPromo_: boolean = false;
   // </if>
-  protected accessor hasDrawer_: boolean;
+  protected accessor hasDrawer_: boolean = false;
   protected accessor historyClustersEnabled_: boolean =
       loadTimeData.getBoolean('isHistoryClustersEnabled');
   protected accessor historyClustersVisible_: boolean =
@@ -336,7 +335,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
       // Change in the currently selected tab requires change in the currently
       // selected page.
       if (!this.selectedPage_ || TABBED_PAGES.includes(this.selectedPage_)) {
-        this.selectedPage_ = TABBED_PAGES[this.selectedTab_];
+        this.selectedPage_ = TABBED_PAGES[this.selectedTab_]!;
       }
     }
 
@@ -544,24 +543,25 @@ export class HistoryAppElement extends HistoryAppElementBase {
         'History.SearchResultClicked.Index', clampedIndex, maxIndex);
 
     switch (e.detail.resultType) {
-      case HistoryResultType.TRADITIONAL: {
+      case HistoryResultType.TRADITIONAL:
         this.browserService_.recordHistogram(
             'History.SearchResultClicked.Index.Traditional', clampedIndex,
             maxIndex);
         break;
-      }
-      case HistoryResultType.GROUPED: {
+      case HistoryResultType.GROUPED:
         this.browserService_.recordHistogram(
             'History.SearchResultClicked.Index.Grouped', clampedIndex,
             maxIndex);
         break;
-      }
-      case HistoryResultType.EMBEDDINGS: {
+      case HistoryResultType.EMBEDDINGS:
         this.browserService_.recordHistogram(
             'History.SearchResultClicked.Index.Embeddings', clampedIndex,
             maxIndex);
         break;
-      }
+      case HistoryResultType.END:
+        break;
+      default:
+        assertNotReachedCase(e.detail.resultType);
     }
   }
 
@@ -831,7 +831,7 @@ export class HistoryAppElement extends HistoryAppElementBase {
     assert(historyEmbeddingsContainer);
     this.historyEmbeddingsResizeObserver_ = new ResizeObserver((entries) => {
       assert(entries.length === 1);
-      this.tabContentScrollOffset_ = entries[0].contentRect.height;
+      this.tabContentScrollOffset_ = entries[0]!.contentRect.height;
     });
     this.historyEmbeddingsResizeObserver_.observe(historyEmbeddingsContainer);
   }

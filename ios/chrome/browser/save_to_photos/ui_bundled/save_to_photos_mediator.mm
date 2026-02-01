@@ -19,18 +19,17 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_configuration.h"
-#import "ios/chrome/browser/drive/model/manage_storage_url_util.h"
 #import "ios/chrome/browser/google_one/shared/google_one_entry_point.h"
 #import "ios/chrome/browser/photos/model/photos_metrics.h"
 #import "ios/chrome/browser/photos/model/photos_service.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_mediator_delegate.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
 #import "ios/chrome/browser/shared/public/commands/manage_storage_alert_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/shared/ui/symbols/buildflags.h"
+#import "ios/chrome/browser/shared/ui/buildflags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
@@ -97,7 +96,7 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
   raw_ptr<ChromeAccountManagerService> _accountManagerService;
   raw_ptr<signin::IdentityManager> _identityManager;
   id<ManageStorageAlertCommands> _manageStorageAlertHandler;
-  id<ApplicationCommands> _applicationHandler;
+  id<SceneCommands> _sceneHandler;
   id<GoogleOneCommands> _googleOneHandler;
   NSString* _imageName;
   NSData* _imageData;
@@ -117,8 +116,7 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
                       identityManager:(signin::IdentityManager*)identityManager
             manageStorageAlertHandler:
                 (id<ManageStorageAlertCommands>)manageStorageAlertHandler
-                   applicationHandler:
-                       (id<ApplicationCommands>)applicationHandler
+                         sceneHandler:(id<SceneCommands>)sceneHandler
                      googleOneHandler:(id<GoogleOneCommands>)googleOneHandler {
   self = [super init];
   if (self) {
@@ -127,13 +125,13 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
     CHECK(accountManagerService);
     CHECK(identityManager);
     CHECK(manageStorageAlertHandler);
-    CHECK(applicationHandler);
+    CHECK(sceneHandler);
     _photosService = photosService;
     _prefService = prefService;
     _accountManagerService = accountManagerService;
     _identityManager = identityManager;
     _manageStorageAlertHandler = manageStorageAlertHandler;
-    _applicationHandler = applicationHandler;
+    _sceneHandler = sceneHandler;
     _googleOneHandler = googleOneHandler;
   }
   return self;
@@ -246,21 +244,10 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
   base::RecordAction(
       base::UserMetricsAction("MobileSaveToPhotosManageStorage"));
 
-  if (base::FeatureList::IsEnabled(kIOSManageAccountStorage)) {
-    // At this point nothing should be presented.
-    [_googleOneHandler
-        showGoogleOneForIdentity:identity
-                      entryPoint:GoogleOneEntryPoint::kSaveToPhotosAlert
-              baseViewController:nil];
-  } else {
-    // The uploading identity's user email is used to switch to the uploading
-    // account before loading the "Manage Storage" web page.
-    GURL manageStorageURL = GenerateManageDriveStorageUrl(
-        base::SysNSStringToUTF8(identity.userEmail));
-    OpenNewTabCommand* newTabCommand =
-        [OpenNewTabCommand commandWithURLFromChrome:manageStorageURL];
-    [_applicationHandler openURLInNewTab:newTabCommand];
-  }
+  [_googleOneHandler
+      showGoogleOneForIdentity:identity
+                    entryPoint:GoogleOneEntryPoint::kSaveToPhotosAlert
+            baseViewController:nil];
   base::UmaHistogramEnumeration(
       kSaveToPhotosActionsHistogram,
       SaveToPhotosActions::kFailureOutOfStorageDidManageStorage);
@@ -316,7 +303,7 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
   AccountPickerConfiguration* configuration =
       [[AccountPickerConfiguration alloc] init];
   configuration.useBrandedTitle = YES;
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   configuration.brandedSymbolName = kGoogleFullSymbol;
   configuration.titleText = l10n_util::GetNSString(
       IDS_IOS_SAVE_TO_PHOTOS_ACCOUNT_PICKER_GOOGLE_PHOTOS_TITLE);

@@ -8,6 +8,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/strings/string_view_util.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
 #include "third_party/boringssl/src/include/openssl/pool.h"
@@ -52,6 +53,12 @@ bssl::CertificateTrust ThreadSafeTrustStoreInMemory::GetTrust(
   return impl_.GetTrust(cert);
 }
 
+std::shared_ptr<const bssl::MTCAnchor>
+ThreadSafeTrustStoreInMemory::GetTrustedMTCIssuerOf(
+    const bssl::ParsedCertificate* cert) {
+  base::AutoLock lock(lock_);
+  return impl_.GetTrustedMTCIssuerOf(cert);
+}
 // static
 TestRootCerts* TestRootCerts::GetInstance() {
   static base::NoDestructor<TestRootCerts> test_root_certs;
@@ -106,10 +113,8 @@ bool TestRootCerts::IsEmpty() const {
 
 bool TestRootCerts::IsKnownRoot(base::span<const uint8_t> der_cert) const {
   base::AutoLock lock(lock_);
-
-  return test_known_roots_.find(
-             std::string_view(reinterpret_cast<const char*>(der_cert.data()),
-                              der_cert.size())) != test_known_roots_.end();
+  return test_known_roots_.find(base::as_string_view(der_cert)) !=
+         test_known_roots_.end();
 }
 
 TestRootCerts::TestRootCerts() {

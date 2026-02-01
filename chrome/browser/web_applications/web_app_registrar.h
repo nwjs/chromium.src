@@ -18,10 +18,12 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
+#include "base/types/pass_key.h"
 #include "base/types/strong_alias.h"
 #include "base/values.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
@@ -64,13 +66,14 @@ enum InstallState : int;
 
 class IsolatedWebAppUrlInfo;
 class WebApp;
+class WebAppCommandScheduler;
 class WebAppProvider;
 class WebAppRegistrarObserver;
 class WebAppScope;
-class AppLock;
 class ManifestSilentUpdateCommand;
 class FetchManifestAndUpdateCommand;
 class ApplyPendingManifestUpdateCommand;
+class ResolveWebAppPendingMigrationInfoCommand;
 
 using Registry = std::map<webapps::AppId, std::unique_ptr<WebApp>>;
 
@@ -592,24 +595,26 @@ class WebAppRegistrar {
       bool is_preferred);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-  // Mimic base::PassKey<T> to ensure only certain call sites have the privilege
-  // of triggering a pending update info change.
-  class PendingUpdateInfoChangePassKey {
-    friend class ManifestSilentUpdateCommand;
-    friend class FetchManifestAndUpdateCommand;
-    friend void SetWebAppPendingUpdateAsIgnored(const webapps::AppId&,
-                                                AppLock& lock,
-                                                base::Value::Dict& debug_value);
-    friend class ApplyPendingManifestUpdateCommand;
-    PendingUpdateInfoChangePassKey() = default;
-  };
+  using PendingUpdateInfoChangePassKey =
+      base::PassKey<ManifestSilentUpdateCommand,
+                    FetchManifestAndUpdateCommand,
+                    ApplyPendingManifestUpdateCommand,
+                    WebAppCommandScheduler>;
 
   void NotifyPendingUpdateInfoChanged(const webapps::AppId& app_id,
                                       bool pending_update_available,
                                       PendingUpdateInfoChangePassKey);
 
+  using PendingMigrationInfoChangePassKey =
+      base::PassKey<ResolveWebAppPendingMigrationInfoCommand>;
+
+  void NotifyWebAppPendingMigrationInfoChanged(
+      const webapps::AppId& app_id,
+      bool has_pending_migration,
+      PendingMigrationInfoChangePassKey);
+
   // A filter must return false to skip the |web_app|.
-  using Filter = bool (*)(const WebApp& web_app);
+  using Filter = base::RepeatingCallback<bool(const WebApp&)>;
 
   // Only range-based |for| loop supported. Don't use AppSet directly.
   // Doesn't support registration and unregistration of WebApp while iterating.
@@ -626,7 +631,7 @@ class WebAppRegistrar {
            Filter filter)
           : internal_iter_(std::move(internal_iter)),
             internal_end_(std::move(internal_end)),
-            filter_(filter) {
+            filter_(std::move(filter)) {
         FilterAndSkipApps();
       }
       Iter(Iter&&) noexcept = default;
@@ -645,8 +650,9 @@ class WebAppRegistrar {
 
      private:
       void FilterAndSkipApps() {
-        while (internal_iter_ != internal_end_ && !filter_(**this))
+        while (internal_iter_ != internal_end_ && !filter_.Run(**this)) {
           ++internal_iter_;
+        }
       }
 
       InternalIter internal_iter_;
@@ -654,8 +660,10 @@ class WebAppRegistrar {
       Filter filter_;
     };
 
+    using LambdaFilter = bool (*)(const WebApp&);
+    AppSet(const WebAppRegistrar* registrar, LambdaFilter filter);
     AppSet(const WebAppRegistrar* registrar, Filter filter);
-    AppSet(AppSet&&) = default;
+    AppSet(AppSet&&);
     AppSet(const AppSet&) = delete;
     AppSet& operator=(const AppSet&) = delete;
     ~AppSet();
@@ -670,7 +678,7 @@ class WebAppRegistrar {
 
    private:
     const raw_ptr<const WebAppRegistrar> registrar_;
-    const Filter filter_;
+    Filter filter_;
 #if DCHECK_IS_ON()
     const int mutations_count_;
 #endif
@@ -681,7 +689,7 @@ class WebAppRegistrar {
   // Returns all apps excluding stubs for apps in sync install. Apps in sync
   // install are being installed and should be hidden for most subsystems. This
   // is a subset of GetAppsIncludingStubs().
-  AppSet GetApps() const;
+  AppSet GetApps(std::optional<WebAppFilter> = std::nullopt) const;
 
   // Returns a dict with debug values for each app in the registry, including
   // registrar-evaluated effective fields.

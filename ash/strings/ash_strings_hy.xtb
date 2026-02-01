@@ -63,7 +63,7 @@
 <translation id="1195667586424773550">Քաշեք հղումը ներդիրի հասցեագոտի</translation>
 <translation id="119944043368869598">Մաքրել բոլորը</translation>
 <translation id="1199716647557067911">Իսկապե՞ս ուզում եք անջատել Switch Access-ը</translation>
-<translation id="1201402288615127009">Հաջորդը</translation>
+<translation id="1201402288615127009">Հաջորդ</translation>
 <translation id="1210557957257435379">էկրանի տեսագրում</translation>
 <translation id="121097972571826261">Մեկ բառով առաջ</translation>
 <translation id="1218444235442067213"><ph name="APP_NAME" />, Play Խանութի հավելված</translation>
@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Վերջին լուսանկար <ph name="INDEX" />/<ph name="TOTAL_COUNT" />։</translation>
 <translation id="2201687081523799384">Ծալել Google Tasks-ը</translation>
 <translation id="2208323208084708176">Միասնական աշխատասեղանի ռեժիմ</translation>
+<translation id="2210311543574621570">Երբ սեղմեք և պահեք Ctrl + V ստեղների համակցությունը, կհայտնվի սեղմատախտակը։ Ստեղների այս համակցությունն անջատելու համար հեռացրեք #clipboard-history-longpress դրոշը chrome://flags էջում։</translation>
 <translation id="2215920961700443347">Կապ չկա։ Միացեք ինտերնետին և նորից փորձեք։</translation>
 <translation id="2222841058024245321">Աշխատասեղան 7</translation>
 <translation id="2223384056430485343">Տրոհված էկրանին</translation>
@@ -874,6 +875,7 @@
 <translation id="397105322502079400">Հաշվարկում…</translation>
 <translation id="397726367135689299">Մարտկոցի լիցքավորման աղբյուրը կարող է հուսալի չլինել։</translation>
 <translation id="3977512764614765090">Մարտկոցը լիցքավորվում է (լիցքը՝ <ph name="PERCENTAGE" />%)։</translation>
+<translation id="3978162107953847778">Զետեղեք հղումներ վայրերից, օրինակ՝ ձեր այցելությունների պատմությունից կամ Google Drive-ից։ Դուք կարող եք նաև զետեղել էմոջիներ, պատկերների ֆայլեր և ավելին։ <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Փոխե՞լ աուդիո ելքը</translation>
 <translation id="3984536049089846927">Հաջորդ էջ</translation>
 <translation id="3986082989454912832">Պատասխանել</translation>
@@ -1024,7 +1026,6 @@
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 կարևոր ծանուցում}one{# կարևոր ծանուցում}other{# կարևոր ծանուցում}}</translation>
 <translation id="4450893287417543264">Այլևս ցույց չտալ</translation>
 <translation id="4451374464530248585">«Alt + վար սլաք» ստեղնային դյուրանցումը փոփոխվել է։ Page Down ստեղնի գործողություններն օգտագործելու համար սեղմեք «<ph name="LAUNCHER_KEY_NAME" /> + վար սլաք» ստեղնային դյուրանցումը վերևի շարքում։</translation>
-<translation id="4453876312474547652">Երբ սեղմեք և պահեք Ctrl + V ստեղների համակցությունը, կհայտնվի սեղմատախտակը։ Ստեղների այս համակցությունն անջատելու համար հեռացրեք #clipboard-history-longpress դրոշը chrome://flags էջում (կամ os://flags էջում, եթե օգտագործում եք Lacros)։</translation>
 <translation id="445765352722456792">Անհատականացնել առաջարկները</translation>
 <translation id="4458688154122353284">Դադարեցնել էկրանի տեսագրումը</translation>
 <translation id="445923051607553918">Միացում Wi-Fi ցանցին</translation>
@@ -1600,6 +1601,7 @@
 <translation id="6260038345397266744"><ph name="TITLE" />։ <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />` ակտիվացում…</translation>
 <translation id="6274202259872570803">Սքրինքաստ</translation>
+<translation id="6274422179279280249">Զետեղեք հղումներ, էմոջիներ և այլն։ Դուք կարող եք նաև գրելու օգնություն ստանալ Google AI-ից։ <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Դիտել էջի կոդը</translation>
 <translation id="6285871695023807425">Ավելացնել Օրացույցում</translation>
 <translation id="6288235558961782912">Ծնողների թույլտվությամբ <ph name="USER_EMAIL_ADDRESS" /> օգտատիրոջը հնարավոր կլինի նորից ավելացնել ավելի ուշ:</translation>
@@ -1735,7 +1737,7 @@
 <translation id="6704073473590541209">Ընտրված է աջ եզրի բռնիչը, տեղաշարժելու համար օգտագործեք սլաքների ստեղները</translation>
 <translation id="6706742084323792866">Ամրացնել ստեղնաշարը</translation>
 <translation id="6709719156428404245">Տեսագրման հատվածն ընտրելու համար քաշեք նշորդը կամ սեղմեք բացատի ստեղնը</translation>
-<translation id="6710213216561001401">Նախորդը</translation>
+<translation id="6710213216561001401">Նախորդ</translation>
 <translation id="6723839937902243910">Սնուցում</translation>
 <translation id="672609503628871915">Իմանալ՝ ինչ նոր բան կա</translation>
 <translation id="6727969043791803658">Միացված է, մարտկոցի լիցքը՝ <ph name="BATTERY_PERCENTAGE" /></translation>
@@ -2190,6 +2192,7 @@
 <translation id="8237964652943995219">Հաջորդ աշխատասեղանը՝ <ph name="DESK_NAME" />։ Աշխատասեղան <ph name="DESK_INDEX" />՝ <ph name="DESK_COUNT" />-ից։</translation>
 <translation id="8238817965863339552">Դիտեք այս ուղեցույցը՝ իմանալու, թե ինչպես օգտագործել <ph name="PRODUCT_NAME" />-ը։ Սկսեք 5 քայլից։</translation>
 <translation id="8239034820133090126">Միացնել աջ աշխատասեղանը</translation>
+<translation id="8241650983304689286">Ավելացնել ներդիրը տրոհված նոր էկրանում</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, ազդանշանի ուժգնությունը՝ <ph name="SIGNAL_STRENGTH" />, մարտկոցի լիցքը՝ <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Ցույց տալ Google Drive-ի ամբողջ բովանդակությունը</translation>
 <translation id="8257510091797044096">Կարգավորեք ձեր սարքը</translation>

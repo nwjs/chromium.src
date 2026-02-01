@@ -23,8 +23,10 @@
 #include "base/files/scoped_file.h"
 #include "base/json/json_reader.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/task_traits.h"
@@ -75,7 +77,7 @@ static constexpr auto FwupdStatusStringMap =
          {FwupdStatus::kWaitingForUser, "Waiting for user action"}});
 
 const char* GetFwupdStatusString(FwupdStatus enum_val) {
-  DCHECK(base::Contains(FwupdStatusStringMap, enum_val));
+  DCHECK(FwupdStatusStringMap.contains(enum_val));
   return FwupdStatusStringMap.at(enum_val);
 }
 
@@ -869,7 +871,7 @@ void FirmwareUpdateManager::OnDeviceListResponse(FwupdDeviceList* devices) {
 void FirmwareUpdateManager::ShowNotificationIfRequired() {
   for (const auto& update : updates_) {
     if (update->priority == firmware_update::mojom::UpdatePriority::kCritical &&
-        !base::Contains(devices_already_notified_, update->device_id)) {
+        !devices_already_notified_.contains(update->device_id)) {
       devices_already_notified_.insert(update->device_id);
       NotifyCriticalFirmwareUpdateReceived();
     }
@@ -879,7 +881,7 @@ void FirmwareUpdateManager::ShowNotificationIfRequired() {
 void FirmwareUpdateManager::OnUpdateListResponse(const std::string& device_id,
                                                  FwupdUpdateList* updates) {
   DCHECK(updates);
-  DCHECK(base::Contains(devices_pending_update_, device_id));
+  DCHECK(devices_pending_update_.contains(device_id));
 
   // If there are updates, then choose the first one.
   if (!updates->empty()) {

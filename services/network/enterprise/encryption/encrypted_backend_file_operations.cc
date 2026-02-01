@@ -7,8 +7,9 @@
 #include <utility>
 
 #include "base/task/sequenced_task_runner.h"
+#include "services/network/enterprise/encryption/encrypted_cache_file.h"
 
-namespace network::enterprise {
+namespace network::enterprise_encryption {
 
 UnboundEncryptedBackendFileOperations::UnboundEncryptedBackendFileOperations(
     std::unique_ptr<disk_cache::UnboundBackendFileOperations> decorated_ops)
@@ -44,9 +45,11 @@ bool EncryptedBackendFileOperations::DirectoryExists(
   return decorated_backend_->DirectoryExists(path);
 }
 
-base::File EncryptedBackendFileOperations::OpenFile(const base::FilePath& path,
-                                                    uint32_t flags) {
-  return decorated_backend_->OpenFile(path, flags);
+std::unique_ptr<disk_cache::CacheFile> EncryptedBackendFileOperations::OpenFile(
+    const base::FilePath& path,
+    uint32_t flags) {
+  return std::make_unique<EncryptedCacheFile>(
+      decorated_backend_->OpenFile(path, flags));
 }
 
 bool EncryptedBackendFileOperations::DeleteFile(const base::FilePath& path,
@@ -87,4 +90,4 @@ bool EncryptedBackendFileOperations::IsEncrypted() const {
   return true;
 }
 
-}  // namespace network::enterprise
+}  // namespace network::enterprise_encryption

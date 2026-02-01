@@ -7,9 +7,12 @@
 
 #import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller.h"
 
+@class PasskeyImportItem;
 @class PasswordImportItem;
 @protocol DataImportImportStageTransitionHandler;
 @protocol DataImportCredentialConflictMutator;
+@protocol DataImportCredentialConflictResolutionViewControllerDelegate;
+@protocol ReauthenticationProtocol;
 
 /// View controller listing credential conflicts introduced by data import and
 /// allowing the user to resolve them.
@@ -19,8 +22,18 @@
 /// Mutator object to handle conflict resolution decision.
 @property(nonatomic, weak) id<DataImportCredentialConflictMutator> mutator;
 
+/// Module for reauthentication used when the user wants to reveal a password.
+@property(nonatomic, strong) id<ReauthenticationProtocol> reauthModule;
+
+/// Handles dismissal of this view.
+@property(nonatomic, weak)
+    id<DataImportCredentialConflictResolutionViewControllerDelegate>
+        delegate;
+
 - (instancetype)initWithPasswordConflicts:
-    (NSArray<PasswordImportItem*>*)passwords NS_DESIGNATED_INITIALIZER;
+                    (NSArray<PasswordImportItem*>*)passwords
+                         passkeyConflicts:(NSArray<PasskeyImportItem*>*)passkeys
+    NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 
 @end

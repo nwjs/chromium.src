@@ -7,6 +7,7 @@
 #import <string>
 
 #import "base/functional/bind.h"
+#import "base/logging.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
@@ -19,15 +20,18 @@
 #import "components/optimization_guide/proto/features/ios_smart_tab_grouping.pb.h"
 #import "components/optimization_guide/proto/features/tab_organization.pb.h"
 #import "components/optimization_guide/proto/string_value.pb.h"  // nogncheck
+#import "ios/chrome/browser/ai_prototyping/features.h"
 #import "ios/chrome/browser/ai_prototyping/model/ai_prototyping_service_impl.h"
 #import "ios/chrome/browser/ai_prototyping/model/tab_organization_service_impl.h"
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_consumer.h"
 #import "ios/chrome/browser/ai_prototyping/utils/ai_prototyping_constants.h"
+#import "ios/chrome/browser/ai_prototyping/utils/page_context_util.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_service_impl.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/ios_smart_tab_grouping_request_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/tab_organization_request_wrapper.h"
 #import "ios/chrome/browser/intelligence/smart_tab_grouping/model/smart_tab_grouping_service_impl.h"
+#import "ios/chrome/browser/intelligence/smart_tab_grouping/utils/smart_tab_grouping_utils.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/mojom/enhanced_calendar_service.mojom-forward.h"
@@ -202,13 +206,10 @@
           });
 
   // Populate the PageContext proto and then execute the query.
-  _pageContextWrapper = [[PageContextWrapper alloc]
-        initWithWebState:_webStateList->GetActiveWebState()
-      completionCallback:std::move(page_context_completion_callback)];
-  [_pageContextWrapper setShouldGetAnnotatedPageContent:YES];
-  [_pageContextWrapper setShouldGetSnapshot:YES];
-  [_pageContextWrapper setShouldGetFullPagePDF:YES];
-  [_pageContextWrapper populatePageContextFieldsAsync];
+  _pageContextWrapper =
+      CreatePageContextWrapper(_webStateList->GetActiveWebState(),
+                               std::move(page_context_completion_callback));
+  PopulatePageContext(_pageContextWrapper, _webStateList->GetActiveWebState());
 }
 
 - (void)executeFreeformOnDeviceQuery:
@@ -359,6 +360,7 @@
   [self.consumer updateQueryResult:base::SysUTF8ToNSString(response_string)
                         forFeature:AIPrototypingFeature::kFreeform];
   if (_enableMQLSUpload) {
+    CHECK(IsUploadBlingAIPrototypingDataEnabled());
     [self uploadLoggingDataToMQLS:std::move(logging_data)];
   }
 }
@@ -417,7 +419,7 @@
   return result;
 }
 
-// Handles the SmartTabGroupingResponse by outputting the response proto or
+// Handles the IosSmartTabGroupingResponse by outputting the response proto or
 // an error message into the result text field.
 - (void)handleSmartTabGroupingResponseResult:
     (ai::mojom::SmartTabGroupingResponseResultPtr)response_result {
@@ -428,13 +430,23 @@
     return;
   }
 
-  std::string result = [self
-      serializeSmartTabGroupingResponseToString:
-          response_result->get_response()
-              .As<optimization_guide::proto::IosSmartTabGroupingResponse>()
-              .value()];
+  auto response_proto =
+      response_result->get_response()
+          .As<optimization_guide::proto::IosSmartTabGroupingResponse>();
 
-  [self.consumer updateQueryResult:base::SysUTF8ToNSString(result)
+  if (!response_proto.has_value()) {
+    [self.consumer
+        updateQueryResult:@"Error parsing IosSmartTabGroupingResponse"
+               forFeature:AIPrototypingFeature::kSmartTabGrouping];
+    return;
+  }
+
+  ApplySmartTabGroupResponse(response_proto.value(), _webStateList);
+
+  std::string result_string =
+      [self serializeSmartTabGroupingResponseToString:response_proto.value()];
+
+  [self.consumer updateQueryResult:base::SysUTF8ToNSString(result_string)
                         forFeature:AIPrototypingFeature::kSmartTabGrouping];
 }
 
@@ -488,6 +500,17 @@
   optimization_guide::proto::BlingPrototypingLoggingData proto_logging_data =
       logging_data.As<optimization_guide::proto::BlingPrototypingLoggingData>()
           .value();
+  if (!kUploadBlingAIPrototypingDataLoggingTag.Get().empty() ||
+      !kUploadBlingAIPrototypingDataLoggingDescription.Get().empty()) {
+    auto metadata =
+        std::make_unique<optimization_guide::proto::BlingPrototypingMetadata>();
+    metadata->set_logging_tag(kUploadBlingAIPrototypingDataLoggingTag.Get());
+    metadata->set_logging_description(
+        kUploadBlingAIPrototypingDataLoggingDescription.Get());
+    *proto_logging_data.mutable_metadata() = *metadata;
+    NSLog(@"[AIPrototypingMediator] Logging MQLS with logging_tag: %@",
+          base::SysUTF8ToNSString(proto_logging_data.metadata().logging_tag()));
+  }
   std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry =
       std::make_unique<optimization_guide::ModelQualityLogEntry>(
           mqls_service->GetWeakPtr());
@@ -498,66 +521,16 @@
 
 - (void)serializePageContextToStorage:
     (const optimization_guide::proto::PageContext&)pageContext {
-  // Get the Documents directory path
-  NSArray* paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,
-                                                       NSUserDomainMask, YES);
-  NSString* documentsDirectory = [paths objectAtIndex:0];
-
-  NSString* urlString = base::SysUTF8ToNSString(pageContext.url());
-  NSCharacterSet* illegalFileNameCharacters =
-      [NSCharacterSet characterSetWithCharactersInString:@"/\\?%*|\"<>:"];
-  NSString* fileName = [[[urlString
-      componentsSeparatedByCharactersInSet:illegalFileNameCharacters]
-      componentsJoinedByString:@""] stringByAppendingString:@".txtpb"];
-
-  NSString* filePath =
-      [documentsDirectory stringByAppendingPathComponent:fileName];
-
-  NSLog(@"NICMAC Attempting to save proto to: %@", filePath);
-
-  // Convert NSString path to a C_style string for fopen
-  std::string UTF8FilePath = base::SysNSStringToUTF8(filePath);
-  const char* cFilePath = UTF8FilePath.c_str();
-  if (cFilePath == nullptr) {
-    NSLog(@"NICMAC Error: Could not convert file path to C_style string.");
-    return;
+  SavePageContextResult result = SaveSerializedPageContextToDisk(pageContext);
+  if (!result.success) {
+    NSLog(@"[AIPrototypingMediator] Failed to save serialized page context to "
+          @"disk: %@",
+          base::SysUTF8ToNSString(result.error_message));
+  } else {
+    NSLog(@"[AIPrototypingMediator] Successfully saved serialized page context "
+          @"to: %@",
+          base::SysUTF8ToNSString(result.file_path.value()));
   }
-
-  // Open the file for writing in binary mode and get the file descriptor
-  FILE* fp = fopen(cFilePath, "wb");
-  if (fp == nullptr) {
-    NSLog(@"NICMAC Error: Could not open file '%s' for writing. Error: %s",
-          cFilePath, strerror(errno));
-    return;
-  }
-
-  // Get the file descriptor from the FILE pointer
-  int fd = fileno(fp);
-  if (fd == -1) {
-    NSLog(@"NICMAC Error: Could not get file descriptor for '%s'. Error: %s",
-          cFilePath, strerror(errno));
-    fclose(fp);
-    return;
-  }
-
-  // Serialize and write the message to the file
-  bool success = pageContext.SerializeToFileDescriptor(fd);
-
-  // Close the file
-  if (fclose(fp) != 0) {
-    NSLog(@"NICMAC Error: Could not close file '%s' properly. Error: %s",
-          cFilePath, strerror(errno));
-  }
-
-  if (!success) {
-    NSLog(@"NICMAC Error: Failed to serialize protobuf message to file: %@",
-          filePath);
-    // Delete the file if serialization failed partway
-    [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-    return;
-  }
-
-  NSLog(@"NICMAC Successfully saved protobuf message.");
 }
 
 @end

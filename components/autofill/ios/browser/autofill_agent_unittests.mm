@@ -44,7 +44,6 @@
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/autofill/ios/common/field_data_manager_factory_ios.h"
 #import "components/autofill/ios/form_util/form_handlers_java_script_feature.h"
-#import "components/autofill/ios/form_util/form_util_java_script_feature.h"
 #import "components/prefs/pref_service.h"
 #import "ios/web/public/test/fakes/fake_browser_state.h"
 #import "ios/web/public/test/fakes/fake_web_frame.h"
@@ -130,8 +129,7 @@ class AutofillAgentTests : public web::WebTest {
 
     OverrideJavaScriptFeatures(
         {autofill::AutofillJavaScriptFeature::GetInstance(),
-         autofill::FormHandlersJavaScriptFeature::GetInstance(),
-         autofill::FormUtilJavaScriptFeature::GetInstance()});
+         autofill::FormHandlersJavaScriptFeature::GetInstance()});
 
     fake_web_state_.SetBrowserState(GetBrowserState());
     fake_web_state_.SetContentIsHTML(true);
@@ -241,7 +239,8 @@ TEST_F(AutofillAgentTests,
 
   [autofill_agent_ fillData:fill_data
                     section:Section()
-                    inFrame:fake_web_frames_manager_->GetMainWebFrame()];
+                    inFrame:fake_web_frames_manager_->GetMainWebFrame()
+             withActionType:autofill::mojom::FormActionType::kFill];
   fake_web_state_.WasShown();
 
   EXPECT_EQ(u"__gCrWeb.callFunctionInGcrWeb('autofill', 'fillForm', "
@@ -823,9 +822,10 @@ TEST_F(AutofillAgentTestFrameInitializationOrderFrames,
   AutofillDriverIOS* main_frame_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, main_frame);
   auto iframe_unique = CreateChildWebFrame();
-  iframe_unique->set_call_java_script_function_callback(base::BindRepeating(^{
-    EXPECT_TRUE(main_frame_driver->is_processed());
-  }));
+  iframe_unique->SetJavaScriptFunctionCallback(
+      "autofill.fillForm", base::BindRepeating(^{
+        EXPECT_TRUE(main_frame_driver->is_processed());
+      }));
   web::FakeWebFrame* iframe = iframe_unique.get();
   AddWebFrame(std::move(iframe_unique));
   AutofillDriverIOS* iframe_driver =
@@ -848,9 +848,10 @@ TEST_F(AutofillAgentTestFrameInitializationOrderFrames,
   auto* main_frame_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, main_frame);
   std::unique_ptr<web::FakeWebFrame> iframe_unique = CreateChildWebFrame();
-  iframe_unique->set_call_java_script_function_callback(base::BindRepeating(^{
-    EXPECT_TRUE(main_frame_driver->is_processed());
-  }));
+  iframe_unique->SetJavaScriptFunctionCallback(
+      "autofill.fillForm", base::BindRepeating(^{
+        EXPECT_TRUE(main_frame_driver->is_processed());
+      }));
   web::FakeWebFrame* iframe = iframe_unique.get();
   auto* iframe_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, iframe);
@@ -877,9 +878,10 @@ TEST_F(AutofillAgentTestFrameInitializationOrderFrames,
   auto* main_frame_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, main_frame);
   std::unique_ptr<web::FakeWebFrame> iframe_unique = CreateChildWebFrame();
-  iframe_unique->set_call_java_script_function_callback(base::BindRepeating(^{
-    EXPECT_TRUE(main_frame_driver->is_processed());
-  }));
+  iframe_unique->SetJavaScriptFunctionCallback(
+      "autofill.fillForm", base::BindRepeating(^{
+        EXPECT_TRUE(main_frame_driver->is_processed());
+      }));
   web::FakeWebFrame* iframe = iframe_unique.get();
   auto* iframe_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, iframe);
@@ -906,9 +908,10 @@ TEST_F(AutofillAgentTestFrameInitializationOrderFrames,
   auto* main_frame_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, main_frame);
   std::unique_ptr<web::FakeWebFrame> iframe_unique = CreateChildWebFrame();
-  iframe_unique->set_call_java_script_function_callback(base::BindRepeating(^{
-    EXPECT_TRUE(main_frame_driver->is_processed());
-  }));
+  iframe_unique->SetJavaScriptFunctionCallback(
+      "autofill.fillForm", base::BindRepeating(^{
+        EXPECT_TRUE(main_frame_driver->is_processed());
+      }));
   web::FakeWebFrame* iframe = iframe_unique.get();
   auto* iframe_driver =
       AutofillDriverIOS::FromWebStateAndWebFrame(&fake_web_state_, iframe);
@@ -954,7 +957,10 @@ TEST_F(AutofillAgentTests, FillData_UpdateWithResults) {
   fake_web_state_.WasShown();
 
   // Fill form data.
-  [autofill_agent_ fillData:fields section:Section() inFrame:fake_main_frame_];
+  [autofill_agent_ fillData:fields
+                    section:Section()
+                    inFrame:fake_main_frame_
+             withActionType:autofill::mojom::FormActionType::kFill];
 
   // Run queues to yield the filling results.
   web::test::WaitForBackgroundTasks();
@@ -995,7 +1001,10 @@ TEST_F(AutofillAgentTests, FillData_UnknowFieldIdInResults) {
   fake_web_state_.WasShown();
 
   // Fill form data.
-  [autofill_agent_ fillData:fields section:Section() inFrame:fake_main_frame_];
+  [autofill_agent_ fillData:fields
+                    section:Section()
+                    inFrame:fake_main_frame_
+             withActionType:autofill::mojom::FormActionType::kFill];
 
   // Run queues to yield the filling results.
   web::test::WaitForBackgroundTasks();

@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 class DigitalGoodsService;
@@ -17,9 +18,9 @@ class ScriptState;
 
 class DOMWindowDigitalGoods final
     : public GarbageCollected<DOMWindowDigitalGoods>,
-      public GarbageCollectedMixin {
+      public Supplement<LocalDOMWindow> {
  public:
-  static const unsigned kSupplementIndex;
+  static const char kSupplementName[];
 
   DOMWindowDigitalGoods(LocalDOMWindow& window);
 

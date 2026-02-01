@@ -91,7 +91,7 @@ enum class ProfileSignout {
   // sign out.
   kUserDeletedAccountCookies = 25,
   // User tapped 'Undo' in a snackbar that is shown right after sign-in through
-  // promo in bookmarks and reading list page.
+  // promo in bookmarks and reading list page. iOS only.
   kUserTappedUndoRightAfterSignIn = 26,
   // User has signed-in previously for the sole purpose of enabling history sync
   // (eg. using history sync promo in recent tabs), but declined history sync
@@ -137,8 +137,17 @@ enum class ProfileSignout {
   kUserDeclinedEnterpriseManagementDisclaimer = 40,
   // DICe user was forcefully signed out.
   kForcedDiceMigration = 41,
+  // User tapped 'Undo' in a snackbar that is shown right after sign-in through
+  // bookmark promo. Android only.
+  kUserTappedUndoRightAfterSignInFromBookmarks = 42,
+  // User tapped 'Undo' in a snackbar that is shown right after sign-in through
+  // ntp promo. Android only.
+  kUserTappedUndoRightAfterSignInFromNtp = 43,
+  // User tapped 'Undo' in a snackbar that is shown right after sign-in through
+  // recent tabs promo. Android only.
+  kUserTappedUndoRightAfterSignInFromRecentTabs = 44,
   // Keep this as the last enum.
-  kMaxValue = kForcedDiceMigration,
+  kMaxValue = kUserTappedUndoRightAfterSignInFromRecentTabs,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
@@ -310,10 +319,13 @@ enum class AccessPoint : int {
   kEnterpriseDialogAfterSigninInterception = 90,
   // "Your saved info" settings page.
   kSettingsYourSavedInfo = 91,
+  // Triggered when the user attempts to import credentials through the
+  // ASCredentialImportManager without being signed in.
+  kCredentialExchangeImport = 92,
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
   // tools/metrics/histograms/metadata/signin/enums.xml.
-  kMaxValue = kSettingsYourSavedInfo,  // This must be last.
+  kMaxValue = kCredentialExchangeImport,  // This must be last.
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
@@ -635,7 +647,9 @@ enum class ReauthFlowEvent : int {
 enum class ReauthAccessPoint : int {
   // Error card in the account menu.
   kAccountMenu = 0,
-  kMaxValue = kAccountMenu,
+  kAccountSettings = 1,
+  kRecentTabs = 2,
+  kMaxValue = kRecentTabs,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:ReauthAccessPoint)
 #endif  // BUILDFLAG(IS_IOS)

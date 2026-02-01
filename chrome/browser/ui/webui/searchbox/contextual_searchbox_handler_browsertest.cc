@@ -37,11 +37,6 @@ class TestSearchboxHandler : public ContextualSearchboxHandler {
 
   ~TestSearchboxHandler() override = default;
 
-  std::optional<lens::LensOverlayInvocationSource> GetInvocationSource()
-      const override {
-    return std::nullopt;
-  }
-
   void OnThumbnailRemoved() override {}
 };
 
@@ -59,7 +54,8 @@ class ContextualSearchboxHandlerBrowserTest : public InProcessBrowserTest {
         ContextualSearchServiceFactory::GetForProfile(browser()->profile());
     session_handle_ = service->CreateSession(
         ntp_composebox::CreateQueryControllerConfigParams(),
-        contextual_search::ContextualSearchSource::kUnknown);
+        contextual_search::ContextualSearchSource::kUnknown,
+        /*invocation_source=*/std::nullopt);
     // Check the search content sharing settings to notify the session handle
     // that the client is properly checking the pref value.
     session_handle_->CheckSearchContentSharingSettings(
@@ -122,4 +118,15 @@ IN_PROC_BROWSER_TEST_F(ContextualSearchboxHandlerBrowserTestDSF2,
   ASSERT_TRUE(options.has_value());
   EXPECT_EQ(options->max_width, expected_width);
   EXPECT_EQ(options->max_height, expected_height);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualSearchboxHandlerBrowserTest,
+                       ResetInputStateModel) {
+  // Access private member via friend class.
+  ContextualSearchboxHandler* base_handler = handler_.get();
+  ASSERT_TRUE(base_handler->input_state_model_);
+
+  handler_->ResetInputStateModel();
+
+  EXPECT_FALSE(base_handler->input_state_model_);
 }

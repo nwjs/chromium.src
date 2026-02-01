@@ -36,11 +36,20 @@ namespace blink {
 class CSSImageSetOptionValue;
 class CSSLengthResolver;
 class StyleImage;
+class StyleResolverState;
 
 class CORE_EXPORT CSSImageSetValue : public CSSValueList {
  public:
   explicit CSSImageSetValue();
   ~CSSImageSetValue();
+
+  CSSImageSetValue(StyleImage* cached_image,
+                   float device_scale_factor,
+                   HeapVector<Member<const CSSImageSetOptionValue>>&& options)
+      : CSSValueList(kImageSetClass, kCommaSeparator),
+        cached_image_(cached_image),
+        cached_device_scale_factor_(device_scale_factor),
+        options_(std::move(options)) {}
 
   bool IsCachePending(const float device_scale_factor) const;
   StyleImage* CachedImage(const float device_scale_factor) const;
@@ -53,9 +62,20 @@ class CORE_EXPORT CSSImageSetValue : public CSSValueList {
 
   bool HasFailedOrCanceledSubresources() const;
 
+  const CSSImageSetValue& ResolveValuesIfNeeded(
+      const StyleResolverState&) const;
+  CSSImageSetValue& ResolveValuesIfNeeded(const StyleResolverState&);
+
+  const CSSValue* CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+      const CSSPropertyName&,
+      wtf_size_t& property_value_index) const;
+
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
+  CSSImageSetValue* ResolveValuesAndCreateCopyIfNeeded(
+      const StyleResolverState&) const;
+
   Member<StyleImage> cached_image_;
   float cached_device_scale_factor_{1.0f};
 

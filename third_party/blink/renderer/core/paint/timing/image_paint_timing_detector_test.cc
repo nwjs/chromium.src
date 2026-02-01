@@ -123,21 +123,21 @@ class ImagePaintTimingDetectorTest : public testing::Test,
 
   ImageRecord* LargestImage() {
     return GetPaintTimingDetector()
-        .GetImagePaintTimingDetector()
-        .records_manager_.LargestImage();
+        .GetLargestContentfulPaintCalculator()
+        ->LargestPaintedOrPendingImageForTest();
   }
 
   ImageRecord* LargestPaintedImage() {
     return GetPaintTimingDetector()
-        .GetImagePaintTimingDetector()
-        .records_manager_.largest_painted_image_.Get();
+        .GetLargestContentfulPaintCalculator()
+        ->LargestPaintedImageForTest();
   }
 
   ImageRecord* ChildFrameLargestImage() {
     return GetChildFrameView()
         .GetPaintTimingDetector()
-        .GetImagePaintTimingDetector()
-        .records_manager_.LargestImage();
+        .GetLargestContentfulPaintCalculator()
+        ->LargestPaintedOrPendingImageForTest();
   }
 
   size_t CountImageRecords() {
@@ -185,6 +185,12 @@ class ImagePaintTimingDetectorTest : public testing::Test,
     return GetPaintTimingDetector()
         .LatestLcpDetailsForTest()
         .largest_image_paint_size;
+  }
+
+  bool HasLargestIgnoredImage() {
+    return !!GetPaintTimingDetector()
+                 .GetImagePaintTimingDetector()
+                 .records_manager_.LargestIgnoredImage();
   }
 
   static constexpr base::TimeDelta kQuantumOfTime = base::Milliseconds(10);
@@ -1218,11 +1224,13 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTML) {
   SetImageAndPaint("target", 5, 5);
   UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
   EXPECT_EQ(CountImageRecords(), 0u);
+  EXPECT_TRUE(HasLargestIgnoredImage());
 
   // Change the opacity of documentElement, now the img should be a candidate.
   GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
                                                 AtomicString("opacity: 1"));
   UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_FALSE(HasLargestIgnoredImage());
   EXPECT_EQ(CountImageRecords(), 1u);
   auto largest_contentful_paint_details =
       GetPerformanceTimingForReporting()
@@ -1297,6 +1305,35 @@ TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLWithInput) {
   base::TimeTicks image_timestamp =
       paint_timing.FirstImagePaintRenderedButNotPresentedAsMonotonicTime();
   EXPECT_FALSE(image_timestamp.is_null());
+}
+
+TEST_P(ImagePaintTimingDetectorTest, OpacityZeroHTMLRemoveElement) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      :root {
+        opacity: 0;
+        will-change: opacity;
+      }
+    </style>
+    <img id="target"></img>
+  )HTML");
+  SetImageAndPaint("target", 256, 256);
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_EQ(CountImageRecords(), 0u);
+  EXPECT_TRUE(HasLargestIgnoredImage());
+
+  GetDocument().body()->RemoveChild(
+      GetDocument().getElementById(AtomicString("target")));
+  EXPECT_FALSE(HasLargestIgnoredImage());
+  GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
+                                                AtomicString("opacity: 1"));
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_EQ(CountImageRecords(), 0u);
+
+  auto largest_contentful_paint_details =
+      GetPerformanceTimingForReporting()
+          .LargestContentfulPaintDetailsForMetrics();
+  EXPECT_EQ(largest_contentful_paint_details.image_paint_size, 0u);
 }
 
 TEST_P(ImagePaintTimingDetectorTest, LargestImagePaint_FullViewportImage) {

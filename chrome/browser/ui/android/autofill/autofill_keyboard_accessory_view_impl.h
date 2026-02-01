@@ -39,7 +39,6 @@ class AutofillKeyboardAccessoryViewImpl : public AutofillKeyboardAccessoryView {
   bool Initialize() override;
   void Hide() override;
   void Show() override;
-  void AxAnnounce(const std::u16string& text) override;
   void ConfirmDeletion(
       const std::u16string& confirmation_title,
       const std::u16string& confirmation_body,
@@ -60,8 +59,7 @@ class AutofillKeyboardAccessoryViewImpl : public AutofillKeyboardAccessoryView {
                          jint list_index);
 
   // Called when the user closes the deletion dialog.
-  void OnDeletionDialogClosed(JNIEnv* env,
-                              jboolean confirmed);
+  void OnDeletionDialogClosed(JNIEnv* env, bool confirmed);
 
   // Called when this view was dismissed.
   void ViewDismissed(JNIEnv* env);

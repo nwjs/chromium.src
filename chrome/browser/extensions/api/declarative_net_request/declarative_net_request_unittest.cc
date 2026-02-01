@@ -31,7 +31,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/extensions/api/declarative_net_request/dnr_test_base.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
-#include "chrome/browser/extensions/load_error_reporter.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/api/declarative_net_request/composite_matcher.h"
@@ -50,6 +49,7 @@
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
+#include "extensions/browser/load_error_reporter.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/common/api/declarative_net_request/constants.h"
 #include "extensions/common/api/declarative_net_request/test_utils.h"
@@ -160,6 +160,13 @@ class DeclarativeNetRequestUnittest : public DNRTestBase {
     // Sanity check that the extension can index and enable up to
     // |rule_limit_override_| + |global_limit_override_| rules.
     ASSERT_EQ(300, GetMaximumRulesPerRuleset());
+  }
+
+  void TearDown() override {
+    extension_prefs_ = nullptr;
+    extension_.reset();
+    loader_.reset();
+    DNRTestBase::TearDown();
   }
 
  protected:
@@ -458,7 +465,7 @@ class DeclarativeNetRequestUnittest : public DNRTestBase {
   bool RulesetExists(const std::string& ruleset_id_string) {
     const DNRManifestData::ManifestIDToRulesetMap& public_id_map =
         DNRManifestData::GetManifestIDToRulesetMap(*extension());
-    return base::Contains(public_id_map, ruleset_id_string);
+    return public_id_map.contains(ruleset_id_string);
   }
 
   void VerifyGetDisabledRuleIdsFunction(

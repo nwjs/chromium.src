@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "base/run_loop.h"
@@ -1303,12 +1302,12 @@ int GetPoolGroupCount(HttpNetworkSession* session,
 
 // Return count of distinct spdy sessions.
 int GetSpdySessionCount(HttpNetworkSession* session) {
-  std::unique_ptr<base::Value> value(
-      session->spdy_session_pool()->SpdySessionPoolInfoToValue());
-  if (!value || !value->is_list()) {
+  base::Value value =
+      session->spdy_session_pool()->SpdySessionPoolInfoToValue();
+  if (!value.is_list()) {
     return -1;
   }
-  return value->GetList().size();
+  return value.GetList().size();
 }
 
 // Return count of sockets handed out by a given socket pool.

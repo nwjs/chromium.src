@@ -10,7 +10,6 @@
 #include <optional>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -140,8 +139,8 @@ void DelayedOneTimeMessageCallbackHelper(
   v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return;
 
@@ -353,8 +352,9 @@ void OneTimeMessageHandler::OneTimeMessageCallbackManager::
     ClearCallbackDataForPortId(ScriptContext* script_context,
                                const PortId& port_id) {
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
   if (!data) {
     return;
   }
@@ -368,8 +368,9 @@ void OneTimeMessageHandler::OneTimeMessageCallbackManager::
         const PortId& port_id,
         const OneTimeMessageHandler::CallbackID& callback_id) {
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
   if (!data) {
     return;
   }
@@ -387,8 +388,9 @@ int OneTimeMessageHandler::OneTimeMessageCallbackManager::
   v8::HandleScope handle_scope(isolate);
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
 
   if (!data) {
     return 0;
@@ -416,12 +418,13 @@ bool OneTimeMessageHandler::HasPort(ScriptContext* script_context,
   v8::HandleScope handle_scope(isolate);
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return false;
-  return port_id.is_opener ? base::Contains(data->openers, port_id)
-                           : base::Contains(data->receivers, port_id);
+  return port_id.is_opener ? data->openers.contains(port_id)
+                           : data->receivers.contains(port_id);
 }
 
 v8::Local<v8::Promise> OneTimeMessageHandler::SendMessage(
@@ -443,8 +446,8 @@ v8::Local<v8::Promise> OneTimeMessageHandler::SendMessage(
   DCHECK_EQ(script_context->context_id(), new_port_id.context_id);
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(), CreatePerContextData::kCreateIfMissing);
   DCHECK(data);
 
   v8::Local<v8::Promise> promise;
@@ -516,9 +519,10 @@ void OneTimeMessageHandler::AddReceiver(ScriptContext* script_context,
   v8::Local<v8::Context> context = script_context->v8_context();
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context, kCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kCreateIfMissing);
   DCHECK(data);
-  DCHECK(!base::Contains(data->receivers, target_port_id));
+  DCHECK(!data->receivers.contains(target_port_id));
   OneTimeReceiver& receiver = data->receivers[target_port_id];
   receiver.sender.Reset(isolate, sender);
   receiver.event_name = event_name;
@@ -604,8 +608,9 @@ void OneTimeMessageHandler::OnAllCallbacksCollected(
     v8::Local<v8::Context> context,
     const PortId& port_id) {
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
   if (!data) {
     return;
   }
@@ -637,8 +642,8 @@ bool OneTimeMessageHandler::DeliverMessageToReceiver(
   bool handled = false;
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return handled;
 
@@ -688,7 +693,8 @@ bool OneTimeMessageHandler::DeliverMessageToReceiver(
     // intend to respond asynchronously. `message_dispatched_callback` will
     // check the results of the listeners to determine if a listener indicated
     // it intended to respond asynchronously.
-    if (port.event_name == messaging_util::kOnMessageEvent) {
+    if (port.event_name == messaging_util::kOnMessageEvent ||
+        port.event_name == messaging_util::kOnMessageExternalEvent) {
       CallbackID listener_throws_error_callback_id;
       if (IsMessagePolyfillSupportEnabled()) {
         auto listener_throws_error_callback =
@@ -729,8 +735,8 @@ bool OneTimeMessageHandler::DeliverReplyToOpener(ScriptContext* script_context,
   bool handled = false;
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(v8_context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          v8_context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return handled;
 
@@ -783,8 +789,8 @@ bool OneTimeMessageHandler::DisconnectReceiver(ScriptContext* script_context,
   bool handled = false;
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return handled;
 
@@ -811,8 +817,8 @@ bool OneTimeMessageHandler::DisconnectOpener(ScriptContext* script_context,
 
   v8::Local<v8::Context> v8_context = script_context->v8_context();
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(v8_context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          v8_context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return handled;
 
@@ -890,8 +896,8 @@ void OneTimeMessageHandler::OnOneTimeMessageResponse(
   // because the listener did not indicate it would reply asynchronously), it
   // might be good to surface an error.
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return;
 
@@ -1019,12 +1025,24 @@ void OneTimeMessageHandler::OneTimeMessageCallbackManager::
     OnDelayedOneTimeMessageCallbackCollected(ScriptContext* script_context,
                                              const PortId& port_id,
                                              CallbackID callback_id) {
+  // TODO(crbug.com/475029699): Can probably remove this check after this is
+  // resolved because then we'll know that the script context will be valid when
+  // this is called.
+  // The ScriptContext may have been invalidated (and the `v8::Context`
+  // released) if this callback was created during context invalidation. In that
+  // case, the `OneTimeMessageContextData` will be destroyed when the
+  // `v8::Context` is garbage collected, so we can just return.
+  if (!script_context->is_valid()) {
+    return;
+  }
+
   // Note: we know |script_context| is still valid because the GC callback won't
   // be called after context invalidation.
   v8::HandleScope handle_scope(script_context->isolate());
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(script_context->v8_context(),
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          script_context->v8_context(),
+          CreatePerContextData::kDontCreateIfMissing);
   // ScriptContext invalidation and PerContextData cleanup happen "around" the
   // same time, but there aren't strict guarantees about ordering. It's possible
   // the data was collected.
@@ -1097,8 +1115,8 @@ void OneTimeMessageHandler::OnPromiseRejectedResponse(
   // The promise may reject after the context or the channel has been closed.
   // Fail gracefully.
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data) {
     return;
   }
@@ -1152,8 +1170,8 @@ void OneTimeMessageHandler::OnListenerThrowsError(const PortId& port_id,
   v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
 
   // Dispatching can invalidate the context so if it is then we won't be able to
   // inform the message sender.
@@ -1270,8 +1288,8 @@ void OneTimeMessageHandler::OnEventFired(
   // The context could be tearing down by the time the event is fully
   // dispatched.
   OneTimeMessageContextData* data =
-      GetPerContextData<OneTimeMessageContextData>(context,
-                                                   kDontCreateIfMissing);
+      GetPerContextData<OneTimeMessageContextData>(
+          context, CreatePerContextData::kDontCreateIfMissing);
   if (!data)
     return;
 

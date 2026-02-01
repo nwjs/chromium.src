@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -174,15 +175,19 @@ void AddDataSourceConfigs(
 void AdaptBuiltinDataSourcesConfig(
     perfetto::TraceConfig::BuiltinDataSource* config,
     bool privacy_filtering_enabled) {
-  // Chrome uses CLOCK_MONOTONIC as its trace clock on Posix. To avoid that
-  // trace processor converts Chrome's event timestamps into CLOCK_BOOTTIME
-  // during import, we set the trace clock here (the service will emit it into
-  // the trace's ClockSnapshots). See also crbug.com/1060400, where the
-  // conversion to BOOTTIME caused CrOS and chromecast system data source data
-  // to be misaligned.
-  config->set_primary_trace_clock(
-      static_cast<perfetto::protos::gen::BuiltinClock>(
-          base::tracing::kTraceClockId));
+  // Sets primary trace clock to CLOCK_MONOTONIC only if the config doesn't set
+  // it.
+  if (!config->has_primary_trace_clock()) {
+    // Chrome uses CLOCK_MONOTONIC as its trace clock on Posix. To avoid that
+    // trace processor converts Chrome's event timestamps into CLOCK_BOOTTIME
+    // during import, we set the trace clock here (the service will emit it into
+    // the trace's ClockSnapshots). See also crbug.com/1060400, where the
+    // conversion to BOOTTIME caused CrOS and chromecast system data source data
+    // to be misaligned.
+    config->set_primary_trace_clock(
+        static_cast<perfetto::protos::gen::BuiltinClock>(
+            base::tracing::kTraceClockId));
+  }
 
   // Chrome emits system / trace config metadata itself.
   config->set_disable_trace_config(privacy_filtering_enabled);
@@ -275,10 +280,11 @@ perfetto::TraceConfig GetDefaultPerfettoConfig(
     const std::string& json_agent_label_filter) {
   perfetto::TraceConfig perfetto_config;
 
-  base::ByteCount size_limit = chrome_config.GetTraceBufferSizeInBytes();
+  base::ByteSize size_limit = chrome_config.GetTraceBufferSizeInBytes();
   if (size_limit.is_zero()) {
     // If trace config did not provide trace buffer size, we will use default
-    size_limit = GetDefaultTraceBufferSize();
+    size_limit =
+        base::ByteSize::FromDeprecatedByteCount(GetDefaultTraceBufferSize());
   }
   auto* buffer_config = perfetto_config.add_buffers();
   buffer_config->set_size_kb(size_limit.InKiB());
@@ -316,7 +322,7 @@ perfetto::TraceConfig GetDefaultPerfettoConfig(
   base::trace_event::TraceConfig stripped_config(chrome_config);
   stripped_config.SetProcessFilterConfig(
       base::trace_event::TraceConfig::ProcessFilterConfig());
-  stripped_config.SetTraceBufferSizeInBytes(base::ByteCount(0));
+  stripped_config.SetTraceBufferSizeInBytes(base::ByteSize(0));
   stripped_config.SetTraceBufferSizeInEvents(0);
 
   AddDataSourceConfigs(&perfetto_config, chrome_config.process_filter_config(),

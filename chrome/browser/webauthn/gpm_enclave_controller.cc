@@ -66,11 +66,11 @@
 #include "device/fido/enclave/constants.h"
 #include "device/fido/enclave/metrics.h"
 #include "device/fido/enclave/types.h"
-#include "device/fido/features.h"
-#include "device/fido/fido_constants.h"
 #include "device/fido/fido_discovery_base.h"
 #include "device/fido/fido_discovery_factory.h"
-#include "device/fido/fido_types.h"
+#include "device/fido/public/features.h"
+#include "device/fido/public/fido_constants.h"
+#include "device/fido/public/fido_types.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -414,7 +414,8 @@ GPMEnclaveController::GPMEnclaveController(
   Profile* const profile = GetProfile();
   webauthn::PasskeyModel* passkey_model =
       PasskeyModelFactory::GetInstance()->GetForProfile(profile);
-  creds_ = passkey_model->GetPasskeysForRelyingPartyId(rp_id_);
+  creds_ = passkey_model->GetPasskeys(
+      rp_id_, webauthn::PasskeyModel::ShadowedCredentials::kExclude);
   if (base::FeatureList::IsEnabled(device::kWebAuthnSignalApiHidePasskeys)) {
     std::erase_if(creds_, [](const auto& cred) { return cred.hidden(); });
   }
@@ -445,7 +446,7 @@ GPMEnclaveController::GPMEnclaveController(
     return;
   }
   SetActive(EnclaveEnabledStatus::kEnabled);
-  if (enclave_manager_->is_loaded()) {
+  if (enclave_manager_->IsLoaded()) {
     OnEnclaveLoaded();
   } else {
     FIDO_LOG(EVENT) << "Loading enclave state";
@@ -463,8 +464,8 @@ GPMEnclaveController::~GPMEnclaveController() {
 std::optional<EnclaveUserVerificationMethod>
 GPMEnclaveController::GetEnclaveUserVerificationMethod() {
   // TODO(crbug.com/393055190): Figure out why `ready_for_ui` is not enough for
-  // `is_ready`.
-  if (!enclave_manager_->is_ready()) {
+  // `IsReady`.
+  if (!enclave_manager_->IsReady()) {
     return std::nullopt;
   }
 
@@ -598,7 +599,7 @@ void GPMEnclaveController::OnEnclaveLoaded() {
   // we don't know whether the platform has biometrics, we can know whether
   // we'll use a GPM PIN for UV or not.
   if (request_type_ == device::FidoRequestType::kGetAssertion) {
-    if (enclave_manager_->is_ready()) {
+    if (enclave_manager_->IsReady()) {
       switch (PickEnclaveUserVerificationMethod(
           user_verification_requirement_,
           /*have_entered_pin_for_recovery=*/false,
@@ -618,7 +619,6 @@ void GPMEnclaveController::OnEnclaveLoaded() {
           return;
       }
     }
-
   }
 
   FIDO_LOG(EVENT) << "Checking for UV key capability";
@@ -681,7 +681,7 @@ void GPMEnclaveController::OnAccountStateDownloaded(
               : "<none>")
       << ", iCloud Keychain keys: " << result.icloud_keys.size();
 
-  if (enclave_manager_->is_ready() &&
+  if (enclave_manager_->IsReady() &&
       enclave_manager_->ConsiderSecurityDomainState(result,
                                                     base::DoNothing())) {
     SetAccountState(AccountState::kReady);
@@ -743,7 +743,7 @@ bool GPMEnclaveController::ShouldRefreshState() {
   // unregistered but GPM Enclave Controller might still be in the active
   // state.
   bool account_state_is_out_of_sync =
-      account_state_ == AccountState::kReady && !enclave_manager_->is_ready();
+      account_state_ == AccountState::kReady && !enclave_manager_->IsReady();
   return is_state_stale_ || account_state_is_out_of_sync;
 }
 
@@ -779,7 +779,7 @@ void GPMEnclaveController::OnKeysStored() {
   }
 
   CHECK(enclave_manager_->has_pending_keys());
-  CHECK(!enclave_manager_->is_ready());
+  CHECK(!enclave_manager_->IsReady());
   store_keys_lock_.reset();
 
   if ((pin_metadata_.has_value() && pin_metadata_->usable_pin_metadata) ||

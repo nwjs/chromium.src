@@ -18,7 +18,7 @@
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/form_structure.h"
 #import "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
-#import "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
+#import "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #import "components/autofill/core/browser/suggestions/suggestion_type.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
@@ -184,11 +184,12 @@ void AutofillBottomSheetTabHelper::OnFormMessageReceived(
   const autofill::FieldRendererId renderer_id = params.field_renderer_id;
   std::string& frame_id = params.frame_id;
   bool is_password_related =
-      base::Contains(registered_password_renderer_ids_[frame_id], renderer_id);
+      registered_password_renderer_ids_[frame_id].contains(renderer_id);
   bool is_payments_related =
-      base::Contains(registered_payments_renderer_ids_[frame_id], renderer_id);
-  bool is_password_generation_related = base::Contains(
-      registered_password_generation_renderer_ids_[frame_id], renderer_id);
+      registered_payments_renderer_ids_[frame_id].contains(renderer_id);
+  bool is_password_generation_related =
+      registered_password_generation_renderer_ids_[frame_id].contains(
+          renderer_id);
 
   if (is_password_related) {
     ShowCredentialBottomSheet(params);
@@ -558,7 +559,8 @@ void AutofillBottomSheetTabHelper::AttachListenersForPaymentsForm(
     autofill::AutofillManager& manager,
     autofill::FormGlobalId form_id,
     bool only_new) {
-  autofill::FormStructure* form_structure = manager.FindCachedFormById(form_id);
+  const autofill::FormStructure* form_structure =
+      manager.FindCachedFormById(form_id);
   if (!form_structure ||
       !form_structure->IsCompleteCreditCardForm(
           autofill::FormStructure::CreditCardFormCompleteness::

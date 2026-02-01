@@ -33,8 +33,10 @@ schema_sources_ = [
   "processes.idl",
   "reading_list.webidl",
   "search.idl",
+  "sessions.json",
   "scripting.idl",
   "tab_capture.idl",
+  "tab_groups.json",
   "tabs.json",
   "web_authentication_proxy.webidl",
   "web_navigation.json",
@@ -51,17 +53,17 @@ if (enable_service_discovery) {
   schema_sources_ += [ "mdns.idl" ]
 }
 
-# Schemas that should be used only to auto-generate the C++ types.
-# In many cases, this includes schemas used to generate types used in manifest
-# parsing.
+# Schemas that should be used only to generate the JSON strings and function
+# registration. These do not generate the strong C++ types.
 uncompiled_sources_ = [
   "action.json",
   "browsing_data.json",
+  "commands.json",
   "extension.json",
   "top_sites.json",
 ]
 
-# Some APIs (e.g. cookies) rely on types and headers from other APIs.
+# Some APIs rely on types and headers from other APIs.
 types_only_schema_sources_ = []
 
 if (enable_extensions) {
@@ -83,11 +85,9 @@ if (enable_extensions) {
     "passwords_private.idl",
     "resources_private.idl",
     "safe_browsing_private.idl",
-    "sessions.json",
     "settings_private.idl",
     "side_panel.idl",
     "system_private.json",
-    "tab_groups.json",
 
     # Despite the name, these APIs do not rely on any WebRTC-specific bits and
     # as such do not belong in a conditional.

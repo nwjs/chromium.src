@@ -266,10 +266,6 @@
     "META": {"sizes": {"includes": [10]}},
     "includes": [3130],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/crostini_upgrader/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [3135],
-  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/desk_api/resources.grd": {
     "META": {"sizes": {"includes": [10],}},
     "includes": [3140],
@@ -390,7 +386,7 @@
     "META": {"sizes": {"includes": [15]}},
     "includes": [3740],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/connectors_internals/resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/components/enterprise/connectors/resources/resources.grd": {
     "META": {"sizes": {"includes": [15]}},
     "includes": [3760],
   },
@@ -451,7 +447,7 @@
     "includes": [4000],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/glic/resources.grd": {
-    "META": {"sizes": {"includes": [30]}},
+    "META": {"sizes": {"includes": [60]}},
     "includes": [4010],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/glic/fre/resources.grd": {
@@ -602,7 +598,7 @@
     "META": {"sizes": {"includes": [20]}},
     "includes": [4660],
   },
-   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/reload_button/resources.grd": {
+   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/webui_toolbar/resources.grd": {
     "META": {"sizes": {"includes": [10]}},
     "includes": [4670],
   },
@@ -663,7 +659,7 @@
     "includes": [4860],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/read_anything/resources.grd": {
-    "META": {"sizes": {"includes": [75],}},
+    "META": {"sizes": {"includes": [80],}},
     "includes": [4880],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/reading_list/code_cache_resources.grd": {
@@ -782,7 +778,7 @@
     "includes": [5270],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/updater/resources.grd": {
-    "META": {"sizes": {"includes": [30]}},
+    "META": {"sizes": {"includes": [60]}},
     "includes": [5280],
   },
   # END chrome/ WebUI resources section
@@ -1254,6 +1250,10 @@
     "<(SHARED_INTERMEDIATE_DIR)/components/webui/regional_capabilities_internals/resources/resources.grd": {
     "META": {"sizes": {"includes": [5]}},
     "includes": [7490],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/unexportable_keys_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [7495],
   },
   # END components/ section.
 

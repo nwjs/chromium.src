@@ -451,7 +451,7 @@ public class FastCheckoutDetailScreenViewTest {
         assertTrue(addressImageView.isShown());
         assertThat(
                 shadowOf(addressImageView.getDrawable()).getCreatedFromResId(),
-                equalTo(R.drawable.location_on_logo));
+                equalTo(R.drawable.ic_location_on_fill_24dp));
 
         // Icon subtitle should be hidden.
         assertFalse(getTextViewFromListItemWithId(0, R.id.fast_checkout_record_type).isShown());
@@ -461,7 +461,7 @@ public class FastCheckoutDetailScreenViewTest {
         assertTrue(homeImageView.isShown());
         assertThat(
                 shadowOf(homeImageView.getDrawable()).getCreatedFromResId(),
-                equalTo(R.drawable.home_logo));
+                equalTo(R.drawable.ic_home_24dp));
 
         // Icon subtitle for Home address should be shown.
         TextView homeTextView = getTextViewFromListItemWithId(1, R.id.fast_checkout_record_type);
@@ -508,7 +508,7 @@ public class FastCheckoutDetailScreenViewTest {
         assertTrue(addressImageView.isShown());
         assertThat(
                 shadowOf(addressImageView.getDrawable()).getCreatedFromResId(),
-                equalTo(R.drawable.location_on_logo));
+                equalTo(R.drawable.ic_location_on_fill_24dp));
 
         // Icon subtitle should be hidden.
         assertFalse(getTextViewFromListItemWithId(0, R.id.fast_checkout_record_type).isShown());

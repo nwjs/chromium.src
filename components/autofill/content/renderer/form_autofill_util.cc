@@ -23,6 +23,7 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -429,7 +430,7 @@ std::u16string FindChildTextInner(const WebNode& node,
   if (node.IsElementNode()) {
     const WebElement element = node.To<WebElement>();
     if (HasTagName<kOption>(element) ||
-        (HasTagName<kDiv>(element) && base::Contains(divs_to_skip, node)) ||
+        (HasTagName<kDiv>(element) && divs_to_skip.contains(node)) ||
         IsAutofillableElement(element.DynamicTo<WebFormControlElement>())) {
       return std::u16string();
     }
@@ -575,7 +576,9 @@ bool AttributeHasButtonFeature(const WebString& attribute) {
   if (attribute.IsNull())
     return false;
   std::string value = attribute.Utf8();
-  std::ranges::transform(value, value.begin(), ::tolower);
+  for (char& c : value) {
+    c = ::tolower(c);
+  }
   for (const char* const button_feature : kButtonFeatures) {
     if (value.find(button_feature, 0) != std::string::npos)
       return true;
@@ -914,7 +917,7 @@ std::optional<InferredLabel> InferLabelFromTableRow(const WebNode& cell) {
       }
       prev_row_it = prev_row_it.NextSibling();
     }
-    if ((cell_count == prev_row_count) && matching_cell) {
+    if (cell_count == prev_row_count && matching_cell) {
       if (auto r = InferredLabel::BuildIfValid(FindChildText(matching_cell),
                                                LabelSource::kTdTag)) {
         return r;
@@ -1034,7 +1037,7 @@ std::optional<InferredLabel> InferLabelFromAncestors(
       continue;
 
     std::string tag_name = parent.To<WebElement>().TagName().Utf8();
-    if (base::Contains(seen_tag_names, tag_name))
+    if (seen_tag_names.contains(tag_name))
       continue;
     seen_tag_names.insert(tag_name);
 
@@ -1476,7 +1479,7 @@ void MatchLabelsAndFields(const WebDocument& root,
                  CompareByRendererId>
       field_set = [&] {
         std::vector<std::pair<FormFieldData*, ShadowFieldData>> items;
-        for (size_t i = 0; i < fields.size(); i++) {
+        for (size_t i = 0; i < fields.size(); ++i) {
           items.emplace_back(&fields[i], std::move(shadow_fields[i]));
         }
         return items;
@@ -2225,8 +2228,8 @@ std::optional<InferredLabel> InferredLabel::BuildIfValid(std::u16string label,
     // U+2014: "—"  (Em Dash)
     // U+2212: "−"  (Minus Sign)
     // U+FF0D: "－" (Fullwidth Hyphen-Minus)
-    return !base::Contains(kInvalidChars, c) &&
-           !base::Contains(std::u16string_view(base::kWhitespaceUTF16), c);
+    return !kInvalidChars.contains(c) &&
+           !(std::u16string_view(base::kWhitespaceUTF16)).contains(c);
   };
   auto is_from_extended_hyphen_like_list = [](char16_t c) {
     return c == u'\u2014' || c == u'\u2212' || c == u'\uFF0D';
@@ -2514,7 +2517,7 @@ FindFormAndFieldForFormControlElement(
   SCOPED_CRASH_KEY_STRING64("Autofill", "elem_tag_name", element.TagName().Utf8());
   SCOPED_CRASH_KEY_STRING64("Autofill", "elem_id", get_id(element));
   SCOPED_CRASH_KEY_STRING64("Autofill", "elem_form_attr", element.GetAttribute("form").Utf8());
-  SCOPED_CRASH_KEY_NUMBER("Autofill", "elem_form_control_type", base::to_underlying(element.FormControlType()));  // nocheck
+  SCOPED_CRASH_KEY_NUMBER("Autofill", "elem_form_control_type", std::to_underlying(element.FormControlType()));  // nocheck
 
   SCOPED_CRASH_KEY_BOOL("Autofill", "elem_autofillable", IsAutofillableElement(element));
   SCOPED_CRASH_KEY_BOOL("Autofill", "elem_document", !!document);
@@ -2644,8 +2647,8 @@ std::vector<std::pair<FieldRendererId, WebAutofillState>> ApplyFieldsAction(
     if (!element) {
       continue;
     }
-    if ((action_type == mojom::FormActionType::kFill &&
-         ShouldSkipFillField(field, element))) {
+    if (action_type == mojom::FormActionType::kFill &&
+        ShouldSkipFillField(field, element)) {
       continue;
     }
     if (element.Focused()) {

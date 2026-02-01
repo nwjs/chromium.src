@@ -10,13 +10,17 @@
 #include "third_party/blink/renderer/modules/animationworklet/animation_worklet.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
 class MODULES_EXPORT CSSAnimationWorklet final
     : public GarbageCollected<CSSAnimationWorklet>,
+      public Supplement<LocalDOMWindow>,
       public ExecutionContextLifecycleObserver {
  public:
+  static const char kSupplementName[];
+
   static AnimationWorklet* animationWorklet(ScriptState*);
 
   explicit CSSAnimationWorklet(LocalDOMWindow&);

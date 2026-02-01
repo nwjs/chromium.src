@@ -13,9 +13,12 @@
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "media/base/android/media_codec_util.h"
 #include "media/base/bitstream_buffer.h"
 #include "media/base/encoder_status.h"
@@ -48,7 +51,13 @@ std::vector<VideoPixelFormat> GetSupportedSharedImagePixelFormats() {
     // If kVulkanFromANGLE = true (e.g. Desktop Android)
     // we we get shared images with AngleVulkanImageBacking, NDK VEA can't
     // handle such shared images yet.
-    return {};
+    if (base::FeatureList::IsEnabled(media::kAndroidZeroCopyVideoCapture)) {
+      // If zero-copy camera capture is enabled, let's allow XBGR shared images
+      // for testing, even though it breaks the canvas copy case.
+      return {PIXEL_FORMAT_XBGR};
+    } else {
+      return {};
+    }
   }
   return {PIXEL_FORMAT_ABGR, PIXEL_FORMAT_XBGR};
 }
@@ -510,17 +519,6 @@ std::string GetInitStatusHistogramName(VideoCodecProfile profile) {
       {kInitStatusHistogramPrefix,
        GetCodecNameForUMA(VideoCodecProfileToVideoCodec(profile))});
 }
-
-bool ShouldUseSurfaceInput() {
-  if (__builtin_available(android 35, *)) {
-    // Limit surface input to Android 15+ (API Level: 35), because we see issues
-    // on older devices.
-    if (base::FeatureList::IsEnabled(media::kSurfaceInputForAndroidVEA)) {
-      return true;
-    }
-  }
-  return false;
-}
 }  // namespace
 
 NdkVideoEncodeAccelerator::PendingEncode::PendingEncode(
@@ -786,8 +784,7 @@ void NdkVideoEncodeAccelerator::OnCommandBufferHelperAvailable(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   command_buffer_helper_ = std::move(command_buffer_helper);
   if (!command_buffer_helper_) {
-    NotifyErrorStatus({EncoderStatus::Codes::kEncoderInitializationError,
-                       "Can't obtain CommandBufferHelper"});
+    NotifyErrorStatus({EncoderStatus::Codes::kGPUCommandBufferNotAvailable});
     return;
   }
   gl_renderer_->SetSharedImageManager(
@@ -1002,6 +999,7 @@ void NdkVideoEncodeAccelerator::OnSyncDone(VideoFrame::ID frame_id) {
 
 void NdkVideoEncodeAccelerator::FeedInputBuffer(scoped_refptr<VideoFrame> frame,
                                                 base::TimeDelta timestamp) {
+  TRACE_EVENT0("media", "NdkVideoEncodeAccelerator::FeedInputBuffer");
   const size_t buffer_idx = media_codec_->TakeInput();
   auto mc_input_buffer = media_codec_->GetInputBuffer(buffer_idx);
   if (mc_input_buffer.empty()) {
@@ -1042,6 +1040,7 @@ void NdkVideoEncodeAccelerator::FeedInputBuffer(scoped_refptr<VideoFrame> frame,
 
   bool converted = false;
   if (frame->format() == PIXEL_FORMAT_I420) {
+    TRACE_EVENT0("media", "libyuv::I420ToNV12");
     converted =
         !libyuv::I420ToNV12(frame->visible_data(VideoFrame::Plane::kY),
                             frame->stride(VideoFrame::Plane::kY),
@@ -1052,6 +1051,7 @@ void NdkVideoEncodeAccelerator::FeedInputBuffer(scoped_refptr<VideoFrame> frame,
                             dst_stride_y, dst_uv.data(), dst_stride_uv,
                             visible_size.width(), visible_size.height());
   } else if (frame->format() == PIXEL_FORMAT_NV12) {
+    TRACE_EVENT0("media", "libyuv::NV12Copy");
     converted =
         !libyuv::NV12Copy(frame->visible_data(VideoFrame::Plane::kY),
                           frame->stride(VideoFrame::Plane::kY),
@@ -1097,6 +1097,7 @@ media_status_t NdkVideoEncodeAccelerator::SendEndOfStream() {
 void NdkVideoEncodeAccelerator::FeedGLSurface(scoped_refptr<VideoFrame> frame,
                                               base::TimeDelta timestamp) {
   DCHECK(use_surface_as_input_);
+  TRACE_EVENT0("media", "NdkVideoEncodeAccelerator::FeedGLSurface");
   if (!gl_renderer_) {
     NotifyErrorStatus({EncoderStatus::Codes::kEncoderHardwareDriverError,
                        "GL renderer is not initialized"});
@@ -1210,6 +1211,7 @@ void NdkVideoEncodeAccelerator::DrainOutput() {
     return;
   }
 
+  TRACE_EVENT0("media", "NdkVideoEncodeAccelerator::DrainOutput");
   NdkMediaCodecWrapper::OutputInfo output_buffer = media_codec_->TakeOutput();
   AMediaCodecBufferInfo& mc_buffer_info = output_buffer.info;
   const size_t mc_buffer_size = static_cast<size_t>(mc_buffer_info.size);
@@ -1314,8 +1316,16 @@ void NdkVideoEncodeAccelerator::DrainOutput() {
       case VideoCodec::kH264:
         metadata.h264.emplace().temporal_idx = bits_md.temporal_id;
         break;
+      case VideoCodec::kAV1:
+      case VideoCodec::kVP9:
+        // TODO(b/432558680): We should query for this from the new temporal
+        // layer encoding API once it's available. Currently, the only encoders
+        // on Android that implement AV1 and VP9 temporal layer encoding are the
+        // cros-codecs ones, which we know to support SVC spec.
+        metadata.svc_generic.emplace().follow_svc_spec = true;
+        break;
       default:
-        NOTIMPLEMENTED() << "SVC is only supported for H.264.";
+        NOTIMPLEMENTED() << "SVC is only supported for AV1, H.264, and VP9.";
         break;
     }
     ++input_since_keyframe_count_;
@@ -1480,6 +1490,18 @@ void NdkVideoEncodeAccelerator::SetEncoderColorSpace() {
   }
 
   DVLOG(1) << "Set color space to: " << encoder_color_space_->ToString();
+}
+
+// static
+bool NdkVideoEncodeAccelerator::ShouldUseSurfaceInput() {
+  if (__builtin_available(android 35, *)) {
+    // Limit surface input to Android 15+ (API Level: 35), because we see issues
+    // on older devices.
+    if (base::FeatureList::IsEnabled(media::kSurfaceInputForAndroidVEA)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace media

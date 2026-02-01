@@ -24,6 +24,7 @@
 #include "base/trace_event/trace_event.h"
 #include "skia/ext/skcolorspace_trfn.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/gfx/color_space.h"
 
 extern "C" {
@@ -537,9 +538,9 @@ void OnTransactionCompletedOnAnyThread(void* context,
   auto transaction_stats = ToTransactionStats(stats);
   TRACE_EVENT_END("gpu,benchmark", /*"SurfaceControlTransaction"*/
                   perfetto::Track(ack_ctx->id));
-  TRACE_EVENT_WITH_FLOW0(
+  TRACE_EVENT(
       "toplevel.flow", "gfx::SurfaceControlTransaction completed",
-      GetTraceIdForTransaction(ack_ctx->id), TRACE_EVENT_FLAG_FLOW_IN);
+      perfetto::TerminatingFlow::Global(GetTraceIdForTransaction(ack_ctx->id)));
 
   std::move(ack_ctx->callback).Run(std::move(transaction_stats));
   delete ack_ctx;
@@ -876,18 +877,17 @@ void SurfaceControl::Transaction::SetDamageRect(const Surface& surface,
       transaction_, surface.surface(), &a_rect, 1u);
 }
 
-void SurfaceControl::Transaction::SetColorSpace(
-    const Surface& surface,
-    const gfx::ColorSpace& color_space,
-    const std::optional<HDRMetadata>& metadata) {
+void SurfaceControl::Transaction::SetColorSpace(const Surface& surface,
+                                                const ColorSpace& color_space,
+                                                const HDRMetadata& metadata) {
   // Populate the data space and brightness ratios.
   ADataSpace data_space = ADATASPACE_UNKNOWN;
   float extended_range_brightness_ratio = 1.f;
   float desired_brightness_ratio = 1.f;
-  if (metadata && metadata->extended_range &&
+  if (metadata.extended_range &&
       SurfaceControlMethods::Get()
           .ASurfaceTransaction_setExtendedRangeBrightnessFn) {
-    desired_brightness_ratio = metadata->extended_range->desired_headroom;
+    desired_brightness_ratio = metadata.extended_range->desired_headroom;
   }
   ColorSpaceToADataSpace(color_space, desired_brightness_ratio, data_space,
                          extended_range_brightness_ratio);
@@ -906,8 +906,8 @@ void SurfaceControl::Transaction::SetColorSpace(
       (data_space & ADATASPACE_RANGE_MASK) == ADATASPACE_RANGE_EXTENDED;
 
   // Set the HDR metadata for not extended SRGB case.
-  if (metadata && !extended_range) {
-    if (const auto& gfx_cta_861_3 = metadata->cta_861_3) {
+  if (!extended_range) {
+    if (const auto& gfx_cta_861_3 = metadata.cta_861_3) {
       AHdrMetadata_cta861_3 cta861_3 = {
           .maxContentLightLevel =
               static_cast<float>(gfx_cta_861_3->max_content_light_level),
@@ -918,7 +918,7 @@ void SurfaceControl::Transaction::SetColorSpace(
               transaction_, surface.surface(), &cta861_3);
     }
 
-    if (const auto& gfx_smpte_st_2086 = metadata->smpte_st_2086) {
+    if (const auto& gfx_smpte_st_2086 = metadata.smpte_st_2086) {
       const auto& primaries = gfx_smpte_st_2086->primaries;
       AHdrMetadata_smpte2086 smpte2086 = {
           .displayPrimaryRed = {.x = primaries.fRX, .y = primaries.fRY},
@@ -992,9 +992,9 @@ void SurfaceControl::Transaction::SetParent(const Surface& surface,
 void SurfaceControl::Transaction::SetOnCompleteCb(
     OnCompleteCb cb,
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
-  TRACE_EVENT_WITH_FLOW0(
-      "toplevel.flow", "gfx::SurfaceControl::Transaction::SetOnCompleteCb",
-      GetTraceIdForTransaction(id_), TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("toplevel.flow",
+              "gfx::SurfaceControl::Transaction::SetOnCompleteCb",
+              perfetto::Flow::Global(GetTraceIdForTransaction(id_)));
 
   DCHECK(!on_complete_cb_);
   on_complete_cb_ = base::BindPostTask(std::move(task_runner), std::move(cb));

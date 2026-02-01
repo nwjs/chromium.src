@@ -32,11 +32,14 @@ namespace unexportable_keys {
 using ::base::test::ErrorIs;
 using ::base::test::ValueIs;
 using ::testing::ElementsAreArray;
+using ::testing::IsEmpty;
+using ::testing::UnorderedElementsAreArray;
 
 namespace {
 
 constexpr auto kTestSubjectPublicKeyInfo = std::to_array<uint8_t>({1, 2, 3, 4});
 constexpr auto kTestWrappedKey = std::to_array<uint8_t>({5, 6, 7, 8});
+constexpr std::string_view kTestKeyTag = "test_key_tag";
 
 class FakeUnexportableKeyServiceProxy : public mojom::UnexportableKeyService {
  public:
@@ -62,6 +65,7 @@ class FakeUnexportableKeyServiceProxy : public mojom::UnexportableKeyService {
           base::ToVector(kTestSubjectPublicKeyInfo);
       new_key_data->wrapped_key = base::ToVector(kTestWrappedKey);
       new_key_data->algorithm = acceptable_algorithms[0];
+      new_key_data->key_tag = kTestKeyTag;
       std::move(callback).Run(std::move(new_key_data));
     }
   }
@@ -83,6 +87,7 @@ class FakeUnexportableKeyServiceProxy : public mojom::UnexportableKeyService {
       new_key_data->wrapped_key = wrapped_key;
       new_key_data->algorithm =
           crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256;
+      new_key_data->key_tag = kTestKeyTag;
       std::move(callback).Run(std::move(new_key_data));
     }
   }
@@ -175,6 +180,16 @@ class FakeUnexportableKeyServiceProxy : public mojom::UnexportableKeyService {
 
 class UnexportableKeyServiceProxiedTest : public ::testing::Test {
  protected:
+  UnexportableKeyId GenerateKeyOrDie() {
+    base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> future;
+    std::vector<crypto::SignatureVerifier::SignatureAlgorithm> algos = {
+        crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256};
+    proxied_service_.GenerateSigningKeySlowlyAsync(
+        algos, BackgroundTaskPriority::kUserVisible, future.GetCallback());
+    const ServiceErrorOr<UnexportableKeyId>& result = future.Get();
+    return result.value();
+  }
+
   base::test::TaskEnvironment task_environment_;
   FakeUnexportableKeyServiceProxy fake_service_;
   mojo::Receiver<mojom::UnexportableKeyService> receiver_{&fake_service_};
@@ -202,6 +217,7 @@ TEST_F(UnexportableKeyServiceProxiedTest, GenerateSigningKeySuccess) {
   EXPECT_THAT(
       proxied_service_.GetAlgorithm(key_id),
       ValueIs(crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256));
+  EXPECT_THAT(proxied_service_.GetKeyTag(key_id), ValueIs(kTestKeyTag));
 }
 
 TEST_F(UnexportableKeyServiceProxiedTest, GenerateSigningKeyError) {
@@ -271,6 +287,7 @@ TEST_F(UnexportableKeyServiceProxiedTest, FromWrappedSigningKeySuccess) {
   EXPECT_THAT(
       proxied_service_.GetAlgorithm(key_id),
       ValueIs(crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256));
+  EXPECT_THAT(proxied_service_.GetKeyTag(key_id), ValueIs(kTestKeyTag));
 }
 
 TEST_F(UnexportableKeyServiceProxiedTest, FromWrappedSigningKeyAlreadyCached) {
@@ -383,6 +400,120 @@ TEST_F(UnexportableKeyServiceProxiedTest, GettersKeyNotFound) {
               ErrorIs(ServiceError::kKeyNotFound));
   EXPECT_THAT(proxied_service_.GetAlgorithm(unknown_key_id),
               ErrorIs(ServiceError::kKeyNotFound));
+}
+TEST_F(UnexportableKeyServiceProxiedTest, DeleteKeySuccess) {
+  UnexportableKeyId key_id = GenerateKeyOrDie();
+  ASSERT_TRUE(proxied_service_.GetSubjectPublicKeyInfo(key_id).has_value());
+
+  // Empty optional returned in success.
+  fake_service_.SetDeleteKeyResponse(std::nullopt);
+
+  base::test::TestFuture<ServiceErrorOr<void>> delete_future;
+  proxied_service_.DeleteKeySlowlyAsync(key_id,
+                                        BackgroundTaskPriority::kUserVisible,
+                                        delete_future.GetCallback());
+
+  ASSERT_TRUE(delete_future.Get().has_value());
+  EXPECT_THAT(proxied_service_.GetSubjectPublicKeyInfo(key_id),
+              ErrorIs(ServiceError::kKeyNotFound));
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest, DeleteKeyNotFoundInCache) {
+  UnexportableKeyId unknown_key_id(base::UnguessableToken::Create());
+
+  base::test::TestFuture<ServiceErrorOr<void>> delete_future;
+  proxied_service_.DeleteKeySlowlyAsync(unknown_key_id,
+                                        BackgroundTaskPriority::kUserVisible,
+                                        delete_future.GetCallback());
+
+  EXPECT_THAT(delete_future.Get(), ErrorIs(ServiceError::kKeyNotFound));
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest, DeleteKeyErrorFromService) {
+  UnexportableKeyId key_id = GenerateKeyOrDie();
+  ASSERT_TRUE(proxied_service_.GetSubjectPublicKeyInfo(key_id).has_value());
+
+  fake_service_.SetDeleteKeyResponse(ServiceError::kCryptoApiFailed);
+
+  base::test::TestFuture<ServiceErrorOr<void>> delete_future;
+  proxied_service_.DeleteKeySlowlyAsync(key_id,
+                                        BackgroundTaskPriority::kUserVisible,
+                                        delete_future.GetCallback());
+
+  EXPECT_THAT(delete_future.Get(), ErrorIs(ServiceError::kCryptoApiFailed));
+  EXPECT_FALSE(proxied_service_.GetSubjectPublicKeyInfo(key_id).has_value());
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest, DeleteAllKeysSuccess) {
+  UnexportableKeyId key_id1 = GenerateKeyOrDie();
+  UnexportableKeyId key_id2 = GenerateKeyOrDie();
+  ASSERT_TRUE(proxied_service_.GetSubjectPublicKeyInfo(key_id1).has_value());
+  ASSERT_TRUE(proxied_service_.GetSubjectPublicKeyInfo(key_id2).has_value());
+
+  fake_service_.SetDeleteAllKeysResponse(base::ok(2));
+
+  base::test::TestFuture<ServiceErrorOr<size_t>> delete_all_future;
+  proxied_service_.DeleteAllKeysSlowlyAsync(
+      BackgroundTaskPriority::kUserVisible, delete_all_future.GetCallback());
+
+  EXPECT_THAT(delete_all_future.Get(), ValueIs(2));
+  EXPECT_THAT(proxied_service_.GetSubjectPublicKeyInfo(key_id1),
+              ErrorIs(ServiceError::kKeyNotFound));
+  EXPECT_THAT(proxied_service_.GetSubjectPublicKeyInfo(key_id2),
+              ErrorIs(ServiceError::kKeyNotFound));
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest, DeleteAllKeysErrorFromService) {
+  fake_service_.SetDeleteAllKeysResponse(
+      base::unexpected(ServiceError::kCryptoApiFailed));
+
+  const UnexportableKeyId key_id = GenerateKeyOrDie();
+
+  base::test::TestFuture<ServiceErrorOr<size_t>> delete_all_future;
+  proxied_service_.DeleteAllKeysSlowlyAsync(
+      BackgroundTaskPriority::kUserVisible, delete_all_future.GetCallback());
+
+  EXPECT_THAT(delete_all_future.Get(), ErrorIs(ServiceError::kCryptoApiFailed));
+  EXPECT_FALSE(proxied_service_.GetSubjectPublicKeyInfo(key_id).has_value());
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest,
+       GetAllSigningKeysForGarbageCollectionSuccess) {
+  std::vector<UnexportableKeyId> key_ids = {
+      UnexportableKeyId(base::UnguessableToken::Create()),
+      UnexportableKeyId(base::UnguessableToken::Create())};
+  fake_service_.SetGetAllSigningKeysForGarbageCollectionResponse(
+      base::ok(key_ids));
+
+  base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>> future;
+  proxied_service_.GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+      BackgroundTaskPriority::kUserVisible, future.GetCallback());
+
+  EXPECT_THAT(future.Get(), ValueIs(UnorderedElementsAreArray(key_ids)));
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest,
+       GetAllSigningKeysForGarbageCollectionEmpty) {
+  fake_service_.SetGetAllSigningKeysForGarbageCollectionResponse(
+      base::ok(std::vector<UnexportableKeyId>()));
+
+  base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>> future;
+  proxied_service_.GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+      BackgroundTaskPriority::kUserVisible, future.GetCallback());
+
+  EXPECT_THAT(future.Get(), ValueIs(IsEmpty()));
+}
+
+TEST_F(UnexportableKeyServiceProxiedTest,
+       GetAllSigningKeysForGarbageCollectionError) {
+  fake_service_.SetGetAllSigningKeysForGarbageCollectionResponse(
+      base::unexpected(ServiceError::kCryptoApiFailed));
+
+  base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>> future;
+  proxied_service_.GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+      BackgroundTaskPriority::kUserVisible, future.GetCallback());
+
+  EXPECT_THAT(future.Get(), ErrorIs(ServiceError::kCryptoApiFailed));
 }
 
 }  // namespace

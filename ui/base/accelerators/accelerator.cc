@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 #include <tuple>
+#include <utility>
+
 #include "base/strings/stringprintf.h"
 
 #include "base/check_op.h"
@@ -14,7 +16,6 @@
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event.h"
@@ -175,7 +176,7 @@ std::u16string Accelerator::GetKeyCodeStringForShortcut() const {
     // accent' for '0'). For display in the menu (e.g. Ctrl-0 for the
     // default zoom level), we leave VK_[0-9] alone without translation.
     wchar_t key;
-    if (base::IsAsciiDigit(base::to_underlying(key_code_))) {
+    if (base::IsAsciiDigit(std::to_underlying(key_code_))) {
       key = static_cast<wchar_t>(key_code_);
     } else {
       key = LOWORD(::MapVirtualKeyW(key_code_, MAPVK_VK_TO_CHAR));

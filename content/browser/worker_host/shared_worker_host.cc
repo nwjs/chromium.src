@@ -293,6 +293,11 @@ void SharedWorkerHost::Start(
         creator_policy_container_host_->policies()
             .allow_non_secure_local_network_access;
 
+    policies.ip_address_space = CalculateIPAddressSpace(
+        result.final_response_url,
+        result.main_script_load_params->response_head.get(),
+        GetContentClient()->browser());
+
     worker_client_security_state_ = DeriveClientSecurityState(
         policies, PrivateNetworkRequestContext::kWorker);
 
@@ -439,8 +444,7 @@ void SharedWorkerHost::Start(
       instance_.renderer_origin(),
       creator_policy_container_host_ &&
           creator_policy_container_host_->policies().is_web_secure_context,
-      GetContentClient()->browser()->GetUserAgentBasedOnPolicy(
-          GetProcessHost()->GetBrowserContext()),
+      GetContentClient()->browser()->GetUserAgent(),
       GetContentClient()->browser()->GetUserAgentMetadata(),
       devtools_handle_->pause_on_start(), devtools_handle_->dev_tools_token(),
       std::move(renderer_preferences), std::move(preference_watcher_receiver),

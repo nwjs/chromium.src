@@ -374,6 +374,8 @@ void DesktopWindowTreeHostPlatform::Close() {
   if (close_widget_factory_.HasWeakPtrs() || !platform_window()) {
     return;
   }
+  // Do not generate synthesized events during shutdown.
+  dispatcher()->Shutdown();
 
   platform_window()->PrepareForShutdown();
 
@@ -921,6 +923,24 @@ gfx::Rect DesktopWindowTreeHostPlatform::GetBoundsInDIP() const {
   return platform_window()->GetBoundsInDIP();
 }
 
+void DesktopWindowTreeHostPlatform::OnVideoCaptureLockCreated() {
+  WindowTreeHostPlatform::OnVideoCaptureLockCreated();
+  has_video_capture_ = true;
+
+  if (GetWidget() && GetWidget()->IsMinimized()) {
+    SetVisible(true);
+  }
+}
+
+void DesktopWindowTreeHostPlatform::OnVideoCaptureLockDestroyed() {
+  WindowTreeHostPlatform::OnVideoCaptureLockDestroyed();
+  has_video_capture_ = false;
+
+  if (GetWidget() && GetWidget()->IsMinimized()) {
+    SetVisible(false);
+  }
+}
+
 void DesktopWindowTreeHostPlatform::OnCompositorVisibilityChanging(
     ui::Compositor* compositor,
     bool visible) {
@@ -975,7 +995,7 @@ void DesktopWindowTreeHostPlatform::OnWindowStateChanged(
   if (!aura::NativeWindowOcclusionTracker::
           IsNativeWindowOcclusionTrackingAlwaysEnabled(this) &&
       is_minimized != was_minimized) {
-    if (is_minimized) {
+    if (!has_video_capture_ && is_minimized) {
       SetVisible(false);
     } else {
       SetVisible(true);

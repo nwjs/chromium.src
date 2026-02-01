@@ -35,21 +35,21 @@
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
-#import "ios/chrome/browser/settings/model/sync/utils/sync_presenter.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/shared/public/commands/save_image_to_photos_command.h"
 #import "ios/chrome/browser/shared/public/commands/save_to_photos_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/commands/sync_presenter_commands.h"
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_coordinator.h"
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_params.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -60,7 +60,7 @@
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_util.h"
 #import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -137,8 +137,7 @@ class BrowserCoordinatorTest : public PlatformTest {
     WebUsageEnablerBrowserAgent::CreateForBrowser(browser_.get());
     TabInsertionBrowserAgent::CreateForBrowser(browser_.get());
     StartSurfaceRecentTabBrowserAgent::CreateForBrowser(browser_.get());
-    WebStateDelegateBrowserAgent::CreateForBrowser(
-        browser_.get(), TabInsertionBrowserAgent::FromBrowser(browser_.get()));
+    WebStateDelegateBrowserAgent::CreateForBrowser(browser_.get());
     SyncErrorBrowserAgent::CreateForBrowser(browser_.get());
     OmniboxPositionBrowserAgent::CreateForBrowser(browser_.get());
     BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(browser_.get());
@@ -153,21 +152,20 @@ class BrowserCoordinatorTest : public PlatformTest {
 
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
 
-    // Set up ApplicationCommands mock. Because ApplicationCommands conforms
+    // Set up SceneCommands mock. Because SceneCommands conforms
     // to SettingsCommands, that needs to be mocked and dispatched
     // as well.
-    id mockApplicationCommandHandler =
-        OCMProtocolMock(@protocol(ApplicationCommands));
+    id mockSceneHandler = OCMProtocolMock(@protocol(SceneCommands));
     id mockSettingsCommandHandler =
         OCMProtocolMock(@protocol(SettingsCommands));
-    [dispatcher startDispatchingToTarget:mockApplicationCommandHandler
-                             forProtocol:@protocol(ApplicationCommands)];
+    [dispatcher startDispatchingToTarget:mockSceneHandler
+                             forProtocol:@protocol(SceneCommands)];
     [dispatcher startDispatchingToTarget:mockSettingsCommandHandler
                              forProtocol:@protocol(SettingsCommands)];
 
     IncognitoReauthSceneAgent* reauthAgent = [[IncognitoReauthSceneAgent alloc]
-              initWithReauthModule:[[ReauthenticationModule alloc] init]
-        applicationCommandsHandler:mockApplicationCommandHandler];
+        initWithReauthModule:[[ReauthenticationModule alloc] init]
+                sceneHandler:mockSceneHandler];
     [scene_state_ addAgent:reauthAgent];
     [dispatcher startDispatchingToTarget:reauthAgent
                              forProtocol:@protocol(IncognitoReauthCommands)];
@@ -458,14 +456,16 @@ TEST_F(BrowserCoordinatorTest,
 TEST_F(BrowserCoordinatorTest, TestDoubleTapTrustedVaultReauth) {
   trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
       trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings;
-  BrowserCoordinator<SyncPresenter>* browser_coordinator =
-      GetBrowserCoordinator();
+  BrowserCoordinator* browser_coordinator = GetBrowserCoordinator();
+  [browser_coordinator start];
+  id<SyncPresenterCommands> handler = HandlerForProtocol(
+      browser_->GetCommandDispatcher(), SyncPresenterCommands);
   TrustedVaultReauthenticationCoordinator* trusted_vault_mock =
       OCMStrictClassMock([TrustedVaultReauthenticationCoordinator class]);
   OCMExpect([((id)trusted_vault_mock) alloc]).andReturn(trusted_vault_mock);
   OCMExpect(
       [trusted_vault_mock
-          initWithBaseViewController:nil
+          initWithBaseViewController:browser_coordinator.viewController
                              browser:browser_.get()
                               intent:SigninTrustedVaultDialogIntentFetchKeys
                     securityDomainID:trusted_vault::SecurityDomainId::
@@ -474,18 +474,22 @@ TEST_F(BrowserCoordinatorTest, TestDoubleTapTrustedVaultReauth) {
       .andReturn(trusted_vault_mock);
   OCMExpect([trusted_vault_mock setDelegate:[OCMArg any]]);
   OCMExpect([trusted_vault_mock start]);
-  [browser_coordinator showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
+  [handler showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
   EXPECT_OCMOCK_VERIFY((id)trusted_vault_mock);
   // Checks that the second tap is ignored.
   // Checks that the second tap is ignored. No more
   // TrustedVaultReauthenticationCoordinator are allocated
-  OCMExpect([((id)trusted_vault_mock) alloc])
-      .andDo(^(NSInvocation* invocation) {
-        EXPECT_FALSE(true);
-      });
-  [browser_coordinator showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
-  [browser_coordinator
-      showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
+  OCMStub([((id)trusted_vault_mock) alloc]).andDo(^(NSInvocation* invocation) {
+    EXPECT_FALSE(true);
+  });
+  [handler showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
+  [handler showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
+
+  OCMExpect([trusted_vault_mock setDelegate:nil]);
+  OCMExpect([trusted_vault_mock stop]);
+  [browser_coordinator stop];
+
+  EXPECT_OCMOCK_VERIFY((id)trusted_vault_mock);
 }
 
 // Tests that a double tap on the trusted vault reauth errors button don’t
@@ -494,15 +498,17 @@ TEST_F(BrowserCoordinatorTest,
        TestDoubleTapTrustedVaultReauthForDegradedRecoverability) {
   trusted_vault::TrustedVaultUserActionTriggerForUMA trigger =
       trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings;
-  BrowserCoordinator<SyncPresenter>* browser_coordinator =
-      GetBrowserCoordinator();
+  BrowserCoordinator* browser_coordinator = GetBrowserCoordinator();
+  [browser_coordinator start];
+  id<SyncPresenterCommands> handler = HandlerForProtocol(
+      browser_->GetCommandDispatcher(), SyncPresenterCommands);
   TrustedVaultReauthenticationCoordinator* trusted_vault_mock =
       OCMStrictClassMock([TrustedVaultReauthenticationCoordinator class]);
   OCMExpect([((id)trusted_vault_mock) alloc]).andReturn(trusted_vault_mock);
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentDegradedRecoverability;
   OCMExpect([trusted_vault_mock
-                initWithBaseViewController:nil
+                initWithBaseViewController:browser_coordinator.viewController
                                    browser:browser_.get()
                                     intent:intent
                           securityDomainID:trusted_vault::SecurityDomainId::
@@ -511,17 +517,20 @@ TEST_F(BrowserCoordinatorTest,
       .andReturn(trusted_vault_mock);
   OCMExpect([trusted_vault_mock setDelegate:[OCMArg any]]);
   OCMExpect([trusted_vault_mock start]);
-  [browser_coordinator
-      showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
+  [handler showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
   EXPECT_OCMOCK_VERIFY((id)trusted_vault_mock);
 
   // Checks that the second tap is ignored. No more
   // TrustedVaultReauthenticationCoordinator are allocated
-  OCMExpect([((id)trusted_vault_mock) alloc])
-      .andDo(^(NSInvocation* invocation) {
-        EXPECT_FALSE(true);
-      });
-  [browser_coordinator showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
-  [browser_coordinator
-      showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
+  OCMStub([((id)trusted_vault_mock) alloc]).andDo(^(NSInvocation* invocation) {
+    EXPECT_FALSE(true);
+  });
+  [handler showTrustedVaultReauthForFetchKeysWithTrigger:trigger];
+  [handler showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:trigger];
+
+  OCMExpect([trusted_vault_mock setDelegate:nil]);
+  OCMExpect([trusted_vault_mock stop]);
+  [browser_coordinator stop];
+
+  EXPECT_OCMOCK_VERIFY((id)trusted_vault_mock);
 }

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/core/broker_host.h"
 
 #include <algorithm>
@@ -14,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/memory/platform_shared_memory_region.h"
 #include "base/memory/ref_counted.h"
@@ -59,19 +55,22 @@ BrokerHost::~BrokerHost() {
   // We're always destroyed on the creation thread, which is the IO thread.
   base::CurrentThread::Get()->RemoveDestructionObserver(this);
 
-  if (channel_)
+  if (channel_) {
     channel_->ShutDown();
+  }
 }
 
 bool BrokerHost::PrepareHandlesForClient(
     std::vector<PlatformHandleInTransit>* handles) {
 #if BUILDFLAG(IS_WIN)
-  if (!client_process_.IsValid())
+  if (!client_process_.IsValid()) {
     return false;
+  }
   bool handles_ok = true;
   for (auto& handle : *handles) {
-    if (!handle.TransferToProcess(client_process_.Duplicate()))
+    if (!handle.TransferToProcess(client_process_.Duplicate())) {
       handles_ok = false;
+    }
   }
   return handles_ok;
 #else
@@ -97,8 +96,9 @@ bool BrokerHost::SendChannel(PlatformHandle handle) {
 
   // This may legitimately fail on Windows if the client process is in another
   // session, e.g., is an elevated process.
-  if (!PrepareHandlesForClient(&handles))
+  if (!PrepareHandlesForClient(&handles)) {
     return false;
+  }
 
   message->SetHandles(std::move(handles));
   channel_->Write(std::move(message));
@@ -164,8 +164,9 @@ void BrokerHost::OnChannelMessage(
     size_t payload_size,
     std::vector<PlatformHandle> handles,
     scoped_refptr<ipcz_driver::Envelope> envelope) {
-  if (payload_size < sizeof(BrokerMessageHeader))
+  if (payload_size < sizeof(BrokerMessageHeader)) {
     return;
+  }
 
   const BrokerMessageHeader* header =
       static_cast<const BrokerMessageHeader*>(payload);
@@ -174,7 +175,7 @@ void BrokerHost::OnChannelMessage(
       if (payload_size ==
           sizeof(BrokerMessageHeader) + sizeof(BufferRequestData)) {
         const BufferRequestData* request =
-            reinterpret_cast<const BufferRequestData*>(header + 1);
+            reinterpret_cast<const BufferRequestData*>(UNSAFE_TODO(header + 1));
         OnBufferRequest(request->size);
       }
       break;

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/functional/bind.h"
+#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "build/build_config.h"
 #include "components/signin/internal/identity_manager/account_fetcher_service.h"
@@ -165,31 +166,19 @@ bool IdentityManager::HasPrimaryAccount(ConsentLevel consent) const {
 }
 
 std::unique_ptr<AccessTokenFetcher>
-IdentityManager::CreateAccessTokenFetcherForAccount(
+IdentityManager::CreateAccessTokenFetcherWithDynamicScopesForAccount(
     const CoreAccountId& account_id,
-    const std::string& oauth_consumer_name,
+    OAuthConsumerId oauth_consumer_id,
     const ScopeSet& scopes,
     AccessTokenFetcher::TokenCallback callback,
     AccessTokenFetcher::Mode mode,
     AccessTokenFetcher::Source token_source) {
+  signin::OAuthConsumer oauth_consumer =
+      signin::GetOAuthConsumerForDynamicScopes(oauth_consumer_id, scopes);
   return std::make_unique<AccessTokenFetcher>(
-      account_id, oauth_consumer_name, token_service_.get(),
-      primary_account_manager_.get(), scopes, std::move(callback), mode,
+      account_id, oauth_consumer_id, oauth_consumer, token_service_.get(),
+      primary_account_manager_.get(), std::move(callback), mode,
       require_sync_consent_for_scope_verification_, token_source);
-}
-
-std::unique_ptr<AccessTokenFetcher>
-IdentityManager::CreateAccessTokenFetcherForAccount(
-    const CoreAccountId& account_id,
-    const std::string& oauth_consumer_name,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    const ScopeSet& scopes,
-    AccessTokenFetcher::TokenCallback callback,
-    AccessTokenFetcher::Mode mode) {
-  return std::make_unique<AccessTokenFetcher>(
-      account_id, oauth_consumer_name, token_service_.get(),
-      primary_account_manager_.get(), url_loader_factory, scopes,
-      std::move(callback), mode, require_sync_consent_for_scope_verification_);
 }
 
 std::unique_ptr<AccessTokenFetcher>
@@ -220,17 +209,6 @@ IdentityManager::CreateAccessTokenFetcherForAccount(
       account_id, oauth_consumer_id, oauth_consumer, token_service_.get(),
       primary_account_manager_.get(), url_loader_factory, std::move(callback),
       mode, require_sync_consent_for_scope_verification_);
-}
-
-void IdentityManager::RemoveAccessTokenFromCache(
-    const CoreAccountId& account_id,
-    const ScopeSet& scopes,
-    const std::string& access_token) {
-  if (account_id.empty() || access_token.empty()) {
-    return;
-  }
-
-  token_service_->InvalidateAccessToken(account_id, scopes, access_token);
 }
 
 void IdentityManager::RemoveAccessTokenFromCache(
@@ -493,10 +471,11 @@ void IdentityManager::RefreshAccountInfoIfStale(
   account_fetcher_service_->RefreshAccountInfoIfStale(account_id);
 }
 
-void IdentityManager::RefreshAccountInfoIfStale(
-    JNIEnv* env,
-    const CoreAccountId& core_account_id) {
-  RefreshAccountInfoIfStale(core_account_id);
+void IdentityManager::RefreshAccountInfoIfStale(JNIEnv* env) {
+  std::vector<CoreAccountInfo> accounts = GetAccountsWithRefreshTokens();
+  for (const CoreAccountInfo& account : accounts) {
+    RefreshAccountInfoIfStale(account.account_id);
+  }
 }
 
 base::android::ScopedJavaLocalRef<jobject>
@@ -506,13 +485,30 @@ IdentityManager::GetPrimaryAccountInfo(JNIEnv* env, jint consent_level) const {
   if (account_info.IsEmpty()) {
     return nullptr;
   }
+  // TODO(https://crbug.com/471185380): After M146 reaches Stable - change the
+  // return type for GetPrimaryAccountInfo to AccountInfo.
+  CHECK(!account_tracker_service_->GetAccountInfo(account_info.account_id)
+             .IsEmpty(),
+        base::NotFatalUntil::M146);
   return ConvertToJavaCoreAccountInfo(env, account_info);
+}
+
+base::android::ScopedJavaLocalRef<jobject>
+IdentityManager::FindExtendedAccountInfoByAccountId(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_account_id) const {
+  AccountInfo account_info = FindExtendedAccountInfoByAccountId(
+      ConvertFromJavaCoreAccountId(env, j_account_id));
+  if (account_info.IsEmpty()) {
+    return nullptr;
+  }
+  return ConvertToJavaAccountInfo(env, account_info);
 }
 
 base::android::ScopedJavaLocalRef<jobject>
 IdentityManager::FindExtendedAccountInfoByEmailAddress(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& j_email) const {
+    const base::android::JavaRef<jstring>& j_email) const {
   AccountInfo account_info = FindExtendedAccountInfoByEmailAddress(
       base::android::ConvertJavaStringToUTF8(env, j_email));
   if (account_info.IsEmpty()) {
@@ -541,7 +537,7 @@ IdentityManager::GetAccountsWithRefreshTokens(JNIEnv* env) const {
   return array;
 }
 
-jboolean IdentityManager::IsClearPrimaryAccountAllowed(JNIEnv* env) const {
+bool IdentityManager::IsClearPrimaryAccountAllowed(JNIEnv* env) const {
   return signin_client_->IsClearPrimaryAccountAllowed();
 }
 #endif

@@ -7,6 +7,7 @@
 
 #include "base/functional/bind.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -1586,7 +1587,7 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadBrowserTest_Limit,
              queries_cancelled_prerender) {
           SearchUrls cancelled_urls = GetSearchUrls(query_cancelled_prerender);
           ASSERT_EQ(prerender_helper().GetHostForUrl(cancelled_urls.prerender),
-                    content::FrameTreeNodeId());
+                    content::PrerenderHostId());
         }
       }
     }

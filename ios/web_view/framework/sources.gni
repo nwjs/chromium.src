@@ -298,6 +298,7 @@ ios_web_view_sources = [
 
 ios_web_view_deps = [
   "//base",
+  "//components/activity_reporter",
   "//components/affiliations/core/browser:affiliations",
   "//components/autofill/core/browser",
   "//components/autofill/core/common",
@@ -340,6 +341,7 @@ ios_web_view_deps = [
   "//components/password_manager/ios",
   "//components/plus_addresses/core/browser/settings",
   "//components/plus_addresses/core/browser/webdata",
+  "//components/plus_addresses/core/common:features",
   "//components/pref_registry",
   "//components/prefs",
   "//components/profile_metrics",

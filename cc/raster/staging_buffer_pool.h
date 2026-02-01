@@ -11,7 +11,6 @@
 #include <set>
 
 #include "base/containers/circular_deque.h"
-#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
@@ -78,8 +77,7 @@ struct StagingBuffer {
 };
 
 class CC_EXPORT StagingBufferPool final
-    : public base::trace_event::MemoryDumpProvider,
-      public base::MemoryPressureListener {
+    : public base::trace_event::MemoryDumpProvider {
  public:
   StagingBufferPool(scoped_refptr<base::SequencedTaskRunner> task_runner,
                     viz::RasterContextProvider* worker_context_provider,
@@ -124,8 +122,6 @@ class CC_EXPORT StagingBufferPool final
   void StagingStateAsValueInto(
       base::trace_event::TracedValue* staging_state) const;
 
-  void OnMemoryPressure(base::MemoryPressureLevel level) override;
-
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   const raw_ptr<viz::RasterContextProvider> worker_context_provider_;
   const bool use_partial_raster_;
@@ -134,7 +130,7 @@ class CC_EXPORT StagingBufferPool final
   // |lock_| must be acquired when accessing the following members.
   using StagingBufferSet =
       std::set<raw_ptr<const StagingBuffer, SetExperimental>>;
-  StagingBufferSet buffers_;
+  StagingBufferSet buffers_ GUARDED_BY(lock_);
   using StagingBufferDeque =
       base::circular_deque<std::unique_ptr<StagingBuffer>>;
   StagingBufferDeque free_buffers_ GUARDED_BY(lock_);
@@ -145,9 +141,6 @@ class CC_EXPORT StagingBufferPool final
   const base::TimeDelta staging_buffer_expiration_delay_ GUARDED_BY(lock_);
   bool reduce_memory_usage_pending_ GUARDED_BY(lock_);
   base::RepeatingClosure reduce_memory_usage_callback_ GUARDED_BY(lock_);
-
-  std::unique_ptr<base::AsyncMemoryPressureListenerRegistration>
-      memory_pressure_listener_registration_;
 
   base::WeakPtrFactory<StagingBufferPool> weak_ptr_factory_{this};
 };

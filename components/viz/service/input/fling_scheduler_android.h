@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_VIZ_SERVICE_INPUT_FLING_SCHEDULER_ANDROID_H_
 #define COMPONENTS_VIZ_SERVICE_INPUT_FLING_SCHEDULER_ANDROID_H_
 
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "components/input/fling_controller.h"
 #include "components/input/fling_scheduler_base.h"
@@ -21,7 +22,8 @@ namespace viz {
 
 class VIZ_SERVICE_EXPORT FlingSchedulerAndroid
     : public input::FlingSchedulerBase,
-      public BeginFrameObserverBase {
+      public BeginFrameObserverBase,
+      public BeginFrameSource::InputClient {
  public:
   FlingSchedulerAndroid(input::RenderInputRouter* rir,
                         const FrameSinkId& frame_sink_id);
@@ -62,9 +64,14 @@ class VIZ_SERVICE_EXPORT FlingSchedulerAndroid
   void StartObservingBeginFrames();
   void StopObservingBeginFrames();
 
+  bool FlingProgress(const BeginFrameArgs& args);
+
   // BeginFrameObserverBase implementation.
   bool OnBeginFrameDerivedImpl(const BeginFrameArgs& args) override;
   void OnBeginFrameSourcePausedChanged(bool paused) override {}
+
+  // BeginFrameSource::InputClient implementation.
+  void OnBeginFrameForInput(const BeginFrameArgs& args) override;
 
   const FrameSinkId frame_sink_id_;
 };

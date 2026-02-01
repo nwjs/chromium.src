@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/containers/contains.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_instance_cleaner.h"
@@ -24,17 +23,6 @@
 
 namespace autofill {
 
-namespace {
-
-// Returns true if any of the features that use wallet public passes are
-// enabled.
-bool WalletPublicPassesEnabled() {
-  return base::FeatureList::IsEnabled(syncer::kSyncWalletFlightReservations) ||
-         base::FeatureList::IsEnabled(syncer::kSyncWalletVehicleRegistrations);
-}
-
-}  // namespace
-
 EntityDataManager::EntityDataManager(
     PrefService* pref_service,
     const signin::IdentityManager* identity_manager,
@@ -45,9 +33,7 @@ EntityDataManager::EntityDataManager(
     : webdata_service_(std::move(webdata_service)),
       entity_instance_cleaner_(this, sync_service, pref_service) {
   CHECK(webdata_service_);
-  if (WalletPublicPassesEnabled()) {
-    webdata_service_observation_.Observe(webdata_service_.get());
-  }
+  webdata_service_observation_.Observe(webdata_service_.get());
   LoadEntities();
   if (history_service) {
     history_service_observation_.Observe(history_service);
@@ -57,6 +43,8 @@ EntityDataManager::EntityDataManager(
         std::make_unique<AutofillAiSaveStrikeDatabaseByHost>(strike_database);
   }
 
+  const bool user_is_opted_in =
+      GetAutofillAiOptInStatus(pref_service, identity_manager);
   // Initial Autofill AI users have their opt-in pref stored keyed by their
   // gaia-id and not syncable. On the other hand, the new Autofill AI opt-in
   // pref (`prefs::kAutofillAiSyncedOptInStatus`) is a regular syncable pref.
@@ -70,14 +58,11 @@ EntityDataManager::EntityDataManager(
     CHECK(synced_pref);
     if (HasSetLocalAutofillAiOptInStatus(pref_service, identity_manager)) {
       if (!synced_pref->HasUserSetting()) {
-        const bool pref_migration_value =
-            GetAutofillAiOptInStatusFromNonSyncingPref(pref_service,
-                                                       identity_manager);
         pref_service->SetBoolean(prefs::kAutofillAiSyncedOptInStatus,
-                                 pref_migration_value);
+                                 user_is_opted_in);
         base::UmaHistogramEnumeration(
             "Autofill.Ai.OptIn.PrefMigration",
-            pref_migration_value
+            user_is_opted_in
                 ? AutofillAiPrefMigrationStatus::kPrefMigratedEnabled
                 : AutofillAiPrefMigrationStatus::kPrefMigratedDisabled);
       } else {
@@ -93,11 +78,10 @@ EntityDataManager::EntityDataManager(
   }
 
   // This assumes that `EntityDataManager` is created once on profile creation.
-  base::UmaHistogramEnumeration(
-      "Autofill.Ai.OptIn.Status.Startup",
-      GetAutofillAiOptInStatus(pref_service, identity_manager)
-          ? AutofillAiOptInStatus::kOptedIn
-          : AutofillAiOptInStatus::kOptedOut);
+  base::UmaHistogramEnumeration("Autofill.Ai.OptIn.Status.Startup",
+                                user_is_opted_in
+                                    ? AutofillAiOptInStatus::kOptedIn
+                                    : AutofillAiOptInStatus::kOptedOut);
 }
 
 EntityDataManager::~EntityDataManager() {
@@ -204,9 +188,8 @@ bool EntityDataManager::HasPendingQueries() const {
 }
 
 void EntityDataManager::OnAutofillChangedBySync(syncer::DataType data_type) {
-  if ((data_type == syncer::AUTOFILL_VALUABLE && WalletPublicPassesEnabled()) ||
-      (data_type == syncer::AUTOFILL_VALUABLE_METADATA &&
-       base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata))) {
+  if (data_type == syncer::AUTOFILL_VALUABLE ||
+      data_type == syncer::AUTOFILL_VALUABLE_METADATA) {
     LoadEntities();
   }
 }

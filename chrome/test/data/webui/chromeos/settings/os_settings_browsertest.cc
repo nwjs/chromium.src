@@ -48,9 +48,6 @@ class OSSettingsMochaTest : public WebUIMochaBrowserTest {
     });
     RunTest(path_with_parent_directory, trigger);
   }
-
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ash::features::kEnableHostnameSetting};
 };
 
 /* Start Test Classes */
@@ -113,18 +110,6 @@ class OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
       ::features::kAccessibilityMagnifierFollowsChromeVox};
-};
-
-class OSSettingsMochaTestFilterKeysEnabled : public OSSettingsMochaTest {
- protected:
-  OSSettingsMochaTestFilterKeysEnabled() {
-    scoped_feature_list_.InitWithFeatures({::features::kAccessibilityBounceKeys,
-                                           ::features::kAccessibilitySlowKeys},
-                                          {});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class OSSettingsMochaTestMouseKeysEnabled : public OSSettingsMochaTest {
@@ -913,8 +898,7 @@ IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled,
   RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
 }
 
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestFilterKeysEnabled,
-                       OsA11yPageFilterKeys) {
+IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsA11yPageFilterKeys) {
   RunSettingsTest("os_a11y_page/filter_keys_test.js");
 }
 
@@ -983,10 +967,6 @@ IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest,
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest,
                        OsAboutPageDetailedBuildInfoSubpage) {
   RunSettingsTest("os_about_page/detailed_build_info_subpage_test.js");
-}
-
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsAboutPageEditHostnameDialog) {
-  RunSettingsTest("os_about_page/edit_hostname_dialog_test.js");
 }
 
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest, OsAppsPage) {

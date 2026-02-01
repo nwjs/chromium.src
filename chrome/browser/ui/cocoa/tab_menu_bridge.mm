@@ -35,8 +35,7 @@ void UpdateItemForWebContents(NSMenuItem* item,
                               TabStripModel* tab_strip_model) {
   tabs::TabInterface* const tab_interface =
       tabs::TabInterface::GetFromContents(web_contents);
-  TabUIHelper* const tab_ui_helper =
-      tab_interface->GetTabFeatures()->tab_ui_helper();
+  TabUIHelper* const tab_ui_helper = TabUIHelper::From(tab_interface);
 
   auto* audio_helper = RecentlyAudibleHelper::FromWebContents(web_contents);
   if (audio_helper && audio_helper->WasRecentlyAudible()) {
@@ -212,9 +211,9 @@ void TabMenuBridge::OnTabStripModelChanged(
   AddDynamicItemsFromModel();
 }
 
-void TabMenuBridge::TabChangedAt(content::WebContents* contents,
-                                 int index,
-                                 TabChangeType change_type) {
+void TabMenuBridge::OnTabChangedAt(tabs::TabInterface* tab,
+                                   int index,
+                                   TabChangeType change_type) {
   DCHECK(model_);
 
   // Ignore loading state changes - they happen very often during page load and
@@ -242,7 +241,7 @@ void TabMenuBridge::TabChangedAt(content::WebContents* contents,
   }
 
   NSMenuItem* item = [menu_item_.submenu itemAtIndex:menu_index];
-  UpdateItemForWebContents(item, contents, model_);
+  UpdateItemForWebContents(item, tab->GetContents(), model_);
 }
 
 // If a tab group is changed, update group indicator for each tab.

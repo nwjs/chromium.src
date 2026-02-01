@@ -13,22 +13,22 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/android/content/jni_headers/WebContentsFactory_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 static ScopedJavaLocalRef<jobject> JNI_WebContentsFactory_CreateWebContents(
     JNIEnv* env,
     Profile* profile,
-    jboolean initially_hidden,
-    jboolean initialize_renderer,
-    jboolean uses_platform_autofill,
+    bool initially_hidden,
+    bool initialize_renderer,
+    bool uses_platform_autofill,
     jlong j_target_network,
-    const JavaParamRef<jthrowable>& j_creator_location) {
+    const JavaRef<jthrowable>& j_creator_location) {
   content::WebContents::CreateParams params(profile);
-  params.initially_hidden = static_cast<bool>(initially_hidden);
+  params.initially_hidden = initially_hidden;
   params.initially_use_platform_autofill = uses_platform_autofill;
   params.desired_renderer_state =
-      static_cast<bool>(initialize_renderer)
+      initialize_renderer
           ? content::WebContents::CreateParams::
                 kInitializeAndWarmupRendererProcess
           : content::WebContents::CreateParams::kOkayToHaveRendererProcess;
@@ -43,7 +43,7 @@ static ScopedJavaLocalRef<jobject>
 JNI_WebContentsFactory_CreateWebContentsWithSeparateStoragePartitionForExperiment(
     JNIEnv* env,
     Profile* profile,
-    const JavaParamRef<jthrowable>& j_creator_location) {
+    const JavaRef<jthrowable>& j_creator_location) {
   auto partition_config = content::StoragePartitionConfig::Create(
       profile,
       /*partition_domain=*/"MayLaunchUrlUsesSeparateStoragePartitionDomain",

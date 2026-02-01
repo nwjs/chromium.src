@@ -11,7 +11,7 @@ namespace enterprise_connectors::test {
 FakeFilesRequestHandler::FakeFilesRequestHandler(
     FakeFileUploadCallback fake_file_upload_callback,
     ContentAnalysisInfo* content_analysis_info,
-    safe_browsing::BinaryUploadService* upload_service,
+    BinaryUploadService* upload_service,
     Profile* profile,
     GURL url,
     const std::string& source,
@@ -38,7 +38,7 @@ FakeFilesRequestHandler::~FakeFilesRequestHandler() = default;
 std::unique_ptr<FilesRequestHandler> FakeFilesRequestHandler::Create(
     FakeFileUploadCallback fake_file_upload_callback,
     ContentAnalysisInfo* content_analysis_info,
-    safe_browsing::BinaryUploadService* upload_service,
+    BinaryUploadService* upload_service,
     Profile* profile,
     GURL url,
     const std::string& source,
@@ -56,7 +56,7 @@ std::unique_ptr<FilesRequestHandler> FakeFilesRequestHandler::Create(
 void FakeFilesRequestHandler::UploadFileForDeepScanning(
     ScanRequestUploadResult result,
     const base::FilePath& path,
-    std::unique_ptr<safe_browsing::BinaryUploadService::Request> request) {
+    std::unique_ptr<BinaryUploadRequest> request) {
   fake_file_upload_callback_.Run(
       result, path, std::move(request),
       base::BindOnce(&FakeFilesRequestHandler::FileRequestCallbackForTesting,

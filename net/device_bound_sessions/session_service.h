@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "net/base/net_export.h"
@@ -15,13 +16,14 @@
 #include "net/device_bound_sessions/session.h"
 #include "net/device_bound_sessions/session_access.h"
 #include "net/device_bound_sessions/session_challenge_param.h"
+#include "net/device_bound_sessions/session_display.h"
+#include "net/device_bound_sessions/session_event.h"
 #include "net/device_bound_sessions/session_key.h"
 #include "net/log/net_log_with_source.h"
 
 namespace net {
 class FirstPartySetMetadata;
 class IsolationInfo;
-class URLRequest;
 class URLRequestContext;
 class HttpRequestHeaders;
 }  // namespace net
@@ -33,25 +35,7 @@ namespace net::device_bound_sessions {
 class NET_EXPORT SessionService {
  public:
   using OnAccessCallback = base::RepeatingCallback<void(const SessionAccess&)>;
-
-  // Records the outcome of an attempt to refresh.
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  // LINT.IfChange(DeviceBoundSessionRefreshResult)
-  enum class RefreshResult {
-    kRefreshed = 0,             // Refresh was successful.
-    kInitializedService = 1,    // Service is now initialized, refresh may still
-                                // be needed.
-    kUnreachable = 2,           // Refresh endpoint was unreachable.
-    kServerError = 3,           // Refresh endpoint served a transient error.
-    kRefreshQuotaExceeded = 4,  // Refresh quota exceeded. This is being
-                                // replaced with `kSigningQuotaExceeded`.
-    kFatalError = 5,            // Refresh failed and session was terminated. No
-                                // further refresh needed.
-    kSigningQuotaExceeded = 6,  // Signing quota exceeded.
-    kMaxValue = kSigningQuotaExceeded
-  };
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:DeviceBoundSessionRefreshResult)
+  using OnEventCallback = base::RepeatingCallback<void(const SessionEvent&)>;
   using RefreshCompleteCallback = base::OnceCallback<void(RefreshResult)>;
 
   // Indicates the reason for deferring. Exactly one of
@@ -94,7 +78,8 @@ class NET_EXPORT SessionService {
   // Returns nullptr if unexportable key provider is not supported by the
   // platform or the device.
   static std::unique_ptr<SessionService> Create(
-      const URLRequestContext* request_context);
+      const URLRequestContext* request_context,
+      const std::vector<SchemefulSite>& restricted_sites);
 
   SessionService(const SessionService&) = delete;
   SessionService& operator=(const SessionService&) = delete;
@@ -129,7 +114,7 @@ class NET_EXPORT SessionService {
   // If sessions are skipped without deferring, they will be added to
   // the Secure-Session-Skipped header in `extra_headers`.
   virtual std::optional<DeferralParams> ShouldDefer(
-      URLRequest* request,
+      DbscRequest& request,
       HttpRequestHeaders* extra_headers,
       const FirstPartySetMetadata& first_party_set_metadata) = 0;
 
@@ -140,7 +125,7 @@ class NET_EXPORT SessionService {
   // has not already kicked off refresh, the session can be found, and the
   // associated unexportable key id is valid.
   // On completion, calls `callback`.
-  virtual void DeferRequestForRefresh(URLRequest* request,
+  virtual void DeferRequestForRefresh(DbscRequest& request,
                                       DeferralParams deferral,
                                       RefreshCompleteCallback callback) = 0;
 
@@ -148,7 +133,7 @@ class NET_EXPORT SessionService {
   // Secure-Session-Challenge header.
   virtual void SetChallengeForBoundSession(
       OnAccessCallback on_access_callback,
-      const URLRequest& request,
+      DbscRequest& request,
       const FirstPartySetMetadata& first_party_set_metadata,
       const SessionChallengeParam& param) = 0;
 
@@ -156,6 +141,12 @@ class NET_EXPORT SessionService {
   // defer until completely initialized.
   virtual void GetAllSessionsAsync(
       base::OnceCallback<void(const std::vector<SessionKey>&)> callback) = 0;
+
+  // Get all sessions and return a list of display sessions. If sessions
+  // have not yet been loaded from disk, defer until completely initialized.
+  virtual void GetAllSessionDisplaysAsync(
+      base::OnceCallback<void(const std::vector<SessionDisplay>&)>
+          callback) = 0;
 
   // Delete the session matching `session_key`, notifying
   // `per_request_callback` about any deletions.
@@ -181,6 +172,10 @@ class NET_EXPORT SessionService {
   virtual base::ScopedClosureRunner AddObserver(
       const GURL& url,
       base::RepeatingCallback<void(const SessionAccess&)> callback) = 0;
+
+  // Add an observer for DBSC events. This is used for DevTools.
+  virtual base::CallbackListSubscription AddEventObserver(
+      OnEventCallback callback) = 0;
 
   // Get a session by key, or `nullptr` if no such session exists.
   virtual const Session* GetSession(const SessionKey& session_key) const = 0;
@@ -209,6 +204,13 @@ class NET_EXPORT SessionService {
   virtual bool SigningQuotaExceeded(const SchemefulSite& site) = 0;
   // Increments signing usage for this `site`.
   virtual void AddSigningOccurrence(const SchemefulSite& site) = 0;
+
+  // Helper function to handle the registration and challenge headers provided
+  // in `headers` on the response to `request`.
+  virtual void HandleResponseHeaders(
+      DbscRequest& request,
+      HttpResponseHeaders* headers,
+      const FirstPartySetMetadata& first_party_set_metadata) = 0;
 
  protected:
   SessionService() = default;

@@ -11,19 +11,16 @@
 #include "base/notimplemented.h"
 #include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/webauthn/enclave_manager.h"
-#include "chrome/browser/webauthn/enclave_manager_factory.h"
 #include "chrome/browser/webauthn/enclave_manager_interface.h"
-#include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
-#include "device/fido/features.h"
+#include "device/fido/public/features.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -32,21 +29,17 @@ namespace webauthn {
 static constexpr const char kPasskeyReadinessHistogram[] =
     "WebAuthentication.PasskeyReadiness";
 
-// TODO(crbug.com/456454164): Don't pass the profile directly to the
-// constructor.
-PasskeyUnlockManager::PasskeyUnlockManager(Profile* profile) {
-  EnclaveManagerInterface* enclave_manager =
-      EnclaveManagerFactory::GetForProfile(profile);
+PasskeyUnlockManager::PasskeyUnlockManager(
+    EnclaveManagerInterface* enclave_manager,
+    PasskeyModel* passkey_model,
+    syncer::SyncService* sync_service) {
   enclave_manager_observation_.Observe(enclave_manager);
-  passkey_model_observation_.Observe(
-      PasskeyModelFactory::GetForProfile(profile));
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile);
+  passkey_model_observation_.Observe(passkey_model);
   if (sync_service) {
     sync_service_observation_.Observe(sync_service);
   }
-  if (enclave_manager->is_loaded()) {
-    enclave_ready_ = enclave_manager->is_ready();
+  if (enclave_manager->IsLoaded()) {
+    enclave_ready_ = enclave_manager->IsReady();
     MaybeRecordDelayedPasskeyReadinessHistogram();
   } else {
     enclave_manager->LoadAfterDelay(
@@ -98,7 +91,7 @@ void PasskeyUnlockManager::ComputeShouldDisplayErrorUiAndNotifyObservers() {
 
 void PasskeyUnlockManager::NotifyObservers() {
   for (Observer& observer : observer_list_) {
-    observer.OnPasskeyUnlockManagerStateChanged();
+    observer.OnPasskeyErrorUiStateChanged();
   }
 }
 
@@ -179,7 +172,11 @@ syncer::SyncService* PasskeyUnlockManager::sync_service() {
 }
 
 void PasskeyUnlockManager::UpdateHasPasskeys() {
-  has_passkeys_ = !passkey_model()->GetAllPasskeys().empty();
+  has_passkeys_ =
+      !passkey_model()
+           ->GetPasskeys(webauthn::PasskeyModel::AnyRp(),
+                         webauthn::PasskeyModel::ShadowedCredentials::kInclude)
+           .empty();
 }
 
 void PasskeyUnlockManager::UpdateSyncState() {
@@ -243,7 +240,7 @@ void PasskeyUnlockManager::Shutdown() {
 }
 
 void PasskeyUnlockManager::OnStateUpdated() {
-  enclave_ready_ = enclave_manager()->is_ready();
+  enclave_ready_ = enclave_manager()->IsReady();
   ComputeShouldDisplayErrorUiAndNotifyObservers();
   MaybeRecordDelayedPasskeyReadinessHistogram();
 }
@@ -287,13 +284,17 @@ void PasskeyUnlockManager::MaybeRecordDelayedPasskeyCountHistogram() {
 }
 
 void PasskeyUnlockManager::RecordPasskeyCountHistogram() {
-  base::UmaHistogramCounts1000("WebAuthentication.PasskeyCount",
-                               passkey_model()->GetAllPasskeys().size());
+  base::UmaHistogramCounts1000(
+      "WebAuthentication.PasskeyCount",
+      passkey_model()
+          ->GetPasskeys(webauthn::PasskeyModel::AnyRp(),
+                        webauthn::PasskeyModel::ShadowedCredentials::kInclude)
+          .size());
 }
 
 void PasskeyUnlockManager::MaybeRecordDelayedPasskeyReadinessHistogram() {
   if (passkey_readiness_recorded_on_startup_ ||
-      !enclave_manager()->is_loaded()) {
+      !enclave_manager()->IsLoaded()) {
     return;
   }
   passkey_readiness_recorded_on_startup_ = true;
@@ -306,7 +307,7 @@ void PasskeyUnlockManager::MaybeRecordDelayedPasskeyReadinessHistogram() {
 
 void PasskeyUnlockManager::RecordPasskeyReadinessHistogram() {
   base::UmaHistogramBoolean(kPasskeyReadinessHistogram,
-                            enclave_manager()->is_ready());
+                            enclave_manager()->IsReady());
 }
 
 void PasskeyUnlockManager::MaybeRecordDelayedGpmPinStatusHistogram(

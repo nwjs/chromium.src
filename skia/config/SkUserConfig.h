@@ -125,8 +125,6 @@ SK_API void SkDebugf_FileLine(const char* file,
 // Max. verb count for paths rendered by the edge-AA tessellating path renderer.
 #define GR_AA_TESSELLATOR_MAX_VERB_COUNT 100
 
-#define SK_USE_LEGACY_MIPMAP_BUILDER
-
 #define SK_SUPPORT_LEGACY_CONIC_CHOP
 
 #define SK_USE_PADDED_BLUR_UPSCALE
@@ -135,15 +133,7 @@ SK_API void SkDebugf_FileLine(const char* file,
 
 #define SK_AVOID_SLOW_RASTER_PIPELINE_BLURS
 
-#define SK_DISABLE_LEGACY_NONRECORDER_IMAGE_APIS
-
 #define SK_SUPPORT_LEGACY_RRECT_TRANSFORM
-
-#define SK_ENABLE_SKOTTIE_FILLRULE
-
-// Ensures Chromium is not using any mutable path APIs.  Only remove after the
-// editing methods on SkPath are truly gone.
-#define SK_HIDE_PATH_EDIT_METHODS
 
 ///////////////////////// Imported from BUILD.gn and skia_common.gypi
 
@@ -159,8 +149,6 @@ SK_API void SkDebugf_FileLine(const char* file,
 #define SK_STRIKE_CACHE_DOESNT_AUTO_CHECK_PINNERS
 
 #define SK_USE_DISCARDABLE_SCALEDIMAGECACHE
-
-#define SK_ATTR_DEPRECATED          SK_NOTHING_ARG1
 
 // glGetError() forces a sync with gpu process on chrome
 #define GR_GL_CHECK_ERROR_START 0

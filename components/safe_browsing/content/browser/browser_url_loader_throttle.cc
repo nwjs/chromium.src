@@ -9,6 +9,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "components/safe_browsing/buildflags.h"
@@ -568,7 +569,13 @@ void BrowserURLLoaderThrottle::MaybeTransferAsyncChecker() {
         pending_async_checks_ > 0);
   }
   if (pending_async_checks_ > 0) {
-    async_check_tracker_->TransferUrlChecker(std::move(async_sb_checker_));
+    bool is_async_check_tracker_alive = !!async_check_tracker_;
+    base::UmaHistogramBoolean(
+        "SafeBrowsing.BrowserThrottle.IsAsyncCheckTrackerAliveOnTransfer",
+        is_async_check_tracker_alive);
+    if (is_async_check_tracker_alive) {
+      async_check_tracker_->TransferUrlChecker(std::move(async_sb_checker_));
+    }
   }
 }
 

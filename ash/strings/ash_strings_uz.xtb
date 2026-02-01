@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Oxirgi <ph name="INDEX" />/<ph name="TOTAL_COUNT" /> ta rasm.</translation>
 <translation id="2201687081523799384">Google Tasks maʼlumotlarini yopish</translation>
 <translation id="2208323208084708176">Birlashgan ish stoli rejimi</translation>
+<translation id="2210311543574621570">Ctrl + V tugmalarini bosib turganingizda vaqtinchalik xotirani koʻrasiz. Bu yorliqni oʻchirish uchun chrome://flags sahifasida #clipboard-history-longpress parametrini faolsizlantirishingiz mumkin.</translation>
 <translation id="2215920961700443347">Internet yoʻq. Internetga ulanib, qaytadan urining.</translation>
 <translation id="2222841058024245321">Desk 7</translation>
 <translation id="2223384056430485343">Ajratilgan ekranda</translation>
@@ -874,6 +875,7 @@ Qurilmani quvvat manbaiga ulang.</translation>
 <translation id="397105322502079400">Hisoblanmoqda...</translation>
 <translation id="397726367135689299">Batareya quvvatlanishi kuchsiz boʻlishi mumkin.</translation>
 <translation id="3977512764614765090">Batareya <ph name="PERCENTAGE" />% va quvvatlanmoqda.</translation>
+<translation id="3978162107953847778">Brauzer tarixi va Google Drive kabi joylardan havola joylang. Shuningdek, emoji, rasmli fayllar va boshqalarni joylash mumkin. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Audio chiqarish qurilmasi almashtirilsinmi?</translation>
 <translation id="3984536049089846927">Keyingi sahifa</translation>
 <translation id="3986082989454912832">Javob berish</translation>
@@ -1024,7 +1026,6 @@ Quvvatni tejash uchun ayrim funksiyalar ishlashi cheklandi.</translation>
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 ta muhim bildirishnoma}other{# ta muhim bildirishnoma}}</translation>
 <translation id="4450893287417543264">Boshqa ko‘rsatilmasin</translation>
 <translation id="4451374464530248585">Alt + Pastga strelka tezkor tugmasi oʻzgardi. Page Down tugmasidan foydalanish uchun <ph name="LAUNCHER_KEY_NAME" /> tugmasi + Pastga strelkani bosing.</translation>
-<translation id="4453876312474547652">Ctrl+V tugmalari bosilganda vaqtincha xotira paneli chiqadi. Bu yorliqni chrome tajribaviy funksiyalari sahifasida (chrome://flags) #clipboard-history-longpress parametri orqali faolsizlantirish mumkin (Lacros uchun os://flags).</translation>
 <translation id="445765352722456792">Takliflarni moslash</translation>
 <translation id="4458688154122353284">Ekranni yozib olishni toʻxtatish</translation>
 <translation id="445923051607553918">Wi-Fi tarmog‘iga ulanish</translation>
@@ -1600,6 +1601,7 @@ Hech qanday qurilma ulanmagan.</translation>
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: faollashtirilmoqda...</translation>
 <translation id="6274202259872570803">Skrinkast</translation>
+<translation id="6274422179279280249">Havola, emoji va boshqalarni joylang. Shuningdek, Google AI bilan yozishda yordam olish mumkin. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Sahifa kodini ko‘rish</translation>
 <translation id="6285871695023807425">Taqvimga kiritish</translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" /> hisobini keyinroq ota-ona ruxsati bilan qayta kiritish mumkin.</translation>
@@ -2190,6 +2192,7 @@ Qurilmani oʻchirish uchun uning quvvat tugmasini biroz bosib turing.</translati
 <translation id="8237964652943995219">Keyingi ish stoli: <ph name="DESK_NAME" />. Ish stoli: <ph name="DESK_INDEX" />/<ph name="DESK_COUNT" />.</translation>
 <translation id="8238817965863339552"><ph name="PRODUCT_NAME" /> qurilmasidan qanday foydalanishni oʻrganish uchun tezkor tanishtiruvdan foydalaning. 5 ta bosqichda hammasi bilan tanishing.</translation>
 <translation id="8239034820133090126">Oʻngdagi ish stolini faollashtirish</translation>
+<translation id="8241650983304689286">Yangi ajratilgan rejimga varaq kiritish</translation>
 <translation id="8247060538831475781">Ulanish: <ph name="CONNECTION_STATUS" />, Signal darajasi: <ph name="SIGNAL_STRENGTH" />, Telefon quvvati: <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Google Drive barcha natijalari</translation>
 <translation id="8257510091797044096">Qurilmangizni sozlang</translation>

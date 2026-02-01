@@ -302,6 +302,7 @@
   size_t badgesCount = tabHelper->GetInfobarBadgesCount();
 
   BOOL infobarBadgesCurrentlyShown = badgesCount > 0;
+
   if (_infobarBadgesCurrentlyShown == infobarBadgesCurrentlyShown) {
     return;
   }

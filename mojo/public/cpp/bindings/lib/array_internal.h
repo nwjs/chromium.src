@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_LIB_ARRAY_INTERNAL_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_LIB_ARRAY_INTERNAL_H_
 
@@ -14,9 +9,11 @@
 #include <stdint.h>
 
 #include "base/check.h"
+#include "base/compiler_specific.h"
 #include "base/component_export.h"
 #include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
+#include "base/types/is_instantiation.h"
 #include "mojo/public/cpp/bindings/lib/bindings_internal.h"
 #include "mojo/public/cpp/bindings/lib/message_fragment.h"
 #include "mojo/public/cpp/bindings/lib/template_util.h"
@@ -54,7 +51,7 @@ struct ArrayDataTraits {
     return MessageFragmentArrayTraits<T>::GetStorageSize(num_elements);
   }
   static Ref ToRef(StorageType* storage, size_t offset, uint32_t num_elements) {
-    return storage[offset];
+    return UNSAFE_TODO(storage[offset]);
   }
   static ConstRef ToConstRef(base::span<const StorageType> storage,
                              size_t offset,
@@ -101,7 +98,7 @@ struct ArrayDataTraits<bool> {
   static BitRef ToRef(StorageType* storage,
                       size_t offset,
                       uint32_t num_elements) {
-    return BitRef(&storage[offset / 8],
+    return BitRef(UNSAFE_TODO(&storage[offset / 8]),
                   static_cast<uint8_t>(1 << (offset % 8)));
   }
   static bool ToConstRef(base::span<const StorageType> storage, size_t offset) {
@@ -174,9 +171,10 @@ struct ArrayDataTraits<std::optional<bool>> {
                               size_t offset,
                               uint32_t num_elements) {
     return OptionalBitRef(
-        storage + OptionalBoolTrait::GetEngagedBitfieldSize(num_elements) +
-            (offset / 8),
-        reinterpret_cast<uint8_t*>(storage) + (offset / 8),
+        UNSAFE_TODO(storage +
+                    OptionalBoolTrait::GetEngagedBitfieldSize(num_elements) +
+                    (offset / 8)),
+        UNSAFE_TODO(reinterpret_cast<uint8_t*>(storage) + (offset / 8)),
         static_cast<uint8_t>(1 << (offset % 8)));
   }
 
@@ -256,11 +254,11 @@ struct ArrayDataTraits<T> {
         << "bitfield size should be multiple of StorageType";
 
     uint8_t* value_start =
-        reinterpret_cast<uint8_t*>(storage) +
-        OptionalTypeTrait::GetEngagedBitfieldSize(num_elements);
+        UNSAFE_TODO(reinterpret_cast<uint8_t*>(storage) +
+                    OptionalTypeTrait)::GetEngagedBitfieldSize(num_elements);
     return OptionalRef<StorageType>(
-        reinterpret_cast<StorageType*>(value_start) + offset,
-        reinterpret_cast<uint8_t*>(storage) + (offset / 8),
+        UNSAFE_TODO(reinterpret_cast<StorageType*>(value_start) + offset),
+        UNSAFE_TODO(reinterpret_cast<uint8_t*>(storage) + (offset / 8)),
         static_cast<uint8_t>(1 << (offset % 8)));
   }
 
@@ -300,8 +298,9 @@ struct ArraySerializationHelper<T, false, false> {
     DCHECK(!validate_params->element_validate_params)
         << "Primitive type should not have array validate params";
 
-    if (!validate_params->validate_enum_func)
+    if (!validate_params->validate_enum_func) {
       return true;
+    }
 
     // Enum validation.
     for (uint32_t i = 0; i < header->num_elements; ++i) {
@@ -312,8 +311,10 @@ struct ArraySerializationHelper<T, false, false> {
           << "Enum validation should never take place on a primitive type of "
              "width greater than 32-bit";
       if (!validate_params->validate_enum_func(
-              static_cast<int32_t>(elements[i]), validation_context))
+              static_cast<int32_t>(UNSAFE_TODO(elements[i])),
+              validation_context)) {
         return false;
+      }
     }
     return true;
   }
@@ -365,7 +366,7 @@ struct ArraySerializationHelper<T, false, true> {
 
     for (uint32_t i = 0; i < header->num_elements; ++i) {
       if (!validate_params->element_is_nullable &&
-          !IsHandleOrInterfaceValid(elements[i])) {
+          !IsHandleOrInterfaceValid(UNSAFE_TODO(elements[i]))) {
         static const ValidationError kError =
             std::is_same<T, Interface_Data>::value ||
                     std::is_same<T, Handle_Data>::value
@@ -380,8 +381,10 @@ struct ArraySerializationHelper<T, false, true> {
                 .c_str());
         return false;
       }
-      if (!ValidateHandleOrInterface(elements[i], validation_context))
+      if (!ValidateHandleOrInterface(UNSAFE_TODO(elements[i]),
+                                     validation_context)) {
         return false;
+      }
     }
     return true;
   }
@@ -396,16 +399,16 @@ struct ArraySerializationHelper<Pointer<T>, false, false> {
                                ValidationContext* validation_context,
                                const ContainerValidateParams* validate_params) {
     for (uint32_t i = 0; i < header->num_elements; ++i) {
-      if (!validate_params->element_is_nullable && !elements[i].offset) {
+      if (!validate_params->element_is_nullable &&
+          !UNSAFE_TODO(elements[i]).offset) {
         ReportValidationError(
-            validation_context,
-            VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+            validation_context, VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
             MakeMessageWithArrayIndex("null in array expecting valid pointers",
-                                      header->num_elements,
-                                      i).c_str());
+                                      header->num_elements, i)
+                .c_str());
         return false;
       }
-      if (!ValidateCaller<T>::Run(elements[i], validation_context,
+      if (!ValidateCaller<T>::Run(UNSAFE_TODO(elements[i]), validation_context,
                                   validate_params->element_validate_params)) {
         return false;
       }
@@ -447,17 +450,18 @@ struct ArraySerializationHelper<U, true, false> {
                                ValidationContext* validation_context,
                                const ContainerValidateParams* validate_params) {
     for (uint32_t i = 0; i < header->num_elements; ++i) {
-      if (!validate_params->element_is_nullable && elements[i].is_null()) {
+      if (!validate_params->element_is_nullable &&
+          UNSAFE_TODO(elements[i]).is_null()) {
         ReportValidationError(
-            validation_context,
-            VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+            validation_context, VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
             MakeMessageWithArrayIndex("null in array expecting valid unions",
                                       header->num_elements, i)
                 .c_str());
         return false;
       }
-      if (!ValidateInlinedUnion(elements[i], validation_context))
+      if (!ValidateInlinedUnion(UNSAFE_TODO(elements[i]), validation_context)) {
         return false;
+      }
     }
     return true;
   }
@@ -482,8 +486,9 @@ class Array_Data {
   static bool Validate(const void* data,
                        ValidationContext* validation_context,
                        const ContainerValidateParams* validate_params) {
-    if (!data)
+    if (!data) {
       return true;
+    }
     if (!IsAligned(data)) {
       ReportValidationError(validation_context,
                             VALIDATION_ERROR_MISALIGNED_OBJECT);
@@ -504,12 +509,11 @@ class Array_Data {
     if (validate_params->expected_num_elements != 0 &&
         header->num_elements != validate_params->expected_num_elements) {
       ReportValidationError(
-          validation_context,
-          VALIDATION_ERROR_UNEXPECTED_ARRAY_HEADER,
+          validation_context, VALIDATION_ERROR_UNEXPECTED_ARRAY_HEADER,
           MakeMessageWithExpectedArraySize(
               "fixed-size array has wrong number of elements",
-              header->num_elements,
-              validate_params->expected_num_elements).c_str());
+              header->num_elements, validate_params->expected_num_elements)
+              .c_str());
       return false;
     }
     if (!validation_context->ClaimMemory(data, header->num_bytes)) {
@@ -536,12 +540,12 @@ class Array_Data {
   }
 
   StorageType* storage() {
-    return reinterpret_cast<StorageType*>(reinterpret_cast<char*>(this) +
-                                          sizeof(*this));
+    return reinterpret_cast<StorageType*>(
+        UNSAFE_TODO(reinterpret_cast<char*>(this) + sizeof(*this)));
   }
 
   const StorageType* storage() const {
-    return reinterpret_cast<const StorageType*>(this + 1);
+    return reinterpret_cast<const StorageType*>(UNSAFE_TODO(this + 1));
   }
 
  private:

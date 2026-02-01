@@ -4,6 +4,8 @@
 
 #include "services/viz/public/cpp/compositing/shared_image_format_mojom_traits.h"
 
+#include "base/notreached.h"
+
 namespace mojo {
 
 // static
@@ -134,7 +136,7 @@ bool StructTraits<
     return false;
   if (!data.ReadChannelFormat(&out->channel_format))
     return false;
-#if BUILDFLAG(IS_OZONE)
+#if BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_ANDROID)
   out->prefers_external_sampler = data.prefers_external_sampler();
 #endif
 

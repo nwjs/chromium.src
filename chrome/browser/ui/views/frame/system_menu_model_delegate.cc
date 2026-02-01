@@ -53,8 +53,7 @@ bool SystemMenuModelDelegate::IsCommandIdChecked(int command_id) const {
 bool SystemMenuModelDelegate::IsCommandIdEnabled(int command_id) const {
 #if BUILDFLAG(IS_CHROMEOS)
   if (command_id == chromeos::MoveToDesksMenuModel::kMenuCommandId) {
-    return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu(
-        browser_->window()->GetNativeWindow());
+    return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu();
   }
 #endif
 #if BUILDFLAG(ENABLE_GLIC)
@@ -78,8 +77,7 @@ bool SystemMenuModelDelegate::IsCommandIdVisible(int command_id) const {
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
   if (command_id == chromeos::MoveToDesksMenuModel::kMenuCommandId) {
-    return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu(
-        browser_->window()->GetNativeWindow());
+    return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu();
   }
 #endif
 #if BUILDFLAG(ENABLE_GLIC)
@@ -126,13 +124,14 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
         }
       }
       break;
-    case IDC_TOGGLE_VERTICAL_TABS:
-      string_id = browser_->browser_window_features()
-                          ->vertical_tab_strip_state_controller()
-                          ->ShouldDisplayVerticalTabs()
+    case IDC_TOGGLE_VERTICAL_TABS: {
+      auto* controller = tabs::VerticalTabStripStateController::From(browser_);
+      CHECK(controller);
+      string_id = controller->ShouldDisplayVerticalTabs()
                       ? IDS_SWITCH_TO_HORIZONTAL_TAB
                       : IDS_SWITCH_TO_VERTICAL_TAB;
       break;
+    }
 #if BUILDFLAG(ENABLE_GLIC)
     case IDC_GLIC_TOGGLE_PIN:
       string_id = browser_->profile()->GetPrefs()->GetBoolean(

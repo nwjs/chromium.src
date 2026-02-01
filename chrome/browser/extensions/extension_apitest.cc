@@ -22,13 +22,13 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_run_loop_timeout.h"
 #include "build/build_config.h"
-#include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/browser/api/test/test_api.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/unpacked_installer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -266,6 +266,16 @@ net::EmbeddedTestServer& ExtensionApiTest::GetWebSocketServer() {
     net::test_server::InstallDefaultWebSocketHandlers(websocket_server_.get());
   }
   return *websocket_server_;
+}
+
+void ExtensionApiTest::InitWebSocketHttpsServer(
+    net::test_server::EmbeddedTestServer::ServerCertificate
+        server_certificate) {
+  CHECK(!websocket_server_);
+  websocket_server_ = std::make_unique<net::test_server::EmbeddedTestServer>(
+      net::test_server::EmbeddedTestServer::Type::TYPE_HTTPS);
+  websocket_server_->SetSSLConfig(server_certificate);
+  net::test_server::InstallDefaultWebSocketHandlers(websocket_server_.get());
 }
 
 bool ExtensionApiTest::StartWebSocketServer(

@@ -15,7 +15,7 @@ import android.view.View;
 import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -83,7 +83,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
             TabModel model,
             TabGroupModelFilter tabGroupModelFilter,
             View containerView,
-            ObservableSupplierImpl<@Nullable Token> groupIdToHideSupplier,
+            SettableNullableObservableSupplier<Token> groupIdToHideSupplier,
             Supplier<Float> tabWidthSupplier,
             Supplier<Float> pinnedTabsBoundarySupplier,
             Supplier<Long> lastReorderScrollTimeSupplier,
@@ -174,7 +174,7 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
                 reorderBlockIfThresholdReached(
                         stripViews, groupTitles, stripTabs, offset, tabsToReorder);
         if (reordered) {
-            if (!Boolean.TRUE.equals(mInReorderModeSupplier.get())) return;
+            if (!mInReorderModeSupplier.get()) return;
             setEdgeMarginsForReorder(stripTabs);
 
             offset =
@@ -325,6 +325,16 @@ public class MultiTabReorderStrategy extends ReorderStrategyBase {
         setupReorderState(stripTabs, selectedTabs);
 
         gatherBlock(primaryTab, selectedTabs);
+
+        // Update stripTabs from stripViews, as the model update in gatherBlock invalidates the
+        // original array.
+        ArrayList<StripLayoutTab> filteredTabs = new ArrayList<>();
+        for (StripLayoutView view : stripViews) {
+            if (view instanceof StripLayoutTab tab) {
+                filteredTabs.add(tab);
+            }
+        }
+        stripTabs = filteredTabs.toArray(new StripLayoutTab[0]);
 
         // Fake a successful reorder in the target direction.
         float offset = MathUtils.flipSignIf(Float.MAX_VALUE, toLeft);

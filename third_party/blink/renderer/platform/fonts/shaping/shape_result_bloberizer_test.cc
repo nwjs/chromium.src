@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/platform/testing/font_test_base.h"
 #include "third_party/blink/renderer/platform/testing/font_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/text/text_run.h"
 
 namespace blink {
 
@@ -46,14 +47,9 @@ class ShapeResultBloberizerTest : public FontTestBase {
     font_description.SetLocale(LayoutLocale::Get(AtomicString("en")));
     ASSERT_EQ(USCRIPT_LATIN, font_description.GetScript());
     font_description.SetGenericFamily(FontDescription::kStandardFamily);
-
-    cache = MakeGarbageCollected<ShapeCache>();
   }
 
-  FontCachePurgePreventer font_cache_purge_preventer;
   FontDescription font_description;
-
-  Persistent<ShapeCache> cache;
 };
 
 struct ExpectedRun {

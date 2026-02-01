@@ -63,6 +63,6 @@ namespace contentScripts {
   };
 
   dictionary ManifestKeys {
-    ContentScript[] content_scripts;
+    ContentScript[]? content_scripts;
   };
 };

@@ -48,11 +48,12 @@ import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_NEW;
 import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_USER;
 
 import android.content.res.Configuration;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.view.Surface;
 import android.view.View;
 
-import androidx.annotation.Nullable;
+import androidx.annotation.Px;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -61,8 +62,10 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.stubbing.Answer;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -71,6 +74,7 @@ import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeWindow;
 import org.chromium.chrome.browser.app.ChromeActivity;
@@ -106,7 +110,7 @@ import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
-import org.chromium.ui.base.ApplicationViewportInsetSupplier;
+import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.insets.InsetObserver;
@@ -162,28 +166,14 @@ public class ManualFillingControllerTest {
     private final ManualFillingStateCache mCache = mMediator.getStateCacheForTesting();
     private final PropertyModel mModel = mMediator.getModelForTesting();
     private final UserDataHost mUserDataHost = new UserDataHost();
-    private final ApplicationViewportInsetSupplier mInsetSupplier =
-            ApplicationViewportInsetSupplier.createForTests();
+    private final ApplicationViewportInsetTracker mInsetSupplier =
+            ApplicationViewportInsetTracker.createForTests();
     private final ObservableSupplierImpl<Integer> mKeyboardInsetSupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<EdgeToEdgeController> mMockEdgeToEdgeControllerSupplier =
             new ObservableSupplierImpl<>();
 
-    private static class MockActivityTabProvider extends ActivityTabProvider {
-        public Tab mTab;
-
-        @Override
-        public void set(Tab tab) {
-            mTab = tab;
-        }
-
-        @Override
-        public Tab get() {
-            return mTab;
-        }
-    }
-
-    private final MockActivityTabProvider mActivityTabProvider = new MockActivityTabProvider();
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
 
     /**
      * Helper class that provides shortcuts to providing and observing AccessorySheetData and
@@ -339,7 +329,7 @@ public class ManualFillingControllerTest {
         when(mMockWindow.getActivity()).thenReturn(new WeakReference<>(mMockActivity));
         mInsetSupplier.setKeyboardInsetSupplier(mKeyboardInsetSupplier);
         mInsetSupplier.setKeyboardAccessoryInsetSupplier(mController.getBottomInsetSupplier());
-        when(mMockWindow.getApplicationBottomInsetSupplier()).thenReturn(mInsetSupplier);
+        when(mMockWindow.getApplicationBottomInsetTracker()).thenReturn(mInsetSupplier);
         when(mMockSoftKeyboardDelegate.calculateSoftKeyboardHeight(any())).thenReturn(0);
         when(mMockActivity.getTabModelSelector()).thenReturn(mMockTabModelSelector);
         when(mMockActivity.getActivityTabProvider()).thenReturn(mActivityTabProvider);
@@ -1492,6 +1482,8 @@ public class ManualFillingControllerTest {
         mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
         when(mMockKeyboardAccessory.empty()).thenReturn(false);
+        mController.setFieldBounds(
+                new RectF(/* left= */ 10, /* top= */ 10, /* right= */ 20, /* bottom= */ 20));
 
         // Showing the keyboard should now trigger a transition into EXTENDING state.
         mController.show(
@@ -1507,6 +1499,112 @@ public class ManualFillingControllerTest {
     }
 
     @Test
+    public void testLargeFormSheetShownWithUndockedStyle() {
+        updateConfiguration(/* widthDp= */ 1600, /* heightDp= */ 2560);
+        addBrowserTab(mMediator, 1111, null);
+        mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
+        reset(mMockKeyboardAccessory, mMockAccessorySheet);
+
+        mModel.set(KEYBOARD_EXTENSION_STATE, REPLACING_KEYBOARD);
+        assertThat(mModel.get(KEYBOARD_EXTENSION_STATE), is(REPLACING_KEYBOARD));
+
+        verify(mMockAccessorySheet).show();
+        verify(mMockAccessorySheet).setStyle(/* isDocked= */ false);
+    }
+
+    @Test
+    public void testNonLargeFormSheetShownWithDockedStyle() {
+        updateConfiguration(/* widthDp= */ 320, /* heightDp= */ 470);
+        addBrowserTab(mMediator, 1111, null);
+        mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
+        reset(mMockKeyboardAccessory, mMockAccessorySheet);
+
+        mModel.set(KEYBOARD_EXTENSION_STATE, REPLACING_KEYBOARD);
+        assertThat(mModel.get(KEYBOARD_EXTENSION_STATE), is(REPLACING_KEYBOARD));
+
+        verify(mMockAccessorySheet).show();
+        verify(mMockAccessorySheet).setStyle(/* isDocked= */ true);
+    }
+
+    @Test
+    public void testLargeFormAccessoryWithDynamicPositioningPositionBelowField() {
+        final int density = 2;
+        final int paddingForNotch = 5;
+        final int barHeight = 10;
+        final int leftBound = 10;
+        final int topBound = 20;
+        final int rightBound = 30;
+        final int bottomBound = 40;
+
+        updateConfiguration(/* widthDp= */ 1600, /* heightDp= */ 2560);
+        addBrowserTab(mMediator, 1111, null);
+        mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
+        reset(mMockKeyboardAccessory, mMockAccessorySheet);
+        when(mMockKeyboardAccessory.empty()).thenReturn(false);
+
+        simulateVisibleViewportSize(/* width= */ 1000, /* height= */ 1000);
+        mController.setFieldBounds(new RectF(leftBound, topBound, rightBound, bottomBound));
+
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign))
+                .thenReturn(barHeight);
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_notch_height))
+                .thenReturn(paddingForNotch);
+
+        mController.show(
+                /* waitForKeyboard= */ true, /* isCredentialFieldOrHasAutofillSuggestions= */ true);
+
+        // Verify the accessory is shown as a floating bar with the correct style.
+        assertThat(mModel.get(KEYBOARD_EXTENSION_STATE), is(FLOATING_BAR));
+        verify(mMockKeyboardAccessory).setStyle(mStyleCaptor.capture());
+        KeyboardAccessoryStyle style = mStyleCaptor.getValue();
+        assertFalse(style.isDocked());
+        assertTrue(style.getMaxWidth() > 0);
+        assertEquals(KeyboardAccessoryStyle.NotchPosition.TOP, style.getNotchPosition());
+
+        assertEquals(bottomBound * density, style.getVerticalOffset());
+        assertEquals(leftBound * density, style.getHorizontalOffset());
+    }
+
+    @Test
+    public void testLargeFormAccessoryWithDynamicPositioningPositionAboveField() {
+        final int density = 2;
+        final int paddingForNotch = 5;
+        final int barHeight = 10;
+        final int leftBound = 10;
+        final int topBound = 20;
+        final int rightBound = 30;
+        final int bottomBound = 40;
+
+        updateConfiguration(/* widthDp= */ 1600, /* heightDp= */ 2560);
+        addBrowserTab(mMediator, 1111, null);
+        mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
+        reset(mMockKeyboardAccessory, mMockAccessorySheet);
+        when(mMockKeyboardAccessory.empty()).thenReturn(false);
+
+        simulateVisibleViewportSize(/* width= */ 1000, /* height= */ 90);
+        mController.setFieldBounds(new RectF(leftBound, topBound, rightBound, bottomBound));
+
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_height_redesign))
+                .thenReturn(barHeight);
+        when(mMockResources.getDimensionPixelSize(R.dimen.keyboard_accessory_notch_height))
+                .thenReturn(paddingForNotch);
+
+        mController.show(
+                /* waitForKeyboard= */ true, /* isCredentialFieldOrHasAutofillSuggestions= */ true);
+
+        // Verify the accessory is shown as a floating bar with the correct style.
+        assertThat(mModel.get(KEYBOARD_EXTENSION_STATE), is(FLOATING_BAR));
+        verify(mMockKeyboardAccessory).setStyle(mStyleCaptor.capture());
+        KeyboardAccessoryStyle style = mStyleCaptor.getValue();
+        assertFalse(style.isDocked());
+        assertTrue(style.getMaxWidth() > 0);
+        assertEquals(KeyboardAccessoryStyle.NotchPosition.BOTTOM, style.getNotchPosition());
+
+        assertEquals(topBound * density - paddingForNotch - barHeight, style.getVerticalOffset());
+        assertEquals(leftBound * density, style.getHorizontalOffset());
+    }
+
+    @Test
     public void testLargeFormAccessoryShownMinWidthWithPhysicalKeyboard() {
         updateConfiguration(/* widthDp= */ 900, /* heightDp= */ 450);
         when(mMockSoftKeyboardDelegate.isSoftKeyboardShowing(any())).thenReturn(false);
@@ -1516,6 +1614,9 @@ public class ManualFillingControllerTest {
         mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
         when(mMockKeyboardAccessory.empty()).thenReturn(false);
+
+        mController.setFieldBounds(
+                new RectF(/* left= */ 10, /* top= */ 10, /* right= */ 20, /* bottom= */ 20));
 
         // Showing the keyboard should now trigger a transition into FLOATING state.
         mController.show(
@@ -1540,6 +1641,8 @@ public class ManualFillingControllerTest {
         mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
         when(mMockKeyboardAccessory.empty()).thenReturn(false);
+        mController.setFieldBounds(
+                new RectF(/* left= */ 10, /* top= */ 10, /* right= */ 20, /* bottom= */ 20));
 
         // Showing the keyboard should now trigger a transition into FLOATING state.
         mController.show(
@@ -1610,6 +1713,8 @@ public class ManualFillingControllerTest {
         mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
         when(mMockKeyboardAccessory.empty()).thenReturn(false);
+        mController.setFieldBounds(
+                new RectF(/* left= */ 10, /* top= */ 10, /* right= */ 20, /* bottom= */ 20));
 
         mController.show(
                 /* waitForKeyboard= */ true, /* isCredentialFieldOrHasAutofillSuggestions= */ true);
@@ -1628,6 +1733,8 @@ public class ManualFillingControllerTest {
         mModel.set(KEYBOARD_EXTENSION_STATE, HIDDEN);
         reset(mMockKeyboardAccessory, mMockAccessorySheet);
         when(mMockKeyboardAccessory.empty()).thenReturn(false);
+        mController.setFieldBounds(
+                new RectF(/* left= */ 10, /* top= */ 10, /* right= */ 20, /* bottom= */ 20));
 
         mController.show(
                 /* waitForKeyboard= */ true, /* isCredentialFieldOrHasAutofillSuggestions= */ true);
@@ -1665,7 +1772,7 @@ public class ManualFillingControllerTest {
                 .onVisibilityChanged(Visibility.VISIBLE);
         when(tab.getContentView()).thenReturn(mMockContentView);
         when(mMockTabModelSelector.getCurrentTab()).thenReturn(tab);
-        mActivityTabProvider.set(tab);
+        mActivityTabProvider.setForTesting(tab);
         mediator.getTabModelObserverForTesting()
                 .didAddTab(tab, FROM_BROWSER_ACTIONS, TabCreationState.LIVE_IN_FOREGROUND, false);
         mediator.getTabObserverForTesting().onShown(tab, FROM_NEW);
@@ -1802,5 +1909,20 @@ public class ManualFillingControllerTest {
         configuration.screenHeightDp = heightDp;
 
         when(mMockResources.getConfiguration()).thenReturn(configuration);
+    }
+
+    private void simulateVisibleViewportSize(@Px int width, @Px int height) {
+        RectF visibleViewport =
+                new RectF(/* left= */ 0, /* top= */ 0, /* right= */ width, /* bottom= */ height);
+        Mockito.doAnswer(
+                        (Answer<Void>)
+                                (invocationOnMock) -> {
+                                    invocationOnMock
+                                            .getArgument(0, RectF.class)
+                                            .set(visibleViewport);
+                                    return null;
+                                })
+                .when(mMockCompositorViewHolder)
+                .getVisibleViewport(any(RectF.class));
     }
 }

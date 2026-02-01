@@ -208,6 +208,9 @@ id<GREYMatcher> OmniboxContainingAutocompleteText(NSString* text);
 // view.
 id<GREYMatcher> LocationViewContainingText(const std::string& text);
 
+// Returns matcher for the location view being empty.
+id<GREYMatcher> LocationViewEmpty();
+
 // Returns a matcher for Tools menu button.
 id<GREYMatcher> ToolsMenuButton();
 
@@ -347,20 +350,6 @@ id<GREYMatcher> IdentityChooserScrim();
 
 // Returns matcher for the cancel button in the fake add account flow.
 id<GREYMatcher> FakeAddAccountScreenCancelButton();
-
-// TODO(crbug.com/444648926): Remove this matcher once downstream dependencies
-// have been updated.
-// Returns matcher for the primary button (typically labeled somethings like
-// "Yes") in various promo screens, including sign-in, history sync, default
-// browser choice, and more.
-id<GREYMatcher> PromoScreenPrimaryButtonMatcher();
-
-// TODO(crbug.com/444648926): Remove this matcher once downstream dependencies
-// have been updated.
-// Returns matcher for the secondary button (typically labeled somethings like
-// "No Thanks") in various promo screens, including sign-in, history sync,
-// default browser choice, and more.
-id<GREYMatcher> PromoScreenSecondaryButtonMatcher();
 
 // Returns a matcher for the button for the currently signed in account in the
 // settings menu.

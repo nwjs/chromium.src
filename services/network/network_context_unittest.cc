@@ -17,7 +17,6 @@
 
 #include "base/barrier_closure.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -52,6 +51,7 @@
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -2323,10 +2323,14 @@ TEST_F(NetworkContextTest, ClearHttpCache) {
     result.ReleaseEntry()->Close();
   }
   {
-    net::TestInt32CompletionCallback entry_count_cb;
-    EXPECT_EQ(entry_urls.size(),
-              static_cast<size_t>(entry_count_cb.GetResult(
-                  backend->GetEntryCount(entry_count_cb.callback()))));
+    base::test::TestFuture<int32_t> future;
+    base::expected<int32_t, net::Error> result =
+        backend->GetEntryCount(future.GetCallback());
+    if (!result.has_value()) {
+      CHECK_EQ(result.error(), net::ERR_IO_PENDING);
+      result = base::ok(future.Get());
+    }
+    EXPECT_EQ(static_cast<int32_t>(entry_urls.size()), result.value());
   }
   base::RunLoop run_loop;
   network_context->ClearHttpCache(base::Time(), base::Time(),
@@ -2334,9 +2338,14 @@ TEST_F(NetworkContextTest, ClearHttpCache) {
                                   base::BindOnce(run_loop.QuitClosure()));
   run_loop.Run();
   {
-    net::TestInt32CompletionCallback entry_count_cb;
-    EXPECT_EQ(0, entry_count_cb.GetResult(
-                     backend->GetEntryCount(entry_count_cb.callback())));
+    base::test::TestFuture<int32_t> future;
+    base::expected<int32_t, net::Error> result =
+        backend->GetEntryCount(future.GetCallback());
+    if (!result.has_value()) {
+      CHECK_EQ(result.error(), net::ERR_IO_PENDING);
+      result = base::ok(future.Get());
+    }
+    EXPECT_EQ(0, result.value());
   }
 }
 
@@ -11895,52 +11904,6 @@ TEST_P(StorageAccessHeaderNetworkContextParameterizedTest, RetryAfterInactive) {
         net::cookie_util::SecFetchStorageAccessOutcome::kValueNone,
         /*expected_count=*/1);
   }
-}
-
-TEST_F(NetworkContextTest, EnableDurableMessageCollector) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateNetworkContextParamsForTesting());
-  const base::UnguessableToken kThrottlingProfileId =
-      base::UnguessableToken::Create();
-
-  EXPECT_EQ(
-      0u,
-      network_context->num_devtools_durable_message_collectors_for_testing());
-
-  // Add a collector.
-  mojo::Remote<mojom::DurableMessageCollector> collector;
-  network_context->EnableDurableMessageCollector(
-      kThrottlingProfileId, collector.BindNewPipeAndPassReceiver());
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return network_context
-               ->num_devtools_durable_message_collectors_for_testing() == 1;
-  }));
-
-  EXPECT_EQ(
-      1u,
-      network_context->num_devtools_durable_message_collectors_for_testing());
-
-  // Configure the same collector again.
-  mojo::Remote<mojom::DurableMessageCollector> collector2;
-  network_context->EnableDurableMessageCollector(
-      kThrottlingProfileId, collector2.BindNewPipeAndPassReceiver());
-  collector2.FlushForTesting();
-
-  EXPECT_EQ(
-      1u,
-      network_context->num_devtools_durable_message_collectors_for_testing());
-
-  // Disconnect the mojo remote.
-  collector.reset();
-  collector2.reset();
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return network_context
-               ->num_devtools_durable_message_collectors_for_testing() == 0;
-  }));
-
-  EXPECT_EQ(
-      0u,
-      network_context->num_devtools_durable_message_collectors_for_testing());
 }
 
 TEST_F(NetworkContextTest, AddQuicHints) {

@@ -120,14 +120,25 @@ CSSColorMixValue::PercentageValuesForSerialization(
 
 String CSSColorMixValue::CustomCSSText() const {
   StringBuilder result;
-  result.Append("color-mix(in ");
-  result.Append(Color::SerializeInterpolationSpace(color_interpolation_space_,
-                                                   hue_interpolation_method_));
+  result.Append("color-mix(");
+
+  // Per CSS Color 5, the default interpolation space is oklab with shorter hue.
+  // Default values are omitted from serialization.
+  // https://drafts.csswg.org/css-color-5/#color-mix-space
+  const bool is_default_interpolation =
+      color_interpolation_space_ == Color::ColorSpace::kOklab &&
+      hue_interpolation_method_ == Color::HueInterpolationMethod::kShorter;
+
+  if (!is_default_interpolation) {
+    result.Append("in ");
+    result.Append(Color::SerializeInterpolationSpace(
+        color_interpolation_space_, hue_interpolation_method_));
+    result.Append(", ");
+  }
 
   auto [percentage1_value, percentage2_value] =
       PercentageValuesForSerialization(percentage1_, percentage2_);
 
-  result.Append(", ");
   result.Append(color1_->CssText());
   if (percentage1_value) {
     result.Append(' ');
@@ -141,6 +152,41 @@ String CSSColorMixValue::CustomCSSText() const {
   }
   result.Append(')');
   return result.ReleaseString();
+}
+
+const CSSValue*
+CSSColorMixValue::CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+    const CSSPropertyName& property_name,
+    wtf_size_t& property_value_index) const {
+  const CSSValue* color1 =
+      color1_ ? color1_->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+                    property_name, property_value_index)
+              : nullptr;
+  const CSSValue* color2 =
+      color2_ ? color2_->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+                    property_name, property_value_index)
+              : nullptr;
+  const CSSPrimitiveValue* percentage1 =
+      percentage1_
+          ? To<CSSPrimitiveValue>(
+                percentage1_
+                    ->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+                        property_name, property_value_index))
+          : nullptr;
+  const CSSPrimitiveValue* percentage2 =
+      percentage2_
+          ? To<CSSPrimitiveValue>(
+                percentage2_
+                    ->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
+                        property_name, property_value_index))
+          : nullptr;
+  if (color1 != color1_ || color2 != color2_ || percentage1 != percentage1_ ||
+      percentage2 != percentage2_) {
+    return MakeGarbageCollected<CSSColorMixValue>(
+        color1, color2, percentage1, percentage2, color_interpolation_space_,
+        hue_interpolation_method_);
+  }
+  return this;
 }
 
 void CSSColorMixValue::TraceAfterDispatch(blink::Visitor* visitor) const {

@@ -21,7 +21,6 @@
 #include "ash/wm/overview/birch/coral_chip_button.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/window_properties.h"
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/time/time.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
@@ -32,6 +31,7 @@
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/views/animation/animation_builder.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 

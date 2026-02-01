@@ -2215,7 +2215,7 @@ bool SetCookie(
     net::CookieOptions::SameSiteCookieContext context,
     base::optional_ref<const net::CookiePartitionKey> cookie_partition_key) {
   if (cookie_partition_key) {
-    DCHECK(base::Contains(base::ToLowerASCII(value), ";partitioned"));
+    DCHECK(base::ToLowerASCII(value).contains(";partitioned"));
   }
   mojo::Remote<network::mojom::CookieManager> cookie_manager;
   browser_context->GetDefaultStoragePartition()
@@ -4488,12 +4488,12 @@ bool CompareWebContentsOutputToReference(
   {
     base::RunLoop run_loop;
     rwh->GetView()->CopyFromSurface(
-        gfx::Rect(), gfx::Size(),
-        base::BindLambdaForTesting([&](const viz::CopyOutputBitmapWithMetadata&
+        gfx::Rect(), gfx::Size(), base::TimeDelta(),
+        base::BindLambdaForTesting([&](const content::CopyFromSurfaceResult&
                                            result) {
-          const SkBitmap& bitmap = result.bitmap;
+          ASSERT_TRUE(result.has_value());
+          const SkBitmap& bitmap = result->bitmap;
           base::ScopedAllowBlockingForTesting allow_blocking;
-          ASSERT_FALSE(bitmap.drawsNothing());
 
           SkBitmap clipped_bitmap;
           bitmap.extractSubset(

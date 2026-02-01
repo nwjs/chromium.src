@@ -21,6 +21,7 @@
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/optimization_guide/content/browser/mock_media_transcript_provider.h"
+#include "components/optimization_guide/content/browser/no_response_ai_page_content_agent.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -38,16 +39,13 @@
 #include "content/shell/browser/shell.h"
 #include "content/shell/common/shell_switches.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
-#include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "services/media_session/public/cpp/test/mock_media_session.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
-#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom-test-utils.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "ui/display/display_switches.h"
 #include "url/gurl.h"
@@ -413,9 +411,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, ForLabel) {
   const auto& input = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(input.content_attributes().has_interaction_info());
   EXPECT_THAT(
-      input.content_attributes()
-          .interaction_info()
-          .debug_clickability_reasons(),
+      input.content_attributes().interaction_info().clickability_reasons(),
       testing::UnorderedElementsAre(
           optimization_guide::proto::CLICKABILITY_REASON_CLICKABLE_CONTROL));
 
@@ -423,7 +419,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, ForLabel) {
   ASSERT_TRUE(label.content_attributes().has_interaction_info());
   EXPECT_TRUE(label.content_attributes()
                   .interaction_info()
-                  .debug_clickability_reasons()
+                  .clickability_reasons()
                   .empty());
   EXPECT_EQ(label.content_attributes().label_for_dom_node_id(),
             input.content_attributes().common_ancestor_dom_node_id());
@@ -442,28 +438,10 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   EXPECT_THAT(
       button_node.content_attributes()
           .interaction_info()
-          .debug_clickability_reasons(),
-      testing::UnorderedElementsAre(
-          optimization_guide::proto::CLICKABILITY_REASON_CLICKABLE_CONTROL,
-          optimization_guide::proto::CLICKABILITY_REASON_CLICK_HANDLER,
-          optimization_guide::proto::CLICKABILITY_REASON_MOUSE_EVENTS,
-          optimization_guide::proto::CLICKABILITY_REASON_MOUSE_HOVER,
-          optimization_guide::proto::CLICKABILITY_REASON_MOUSE_CLICK,
-          optimization_guide::proto::CLICKABILITY_REASON_KEY_EVENTS,
-          optimization_guide::proto::CLICKABILITY_REASON_EDITABLE,
-          optimization_guide::proto::CLICKABILITY_REASON_CURSOR_POINTER,
-          optimization_guide::proto::CLICKABILITY_REASON_ARIA_ROLE,
-          optimization_guide::proto::CLICKABILITY_REASON_ARIA_HAS_POPUP,
-          optimization_guide::proto::CLICKABILITY_REASON_TAB_INDEX,
-          optimization_guide::proto::CLICKABILITY_REASON_HOVER_PSEUDO_CLASS));
-  EXPECT_THAT(
-      button_node.content_attributes()
-          .interaction_info()
           .clickability_reasons(),
       testing::UnorderedElementsAre(
           optimization_guide::proto::CLICKABILITY_REASON_CLICKABLE_CONTROL,
           optimization_guide::proto::CLICKABILITY_REASON_CLICK_HANDLER,
-          optimization_guide::proto::CLICKABILITY_REASON_MOUSE_EVENTS,
           optimization_guide::proto::CLICKABILITY_REASON_MOUSE_HOVER,
           optimization_guide::proto::CLICKABILITY_REASON_MOUSE_CLICK,
           optimization_guide::proto::CLICKABILITY_REASON_KEY_EVENTS,
@@ -502,9 +480,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   const auto& input = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(input.content_attributes().has_interaction_info());
   EXPECT_THAT(
-      input.content_attributes()
-          .interaction_info()
-          .debug_clickability_reasons(),
+      input.content_attributes().interaction_info().clickability_reasons(),
       testing::UnorderedElementsAre(
           optimization_guide::proto::CLICKABILITY_REASON_CLICKABLE_CONTROL));
 
@@ -524,11 +500,10 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, AriaRole) {
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(button.content_attributes().has_interaction_info());
-  EXPECT_THAT(button.content_attributes()
-                  .interaction_info()
-                  .debug_clickability_reasons(),
-              testing::UnorderedElementsAre(
-                  optimization_guide::proto::CLICKABILITY_REASON_ARIA_ROLE));
+  EXPECT_THAT(
+      button.content_attributes().interaction_info().clickability_reasons(),
+      testing::UnorderedElementsAre(
+          optimization_guide::proto::CLICKABILITY_REASON_ARIA_ROLE));
   EXPECT_EQ(button.content_attributes().aria_role(),
             optimization_guide::proto::AXRole::AX_ROLE_BUTTON);
 }
@@ -590,8 +565,8 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, SVG) {
   EXPECT_EQ(page_content().root_node().children_nodes().size(), 1);
 
   const auto& svg = page_content().root_node().children_nodes().at(0);
-  ASSERT_TRUE(svg.content_attributes().has_svg_data());
-  EXPECT_EQ(svg.content_attributes().svg_data().inner_text(),
+  ASSERT_TRUE(svg.content_attributes().has_svg_root_data());
+  EXPECT_EQ(svg.content_attributes().svg_root_data().inner_text(),
             "Hello SVG Text!");
 }
 
@@ -1941,12 +1916,13 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, DisabledButton) {
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(button.content_attributes().has_interaction_info());
-  EXPECT_TRUE(button.content_attributes()
-                  .interaction_info()
-                  .debug_clickability_reasons()
-                  .empty());
-  EXPECT_TRUE(button.content_attributes().interaction_info().is_disabled());
-  EXPECT_FALSE(button.content_attributes().interaction_info().is_clickable());
+  const auto& interaction_info = button.content_attributes().interaction_info();
+  EXPECT_TRUE(interaction_info.clickability_reasons().empty());
+  EXPECT_TRUE(interaction_info.is_disabled());
+  EXPECT_THAT(
+      interaction_info.interaction_disabled_reasons(),
+      testing::UnorderedElementsAre(
+          optimization_guide::proto::INTERACTION_DISABLED_REASON_DISABLED));
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
@@ -1960,12 +1936,36 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(button.content_attributes().has_interaction_info());
-  EXPECT_TRUE(button.content_attributes()
-                  .interaction_info()
-                  .debug_clickability_reasons()
-                  .empty());
-  EXPECT_TRUE(button.content_attributes().interaction_info().is_disabled());
-  EXPECT_FALSE(button.content_attributes().interaction_info().is_clickable());
+  const auto& interaction_info = button.content_attributes().interaction_info();
+  EXPECT_TRUE(interaction_info.clickability_reasons().empty());
+  EXPECT_TRUE(interaction_info.is_disabled());
+  EXPECT_THAT(interaction_info.interaction_disabled_reasons(),
+              testing::UnorderedElementsAre(
+                  optimization_guide::proto::
+                      INTERACTION_DISABLED_REASON_ARIA_DISABLED));
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       CursorNotAllowedButton) {
+  LoadPage(https_server()->GetURL("/cursor_not_allowed_button.html"),
+           GetActionableAIPageContentOptions());
+  EXPECT_EQ(page_content().version(),
+            optimization_guide::proto::
+                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+
+  EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
+  const auto& button = ActionableContentRootNode().children_nodes()[0];
+  ASSERT_TRUE(button.content_attributes().has_interaction_info());
+  const auto& interaction_info = button.content_attributes().interaction_info();
+  EXPECT_THAT(
+      interaction_info.clickability_reasons(),
+      testing::UnorderedElementsAre(
+          optimization_guide::proto::CLICKABILITY_REASON_CLICKABLE_CONTROL));
+  EXPECT_FALSE(interaction_info.is_disabled());
+  EXPECT_THAT(interaction_info.interaction_disabled_reasons(),
+              testing::UnorderedElementsAre(
+                  optimization_guide::proto::
+                      INTERACTION_DISABLED_REASON_CURSOR_NOT_ALLOWED));
 }
 
 // Popups may be rendered as native OS-level widgets on Android, MacOS, and iOS.
@@ -2213,61 +2213,6 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderPopupBrowserTest, ColorPicker) {
             color_node.content_attributes().common_ancestor_dom_node_id());
 }
 #endif
-
-// Overrides the AIPageContentAgent interface for the given frame to simulate a
-// non-responsive renderer. Saves the arguments to respond later.
-class NoResponseAIPageContentAgent
-    : public blink::mojom::AIPageContentAgentInterceptorForTesting {
- public:
-  explicit NoResponseAIPageContentAgent(
-      content::RenderFrameHost* render_frame_host)
-      : render_frame_host_(render_frame_host) {
-    service_manager::InterfaceProvider::TestApi(
-        render_frame_host_->GetRemoteInterfaces())
-        .SetBinderForName(
-            blink::mojom::AIPageContentAgent::Name_,
-            base::BindRepeating(&NoResponseAIPageContentAgent::Bind,
-                                base::Unretained(this)));
-  }
-  ~NoResponseAIPageContentAgent() override = default;
-
-  void Bind(mojo::ScopedMessagePipeHandle handle) {
-    receiver_.Bind(mojo::PendingReceiver<blink::mojom::AIPageContentAgent>(
-        std::move(handle)));
-  }
-
-  void GetAIPageContent(blink::mojom::AIPageContentOptionsPtr options,
-                        GetAIPageContentCallback callback) override {
-    // Do nothing, simulating a non-responsive renderer, but save the arguments
-    // to allow later processing.
-    saved_options_ = std::move(options);
-    saved_callback_ = std::move(callback);
-  }
-
-  void Respond() {
-    service_manager::InterfaceProvider::TestApi test_api(
-        render_frame_host_->GetRemoteInterfaces());
-
-    CHECK(test_api.HasBinderForName(blink::mojom::AIPageContentAgent::Name_));
-    test_api.ClearBinderForName(blink::mojom::AIPageContentAgent::Name_);
-
-    render_frame_host_->GetRemoteInterfaces()->GetInterface(
-        agent_.BindNewPipeAndPassReceiver());
-    agent_->GetAIPageContent(std::move(saved_options_),
-                             std::move(saved_callback_));
-  }
-
-  blink::mojom::AIPageContentAgent* GetForwardingInterface() override {
-    NOTREACHED();
-  }
-
- private:
-  blink::mojom::AIPageContentOptionsPtr saved_options_;
-  GetAIPageContentCallback saved_callback_;
-  raw_ptr<content::RenderFrameHost> render_frame_host_;
-  mojo::Receiver<blink::mojom::AIPageContentAgent> receiver_{this};
-  mojo::Remote<blink::mojom::AIPageContentAgent> agent_;
-};
 
 class PageContentProtoProviderSubframeTimeoutBrowserTest
     : public PageContentProtoProviderBrowserTestMultiProcess {

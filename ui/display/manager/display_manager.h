@@ -20,7 +20,6 @@
 #include "base/cancelable_callback.h"
 #include "base/check_op.h"
 #include "base/functional/callback.h"
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -289,11 +288,11 @@ class DISPLAY_MANAGER_EXPORT DisplayManager
   // This is called by ScreenAsh when the primary display is requested, but
   // there is no valid display. It provides a display that
   // - has a non-empty screen rect
-  // - has a valid gfx::BufferFormat
+  // - has a valid format
   // This exists to enable buggy observers assume that the primary display
-  // will always have non-zero size and a valid gfx::BufferFormat. The right
-  // solution to this problem is to fix those observers.
-  // https://crbug.com/866714, https://crbug.com/1057501
+  // will always have non-zero size and a valid format. The right solution to
+  // this problem is to fix those observers. https://crbug.com/866714,
+  // https://crbug.com/1057501
   static const Display& GetFakePrimaryDisplay();
 
   // Returns the logical number of displays. This returns 1 when displays are

@@ -47,7 +47,6 @@
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/devtools/url_constants.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
-#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/search/search.h"
@@ -72,7 +71,6 @@
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/search_engines/util.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -80,6 +78,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "components/zoom/page_zoom.h"
+#include "content/common/features.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
@@ -502,6 +501,30 @@ GURL SanitizeFrontendURL(const GURL& url,
 constexpr base::TimeDelta kInitialBackoffDelay = base::Milliseconds(250);
 constexpr base::TimeDelta kMaxBackoffDelay = base::Seconds(10);
 
+void StreamWrite(DevToolsUIBindings* bindings,
+                 int stream_id,
+                 std::string_view chunk) {
+  base::Value chunkValue;
+  // Chunks are individually inspected for UTF-8 validity. The DevTools
+  // protocol requires all string data to be valid UTF-8 for transport.
+  // Non-UTF-8 chunks are Base64-encoded to prevent data corruption or
+  // serialization errors. The frontend compatibility layer
+  // (devtools_compatibility.js) uses the `encoded` flag to transparently
+  // decode these chunks. This ensures downstream consumers receive the
+  // original byte stream as a string, allowing handling of mixed
+  // content (e.g. binary resources) even within a single response.
+  bool encoded = !base::IsStringUTF8AllowingNoncharacters(chunk);
+  if (encoded) {
+    chunkValue = base::Value(base::Base64Encode(chunk));
+  } else {
+    chunkValue = base::Value(chunk);
+  }
+
+  bindings->CallClientMethod("DevToolsAPI", "streamWrite",
+                             base::Value(stream_id), std::move(chunkValue),
+                             base::Value(encoded));
+}
+
 }  // namespace
 
 class DevToolsUIBindings::NetworkResourceLoader
@@ -598,18 +621,7 @@ class DevToolsUIBindings::NetworkResourceLoader
 
   void OnDataReceived(std::string_view chunk,
                       base::OnceClosure resume) override {
-    base::Value chunkValue;
-
-    bool encoded = !base::IsStringUTF8AllowingNoncharacters(chunk);
-    if (encoded) {
-      chunkValue = base::Value(base::Base64Encode(chunk));
-    } else {
-      chunkValue = base::Value(chunk);
-    }
-
-    bindings_->CallClientMethod("DevToolsAPI", "streamWrite",
-                                base::Value(stream_id_), std::move(chunkValue),
-                                base::Value(encoded));
+    StreamWrite(bindings_, stream_id_, chunk);
     std::move(resume).Run();
   }
 
@@ -1101,6 +1113,25 @@ void DevToolsUIBindings::OnAidaResponse(
 void DevToolsUIBindings::DispatchHttpRequest(
     DispatchCallback callback,
     const DevToolsDispatchHttpRequestParams& params) {
+  if (params.stream_id.has_value()) {
+    int stream_id = *params.stream_id;
+    auto stream_writer = base::BindRepeating(
+        [](base::WeakPtr<DevToolsUIBindings> bindings, int stream_id,
+           std::string_view chunk) {
+          if (!bindings) {
+            return;
+          }
+          StreamWrite(bindings.get(), stream_id, chunk);
+        },
+        weak_factory_.GetWeakPtr(), stream_id);
+
+    http_service_registry_->RequestAsStream(
+        profile_, params, std::move(stream_writer),
+        base::BindOnce(&DevToolsUIBindings::OnHttpRequestPerformed,
+                       weak_factory_.GetWeakPtr(), std::move(callback)));
+    return;
+  }
+
   http_service_registry_->Request(
       profile_, params,
       base::BindOnce(&DevToolsUIBindings::OnHttpRequestPerformed,
@@ -1748,7 +1779,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     base::Value::Dict freestyler_dict;
     freestyler_dict.Set("enabled", base::FeatureList::IsEnabled(
                                        ::features::kDevToolsFreestyler));
-    freestyler_dict.Set("featureName", ::features::kDevToolsFreestyler.name);
     freestyler_dict.Set("modelId", features::kDevToolsFreestylerModelId.Get());
     freestyler_dict.Set("temperature",
                         features::kDevToolsFreestylerTemperature.Get());
@@ -1776,8 +1806,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     network_agent_dict.Set("enabled",
                            base::FeatureList::IsEnabled(
                                ::features::kDevToolsAiAssistanceNetworkAgent));
-    network_agent_dict.Set("featureName",
-                           ::features::kDevToolsAiAssistanceNetworkAgent.name);
     network_agent_dict.Set(
         "modelId", features::kDevToolsAiAssistanceNetworkAgentModelId.Get());
     network_agent_dict.Set(
@@ -1797,8 +1825,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     ai_assistance_performance_agent_dict.Set(
         "enabled", base::FeatureList::IsEnabled(
                        ::features::kDevToolsAiAssistancePerformanceAgent));
-    ai_assistance_performance_agent_dict.Set(
-        "featureName", ::features::kDevToolsAiAssistancePerformanceAgent.name);
     ai_assistance_performance_agent_dict.Set(
         "modelId",
         features::kDevToolsAiAssistancePerformanceAgentModelId.Get());
@@ -1822,8 +1848,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     ai_assistance_file_agent_dict.Set(
         "enabled", base::FeatureList::IsEnabled(
                        ::features::kDevToolsAiAssistanceFileAgent));
-    ai_assistance_file_agent_dict.Set("featureName",
-                                       ::features::kDevToolsAiAssistanceFileAgent.name);
     ai_assistance_file_agent_dict.Set(
         "modelId", features::kDevToolsAiAssistanceFileAgentModelId.Get());
     ai_assistance_file_agent_dict.Set(
@@ -1902,8 +1926,8 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
     base::Value::Dict third_party_cookie_controls_dict;
     third_party_cookie_controls_dict.Set(
         "thirdPartyCookieRestrictionEnabled",
-        TrackingProtectionSettingsFactory::GetForProfile(profile())
-            ->IsTrackingProtection3pcdEnabled());
+        base::FeatureList::IsEnabled(
+            content_settings::features::kTrackingProtection3pcd));
 
     third_party_cookie_controls_dict.Set(
         "thirdPartyCookieMetadataEnabled",
@@ -1986,22 +2010,6 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
       base::FeatureList::IsEnabled(::features::kDevToolsVerticalDrawer));
   response_dict.Set("devToolsFlexibleLayout", std::move(flexible_layout_dict));
 
-  base::Value::Dict ai_submenu_prompts_dict;
-  ai_submenu_prompts_dict.Set(
-      "enabled", base::FeatureList::IsEnabled(
-                     ::features::kDevToolsAiSubmenuPrompts));
-  ai_submenu_prompts_dict.Set("featureName",
-                              ::features::kDevToolsAiSubmenuPrompts.name);
-  response_dict.Set("devToolsAiSubmenuPrompts",
-                    std::move(ai_submenu_prompts_dict));
-
-  base::Value::Dict ai_debug_with_ai_dict;
-  ai_debug_with_ai_dict.Set("enabled", base::FeatureList::IsEnabled(
-                                           ::features::kDevToolsAiDebugWithAi));
-  ai_debug_with_ai_dict.Set("featureName",
-                            ::features::kDevToolsAiDebugWithAi.name);
-  response_dict.Set("devToolsAiDebugWithAi", std::move(ai_debug_with_ai_dict));
-
   if (base::FeatureList::IsEnabled(::features::kDevToolsGlobalAiButton)) {
     base::Value::Dict global_ai_button_dict;
     global_ai_button_dict.Set(
@@ -2052,12 +2060,12 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
           "enabled", base::FeatureList::IsEnabled(
                          ::features::kDevToolsIndividualRequestThrottling)));
 
-  base::Value::Dict starting_style_debugging;
-  starting_style_debugging.Set(
-      "enabled", base::FeatureList::IsEnabled(
-                     ::features::kDevToolsStartingStyleDebugging));
-  response_dict.Set("devToolsStartingStyleDebugging",
-                    std::move(starting_style_debugging));
+  base::Value::Dict device_bound_sessions_debugging;
+  device_bound_sessions_debugging.Set(
+      "enabled",
+      base::FeatureList::IsEnabled(features::kDeviceBoundSessionsDevTools));
+  response_dict.Set("deviceBoundSessionsDebugging",
+                    std::move(device_bound_sessions_debugging));
 
   base::Value::Dict prompt_api_dict;
   prompt_api_dict.Set("enabled", base::FeatureList::IsEnabled(
@@ -2798,6 +2806,18 @@ void DevToolsUIBindings::OnThemeChanged() {
 #endif
 
 void DevToolsUIBindings::CallClientMethod(
+    const std::string& object_name,
+    const std::string& method_name,
+    base::Value arg1,
+    base::Value arg2,
+    base::Value arg3,
+    base::OnceCallback<void(base::Value)> completion_callback) {
+  CallClientMethodImpl(object_name, method_name, std::move(arg1),
+                       std::move(arg2), std::move(arg3),
+                       std::move(completion_callback));
+}
+
+void DevToolsUIBindings::CallClientMethodImpl(
     const std::string& object_name,
     const std::string& method_name,
     base::Value arg1,

@@ -81,9 +81,8 @@ class GlicSettingsUtilUiTest
         Do([this, f] { f(browser()->profile()); }), InstrumentTab(kSettingsTab),
         WaitForWebContentsReady(
             kSettingsTab, chrome::GetSettingsUrl(chrome::kGlicSettingsSubpage)),
-        CheckResult(
-            [this] { return browser()->tab_strip_model()->GetTabCount(); }, 3,
-            "CheckTabCount"));
+        CheckResult([this] { return browser()->tab_strip_model()->count(); }, 3,
+                    "CheckTabCount"));
   }
 
   auto SetFRECompletion(glic::prefs::FreStatus status) {
@@ -191,8 +190,8 @@ IN_PROC_BROWSER_TEST_F(GlicSettingsUtilUiTest, OpenSettingsFromGlicUi) {
     GTEST_SKIP() << "Skipping for kGlicMultiInstance";
   }
   RunTestSequence(
-      OpenGlicWindow(GlicWindowMode::kAttached,
-                     GlicInstrumentMode::kHostAndContents),
+      DeprecatedOpenGlicWindow(GlicWindowMode::kAttached,
+                               GlicInstrumentMode::kHostAndContents),
       InstrumentNextTab(kSettingsTab),
       ClickMockGlicElement(kOpenSettingsButton),
       WaitForWebContentsReady(

@@ -32,8 +32,11 @@
   margin-bottom: var(--contextual-entrypoint-and-carousel-context-menu-container-margin-bottom);
   min-height: var(--cr-icon-button-size);
   padding-inline-start: var(--contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start, 4px);
-  overflow: hidden;
   flex-wrap: nowrap;
+}
+
+:host([is-omnibox-in-compact-mode_]) .context-menu-container {
+  min-height: 0;
 }
 
 .context-menu-container > * {
@@ -42,7 +45,7 @@
 
 #contextEntrypoint {
   color: var(--color-searchbox-results-foreground);
-  padding-inline: 8px;
+  padding-inline: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline, 8px);
 }
 
 #toolChipsContainer {
@@ -65,6 +68,10 @@
   color: var(--color-composebox-upload-button);
   display: flex;
   flex-wrap: nowrap;
+}
+
+.context-menu-container:has(.contextual-chip) {
+  padding-bottom: var(--contextual-entrypoint-and-carousel-contextual-chip-padding-bottom);
 }
 
 :host([inputs-disabled_]) .upload-button {

@@ -4,6 +4,8 @@
 
 #include "ash/wm/overview/birch/birch_bar_controller.h"
 
+#include <utility>
+
 #include "ash/birch/birch_model.h"
 #include "ash/birch/coral_util.h"
 #include "ash/constants/ash_pref_names.h"
@@ -40,31 +42,6 @@ namespace {
 // Returns the pref service to use for Birch bar prefs.
 PrefService* GetPrefService() {
   return Shell::Get()->session_controller()->GetPrimaryUserPrefService();
-}
-
-// Records the ranking of each item in `items` in a histogram selected based on
-// the time of day. The histogram time cutoffs are chosen based on BirchRanker
-// behavior.
-void RecordTimeOfDayRankingHistogram(
-    const std::vector<std::unique_ptr<BirchItem>>& items) {
-  base::Time::Exploded exploded;
-  base::Time::Now().LocalExplode(&exploded);
-  const char* now_histogram = nullptr;
-  if (exploded.hour < 5) {
-    now_histogram = "Ash.Birch.Ranking.0000to0500";
-  } else if (exploded.hour < 12) {
-    now_histogram = "Ash.Birch.Ranking.0500to1200";
-  } else if (exploded.hour < 17) {
-    now_histogram = "Ash.Birch.Ranking.1200to1700";
-  } else {
-    now_histogram = "Ash.Birch.Ranking.1700to0000";
-  }
-  for (const auto& item : items) {
-    int ranking_int = static_cast<int>(item->ranking());
-    base::UmaHistogramCounts100(now_histogram, ranking_int);
-    // Also record an aggregate for the day.
-    base::UmaHistogramCounts100("Ash.Birch.Ranking.Total", ranking_int);
-  }
 }
 
 std::string GetPrefNameFromSuggestionType(BirchSuggestionType type) {
@@ -266,7 +243,7 @@ void BirchBarController::ProvideFeedbackForCoral() {
 void BirchBarController::ExecuteMenuCommand(int command_id, bool from_chip) {
   using CommandId = BirchBarContextMenuModel::CommandId;
   switch (command_id) {
-    case base::to_underlying(CommandId::kShowSuggestions):
+    case std::to_underlying(CommandId::kShowSuggestions):
       // Note that the menu should be dismissed before changing the show
       // suggestions pref which may destroy the chips.
       if (auto* menu_controller = views::MenuController::GetActiveInstance()) {
@@ -280,12 +257,12 @@ void BirchBarController::ExecuteMenuCommand(int command_id, bool from_chip) {
 
       SetShowBirchSuggestions(/*show=*/!GetShowBirchSuggestions());
       break;
-    case base::to_underlying(CommandId::kWeatherSuggestions):
-    case base::to_underlying(CommandId::kCalendarSuggestions):
-    case base::to_underlying(CommandId::kDriveSuggestions):
-    case base::to_underlying(CommandId::kChromeTabSuggestions):
-    case base::to_underlying(CommandId::kMediaSuggestions):
-    case base::to_underlying(CommandId::kCoralSuggestions): {
+    case std::to_underlying(CommandId::kWeatherSuggestions):
+    case std::to_underlying(CommandId::kCalendarSuggestions):
+    case std::to_underlying(CommandId::kDriveSuggestions):
+    case std::to_underlying(CommandId::kChromeTabSuggestions):
+    case std::to_underlying(CommandId::kMediaSuggestions):
+    case std::to_underlying(CommandId::kCoralSuggestions): {
       // To avoid UAF, dismiss the menu before changing the pref which
       // would destroy current chips.
       auto* menu_controller = views::MenuController::GetActiveInstance();
@@ -299,7 +276,7 @@ void BirchBarController::ExecuteMenuCommand(int command_id, bool from_chip) {
       SetShowSuggestionType(suggestion_type, !current_show_status);
       break;
     }
-    case base::to_underlying(CommandId::kReset): {
+    case std::to_underlying(CommandId::kReset): {
       bool suggestion_pref_changed = false;
       {
         // Holding the data fetch requests to avoid sending multiple requests.
@@ -439,8 +416,6 @@ void BirchBarController::OnItemsFetchedFromModel() {
                     });
   base::UmaHistogramExactLinear("Ash.Birch.Coral.ClusterCount", num_coral_items,
                                 /*exclusive_max=*/3);
-
-  RecordTimeOfDayRankingHistogram(items);
 
   for (auto& bar_view : bar_views_) {
     InitBarWithItems(bar_view, items);

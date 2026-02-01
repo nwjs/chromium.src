@@ -30,9 +30,6 @@
 #include "chrome/browser/ash/input_method/autocorrect_prefs.h"
 #include "chrome/browser/ash/input_method/input_method_quick_settings_helpers.h"
 #include "chrome/browser/ash/input_method/input_method_settings.h"
-#include "chrome/browser/ash/input_method/japanese/japanese_legacy_config.h"
-#include "chrome/browser/ash/input_method/japanese/japanese_prefs.h"
-#include "chrome/browser/ash/input_method/japanese/japanese_prefs_constants.h"
 #include "chrome/browser/ash/input_method/suggestion_enums.h"
 #include "chrome/browser/ash/lobster/lobster_event_sink.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -792,9 +789,7 @@ void NativeInputMethodEngineObserver::OnFocusAck(
   if (text_client_ && text_client_->context_id == context_id) {
     text_client_->state = TextClientState::kActive;
   }
-  if ((base::FeatureList::IsEnabled(features::kAutocorrectByDefault) ||
-       base::FeatureList::IsEnabled(features::kImeUsEnglishModelUpdate)) &&
-      !metadata.is_null()) {
+  if (!metadata.is_null()) {
     autocorrect_manager_->OnConnectedToSuggestionProvider(
         metadata->autocorrect_suggestion_provider);
   }
@@ -861,11 +856,6 @@ void NativeInputMethodEngineObserver::OnFocus(
     const std::string& engine_id,
     int context_id,
     const TextInputMethod::InputContext& context) {
-  if (IsJapaneseEngine(engine_id)) {
-    UMA_HISTOGRAM_BOOLEAN(
-        "InputMethod.PhysicalKeyboard.Japanese.OnFocusMigratedToSystemPk",
-        !ShouldInitializeJpPrefsFromLegacyConfig(*prefs_));
-  }
   text_client_ =
       TextClient{.context_id = context_id, .state = TextClientState::kPending};
   if (chromeos::features::IsOrcaEnabled() && editor_event_sink_) {

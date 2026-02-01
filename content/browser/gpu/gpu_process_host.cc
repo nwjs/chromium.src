@@ -540,8 +540,8 @@ void BindDiscardableMemoryReceiverOnUI(
 // src/content/browser/browser_main_loop.cc once the persistent cache is used
 // for all cache types.
 void InitGpuPersistentCacheFileFactoryOnce() {
-#if BUILDFLAG(SKIA_USE_DAWN)
-  if (features::kSkiaGraphiteDawnUsePersistentCache.Get() &&
+  if ((features::kSkiaGraphiteDawnUsePersistentCache.Get() ||
+       base::FeatureList::IsEnabled(features::kGpuPersistentCache)) &&
       !viz::PersistentCacheSandboxedFileFactory::GetInstance()) {
     base::FilePath cache_root_dir =
         GetContentClient()->browser()->GetGPUPersistentCacheDirectory();
@@ -553,7 +553,6 @@ void InitGpuPersistentCacheFileFactoryOnce() {
     }
     viz::PersistentCacheSandboxedFileFactory::CreateInstance(cache_root_dir);
   }
-#endif
 }
 
 }  // anonymous namespace
@@ -742,13 +741,6 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
           switches::kInProcessGPU)) {
     in_process_ = true;
   }
-#if !BUILDFLAG(IS_ANDROID)
-  if (!in_process_ && kind != GPU_PROCESS_KIND_INFO_COLLECTION) {
-    memory_pressure_listener_registration_ =
-        std::make_unique<base::MemoryPressureListenerRegistration>(
-            FROM_HERE, base::MemoryPressureListenerTag::kGpuProcessHost, this);
-  }
-#endif
 
   // If the 'single GPU process' policy ever changes, we still want to maintain
   // it for 'gpu thread' mode and only create one instance of host and thread.
@@ -1491,11 +1483,5 @@ GpuProcessHost::info_collection_gpu_service() {
 int GpuProcessHost::GetIDForTesting() const {
   return process_->GetData().id;
 }
-
-#if !BUILDFLAG(IS_ANDROID)
-void GpuProcessHost::OnMemoryPressure(base::MemoryPressureLevel level) {
-  gpu_host_->gpu_service()->OnMemoryPressure(level);
-}
-#endif
 
 }  // namespace content

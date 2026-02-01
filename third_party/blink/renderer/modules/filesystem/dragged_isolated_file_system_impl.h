@@ -45,15 +45,17 @@ class DOMFileSystem;
 class DraggedIsolatedFileSystemImpl final
     : public GarbageCollected<DraggedIsolatedFileSystemImpl>,
       public DraggedIsolatedFileSystem,
-      public GarbageCollectedMixin {
+      public Supplement<DataObject> {
  public:
+  static const char kSupplementName[];
+
   static DOMFileSystem* GetDOMFileSystem(DataObject* host,
                                          ExecutionContext*,
                                          const DataObjectItem&);
 
   static DraggedIsolatedFileSystemImpl* From(DataObject*);
 
-  DraggedIsolatedFileSystemImpl() = default;
+  explicit DraggedIsolatedFileSystemImpl(DataObject& data_object);
 
   void Trace(Visitor*) const override;
 

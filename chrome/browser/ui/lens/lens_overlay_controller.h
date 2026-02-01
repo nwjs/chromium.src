@@ -543,6 +543,9 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
       std::map<std::string, std::string> additional_query_params,
       std::optional<lens::LensOverlayInvocationSource> invocation_source);
 
+  // Shows the mobile promo if the user is eligible.
+  void MaybeShowMobilePromo();
+
   // Issues a contextual text request to the query controller.
   void IssueContextualTextRequest(
       base::Time query_start_time,
@@ -963,7 +966,8 @@ class LensOverlayController : public lens::mojom::LensPageHandler,
   // For the current session only, grants the permissions needed for
   // contextualization if the non-blocking privacy notice is being used and the
   // permissions have not already been permanently granted.
-  virtual void MaybeGrantLensOverlayPermissionsForSession();
+  virtual void MaybeGrantLensOverlayPermissionsForSession(
+      std::optional<lens::LensOverlayInvocationSource> invocation_source);
 
   // Shorthand to grab the LensSearchboxController for this instance of Lens.
   lens::LensSearchboxController* GetLensSearchboxController();

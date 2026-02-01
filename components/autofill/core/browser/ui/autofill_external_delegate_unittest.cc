@@ -75,6 +75,7 @@
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
@@ -82,6 +83,7 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/autofill/core/common/plus_address_survey_type.h"
+#include "components/device_reauth/mock_device_authenticator.h"
 #include "components/strings/grit/components_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -167,6 +169,8 @@ class MockAutofillDriver : public TestAutofillDriver {
               (mojom::FormActionType action_type,
                mojom::ActionPersistence action_persistence,
                base::span<const FormFieldData> data,
+               const FillId& fill_id,
+               bool supports_refill,
                const url::Origin& triggered_origin,
                (const base::flat_map<FieldGlobalId, FieldType>&),
                (const Section&)),
@@ -235,6 +239,11 @@ class MockAutofillClient : public TestAutofillClient {
               (override));
   MOCK_METHOD(IdentityCredentialDelegate*,
               GetIdentityCredentialDelegate,
+              (),
+              (override));
+
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthenticator>,
+              GetDeviceAuthenticator,
               (),
               (override));
 
@@ -402,9 +411,12 @@ class AutofillExternalDelegateTest : public testing::Test,
 
   // Returns the triggering `AutofillField`. This is the only field in the form
   // created in `IssueOnQuery()`.
-  AutofillField* get_triggering_autofill_field() {
-    return autofill_manager().GetAutofillField(
-        queried_form().global_id(), queried_form().fields()[0].global_id());
+  AutofillField& get_triggering_autofill_field() {
+    FormStructure& form =
+        CHECK_DEREF(test_api(autofill_manager())
+                        .FindCachedFormById(queried_form().global_id()));
+    return CHECK_DEREF(
+        form.GetFieldById(queried_form().fields()[0].global_id()));
   }
 
   Matcher<const FormData&> HasQueriedFormId() {
@@ -1394,6 +1406,158 @@ TEST_F(AutofillExternalDelegateTest, FillAutofillAiFillsFullForm) {
   external_delegate().DidAcceptSuggestion(fill_suggestion, {});
 }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_CHROMEOS)
+// Tests that when accepting a `kFillAutofillAi` suggestion that requires
+// re-authentication, the re-authentication flow is triggered and the form is
+// filled upon success.
+TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthAccepted) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
+                                        features::kAutofillAiReauthRequired},
+                                       {});
+  autofill_client().GetPrefs()->SetBoolean(
+      prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
+
+  EntityInstance vehicle = test::GetVehicleEntityInstanceWithRandomGuid();
+  autofill_client().GetEntityDataManager()->AddOrUpdateEntityInstance(vehicle);
+  webdata_helper().WaitUntilIdle();
+  // Create form with a VIN, which triggers obfuscation and thus re-auth.
+  IssueOnQuery({.fields = {{.role = VEHICLE_VIN}}});
+
+  auto authenticator =
+      std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillOnce(Return(true));
+  EXPECT_CALL(*authenticator, AuthenticateWithMessage)
+      .WillOnce(RunOnceCallback<1>(true));
+  EXPECT_CALL(autofill_client(), GetDeviceAuthenticator)
+      .WillOnce(Return(std::move(authenticator)));
+
+  EXPECT_CALL(autofill_manager(),
+              FillOrPreviewForm(mojom::ActionPersistence::kFill,
+                                HasQueriedFormId(), IsQueriedFieldId(), _,
+                                AutofillTriggerSource::kAutofillAi));
+
+  Suggestion fill_suggestion(SuggestionType::kFillAutofillAi);
+  fill_suggestion.payload = Suggestion::AutofillAiPayload(vehicle.guid());
+  external_delegate().DidAcceptSuggestion(fill_suggestion, {});
+}
+
+// Tests that when accepting a `kFillAutofillAi` suggestion that requires
+// re-authentication, the form is NOT filled if re-authentication fails.
+TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthRejected) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
+                                        features::kAutofillAiReauthRequired},
+                                       {});
+  autofill_client().GetPrefs()->SetBoolean(
+      prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
+
+  EntityInstance vehicle = test::GetVehicleEntityInstanceWithRandomGuid();
+  autofill_client().GetEntityDataManager()->AddOrUpdateEntityInstance(vehicle);
+  webdata_helper().WaitUntilIdle();
+  // Create form with a VIN, which triggers obfuscation and thus re-auth.
+  IssueOnQuery({.fields = {{.role = VEHICLE_VIN}}});
+
+  auto authenticator =
+      std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillOnce(Return(true));
+  EXPECT_CALL(*authenticator, AuthenticateWithMessage)
+      .WillOnce(RunOnceCallback<1>(false));
+  EXPECT_CALL(autofill_client(), GetDeviceAuthenticator)
+      .WillOnce(Return(::testing::ByMove(std::move(authenticator))));
+  EXPECT_CALL(autofill_manager(), FillOrPreviewForm).Times(0);
+
+  Suggestion fill_suggestion(SuggestionType::kFillAutofillAi);
+  fill_suggestion.payload = Suggestion::AutofillAiPayload(vehicle.guid());
+  external_delegate().DidAcceptSuggestion(fill_suggestion, {});
+}
+
+// Tests that when accepting a `kFillAutofillAi` suggestion that requires
+// re-authentication, the form IS filled if no authenticator is available.
+TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_NoAuthenticator) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
+                                        features::kAutofillAiReauthRequired},
+                                       {});
+  autofill_client().GetPrefs()->SetBoolean(
+      prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
+
+  EntityInstance vehicle = test::GetVehicleEntityInstanceWithRandomGuid();
+  autofill_client().GetEntityDataManager()->AddOrUpdateEntityInstance(vehicle);
+  webdata_helper().WaitUntilIdle();
+  // Create form with a VIN, which triggers obfuscation and thus re-auth.
+  IssueOnQuery({.fields = {{.role = VEHICLE_VIN}}});
+
+  EXPECT_CALL(autofill_client(), GetDeviceAuthenticator)
+      .WillOnce(Return(::testing::ByMove(nullptr)));
+  EXPECT_CALL(autofill_manager(),
+              FillOrPreviewForm(mojom::ActionPersistence::kFill,
+                                HasQueriedFormId(), IsQueriedFieldId(), _,
+                                AutofillTriggerSource::kAutofillAi));
+
+  Suggestion fill_suggestion(SuggestionType::kFillAutofillAi);
+  fill_suggestion.payload = Suggestion::AutofillAiPayload(vehicle.guid());
+  external_delegate().DidAcceptSuggestion(fill_suggestion, {});
+}
+
+// Tests that no authentication is required when filling `kFillAutofillAi` and
+// the feature flag is off.
+TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_FlagOff) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAiWithDataSchema};
+  autofill_client().GetPrefs()->SetBoolean(
+      prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
+
+  EntityInstance vehicle = test::GetVehicleEntityInstanceWithRandomGuid();
+  autofill_client().GetEntityDataManager()->AddOrUpdateEntityInstance(vehicle);
+  webdata_helper().WaitUntilIdle();
+  // Create form with a VIN, which triggers obfuscation and thus re-auth.
+  IssueOnQuery({.fields = {{.role = VEHICLE_VIN}}});
+
+  EXPECT_CALL(autofill_client(), GetDeviceAuthenticator).Times(0);
+  EXPECT_CALL(autofill_manager(),
+              FillOrPreviewForm(mojom::ActionPersistence::kFill,
+                                HasQueriedFormId(), IsQueriedFieldId(), _,
+                                AutofillTriggerSource::kAutofillAi));
+
+  Suggestion fill_suggestion(SuggestionType::kFillAutofillAi);
+  fill_suggestion.payload = Suggestion::AutofillAiPayload(vehicle.guid());
+  external_delegate().DidAcceptSuggestion(fill_suggestion, {});
+}
+
+// Tests that when accepting a `kFillAutofillAi` suggestion that requires
+// re-authentication, the form IS filled without re-authentication if the pref
+// is disabled.
+TEST_F(AutofillExternalDelegateTest,
+       AutofillAiReauthFlow_ReauthNotRequiredWhenPrefIsDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
+                                        features::kAutofillAiReauthRequired},
+                                       {});
+  autofill_client().GetPrefs()->SetBoolean(
+      prefs::kAutofillAiReauthBeforeViewingSensitiveData, false);
+
+  EntityInstance vehicle = test::GetVehicleEntityInstanceWithRandomGuid();
+  autofill_client().GetEntityDataManager()->AddOrUpdateEntityInstance(vehicle);
+  webdata_helper().WaitUntilIdle();
+  // Create form with a VIN, which triggers obfuscation and thus re-auth.
+  IssueOnQuery({.fields = {{.role = VEHICLE_VIN}}});
+
+  EXPECT_CALL(autofill_client(), GetDeviceAuthenticator).Times(0);
+  EXPECT_CALL(autofill_manager(),
+              FillOrPreviewForm(mojom::ActionPersistence::kFill,
+                                HasQueriedFormId(), IsQueriedFieldId(), _,
+                                AutofillTriggerSource::kAutofillAi));
+
+  Suggestion fill_suggestion(SuggestionType::kFillAutofillAi);
+  fill_suggestion.payload = Suggestion::AutofillAiPayload(vehicle.guid());
+  external_delegate().DidAcceptSuggestion(fill_suggestion, {});
+}
+#endif
+
 TEST_F(AutofillExternalDelegateTest, AcceptManageAutofillAi) {
   Suggestion manage_suggestion =
       Suggestion(u"Manage information", SuggestionType::kManageAutofillAi);
@@ -2085,7 +2249,7 @@ TEST_F(AutofillExternalDelegateTest,
       Suggestion::AutofillProfilePayload(Suggestion::Guid(profile.guid())));
   suggestion.field_by_field_filling_type_used = NAME_FULL;
   // Simulate that the user has typed the first 3 characters of their full name.
-  get_triggering_autofill_field()->set_value(
+  get_triggering_autofill_field().set_value(
       dummy_autofill_on_typing_string.substr(0, 3));
   base::HistogramTester histogram_tester;
 

@@ -52,12 +52,6 @@ BASE_DECLARE_FEATURE(kFeedHeaderSettings);
 // its own does nothing; relies on feature parameters.
 BASE_DECLARE_FEATURE(kOverrideFeedSettings);
 
-// Feature flag to enable sending discover feedback to an updated target
-BASE_DECLARE_FEATURE(kWebFeedFeedbackReroute);
-
-// Feature flag to enable ghost cards on the iPad feeds.
-BASE_DECLARE_FEATURE(kEnableiPadFeedGhostCards);
-
 // Feature flag to enable in-product help for swipe action on the Feed.
 BASE_DECLARE_FEATURE(kFeedSwipeInProductHelp);
 
@@ -68,6 +62,9 @@ BASE_DECLARE_FEATURE(kUseFeedEligibilityService);
 // iOS counterpart for `chrome::android::kMostVisitedTilesCustomization`;
 // enables customizable most visited tiles when enabled.
 BASE_DECLARE_FEATURE(kMostVisitedTilesCustomizationIOS);
+
+// Feature flag to make the height of the NTP Logo and Doodle consistent.
+BASE_DECLARE_FEATURE(kConsistentLogoDoodleHeight);
 
 #pragma mark - Feature parameters
 
@@ -113,12 +110,6 @@ bool IsDiscoverFeedTopSyncPromoEnabled();
 // Whether content suggestions are enabled for supervised users.
 bool IsContentSuggestionsForSupervisedUserEnabled(PrefService* pref_service);
 
-// YES if discover feedback is going to be sent to the updated target.
-bool IsWebFeedFeedbackRerouteEnabled();
-
-// Whether ghost cards are enabled on the iPad feeds.
-bool IsiPadFeedGhostCardsEnabled();
-
 // Returns the enabled variation of feature kFeedSwipeInProductHelp.
 FeedSwipeIPHVariation GetFeedSwipeIPHVariation();
 
@@ -140,5 +131,8 @@ bool ShouldEnlargeNTPFakeboxForMIA();
 
 // Whether customized most visited tiles is enabled on Chrome on iOS.
 bool IsContentSuggestionsCustomizable();
+
+// Whether the NTP Logo and Doodle should have a consistent height.
+bool IsConsistentLogoDoodleHeightEnabled();
 
 #endif  // IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_FEATURE_H_

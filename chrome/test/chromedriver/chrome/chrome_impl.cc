@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -154,11 +153,12 @@ Status ChromeImpl::GetTopLevelWebViewIds(std::list<std::string>* web_view_ids,
 }
 
 bool ChromeImpl::IsBrowserWindow(const WebViewInfo& view) const {
-  if (base::EndsWith(view.url, "_generated_background_page.html", base::CompareCase::SENSITIVE))
+  if (base::EndsWith(view.url, "_generated_background_page.html",
+                     base::CompareCase::SENSITIVE))
     return false;
   if (view.type == WebViewInfo::kWebView)
     return false;
-  return base::Contains(window_types_, view.type) ||
+  return window_types_.contains(view.type) ||
          (view.type == WebViewInfo::kOther &&
           (view.url == "" || view.url == "about:blank" ||
            //          base::StartsWith(view.url, "chrome-extension://",

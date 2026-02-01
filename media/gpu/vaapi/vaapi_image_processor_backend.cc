@@ -7,7 +7,6 @@
 #include <stdint.h>
 #include <va/va.h>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
@@ -71,15 +70,15 @@ std::unique_ptr<ImageProcessorBackend> VaapiImageProcessorBackend::Create(
   if (!IsSupported(input_config) || !IsSupported(output_config))
     return nullptr;
 
-  if (input_config.storage_type != VideoFrame::STORAGE_GPU_MEMORY_BUFFER &&
+  if (input_config.storage_type != VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE &&
       input_config.storage_type != VideoFrame::STORAGE_DMABUFS) {
-    VLOGF(2) << "VaapiImageProcessorBackend supports GpuMemoryBuffer or DMABuf "
+    VLOGF(2) << "VaapiImageProcessorBackend supports MappableSI or DMABuf "
                 "based FrameResource only for input";
     return nullptr;
   }
-  if (output_config.storage_type != VideoFrame::STORAGE_GPU_MEMORY_BUFFER &&
+  if (output_config.storage_type != VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE &&
       output_config.storage_type != VideoFrame::STORAGE_DMABUFS) {
-    VLOGF(2) << "VaapiImageProcessorBackend supports GpuMemoryBuffer or DMABuf "
+    VLOGF(2) << "VaapiImageProcessorBackend supports MappableSI or DMABuf "
                 "based FrameResource only for output";
     return nullptr;
   }

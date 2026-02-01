@@ -63,7 +63,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/mojom/mediastream/media_stream.mojom-forward.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
 #include "ui/aura/window.h"
 #include "ui/gfx/geometry/rect.h"
@@ -1061,8 +1060,7 @@ class DlpContentManagerAshScreenShareBrowserTest
                              bool expect_warning) {
     // First check for the permission to start screen sharing.
     // It should call DlpContentManager::CheckScreenShareRestriction().
-    blink::mojom::MediaStreamRequestResult received_result =
-        blink::mojom::MediaStreamRequestResult::NUM_MEDIA_REQUEST_RESULTS;
+    blink::mojom::MediaStreamRequestResult received_result;
     base::RunLoop run_loop;
     handler->HandleRequest(
         web_contents, request,

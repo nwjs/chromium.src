@@ -27,6 +27,7 @@
 #include "base/trace_event/trace_event.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "services/on_device_model/ml/chrome_ml.h"
+#include "services/on_device_model/ml/chrome_ml_api.h"
 #include "services/on_device_model/ml/gpu_blocklist.h"
 #include "services/on_device_model/ml/performance_class.h"
 #include "services/on_device_model/ml/session_accessor.h"
@@ -34,10 +35,6 @@
 #include "services/on_device_model/public/cpp/features.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "services/on_device_model/public/mojom/on_device_model_service.mojom.h"
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-#include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
-#endif
 
 #if BUILDFLAG(IS_MAC)
 #include "base/apple/foundation_util.h"
@@ -70,45 +67,6 @@ const base::FeatureParam<bool> kUseLowPower{
 const base::FeatureParam<bool> kAllowFp16{
     &optimization_guide::features::kOptimizationGuideOnDeviceModel,
     "on_device_model_allow_fp16", true};
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-// This is a copy of the XNNPackCacheHeader struct from
-// third_party/tflite/src/tensorflow/lite/delegates/xnnpack/weight_cache.h
-// We can't include that header directly because of linter issues.
-// TODO(crbug.com/447174993): Remove once xnnpack includes cb018b2d.
-struct XNNPackCacheHeader {
-  enum : uint64_t { kInvalidHeader = 0, kVersion = 1 };
-  uint64_t version;
-  uint8_t xnnpack_build_identifier[32];
-  uint64_t buffer_list_offset;
-  uint64_t buffer_list_size;
-};
-
-// Truncates the given xnnpack cache file if it is not compatible with the
-// current build.
-void MaybeDeleteCacheFile(base::File& cache_file) {
-  if (!cache_file.IsValid()) {
-    return;
-  }
-  XNNPackCacheHeader header;
-  if (cache_file.GetLength() < static_cast<int64_t>(sizeof(header))) {
-    return;
-  }
-  // SAFETY: `header` is stack-allocated and guaranteed to be non-null.
-  auto header_span = UNSAFE_BUFFERS(
-      base::span(reinterpret_cast<uint8_t*>(&header), sizeof(header)));
-  if (!cache_file.ReadAndCheck(0, header_span)) {
-    return;
-  }
-  if (header.version == XNNPackCacheHeader::kVersion &&
-      xnn_experimental_check_build_identifier(
-          header.xnnpack_build_identifier,
-          sizeof(header.xnnpack_build_identifier))) {
-    return;
-  }
-  cache_file.SetLength(0);
-}
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 
 // Helper to bind object methods as weak task-posting callback functions.
 template <typename R, typename C, typename... Args>
@@ -198,6 +156,13 @@ class Responder final {
         case ChromeMLExecutionStatus::kComplete:
           DCHECK(!output->text);
           break;
+        case ChromeMLExecutionStatus::kInvalidConstraint:
+          DCHECK(!output->text);
+          // TODO(crbug.com/391919456): Propagate error.
+          if (weak_ptr) {
+            weak_ptr->Cancel();
+          }
+          return;
       }
 
       task_runner->PostTask(
@@ -452,13 +417,11 @@ BackendImpl::GetDeviceAndPerformanceInfo() {
 
 BackendImpl::~BackendImpl() = default;
 
-SessionImpl::SessionImpl(const ChromeML& chrome_ml,
-                         OnDeviceModelExecutor& executor,
+SessionImpl::SessionImpl(OnDeviceModelExecutor& executor,
                          SessionAccessor::Ptr session,
                          uint32_t max_tokens,
                          std::optional<uint32_t> adaptation_id)
-    : chrome_ml_(chrome_ml),
-      executor_(executor),
+    : executor_(executor),
       session_(std::move(session)),
       max_tokens_(max_tokens),
       adaptation_id_(adaptation_id) {}
@@ -496,18 +459,9 @@ void SessionImpl::Generate(
   responder_ = std::make_unique<Responder>(
       std::move(response), std::move(on_complete), std::move(cloned));
   ChromeMLExecutionOutputFn output_fn = responder_->CreateOutputFn();
-  ChromeMLConstraint constraint = 0;
-  if (options->constraint) {
-    constraint = executor_->CreateConstraint(*options->constraint,
-                                             model_response_prefix_);
-    if (!constraint) {
-      // TODO(crbug.com/391919456): Propagate error.
-      responder_.reset();
-      return;
-    }
-  }
-  *responder_->GetCancelFn() =
-      cloned_raw->Generate(std::move(options), constraint, output_fn);
+  *responder_->GetCancelFn() = cloned_raw->Generate(
+      std::move(options), executor_->GetConstraintFactory(),
+      model_response_prefix_, output_fn);
 }
 
 DISABLE_CFI_DLSYM
@@ -559,9 +513,8 @@ void SessionImpl::AsrAddAudioChunk(odmm::AudioDataPtr data) {
 
 std::unique_ptr<on_device_model::BackendSession> SessionImpl::Clone() {
   TRACE_EVENT("optimization_guide", "SessionImpl::Clone");
-  return std::make_unique<SessionImpl>(chrome_ml_.get(), *executor_,
-                                       session_->Clone(), max_tokens_,
-                                       adaptation_id_);
+  return std::make_unique<SessionImpl>(*executor_, session_->Clone(),
+                                       max_tokens_, adaptation_id_);
 }
 
 void SessionImpl::RemoveContext(ContextHolder* context) {
@@ -580,16 +533,13 @@ OnDeviceModelExecutor::OnDeviceModelExecutor(
     const ChromeML& chrome_ml)
     : chrome_ml_(chrome_ml),
       model_task_runner_(
-          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})) {}
+          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})),
+      constraint_factory_(
+          ConstraintFactory::Create(*chrome_ml_, model_task_runner_)) {}
 
 OnDeviceModelExecutor::~OnDeviceModelExecutor() {
   TRACE_EVENT("optimization_guide",
               "OnDeviceModelExecutor::~OnDeviceModelExecutor");
-#if defined(ENABLE_ON_DEVICE_CONSTRAINTS)
-  if (tokenizer_ != nullptr) {
-    llg_free_tokenizer(tokenizer_);
-  }
-#endif
   if (model_ != 0) {
     model_task_runner_->PostTask(
         FROM_HERE, base::BindOnce(&DestroyModel, &chrome_ml_.get(), model_));
@@ -630,7 +580,7 @@ OnDeviceModelExecutor::CreateSession(
   auto session = SessionAccessor::Create(
       *chrome_ml_, model_task_runner_, model_, std::move(params),
       std::move(adaptation_params), adaptation_id);
-  return std::make_unique<SessionImpl>(*chrome_ml_, *this, std::move(session),
+  return std::make_unique<SessionImpl>(*this, std::move(session),
                                        max_tokens_ - kReserveTokensForSafety,
                                        adaptation_id);
 }
@@ -647,96 +597,6 @@ OnDeviceModelExecutor::LoadAdaptation(
 void OnDeviceModelExecutor::UnloadAdaptation(uint32_t adaptation_id) {
   TRACE_EVENT("optimization_guide", "OnDeviceModelExecutor::UnloadAdaptation");
   adaptation_params_.erase(adaptation_id);
-}
-
-DISABLE_CFI_DLSYM
-ChromeMLConstraint OnDeviceModelExecutor::CreateConstraint(
-    const on_device_model::mojom::ResponseConstraint& response_constraint,
-    const std::optional<std::string>& prefix) {
-  TRACE_EVENT("optimization_guide", "OnDeviceModelExecutor::CreateConstraint");
-#if defined(ENABLE_ON_DEVICE_CONSTRAINTS)
-  if (!tokenizer_) {
-    CHECK(chrome_ml_->api().GetTokenizerParams(
-        model_, [&](const ChromeMLTokenizerParams& params) {
-          LlgTokenizerInit tokenizer_init{
-              .vocab_size = params.vocab_size,
-              .tok_eos = params.eos_token_id,
-              .token_lens = params.token_lens,
-              .token_bytes = params.token_bytes,
-              .tokenizer_json = params.tokenizer_json_file_content,
-              .tokenize_fn = params.tokenize_fn,
-              .tokenize_user_data = params.tokenize_user_data,
-          };
-
-          std::string error;
-          error.resize(256);
-          tokenizer_ =
-              llg_new_tokenizer(&tokenizer_init, error.data(), error.size());
-          if (!tokenizer_) {
-            LOG(ERROR) << "Error creating tokenizer: " << error;
-          }
-        }));
-  }
-
-  if (!tokenizer_) {
-    return 0;
-  }
-
-  LlgConstraintInit init;
-  llg_constraint_init_set_defaults(&init, tokenizer_);
-  LlgConstraint* constraint = nullptr;
-  switch (response_constraint.which()) {
-    case on_device_model::mojom::ResponseConstraint::Tag::kJsonSchema:
-      constraint = llg_new_constraint_json(
-          &init, response_constraint.get_json_schema().c_str());
-      break;
-    case on_device_model::mojom::ResponseConstraint::Tag::kRegex:
-      constraint = llg_new_constraint_regex(
-          &init, response_constraint.get_regex().c_str());
-      break;
-    case on_device_model::mojom::ResponseConstraint::Tag::kUnknownType:
-      LOG(ERROR) << "Unknown constraint type.";
-      return 0;
-  }
-  const char* error = llg_get_error(constraint);
-  if (error) {
-    LOG(ERROR) << "Error creating constraint: " << error;
-    llg_free_constraint(constraint);
-    return 0;
-  }
-  // Now apply any model prefix to the constraint so the generated model
-  // response continues with the correct constraint state.
-  if (prefix) {
-    std::vector<uint32_t> tokens;
-    // First get the total number of tokens needed.
-    size_t token_size = llg_tokenize_bytes(
-        tokenizer_, reinterpret_cast<const uint8_t*>(prefix->data()),
-        prefix->size(), tokens.data(), 0);
-    tokens.resize(token_size);
-    // Then tokenize into `tokens`.
-    llg_tokenize_bytes(tokenizer_,
-                       reinterpret_cast<const uint8_t*>(prefix->data()),
-                       prefix->size(), tokens.data(), tokens.size());
-    // Apply each token to the constraint.
-    for (uint32_t token : tokens) {
-      LlgMaskResult mask_res;
-      if (llg_compute_mask(constraint, &mask_res) < 0) {
-        LOG(ERROR) << "Error computing mask for prompt prefix.";
-        llg_free_constraint(constraint);
-        return 0;
-      }
-      LlgCommitResult res;
-      if (llg_commit_token(constraint, token, &res) < 0) {
-        LOG(ERROR) << "Error matching prompt prefix.";
-        llg_free_constraint(constraint);
-        return 0;
-      }
-    }
-  }
-  return reinterpret_cast<ChromeMLConstraint>(constraint);
-#else
-  return 0;
-#endif
 }
 
 DISABLE_CFI_DLSYM
@@ -765,21 +625,6 @@ LoadModelResult OnDeviceModelExecutor::Init(
     data.model_path = weights_path_str.data();
     data.sentencepiece_model_path = sp_model_path_str.data();
   }
-
-  // Xnnpack doesn't delete the old cache file when it needs to be rebuilt
-  // due to its build identifier changing, which will happen during browser
-  // updates. This manually checks if the cache's build identifier matches the
-  // current build, and if not, truncates it. This is a temporary fix until
-  // xnnpack is updated with cb018b2d.
-  // TODO(crbug.com/447174993): Remove once xnnpack includes cb018b2d.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-  if (params->backend_type == ml::ModelBackendType::kCpuBackend) {
-    MaybeDeleteCacheFile(assets.cache);
-  }
-  MaybeDeleteCacheFile(assets.encoder_cache);
-  MaybeDeleteCacheFile(assets.adapter_cache);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-
   // TODO(crbug.com/400998489): Cache files are experimental for now.
   data.cache_file = params->backend_type == ml::ModelBackendType::kCpuBackend &&
                             assets.cache.IsValid()

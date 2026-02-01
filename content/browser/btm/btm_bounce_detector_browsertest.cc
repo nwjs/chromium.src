@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "base/base64.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -51,7 +50,7 @@
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/btm_redirect_info.h"
+#include "content/public/browser/btm_redirect.h"
 #include "content/public/browser/btm_service.h"
 #include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/global_routing_id.h"
@@ -129,8 +128,8 @@ std::string FormatURL(const GURL& url) {
 }
 
 void AppendRedirect(std::vector<std::string>* redirects,
-                    const BtmRedirectInfo& redirect,
-                    const BtmRedirectChainInfo& chain,
+                    const BtmRedirect& redirect,
+                    const BtmRedirectChain& chain,
                     size_t redirect_index) {
   redirects->push_back(base::StringPrintf(
       "[%zu/%zu] %s -> %s (%s) -> %s", redirect_index + 1, chain.length,
@@ -141,8 +140,8 @@ void AppendRedirect(std::vector<std::string>* redirects,
 }
 
 void AppendRedirects(std::vector<std::string>* vec,
-                     std::vector<BtmRedirectInfoPtr> redirects,
-                     BtmRedirectChainInfoPtr chain) {
+                     std::vector<BtmRedirectPtr> redirects,
+                     BtmRedirectChainPtr chain) {
   size_t redirect_index = chain->length - redirects.size();
   for (const auto& redirect : redirects) {
     AppendRedirect(vec, *redirect, *chain, redirect_index);
@@ -181,7 +180,7 @@ testing::AssertionResult WaitForRedirectCookieWrite(WebContents* web_contents,
   }
 
   // Make sure the last redirect was at the expected URL.
-  const BtmRedirectInfo& redirect =
+  const BtmRedirect& redirect =
       detector->CommittedRedirectContext()
           [detector->CommittedRedirectContext().size() - 1];
   if (redirect.redirector_url != redirect_url) {
@@ -963,7 +962,7 @@ IN_PROC_BROWSER_TEST_F(BtmBounceDetectorBrowserTest,
 
   const GURL prerendering_url =
       embedded_test_server()->GetURL("a.test", "/title2.html");
-  const FrameTreeNodeId host_id =
+  const PrerenderHostId host_id =
       prerender_test_helper()->AddPrerender(prerendering_url);
   prerender_test_helper()->WaitForPrerenderLoadCompletion(prerendering_url);
   test::PrerenderHostObserver observer(*GetActiveWebContents(), host_id);
@@ -1004,7 +1003,7 @@ IN_PROC_BROWSER_TEST_F(BtmBounceDetectorBrowserTest,
       embedded_test_server()->GetURL("a.test", "/set_cookie_header.html");
   URLCookieAccessObserver observer(GetActiveWebContents(), prerendering_url,
                                    CookieOperation::kChange);
-  const FrameTreeNodeId host_id =
+  const PrerenderHostId host_id =
       prerender_test_helper()->AddPrerender(prerendering_url);
   prerender_test_helper()->WaitForPrerenderLoadCompletion(prerendering_url);
   observer.Wait();
@@ -2394,7 +2393,7 @@ IN_PROC_BROWSER_TEST_P(BtmSiteDataAccessDetectorTest,
 
   const GURL prerendering_url =
       embedded_https_test_server().GetURL("a.test", "/title2.html");
-  const FrameTreeNodeId host_id =
+  const PrerenderHostId host_id =
       prerender_test_helper()->AddPrerender(prerendering_url);
   prerender_test_helper()->WaitForPrerenderLoadCompletion(prerendering_url);
   test::PrerenderHostObserver observer(*GetActiveWebContents(), host_id);
@@ -3128,9 +3127,9 @@ class BtmPrivacySandboxDataPreservationTest : public ContentBrowserTest {
               if (request.relative_url != "/issue") {
                 return nullptr;
               }
-              if (!base::Contains(request.headers, "Sec-Private-State-Token") ||
-                  !base::Contains(request.headers,
-                                  "Sec-Private-State-Token-Crypto-Version")) {
+              if (!request.headers.contains("Sec-Private-State-Token") ||
+                  !request.headers.contains(
+                      "Sec-Private-State-Token-Crypto-Version")) {
                 return MakeTrustTokenFailureResponse();
               }
 
@@ -3695,7 +3694,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
 
   const BtmRedirectContext& context = wco->CommittedRedirectContext();
   ASSERT_EQ(context.size(), 1u);
-  const BtmRedirectInfo& redirect = context[0];
+  const BtmRedirect& redirect = context[0];
   EXPECT_EQ(redirect.redirector_url, bounce_url);
   // A request to /favicon.ico may cause a cookie read in addition to the write
   // we explicitly performed.
@@ -3781,7 +3780,7 @@ IN_PROC_BROWSER_TEST_P(BtmBounceDetectorBFCacheTest,
 
   const BtmRedirectContext& context = wco->CommittedRedirectContext();
   ASSERT_EQ(context.size(), 1u);
-  const BtmRedirectInfo& redirect = context[0];
+  const BtmRedirect& redirect = context[0];
   EXPECT_EQ(redirect.redirector_url, bounce_url);
   EXPECT_THAT(redirect.has_sticky_activation, true);
 }

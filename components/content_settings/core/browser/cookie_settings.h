@@ -21,8 +21,6 @@
 #include "components/content_settings/core/common/host_indexed_content_settings.h"
 #include "components/keyed_service/core/refcounted_keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
-#include "components/privacy_sandbox/tracking_protection_settings.h"
-#include "components/privacy_sandbox/tracking_protection_settings_observer.h"
 #include "net/cookies/cookie_setting_override.h"
 
 class GURL;
@@ -41,15 +39,14 @@ namespace content_settings {
 // This enum is used in prefs, do not change values.
 // The enum needs to correspond to CookieControlsMode in enums.xml.
 // This enum needs to be kept in sync with the enum of the same name in
-// browser/resources/settings/site_settings/constants.js.
+// chrome/browser/resources/settings/site_settings/constants.ts.
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.content_settings
 // LINT.IfChange(CookieControlsMode)
 enum class CookieControlsMode {
-  kOff = 0,
+  kOff = 0,  // Behaviorally equivalent to `kIncognitoOnly` as of June 2025.
   kBlockThirdParty = 1,
   kIncognitoOnly = 2,
-  kLimited = 3,
-  kMaxValue = kLimited,
+  kMaxValue = kIncognitoOnly,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/privacy/enums.xml:CookieControlsMode, //chrome/browser/resources/settings/site_settings/constants.ts:CookieControlsMode)
 
@@ -62,7 +59,6 @@ const char kDummyExtensionScheme[] = ":no-extension-scheme:";
 class CookieSettings
     : public CookieSettingsBase,
       public content_settings::Observer,
-      public privacy_sandbox::TrackingProtectionSettingsObserver,
       public RefcountedKeyedService {
  public:
   class Observer : public base::CheckedObserver {
@@ -70,7 +66,6 @@ class CookieSettings
     virtual void OnThirdPartyCookieBlockingChanged(
         bool block_third_party_cookies) {}
     virtual void OnMitigationsEnabledFor3pcdChanged(bool enable) {}
-    virtual void OnTrackingProtectionEnabledFor3pcdChanged(bool enable) {}
     virtual void OnCookieSettingChanged() {}
   };
 
@@ -85,7 +80,6 @@ class CookieSettings
   CookieSettings(
       HostContentSettingsMap* host_content_settings_map,
       PrefService* prefs,
-      privacy_sandbox::TrackingProtectionSettings* tracking_protection_settings,
       bool is_incognito,
       ComputeFedCmSharingPermissionsCallback compute_fedcm_sharing_permissions,
       tpcd::metadata::Manager* tpcd_metadata_manager,
@@ -150,32 +144,12 @@ class CookieSettings
   // Sets the cookie setting to allow for the |first_party_url|.
   void SetCookieSettingForUserBypass(const GURL& first_party_url);
 
-  // Determines the current state of User Bypass for the given
-  // |first_party_url|. This method only takes into consideration the hard-coded
-  // default and user-specified values of cookie setting.
-  //
-  // Notes:
-  // - Storage partitioning could be enabled by default even when third-party
-  // cookies are allowed.
-  // - Also, user bypass as of now is only integrated with the runtime feature
-  // of the top-level frame.
-  // - Cases like WebUIs, allowlisted internal apps, and extension iframes are
-  // usually being exempted from storage partitioning or are allowlisted. Thus,
-  // not covered by user bypass at this state of art.
-  bool IsStoragePartitioningBypassEnabled(const GURL& first_party_url) const;
-
   ContentSettingsForOneType GetTpcdMetadataGrants() const;
 
   // Resets the cookie setting for the given url.
   //
   // This should only be called on the UI thread.
   void ResetCookieSetting(const GURL& primary_url);
-
-  // Returns true if third party cookies should be limited (blocked with
-  // mitigations).
-  //
-  // This should only be called on the UI thread.
-  bool AreThirdPartyCookiesLimited() const;
 
   // Returns true if cookies are allowed for *most* third parties on |url|.
   // There might be rules allowing or blocking specific third parties from
@@ -271,10 +245,6 @@ class CookieSettings
       base::optional_ref<const url::Origin> top_frame_origin,
       net::CookieSettingOverrides overrides) const override;
 
-  // TrackingProtectionSettingsObserver:
-  void OnTrackingProtection3pcdChanged() override;
-  void OnBlockAllThirdPartyCookiesChanged() override;
-
   // Updates the FEDERATED_IDENTITY_SHARING settings.
   void UpdateFedCmSharingPermissions();
 
@@ -292,11 +262,6 @@ class CookieSettings
 
   base::ThreadChecker thread_checker_;
   base::ObserverList<Observer> observers_;
-  raw_ptr<privacy_sandbox::TrackingProtectionSettings>
-      tracking_protection_settings_;
-  base::ScopedObservation<privacy_sandbox::TrackingProtectionSettings,
-                          privacy_sandbox::TrackingProtectionSettingsObserver>
-      tracking_protection_settings_observation_{this};
   const scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
   base::ScopedObservation<HostContentSettingsMap, content_settings::Observer>
       content_settings_observation_{this};
@@ -312,7 +277,6 @@ class CookieSettings
   mutable base::Lock lock_;
   bool block_third_party_cookies_ GUARDED_BY(lock_);
   bool mitigations_enabled_for_3pcd_ GUARDED_BY(lock_);
-  bool tracking_protection_enabled_for_3pcd_ GUARDED_BY(lock_) = false;
 
   mutable base::Lock fedcm_sharing_permissions_lock_;
   HostIndexedContentSettings fedcm_sharing_permissions_

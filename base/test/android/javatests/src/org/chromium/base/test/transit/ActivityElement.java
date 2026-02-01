@@ -7,6 +7,7 @@ package org.chromium.base.test.transit;
 import android.app.Activity;
 
 import org.chromium.base.ActivityState;
+import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -53,6 +54,15 @@ public class ActivityElement<ActivityT extends Activity> extends Element<Activit
 
     void requireNoParticularTask() {
         replaceEnterCondition(new ActivityExistsInAnyTaskCondition());
+    }
+
+    TripBuilder bringWindowToFrontTo() {
+        return Triggers.runOnUiThreadTo(
+                () -> {
+                    var activity = get();
+                    assert activity != null;
+                    ApiCompatibilityUtils.moveTaskToFront(activity, activity.getTaskId(), 0);
+                });
     }
 
     /**

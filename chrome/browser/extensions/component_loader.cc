@@ -11,7 +11,6 @@
 #include "base/strings/utf_string_conversions.h"
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -695,7 +694,7 @@ void ComponentLoader::UnloadComponent(ComponentExtensionInfo* component) {
 
 #if BUILDFLAG(IS_CHROMEOS)
 bool ComponentLoader::IsPendingAdd(const ExtensionId& extension_id) const {
-  return base::Contains(pending_extension_ids_, extension_id);
+  return pending_extension_ids_.contains(extension_id);
 }
 
 bool ComponentLoader::ExistsOrPendingAdd(

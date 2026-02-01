@@ -6,7 +6,6 @@
 
 #include <memory>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/token.h"
@@ -81,6 +80,10 @@ class VideoCaptureHost::RenderFrameHostDelegateImpl
                        render_frame_host_id_));
   }
 
+  GlobalRenderFrameHostId render_frame_host_id() const override {
+    return render_frame_host_id_;
+  }
+
  private:
   const GlobalRenderFrameHostId render_frame_host_id_;
 };
@@ -148,8 +151,8 @@ void VideoCaptureHost::OnCaptureConfigurationChanged(
     const VideoCaptureControllerID& controller_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!base::Contains(controllers_, controller_id) ||
-      !base::Contains(device_id_to_observer_map_, controller_id)) {
+  if (!controllers_.contains(controller_id) ||
+      !device_id_to_observer_map_.contains(controller_id)) {
     return;
   }
 
@@ -285,7 +288,7 @@ void VideoCaptureHost::Start(
     return;
   }
 
-  DCHECK(!base::Contains(device_id_to_observer_map_, device_id));
+  DCHECK(!device_id_to_observer_map_.contains(device_id));
   auto& observer_in_map = device_id_to_observer_map_[device_id];
   observer_in_map.Bind(std::move(observer));
 
@@ -299,6 +302,7 @@ void VideoCaptureHost::Start(
 
   controllers_[controller_id] = base::WeakPtr<VideoCaptureController>();
   ConnectClient(session_id, params, controller_id,
+                render_frame_host_delegate_->render_frame_host_id(),
                 base::BindOnce(&VideoCaptureHost::OnControllerAdded,
                                weak_factory_.GetWeakPtr(), device_id));
 }
@@ -440,7 +444,7 @@ void VideoCaptureHost::OnNewCaptureVersion(
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   const VideoCaptureControllerID controller_id(device_id);
-  if (!base::Contains(controllers_, controller_id)) {
+  if (!controllers_.contains(controller_id)) {
     return;
   }
 
@@ -573,15 +577,17 @@ void VideoCaptureHost::NotifyAllStreamsRemoved() {
     NotifyStreamRemoved();
 }
 
-void VideoCaptureHost::ConnectClient(const base::UnguessableToken session_id,
-                                     const media::VideoCaptureParams& params,
-                                     VideoCaptureControllerID controller_id,
-                                     VideoCaptureManager::DoneCB done_cb) {
+void VideoCaptureHost::ConnectClient(
+    const base::UnguessableToken session_id,
+    const media::VideoCaptureParams& params,
+    VideoCaptureControllerID controller_id,
+    const GlobalRenderFrameHostId& render_frame_host_id,
+    VideoCaptureManager::DoneCB done_cb) {
   std::optional<url::Origin> origin =
       media_stream_manager_->GetOriginByVideoSessionId(session_id);
   media_stream_manager_->video_capture_manager()->ConnectClient(
-      session_id, params, controller_id, this, std::move(origin),
-      std::move(done_cb));
+      session_id, params, controller_id, render_frame_host_id, this,
+      std::move(origin), std::move(done_cb));
 }
 
 }  // namespace content

@@ -29,7 +29,10 @@
 #include "base/synchronization/lock.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/web_applications/icons/trusted_icon_filter.h"
+#include "chrome/browser/web_applications/model/display_override.h"
 #include "chrome/browser/web_applications/scope_extension_info.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_icon_operations.h"
@@ -38,6 +41,7 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/browser/web_applications/web_contents/web_app_data_retriever.h"
 #include "chrome/common/chrome_features.h"
+#include "components/application_locale_storage/application_locale_storage.h"
 #include "components/services/app_service/public/cpp/icon_info.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/services/app_service/public/cpp/share_target.h"
@@ -47,7 +51,6 @@
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/mojom/manifest/manifest.mojom-data-view.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -63,6 +66,95 @@ namespace {
 constexpr int kMaxIcons = 20;
 constexpr SquareSizePx kMaxIconSize =
     webapps::InstallableEvaluator::kMaximumIconSizeInPx;
+
+// Matches a localized text object from a map based on |application_locale|.
+blink::mojom::ManifestLocalizedTextObjectPtr MatchLocalizedText(
+    const base::flat_map<icu::Locale,
+                         blink::mojom::ManifestLocalizedTextObjectPtr>&
+        localized_map,
+    const icu::Locale& application_locale) {
+  if (localized_map.empty()) {
+    return nullptr;
+  }
+
+  auto it = localized_map.find(application_locale);
+  if (it != localized_map.end()) {
+    return it->second.Clone();
+  }
+
+  // Fall back to language-only ("en") match if no exact match ("en-US") found.
+  icu::Locale language_only(application_locale.getLanguage());
+  it = localized_map.find(language_only);
+  if (it != localized_map.end()) {
+    return it->second.Clone();
+  }
+  return nullptr;
+}
+
+LocalizedText GetLocalizedTitleFromManifestFields(
+    const blink::mojom::Manifest& manifest) {
+  if (base::FeatureList::IsEnabled(
+          blink::features::kWebAppManifestLocalization)) {
+    const icu::Locale application_locale(g_browser_process->GetFeatures()
+                                             ->application_locale_storage()
+                                             ->Get()
+                                             .c_str());
+
+    blink::mojom::ManifestLocalizedTextObjectPtr localized_name;
+    if (manifest.name_localized.has_value()) {
+      localized_name =
+          MatchLocalizedText(*manifest.name_localized, application_locale);
+    }
+    if (!localized_name && manifest.short_name_localized.has_value()) {
+      localized_name = MatchLocalizedText(*manifest.short_name_localized,
+                                          application_locale);
+    }
+
+    if (localized_name && !localized_name->value.empty()) {
+      return LocalizedText(localized_name->value, localized_name->lang,
+                           localized_name->dir);
+    }
+  }
+  // Fall back to non-localized fields. Use assignment operator which handles
+  // clearing lang/dir fields.
+  LocalizedText result;
+  std::u16string name = manifest.name.value_or(std::u16string());
+  if (!name.empty()) {
+    result = name;
+  } else if (manifest.short_name) {
+    result = *manifest.short_name;
+  }
+  return result;
+}
+
+LocalizedText GetLocalizedDescriptionFromManifestFields(
+    const blink::mojom::Manifest& manifest) {
+  if (base::FeatureList::IsEnabled(
+          blink::features::kWebAppManifestLocalization)) {
+    const icu::Locale application_locale(g_browser_process->GetFeatures()
+                                             ->application_locale_storage()
+                                             ->Get()
+                                             .c_str());
+
+    if (manifest.description_localized.has_value()) {
+      blink::mojom::ManifestLocalizedTextObjectPtr localized_description =
+          MatchLocalizedText(*manifest.description_localized,
+                             application_locale);
+      if (localized_description && !localized_description->value.empty()) {
+        return LocalizedText(localized_description->value,
+                             localized_description->lang,
+                             localized_description->dir);
+      }
+    }
+  }
+  // Fall back to non-localized field. Use assignment operator which handles
+  // clearing lang/dir fields.
+  LocalizedText result;
+  if (manifest.description.has_value()) {
+    result = *manifest.description;
+  }
+  return result;
+}
 
 // Construct a list of icons from the parsed icons field of the manifest
 // *outside* of |web_app_info|, and update the current web_app_info if found.
@@ -461,14 +553,6 @@ ManifestToWebAppInstallInfoJob::CreateAndStart(
   return job;
 }
 
-base::Value
-ManifestToWebAppInstallInfoJob::GetManifestToWebAppInfoGenerationErrors() {
-  if (!install_error_log_entry_.HasErrorDict()) {
-    return base::Value();
-  }
-  return install_error_log_entry_.TakeErrorDict();
-}
-
 void ManifestToWebAppInstallInfoJob::FetchIcons(
     WebAppInstallInfo& install_info,
     content::WebContents& web_contents,
@@ -505,7 +589,6 @@ ManifestToWebAppInstallInfoJob::ManifestToWebAppInstallInfoJob(
       creation_callback_(std::move(creation_callback)),
       options_(options),
       fallback_info_(std::move(fallback_info)),
-      install_error_log_entry_(background_installation, install_source),
       debug_data_(debug_data) {
   // These are the pre-requisites for constructing a WebAppInstallInfo from a
   // valid manifest id and start url.
@@ -515,6 +598,8 @@ ManifestToWebAppInstallInfoJob::ManifestToWebAppInstallInfoJob(
 
   debug_data_->Set("manifest_id", manifest_->id.spec());
   debug_data_->Set("start_url", manifest_->start_url.spec());
+  debug_data_->Set("background_installation", background_installation);
+  debug_data_->Set("install_source", base::ToString(install_source));
   if (manifest_->name && !manifest_->name->empty()) {
     debug_data_->Set("manifest_name", *manifest_->name);
   }
@@ -601,13 +686,7 @@ void ManifestToWebAppInstallInfoJob::FetchIconsInternal(
 }
 
 void ManifestToWebAppInstallInfoJob::ParseManifestAndPopulateInfo() {
-  // Give the full length name priority if it's not empty.
-  std::u16string name = manifest_->name.value_or(std::u16string());
-  if (!name.empty()) {
-    install_info().title = name;
-  } else if (manifest_->short_name) {
-    install_info().title = *manifest_->short_name;
-  }
+  install_info().title = GetLocalizedTitleFromManifestFields(*manifest_);
 
   // Clean up.
   if (manifest_->scope.is_valid()) {
@@ -632,9 +711,16 @@ void ManifestToWebAppInstallInfoJob::ParseManifestAndPopulateInfo() {
   if (manifest_->display != DisplayMode::kUndefined) {
     install_info().display_mode = manifest_->display;
   }
-
-  if (!manifest_->display_override.empty()) {
-    install_info().display_override = manifest_->display_override;
+  for (const auto& override_item : manifest_->display_override) {
+    install_info().display_override.push_back(
+        override_item.display() == DisplayMode::kBorderless
+            ? DisplayOverride::CreateUnframed(override_item.url_patterns())
+            : DisplayOverride::Create(override_item.display()));
+    if (override_item.display() == DisplayMode::kBorderless &&
+        !override_item.url_patterns().empty()) {
+      // TODO(crbug.com/467939520): Remove `borderless_url_patterns`.
+      install_info().borderless_url_patterns = override_item.url_patterns();
+    }
   }
 
   UpdateWebAppInstallInfoIconsFromManifestIfNeeded(manifest_->icons,
@@ -655,7 +741,10 @@ void ManifestToWebAppInstallInfoJob::ParseManifestAndPopulateInfo() {
   PopulateFileHandlerInfoFromManifest(manifest_->file_handlers,
                                       install_info().scope, &install_info());
 
-  install_info().borderless_url_patterns = manifest_->borderless_url_patterns;
+  if (!manifest_->borderless_url_patterns.empty()) {
+    // TODO(crbug.com/467939520): Remove `borderless_url_patterns`.
+    install_info().borderless_url_patterns = manifest_->borderless_url_patterns;
+  }
 
   install_info().share_target = ToWebAppShareTarget(manifest_->share_target);
 
@@ -689,9 +778,18 @@ void ManifestToWebAppInstallInfoJob::ParseManifestAndPopulateInfo() {
     install_info().manifest_url = manifest_->manifest_url;
   }
 
+  if (manifest_->update_manifest_url &&
+      manifest_->update_manifest_url->is_valid()) {
+    install_info().iwa_update_manifest_url =
+        manifest_->update_manifest_url.value();
+  }
+
   install_info().launch_handler = manifest_->launch_handler;
-  if (manifest_->description.has_value()) {
-    install_info().description = manifest_->description.value();
+
+  LocalizedText description =
+      GetLocalizedDescriptionFromManifestFields(*manifest_);
+  if (!description.empty()) {
+    install_info().description = std::move(description);
   }
 
   install_info().translations = ToWebAppTranslations(manifest_->translations);
@@ -742,6 +840,9 @@ void ManifestToWebAppInstallInfoJob::OnIconsFetchedGetInstallInfo(
   // Bypass populating product icons, even generated ones, if icons have not
   // been downloaded.
   PopulateProductIcons(&install_info(), &icons_map);
+  if (install_info().is_generated_icon) {
+    debug_data_->Set("is_generated_icon", true);
+  }
   if (base::FeatureList::IsEnabled(features::kWebAppUsePrimaryIcon)) {
     if (options_.use_manifest_icons_as_trusted) {
       install_info().trusted_icon_bitmaps = install_info().icon_bitmaps;
@@ -751,8 +852,12 @@ void ManifestToWebAppInstallInfoJob::OnIconsFetchedGetInstallInfo(
   }
   PopulateOtherIcons(&install_info(), icons_map);
   RecordDownloadedIconsResultAndHttpStatusCodes(result, icons_http_results);
-  install_error_log_entry_.LogDownloadedIconsErrors(
-      install_info(), result, icons_map, icons_http_results);
+
+  base::DictValue icon_errors =
+      LogDownloadedIconsErrors(result, icons_map, icons_http_results);
+  if (!icon_errors.empty()) {
+    debug_data_->Set("icon_errors", std::move(icon_errors));
+  }
   CompleteJobAndRunCallback();
 }
 

@@ -7,6 +7,7 @@ package org.chromium.chrome.test.transit.hub;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
@@ -22,8 +23,10 @@ import androidx.annotation.Nullable;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.Facility;
+import org.chromium.base.test.transit.TripBuilder;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.transit.ViewSpec;
+import org.chromium.base.test.util.VeryLongPressAction;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridView;
 import org.chromium.chrome.test.R;
 
@@ -63,5 +66,11 @@ public abstract class TabSwitcherCardFacility extends Facility<TabSwitcherStatio
 
     protected ViewElement<View> declareActionButton() {
         return declareView(cardViewElement.descendant(withId(R.id.action_button)));
+    }
+
+    protected TripBuilder veryLongPressTo() {
+        VeryLongPressAction longPress =
+                new VeryLongPressAction(/* longPressMultiple= */ 2.5f, isDisplayed());
+        return cardViewElement.performViewActionTo(longPress);
     }
 }

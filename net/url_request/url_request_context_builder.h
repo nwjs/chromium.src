@@ -65,6 +65,7 @@ class HostResolverManager;
 class NetworkQualityEstimator;
 class ProxyConfigService;
 class URLRequestContext;
+class CacheEncryptionDelegate;
 
 #if BUILDFLAG(ENABLE_REPORTING)
 struct ReportingPolicy;
@@ -407,6 +408,15 @@ class NET_EXPORT URLRequestContextBuilder {
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   }
 
+  void set_device_bound_sessions_restricted_sites(
+      const std::vector<SchemefulSite>& restricted_sites) {
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+    device_bound_sessions_restricted_sites_ = restricted_sites;
+#else
+    NOTREACHED();
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  }
+
   // Must be called in conjunction with
   // `set_has_device_bound_session_service(true)`.
   void set_unexportable_key_service(
@@ -426,6 +436,9 @@ class NET_EXPORT URLRequestContextBuilder {
     NOTREACHED();
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   }
+
+  void set_cache_encryption_delegate(
+      std::unique_ptr<net::CacheEncryptionDelegate> cache_encryption_delegate);
 
   // Binds the context to `network`. All requests scheduled through the context
   // built by this builder will be sent using `network`. Requests will fail if
@@ -535,8 +548,10 @@ class NET_EXPORT URLRequestContextBuilder {
   std::unique_ptr<HttpServerProperties> http_server_properties_;
   std::map<std::string, std::unique_ptr<URLRequestJobFactory::ProtocolHandler>>
       protocol_handlers_;
+  std::unique_ptr<net::CacheEncryptionDelegate> cache_encryption_delegate_;
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   bool has_device_bound_session_service_ = false;
+  std::vector<SchemefulSite> device_bound_sessions_restricted_sites_;
   std::unique_ptr<unexportable_keys::UnexportableKeyService>
       unexportable_key_service_;
   std::unique_ptr<device_bound_sessions::SessionService>

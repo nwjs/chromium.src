@@ -3,13 +3,13 @@
 // found in the LICENSE file.
 
 #include "components/feed/feed_feature_list.h"
-#include "base/containers/contains.h"
-#include "base/time/time.h"
-#include "components/country_codes/country_codes.h"
 
+#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/country_codes/country_codes.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/sync/base/features.h"
@@ -31,7 +31,6 @@ BASE_FEATURE(kXsurfaceMetricsReporting, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kFeedLoadingPlaceholder, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kFeedImageMemoryCacheSizePercentage,
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kFeedStamp, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebFeedAwareness, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -51,8 +50,6 @@ signin::ConsentLevel GetConsentLevelNeededForPersonalizedFeed() {
 }
 
 BASE_FEATURE(kFeedNoViewCache, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kFeedShowSignInCommand, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFeedPerformanceStudy, base::FEATURE_DISABLED_BY_DEFAULT);
 

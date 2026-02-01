@@ -45,6 +45,7 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
@@ -84,7 +85,9 @@ void BnplIssuerView::PopulateIssuers() {
   auto issuer_contexts = controller_->GetIssuerContexts();
   for (const auto& [issuer, eligibility] : issuer_contexts) {
     bool issuer_eligible =
-        eligibility == BnplIssuerEligibilityForPage::kIsEligible;
+        eligibility == BnplIssuerEligibilityForPage::kIsEligible ||
+        eligibility == BnplIssuerEligibilityForPage::
+                           kTemporarilyEligibleCheckoutAmountNotYetKnown;
     const bool issuer_linked = issuer.payment_instrument().has_value();
     const std::pair<BnplIssuer::LightModeImageId, BnplIssuer::DarkModeImageId>
         image_ids =

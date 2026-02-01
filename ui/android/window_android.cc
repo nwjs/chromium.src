@@ -29,7 +29,6 @@
 namespace ui {
 
 using base::android::AttachCurrentThread;
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -81,7 +80,7 @@ WindowAndroid::AdaptiveRefreshRateInfo::operator=(
 
 // static
 WindowAndroid* WindowAndroid::FromJavaWindowAndroid(
-    const JavaParamRef<jobject>& jwindow_android) {
+    const JavaRef<jobject>& jwindow_android) {
   if (jwindow_android.is_null())
     return nullptr;
 
@@ -216,7 +215,7 @@ void WindowAndroid::OnUpdateRefreshRate(JNIEnv* env, float refresh_rate) {
 
 void WindowAndroid::OnSupportedRefreshRatesUpdated(
     JNIEnv* env,
-    const JavaParamRef<jfloatArray>& j_supported_refresh_rates) {
+    const JavaRef<jfloatArray>& j_supported_refresh_rates) {
   std::vector<float> supported_refresh_rates;
   if (j_supported_refresh_rates) {
     base::android::JavaFloatArrayToFloatVector(env, j_supported_refresh_rates,
@@ -228,7 +227,7 @@ void WindowAndroid::OnSupportedRefreshRatesUpdated(
 
 void WindowAndroid::OnAdaptiveRefreshRateInfoChanged(
     JNIEnv* env,
-    jboolean supports_adaptive_refresh_rate,
+    bool supports_adaptive_refresh_rate,
     jfloat suggested_frame_rate_high) {
   adaptive_refresh_rate_info_.supports_adaptive_refresh_rate =
       supports_adaptive_refresh_rate;
@@ -415,10 +414,10 @@ void WindowAndroid::SetTestHooks(TestHooks* hooks) {
 // ----------------------------------------------------------------------------
 
 static jlong JNI_WindowAndroid_Init(JNIEnv* env,
-                                    const JavaParamRef<jobject>& obj,
+                                    const JavaRef<jobject>& obj,
                                     jint sdk_display_id,
                                     jfloat scroll_factor,
-                                    jboolean window_is_wide_color_gamut) {
+                                    bool window_is_wide_color_gamut) {
   WindowAndroid* window = new WindowAndroid(
       env, obj, sdk_display_id, scroll_factor, window_is_wide_color_gamut);
   return reinterpret_cast<intptr_t>(window);

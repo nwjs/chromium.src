@@ -18,19 +18,8 @@
 
 namespace blink {
 
-// static
-TextElementTiming& TextElementTiming::From(LocalDOMWindow& window) {
-  TextElementTiming* timing = window.GetTextElementTiming();
-  if (!timing) {
-    timing = MakeGarbageCollected<TextElementTiming>(window);
-    window.SetTextElementTiming(timing);
-  }
-  return *timing;
-}
-
 TextElementTiming::TextElementTiming(LocalDOMWindow& window)
-    : local_dom_window_(window),
-      performance_(DOMWindowPerformance::performance(window)) {}
+    : performance_(DOMWindowPerformance::performance(window)) {}
 
 // static
 gfx::RectF TextElementTiming::ComputeIntersectionRect(
@@ -49,6 +38,7 @@ bool TextElementTiming::CanReportToElementTiming() const {
   return performance_->HasObserverFor(PerformanceEntry::kElement) ||
          !performance_->IsElementTimingBufferFull();
 }
+
 bool TextElementTiming::CanReportToContainerTiming() {
   DCHECK(performance_);
   if (!RuntimeEnabledFeatures::ContainerTimingEnabled()) {
@@ -57,6 +47,7 @@ bool TextElementTiming::CanReportToContainerTiming() {
   EnsureContainerTiming();
   return container_timing_->CanReportToContainerTiming();
 }
+
 bool TextElementTiming::CanReportElements() {
   return CanReportToElementTiming() || CanReportToContainerTiming();
 }
@@ -97,7 +88,6 @@ void TextElementTiming::OnTextObjectPainted(
 }
 
 void TextElementTiming::Trace(Visitor* visitor) const {
-  visitor->Trace(local_dom_window_);
   visitor->Trace(performance_);
   visitor->Trace(container_timing_);
 }
@@ -106,7 +96,7 @@ void TextElementTiming::EnsureContainerTiming() {
   if (container_timing_) {
     return;
   }
-  LocalDOMWindow* window = local_dom_window_;
+  auto* window = To<LocalDOMWindow>(performance_->GetExecutionContext());
   DCHECK(window);
   container_timing_ = ContainerTiming::From(*window);
 }

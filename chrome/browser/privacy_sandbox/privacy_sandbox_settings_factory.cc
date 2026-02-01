@@ -9,9 +9,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_countries.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_delegate.h"
-#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tpcd/experiment/experiment_manager_impl.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings_impl.h"
@@ -41,7 +39,6 @@ PrivacySandboxSettingsFactory::PrivacySandboxSettingsFactory()
               .Build()) {
   DependsOn(CookieSettingsFactory::GetInstance());
   DependsOn(HostContentSettingsMapFactory::GetInstance());
-  DependsOn(TrackingProtectionSettingsFactory::GetInstance());
 }
 
 std::unique_ptr<KeyedService>
@@ -51,11 +48,7 @@ PrivacySandboxSettingsFactory::BuildServiceInstanceForBrowserContext(
 
   return std::make_unique<privacy_sandbox::PrivacySandboxSettingsImpl>(
       std::make_unique<PrivacySandboxSettingsDelegate>(
-          profile,
-          tpcd::experiment::ExperimentManagerImpl::GetForProfile(profile),
-          GetSingletonPrivacySandboxCountries()),
+          profile, GetSingletonPrivacySandboxCountries()),
       HostContentSettingsMapFactory::GetForProfile(profile),
-      CookieSettingsFactory::GetForProfile(profile),
-      TrackingProtectionSettingsFactory::GetForProfile(profile),
-      profile->GetPrefs());
+      CookieSettingsFactory::GetForProfile(profile), profile->GetPrefs());
 }

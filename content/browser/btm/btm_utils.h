@@ -13,7 +13,7 @@
 #include "base/strings/cstring_view.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/btm_redirect_info.h"
+#include "content/public/browser/btm_redirect.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
@@ -133,12 +133,6 @@ struct PopupsStateValue {
   base::Time last_popup_time;
   bool is_current_interaction;
   bool is_authentication_interaction;
-};
-
-struct PopupWithTime {
-  std::string opener_site;
-  std::string popup_site;
-  base::Time last_popup_time;
 };
 
 inline bool operator==(const StateValue& lhs, const StateValue& rhs) {

@@ -153,7 +153,7 @@ public class OmniboxFeatures {
             newBooleanParam(sOmniboxMultimodalInput, "multi_context", false);
 
     public static final CachedFlag sMultilineEditField =
-            newFlag(OmniboxFeatureList.MULTILINE_EDIT_FIELD, FeatureState.ENABLED_IN_TEST);
+            newFlag(OmniboxFeatureList.MULTILINE_EDIT_FIELD, FeatureState.ENABLED_IN_PROD);
 
     public static final BooleanCachedFeatureParam sWrapAutocompleteText =
             newBooleanParam(sOmniboxMultimodalInput, "wrap_autocomplete_text", false);
@@ -208,7 +208,7 @@ public class OmniboxFeatures {
             newIntParam(sJumpStartOmnibox, "jump_start_memory_threshold_kb", 2 * 1024 * 1024);
 
     public static final IntCachedFeatureParam sJumpStartOmniboxMinAwayTimeMinutes =
-            newIntParam(sJumpStartOmnibox, "jump_start_min_away_time_minutes", 0 * 60);
+            newIntParam(sJumpStartOmnibox, "jump_start_min_away_time_minutes", 15);
 
     public static final IntCachedFeatureParam sJumpStartOmniboxMaxAwayTimeMinutes =
             newIntParam(sJumpStartOmnibox, "jump_start_max_away_time_minutes", 8 * 60);

@@ -92,6 +92,7 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/property_effects.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/view_tracker.h"
@@ -149,12 +150,10 @@ const View* GetHierarchyRoot(const View* view) {
 
 namespace internal {
 
-#if DCHECK_IS_ON()
 ScopedChildrenLock::ScopedChildrenLock(const View* view)
     : reset_(&view->iterating_, true) {}
 
 ScopedChildrenLock::~ScopedChildrenLock() = default;
-#endif
 
 }  // namespace internal
 
@@ -332,9 +331,7 @@ void View::ReorderChildView(View* view, size_t index) {
   }
 
   // Rotate |view| to be at the desired position.
-#if DCHECK_IS_ON()
-  DCHECK(!iterating_);
-#endif
+  CHECK(!iterating_);
   if (pos < i) {
     std::rotate(pos, i, std::next(i));
   } else {
@@ -1312,6 +1309,15 @@ void View::ConvertRectToScreen(const View* src, gfx::Rect* rect) {
   rect->set_origin(new_origin);
 }
 
+// static
+gfx::Rect View::ConvertRectFromScreen(const View* dst, const gfx::Rect& rect) {
+  gfx::Point local_origin = rect.origin();
+  ConvertPointFromScreen(dst, &local_origin);
+  gfx::Rect local_rect = rect;
+  local_rect.set_origin(local_origin);
+  return local_rect;
+}
+
 gfx::Rect View::ConvertRectToParent(const gfx::Rect& rect) const {
   // This mapping returns the enclosing rect, which is good because pixels that
   // partially occupy in the parent should be included.
@@ -1635,6 +1641,12 @@ View* View::GetTooltipHandlerForPoint(const gfx::Point& point) {
 
 ui::Cursor View::GetCursor(const ui::MouseEvent& event) {
   return ui::Cursor();
+}
+
+bool View::IsHitInView(views::View* target, const gfx::Point& point) const {
+  gfx::Point point_in_target = point;
+  View::ConvertPointToTarget(this, target, &point_in_target);
+  return target->HitTestPoint(point_in_target);
 }
 
 bool View::HitTestPoint(const gfx::Point& point) const {
@@ -3136,9 +3148,7 @@ void View::AddChildViewAtImpl(View* view, size_t index) {
   }
 
   view->parent_ = this;
-#if DCHECK_IS_ON()
-  DCHECK(!iterating_);
-#endif
+  CHECK(!iterating_);
   const auto pos = children_.insert(
       std::next(children_.cbegin(), static_cast<ptrdiff_t>(index)), view);
 
@@ -3284,9 +3294,7 @@ void View::DoRemoveChildView(View* view,
     view_to_be_deleted.reset(view);
   }
 
-#if DCHECK_IS_ON()
-  DCHECK(!iterating_);
-#endif
+  CHECK(!iterating_);
   children_.erase(i);
 
   if (update_tool_tip) {

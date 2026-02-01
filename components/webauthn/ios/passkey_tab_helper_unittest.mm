@@ -4,7 +4,6 @@
 
 #import "components/webauthn/ios/passkey_tab_helper.h"
 
-#import "base/base64url.h"
 #import "base/rand_util.h"
 #import "base/strings/to_string.h"
 #import "base/test/metrics/histogram_tester.h"
@@ -64,13 +63,15 @@ sync_pb::WebauthnCredentialSpecifics GetTestPasskey(
 
 // Builds PasskeyRequestParams using the default rp id.
 PasskeyRequestParams BuildPasskeyRequestParams() {
-  std::string frame_id = web::kMainFakeFrameId;
-  std::string request_id = kFakeRequestId;
+  IOSPasskeyClient::RequestInfo request_info(web::kMainFakeFrameId,
+                                             kFakeRequestId);
   device::PublicKeyCredentialRpEntity rp_entity(kRpId);
   std::vector<uint8_t> challenge;
-  return PasskeyRequestParams(frame_id, request_id, std::move(rp_entity),
+  PasskeyExtensionData extension_data;
+  return PasskeyRequestParams(std::move(request_info), std::move(rp_entity),
                               std::move(challenge),
-                              device::UserVerificationRequirement::kPreferred);
+                              device::UserVerificationRequirement::kPreferred,
+                              std::move(extension_data));
 }
 
 // Builds RegistrationRequestParams from an exclude credentials list.
@@ -145,7 +146,8 @@ class PasskeyTabHelperTest : public PlatformTest {
   // Sets up a web frame manager with a web frame.
   void SetUpWebFramesManagerAndWebFrame() {
     auto frames_manager = std::make_unique<web::FakeWebFramesManager>();
-    frames_manager->AddWebFrame(web::FakeWebFrame::CreateMainWebFrame());
+    frames_manager->AddWebFrame(
+        web::FakeWebFrame::CreateMainWebFrame(GURL("https://example.com")));
     fake_web_state_.SetWebFramesManager(
         PasskeyJavaScriptFeature::GetInstance()->GetSupportedContentWorld(),
         std::move(frames_manager));
@@ -257,7 +259,8 @@ TEST_F(PasskeyTabHelperTest, FilterPasskeys) {
 
   // Make sure 2 distinct passkeys were added.
   std::vector<sync_pb::WebauthnCredentialSpecifics> passkeys =
-      passkey_model_->GetPasskeysForRelyingPartyId(kRpId);
+      passkey_model_->GetPasskeys(kRpId,
+                                  PasskeyModel::ShadowedCredentials::kExclude);
   EXPECT_EQ(passkeys.size(), 2u);
 
   // Empty allow credentials list, expect no filtering.
@@ -309,7 +312,7 @@ TEST_F(PasskeyTabHelperTest, SendPasskeysToWebAuthnCredentialsDelegate) {
   AssertionRequestParams params = BuildAssertionRequestParams({});
   passkey_tab_helper()->HandleGetRequestedEvent(std::move(params));
 
-  // Verify that the delegate has recevied the passkey.
+  // Verify that the delegate has received the passkey.
   auto passkeys_after = client_->delegate()->GetPasskeys();
   ASSERT_TRUE(passkeys_after.has_value());
   EXPECT_EQ(passkeys_after.value()->size(), 1u);

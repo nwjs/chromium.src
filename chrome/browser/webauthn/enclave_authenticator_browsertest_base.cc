@@ -49,7 +49,6 @@
 #include "crypto/scoped_fake_user_verifying_key_provider.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "device/fido/enclave/enclave_protocol_utils.h"
-#include "device/fido/features.h"
 #include "enclave_authenticator_browsertest_base.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
@@ -112,11 +111,6 @@ EnclaveAuthenticatorTestBase::EnclaveAuthenticatorTestBase()
   }
   scoped_icloud_drive_override_ = OverrideICloudDriveEnabled(false);
 #endif
-  scoped_feature_list_.InitWithFeatures(
-      /*enabled_features=*/{device::kWebAuthnLargeBlobForGPM,
-                            device::kWebAuthnSignalApiHidePasskeys,
-                            device::kWebAuthnWrapCohortData},
-      /*disabled_features=*/{});
   OSCryptMocker::SetUp();
   scoped_vmodule_.InitWithSwitches("device_event_log_impl=2");
 
@@ -270,13 +264,24 @@ void EnclaveAuthenticatorTestBase::AddTestPasskeyToModel() {
 
 void EnclaveAuthenticatorTestBase::SimulateTrustedVaultKeyRetrieval(
     base::span<const uint8_t> trusted_vault_key,
-    int trusted_vault_key_version) {
-  enclave_manager().StoreKeys(kSyncGaiaId, {base::ToVector(trusted_vault_key)},
-                              trusted_vault_key_version);
+    int trusted_vault_key_version,
+    bool with_store_keys_lock) {
+  if (with_store_keys_lock) {
+    auto store_keys_lock = enclave_manager().GetStoreKeysLock();
+    enclave_manager().StoreKeys(kSyncGaiaId,
+                                {base::ToVector(trusted_vault_key)},
+                                trusted_vault_key_version);
+  } else {
+    enclave_manager().StoreKeys(kSyncGaiaId,
+                                {base::ToVector(trusted_vault_key)},
+                                trusted_vault_key_version);
+  }
 }
 
-void EnclaveAuthenticatorTestBase::SimulateTrustedVaultKeyRetrieval() {
-  SimulateTrustedVaultKeyRetrieval(kSecurityDomainSecret, kSecretVersion);
+void EnclaveAuthenticatorTestBase::SimulateTrustedVaultKeyRetrieval(
+    bool with_store_keys_lock) {
+  SimulateTrustedVaultKeyRetrieval(kSecurityDomainSecret, kSecretVersion,
+                                   with_store_keys_lock);
 }
 
 void EnclaveAuthenticatorTestBase::
@@ -287,7 +292,7 @@ void EnclaveAuthenticatorTestBase::
   // indicates an opportunistic key retrieval logic. In this case (if either a
   // system UV or a usable GPM PIN is present) Enclave Manager stores keys and
   // adds device to account.
-  SimulateTrustedVaultKeyRetrieval();
+  SimulateTrustedVaultKeyRetrieval(/*with_store_keys_lock=*/false);
   EXPECT_EQ(enclave_keys_waiter.Wait(),
             EnclaveManager::OutOfContextRecoveryOutcome::
                 kStoreKeysFromOpportunisticFlowSucceeded);
@@ -362,10 +367,9 @@ void EnclaveAuthenticatorTestBase::SimulateSuccessfulGpmPinCreation(
     const std::string& pin_value) {
   WaitForEnclaveLoaded();
 
-  {
-    auto store_keys_lock = enclave_manager().GetStoreKeysLock();
-    SimulateTrustedVaultKeyRetrieval(kSecurityDomainSecret, /*version=*/0);
-  }
+  SimulateTrustedVaultKeyRetrieval(kSecurityDomainSecret,
+                                   /*trusted_vault_key_version=*/0,
+                                   /*with_store_keys_lock=*/true);
 
   base::test::TestFuture<bool> add_device_future;
   enclave_manager().AddDeviceAndPINToAccount(
@@ -375,12 +379,12 @@ void EnclaveAuthenticatorTestBase::SimulateSuccessfulGpmPinCreation(
   ASSERT_TRUE(add_device_future.Wait()) << "AddDeviceAndPINToAccount timed out";
   ASSERT_TRUE(add_device_future.Get()) << "AddDeviceAndPINToAccount failed";
 
-  ASSERT_TRUE(enclave_manager().is_ready());
+  ASSERT_TRUE(enclave_manager().IsReady());
   ASSERT_TRUE(enclave_manager().has_wrapped_pin());
 }
 
 void EnclaveAuthenticatorTestBase::WaitForEnclaveLoaded() {
-  if (!enclave_manager().is_loaded()) {
+  if (!enclave_manager().IsLoaded()) {
     base::test::TestFuture<void> load_future;
     enclave_manager().Load(load_future.GetCallback());
     ASSERT_TRUE(load_future.Wait());

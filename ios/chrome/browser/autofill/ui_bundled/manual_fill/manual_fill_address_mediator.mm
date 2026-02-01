@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_address_mediator.h"
 
+#import "base/containers/to_vector.h"
 #import "base/functional/callback_helpers.h"
 #import "base/i18n/message_formatter.h"
 #import "base/metrics/user_metrics.h"
@@ -40,15 +41,12 @@ std::vector<AutofillProfile> FetchAddresses(
     const autofill::PersonalDataManager& personal_data_manager) {
   std::vector<const AutofillProfile*> fetched_addresses =
       personal_data_manager.address_data_manager().GetProfilesToSuggest();
-  std::vector<AutofillProfile> addresses;
-  addresses.reserve(fetched_addresses.size());
-
   // Make copies of the received `fetched_addresses` to not make any assumption
   // over their lifetime and make sure that the AutofillProfile objects stay
   // valid throughout the lifetime of this class.
-  std::ranges::transform(
-      fetched_addresses, std::back_inserter(addresses),
-      [](const AutofillProfile* address) { return *address; });
+  std::vector<AutofillProfile> addresses =
+      base::ToVector(fetched_addresses,
+                     [](const AutofillProfile* address) { return *address; });
 
   return addresses;
 }
@@ -86,8 +84,8 @@ std::vector<AutofillProfile> FetchAddresses(
     _personalDataManager = personalDataManager;
     CHECK(_personalDataManager);
     _personalDataManagerObserver =
-        std::make_unique<autofill::PersonalDataManagerObserverBridge>(self);
-    _personalDataManager->AddObserver(_personalDataManagerObserver.get());
+        std::make_unique<autofill::PersonalDataManagerObserverBridge>(
+            _personalDataManager, self);
     _authenticationService = authenticationService;
     _addresses = FetchAddresses(*_personalDataManager);
     _showAutofillFormButton = showAutofillFormButton;
@@ -105,10 +103,7 @@ std::vector<AutofillProfile> FetchAddresses(
 }
 
 - (void)disconnect {
-  if (_personalDataManager && _personalDataManagerObserver.get()) {
-    _personalDataManager->RemoveObserver(_personalDataManagerObserver.get());
-    _personalDataManagerObserver.reset();
-  }
+  _personalDataManagerObserver = nullptr;
   _personalDataManager = nullptr;
   _authenticationService = nullptr;
 }

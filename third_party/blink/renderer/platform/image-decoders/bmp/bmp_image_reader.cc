@@ -6,14 +6,20 @@
 
 #include <array>
 
+#include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
-#include "base/metrics/histogram_functions.h"
+#include "base/feature_list.h"
 #include "third_party/blink/renderer/platform/image-decoders/jpeg/jpeg_image_decoder.h"
 #include "third_party/blink/renderer/platform/image-decoders/png/png_image_decoder.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 
 namespace {
+
+// See https://crbug.com/456842524 for more details about the plan to
+// remove the support for JPG-or-PNG-embedded-in-BMP feature.
+BASE_FEATURE(kRemoveBmpExtensionForEmbeddingJpegOrPng,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // See comments on lookup_table_spans_ in the header.
 constexpr auto nBitTo8BitlookupTable = std::to_array<uint8_t>({
@@ -87,11 +93,6 @@ bool BMPImageReader::DecodeBMP(bool only_size) {
   if ((decoded_offset_ < header_end) && !ProcessInfoHeader()) {
     return false;
   }
-
-  // TODO(https://crbug.com/452667935): Clean this up once we have sufficient
-  // data (when M143 or M144 reach Stable?).
-  base::UmaHistogramEnumeration("Blink.DecodedImage.BMP.CompressionType",
-                                info_header_.compression);
 
   // If there is an applicable color profile, it must be processed now, since
   // once the image size is available, the decoding machinery assumes the color
@@ -322,6 +323,11 @@ bool BMPImageReader::ReadInfoHeader() {
       return parent_->SetFailed();  // Some type we don't understand.
     } else {
       info_header_.compression = static_cast<CompressionType>(compression);
+      if ((compression == JPEG || compression == PNG) &&
+          base::FeatureList::IsEnabled(
+              kRemoveBmpExtensionForEmbeddingJpegOrPng)) {
+        return parent_->SetFailed();  // Some type we don't understand.
+      }
     }
   }
 
@@ -545,6 +551,9 @@ bool BMPImageReader::IsInfoHeaderValid() const {
 }
 
 bool BMPImageReader::DecodeAlternateFormat() {
+  CHECK(
+      !base::FeatureList::IsEnabled(kRemoveBmpExtensionForEmbeddingJpegOrPng));
+
   // Create decoder if necessary.
   if (!alternate_decoder_) {
     if (info_header_.compression == JPEG) {

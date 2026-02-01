@@ -44,7 +44,6 @@
 #include "components/viz/common/features.h"
 #include "content/child/child_process.h"
 #include "content/common/features.h"
-#include "content/common/user_level_memory_pressure_signal_features.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/gpu_stream_constants.h"
@@ -103,6 +102,7 @@
 #include "third_party/blink/public/platform/modules/video_capture/web_video_capture_impl_manager.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/url_conversion.h"
+#include "third_party/blink/public/platform/web_audio_bus.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
 #include "third_party/blink/public/platform/web_audio_sink_descriptor.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
@@ -510,9 +510,14 @@ bool RendererBlinkPlatformImpl::IsLcdTextEnabled() {
   return thread ? thread->IsLcdTextEnabled() : false;
 }
 
-bool RendererBlinkPlatformImpl::IsElasticOverscrollEnabled() {
+bool RendererBlinkPlatformImpl::IsElasticOverscrollEnabledOnRoot() {
   RenderThreadImpl* thread = RenderThreadImpl::current();
-  return thread ? thread->IsElasticOverscrollEnabled() : false;
+  return thread ? thread->IsElasticOverscrollEnabledOnRoot() : false;
+}
+
+bool RendererBlinkPlatformImpl::IsElasticOverscrollSupported() {
+  RenderThreadImpl* thread = RenderThreadImpl::current();
+  return thread ? thread->IsElasticOverscrollSupported() : false;
 }
 
 bool RendererBlinkPlatformImpl::IsScrollAnimatorEnabled() {
@@ -552,10 +557,10 @@ std::unique_ptr<WebAudioDevice> RendererBlinkPlatformImpl::CreateAudioDevice(
       context_sample_rate, callback);
 }
 
-bool RendererBlinkPlatformImpl::DecodeAudioFileData(
-    blink::WebAudioBus* destination_bus,
+std::unique_ptr<blink::WebAudioBus>
+RendererBlinkPlatformImpl::DecodeAudioFileData(
     base::span<const char> audio_file_data) {
-  return content::DecodeAudioFileData(destination_bus, audio_file_data);
+  return content::DecodeAudioFileData(audio_file_data);
 }
 
 //------------------------------------------------------------------------------
@@ -794,7 +799,6 @@ RendererBlinkPlatformImpl::CreateRasterGraphicsContextProvider(
 
   constexpr bool automatic_flushes = true;
   constexpr bool support_locking = false;
-  constexpr bool enable_gpu_rasterization = true;
   constexpr bool lose_context_when_out_of_memory = false;
 
   return std::make_unique<WebGraphicsContext3DProviderImpl>(
@@ -802,8 +806,7 @@ RendererBlinkPlatformImpl::CreateRasterGraphicsContextProvider(
           std::move(gpu_channel_host), kGpuStreamIdDefault,
           kGpuStreamPriorityDefault, GURL(document_url), automatic_flushes,
           support_locking, gpu::SharedMemoryLimits(),
-          ToVizContextType(context_type), enable_gpu_rasterization,
-          lose_context_when_out_of_memory));
+          ToVizContextType(context_type), lose_context_when_out_of_memory));
 }
 
 //------------------------------------------------------------------------------
@@ -837,8 +840,8 @@ RendererBlinkPlatformImpl::CreateSharedOffscreenGraphicsContext3DProvider() {
 static std::unique_ptr<blink::WebGraphicsContext3DProvider>
 CreateWebGPUGraphicsContext3DImpl(
     const blink::WebURL& document_url,
+    blink::Platform::WebGPUReplyThread reply_thread,
     scoped_refptr<gpu::GpuChannelHost> gpu_channel_host) {
-
   // WebGPU GPUBuffers, which are backed by shared memory transfer buffers, may
   // be accessed as ArrayBuffers from JavaScript. As such, the underlying
   // buffers need to be mapped using the ArrayBuffer shared memory mapper. As
@@ -850,15 +853,26 @@ CreateWebGPUGraphicsContext3DImpl(
   base::SharedMemoryMapper* buffer_mapper =
       gin::GetSharedMemoryMapperForArrayBuffers();
 
+  scoped_refptr<base::SingleThreadTaskRunner> ipc_task_runner = nullptr;
+  switch (reply_thread) {
+    case blink::Platform::WebGPUReplyThread::kIOThread:
+      ipc_task_runner = gpu_channel_host->io_task_runner();
+      break;
+    case blink::Platform::WebGPUReplyThread::kMainThread:
+      break;
+  }
+
   return std::make_unique<WebGraphicsContext3DProviderImpl>(
       viz::ContextProviderCommandBuffer::CreateForWebGPU(
           std::move(gpu_channel_host), GURL(document_url),
-          viz::command_buffer_metrics::ContextType::WEBGPU, buffer_mapper));
+          viz::command_buffer_metrics::ContextType::WEBGPU, buffer_mapper),
+      std::move(ipc_task_runner));
 }
 
 std::unique_ptr<blink::WebGraphicsContext3DProvider>
 RendererBlinkPlatformImpl::CreateWebGPUGraphicsContext3DProvider(
-    const blink::WebURL& document_url) {
+    const blink::WebURL& document_url,
+    WebGPUReplyThread reply_thread) {
 #if !BUILDFLAG(USE_DAWN)
   return nullptr;
 #else
@@ -870,26 +884,30 @@ RendererBlinkPlatformImpl::CreateWebGPUGraphicsContext3DProvider(
     return nullptr;
   }
 
-  return CreateWebGPUGraphicsContext3DImpl(document_url, gpu_channel_host);
+  return CreateWebGPUGraphicsContext3DImpl(document_url, reply_thread,
+                                           gpu_channel_host);
 #endif
 }
 
 void RendererBlinkPlatformImpl::CreateWebGPUGraphicsContext3DProviderAsync(
     const blink::WebURL& document_url,
+    WebGPUReplyThread reply_thread,
     base::OnceCallback<
         void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback) {
 #if !BUILDFLAG(USE_DAWN)
   std::move(callback).Run(nullptr);
 #else
   // Initiate the asynchronous call to establish the GPU channel
-  RenderThreadImpl::current()->EstablishGpuChannel(base::BindOnce(
-      &RendererBlinkPlatformImpl::OnGpuChannelEstablished,
-      weak_factory_.GetWeakPtr(), document_url, std::move(callback)));
+  RenderThreadImpl::current()->EstablishGpuChannel(
+      base::BindOnce(&RendererBlinkPlatformImpl::OnGpuChannelEstablished,
+                     weak_factory_.GetWeakPtr(), document_url, reply_thread,
+                     std::move(callback)));
 #endif
 }
 
 void RendererBlinkPlatformImpl::OnGpuChannelEstablished(
     const blink::WebURL& document_url,
+    WebGPUReplyThread reply_thread,
     base::OnceCallback<
         void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback,
     scoped_refptr<gpu::GpuChannelHost> gpu_channel_host) {
@@ -898,8 +916,8 @@ void RendererBlinkPlatformImpl::OnGpuChannelEstablished(
     return;
   }
 
-  std::move(callback).Run(
-      CreateWebGPUGraphicsContext3DImpl(document_url, gpu_channel_host));
+  std::move(callback).Run(CreateWebGPUGraphicsContext3DImpl(
+      document_url, reply_thread, gpu_channel_host));
 }
 
 //------------------------------------------------------------------------------
@@ -1234,33 +1252,7 @@ void RendererBlinkPlatformImpl::SetPrivateMemoryFootprint(
 }
 
 bool RendererBlinkPlatformImpl::IsUserLevelMemoryPressureSignalEnabled() {
-  return features::IsUserLevelMemoryPressureSignalEnabledOn3GbDevices() ||
-         features::IsUserLevelMemoryPressureSignalEnabledOn4GbDevices() ||
-         features::IsUserLevelMemoryPressureSignalEnabledOn6GbDevices();
-}
-
-std::pair<base::TimeDelta, base::TimeDelta> RendererBlinkPlatformImpl::
-    InertAndMinimumIntervalOfUserLevelMemoryPressureSignal() {
-  if (features::IsUserLevelMemoryPressureSignalEnabledOn3GbDevices()) {
-    return std::make_pair(
-        features::InertIntervalFor3GbDevices(),
-        features::MinUserMemoryPressureIntervalOn3GbDevices());
-  }
-  if (features::IsUserLevelMemoryPressureSignalEnabledOn4GbDevices()) {
-    return std::make_pair(
-        features::InertIntervalFor4GbDevices(),
-        features::MinUserMemoryPressureIntervalOn4GbDevices());
-  }
-  if (features::IsUserLevelMemoryPressureSignalEnabledOn6GbDevices()) {
-    return std::make_pair(
-        features::InertIntervalFor6GbDevices(),
-        features::MinUserMemoryPressureIntervalOn6GbDevices());
-  }
-
-  constexpr std::pair<base::TimeDelta, base::TimeDelta>
-      kDefaultInertAndMinInterval =
-          std::make_pair(base::TimeDelta::Min(), base::Minutes(10));
-  return kDefaultInertAndMinInterval;
+  return base::SysInfo::Is4GbDevice() || base::SysInfo::Is6GbDevice();
 }
 
 #endif  // BUILDFLAG(IS_ANDROID)

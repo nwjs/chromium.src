@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/core/channel.h"
 
 #include <windows.h>
@@ -18,6 +13,7 @@
 #include <memory>
 #include <tuple>
 
+#include "base/compiler_specific.h"
 #include "base/containers/queue.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -113,13 +109,15 @@ class ChannelWin : public Channel,
     bool write_error = false;
     {
       base::AutoLock lock(write_lock_);
-      if (reject_writes_)
+      if (reject_writes_) {
         return;
+      }
 
       bool write_now = !delay_writes_ && outgoing_messages_.IsEmpty();
       outgoing_messages_.Append(std::move(message));
-      if (write_now && !WriteNoLock(outgoing_messages_.GetFirst()))
+      if (write_now && !WriteNoLock(outgoing_messages_.GetFirst())) {
         reject_writes_ = write_error = true;
+      }
     }
     if (write_error) {
       // Do not synchronously invoke OnWriteError(). Write() may have been
@@ -142,20 +140,23 @@ class ChannelWin : public Channel,
                               size_t extra_header_size,
                               std::vector<PlatformHandle>* handles) override {
     DCHECK(extra_header);
-    if (num_handles > std::numeric_limits<uint16_t>::max())
+    if (num_handles > std::numeric_limits<uint16_t>::max()) {
       return false;
+    }
     using HandleEntry = Channel::Message::HandleEntry;
     size_t handles_size = sizeof(HandleEntry) * num_handles;
-    if (handles_size > extra_header_size)
+    if (handles_size > extra_header_size) {
       return false;
+    }
     handles->reserve(num_handles);
     const HandleEntry* extra_header_handles =
         reinterpret_cast<const HandleEntry*>(extra_header);
     for (size_t i = 0; i < num_handles; i++) {
-      HANDLE handle_value =
-          base::win::Uint32ToHandle(extra_header_handles[i].handle);
-      if (PlatformHandleInTransit::IsPseudoHandle(handle_value))
+      HANDLE handle_value = base::win::Uint32ToHandle(
+          UNSAFE_TODO(extra_header_handles[i]).handle);
+      if (PlatformHandleInTransit::IsPseudoHandle(handle_value)) {
         return false;
+      }
       if (remote_process().IsValid() && handle_value != INVALID_HANDLE_VALUE) {
         // If we know the remote process's handle, we assume it doesn't know
         // ours; that means any handle values still belong to that process, and
@@ -229,8 +230,9 @@ class ChannelWin : public Channel,
   // base::CurrentThread::DestructionObserver:
   void WillDestroyCurrentMessageLoop() override {
     DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-    if (self_)
+    if (self_) {
       ShutDownOnIOThread();
+    }
   }
 
   // base::MessageLoop::IOHandler:
@@ -273,8 +275,9 @@ class ChannelWin : public Channel,
   }
 
   void OnWriteDone(size_t bytes_written) {
-    if (bytes_written == 0)
+    if (bytes_written == 0) {
       return;
+    }
 
     bool write_error = false;
     {
@@ -287,13 +290,15 @@ class ChannelWin : public Channel,
       Channel::MessagePtr message = outgoing_messages_.TakeFirst();
 
       // Overlapped WriteFile() to a pipe should always fully complete.
-      if (message->data_num_bytes() != bytes_written)
+      if (message->data_num_bytes() != bytes_written) {
         reject_writes_ = write_error = true;
-      else if (!WriteNextNoLock())
+      } else if (!WriteNextNoLock()) {
         reject_writes_ = write_error = true;
+      }
     }
-    if (write_error)
+    if (write_error) {
       OnWriteError(Error::kDisconnected);
+    }
   }
 
   void ReadMore(size_t next_read_size_hint) {
@@ -329,8 +334,9 @@ class ChannelWin : public Channel,
     // process is if the remote process dies before receiving this message. At
     // that point, again, potential handle leaks don't matter.
     std::vector<PlatformHandleInTransit> handles = message->TakeHandles();
-    for (auto& handle : handles)
+    for (auto& handle : handles) {
       handle.CompleteTransit();
+    }
 
     DCHECK(handle_.is_valid());
     BOOL ok = WriteFile(handle_.get(), message->data(),

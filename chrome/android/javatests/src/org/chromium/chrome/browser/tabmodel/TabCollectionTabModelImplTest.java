@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.tabmodel;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -78,7 +80,6 @@ import java.util.concurrent.atomic.AtomicReference;
     ChromeSwitches.DISABLE_STARTUP_PROMOS
 })
 @Batch(Batch.PER_CLASS)
-@EnableFeatures({ChromeFeatureList.TAB_COLLECTION_ANDROID})
 public class TabCollectionTabModelImplTest {
     @Rule
     public AutoResetCtaTransitTestRule mActivityTestRule =
@@ -142,19 +143,6 @@ public class TabCollectionTabModelImplTest {
     @Test
     @MediumTest
     public void testMoveTabCompatTest() {
-        moveTabCompatTest();
-    }
-
-    @Test
-    @MediumTest
-    // TODO(crbug.com/454344854): Delete this test as part of feature cleanup as the legacy version
-    // will be deleted.
-    @DisableFeatures({ChromeFeatureList.TAB_COLLECTION_ANDROID})
-    public void testMoveTabCompatTest_Legacy() {
-        moveTabCompatTest();
-    }
-
-    private void moveTabCompatTest() {
         Tab tab0 =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> mRegularModel.getCurrentTabSupplier().get());
@@ -3780,5 +3768,100 @@ public class TabCollectionTabModelImplTest {
                 });
         assertEquals(1, getCount());
         assertTabsInOrderAre(List.of(tab2));
+    }
+
+    @Test
+    @MediumTest
+    public void testContainsTabGroup() {
+        Tab tab0 = getTabAt(0);
+        Tab tab1 = createTab();
+        mergeListOfTabsToGroup(List.of(tab0, tab1), tab0);
+        Token tabGroupId = tab0.getTabGroupId();
+        assertNotNull(tabGroupId);
+        assertTabsInOrderAre(List.of(tab0, tab1));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    // Invalid group id returns false.
+                    Token invalidToken = new Token(-1L, -1L);
+                    assertFalse(mCollectionModel.containsTabGroup(invalidToken));
+
+                    // Valid group id returns true.
+                    assertTrue(mCollectionModel.containsTabGroup(tabGroupId));
+                });
+    }
+
+    @Test
+    @MediumTest
+    public void testListTabGroups() {
+        Tab tab0 = getTabAt(0);
+        Tab tab1 = createTab();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertTrue(mCollectionModel.listTabGroups().isEmpty());
+
+                    mCollectionModel.createSingleTabGroup(tab0);
+                    Token groupId0 = tab0.getTabGroupId();
+                    assertNotNull(groupId0);
+
+                    List<Token> groupIds = mCollectionModel.listTabGroups();
+                    assertEquals("Should be 1 group.", 1, groupIds.size());
+                    assertThat(groupIds).containsExactly(groupId0);
+
+                    mCollectionModel.createSingleTabGroup(tab1);
+                    Token groupId1 = tab1.getTabGroupId();
+                    assertNotNull(groupId1);
+
+                    groupIds = mCollectionModel.listTabGroups();
+                    assertEquals("Should be 2 groups.", 2, groupIds.size());
+                    // Order is not guaranteed by the underlying API.
+                    assertThat(groupIds).containsExactly(groupId0, groupId1);
+                });
+    }
+
+    @Test
+    @MediumTest
+    public void testCreateTabGroup() {
+        Tab tab0 = getTabAt(0);
+        Tab tab1 = createTab();
+        List<Tab> tabs = List.of(tab0, tab1);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertTrue(mCollectionModel.listTabGroups().isEmpty());
+
+                    Token groupId = mCollectionModel.createTabGroup(tabs);
+                    assertNotNull(groupId);
+
+                    assertTrue(mCollectionModel.containsTabGroup(groupId));
+                    assertEquals(groupId, tab0.getTabGroupId());
+                    assertEquals(groupId, tab1.getTabGroupId());
+
+                    List<Token> groupIds = mCollectionModel.listTabGroups();
+                    assertEquals(1, groupIds.size());
+                    assertThat(groupIds).containsExactly(groupId);
+                });
+    }
+
+    @Test
+    @MediumTest
+    public void testGetTabGroupTabIndices() {
+        Tab tab0 = getTabAt(0);
+        Tab tab1 = createTab();
+        Tab tab2 = createTab();
+        List<Tab> tabs = List.of(tab0, tab1, tab2);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Token groupId = mCollectionModel.createTabGroup(tabs);
+                    assertNotNull(groupId);
+
+                    int[] tabIndices = mCollectionModel.getTabGroupTabIndices(groupId);
+                    assertEquals(2, tabIndices.length);
+                    // The list contains the range 0 to 3, as the end is non-inclusive.
+                    assertEquals(0, tabIndices[0]);
+                    assertEquals(3, tabIndices[1]);
+                });
     }
 }

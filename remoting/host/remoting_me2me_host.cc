@@ -79,6 +79,7 @@
 #include "remoting/host/config_file_watcher.h"
 #include "remoting/host/config_watcher.h"
 #include "remoting/host/corp_host_status_logger.h"
+#include "remoting/host/corp_signaling_connector.h"
 #include "remoting/host/crash_process.h"
 #include "remoting/host/create_desktop_interaction_strategy_factory.h"
 #include "remoting/host/desktop_environment.h"
@@ -117,6 +118,8 @@
 #include "remoting/protocol/session_config.h"
 #include "remoting/protocol/transport.h"
 #include "remoting/protocol/transport_context.h"
+#include "remoting/signaling/corp_messaging_constants.h"
+#include "remoting/signaling/corp_signal_strategy.h"
 #include "remoting/signaling/ftl_host_device_id_provider.h"
 #include "remoting/signaling/ftl_signal_strategy.h"
 #include "remoting/signaling/signal_strategy.h"
@@ -501,10 +504,14 @@ class HostProcess : public ConfigWatcher::Delegate,
   // Must outlive |signal_strategy_| and |heartbeat_sender_|.
   std::unique_ptr<ZombieHostDetector> zombie_host_detector_;
 
-  // Signal strategies must outlive |ftl_signaling_connector_|.
+  // |signal_strategy_| must outlive |ftl_signaling_connector_|.
   std::unique_ptr<SignalStrategy> signal_strategy_;
-
   std::unique_ptr<FtlSignalingConnector> ftl_signaling_connector_;
+
+  // |corp_signal_strategy_| must outlive |corp_signaling_connector_|.
+  std::unique_ptr<SignalStrategy> corp_signal_strategy_;
+  std::unique_ptr<CorpSignalingConnector> corp_signaling_connector_;
+
   std::unique_ptr<HeartbeatSender> heartbeat_sender_;
   std::unique_ptr<FtlHostChangeNotificationListener>
       ftl_host_change_notification_listener_;
@@ -864,6 +871,14 @@ bool HostProcess::CheckAccessPermission(std::string_view user_email_view) {
     return false;
   }
 
+  auto [username, domain] = *email_parts;
+  if (domain == kCorpSignalingDomain) {
+    // Corp signaling does not rely on enterprise policies for authz and does
+    // not use real email addresses anyway so skip the policy checks.
+    LOG(INFO) << "Corp signaling user detected: " << username;
+    return true;
+  }
+
   if (!host_owner_emails_.contains(canonical_email)) {
     LOG(ERROR) << canonical_email << " does not have access to this machine.";
     return false;
@@ -874,7 +889,6 @@ bool HostProcess::CheckAccessPermission(std::string_view user_email_view) {
     return true;
   }
 
-  auto [_, domain] = *email_parts;
   bool allowed_by_policy = IsInAllowlist(domain, client_domain_list_);
   LOG_IF(ERROR, !allowed_by_policy) << canonical_email << " has a domain which "
                                     << "is not in the client domain allowlist.";
@@ -1347,7 +1361,13 @@ bool HostProcess::ApplyConfig(const base::Value::Dict& config) {
     return false;
   }
 
-  key_pair_ = RsaKeyPair::FromString(*key_base64);
+  bool generate_private_key = *key_base64 == "generate";
+  if (generate_private_key) {
+    HOST_LOG << "private_key is set to 'generate', generating a new key pair.";
+    key_pair_ = RsaKeyPair::Generate();
+  } else {
+    key_pair_ = RsaKeyPair::FromString(*key_base64);
+  }
   if (!key_pair_.get()) {
     LOG(ERROR) << "Host config has an invalid value for path: `"
                << kPrivateKeyConfigPath << "`";
@@ -1401,6 +1421,15 @@ bool HostProcess::ApplyConfig(const base::Value::Dict& config) {
     HOST_LOG << "Host config specifies that Session Authorization is required.";
     HOST_LOG << "PIN authentication is disabled.";
   } else if (host_secret_hash) {
+    if (generate_private_key) {
+      // Allowing PIN auth, based on the existence of `host_secret_hash`,
+      // requires a stable private_key to validate incoming connection requests.
+      // We should not allow both modes, otherwise PIN connections will fail for
+      // a non-obvious reason (to the client).
+      LOG(ERROR) << "Host config cannot define a host_secret_hash value when "
+                 << "using a dynamically generated KeyPair.";
+      return false;
+    }
     if (!ParsePinHashFromConfig(*host_secret_hash, host_id_, &pin_hash_)) {
       LOG(ERROR) << "Host config has an invalid value for path: `"
                  << kHostSecretHashConfigPath << "`";
@@ -1732,6 +1761,7 @@ std::optional<ErrorCode> HostProcess::OnSessionPoliciesReceived(
 void HostProcess::InitializeSignaling() {
   DCHECK(!host_id_.empty());  // ApplyConfig() should already have been run.
   DCHECK(!signal_strategy_);
+  DCHECK(!corp_signal_strategy_);
   DCHECK(!oauth_token_getter_);
   DCHECK(!ftl_signaling_connector_);
   DCHECK(!heartbeat_sender_);
@@ -1747,6 +1777,20 @@ void HostProcess::InitializeSignaling() {
 
   zombie_host_detector_ = std::make_unique<ZombieHostDetector>(base::BindOnce(
       &HostProcess::OnZombieStateDetected, base::Unretained(this)));
+
+#if BUILDFLAG(IS_LINUX)
+  // TODO: joedow - Remove Linux scope after this codepath has been stabilized.
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  if (cmd_line->HasSwitch(kEnableCorpMessaging)) {
+    corp_signal_strategy_ = std::make_unique<CorpSignalStrategy>(
+        context_->url_loader_factory(),
+        context_->create_client_cert_store_callback(), GetUsername(),
+        key_pair_);
+    corp_signaling_connector_ =
+        std::make_unique<CorpSignalingConnector>(corp_signal_strategy_.get());
+    corp_signaling_connector_->Start();
+  }
+#endif
 
   auto ftl_signal_strategy = std::make_unique<FtlSignalStrategy>(
       std::make_unique<OAuthTokenGetterProxy>(
@@ -1885,6 +1929,11 @@ void HostProcess::StartHost() {
           std::move(ice_config_fetcher), protocol::TransportRole::SERVER);
   std::unique_ptr<protocol::SessionManager> session_manager(
       new protocol::JingleSessionManager(signal_strategy_.get()));
+  std::unique_ptr<protocol::SessionManager> corp_session_manager;
+  if (corp_signal_strategy_) {
+    corp_session_manager = std::make_unique<protocol::JingleSessionManager>(
+        corp_signal_strategy_.get());
+  }
 
   std::unique_ptr<protocol::CandidateSessionConfig> protocol_config =
       protocol::CandidateSessionConfig::CreateDefault();
@@ -1892,6 +1941,9 @@ void HostProcess::StartHost() {
     protocol_config->DisableAudioChannel();
   }
   protocol_config->set_webrtc_supported(true);
+  if (corp_session_manager) {
+    corp_session_manager->set_protocol_config(protocol_config->Clone());
+  }
   session_manager->set_protocol_config(std::move(protocol_config));
 
   if (is_corp_host_) {
@@ -1922,8 +1974,9 @@ void HostProcess::StartHost() {
 
   host_ = std::make_unique<ChromotingHost>(
       desktop_environment_factory_.get(), std::move(session_manager),
-      transport_context, context_->audio_task_runner(),
-      context_->video_encode_task_runner(), desktop_environment_options_,
+      std::move(corp_session_manager), transport_context,
+      context_->audio_task_runner(), context_->video_encode_task_runner(),
+      desktop_environment_options_,
       base::BindRepeating(&HostProcess::OnSessionPoliciesReceived,
                           base::Unretained(this)),
       &local_session_policies_provider_);
@@ -2079,6 +2132,8 @@ void HostProcess::OnHostOfflineReasonAck(bool success) {
   ftl_signaling_connector_.reset();
   ftl_echo_message_listener_.reset();
   signal_strategy_.reset();
+  corp_signal_strategy_.reset();
+  corp_signaling_connector_.reset();
   zombie_host_detector_.reset();
 
   if (state_ == HOST_GOING_OFFLINE_TO_RESTART) {

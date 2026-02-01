@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox;
 
-import android.os.Build;
-import android.util.Pair;
-
 import androidx.test.filters.LargeTest;
 
 import org.junit.AfterClass;
@@ -18,13 +15,12 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.transit.TransitAsserts;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ReusedCtaTransitTestRule;
-import org.chromium.chrome.test.transit.SoftKeyboardFacility;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.omnibox.FakeOmniboxSuggestions;
@@ -36,10 +32,6 @@ import org.chromium.chrome.test.transit.page.WebPageStation;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
-@DisableIf.Build(
-        sdk_is_greater_than = Build.VERSION_CODES.R,
-        sdk_is_less_than = Build.VERSION_CODES.TIRAMISU,
-        message = "Flaky in S, crbug.com/372709072")
 public class OmniboxPTTest {
     @Rule
     public ReusedCtaTransitTestRule<WebPageStation> mCtaTestRule =
@@ -75,9 +67,9 @@ public class OmniboxPTTest {
         ChromeFeatureList.sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox.setForTesting(false);
         WebPageStation blankPage = mCtaTestRule.start();
         RegularNewTabPageStation ntp = blankPage.openNewTabFast();
-        var omniboxAndKeyboard = ntp.openOmnibox(sFakeSuggestions);
+        var omnibox = ntp.openOmnibox(sFakeSuggestions);
 
-        doOpenTypeDelete(omniboxAndKeyboard);
+        doOpenTypeDelete(omnibox);
 
         blankPage =
                 ntp.openTabSwitcherActionMenu()
@@ -87,30 +79,29 @@ public class OmniboxPTTest {
 
     @LargeTest
     @Test
-    @DisableIf.Build(sdk_is_greater_than = Build.VERSION_CODES.Q, message = "crbug.com/415805917")
     public void testOpenTypeDelete_fromIncognitoNtp() {
         WebPageStation blankPage = mCtaTestRule.start();
-        IncognitoNewTabPageStation incognitoNtp = blankPage.openNewIncognitoTabFast();
-        var omniboxAndKeyboard = incognitoNtp.openOmnibox(sFakeSuggestions);
+        IncognitoNewTabPageStation incognitoNtp = blankPage.openNewIncognitoTabOrWindowFast();
+        var omnibox = incognitoNtp.openOmnibox(sFakeSuggestions);
 
-        doOpenTypeDelete(omniboxAndKeyboard);
+        doOpenTypeDelete(omnibox);
 
-        blankPage =
-                incognitoNtp
-                        .openTabSwitcherActionMenu()
-                        .selectCloseTabAndDisplayRegularTab(WebPageStation.newBuilder());
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
+            incognitoNtp.openTabSwitcherActionMenu().selectCloseTabTo().reachLastStop();
+        } else {
+            blankPage =
+                    incognitoNtp
+                            .openTabSwitcherActionMenu()
+                            .selectCloseTabAndDisplayRegularTab(WebPageStation.newBuilder());
+        }
         TransitAsserts.assertFinalDestination(blankPage);
     }
 
-    private void doOpenTypeDelete(Pair<OmniboxFacility, SoftKeyboardFacility> omniboxAndKeyboard) {
-        OmniboxFacility omnibox = omniboxAndKeyboard.first;
-        SoftKeyboardFacility keyboard = omniboxAndKeyboard.second;
-
+    private void doOpenTypeDelete(OmniboxFacility omnibox) {
         OmniboxEnteredTextFacility enteredText = omnibox.typeText("chr");
         enteredText = enteredText.simulateAutocomplete("omium");
         enteredText.clickDelete();
 
-        keyboard.close();
         omnibox.pressBackTo().exitFacility();
     }
 }

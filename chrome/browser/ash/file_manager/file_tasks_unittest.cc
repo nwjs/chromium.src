@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/test/metrics/user_action_tester.h"
@@ -146,9 +147,9 @@ TEST(FileManagerFileTasksTest, BaseContainsFindsTaskDescriptors) {
   tasks.insert(task_2);
   tasks.insert(task_3);
 
-  ASSERT_TRUE(base::Contains(tasks, task_1));
-  ASSERT_TRUE(base::Contains(tasks, task_2));
-  ASSERT_TRUE(base::Contains(tasks, task_3));
+  ASSERT_TRUE(tasks.contains(task_1));
+  ASSERT_TRUE(tasks.contains(task_2));
+  ASSERT_TRUE(tasks.contains(task_3));
 }
 
 TEST(FileManagerFileTasksTest, EqualTaskDescriptors) {

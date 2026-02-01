@@ -28,7 +28,6 @@
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
-#include "components/signin/public/identity_manager/scope_set.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_request_headers.h"
@@ -214,8 +213,7 @@ PlusAddressHttpClientImpl::PlusAddressHttpClientImpl(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
     : identity_manager_(CHECK_DEREF(identity_manager)),
       url_loader_factory_(std::move(url_loader_factory)),
-      server_url_(ValidateAndGetUrl()),
-      scopes_({features::kEnterprisePlusAddressOAuthScope.Get()}) {}
+      server_url_(ValidateAndGetUrl()) {}
 
 PlusAddressHttpClientImpl::~PlusAddressHttpClientImpl() = default;
 
@@ -481,8 +479,8 @@ void PlusAddressHttpClientImpl::GetAuthToken(TokenReadyCallback callback) {
   }
   access_token_fetcher_ =
       std::make_unique<signin::PrimaryAccountAccessTokenFetcher>(
-          /*consumer_name=*/"PlusAddressHttpClientImpl",
-          &identity_manager_.get(), scopes_,
+          signin::OAuthConsumerId::kEnterprisePlusAddress,
+          &identity_manager_.get(),
           base::BindOnce(&PlusAddressHttpClientImpl::OnTokenFetched,
                          // It is safe to use base::Unretained as
                          // `this` owns `access_token_fetcher_`.

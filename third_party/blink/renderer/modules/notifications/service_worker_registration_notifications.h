@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -28,9 +29,10 @@ class ServiceWorkerRegistration;
 
 class ServiceWorkerRegistrationNotifications final
     : public GarbageCollected<ServiceWorkerRegistrationNotifications>,
+      public Supplement<ServiceWorkerRegistration>,
       public ExecutionContextLifecycleObserver {
  public:
-  static const unsigned kSupplementIndex;
+  static const char kSupplementName[];
 
   static ScriptPromise<IDLUndefined> showNotification(
       ScriptState* script_state,
@@ -69,7 +71,6 @@ class ServiceWorkerRegistrationNotifications final
                         ScriptPromiseResolver<IDLUndefined>* resolver,
                         NotificationResourcesLoader* loader);
 
-  Member<ServiceWorkerRegistration> service_worker_registration_;
   HeapHashSet<Member<NotificationResourcesLoader>> loaders_;
 };
 

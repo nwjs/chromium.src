@@ -510,8 +510,9 @@ class FieldTrialCreatorTest : public ::testing::Test {
     CHECK(base::WriteFile(seed_file_path(), compressed_seed));
 
     // Write the seed for the seed file experiment's control-group clients.
-    local_state()->SetString(prefs::kVariationsCompressedSeed,
-                             base::Base64Encode(compressed_seed));
+    local_state()->SetString(
+        prefs::kVariationsCompressedSeed,
+        base::Base64EncodeEarlyStartup(base::as_byte_span(compressed_seed)));
 
     // Allows and writes an empty signature for the test seed.
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
@@ -742,8 +743,16 @@ TEST_F(FieldTrialCreatorTest, SetUpFieldTrials_FutureMilestone) {
 }
 
 // Verify that unexpired safe seeds are used.
+// TODO(crbug.com/465773235): test is flaky.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed \
+  DISABLED_SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed
+#else
+#define MAYBE_SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed \
+  SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed
+#endif
 TEST_P(FieldTrialCreatorFetchAndLaunchTimeTest,
-       SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed) {
+       MAYBE_SetUpFieldTrials_ValidSafeSeed_NewBinaryUsesSeed) {
   const auto& test_case = GetParam();
   // Fast forward the clock to build time.
   base::ScopedMockClockOverride mock_clock;
@@ -948,8 +957,8 @@ TEST_F(FieldTrialCreatorTest, LoadSeedFromTestSeedJsonPath) {
   base::WriteFile(test_seed_file,
                   base::StringPrintf("{\"variations_compressed_seed\": \"%s\","
                                      "\"variations_seed_signature\": \"%s\"}",
-                                     kTestSeedData.base64_compressed_data,
-                                     kTestSeedData.base64_signature));
+                                     TestSeedData().base64_compressed_data,
+                                     TestSeedData().base64_signature));
 
   base::CommandLine::ForCurrentProcess()->AppendSwitchPath(
       variations::switches::kVariationsTestSeedJsonPath, test_seed_file);
@@ -970,7 +979,8 @@ TEST_F(FieldTrialCreatorTest, LoadSeedFromTestSeedJsonPath) {
   PlatformFieldTrials platform_field_trials;
   NiceMock<MockSafeSeedManager> safe_seed_manager(local_state());
 
-  ASSERT_FALSE(base::FieldTrialList::TrialExists(kTestSeedData.study_names[0]));
+  ASSERT_FALSE(
+      base::FieldTrialList::TrialExists(TestSeedData().study_names[0]));
 
   EXPECT_TRUE(field_trial_creator.SetUpFieldTrials(
       /*variation_ids=*/{},
@@ -982,7 +992,7 @@ TEST_F(FieldTrialCreatorTest, LoadSeedFromTestSeedJsonPath) {
       *metrics_state_manager->CreateEntropyProviders(
           /*enable_limited_entropy_mode=*/false)));
 
-  EXPECT_TRUE(base::FieldTrialList::TrialExists(kTestSeedData.study_names[0]));
+  EXPECT_TRUE(base::FieldTrialList::TrialExists(TestSeedData().study_names[0]));
   EXPECT_EQ(
       local_state()->GetInteger(prefs::kVariationsFailedToFetchSeedStreak), 0);
   EXPECT_EQ(local_state()->GetInteger(prefs::kVariationsCrashStreak), 0);

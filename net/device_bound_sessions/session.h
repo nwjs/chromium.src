@@ -14,6 +14,7 @@
 #include "net/base/backoff_entry.h"
 #include "net/base/net_export.h"
 #include "net/device_bound_sessions/cookie_craving.h"
+#include "net/device_bound_sessions/dbsc_request.h"
 #include "net/device_bound_sessions/session_error.h"
 #include "net/device_bound_sessions/session_inclusion_rules.h"
 #include "net/device_bound_sessions/session_key.h"
@@ -21,11 +22,11 @@
 #include "url/gurl.h"
 
 namespace net {
-class URLRequest;
 class FirstPartySetMetadata;
-}
+}  // namespace net
 
 namespace net::device_bound_sessions {
+struct SessionDisplay;
 
 namespace proto {
 class Session;
@@ -51,6 +52,9 @@ class NET_EXPORT Session {
   static std::unique_ptr<Session> CreateFromProto(const proto::Session& proto);
   proto::Session ToProto() const;
 
+  // Returns a display-friendly version of this Session. Used for DevTools.
+  SessionDisplay ToDisplay() const;
+
   // Used to set the unexportable session binding key associated with this
   // session. This method can be called when a session is first bound with
   // a brand new key. It can also be called when restoring a session after
@@ -62,14 +66,14 @@ class NET_EXPORT Session {
   const KeyIdOrError& unexportable_key_id() const { return key_id_or_error_; }
 
   // Return whether `request` is in-scope for this session.
-  bool IsInScope(URLRequest* request);
+  bool IsInScope(DbscRequest& request);
 
   // Returns the minimum remaining lifetime over all the bound cookies
   // on `request`. If any cookie is missing, the lifetime will be
   // zero. If no cookies would be included on the request, the lifetime
   // will be `base::TimeDelta::Max()`
   base::TimeDelta MinimumBoundCookieLifetime(
-      URLRequest* request,
+      DbscRequest& request,
       const FirstPartySetMetadata& first_party_set_metadata);
 
   const Id& id() const { return id_; }
@@ -126,7 +130,7 @@ class NET_EXPORT Session {
   // cookies. This is a prerequisite for certain kinds of changes to
   // session config.
   bool CanSetBoundCookie(
-      const URLRequest& request,
+      DbscRequest& request,
       const FirstPartySetMetadata& first_party_set_metadata) const;
 
   const url::Origin& origin() const { return inclusion_rules_.origin(); }

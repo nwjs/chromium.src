@@ -35,7 +35,6 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
 #include "ui/accessibility/ax_action_data.h"
-#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_node_id_forward.h"
@@ -48,7 +47,6 @@
 #include "ui/gfx/geometry/transform.h"
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-#include "base/containers/contains.h"
 #include "ui/strings/grit/auto_image_annotation_strings.h"
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
@@ -418,6 +416,7 @@ void PdfAccessibilityTree::DoSetAccessibilityDocInfo(
   ClearAccessibilityNodes();
   page_count_ = doc_info->page_count;
   is_tagged_ = doc_info->is_tagged;
+  doc_structure_tree_root_ = std::move(doc_info->structure_tree_root);
 
   doc_node_ =
       CreateNode(ax::mojom::Role::kPdfRoot, ax::mojom::Restriction::kReadOnly,
@@ -615,11 +614,19 @@ void PdfAccessibilityTree::AddPageContent(
   CHECK(doc_node_);
   auto obj = GetPluginContainerAXObject();
   CHECK(obj);
+
+  const chrome_pdf::AccessibilityStructureElement* page_structure_tree =
+      nullptr;
+  if (doc_structure_tree_root_) {
+    CHECK_EQ(doc_structure_tree_root_->children.size(), page_count_);
+    page_structure_tree = doc_structure_tree_root_->children[page_index].get();
+  }
+
   PdfAccessibilityTreeBuilder tree_builder(
       /*mark_headings_using_heuristic=*/!is_tagged_, text_runs, chars,
-      page_objects, page_info, page_index, doc_node_.get(), &(*obj), &nodes_,
-      &node_id_to_page_char_index_, &node_id_to_annotation_info_
-  );
+      page_objects, page_info, page_index, page_structure_tree, doc_node_.get(),
+      &(*obj), &nodes_, &node_id_to_page_char_index_,
+      &node_id_to_annotation_info_);
   tree_builder.BuildPageTree();
 }
 

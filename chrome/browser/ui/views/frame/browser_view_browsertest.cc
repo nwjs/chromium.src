@@ -97,9 +97,7 @@
 
 class BrowserViewTest : public InProcessBrowserTest {
  public:
-  BrowserViewTest() : devtools_(nullptr) {
-    scoped_feature_list_.InitWithFeatures({features::kSideBySide}, {});
-  }
+  BrowserViewTest() : devtools_(nullptr) {}
 
   BrowserViewTest(const BrowserViewTest&) = delete;
   BrowserViewTest& operator=(const BrowserViewTest&) = delete;
@@ -156,27 +154,10 @@ class BrowserViewTest : public InProcessBrowserTest {
   }
 
   raw_ptr<DevToolsWindow> devtools_;
-
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class BrowserViewWithoutSideBySideTest : public BrowserViewTest {
- public:
-  BrowserViewWithoutSideBySideTest() {
-    scoped_feature_list_.InitWithFeatures({}, {features::kSideBySide});
-  }
 
-  SidePanel* side_panel() {
-    return browser_view()->contents_height_side_panel();
-  }
 
-  views::View* side_panel_rounded_corner() {
-    return browser_view()->GetSidePanelRoundedCornerForTesting();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
 
 #if BUILDFLAG(IS_CHROMEOS)
 using BrowserViewChromeOSTest = ChromeOSBrowserUITest;
@@ -475,21 +456,6 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsWindowResetsSize) {
               HasDimensions(100, 740, 100, 740));
 }
 
-// Verifies that the side panel's rounded corner is being correctly layed out.
-IN_PROC_BROWSER_TEST_F(BrowserViewWithoutSideBySideTest,
-                       SidePanelRoundedCornerLayout) {
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
-  side_panel_ui->SetNoDelaysForTesting(true);
-  side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
-  if (base::FeatureList::IsEnabled(features::kTabbedBrowserUseNewLayout)) {
-    browser()->GetBrowserView().GetWidget()->LayoutRootViewIfNecessary();
-  }
-  EXPECT_EQ(side_panel()->bounds().x(),
-            side_panel_rounded_corner()->bounds().right());
-  EXPECT_EQ(side_panel()->bounds().y(),
-            side_panel_rounded_corner()->bounds().y());
-}
-
 class BookmarkBarViewObserverImpl : public BookmarkBarViewObserver {
  public:
   BookmarkBarViewObserverImpl() = default;
@@ -570,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, TitleAndLoadState) {
   content::TestNavigationObserver navigation_watcher(
       contents, 1, content::MessageLoopRunner::QuitMode::DEFERRED);
 
-  TabStrip* tab_strip = browser_view()->tabstrip();
+  TabStrip* tab_strip = browser_view()->horizontal_tab_strip_for_testing();
   // Navigate without blocking.
   const GURL test_url = chrome_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
@@ -596,9 +562,8 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ShowFaviconInTab) {
   // Opens "chrome://version/" page, which uses default favicon.
   const GURL version_url(chrome::kChromeUIVersionURL);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), version_url));
-  auto* const tab_features =
-      browser()->tab_strip_model()->GetActiveTab()->GetTabFeatures();
-  auto* const helper = tab_features->tab_ui_helper();
+  auto* const tab = browser()->tab_strip_model()->GetActiveTab();
+  auto* const helper = TabUIHelper::From(tab);
   ASSERT_TRUE(helper);
 
   const auto favicon = helper->GetFavicon();
@@ -984,8 +949,16 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewFullscreenLayout) {
       {1}, split_tabs::SplitTabVisualData(),
       split_tabs::SplitTabCreatedSource::kToolbarButton);
 
-  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(0));
-  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(1));
+  ASSERT_TRUE(browser()
+                  ->tab_strip_model()
+                  ->selection_model()
+                  .GetListSelectionModel()
+                  .IsSelected(0));
+  ASSERT_TRUE(browser()
+                  ->tab_strip_model()
+                  ->selection_model()
+                  .GetListSelectionModel()
+                  .IsSelected(1));
 
   TopContainerView* top_container = browser_view()->top_container();
   views::View* overlay_view = browser_view()->overlay_view();
@@ -1016,8 +989,16 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, SplitViewTabRevealFullscreen) {
       {1}, split_tabs::SplitTabVisualData(),
       split_tabs::SplitTabCreatedSource::kToolbarButton);
 
-  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(0));
-  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(1));
+  ASSERT_TRUE(browser()
+                  ->tab_strip_model()
+                  ->selection_model()
+                  .GetListSelectionModel()
+                  .IsSelected(0));
+  ASSERT_TRUE(browser()
+                  ->tab_strip_model()
+                  ->selection_model()
+                  .GetListSelectionModel()
+                  .IsSelected(1));
 
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
   ASSERT_FALSE(browser()->window()->IsToolbarShowing());
@@ -1062,9 +1043,7 @@ class BrowserViewDataProtectionTest : public InProcessBrowserTest {
  public:
   BrowserViewDataProtectionTest()
       : scoped_prewarm_feature_list_(test::ScopedPrewarmFeatureList::
-                                         PrewarmState::kEnabledWithNoTrigger) {
-    scoped_feature_list_.InitAndEnableFeature(features::kSideBySide);
-  }
+                                         PrewarmState::kEnabledWithNoTrigger) {}
   BrowserViewDataProtectionTest(const BrowserViewDataProtectionTest&) = delete;
   BrowserViewDataProtectionTest& operator=(
       const BrowserViewDataProtectionTest&) = delete;
@@ -1118,7 +1097,6 @@ class BrowserViewDataProtectionTest : public InProcessBrowserTest {
   // Investigate details, and fix it to remove this workaround so that
   // DC_Screenshot test can pass stably.
   test::ScopedPrewarmFeatureList scoped_prewarm_feature_list_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 }  // namespace

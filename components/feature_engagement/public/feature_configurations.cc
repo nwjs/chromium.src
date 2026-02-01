@@ -15,9 +15,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "components/feature_engagement/public/ios_promo_feature_configuration.h"
 #endif  // BUILDFLAG(IS_IOS)
-#if BUILDFLAG(IS_CHROMEOS)
-#include "components/feature_engagement/public/scalable_iph_feature_configurations.h"
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -1054,15 +1051,37 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
   if (kIPHMostVisitedTilesCustomizationPinFeature.name == feature->name) {
+    // Allows an IPH for the MVT customization "Pin this shortcut" feature.
+    // * Only once in its lifetime.
+    // * (Per trigger logic) Only if the user has no Custom Tiles.
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
     config.session_rate = Comparator(EQUAL, 0);
     config.trigger =
         EventConfig("most_visited_tiles_customization_pin_triggered",
-                    Comparator(LESS_THAN, 1), 1, 360);
-    config.used = EventConfig("most_visited_tiles_customization_pin_clicked",
-                              Comparator(EQUAL, 0), 90, 360);
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+    config.used =
+        EventConfig("most_visited_tiles_customization_pin_clicked",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
+  if (kIPHNewTabPageThemeCustomizationFeature.name == feature->name) {
+    // Allows an IPH for the theme customization entry point.
+    // * Only once in its lifetime.
+    // * Only as long as the user hasn't opened the NTP customization bottom
+    // sheet.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger =
+        EventConfig("ntp_theme_customization_iph_triggered",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+    config.used =
+        EventConfig("ntp_theme_customization_iph_used", Comparator(EQUAL, 0),
+                    k10YearsInDays, k10YearsInDays);
     return config;
   }
   if (kIPHPageSummaryWebMenuFeature.name == feature->name) {
@@ -2937,6 +2956,14 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(LESS_THAN_OR_EQUAL, 3), /*window=*/1,
                     feature_engagement::kMaxStoragePeriod);
 
+    if (base::FeatureList::IsEnabled(kIPHiOSGeminiFullscreenPromoFeature)) {
+      // Should show if fullscreen promo was triggered once.
+      config.event_configs.insert(EventConfig(
+          events::kIOSGeminiFullscreenPromoTriggered,
+          Comparator(GREATER_THAN, 0), feature_engagement::kMaxStoragePeriod,
+          feature_engagement::kMaxStoragePeriod));
+    }
+
     return config;
   }
 
@@ -2971,14 +2998,25 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-#endif  // BUILDFLAG(IS_IOS)
-
-#if BUILDFLAG(IS_CHROMEOS)
-  if (std::optional<FeatureConfig> scalable_iph_feature_config =
-          GetScalableIphFeatureConfig(feature)) {
-    return scalable_iph_feature_config;
+  if (kIPHiOSGeminiImageRemixFeature.name == feature->name) {
+    // Show the entry point once a year, but block it for 3 days if the user has
+    // seen another Gemini-related IPH.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.storage_type = StorageType::DEVICE;
+    config.trigger = EventConfig(events::kIOSGeminiImageRemixIPHTrigger,
+                                 Comparator(LESS_THAN, 1), 365, 365);
+    config.event_configs.insert(EventConfig(
+        events::kIOSPageActionMenuIPHTrigger, Comparator(EQUAL, 0), 3, 365));
+    config.event_configs.insert(
+        EventConfig(events::kIOSGeminiFullscreenPromoTriggered,
+                    Comparator(EQUAL, 0), 3, 365));
+    return config;
   }
-#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (kIPHLauncherSearchHelpUiFeature.name == feature->name) {

@@ -13,12 +13,11 @@
 #import "components/search/search.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/public/set_up_list_utils.h"
+#import "ios/chrome/browser/content_suggestions/set_up_list/public/set_up_list_utils.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
-#import "ios/chrome/browser/ntp/model/features.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -153,7 +152,7 @@ bool TipsNotificationCriteria::ShouldSendSetUpListContinuation() {
   // Up List minus the trigger interval after FirstRun.
   TimeDelta trigger_delta = TipsNotificationTriggerDelta(
       reactivation_, GetTipsNotificationUserType(local_state_));
-  if (!IsFirstRunRecent(set_up_list::SetUpListDurationPastFirstRun() -
+  if (!IsFirstRunRecent(set_up_list_utils::SetUpListDurationPastFirstRun() -
                         trigger_delta)) {
     return false;
   }

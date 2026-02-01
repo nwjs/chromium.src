@@ -20,6 +20,26 @@ export interface ActorOverlayAppElement {
   $: {magicCursor: HTMLDivElement};
 }
 
+/**
+ * Magic Cursor Kinematics Tuning Parameters for CSS Transitions.
+ *
+ * These constants define the cursor's movement (speed, duration, and
+ * responsiveness). Adjusting these values controls the perceived pace and
+ * smoothness of the cursor.
+ */
+
+// Constant speed the cursor maintains during animation, measured in pixels per
+// millisecond.
+const DESIRED_SPEED_PX_PER_MS = 0.667;
+// The minimum allowed duration (in ms) for any single cursor movement.
+// Increasing this value makes short movements appear slower and smoother;
+// decreasing it makes them pop into position more instantly.
+const MIN_DURATION_MS = 50;
+// The maximum allowed duration (in ms) for any single cursor movement.
+// Increasing this value allows long movements to take more time; decreasing it
+// makes all long movements finish faster.
+const MAX_DURATION_MS = 675;
+
 export class ActorOverlayAppElement extends CrLitElement {
   static get is() {
     return 'actor-overlay-app';
@@ -45,11 +65,17 @@ export class ActorOverlayAppElement extends CrLitElement {
   private setScrimBackgroundListenerId_: number | null = null;
   private setBorderGlowVisibilityListenerId_: number | null = null;
   private setThemeListenerId_: number|null = null;
+  private moveCursorToListenerId_: number|null = null;
+  private triggerClickAnimationListenerId_: number|null = null;
   private shouldShowCursor_: boolean =
       loadTimeData.getBoolean('isMagicCursorEnabled');
   private isCursorInitialized_: boolean = false;
   private isStandaloneBorderGlowEnabled_: boolean =
       loadTimeData.getBoolean('isStandaloneBorderGlowEnabled');
+
+  // Position State for Magic Cursor (Logical Pixels)
+  private currentX_: number = 0;
+  private currentY_: number = 0;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -74,6 +100,15 @@ export class ActorOverlayAppElement extends CrLitElement {
     proxy.handler.getCurrentBorderGlowVisibility().then(
         ({isVisible}) => this.setBorderGlowVisibility(isVisible));
 
+    // Magic Cursor
+    this.moveCursorToListenerId_ =
+        proxy.callbackRouter.moveCursorTo.addListener(
+            this.moveCursorTo.bind(this));
+
+    this.triggerClickAnimationListenerId_ =
+        proxy.callbackRouter.triggerClickAnimation.addListener(
+            this.triggerClickAnimation.bind(this));
+
     // Theme
     this.setThemeListenerId_ =
         proxy.callbackRouter.setTheme.addListener(this.setTheme.bind(this));
@@ -83,12 +118,19 @@ export class ActorOverlayAppElement extends CrLitElement {
     super.disconnectedCallback();
     this.eventTracker_.removeAll();
     this.removeEventListener('wheel', this.onWheelEvent_);
+
     assert(this.setScrimBackgroundListenerId_);
     ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
       this.setScrimBackgroundListenerId_);
     assert(this.setBorderGlowVisibilityListenerId_);
     ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
       this.setBorderGlowVisibilityListenerId_);
+    assert(this.moveCursorToListenerId_);
+    ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
+        this.moveCursorToListenerId_);
+    assert(this.triggerClickAnimationListenerId_);
+    ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
+        this.triggerClickAnimationListenerId_);
     assert(this.setThemeListenerId_);
     ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
         this.setThemeListenerId_);
@@ -121,20 +163,82 @@ export class ActorOverlayAppElement extends CrLitElement {
         '--actor-scrim-background-val2', skColorToRgba(theme.scrimColors[1]!));
     this.style.setProperty(
         '--actor-scrim-background-val3', skColorToRgba(theme.scrimColors[2]!));
+    this.style.setProperty(
+        '--actor-magic-cursor-filter',
+        `drop-shadow(0px 3px 5px ${skColorToRgba(theme.magicCursorColor)})`);
   }
 
-  // TODO(crbug.com/422539773): Make function private once it's called via the
-  // browser.
-  moveCursorTo(point: Point) {
-    if (!this.$.magicCursor || !this.shouldShowCursor_) {
-      return;
+  private async triggerClickAnimation(): Promise<void> {
+    const cursor = this.$.magicCursor;
+    if (!cursor || !this.shouldShowCursor_ || !this.isCursorInitialized_) {
+      return Promise.resolve();
     }
+
+    cursor.style.setProperty('--cursor-x', `${Math.round(this.currentX_)}px`);
+    cursor.style.setProperty('--cursor-y', `${Math.round(this.currentY_)}px`);
+
+    return new Promise((resolve) => {
+      const onAnimationEnd = () => {
+        cursor.classList.remove('clicking');
+        resolve();
+      };
+      cursor.addEventListener('animationend', onAnimationEnd, {once: true});
+      cursor.classList.add('clicking');
+    });
+  }
+
+  private moveCursorTo(point: Point): Promise<void> {
+    if (!this.$.magicCursor || !this.shouldShowCursor_) {
+      return Promise.resolve();
+    }
+
+    const scale = window.devicePixelRatio;
+    const targetX = point.x / scale;
+    const targetY = point.y / scale;
+
+    // Initialize cursor position and state if first movement.
     if (!this.isCursorInitialized_) {
       this.$.magicCursor.style.opacity = '1';
       this.isCursorInitialized_ = true;
+      // Initialize cursor at the top-left or top-right corner, whichever is
+      // closer to the target.
+      this.currentX_ =
+          (targetX < window.innerWidth / 2) ? 0 : window.innerWidth;
+      this.currentY_ = 0;
+      this.setCursorTransform(this.currentX_, this.currentY_);
+      // Querying `offsetWidth` forces a page reflow to render the magic cursor
+      // before calculating the cursor movement to the target.
+      void this.$.magicCursor.offsetWidth;
     }
+
+    // Calculate distance and duration for animation
+    const dx = targetX - this.currentX_;
+    const dy = targetY - this.currentY_;
+    const distance = Math.hypot(dx, dy);
+    let durationMs = Math.round(distance / DESIRED_SPEED_PX_PER_MS);
+    durationMs =
+        Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, durationMs));
+
+    const transitionFinished = new Promise<void>(resolve => {
+      this.$.magicCursor.addEventListener('transitionend', () => {
+        resolve();
+      }, {once: true});
+    });
+
+    // Update transition duration based on the distance and apply the new cursor
+    // position.
+    this.$.magicCursor.style.transitionDuration = `${durationMs}ms`;
+    this.setCursorTransform(targetX, targetY);
+
+    // Update internal position state
+    this.currentX_ = targetX;
+    this.currentY_ = targetY;
+    return transitionFinished;
+  }
+
+  private setCursorTransform(drawX: number, drawY: number) {
     this.$.magicCursor.style.transform =
-        `translate(${point.x}px, ${point.y}px)`;
+        `translate(${Math.round(drawX)}px, ${Math.round(drawY)}px)`;
   }
 }
 

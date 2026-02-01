@@ -106,6 +106,7 @@
 #include "services/network/devtools_durable_msg_accounting_delegate.h"
 #include "services/network/devtools_durable_msg_collector.h"
 #include "services/network/file_opener_for_upload.h"
+#include "services/network/multiple_durable_message_writer_impl.h"
 #include "services/network/observer_wrapper.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/features.h"
@@ -123,6 +124,7 @@
 #include "services/network/public/mojom/trust_tokens.mojom-shared.h"
 #include "services/network/public/mojom/unencoded_digest.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
+#include "services/network/public/mojom/url_loader_network_service_observer.mojom-shared.h"
 #include "services/network/resource_scheduler/resource_scheduler_client.h"
 #include "services/network/shared_dictionary/shared_dictionary_access_checker.h"
 #include "services/network/shared_resource_checker.h"
@@ -715,7 +717,7 @@ struct URLLoaderOptions {
         ObserverWrapper(std::move(devtools_observer)),
         ObserverWrapper(std::move(device_bound_session_observer)),
         std::move(accept_ch_frame_observer), shared_storage_writable_eligible,
-        *shared_resource_checker, std::move(maybe_durable_message));
+        *shared_resource_checker, std::move(durable_message_writer));
   }
 
   int32_t options = mojom::kURLLoadOptionNone;
@@ -743,7 +745,7 @@ struct URLLoaderOptions {
   bool shared_storage_writable_eligible = false;
   CookieSettings cookie_settings;
   std::unique_ptr<SharedResourceChecker> shared_resource_checker;
-  base::WeakPtr<DevtoolsDurableMessage> maybe_durable_message;
+  std::unique_ptr<DevtoolsDurableMessageWriter> durable_message_writer;
 
  private:
   bool used = false;
@@ -929,7 +931,8 @@ class URLLoaderTest : public testing::Test {
     url_loader_options.accept_ch_frame_observer =
         accept_ch_frame_observer_ ? accept_ch_frame_observer_->Bind()
                                   : mojo::NullRemote();
-    url_loader_options.maybe_durable_message = std::move(durable_message_);
+    url_loader_options.durable_message_writer =
+        make_unique<MultipleDurableMessageWriterImpl>(durable_messages_);
     url_loader = url_loader_options.MakeURLLoader(
         context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
         loader.BindNewPipeAndPassReceiver(), request, client_.CreateRemote());
@@ -1159,9 +1162,9 @@ class URLLoaderTest : public testing::Test {
       const net::CookieSettingOverrides& overrides) {
     cookie_setting_overrides_ = overrides;
   }
-  void set_durable_message(
-      base::WeakPtr<DevtoolsDurableMessage> durable_message) {
-    durable_message_ = std::move(durable_message);
+  void set_durable_messages(
+      std::vector<base::WeakPtr<DevtoolsDurableMessage>> durable_messages) {
+    durable_messages_ = std::move(durable_messages);
   }
 
   // Convenience methods after calling Load();
@@ -1306,7 +1309,7 @@ class URLLoaderTest : public testing::Test {
   net::HttpRequestHeaders additional_headers_;
   net::CookieSettingOverrides cookie_setting_overrides_;
   std::optional<int> partial_decoder_decoding_buffer_size_;
-  base::WeakPtr<DevtoolsDurableMessage> durable_message_;
+  std::vector<base::WeakPtr<DevtoolsDurableMessage>> durable_messages_;
 
   bool orb_enabled_ = false;
 
@@ -1869,15 +1872,18 @@ TEST_F(URLLoaderTest, AddsNetLogEntryForPrivateNetworkAccessCheckSameOrigin) {
 class TestLNAPermissionURLLoaderNetworkObserver
     : public TestURLLoaderNetworkObserver {
  public:
-  explicit TestLNAPermissionURLLoaderNetworkObserver(bool permission_granted)
-      : granted_(permission_granted) {}
+  explicit TestLNAPermissionURLLoaderNetworkObserver(
+      mojom::LocalNetworkAccessResult result)
+      : result_(result) {}
   void OnLocalNetworkAccessPermissionRequired(
+      mojom::TransportType type,
+      network::mojom::IPAddressSpace ip_address_space,
       OnLocalNetworkAccessPermissionRequiredCallback callback) override {
-    std::move(callback).Run(granted_);
+    std::move(callback).Run(result_);
   }
 
  private:
-  const bool granted_;
+  const mojom::LocalNetworkAccessResult result_;
 };
 
 TEST_F(URLLoaderTest, SecurePublicToLoopbackPermissionDenied) {
@@ -1891,7 +1897,7 @@ TEST_F(URLLoaderTest, SecurePublicToLoopbackPermissionDenied) {
 
   // Simulate that the permission request was denied.
   TestLNAPermissionURLLoaderNetworkObserver observer(
-      /*permission_granted=*/false);
+      mojom::LocalNetworkAccessResult::kDenied);
   set_network_observer_for_next_request(&observer);
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
@@ -1915,7 +1921,7 @@ TEST_F(URLLoaderTest, SecurePublicToLoopbackPermissionGranted) {
 
   // Simulate that the permission request was granted.
   TestLNAPermissionURLLoaderNetworkObserver observer(
-      /*permission_granted=*/true);
+      mojom::LocalNetworkAccessResult::kGranted);
   set_network_observer_for_next_request(&observer);
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
@@ -1942,7 +1948,7 @@ TEST_F(URLLoaderTest, SecureLocalToLoopbackLNAPermissionNotRequired) {
 
   // Simulate that the permission request was denied.
   TestLNAPermissionURLLoaderNetworkObserver observer(
-      /*permission_granted=*/false);
+      mojom::LocalNetworkAccessResult::kDenied);
   set_network_observer_for_next_request(&observer);
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
@@ -2632,7 +2638,7 @@ TEST_F(URLLoaderTest, CompressedResponseSniffMimeClienteSideDecoding) {
 TEST_F(URLLoaderTest, WritesToDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   std::string body;
   constexpr int kGzippedBodyLength = 60;
   EXPECT_EQ(net::OK, Load(test_server()->GetURL("/hello.html.gz"), &body));
@@ -2649,7 +2655,7 @@ TEST_F(URLLoaderTest, WritesToDurableMessage) {
 TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   constexpr int kGzippedBodyLength = 142;
   set_sniff();
   set_client_side_content_decoding_enabled();
@@ -2660,7 +2666,7 @@ TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
   EXPECT_THAT(client()->response_head()->client_side_content_decoding_types,
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_TRUE(did_mime_sniff());
-  EXPECT_THAT(durable_message.GetClientDecodingTypesForTesting(),
+  EXPECT_THAT(durable_message.get_client_decoding_types_for_testing(),
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_EQ(encoded_body, ReadTestFile("content-sniffer-test0.html.gz"));
   EXPECT_TRUE(durable_message.is_complete());
@@ -2709,7 +2715,7 @@ TEST_F(URLLoaderMockSocketTest, DurableMessageWorksWithLotsOfData) {
 
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   set_sniff();
   // Set the flag for ClientSideContentDecoding.
   request.client_side_content_decoding_enabled = true;
@@ -2734,7 +2740,7 @@ TEST_F(URLLoaderMockSocketTest, DurableMessageWorksWithLotsOfData) {
 TEST_F(URLLoaderTest, DurableMessagePerformsClientSideDecodingGzip) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   constexpr size_t kGzippedBodyLength = 60;
   set_sniff();
   set_client_side_content_decoding_enabled();
@@ -2743,7 +2749,7 @@ TEST_F(URLLoaderTest, DurableMessagePerformsClientSideDecodingGzip) {
             Load(test_server()->GetURL("/hello.html.gz"), &encoded_body));
   EXPECT_THAT(client()->response_head()->client_side_content_decoding_types,
               ElementsAre(net::SourceStreamType::kGzip));
-  EXPECT_THAT(durable_message.GetClientDecodingTypesForTesting(),
+  EXPECT_THAT(durable_message.get_client_decoding_types_for_testing(),
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_TRUE(durable_message.is_complete());
   ASSERT_EQ(accounting_delegate.size(),
@@ -2764,7 +2770,7 @@ TEST_F(URLLoaderTest, DoesNotWriteToDurableMessageWithEvictedMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   std::unique_ptr<DevtoolsDurableMessage> durable_message =
       std::make_unique<DevtoolsDurableMessage>("test", accounting_delegate);
-  set_durable_message(durable_message->GetWeakPtr());
+  set_durable_messages({durable_message->GetWeakPtr()});
 
   // Simulate eviction of the durable message.
   durable_message.reset();
@@ -2780,7 +2786,7 @@ TEST_F(URLLoaderTest, DoesNotWriteToDurableMessageWithEvictedMessage) {
 TEST_F(URLLoaderTest, ErrorBeforeHeadersWritesIncompleteDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   EXPECT_EQ(net::ERR_EMPTY_RESPONSE,
             Load(test_server()->GetURL("/close-socket"), nullptr));
   EXPECT_FALSE(client()->response_body().is_valid());
@@ -2791,7 +2797,7 @@ TEST_F(URLLoaderTest, ErrorBeforeHeadersWritesIncompleteDurableMessage) {
 TEST_F(URLLoaderTest, SyncErrorWhileReadingBodyWritesDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   std::string body;
   EXPECT_EQ(net::ERR_FAILED,
             Load(net::URLRequestFailedJob::GetMockHttpUrlWithFailurePhase(
@@ -2805,7 +2811,7 @@ TEST_F(URLLoaderTest, SyncErrorWhileReadingBodyWritesDurableMessage) {
 TEST_F(URLLoaderTest, AsyncErrorWhileReadingBodyWritesDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   std::string body;
   EXPECT_EQ(net::ERR_FAILED,
             Load(net::URLRequestFailedJob::GetMockHttpUrlWithFailurePhase(
@@ -2820,7 +2826,7 @@ TEST_F(URLLoaderTest,
        SyncErrorWhileReadingBodyAfterBytesReceivedWritesDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
 
   const std::string response_body("Foo.");
   std::list<std::string> packets = {response_body};
@@ -2839,7 +2845,7 @@ TEST_F(
     AsyncErrorWhileReadingBodyAfterBytesReceivedWritesIncompleteDurableMessage) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
-  set_durable_message(durable_message.GetWeakPtr());
+  set_durable_messages({durable_message.GetWeakPtr()});
   const std::string kBody("Foo.");
 
   std::list<std::string> packets;
@@ -8249,7 +8255,7 @@ TEST_F(URLLoaderFakeTransportInfoTest, LocalNetworkAccessAndAcceptCHFrame) {
 
   // Simulate that the permission request was granted.
   TestLNAPermissionURLLoaderNetworkObserver observer(
-      /*permission_granted=*/true);
+      mojom::LocalNetworkAccessResult::kGranted);
   set_network_observer_for_next_request(&observer);
 
   // Set up ACCEPT_CH frame.
@@ -8428,6 +8434,75 @@ TEST_F(URLLoaderTest, AcceptCHFrameNewHintsCallsObserver) {
   EXPECT_TRUE(accept_ch_frame_observer.called());
   EXPECT_THAT(accept_ch_frame_observer.accept_ch_frame(),
               testing::ElementsAre(mojom::WebClientHintsType::kUAPlatform));
+}
+
+// Tests that for loading a cached local network resource, the kRetryDueToCache
+// LNA permission result is mapped to the correct error code to trigger a retry
+// over the network.
+//
+// This test uses a FakeTransportInfo, which means this does not test the
+// underlying HTTP/cache layers.
+TEST_F(URLLoaderFakeTransportInfoTest,
+       LocalNetworkAccessCachedResourceRetryOverNetwork) {
+  base::test::ScopedFeatureList feature_list(
+      features::kLocalNetworkAccessChecks);
+  auto client_security_state = NewSecurityState();
+  client_security_state->ip_address_space = mojom::IPAddressSpace::kPublic;
+  client_security_state->private_network_request_policy =
+      mojom::PrivateNetworkRequestPolicy::kPermissionBlock;
+  set_factory_client_security_state(std::move(client_security_state));
+
+  // Simulate a cached resource and that the permission request would ask.
+  net::TransportInfo info = net::DefaultTransportInfo();
+  info.type = net::TransportType::kCached;
+  auto interceptor = std::make_unique<FakeTransportInfoInterceptor>(info);
+  net::URLRequestFilter::GetInstance()->AddUrlInterceptor(
+      GURL("http://fake-endpoint"), std::move(interceptor));
+
+  TestLNAPermissionURLLoaderNetworkObserver observer(
+      mojom::LocalNetworkAccessResult::kRetryDueToCache);
+  set_network_observer_for_next_request(&observer);
+
+  ResourceRequest request = CreateCrossOriginResourceRequest();
+
+  // RetryDueToCache should get mapped to the LNA error code that will signal to
+  // the HTTP cache to send the request to the network.
+  EXPECT_EQ(
+      net::ERR_CACHED_IP_ADDRESS_SPACE_BLOCKED_BY_LOCAL_NETWORK_ACCESS_POLICY,
+      LoadRequest(request));
+}
+
+// Tests that a local network request loaded directly (not cached) should result
+// in a regular LNA error code.
+//
+// This test uses a FakeTransportInfo, which means this does not test the
+// underlying HTTP/cache layers.
+TEST_F(URLLoaderFakeTransportInfoTest,
+       LocalNetworkAccessNonCachedResourceNoRetry) {
+  base::test::ScopedFeatureList feature_list(
+      features::kLocalNetworkAccessChecks);
+  auto client_security_state = NewSecurityState();
+  client_security_state->ip_address_space = mojom::IPAddressSpace::kPublic;
+  client_security_state->private_network_request_policy =
+      mojom::PrivateNetworkRequestPolicy::kPermissionBlock;
+  set_factory_client_security_state(std::move(client_security_state));
+
+  // Simulate a direct network request and that the permission request would be
+  // denied.
+  net::TransportInfo info = net::DefaultTransportInfo();
+  info.type = net::TransportType::kDirect;
+  auto interceptor = std::make_unique<FakeTransportInfoInterceptor>(info);
+  net::URLRequestFilter::GetInstance()->AddUrlInterceptor(
+      GURL("http://fake-endpoint"), std::move(interceptor));
+
+  TestLNAPermissionURLLoaderNetworkObserver observer(
+      mojom::LocalNetworkAccessResult::kDenied);
+  set_network_observer_for_next_request(&observer);
+
+  ResourceRequest request = CreateCrossOriginResourceRequest();
+
+  EXPECT_EQ(net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
 }
 
 class SharedStorageRequestHelperURLLoaderTest : public URLLoaderTest {

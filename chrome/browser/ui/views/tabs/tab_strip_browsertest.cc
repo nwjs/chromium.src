@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/strings/string_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
+#include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
@@ -26,7 +27,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -64,7 +65,7 @@ class TabStripBrowsertest : public InProcessBrowserTest {
   TabStripModel* tab_strip_model() { return browser()->tab_strip_model(); }
 
   TabStrip* tab_strip() {
-    return views::AsViewClass<TabStripRegionView>(
+    return views::AsViewClass<HorizontalTabStripRegionView>(
                browser()->GetBrowserView().tab_strip_view())
         ->tab_strip();
   }
@@ -997,8 +998,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
 
   // AccessibleName should update with crashedstatus
   TabRendererData tab_renderer_data = tab_strip()->tab_at(1)->data();
-  tab_renderer_data.crashed_status =
-      base::TERMINATION_STATUS_PROCESS_WAS_KILLED;
+  tab_renderer_data.is_crashed = true;
   tab_strip()->tab_at(1)->SetData(tab_renderer_data);
   data = ui::AXNodeData();
   tab_strip()->tab_at(1)->GetViewAccessibility().GetAccessibleNodeData(&data);
@@ -1021,7 +1021,9 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
   // AccessibleName update with alert on tab
   tab_renderer_data = tab_strip()->tab_at(new_index)->data();
   tab_renderer_data.network_state = TabNetworkState::kLoading;
-  tab_renderer_data.alert_state.push_back(tabs::TabAlert::kAudioPlaying);
+  RecentlyAudibleHelper::FromWebContents(
+      tab_strip_model()->GetWebContentsAt(new_index))
+      ->SetCurrentlyAudibleForTesting();
   tab_strip()->tab_at(new_index)->SetData(tab_renderer_data);
   data = ui::AXNodeData();
   tab_strip()->tab_at(new_index)->GetViewAccessibility().GetAccessibleNodeData(
@@ -1033,7 +1035,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
   // AccessibleName update with tab resource usage update
   tab_renderer_data = tab_strip()->tab_at(new_index)->data();
   auto tab_resource_usage = base::MakeRefCounted<TabResourceUsage>();
-  tab_resource_usage->SetMemoryUsage(base::ByteCount(100));
+  tab_resource_usage->SetMemoryUsage(base::ByteSize(100));
   tab_renderer_data.tab_resource_usage = std::move(tab_resource_usage);
   tab_strip()->tab_at(new_index)->SetData(tab_renderer_data);
   data = ui::AXNodeData();
@@ -1043,7 +1045,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
                 IDS_TAB_AX_MEMORY_USAGE,
                 l10n_util::GetStringFUTF16(
                     IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT, title),
-                ui::FormatBytes(base::ByteCount(100))),
+                ui::FormatBytes(base::ByteSize(100))),
             data.GetString16Attribute(ax::mojom::StringAttribute::kName));
 }
 
@@ -1487,17 +1489,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, ExtendTabSelection) {
   EXPECT_TRUE(tab_strip()->IsTabSelected(tab_strip()->tab_at(3)));
 }
 
-class TabStripSplitViewBrowsertest : public TabStripBrowsertest {
- public:
-  TabStripSplitViewBrowsertest() {
-    scoped_feature_list_.InitWithFeatures({features::kSideBySide}, {});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(TabStripSplitViewBrowsertest, CreateSplitUKMLogged) {
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, CreateSplitUKMLogged) {
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_ =
       std::make_unique<ukm::TestAutoSetUkmRecorder>();
 
@@ -1525,8 +1517,7 @@ IN_PROC_BROWSER_TEST_F(TabStripSplitViewBrowsertest, CreateSplitUKMLogged) {
           entries[1], ukm::builders::SplitView_Created::kSplitEventIdName));
 }
 
-IN_PROC_BROWSER_TEST_F(TabStripSplitViewBrowsertest,
-                       SwapTabIntoSplitUKMLogged) {
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, SwapTabIntoSplitUKMLogged) {
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_ =
       std::make_unique<ukm::TestAutoSetUkmRecorder>();
 
@@ -1561,8 +1552,7 @@ IN_PROC_BROWSER_TEST_F(TabStripSplitViewBrowsertest,
           entries[1], ukm::builders::SplitView_Updated::kSplitEventIdName));
 }
 
-IN_PROC_BROWSER_TEST_F(TabStripSplitViewBrowsertest,
-                       NavigateSplitTabUKMLogged) {
+IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, NavigateSplitTabUKMLogged) {
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_ =
       std::make_unique<ukm::TestAutoSetUkmRecorder>();
 

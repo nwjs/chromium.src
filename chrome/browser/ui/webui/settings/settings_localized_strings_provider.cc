@@ -98,6 +98,8 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "components/wallet/core/browser/walletable_permission_utils.h"
+#include "components/wallet/core/common/wallet_features.h"
 #include "components/zoom/page_zoom_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -140,7 +142,7 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
-#include "device/fido/features.h"
+#include "device/fido/public/features.h"
 #include "device/fido/win/webauthn_api.h"
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -165,6 +167,7 @@
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_policy_checker.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #endif
@@ -581,14 +584,13 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
   html_source->AddBoolean(
       "showHoverCardImagesOption",
       base::FeatureList::IsEnabled(features::kTabHoverCardImages));
-  html_source->AddBoolean("showTabSearchPositionSettings",
-                          tabs::CanShowTabSearchPositionSetting());
   html_source->AddBoolean("showVerticalTabsEnabled",
                           tabs::IsVerticalTabsFeatureEnabled());
-  html_source->AddBoolean("showSplitViewDragAndDropSetting",
-                          base::FeatureList::IsEnabled(features::kSideBySide));
-  html_source->AddBoolean("tabSearchIsRightAlignedAtStartup",
-                          tabs::GetTabSearchTrailingTabstrip(profile));
+
+  html_source->AddBoolean(
+      "tabSearchIsRightAlignedAtStartup",
+      tabs::GetTabSearchPosition(profile) ==
+          tabs::TabSearchPosition::kTrailingHorizontalTabstrip);
 
 #if BUILDFLAG(IS_LINUX)
   bool show_custom_chrome_frame = ui::OzonePlatform::GetInstance()
@@ -711,22 +713,15 @@ void AddClearBrowsingDataStrings(content::WebUIDataSource* html_source,
 
 #if !BUILDFLAG(IS_CHROMEOS)
 void AddDefaultBrowserStrings(content::WebUIDataSource* html_source) {
-  html_source->AddString(
-      "defaultBrowserDefault",
-      base::FeatureList::IsEnabled(features::kUserValueDefaultBrowserStrings)
-          ? l10n_util::GetStringUTF16(
-                IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT_THANK_YOU)
-          : l10n_util::GetStringUTF16(IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT));
-  html_source->AddString(
-      "defaultBrowserMakeDefault",
-      base::FeatureList::IsEnabled(features::kUserValueDefaultBrowserStrings)
-          ? l10n_util::GetStringUTF16(
-                IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT_USER_VALUE)
-          : l10n_util::GetStringUTF16(
-                IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT));
-
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"defaultBrowser", IDS_SETTINGS_DEFAULT_BROWSER},
+      {"defaultBrowserDefault", IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT},
+
+      {"defaultBrowserDefaultThankYou",
+       IDS_SETTINGS_DEFAULT_BROWSER_DEFAULT_THANK_YOU},
+      {"defaultBrowserMakeDefault", IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT},
+      {"defaultBrowserMakeDefaultUserValue",
+       IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT_USER_VALUE},
       {"defaultBrowserMakeDefaultAndPin",
        IDS_SETTINGS_DEFAULT_BROWSER_MAKE_DEFAULT_AND_PIN},
       {"defaultBrowserMakeDefaultButton",
@@ -759,7 +754,7 @@ bool IsWebActuationDisabledForEnterprise(Profile* profile) {
     auto* actor_service =
         actor::ActorKeyedServiceFactory::GetActorKeyedService(profile);
     if (actor_service) {
-      can_act_on_web = actor_service->GetPolicyChecker().can_act_on_web();
+      can_act_on_web = actor_service->GetPolicyChecker().CanActOnWeb();
     }
   }
   return !can_act_on_web;
@@ -774,27 +769,39 @@ bool ShouldShowWebActuationToggle(Profile* profile) {
     return false;
   }
 
+  // Don't show the toggle if allowed tiers are configured, but the
+  // corresponding flag is disabled.
   const base::flat_set<int32_t>& allowed_tiers =
       actor::ActorPolicyChecker::GetActorEligibleTiers();
-
-  // If tiers are populated, ensure the UI visibility flag is also enabled
-  // before showing the toggle.
   if (!allowed_tiers.empty() &&
       base::FeatureList::IsEnabled(features::kGlicWebActuationSettingsToggle)) {
     auto* subscription_service = subscription_eligibility::
         SubscriptionEligibilityServiceFactory::GetForProfile(profile);
     CHECK(subscription_service);
-    return allowed_tiers.contains(
-        subscription_service->GetAiSubscriptionTier());
+    if (!allowed_tiers.contains(
+            subscription_service->GetAiSubscriptionTier())) {
+      return false;
+    }
   }
 
-  // If no specific tiers are populated, show the toggle only if the user
-  // has explicitly modified the preference before.
+  // Show the toggle if the user has explicitly modified the preference before.
   const PrefService::Preference* pref = profile->GetPrefs()->FindPreference(
       glic::prefs::kGlicUserEnabledActuationOnWeb);
   if (pref && !pref->IsDefaultValue()) {
     return true;
   }
+
+  auto* actor_service =
+      actor::ActorKeyedServiceFactory::GetActorKeyedService(profile);
+  if (!actor_service) {
+    return false;
+  }
+  if (actor_service->GetPolicyChecker().CannotActOnWebReason() ==
+      actor::ActorPolicyChecker::CannotActReason::
+          kAccountCapabilityIneligible) {
+    return false;
+  }
+
   // If tiers are empty and the user hasn't set the pref, still show toggle
   // if enterprise policy is actively blocking it. This ensures users see the
   // enterprise enforced state instead of it just being missing.
@@ -873,8 +880,6 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
        IDS_SETTINGS_GLIC_PERMISSIONS_TAB_ACCESS_CONSIDER_1_LEARN_MORE_LABEL},
       {"glicDefaultTabAccessWhenOn1",
        IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_WHEN_ON_1},
-      {"glicDefaultTabAccessWhenOn2",
-       IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_WHEN_ON_2},
       {"glicDefaultTabAccessConsider1",
        IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_CONSIDER_1},
       {"glicDefaultTabAccessConsider2",
@@ -893,6 +898,12 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
        IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_CONSIDER_1},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
+
+  html_source->AddLocalizedString(
+      "glicDefaultTabAccessWhenOn2",
+      glic::GlicEnabling::EnablementForProfile(profile).EligibleForLive()
+          ? IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_WHEN_ON_2
+          : IDS_SETTINGS_GLIC_PERMISSIONS_DEFAULT_TAB_ACCESS_WHEN_ON_2_NO_LIVE);
 
   auto* command_line = base::CommandLine::ForCurrentProcess();
   bool has_url =
@@ -934,9 +945,6 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
               features::kGlicWebActuationToggleConsiderUnexpectedResultsURL
                   .Get())));
   html_source->AddBoolean(
-      "glicClosedCaptionsFeatureEnabled",
-      base::FeatureList::IsEnabled(features::kGlicClosedCaptioning));
-  html_source->AddBoolean(
       "glicExtensionsFeatureEnabled",
       base::FeatureList::IsEnabled(features::kGlicExtensions));
   html_source->AddBoolean(
@@ -956,6 +964,9 @@ void AddGlicStrings(content::WebUIDataSource* html_source, Profile* profile) {
                           IsWebActuationDisabledForEnterprise(profile));
   html_source->AddBoolean("glicActorEnabled",
                           base::FeatureList::IsEnabled(features::kGlicActor));
+  html_source->AddBoolean(
+      "glicCanUseLive",
+      glic::GlicEnabling::EnablementForProfile(profile).EligibleForLive());
 }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
@@ -1332,11 +1343,6 @@ bool IsCvcStorageAndFillingEnabled() {
       autofill::features::kAutofillEnableCvcStorageAndFilling);
 }
 
-bool IsNewFopDisplayDesktopEnabled() {
-  return base::FeatureList::IsEnabled(
-      autofill::features::kAutofillEnableNewFopDisplayDesktop);
-}
-
 bool IsWalletServerStorageEnabled() {
   return base::FeatureList::IsEnabled(syncer::kSyncWalletFlightReservations) ||
          base::FeatureList::IsEnabled(syncer::kSyncWalletVehicleRegistrations);
@@ -1557,6 +1563,10 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"benefitsTermsTagForCreditCardListEntry",
        IDS_AUTOFILL_SETTINGS_PAGE_BENEFITS_TERMS_TAG_FOR_CREDIT_CARD_LIST_ENTRY},
       {"cardBenefitsLabel", IDS_AUTOFILL_SETTINGS_PAGE_CARD_BENEFITS_LABEL},
+      {"autofillAiAuthenticationToggleTitle",
+       IDS_SETTINGS_AUTOFILL_AI_AUTHENTICATION_TOGGLE_TITLE},
+      {"autofillAiAuthenticationToggleSubtitle",
+       IDS_SETTINGS_AUTOFILL_AI_AUTHENTICATION_TOGGLE_SUBTITLE},
       {"autofillAiPageTitle", IDS_SETTINGS_AUTOFILL_AI_PAGE_TITLE},
       {"autofillAiDescription", IDS_SETTINGS_AUTOFILL_AI_DESCRIPTION},
       {"autofillAiDescriptionFeatureOn",
@@ -1624,7 +1634,19 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"homeAndWorkAddressRemovedMessage",
        IDS_SETTINGS_HOME_AND_WORK_ADDRESS_REMOVED_MESSAGE},
       {"nameEmailAddressRemovedMessage",
-       IDS_SETTINGS_NAME_EMAIL_ADDRESS_REMOVED_MESSAGE}};
+       IDS_SETTINGS_NAME_EMAIL_ADDRESS_REMOVED_MESSAGE},
+      {"walletablePassDetectionToggleLabel",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TOGGLE_LABEL},
+      {"walletablePassDetectionToggleSubLabel",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TOGGLE_SUB_LABEL},
+      {"walletablePassDetectionWhenOnSavedInfo",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_WHEN_ON_SAVED_INFO},
+      {"walletablePassDetectionWhenOnNotifications",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_WHEN_ON_NOTIFICATIONS},
+      {"walletablePassDetectionToConsiderDataUsage",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_USAGE},
+      {"walletablePassDetectionToConsiderDataStorage",
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_STORAGE}};
 
   html_source->AddString("manageAddressesUrl",
                          autofill::payments::GetManageAddressesUrl().spec());
@@ -1675,11 +1697,22 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
   html_source->AddBoolean("cvcStorageAvailable",
                           IsCvcStorageAndFillingEnabled());
 
-  html_source->AddBoolean("enableNewFopDisplay",
-                          IsNewFopDisplayDesktopEnabled());
+  html_source->AddBoolean("enableNewFopDisplay", true);
 
   html_source->AddBoolean("autofillCardBenefitsAvailable",
                           payments_data.IsCardBenefitsFeatureEnabled());
+
+  bool is_mandatory_reauth_feature_flag_enabled = false;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  // The feature is already launched on Windows and Mac.
+  is_mandatory_reauth_feature_flag_enabled = true;
+#elif BUILDFLAG(IS_CHROMEOS)
+  is_mandatory_reauth_feature_flag_enabled = base::FeatureList::IsEnabled(
+      autofill::features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
+#endif
+  html_source->AddBoolean("mandatoryReauthFeatureFlagEnabled",
+                          is_mandatory_reauth_feature_flag_enabled);
 
   html_source->AddString(
       "cardBenefitsToggleSublabel",
@@ -1744,6 +1777,14 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
   html_source->AddBoolean("AutofillAiIgnoresWhetherAddressFillingIsEnabled",
                           AutofillAiIgnoresWhetherAddressFillingIsEnabled());
 
+  html_source->AddBoolean(
+      "isUserEligibleForWalletablePassDetection",
+      autofill_client &&
+          wallet::IsEligibleForWalletablePassDetection(
+              autofill_client->GetIdentityManager(),
+              wallet::GeoIpCountryCode(
+                  autofill_client->GetVariationConfigCountryCode().value())));
+
   html_source->AddString(
       "autofillPayOverTimeSettingsSublabel",
       l10n_util::GetStringFUTF16(
@@ -1758,6 +1799,10 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
                          chrome::kGoogleAccountWorkAddressURL);
   html_source->AddString("googleAccountNameEmailAddressEditUrl",
                          chrome::kGoogleAccountNameEmailAddressEditURL);
+
+  html_source->AddBoolean("autofillAiReauthOnViewingSensitiveDataEnabled",
+                          base::FeatureList::IsEnabled(
+                              autofill::features::kAutofillAiReauthRequired));
 }
 
 void AddSignOutDialogStrings(content::WebUIDataSource* html_source,
@@ -2372,8 +2417,20 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SECURITY_SAFE_BROWSING_DESCRIPTION},
       {"securitySafeBrowsingStandardTitle",
        IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_TITLE},
+      {"securitySafeBrowsingStandardSubtitle",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_SUBTITLE},
+      {"securitySafeBrowsingStandardWhatItDoesHeading",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_WHAT_IT_DOES_HEADING},
+      {"securitySafeBrowsingStandardWhatItDoesContent",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_WHAT_IT_DOES_CONTENT},
+      {"securitySafeBrowsingStandardHowItWorksHeading",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_HOW_IT_WORKS_HEADING},
+      {"securitySafeBrowsingStandardHowItWorksContent",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_STANDARD_HOW_IT_WORKS_CONTENT},
       {"securitySafeBrowsingEnhancedTitle",
        IDS_SETTINGS_SECURITY_SAFE_BROWSING_ENHANCED_TITLE},
+      {"securitySafeBrowsingEnhancedSubtitle",
+       IDS_SETTINGS_SECURITY_SAFE_BROWSING_ENHANCED_SUBTITLE},
       {"securityFeatureRowStateEnhanced",
        IDS_SETTINGS_SECURITY_FEATURE_ROW_STATE_ENHANCED},
       {"securityFeatureRowStateStandard",
@@ -2385,7 +2442,25 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
       {"securityPasswordsLeakDetectionTitle",
        IDS_SETTINGS_SECURITY_PASSWORDS_LEAK_DETECTION_TITLE},
       {"securityPasswordsLeakDetectionDesc",
-       IDS_SETTINGS_SECURITY_PASSWORDS_LEAK_DETECTION_DESC}};
+       IDS_SETTINGS_SECURITY_PASSWORDS_LEAK_DETECTION_DESC},
+      {"securityHttpsFirstModeToggleLabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_TOGGLE_LABEL},
+      {"securityHttpsFirstModeToggleSublabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_TOGGLE_SUBLABEL},
+      {"securityHttpsFirstModeBalancedLabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_BALANCED_LABEL},
+      {"securityHttpsFirstModeBalancedSublabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_BALANCED_SUBLABEL},
+      {"securityHttpsFirstModeStrictLabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_STRICT_LABEL},
+      {"securityHttpsFirstModeStrictSublabel",
+       IDS_SETTINGS_SECURITY_HTTPS_FIRST_MODE_STRICT_SUBLABEL},
+      {"securitySecureDnsTitle", IDS_SETTINGS_SECURITY_SECURE_DNS_TITLE},
+      {"securitySecureDnsDescription",
+       IDS_SETTINGS_SECURITY_SECURE_DNS_DESCRIPTION},
+      {"securitySecureDnsDefault", IDS_SETTINGS_SECURITY_SECURE_DNS_DEFAULT},
+      {"securitySecureDnsFallback", IDS_SETTINGS_SECURITY_SECURE_DNS_FALLBACK},
+      {"securitySecureDnsCustom", IDS_SETTINGS_SECURITY_SECURE_DNS_CUSTOM}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
   html_source->AddString("cookiesSettingsHelpCenterURL",
@@ -2442,6 +2517,12 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
       advanced_protection_url, "utm_campaign", "ChromeSettings");
   html_source->AddString("advancedProtectionURL",
                          advanced_protection_url.spec());
+
+  html_source->AddString(
+      "securityAdvancedProtectionProgramLabel",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_SECURITY_ADVANCED_PROTECTION_PROGRAM_LABEL,
+          base::UTF8ToUTF16(advanced_protection_url.spec())));
 
   AddPersonalizationOptionsStrings(html_source);
   AddSecureDnsStrings(html_source);
@@ -2840,8 +2921,6 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_THIRD_PARTY_COOKIES_PAGE_ALLOW_RADIO_LABEL},
       {"thirdPartyCookiesPageBlockRadioLabel",
        IDS_SETTINGS_THIRD_PARTY_COOKIES_PAGE_BLOCK_RADIO_LABEL},
-      {"thirdPartyCookiesLinkRowSublabelLimited",
-       IDS_SETTINGS_THIRD_PARTY_COOKIES_LINK_ROW_SUB_LABEL_LIMITED},
       {"thirdPartyCookiesPageDescription",
        IDS_SETTINGS_THIRD_PARTY_COOKIES_PAGE_DESCRIPTION},
       {"cookiePageRwsLabel",
@@ -2849,22 +2928,8 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
       {"cookiePageRwsSubLabel",
        IDS_SETTINGS_COOKIES_RELATED_WEBSITE_SETS_TOGGLE_SUB_LABEL},
       {"cookiePageAllSitesLink", IDS_SETTINGS_COOKIES_ALL_SITES_LINK},
-      {"trackingProtectionPageDescription",
-       IDS_SETTINGS_TRACKING_PROTECTION_PAGE_DESCRIPTION},
-      {"trackingProtectionBulletOne",
-       IDS_SETTINGS_TRACKING_PROTECTION_BULLET_ONE},
-      {"trackingProtectionBulletOneDescription",
-       IDS_SETTINGS_TRACKING_PROTECTION_BULLET_ONE_DESCRIPTION},
-      {"trackingProtectionBulletTwo",
-       IDS_SETTINGS_TRACKING_PROTECTION_BULLET_TWO},
       {"trackingProtectionAdvancedLabel",
        IDS_SETTINGS_TRACKING_PROTECTION_ADVANCED_LABEL},
-      {"trackingProtectionThirdPartyCookiesToggleLabel",
-       IDS_SETTINGS_TRACKING_PROTECTION_THIRD_PARTY_COOKIES_TOGGLE_LABEL},
-      {"trackingProtectionThirdPartyCookiesToggleSubLabel",
-       IDS_SETTINGS_TRACKING_PROTECTION_THIRD_PARTY_COOKIES_TOGGLE_SUB_LABEL},
-      {"trackingProtectionThirdPartyCookiesLearnMoreAriaLabel",
-       IDS_SETTINGS_TRACKING_PROTECTION_THIRD_PARTY_COOKIES_LEARN_MORE_ARIA_LABEL},
       {"trackingProtectionDoNotTrackToggleSubLabel",
        IDS_SETTINGS_TRACKING_PROTECTION_DO_NOT_TRACK_TOGGLE_SUB_LABEL},
       {"trackingProtectionSitesAllowedCookiesTitle",
@@ -3726,22 +3791,36 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_ACCESS_ALLOWED_EXCEPTIONS},
       {"siteSettingsLocalNetworkAccessBlockedExceptions",
        IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_ACCESS_BLOCKED_EXCEPTIONS},
+
+      {"siteSettingsLocalNetwork", IDS_SITE_SETTINGS_TYPE_LOCAL_NETWORK},
+      {"siteSettingsLocalNetworkMidSentence",
+       IDS_SITE_SETTINGS_TYPE_LOCAL_NETWORK_MID_SENTENCE},
+      {"siteSettingsLocalNetworkDescription",
+       IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_DESCRIPTION},
+      {"siteSettingsLocalNetworkAsk",
+       IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_ASK},
+      {"siteSettingsLocalNetworkBlock",
+       IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_BLOCK},
+      {"siteSettingsLocalNetworkAllowedExceptions",
+       IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_ALLOWED_EXCEPTIONS},
+      {"siteSettingsLocalNetworkBlockedExceptions",
+       IDS_SETTINGS_SITE_SETTINGS_LOCAL_NETWORK_BLOCKED_EXCEPTIONS},
+
+      {"siteSettingsLoopbackNetwork", IDS_SITE_SETTINGS_TYPE_LOOPBACK_NETWORK},
+      {"siteSettingsLoopbackNetworkMidSentence",
+       IDS_SITE_SETTINGS_TYPE_LOOPBACK_NETWORK_MID_SENTENCE},
+      {"siteSettingsLoopbackNetworkDescription",
+       IDS_SETTINGS_SITE_SETTINGS_LOOPBACK_NETWORK_DESCRIPTION},
+      {"siteSettingsLoopbackNetworkAsk",
+       IDS_SETTINGS_SITE_SETTINGS_LOOPBACK_NETWORK_ASK},
+      {"siteSettingsLoopbackNetworkBlock",
+       IDS_SETTINGS_SITE_SETTINGS_LOOPBACK_NETWORK_BLOCK},
+      {"siteSettingsLoopbackNetworkAllowedExceptions",
+       IDS_SETTINGS_SITE_SETTINGS_LOOPBACK_NETWORK_ALLOWED_EXCEPTIONS},
+      {"siteSettingsLoopbackNetworkBlockedExceptions",
+       IDS_SETTINGS_SITE_SETTINGS_LOOPBACK_NETWORK_BLOCKED_EXCEPTIONS},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
-
-  // Tracking protection learn more links.
-  html_source->AddString(
-      "trackingProtectionBulletTwoDescription",
-      l10n_util::GetStringFUTF16(
-          IDS_SETTINGS_TRACKING_PROTECTION_BULLET_TWO_DESCRIPTION,
-          chrome::kUserBypassHelpCenterURL,
-          l10n_util::GetStringUTF16(
-              IDS_SETTINGS_TRACKING_PROTECTION_BULLET_TWO_LEARN_MORE_ARIA_LABEL),
-          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
-  html_source->AddString("trackingProtectionThirdPartyCookiesLearnMoreUrl",
-                         chrome::kManage3pcHelpCenterURL);
-  html_source->AddString("ipProtectionLearnMoreUrl",
-                         chrome::kIpProtectionHelpCenterURL);
 
   // These ones cannot be constexpr because we need to check base::FeatureList.
   static webui::LocalizedString kSensorsLocalizedStrings[] = {

@@ -319,12 +319,8 @@ void WaitForFakeJoinFlowView() {
 
 // Checks opening the Share flow from the Tab Grid and actually sharing. Then
 // checks opening the Manage flow. Using the face pile.
-- (void)testShareGroupAndManageGroupUsingFacePile {
-  // TODO(crbug.com/441923004): Re-enable this test on iOS26.
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-  }
-
+// TODO(crbug.com/468318824): This test is flaky.
+- (void)FLAKY_testShareGroupAndManageGroupUsingFacePile {
   // Open the tab grid.
   [ChromeEarlGreyUI openTabGrid];
 
@@ -346,6 +342,7 @@ void WaitForFakeJoinFlowView() {
       performAction:grey_tap()];
 
   // Tap on the face pile to share the group.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:FacePileButton()];
   [[EarlGrey selectElementWithMatcher:FacePileButton()]
       performAction:grey_tap()];
 
@@ -1328,23 +1325,17 @@ void WaitForFakeJoinFlowView() {
 // Tests that the activity label on a group cell and a grid cell is updated when
 // a shared group is updated.
 - (void)testActivityLabel {
-  // TODO(crbug.com/439552737): Re-enable the test on iOS26.
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-  }
 #if !TARGET_IPHONE_SIMULATOR
-  // TODO(crbug.com/449204815): Re-enable the test on iPad device.
   if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iPad.");
+    // TODO(crbug.com/470347303): Reenable this test.
+    EARL_GREY_TEST_DISABLED(@"Failing on iPad device.");
   }
 #endif
-
   AddSharedGroup(/*owner=*/YES, self.testServer);
   [ChromeEarlGrey waitForMainTabCount:1];
 
   // Add a tab to the shared group by a member in the shared group.
   [TabGroupAppInterface addSharedTabToGroupAtIndex:0];
-  [ChromeEarlGreyUI waitForAppToIdle];
 
   // Verify that the activity label appears on the group cell.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
@@ -1353,6 +1344,7 @@ void WaitForFakeJoinFlowView() {
       selectElementWithMatcher:TabGroupActivityLabelOnGroupCellAtIndex(0)]
       assertWithMatcher:grey_sufficientlyVisible()];
 
+  [ChromeEarlGreyUI waitForAppToIdle];
   // Open the group view.
   [[EarlGrey selectElementWithMatcher:TabGridGroupCellAtIndex(0)]
       performAction:grey_tap()];

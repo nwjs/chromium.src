@@ -26,6 +26,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_CANVAS_CANVAS_RENDERING_CONTEXT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_CANVAS_CANVAS_RENDERING_CONTEXT_H_
 
+#include "base/byte_size.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
@@ -69,6 +70,7 @@ class VideoFrame;
 namespace blink {
 
 class ComputedStyle;
+class CullRect;
 class Document;
 class Element;
 class ExceptionState;
@@ -278,6 +280,10 @@ class CORE_EXPORT CanvasRenderingContext
 
   scoped_refptr<StaticBitmapImage> GetElementImage(
       Element* element,
+      std::optional<float> sx,
+      std::optional<float> sy,
+      std::optional<float> swidth,
+      std::optional<float> sheight,
       std::optional<uint32_t> width,
       std::optional<uint32_t> height,
       const String& func_name,
@@ -294,15 +300,7 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {}
   virtual void Reshape(int width, int height) {}
 
-  virtual base::ByteCount AllocatedBufferSize() const;
-  virtual int AllocatedBufferCountPerPixel() const { return 1; }
-  virtual gfx::Size DrawingBufferSize() const {
-    const CanvasRenderingContextHost* host = Host();
-    if (host == nullptr) [[unlikely]] {
-      return gfx::Size();
-    }
-    return Host()->Size();
-  }
+  virtual base::ByteSize AllocatedBufferSize() const = 0;
 
   // OffscreenCanvas-specific methods.
   virtual bool PushFrame() { return false; }
@@ -340,9 +338,11 @@ class CORE_EXPORT CanvasRenderingContext
                                   const String& func_name,
                                   ExceptionState& exception_state);
 
-  std::optional<cc::PaintRecord> GetElementPaintRecord(Element*,
-                                                       const String& func_name,
-                                                       ExceptionState&);
+  std::optional<cc::PaintRecord> GetElementPaintRecord(
+      Element*,
+      std::optional<CullRect> cull_rect,
+      const String& func_name,
+      ExceptionState&);
 
   std::optional<cc::PaintRecord> empty_recording_;
 

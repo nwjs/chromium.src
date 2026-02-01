@@ -40,9 +40,11 @@ export class OmniboxAimAppElement extends CrLitElement {
 
   protected searchboxLayoutMode_: string =
       loadTimeData.getString('searchboxLayoutMode');
+  protected disableCaretColorAnimation_: boolean =
+      loadTimeData.getBoolean('caretColorAnimationDisabled');
+  protected disableComposeboxAnimation_: boolean =
+      loadTimeData.getBoolean('composeboxAnimationDisabled');
 
-  private isDebug_: boolean =
-      new URLSearchParams(window.location.search).has('debug');
   private eventTracker_ = new EventTracker();
   private searchboxPageHandler_: SearchboxPageHandlerInterface;
   private pageHandler_: PageHandlerInterface;
@@ -72,13 +74,6 @@ export class OmniboxAimAppElement extends CrLitElement {
     ];
 
     this.$.composebox.focusInput();
-
-    if (!this.isDebug_) {
-      this.eventTracker_.add(
-          document.documentElement, 'contextmenu', (e: Event) => {
-            e.preventDefault();
-          });
-    }
 
     this.setupLocalizedLinkListener();
   }
@@ -141,12 +136,16 @@ export class OmniboxAimAppElement extends CrLitElement {
   }
 
   private onPopupHidden_(): Promise<{input: string}> {
+    if (this.$.composebox.isVoiceInput) {
+      this.$.composebox.clearInput();
+    }
     const input = this.$.composebox.getInputText();
     if (!this.preserveContextOnClose_) {
       this.$.composebox.clearAllInputs(/* querySubmitted= */ false);
       this.$.composebox.clearAutocompleteMatches();
       this.$.composebox.resetModes();
     }
+    // Transfer input text to the location bar.
     return Promise.resolve({input});
   }
 

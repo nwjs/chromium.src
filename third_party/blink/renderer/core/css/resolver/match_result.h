@@ -28,9 +28,10 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
+#include "third_party/blink/renderer/core/css/mixin_parameter_bindings.h"
 #include "third_party/blink/renderer/core/css/resolver/cascade_origin.h"
 #include "third_party/blink/renderer/core/css/resolver/match_flags.h"
-#include "third_party/blink/renderer/core/css/rule_set.h"
+#include "third_party/blink/renderer/core/css/valid_property_filter.h"
 #include "third_party/blink/renderer/core/dom/tree_scope.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
@@ -75,7 +76,7 @@ struct CORE_EXPORT MatchedProperties {
     uint8_t padding = 0;
 
     bool operator==(const Data& other) const {
-      return UNSAFE_TODO(memcmp(this, &other, sizeof(*this))) == 0;
+      return UNSAFE_BUFFERS(memcmp(this, &other, sizeof(*this))) == 0;
     }
   };
 

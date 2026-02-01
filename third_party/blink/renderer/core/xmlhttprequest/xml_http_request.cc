@@ -28,7 +28,6 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/numerics/safe_conversions.h"
@@ -74,6 +73,7 @@
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/probe/async_task_context.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scheduler/task_attribution_util.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
@@ -1018,7 +1018,8 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
     if (world_ && world_->IsMainWorld()) {
       task_state_ = CaptureCurrentTaskState(&execution_context);
     }
-    async_task_context_.Schedule(&execution_context, "XMLHttpRequest.send");
+    async_task_context_.Schedule(&execution_context, "XMLHttpRequest.send",
+                                 probe::AsyncTaskContext::ScanForAds::kTrue);
     DispatchProgressEvent(event_type_names::kLoadstart, 0, 0);
     // Event handler could have invalidated this send operation,
     // (re)setting the send flag and/or initiating another send
@@ -1541,7 +1542,7 @@ const AtomicString& XMLHttpRequest::getResponseHeader(
 
   if (response_.GetType() == network::mojom::FetchResponseType::kCors &&
       !cors::IsCorsSafelistedResponseHeader(name) &&
-      !base::Contains(access_control_expose_header_set, name.Ascii())) {
+      !access_control_expose_header_set.contains(name.Ascii())) {
     LogConsoleError(GetExecutionContext(),
                     StrCat({"Refused to get unsafe header \"", name, "\""}));
     return g_null_atom;

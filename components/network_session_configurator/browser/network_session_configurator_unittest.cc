@@ -678,8 +678,8 @@ TEST_F(NetworkSessionConfiguratorTest, QuicHostAllowlist) {
   ParseFieldTrials();
 
   EXPECT_EQ(2u, params_.quic_host_allowlist.size());
-  EXPECT_TRUE(base::Contains(params_.quic_host_allowlist, "www.example.com"));
-  EXPECT_TRUE(base::Contains(params_.quic_host_allowlist, "www.example.org"));
+  EXPECT_TRUE(params_.quic_host_allowlist.contains("www.example.com"));
+  EXPECT_TRUE(params_.quic_host_allowlist.contains("www.example.org"));
 }
 
 TEST_F(NetworkSessionConfiguratorTest, QuicHostAllowlistEmpty) {
@@ -998,7 +998,7 @@ INSTANTIATE_TEST_SUITE_P(QuicVersion,
 TEST_P(NetworkSessionConfiguratorWithQuicVersionTest, QuicVersion) {
   // Note that this test covers the legacy mechanism which relies on
   // QuicVersionToString. We should now be using ALPNs instead.
-  if (!version_.UsesQuicCrypto()) {
+  if (version_.IsIetfQuic()) {
     return;
   }
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
@@ -1025,7 +1025,7 @@ TEST_P(NetworkSessionConfiguratorWithQuicVersionTest,
        SameQuicVersionsFromFieldTrialParams) {
   // Note that this test covers the legacy mechanism which relies on
   // QuicVersionToString. We should now be using ALPNs instead.
-  if (!version_.UsesQuicCrypto()) {
+  if (version_.IsIetfQuic()) {
     return;
   }
   quic::ParsedQuicVersionVector obsolete_versions = net::ObsoleteQuicVersions();

@@ -19,7 +19,7 @@
 
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ConvertUTF8ToJavaString;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace embedder_support {
@@ -33,7 +33,7 @@ static GURL JNI_UrlUtilities_ConvertJavaStringToGURL(
 }
 
 net::registry_controlled_domains::PrivateRegistryFilter GetRegistryFilter(
-    jboolean include_private) {
+    bool include_private) {
   return include_private
              ? net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES
              : net::registry_controlled_domains::EXCLUDE_PRIVATE_REGISTRIES;
@@ -43,11 +43,10 @@ net::registry_controlled_domains::PrivateRegistryFilter GetRegistryFilter(
 
 // Returns whether the given URLs have the same domain or host.
 // See net::registry_controlled_domains::SameDomainOrHost for details.
-static jboolean JNI_UrlUtilities_SameDomainOrHost(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url_1_str,
-    const JavaParamRef<jstring>& url_2_str,
-    jboolean include_private) {
+static bool JNI_UrlUtilities_SameDomainOrHost(JNIEnv* env,
+                                              const JavaRef<jstring>& url_1_str,
+                                              const JavaRef<jstring>& url_2_str,
+                                              bool include_private) {
   GURL url_1 = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url_1_str);
   GURL url_2 = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url_2_str);
 
@@ -62,8 +61,8 @@ static jboolean JNI_UrlUtilities_SameDomainOrHost(
 // See net::registry_controlled_domains::GetDomainAndRegistry for details.
 static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_GetDomainAndRegistry(
     JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    jboolean include_private) {
+    const JavaRef<jstring>& url,
+    bool include_private) {
   DCHECK(url);
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   if (gurl.is_empty())
@@ -79,10 +78,9 @@ static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_GetDomainAndRegistry(
 
 // Return whether the given URL uses the Google.com domain.
 // See google_util::IsGoogleDomainUrl for details.
-static jboolean JNI_UrlUtilities_IsGoogleDomainUrl(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    jboolean allow_non_standard_port) {
+static bool JNI_UrlUtilities_IsGoogleDomainUrl(JNIEnv* env,
+                                               const JavaRef<jstring>& url,
+                                               bool allow_non_standard_port) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   if (gurl.is_empty())
     return false;
@@ -95,9 +93,8 @@ static jboolean JNI_UrlUtilities_IsGoogleDomainUrl(
 
 // Returns whether the given URL is a Google.com domain or sub-domain.
 // See google_util::IsGoogleDomainUrl for details.
-static jboolean JNI_UrlUtilities_IsGoogleSubDomainUrl(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url) {
+static bool JNI_UrlUtilities_IsGoogleSubDomainUrl(JNIEnv* env,
+                                                  const JavaRef<jstring>& url) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   if (gurl.is_empty())
     return false;
@@ -108,9 +105,8 @@ static jboolean JNI_UrlUtilities_IsGoogleSubDomainUrl(
 
 // Returns whether the given URL is a Google.com Search URL.
 // See google_util::IsGoogleSearchUrl for details.
-static jboolean JNI_UrlUtilities_IsGoogleSearchUrl(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url) {
+static bool JNI_UrlUtilities_IsGoogleSearchUrl(JNIEnv* env,
+                                               const JavaRef<jstring>& url) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   if (gurl.is_empty())
     return false;
@@ -119,19 +115,18 @@ static jboolean JNI_UrlUtilities_IsGoogleSearchUrl(
 
 // Returns whether the given URL is the Google Web Search URL.
 // See google_util::IsGoogleHomePageUrl for details.
-static jboolean JNI_UrlUtilities_IsGoogleHomePageUrl(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url) {
+static bool JNI_UrlUtilities_IsGoogleHomePageUrl(JNIEnv* env,
+                                                 const JavaRef<jstring>& url) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   if (gurl.is_empty())
     return false;
   return google_util::IsGoogleHomePageUrl(gurl);
 }
 
-static jboolean JNI_UrlUtilities_IsUrlWithinScope(
+static bool JNI_UrlUtilities_IsUrlWithinScope(
     JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    const JavaParamRef<jstring>& scope_url) {
+    const JavaRef<jstring>& url,
+    const JavaRef<jstring>& scope_url) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   GURL gscope_url = JNI_UrlUtilities_ConvertJavaStringToGURL(env, scope_url);
   return gurl.DeprecatedGetOriginAsURL() ==
@@ -142,10 +137,10 @@ static jboolean JNI_UrlUtilities_IsUrlWithinScope(
 
 // Returns whether the given URLs match, ignoring the fragment portions of the
 // URLs.
-static jboolean JNI_UrlUtilities_UrlsMatchIgnoringFragments(
+static bool JNI_UrlUtilities_UrlsMatchIgnoringFragments(
     JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    const JavaParamRef<jstring>& url2) {
+    const JavaRef<jstring>& url,
+    const JavaRef<jstring>& url2) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   GURL gurl2 = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url2);
   if (gurl.is_empty())
@@ -160,10 +155,9 @@ static jboolean JNI_UrlUtilities_UrlsMatchIgnoringFragments(
 }
 
 // Returns whether the given URLs have fragments that differ.
-static jboolean JNI_UrlUtilities_UrlsFragmentsDiffer(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    const JavaParamRef<jstring>& url2) {
+static bool JNI_UrlUtilities_UrlsFragmentsDiffer(JNIEnv* env,
+                                                 const JavaRef<jstring>& url,
+                                                 const JavaRef<jstring>& url2) {
   GURL gurl = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url);
   GURL gurl2 = JNI_UrlUtilities_ConvertJavaStringToGURL(env, url2);
   if (gurl.is_empty())
@@ -175,8 +169,8 @@ static jboolean JNI_UrlUtilities_UrlsFragmentsDiffer(
 
 static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_EscapeQueryParamValue(
     JNIEnv* env,
-    const JavaParamRef<jstring>& url,
-    jboolean use_plus) {
+    const JavaRef<jstring>& url,
+    bool use_plus) {
   return ConvertUTF8ToJavaString(
       env, base::EscapeQueryParamValue(
                base::android::ConvertJavaStringToUTF8(url), use_plus));
@@ -184,8 +178,8 @@ static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_EscapeQueryParamValue(
 
 static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_GetValueForKeyInQuery(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_url,
-    const JavaParamRef<jstring>& j_key) {
+    const JavaRef<jobject>& j_url,
+    const JavaRef<jstring>& j_key) {
   DCHECK(j_url);
   DCHECK(j_key);
   const std::string& key = ConvertJavaStringToUTF8(env, j_key);
@@ -199,7 +193,7 @@ static ScopedJavaLocalRef<jstring> JNI_UrlUtilities_GetValueForKeyInQuery(
 
 static ScopedJavaLocalRef<jobject> JNI_UrlUtilities_ClearPort(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_url) {
+    const JavaRef<jobject>& j_url) {
   GURL gurl = url::GURLAndroid::ToNativeGURL(env, j_url);
   GURL::Replacements remove_port;
   remove_port.ClearPort();

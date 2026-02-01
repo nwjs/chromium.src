@@ -97,9 +97,9 @@ class CaseFoldingHash {
 
  public:
   static unsigned GetHash(base::span<const UChar> span) {
+    base::span<const char> bytes = base::as_chars(span);
     return StringHasher::ComputeHashAndMaskTop8Bits<
-        CaseFoldingHashReader<UChar>>(
-        reinterpret_cast<const char*>(span.data()), span.size() * 2);
+        CaseFoldingHashReader<UChar>>(bytes.data(), bytes.size());
   }
 
   static unsigned GetHash(StringImpl* str) {
@@ -109,9 +109,10 @@ class CaseFoldingHash {
   }
 
   static unsigned GetHash(base::span<const LChar> span) {
-    return StringHasher::ComputeHashAndMaskTop8Bits<
-        CaseFoldingHashReader<LChar>>(base::as_chars(span).data(),
-                                      span.size() * 2);
+    base::span<const char> bytes = base::as_chars(span);
+    using Reader = CaseFoldingHashReader<LChar>;
+    return StringHasher::ComputeHashAndMaskTop8Bits<Reader>(
+        bytes.data(), bytes.size() * Reader::kExpansionFactor);
   }
 
   static inline unsigned GetHash(base::span<const char> span) {
@@ -156,7 +157,10 @@ class CaseFoldingHash {
   static constexpr bool kSafeToCompareToEmptyOrDeleted = false;
 };
 
+// HashTraits for Unicode case-insensitive strings.
 // T can be String, StringImpl*, scoped_refptr<StringImpl> and AtomicString.
+//
+// See IgnoringAsciiCaseHashTraits for ASCII cases-insensitive strings.
 template <typename T>
 struct CaseFoldingHashTraits : HashTraits<T>, CaseFoldingHash {
   using CaseFoldingHash::Equal;

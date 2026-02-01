@@ -4,7 +4,7 @@
 
 import '../cr_shared_vars.css.js';
 
-import {assert} from '//resources/js/assert.js';
+import {assert, assertNotReachedCase} from '//resources/js/assert.js';
 import {FocusOutlineManager} from '//resources/js/focus_outline_manager.js';
 import {FocusRow} from '//resources/js/focus_row.js';
 import {focusWithoutInk} from '//resources/js/focus_without_ink.js';
@@ -83,6 +83,8 @@ function getStartPointWithAnchor(
     case AnchorAlignment.AFTER_END:
       startPoint = end;
       break;
+    default:
+      assertNotReachedCase(anchorAlignment);
   }
 
   if (startPoint + menuLength > max) {
@@ -148,6 +150,14 @@ export class CrActionMenuElement extends CrLitElement {
         notify: true,
       },
 
+      // Setting this flag will cause the menu to open as a non-modal dialog.
+      // Useful when the menu needs to remain open while interacting with
+      // other parts of the page.
+      nonModal: {
+        type: Boolean,
+        reflect: true,
+      },
+
       // Descriptor of the menu. Should be something along the lines of "menu"
       roleDescription: {type: String},
     };
@@ -157,6 +167,7 @@ export class CrActionMenuElement extends CrLitElement {
   accessor autoReposition: boolean = false;
   accessor open: boolean = false;
   accessor roleDescription: string|undefined;
+  accessor nonModal: boolean = false;
 
   private boundClose_: (() => void)|null = null;
   private resizeObserver_: ResizeObserver|null = null;
@@ -372,7 +383,7 @@ export class CrActionMenuElement extends CrLitElement {
     // and so that the dialog is positioned at the top-start corner of the
     // document.
     this.resetStyle_();
-    this.$.dialog.showModal();
+    this.nonModal ? this.$.dialog.show() : this.$.dialog.showModal();
     this.open = true;
 
     config.top += scrollTop;

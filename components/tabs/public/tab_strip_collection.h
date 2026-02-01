@@ -72,7 +72,7 @@ class TabStripCollection : public TabCollection {
   void InsertTabCollectionAt(
       std::unique_ptr<TabCollection> collection,
       int index,
-      int pinned,
+      bool pinned,
       std::optional<tab_groups::TabGroupId> parent_group);
 
   // Remove a tab collection and send the appropriate notifications.
@@ -106,6 +106,7 @@ class TabStripCollection : public TabCollection {
   void CreateSplit(split_tabs::SplitTabId split_id,
                    const std::vector<TabInterface*>& tabs,
                    split_tabs::SplitTabVisualData visual_data);
+  void ReverseSplit(split_tabs::SplitTabId split_id);
   void Unsplit(split_tabs::SplitTabId split_id);
   std::set<split_tabs::SplitTabId> ListSplits() const;
 
@@ -187,7 +188,7 @@ class TabStripCollection : public TabCollection {
   // recursive index, pinned state and group to insert.
   TabCollection::Position GetInsertionDetails(
       int index,
-      int pinned,
+      bool pinned,
       std::optional<tab_groups::TabGroupId> group);
 
   // Returns the parent collection and the direct child index within that

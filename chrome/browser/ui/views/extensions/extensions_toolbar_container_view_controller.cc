@@ -49,7 +49,6 @@ ExtensionsToolbarContainerViewController::
         Browser* browser,
         ExtensionsToolbarContainer* extensions_container)
     : browser_(browser), extensions_container_(extensions_container) {
-  model_observation_.Observe(ToolbarActionsModel::Get(browser_->profile()));
   permissions_manager_observation_.Observe(
       extensions::PermissionsManager::Get(browser_->profile()));
   browser_->tab_strip_model()->AddObserver(this);
@@ -58,7 +57,6 @@ ExtensionsToolbarContainerViewController::
 ExtensionsToolbarContainerViewController::
     ~ExtensionsToolbarContainerViewController() {
   extensions_container_ = nullptr;
-  model_observation_.Reset();
   permissions_manager_observation_.Reset();
 }
 
@@ -166,8 +164,8 @@ void ExtensionsToolbarContainerViewController::OnTabStripModelChanged(
   MaybeShowIPH();
 }
 
-void ExtensionsToolbarContainerViewController::TabChangedAt(
-    content::WebContents* contents,
+void ExtensionsToolbarContainerViewController::OnTabChangedAt(
+    tabs::TabInterface* tab,
     int index,
     TabChangeType change_type) {
   // Ignore changes that don't affect all the tab contents (e.g loading
@@ -189,39 +187,13 @@ void ExtensionsToolbarContainerViewController::TabChangedAt(
       extensions_container_->GetRequestAccessButton();
   if (request_access_button && request_access_button->IsShowingConfirmation() &&
       !request_access_button->IsShowingConfirmationFor(
-          contents->GetPrimaryMainFrame()->GetLastCommittedOrigin())) {
+          tab->GetContents()
+              ->GetPrimaryMainFrame()
+              ->GetLastCommittedOrigin())) {
     extensions_container_->CollapseConfirmation();
   }
 
   MaybeShowIPH();
-}
-
-void ExtensionsToolbarContainerViewController::OnToolbarActionAdded(
-    const ToolbarActionsModel::ActionId& action_id) {
-  CHECK(extensions_container_);
-  extensions_container_->AddAction(action_id);
-}
-
-void ExtensionsToolbarContainerViewController::OnToolbarActionRemoved(
-    const ToolbarActionsModel::ActionId& action_id) {
-  CHECK(extensions_container_);
-  extensions_container_->RemoveAction(action_id);
-}
-
-void ExtensionsToolbarContainerViewController::OnToolbarActionUpdated(
-    const ToolbarActionsModel::ActionId& action_id) {
-  CHECK(extensions_container_);
-  extensions_container_->UpdateAction(action_id);
-}
-
-void ExtensionsToolbarContainerViewController::OnToolbarModelInitialized() {
-  CHECK(extensions_container_);
-  extensions_container_->CreateActions();
-}
-
-void ExtensionsToolbarContainerViewController::OnToolbarPinnedActionsChanged() {
-  CHECK(extensions_container_);
-  extensions_container_->UpdatePinnedActions();
 }
 
 void ExtensionsToolbarContainerViewController::OnUserPermissionsSettingsChanged(

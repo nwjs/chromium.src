@@ -88,7 +88,7 @@
 #include "services/network/accept_ch_frame_interceptor.h"
 #include "services/network/ad_heuristic_cookie_overrides.h"
 #include "services/network/cookie_settings.h"
-#include "services/network/devtools_durable_msg.h"
+#include "services/network/devtools_durable_msg_writer.h"
 #include "services/network/file_opener_for_upload.h"
 #include "services/network/orb/orb_impl.h"
 #include "services/network/public/cpp/client_hints.h"
@@ -106,9 +106,7 @@
 #include "services/network/public/cpp/parsed_headers.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/sri_message_signatures.h"
-#include "services/network/public/mojom/client_security_state.mojom-forward.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
-#include "services/network/public/mojom/cookie_access_observer.mojom-forward.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
@@ -118,6 +116,7 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_context_client.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
+#include "services/network/public/mojom/url_loader_network_service_observer.mojom-data-view.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/resource_scheduler/resource_scheduler_client.h"
 #include "services/network/sec_header_helpers.h"
@@ -359,7 +358,7 @@ URLLoader::URLLoader(
     mojo::PendingRemote<mojom::AcceptCHFrameObserver> accept_ch_frame_observer,
     bool shared_storage_writable_eligible,
     SharedResourceChecker& shared_resource_checker,
-    base::WeakPtr<DevtoolsDurableMessage> devtools_durable_message)
+    std::unique_ptr<DevtoolsDurableMessageWriter> maybe_durable_message_writer)
     : url_request_context_(context.GetUrlRequestContext()),
       network_context_client_(context.GetNetworkContextClient()),
       delete_callback_(std::move(delete_callback)),
@@ -444,7 +443,7 @@ URLLoader::URLLoader(
       provide_data_use_updates_(context.DataUseUpdatesEnabled()),
       partial_decoder_decoding_buffer_size_(net::kMaxBytesToSniff),
       permissions_policy_(request.permissions_policy),
-      devtools_durable_message_(devtools_durable_message) {
+      durable_message_writer_(std::move(maybe_durable_message_writer)) {
   DCHECK(delete_callback_);
 
   if (options_ & mojom::kURLLoadOptionReadAndDiscardBody) {
@@ -491,12 +490,18 @@ URLLoader::URLLoader(
                                               options_);
       if (lna_checker.CheckAddressSpace(*url_address_space) ==
           PrivateNetworkAccessCheckResult::kLNAPermissionRequired) {
+        // This passes in `TransportType::kDirect`, regardless of how the
+        // request may end up being connected -- the cases where we know this
+        // is an LNA request from the URL alone are ones where we have high
+        // confidence in triggering the LNA prompt.
+        //
         // Ignoring the result of the permission here because the point of this
         // call is to get the permission prompt shown if the permission is
         // "prompt". Later LNA checks will check the permission and use the
         // the result.
         url_loader_network_observer_->OnLocalNetworkAccessPermissionRequired(
-            base::BindOnce([](bool permission_granted) {}));
+            mojom::TransportType::kDirect, *url_address_space,
+            base::BindOnce([](mojom::LocalNetworkAccessResult result) {}));
       }
     }
   }
@@ -1313,8 +1318,8 @@ void URLLoader::ContinueOnResponseStarted() {
 
   // If client-side content decoding is requested, store the types of decoding
   // to be used with the Durable Message so it can decode on retrieval.
-  if (devtools_durable_message_) {
-    devtools_durable_message_->set_client_decoding_types(
+  if (durable_message_writer_) {
+    durable_message_writer_->SetClientDecodingTypes(
         response_->client_side_content_decoding_types);
   }
 
@@ -1970,7 +1975,8 @@ void URLLoader::NotifyCompleted(int error_code) {
     if (url_loader_network_observer_ && provide_data_use_updates_) {
       url_loader_network_observer_->OnDataUseUpdate(
           url_request_->traffic_annotation().unique_id_hash_code,
-          total_received, total_sent);
+          base::ByteSize(base::checked_cast<uint64_t>(total_received)),
+          base::ByteSize(base::checked_cast<uint64_t>(total_sent)));
     }
   }
 
@@ -2627,19 +2633,19 @@ void URLLoader::ResetRawHeadersForRedirect() {
 
 void URLLoader::MaybeCollectDurableMessage(size_t new_data_offset,
                                            int num_bytes) {
-  if (!pending_write_ || !devtools_durable_message_) {
+  if (!pending_write_ || !durable_message_writer_) {
     return;
   }
 
   if (num_bytes <= 0) {
-    devtools_durable_message_->MarkComplete();
+    durable_message_writer_->MarkComplete();
     return;
   }
 
   int64_t raw_bytes_cur_size = url_request_->GetRawBodyBytes();
   int64_t raw_bytes_delta =
       raw_bytes_cur_size - devtools_durable_message_raw_size_;
-  devtools_durable_message_->AddBytes(
+  durable_message_writer_->AddBytes(
       base::as_byte_span(
           base::span(*pending_write_)
               .subspan(new_data_offset, static_cast<size_t>(num_bytes))),

@@ -15,6 +15,7 @@
 #include "base/callback_list.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/functional/function_ref.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
@@ -34,7 +35,6 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/is_required.h"
 #include "components/autofill/core/common/language_code.h"
-#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -276,6 +276,8 @@ class AutofillManager
                                        const FieldGlobalId& field_id,
                                        const gfx::Rect& caret_bounds);
   virtual void OnDidAutofillForm(const FormData& form);
+  void SuppressAutomaticRefills(const FillId& fill_id);
+  void RequestRefill(const FillId& fill_id);
   virtual void OnJavaScriptChangedAutofilledValue(
       const FormData& form,
       const FieldGlobalId& field_id,
@@ -299,25 +301,34 @@ class AutofillManager
   void OnLanguageDetermined(
       const translate::LanguageDetectionDetails& details) override;
 
-  // Fills `form_structure` and `autofill_field` with the cached elements
-  // corresponding to `form_id` and `field_id`.  This might have the side-effect
-  // of updating the cache.  Returns false if the form is not autofillable, or
-  // if either the form or the field cannot be found.
-  [[nodiscard]] bool GetCachedFormAndField(
-      const FormGlobalId& form_id,
-      const FieldGlobalId& field_id,
-      FormStructure** form_structure,
-      AutofillField** autofill_field) const;
+  class FormMutationPassKey {
+   private:
+    FormMutationPassKey() = default;
+    friend class AutofillManager;
+    friend class AutofillManagerTestApi;
+    friend class BrowserAutofillManager;
+    friend class FormFiller;
+  };
+
+  FormStructure* FindCachedFormById(const FormGlobalId& form_id,
+                                    const FormMutationPassKey& pass_key);
 
   // Returns nullptr if no cached form structure is found with a matching
   // `form_id`. Runs in logarithmic time.
-  FormStructure* FindCachedFormById(FormGlobalId form_id) const;
+  const FormStructure* FindCachedFormById(const FormGlobalId& form_id) const;
 
   // Searches for any cached form that contains a field with `field_id`.
-  FormStructure* FindCachedFormById(FieldGlobalId field_id) const;
+  // Runs in linear time.
+  const FormStructure* FindCachedFormById(const FieldGlobalId& field_id) const;
 
-  // Returns the number of forms this Autofill handler is aware of.
-  size_t NumFormsDetected() const { return form_structures_.size(); }
+  // Returns all FormStructures with the given `form_signature` and
+  // Runs in linear time.
+  std::vector<raw_ref<const FormStructure>> FindCachedFormsBySignature(
+      FormSignature form_signature) const;
+
+  // Calls `fun` for each cached FormStructure.
+  void ForEachCachedForm(
+      base::FunctionRef<void(const FormStructure&)> fun) const;
 
   // Forwards call to the same-named `AutofillDriver` function.
   virtual bool CanShowAutofillUi() const;
@@ -331,9 +342,8 @@ class AutofillManager
   // `form_id`, returns an empty map. If the form does not contain data about
   // fields with `field_ids`, NO_SERVER_DATA type is returned for them.
   base::flat_map<FieldGlobalId, AutofillServerPrediction>
-  GetServerPredictionsForForm(
-      FormGlobalId form_id,
-      const std::vector<FieldGlobalId>& field_ids) const;
+  GetServerPredictionsForForm(FormGlobalId form_id,
+                              base::span<const FieldGlobalId> field_ids) const;
 
   // Returns predictions from a heuristic source for fields identified by
   // `field_ids` in a form identified by `form_id`. Returns an empty map if the
@@ -341,7 +351,7 @@ class AutofillManager
   base::flat_map<FieldGlobalId, FieldType> GetHeuristicPredictionForForm(
       HeuristicSource source,
       FormGlobalId form_id,
-      const std::vector<FieldGlobalId>& field_ids) const;
+      base::span<const FieldGlobalId> field_ids) const;
 
   // Returns the `CreditCardAccessManager` associated with `this`. Null only
   // for Android (i.e., platform) Autofill.
@@ -359,12 +369,6 @@ class AutofillManager
     for (Observer& observer : observers_) {
       std::invoke(functor, observer, *this, args...);
     }
-  }
-
-  // Returns the present form structures seen by Autofill handler.
-  const std::map<FormGlobalId, std::unique_ptr<FormStructure>>&
-  form_structures() const {
-    return form_structures_;
   }
 
   AutofillDriver& driver() { return *driver_; }
@@ -418,13 +422,15 @@ class AutofillManager
       AutofillSuggestionTriggerSource trigger_source,
       std::optional<PasswordSuggestionRequest> password_request) = 0;
   virtual void OnDidAutofillFormImpl(const FormData& form) = 0;
+  virtual void SuppressAutomaticRefillsImpl(const FillId& fill_id) = 0;
+  virtual void RequestRefillImpl(const FillId& fill_id) = 0;
   virtual void OnHidePopupImpl() = 0;
   virtual void OnJavaScriptChangedAutofilledValueImpl(
       const FormData& form,
       const FieldGlobalId& field_id,
       const std::u16string& old_value) = 0;
   virtual void OnLoadedServerPredictionsImpl(
-      base::span<const raw_ptr<FormStructure, VectorExperimental>> forms) = 0;
+      base::span<const raw_ref<FormStructure>> forms) = 0;
 
   // Return whether the |forms| from OnFormSeen() should be parsed to
   // form_structures.
@@ -440,13 +446,6 @@ class AutofillManager
   virtual void OnFormProcessed(const FormData& form_data,
                                const FormStructure& form_structure) = 0;
 
-  // Returns the number of FormStructures with the given |form_signature| and
-  // appends them to |form_structures|. Runs in linear time.
-  size_t FindCachedFormsBySignature(
-      FormSignature form_signature,
-      std::vector<raw_ptr<FormStructure, VectorExperimental>>* form_structures)
-      const;
-
   // Returns true only if the previewed form should be cleared.
   virtual bool ShouldClearPreviewedForm() = 0;
 
@@ -460,6 +459,12 @@ class AutofillManager
   friend class AutofillManagerTestApi;
 
   struct AsyncContext;
+
+  // Returns the number of FormStructures with the given |form_signature| and
+  // appends them to |form_structures|. Runs in linear time.
+  size_t FindCachedFormsBySignature(
+      FormSignature form_signature,
+      std::vector<raw_ref<FormStructure>>* form_structures) const;
 
   // Parses multiple forms in one go. The function proceeds in four stages:
   //

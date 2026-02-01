@@ -86,7 +86,7 @@ BASE_FEATURE(kRecordChooserPermissionLastVisitedTimestamps,
 // When enabled, site settings pages use radio button groups other than toggles.
 // In the meanwhile, CPSS if exist will be a separate radio button group.
 BASE_FEATURE(kPermissionSiteSettingsRadioButton,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, blocks condition to exclude auto granted permissions for
 // storage access exceptions. This will allow RWS permission grants to be
@@ -110,7 +110,7 @@ BASE_FEATURE(kSafetyHubUnusedPermissionRevocationForAllSurfaces,
 // for notifications if Chrome does not have and cannot acquire app-level
 // permissions on Android.
 BASE_FEATURE(kReturnDeniedForNotificationsWhenNoAppLevelSettings,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Only applicable if kApproximateGeolocationPermission is enabled. When

@@ -490,7 +490,7 @@ void GetFormDataByFieldGlobalIdForModelPrototyping(
     std::move(continue_callback).Run(std::move(data));
     return;
   }
-  autofill::FormStructure* form_structure =
+  const autofill::FormStructure* form_structure =
       autofill_driver->GetAutofillManager().FindCachedFormById(global_id);
   if (!form_structure) {
     std::move(continue_callback).Run(std::move(data));
@@ -525,14 +525,18 @@ void OnEncodePng(AiDataKeyedService::AiDataCallback continue_callback,
 
 void OnGetTabScreenshotForModelPrototyping(
     AiDataKeyedService::AiDataCallback continue_callback,
-    const viz::CopyOutputBitmapWithMetadata& result) {
+    const content::CopyFromSurfaceResult& result) {
   TRACE_EVENT0("browser", "OnGetTabScreenshotForModelPrototyping");
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(&EncodePngOnBackgroundThread,
-                     base::OwnedRef(result.bitmap)),
+      base::BindOnce(
+          &EncodePngOnBackgroundThread,
+          base::OwnedRef(
+              // TODO(crbug.com/466199824): Update callsite to handle error
+              // case.
+              result.value_or(viz::CopyOutputBitmapWithMetadata()).bitmap)),
       base::BindOnce(&OnEncodePng, std::move(continue_callback)));
 }
 
@@ -549,6 +553,7 @@ void GetTabScreenshotForModelPrototyping(
   view->CopyFromSurface(
       gfx::Rect(),  // Copy entire surface area.
       gfx::Size(),  // Result contains device-level detail.
+      base::TimeDelta(),
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
           base::BindOnce(&OnGetTabScreenshotForModelPrototyping,
                          std::move(continue_callback)),

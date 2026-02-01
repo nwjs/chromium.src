@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -30,18 +29,18 @@
 #include "device/fido/ctap_make_credential_request.h"
 #include "device/fido/device_response_converter.h"
 #include "device/fido/fake_fido_discovery.h"
-#include "device/fido/fido_constants.h"
 #include "device/fido/fido_device_authenticator.h"
 #include "device/fido/fido_discovery_base.h"
 #include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_request_handler_base.h"
 #include "device/fido/fido_test_data.h"
-#include "device/fido/fido_transport_protocol.h"
-#include "device/fido/fido_types.h"
 #include "device/fido/get_assertion_request_handler.h"
 #include "device/fido/make_credential_task.h"
 #include "device/fido/mock_fido_device.h"
-#include "device/fido/public_key_credential_descriptor.h"
+#include "device/fido/public/fido_constants.h"
+#include "device/fido/public/fido_transport_protocol.h"
+#include "device/fido/public/fido_types.h"
+#include "device/fido/public/public_key_credential_descriptor.h"
 #include "device/fido/u2f_command_constructor.h"
 #include "device/fido/virtual_ctap2_device.h"
 #include "device/fido/virtual_fido_device.h"
@@ -158,25 +157,25 @@ class FidoGetAssertionHandlerTest : public ::testing::Test {
       GetAssertionRequestHandler* request_handler,
       base::flat_set<FidoTransportProtocol> transports) {
     using Transport = FidoTransportProtocol;
-    if (base::Contains(transports, Transport::kUsbHumanInterfaceDevice))
+    if (transports.contains(Transport::kUsbHumanInterfaceDevice))
       discovery()->WaitForCallToStartAndSimulateSuccess();
-    if (base::Contains(transports, Transport::kHybrid))
+    if (transports.contains(Transport::kHybrid))
       cable_discovery()->WaitForCallToStartAndSimulateSuccess();
-    if (base::Contains(transports, Transport::kNearFieldCommunication))
+    if (transports.contains(Transport::kNearFieldCommunication))
       nfc_discovery()->WaitForCallToStartAndSimulateSuccess();
-    if (base::Contains(transports, Transport::kInternal))
+    if (transports.contains(Transport::kInternal))
       platform_discovery()->WaitForCallToStartAndSimulateSuccess();
 
     task_environment_.FastForwardUntilNoTasksRemain();
     EXPECT_FALSE(get_assertion_future().IsReady());
 
-    if (!base::Contains(transports, Transport::kUsbHumanInterfaceDevice))
+    if (!transports.contains(Transport::kUsbHumanInterfaceDevice))
       EXPECT_FALSE(discovery()->is_start_requested());
-    if (!base::Contains(transports, Transport::kHybrid))
+    if (!transports.contains(Transport::kHybrid))
       EXPECT_FALSE(cable_discovery()->is_start_requested());
-    if (!base::Contains(transports, Transport::kNearFieldCommunication))
+    if (!transports.contains(Transport::kNearFieldCommunication))
       EXPECT_FALSE(nfc_discovery()->is_start_requested());
-    if (!base::Contains(transports, Transport::kInternal))
+    if (!transports.contains(Transport::kInternal))
       EXPECT_FALSE(platform_discovery()->is_start_requested());
 
     EXPECT_THAT(

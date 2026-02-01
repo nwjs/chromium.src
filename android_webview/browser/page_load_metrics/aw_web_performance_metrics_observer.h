@@ -37,6 +37,15 @@ class AwWebPerformanceMetricsObserver
   ObservePolicy OnFencedFramesStart(
       content::NavigationHandle* navigation_handle,
       const GURL& currently_committed_url) override;
+  ObservePolicy OnEnterBackForwardCache(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+
+  void OnFirstContentfulPaintInPage(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+
+  void OnTimingUpdate(
+      content::RenderFrameHost* subframe_rfh,
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
 
   void OnUserTimingMarkFullyLoaded(
       const page_load_metrics::mojom::PageLoadTiming& timing) override;
@@ -47,6 +56,12 @@ class AwWebPerformanceMetricsObserver
   void OnCustomUserTimingMarkObserved(
       const std::vector<page_load_metrics::mojom::CustomUserTimingMarkPtr>&
           timings) override;
+
+ private:
+  void SendPerformanceMark(std::string mark_name,
+                           const base::TimeDelta& mark_time);
+
+  uint64_t lcp_largest_reported_size_;
 };
 
 }  // namespace android_webview

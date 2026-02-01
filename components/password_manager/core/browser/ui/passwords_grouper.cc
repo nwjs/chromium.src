@@ -13,6 +13,7 @@
 #include "base/memory/raw_span.h"
 #include "base/memory/safety_checks.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
@@ -146,9 +147,9 @@ PasswordsGrouper::Credentials::Credentials() = default;
 PasswordsGrouper::Credentials::~Credentials() = default;
 
 PasswordsGrouper::PasswordsGrouper(
-    affiliations::AffiliationService* affiliation_service)
-    : affiliation_service_(affiliation_service) {
-  DCHECK(affiliation_service_);
+    affiliations::AffiliationService* affiliation_service) {
+  DCHECK(affiliation_service);
+  affiliation_service_ = affiliation_service->AsWeakPtr();
   affiliation_service_->GetPSLExtensions(
       base::BindOnce(&PasswordsGrouper::InitializePSLExtensionList,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -158,6 +159,10 @@ PasswordsGrouper::~PasswordsGrouper() = default;
 void PasswordsGrouper::GroupCredentials(std::vector<PasswordForm> forms,
                                         std::vector<PasskeyCredential> passkeys,
                                         base::OnceClosure callback) {
+  if (!affiliation_service_) {
+    return;
+  }
+
   // Convert forms to Facets.
   std::vector<FacetURI> facets;
   facets.reserve(forms.size());

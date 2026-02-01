@@ -32,7 +32,8 @@ SessionService::DeferralParams& SessionService::DeferralParams::operator=(
     SessionService::DeferralParams&&) = default;
 
 std::unique_ptr<SessionService> SessionService::Create(
-    const URLRequestContext* request_context) {
+    const URLRequestContext* request_context,
+    const std::vector<SchemefulSite>& restricted_sites) {
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   unexportable_keys::UnexportableKeyService* service;
   if (request_context->unexportable_key_service()) {
@@ -46,7 +47,7 @@ std::unique_ptr<SessionService> SessionService::Create(
 
   SessionStore* session_store = request_context->device_bound_session_store();
   auto session_service = std::make_unique<SessionServiceImpl>(
-      *service, request_context, session_store);
+      *service, request_context, session_store, restricted_sites);
   // Loads saved sessions if `session_store` is not null.
   session_service->LoadSessionsAsync();
   return session_service;

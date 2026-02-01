@@ -59,6 +59,7 @@ class GlicInstanceCoordinatorMetrics {
 
  private:
   // Helper to calculate currently visible instances using
+
   // data_provider_->GetInstances()
   int GetVisibleInstanceCount() const;
 

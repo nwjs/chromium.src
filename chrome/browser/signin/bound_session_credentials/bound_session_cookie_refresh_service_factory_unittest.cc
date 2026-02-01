@@ -8,7 +8,6 @@
 #include <optional>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/test/scoped_command_line.h"
@@ -17,6 +16,7 @@
 #include "chrome/browser/signin/account_consistency_mode_manager_factory.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_refresh_service.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_refresh_service_impl.h"
+#include "chrome/browser/signin/bound_session_credentials/unexportable_key_provider_config.h"
 #include "chrome/browser/signin/bound_session_credentials/unexportable_key_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
@@ -239,8 +239,8 @@ TEST(BoundSessionCookieRefreshServiceFactoryTestNullUnexportableKeyService,
 
   std::unique_ptr<TestingProfile> profile = profile_builder.Build();
   ASSERT_FALSE(UnexportableKeyServiceFactory::GetForProfileAndPurpose(
-      profile.get(), UnexportableKeyServiceFactory::KeyPurpose::
-                         kDeviceBoundSessionCredentialsPrototype));
+      profile.get(),
+      unexportable_keys::KeyPurpose::kDeviceBoundSessionCredentialsPrototype));
   EXPECT_FALSE(DoesServiceExistForProfile(profile.get()));
 }
 

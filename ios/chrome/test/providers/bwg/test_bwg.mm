@@ -6,7 +6,7 @@
 
 namespace ios::provider {
 
-void StartBwgOverlay(BWGConfiguration* bwg_configuration) {}
+void StartBwgOverlay(GeminiConfiguration* gemini_configuration) {}
 
 const std::u16string GetPageContextShouldDetachScript() {
   return uR"JS(
@@ -39,5 +39,22 @@ bool IsProtectedUrl(std::string url) {
 }
 
 void UpdatePageContext(GeminiPageContext* gemini_page_context) {}
+
+NSArray<GeminiSettingsMetadata*>* GetEligibleSettings(
+    AuthenticationService* auth_service) {
+  return nil;
+}
+
+GeminiSettingsAction* ActionForSettingsContext(GeminiSettingsContext context) {
+  return nil;
+}
+
+void UpdateOverlayOffsetWithOpacity(CGFloat offset, CGFloat opacity) {}
+
+void UpdateGeminiViewState(GeminiViewState view_state) {}
+
+GeminiViewState GetCurrentGeminiViewState() {
+  return GeminiViewState::kUnknown;
+}
 
 }  // namespace ios::provider

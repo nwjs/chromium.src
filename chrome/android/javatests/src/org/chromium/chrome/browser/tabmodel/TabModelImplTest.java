@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.media.MediaCaptureDevicesDispatcherAndroid;
 import org.chromium.chrome.browser.media.MediaCaptureDevicesDispatcherAndroidJni;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.tab.InterceptNavigationDelegateClientImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -79,7 +80,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Tests for the legacy {@link TabModelImpl} that also apply to {@link TabCollectionTabModelImpl}.
+ * Legacy tests for the precursor to {@link TabCollectionTabModelImpl} that are still applicable.
+ *
+ * <p>Prefer adding new tests to {@link TabCollectionTabModelImplTest}.
  */
 // TODO(crbug.com/454298057): Migrate these tests to TabCollectionTabModelImplTest.
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -1650,6 +1653,10 @@ public class TabModelImplTest {
     @SmallTest
     @RequiresRestart // Avoid having multiple windows mess up the other tests
     public void testLaunchTypeForNewWindow() {
+        final boolean expectReparent = MultiWindowUtils.isMultiInstanceApi31Enabled();
+        if (expectReparent) {
+            InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
+        }
         createTabs(1);
 
         TabModel tabModel = mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
@@ -1667,9 +1674,10 @@ public class TabModelImplTest {
                             /* postData= */ ResourceRequestBody.createFromBytes(new byte[] {}),
                             WindowOpenDisposition.NEW_WINDOW,
                             /* persistParentage= */ false,
-                            /* isRendererInitiated= */ false);
+                            /* isRendererInitiated= */ false,
+                            /* hasUserGesture= */ false);
                 });
-        if (MultiWindowUtils.isMultiInstanceApi31Enabled()) {
+        if (expectReparent) {
             CriteriaHelper.pollUiThread(
                     () ->
                             MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ANY)

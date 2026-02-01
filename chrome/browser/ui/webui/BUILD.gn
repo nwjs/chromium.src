@@ -75,7 +75,7 @@ source_set("configs") {
       "//chrome/browser/ui/webui/legion_internals",
       "//chrome/browser/ui/webui/new_tab_footer",
       "//chrome/browser/ui/webui/privacy_sandbox:mojo_bindings",
-      "//chrome/browser/ui/webui/reload_button",
+      "//chrome/browser/ui/webui/webui_toolbar",
       "//chrome/browser/ui/webui_browser",
     ]
 
@@ -131,6 +131,10 @@ source_set("configs") {
 
   if (enable_session_service) {
     deps += [ "//chrome/browser/ui/webui/tab_strip_internals" ]
+  }
+
+  if (is_mac) {
+    deps += [ "//chrome/browser/ui/webui/unexportable_keys_internals" ]
   }
 }
 

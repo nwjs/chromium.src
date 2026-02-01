@@ -39,7 +39,7 @@ import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
-import org.chromium.ui.widget.RectProvider;
+import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -144,10 +144,13 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
      * @param tabId The tab id of the interacting tab group.
      * @param focusable True if the menu should be focusable by default, false otherwise.
      */
-    public void showMenu(RectProvider anchorViewRectProvider, int tabId, boolean focusable) {
+    public void showMenu(ViewRectProvider anchorViewRectProvider, int tabId, boolean focusable) {
         mIsMenuFocusableUponCreation = focusable;
         boolean isIncognito = mTabGroupModelFilter.getTabModel().isIncognitoBranded();
         dismiss();
+
+        if (!anchorViewRectProvider.isViewShown()) return;
+
         createAndShowMenu(
                 anchorViewRectProvider,
                 tabId,
@@ -266,7 +269,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                     new ListItemBuilder()
                             .withTitleRes(R.string.edit_bookmark)
                             .withMenuId(R.id.edit_bookmark)
-                            .withStartIconRes(R.drawable.btn_star_filled)
+                            .withStartIconRes(R.drawable.ic_star_filled_24dp)
                             .withIsIncognito(isIncognito)
                             .build());
         } else {
@@ -274,7 +277,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                     new ListItemBuilder()
                             .withTitleRes(R.string.add_to_bookmarks)
                             .withMenuId(R.id.add_to_bookmarks)
-                            .withStartIconRes(R.drawable.star_outline_24dp)
+                            .withStartIconRes(R.drawable.ic_star_24dp)
                             .withIsIncognito(isIncognito)
                             .build());
         }

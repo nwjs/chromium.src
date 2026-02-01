@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_INDEXEDDB_GLOBAL_INDEXED_DB_H_
 
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -14,18 +14,18 @@ class ExecutionContext;
 class IDBFactory;
 
 class GlobalIndexedDB final : public GarbageCollected<GlobalIndexedDB>,
-                              public GarbageCollectedMixin {
+                              public Supplement<ExecutionContext> {
  public:
+  static const char kSupplementName[];
+  static GlobalIndexedDB& From(ExecutionContext&);
   static IDBFactory* indexedDB(ExecutionContext&);
-  IDBFactory* IdbFactory(ExecutionContext&);
 
-  GlobalIndexedDB() = default;
+  explicit GlobalIndexedDB(ExecutionContext&);
 
   void Trace(Visitor* visitor) const override;
 
  private:
-  static GlobalIndexedDB& From(ExecutionContext&);
-
+  IDBFactory* IdbFactory(ExecutionContext&);
   Member<IDBFactory> idb_factory_;
 };
 

@@ -83,12 +83,12 @@ class CORE_EXPORT PaintTimingDetector
   static void NotifyInteractionTriggeredVideoSrcChange(const LayoutObject&);
 
   // LargestContentfulPaintCalculator::Delegate:
-  void EmitPerformanceEntry(const DOMPaintTimingInfo& paint_timing_info,
-                            uint64_t paint_size,
-                            base::TimeTicks load_time,
-                            const AtomicString& id,
-                            const String& url,
-                            Element* element) override;
+  void EmitLcpPerformanceEntry(const DOMPaintTimingInfo& paint_timing_info,
+                               uint64_t paint_size,
+                               base::TimeTicks load_time,
+                               const AtomicString& id,
+                               const String& url,
+                               Element* element) override;
   bool IsHardNavigation() const override { return true; }
   void Trace(Visitor* visitor) const override;
 
@@ -102,9 +102,7 @@ class CORE_EXPORT PaintTimingDetector
   void DidChangePerformanceTiming();
 
   inline static bool IsTracing() {
-    bool tracing_enabled;
-    TRACE_EVENT_CATEGORY_GROUP_ENABLED("loading", &tracing_enabled);
-    return tracing_enabled;
+    return TRACE_EVENT_CATEGORY_ENABLED("loading");
   }
 
   gfx::RectF BlinkSpaceToDIPs(const gfx::RectF& float_rect) const;

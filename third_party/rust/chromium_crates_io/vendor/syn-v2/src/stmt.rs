@@ -4,6 +4,8 @@ use crate::item::Item;
 use crate::mac::Macro;
 use crate::pat::Pat;
 use crate::token;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 ast_struct! {
     /// A braced block containing Rust statements.
@@ -93,6 +95,8 @@ pub(crate) mod parsing {
     use crate::stmt::{Block, Local, LocalInit, Stmt, StmtMacro};
     use crate::token;
     use crate::ty::Type;
+    use alloc::boxed::Box;
+    use alloc::vec::Vec;
     use proc_macro2::TokenStream;
 
     struct AllowNoSemi(bool);
@@ -419,7 +423,7 @@ pub(crate) mod printing {
     use crate::stmt::{Block, Local, Stmt, StmtMacro};
     use crate::token;
     use proc_macro2::TokenStream;
-    use quote::{ToTokens, TokenStreamExt};
+    use quote::{ToTokens, TokenStreamExt as _};
 
     #[cfg_attr(docsrs, doc(cfg(feature = "printing")))]
     impl ToTokens for Block {

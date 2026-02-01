@@ -962,7 +962,7 @@ const char kGuest[] = "guest";
 const char kForceNtpMobilePromo[] = "force-ntp-mobile-promo";
 #endif
 
-#if BUILDFLAG(ENABLE_GLIC)
+#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
 // Overrides the glic guest URL.
 const char kGlicGuestURL[] = "glic-guest-url";
 const char kGlicAlwaysOpenFre[] = "glic-always-open-fre";
@@ -989,6 +989,15 @@ const char kGlicAlwaysShowWebActuationToggle[] =
 // List of URL patterns in the glic webview to redirect to an admin blocked
 // panel, as a space-separated list.
 const char kGlicAdminRedirectPatterns[] = "glic-admin-redirect-patterns";
+
+// Reset local state pref kGlicMultiInstanceEnabledBySubscriptionTier to false.
+// Intended for manual testing only.
+const char kGlicResetMultiInstanceEnabledByTier[] =
+    "glic-reset-mi-enabled-by-tier";
+
+// Override actual AI subscription tier by forcing G1 status, specifically for
+// multi-instance enablement. Intended for manual testing only.
+const char kGlicForceG1StatusForMultiInstance[] = "glic-force-g1-for-mi";
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

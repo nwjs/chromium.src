@@ -5,7 +5,10 @@
 #ifndef IOS_CHROME_BROWSER_LOCATION_BAR_BADGE_UI_LOCATION_BAR_BADGE_CONSUMER_H_
 #define IOS_CHROME_BROWSER_LOCATION_BAR_BADGE_UI_LOCATION_BAR_BADGE_CONSUMER_H_
 
+#import <optional>
+
 @class LocationBarBadgeConfiguration;
+enum class ContextualPanelItemType;
 
 // TODO(crbug.com/454351425): Refactor function names to not use "entrypoint".
 // Usage is for parity with ContextualPanelEntryPointConsumer.
@@ -38,6 +41,18 @@
 
 // Shows a blue dot on the badge to indicate being unread.
 - (void)showUnreadBadge:(BOOL)unread;
+
+// Sets whether there are infobar badges currently being shown.
+- (void)setInfobarBadgesCurrentlyShown:(BOOL)infobarBadgesCurrentlyShown;
+
+// Notify the consumer to update the state of the entrypoint. When `opened` is
+// passed as YES, the entrypoint gets muted colors and becomes small, otherwise,
+// it returns to its default style.
+- (void)transitionToContextualPanelOpenedState:(BOOL)opened;
+
+// Sets the type of the current contextual panel entrypoint item.
+- (void)setContextualPanelItemType:
+    (std::optional<ContextualPanelItemType>)itemType;
 
 @end
 

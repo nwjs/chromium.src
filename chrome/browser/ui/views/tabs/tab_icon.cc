@@ -46,6 +46,7 @@
 #include "ui/views/border.h"
 #include "ui/views/cascading_property.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/property_effects.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -122,7 +123,7 @@ void TabIcon::SetData(const TabRendererData& data) {
   is_monochrome_favicon_ = data.is_monochrome_favicon;
   SetIcon(data.favicon, data.should_themify_favicon);
   SetNetworkState(data.network_state);
-  SetCrashed(data.IsCrashed());
+  SetCrashed(data.is_crashed);
   SetDiscarded(data.should_show_discard_status);
   has_tab_renderer_data_ = true;
 

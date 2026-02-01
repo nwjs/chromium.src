@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="fr-CA">
 <translation id="1076643793026027628">Chrome ouvre automatiquement les liens de la Navigation privée YouTube en mode Navigation privée.</translation>
+<translation id="1081114897601629648">Les mots de passe suivants n'ont pas été importés dans le gestionnaire de mots de passe Google parce qu'ils ne répondent pas aux exigences.</translation>
 <translation id="1086486568852410168">Rechercher avec Lentille Google</translation>
 <translation id="1088490543924960890">Commencez à enregistrer les clés d'accès avec le gestionnaire de mots de passe Google</translation>
 <translation id="1143896152279775643">Votre mot de passe sera enregistré dans le gestionnaire de mots de passe Google du compte <ph name="EMAIL" />.</translation>
@@ -16,6 +17,7 @@
 <translation id="124228879633599436">Votre Chrome est obsolète. Mettez-le à jour pour rester en sécurité.</translation>
 <translation id="1258531953614971819">Astuce Chrome : Déplacez Chrome vers votre écran d'accueil</translation>
 <translation id="1333745675627230582">Jouer au jeu du dinosaure de Chrome</translation>
+<translation id="1343830902827845050">Connectez-vous à Chrome</translation>
 <translation id="1352919863522755794">Le gestionnaire de mots de passe de Google n'a pas pu vérifier vos mots de passe. Essayez de vérifier votre connexion Internet.</translation>
 <translation id="1394995526009609883">Vous pouvez mettre à jour vos sélections à tout moment dans les paramètres Chrome.</translation>
 <translation id="1407843355326180937">Connectez-vous à ce site et à Chrome pour obtenir vos favoris et plus encore sur tous vos appareils.</translation>
@@ -103,7 +105,6 @@ Essayez d'attendre quelques minutes avant de vous déconnecter. Si vous vous dé
 <translation id="3167189358072330585">Votre compte n'est pas compatible avec Google Chrome. Veuillez communiquer avec l'administrateur de votre domaine ou utiliser un compte Google ordinaire pour vous connecter.</translation>
 <translation id="320747600144551583">Astuce Chrome : La navigation sécurisée améliorée vous protège</translation>
 <translation id="322254490661677575">Pour utiliser et enregistrer des données Chrome dans votre compte Google, saisissez votre phrase de passe.</translation>
-<translation id="3282568296779691940">Connexion à Chrome</translation>
 <translation id="3303503998967553377">Utiliser les Actions de Chrome sur iOS</translation>
 <translation id="3348862487678490430">Ajouter un élément à la Liste de lecture dans Chrome</translation>
 <translation id="3357827134511189025">Utilisez Chrome pour le remplissage automatique pour vous connecter avec vos clés d'accès et vos mots de passe enregistrés à partir de n'importe quelle appli</translation>
@@ -115,6 +116,7 @@ Essayez d'attendre quelques minutes avant de vous déconnecter. Si vous vous dé
 <translation id="3460369101684070455">Pour obtenir facilement vos mots de passe enregistrés dans vos autres applis, choisissez Chrome pour le remplissage automatique</translation>
 <translation id="3472587960215700950">Chrome utilise Google Maps pour vous fournir des itinéraires et des informations locales sur les adresses détectées.</translation>
 <translation id="3482807551645716768">Accédez à Chrome plus rapidement à partir de l'écran d'accueil de votre iPad.</translation>
+<translation id="3491067552520121605">Vous disposez déjà de mots de passe ou de clés d'accès dans le gestionnaire de mots de passe Google pour les sites affichés. Sélectionnez un compte pour conserver les renseignements de connexion affichés, ce qui écrasera ceux qui se trouvent dans le gestionnaire de mots de passe Google.</translation>
 <translation id="3503014945441706099">Bénéficiez également de la navigation sécurisée améliorée pour ce profil Chrome</translation>
 <translation id="3522659714780527202">Pour voir vos onglets partout où vous utilisez Chrome, activez la synchronisation</translation>
 <translation id="364480321352456989">Votre Chrome est obsolète.</translation>
@@ -134,6 +136,7 @@ Essayez d'attendre quelques minutes avant de vous déconnecter. Si vous vous dé
 <translation id="4167555379306984168">Découvrir les nouveautés de Chrome</translation>
 <translation id="417201473131094001">Application non prise en charge par Chrome Canary</translation>
 <translation id="424864128008805179">Se déconnecter de Chrome?</translation>
+<translation id="4409545895715116037">Les clés d'accès suivantes n'ont pas été importées dans le gestionnaire de mots de passe Google parce qu'elles ne répondent pas aux exigences.</translation>
 <translation id="4430797724889237570">Ouvrez des liens à partir de Gmail, Maps, YouTube et d'autres applis dans Chrome.</translation>
 <translation id="447252321002412580">Nous aider à améliorer les fonctionnalités et les performances de Chrome</translation>
 <translation id="4523886039239821078">Certains modules complémentaires provoquent le plantage de Chrome. Veuillez désinstaller :</translation>
@@ -272,6 +275,7 @@ Afin d'accéder à plus de paramètres utilisant des données pour améliorer vo
 <translation id="7284245284340063465">Si vous avez oublié votre phrase de passe ou si vous souhaitez modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chrome de votre compte<ph name="END_LINK" />.</translation>
 <translation id="7296102444587051536">Chrome pour iOS</translation>
 <translation id="7299681342915173313">Vous pouvez désormais utiliser Chrome lorsque vous touchez des liens dans des courriels, des documents et d'autres applis.</translation>
+<translation id="7334364820047587268">Vous avez déjà des mots de passe pour ces comptes dans votre gestionnaire de mots de passe Google. Si vous choisissez d'importer l'un des mots de passe ci-dessous, il remplacera l'ancien.</translation>
 <translation id="7344094882820374540">Bénéficiez de la sécurité la plus robuste de Chrome contre les sites dangereux</translation>
 <translation id="7349129508108954623">Autorisez Chrome à utiliser Google Maps pour vous fournir des itinéraires et des informations locales sur les adresses détectées.</translation>
 <translation id="7371674917547846460">Soyez au courant des astuces Chrome et plus encore.</translation>
@@ -300,11 +304,11 @@ Afin d'accéder à plus de paramètres utilisant des données pour améliorer vo
 <translation id="7787205077729386167">Ouvrez les paramètres Chrome dans iOS, puis touchez « Appli de navigation par défaut » et sélectionnez Chrome.</translation>
 <translation id="778855399387580014">Lancez une recherche dans un nouvel onglet Chrome.</translation>
 <translation id="7792140019572081272">Chrome protège vos données confidentielles avec Face ID.</translation>
+<translation id="7825648984449922731">Modifiez une image avec Gemini dans Chrome</translation>
 <translation id="7855730255114109580">Google Chrome est à jour</translation>
 <translation id="787226752901403048">Connectez-vous à Chrome pour partager et rejoindre des groupes d'onglets et travailler ensemble sur des idées</translation>
 <translation id="7897703007638178753">Voir les onglets récents de Chrome</translation>
 <translation id="7948283758957877064">Quoi de neuf dans Chrome</translation>
-<translation id="7996707498590516621">Créez une image avec Gemini dans Chrome</translation>
 <translation id="8000174216052461231">Astuce Chrome : Bénéficiez de la sécurité la plus robuste de Chrome</translation>
 <translation id="8006014511203279255">Utilisez Chrome chaque fois que vous touchez des liens dans les messages ou dans d'autres applications.</translation>
 <translation id="8014670471808569312">Chrome vous proposera d'enregistrer votre mot de passe.</translation>

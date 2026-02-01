@@ -58,13 +58,7 @@ class MockEntityDataManagerObserver : public EntityDataManager::Observer {
 // Test fixture for the asynchronous database operations in EntityDataManager.
 class EntityDataManagerTest : public testing::Test {
  public:
-  EntityDataManagerTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kAutofillAiWithDataSchema,
-         syncer::kSyncWalletFlightReservations,
-         syncer::kSyncWalletVehicleRegistrations},
-        {});
-  }
+  EntityDataManagerTest() = default;
 
   void TearDown() override { sync_service_.Shutdown(); }
 
@@ -75,7 +69,8 @@ class EntityDataManagerTest : public testing::Test {
   syncer::TestSyncService& sync_service() { return sync_service_; }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kAutofillAiWithDataSchema};
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   AutofillWebDataServiceTestHelper helper_{std::make_unique<EntityTable>()};
@@ -251,7 +246,7 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, RecordEntityUsed) {
   EntityInstance pp =
       test::GetPassportEntityInstance({.use_date = base::Time::FromTimeT(0)});
   entity_data_manager().AddOrUpdateEntityInstance(pp);
-  EXPECT_EQ(pp.use_count(), 0u);
+  EXPECT_EQ(pp.use_count(), 0);
   EXPECT_EQ(pp.use_date(), base::Time::FromTimeT(0));
 
   base::Time use_date = base::Time::Now();
@@ -261,7 +256,7 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, RecordEntityUsed) {
   auto check_metadata = [&](const EntityInstance::EntityId& guid) {
     base::optional_ref<const EntityInstance> entity = GetInstance(guid);
     ASSERT_TRUE(entity);
-    EXPECT_EQ(entity->use_count(), 1u);
+    EXPECT_EQ(entity->use_count(), 1);
     EXPECT_EQ(entity->use_date(), use_date);
   };
   check_metadata(pp.guid());
@@ -428,8 +423,6 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty, OnOtherDataTypeChangedBySync) {
 // triggers a reload of entities.
 TEST_F(EntityDataManagerTest_InitiallyEmpty,
        OnAutofillValuableMetadataChangedBySync) {
-  base::test::ScopedFeatureList feature_list{
-      syncer::kSyncAutofillValuableMetadata};
   MockEntityDataManagerObserver observer;
   base::ScopedObservation<EntityDataManager, MockEntityDataManagerObserver>
       observation{&observer};
@@ -459,20 +452,19 @@ TEST_F(EntityDataManagerTest_InitiallyEmpty,
 // pref.
 TEST_F(EntityDataManagerTest,
        SyncablePrefIsOffAndAccountKeyPrefIsOn_MigratePrefValue) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiSetSyncablePrefFromAccountPref};
+
   base::HistogramTester histogram_tester;
-  // Opt the user in.
+  // At first the user is not opted-in, therefore no migration happens.
   client().set_entity_data_manager(std::make_unique<EntityDataManager>(
       client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
       helper().autofill_webdata_service(),
       /*history_service=*/nullptr,
       /*strike_database=*/nullptr));
-  ASSERT_TRUE(client().SetUpPrefsAndIdentityForAutofillAi());
-  ASSERT_TRUE(GetAutofillAiOptInStatus(client()));
 
-  // This emulates the user being added to the experiment and restarting chrome
-  // (the migration happens at startup).
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiSetSyncablePrefFromAccountPref};
+  // Opt the user in.
+  ASSERT_TRUE(client().SetUpPrefsAndIdentityForAutofillAi());
   // Recreate the entity data manager the trigger possible pref migration.
   client().set_entity_data_manager(std::make_unique<EntityDataManager>(
       client().GetPrefs(), client().GetIdentityManager(), &sync_service(),
@@ -480,6 +472,14 @@ TEST_F(EntityDataManagerTest,
       /*history_service=*/nullptr,
       /*strike_database=*/nullptr));
   EXPECT_TRUE(prefs::IsAutofillAiSyncedOptInStatusEnabled(client().GetPrefs()));
+  // The first construction of the `EntityDataManager` triggered no migration
+  // because the user was not opted-in.
+  histogram_tester.ExpectBucketCount(
+      "Autofill.Ai.OptIn.PrefMigration",
+      EntityDataManager::AutofillAiPrefMigrationStatus::
+          kPrefNotMigratedAccountPrefNeverSet,
+      1);
+  // The second construction triggers a migration.
   histogram_tester.ExpectBucketCount(
       "Autofill.Ai.OptIn.PrefMigration",
       EntityDataManager::AutofillAiPrefMigrationStatus::kPrefMigratedEnabled,
@@ -499,8 +499,10 @@ TEST_F(EntityDataManagerTest, SyncablePrefIsOn_DoNotMigrate) {
       /*history_service=*/nullptr,
       /*strike_database=*/nullptr));
 
-  // Opt the user in, which also enables the syncable pref.
+  // Opt the user in.
   ASSERT_TRUE(client().SetUpPrefsAndIdentityForAutofillAi());
+  // Enable synced pref, which should lead to no migration.
+  client().GetPrefs()->SetBoolean(prefs::kAutofillAiSyncedOptInStatus, true);
 
   // Recreate the entity data manager the trigger possible pref migration.
   client().set_entity_data_manager(std::make_unique<EntityDataManager>(

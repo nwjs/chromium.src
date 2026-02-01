@@ -9,7 +9,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
-#include "third_party/blink/renderer/core/scroll/scroll_snapshot_client.h"
+#include "third_party/blink/renderer/core/frame/post_layout_snapshot_client.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 
 namespace blink {
@@ -85,11 +85,11 @@ class ScrollMarkerChooser {
 class PaintLayerScrollableArea;
 
 class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
-                              public ScrollSnapshotClient,
+                              public PostLayoutSnapshotClient,
                               public ElementRareDataField {
  public:
   explicit ScrollMarkerGroupData(LocalFrame* frame)
-      : ScrollSnapshotClient(frame) {}
+      : PostLayoutSnapshotClient(frame) {}
   void AddToFocusGroup(Element& scroll_marker);
   void RemoveFromFocusGroup(Element& scroll_marker);
   void ClearFocusGroup();
@@ -108,13 +108,13 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
   Element* FindPreviousScrollMarker(const Element* current);
 
   void SetNeedsScrollersMapUpdate() { needs_scrollers_map_update_ = true; }
-  void UpdateScrollableAreaSubscriptions(
-      HeapHashSet<Member<PaintLayerScrollableArea>>& scrollable_areas);
+  void UpdateScrollableAreaSubscriptions();
+  void ClearScrollableAreaSubscriptions();
   bool NeedsScrollersMapUpdate() const { return needs_scrollers_map_update_; }
 
   void Trace(Visitor* v) const final;
 
-  // ScrollSnapshotClient:
+  // PostLayoutSnapshotClient:
   bool UpdateSnapshot() override;
   bool ShouldScheduleNextService() override;
 
@@ -130,7 +130,7 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
   // TODO(384523570) Temporary solution to fix lifecycle issues, as scroll
   // marker calculation requires post-layout state, but UpdateSnapshot is
   // sometimes called pre-layout.
-  // ScrollSnapshotClient:
+  // PostLayoutSnapshotClient:
   void UpdateSnapshotForServiceAnimations() override {}
 
  private:
@@ -185,6 +185,9 @@ class ScrollMarkerGroupData : public GarbageCollected<ScrollMarkerGroupData>,
   // The selected scroll marker that was captured at the time of the last
   // snapshot.
   Member<Element> selected_marker_;
+  // The set of scrollable areas that contain scroll targets for anchors in this
+  // group. Used to subscribe/unsubscribe from scroll updates.
+  HeapHashSet<Member<PaintLayerScrollableArea>> scrollable_areas_;
 };
 
 }  // namespace blink

@@ -38,12 +38,13 @@ PaymentAppServiceWorkerRegistration::~PaymentAppServiceWorkerRegistration() =
 PaymentAppServiceWorkerRegistration& PaymentAppServiceWorkerRegistration::From(
     ServiceWorkerRegistration& registration) {
   PaymentAppServiceWorkerRegistration* supplement =
-      registration.GetPaymentAppServiceWorkerRegistration();
+      Supplement<ServiceWorkerRegistration>::From<
+          PaymentAppServiceWorkerRegistration>(registration);
 
   if (!supplement) {
     supplement = MakeGarbageCollected<PaymentAppServiceWorkerRegistration>(
         &registration);
-    registration.SetPaymentAppServiceWorkerRegistration(supplement);
+    ProvideTo(registration, supplement);
   }
 
   return *supplement;
@@ -64,26 +65,29 @@ PaymentManager* PaymentAppServiceWorkerRegistration::paymentManager(
   if (!AllowedToUsePaymentFeatures(script_state)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotAllowedError,
-        "Must be in a top-level browsing context or an iframe needs to specify "
-        "allow=\"payment\" "
+        "Must be in a top-level browsing context or an iframe needs to specify allow=\"payment\" "
         "explicitly");
     return nullptr;
   }
 
   if (!payment_manager_) {
     payment_manager_ =
-        MakeGarbageCollected<PaymentManager>(service_worker_registration_);
+        MakeGarbageCollected<PaymentManager>(GetSupplementable());
   }
   return payment_manager_.Get();
 }
 
 void PaymentAppServiceWorkerRegistration::Trace(Visitor* visitor) const {
   visitor->Trace(payment_manager_);
-  visitor->Trace(service_worker_registration_);
+  Supplement<ServiceWorkerRegistration>::Trace(visitor);
 }
 
 PaymentAppServiceWorkerRegistration::PaymentAppServiceWorkerRegistration(
     ServiceWorkerRegistration* registration)
-    : service_worker_registration_(*registration) {}
+    : Supplement(*registration) {}
+
+// static
+const char PaymentAppServiceWorkerRegistration::kSupplementName[] =
+    "PaymentAppServiceWorkerRegistration";
 
 }  // namespace blink

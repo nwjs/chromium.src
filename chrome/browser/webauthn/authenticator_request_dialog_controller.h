@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/functional/callback_forward.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -26,6 +27,7 @@
 #include "components/webauthn/core/browser/passkey_model_change.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/global_routing_id.h"
+#include "device/fido/cable/v2_constants.h"
 #include "third_party/blink/public/mojom/credentialmanagement/credential_type_flags.mojom.h"
 #include "url/gurl.h"
 
@@ -437,9 +439,6 @@ class AuthenticatorRequestDialogController
   std::optional<size_t> IndexOfGetAssertionPriorityMechanism();
   std::optional<size_t> IndexOfImmediateGetPriorityMechanism();
   std::optional<size_t> IndexOfMakeCredentialPriorityMechanism();
-
-  // Sets correct step for entering GPM pin based on `gpm_pin_is_arbitrary_`.
-  void PromptForGPMPin();
 
   // Returns true if this request could pick the enclave authenticator by
   // default. This only makes sense for a create() call.

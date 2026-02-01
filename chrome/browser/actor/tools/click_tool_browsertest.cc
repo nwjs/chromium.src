@@ -99,17 +99,12 @@ class UserInteractionObserver : public content::WebContentsObserver {
   bool user_interaction_received_ = false;
 };
 
-class ActorClickToolBrowserTest : public ActorToolsTest,
-                                  public ::testing::WithParamInterface<
-                                      ::features::ActorPaintStabilityMode> {
+class ActorClickToolBrowserTest : public ActorToolsTest {
  public:
   ActorClickToolBrowserTest() {
-    auto paint_stability_mode = GetParam();
     feature_list_.InitAndEnableFeatureWithParameters(
         ::features::kGlicActor,
-        {{::features::kActorPaintStabilityMode.name,
-          ::features::kActorPaintStabilityMode.GetName(paint_stability_mode)},
-         {features::kGlicActorClickDelay.name, "200ms"}});
+        {{features::kGlicActorClickDelay.name, "200ms"}});
   }
 
   ~ActorClickToolBrowserTest() override = default;
@@ -125,7 +120,7 @@ class ActorClickToolBrowserTest : public ActorToolsTest,
 };
 
 // Basic test to ensure sending a click to an element works.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_SentToElement) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_SentToElement) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -171,7 +166,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_SentToElement) {
 }
 
 // Sending a click to an element that doesn't exist fails.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
                        ClickTool_NonExistentElement) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
@@ -192,7 +187,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
 }
 
 // Sending a click to a disabled element should fail without dispatching events.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_DisabledElement) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_DisabledElement) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -214,7 +209,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_DisabledElement) {
 
 // Sending a click to an element that's not in the viewport should cause it to
 // first be scrolled into view then clicked.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_OffscreenElement) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_OffscreenElement) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -242,8 +237,35 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_OffscreenElement) {
           "mouseup[BUTTON#offscreen],click[BUTTON#offscreen]"));
 }
 
+// Sending a click to an element that's not in the viewport should cause it to
+// first be scrolled into view then clicked.
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
+                       ClickTool_OffscreenHiddenElement) {
+  const GURL url = embedded_test_server()->GetURL("/actor/oov_elements.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  for (const char* selector :
+       {"#detailButton", "#hiddenButton", "#autoButton"}) {
+    SCOPED_TRACE(selector);
+    // Starts unscrolled
+    ASSERT_TRUE(EvalJs(web_contents(), "window.scroll(0,0)").is_ok());
+
+    std::optional<int> button_id = GetDOMNodeId(*main_frame(), selector);
+    ASSERT_TRUE(button_id);
+
+    std::unique_ptr<ToolRequest> action =
+        MakeClickRequest(*main_frame(), button_id.value());
+    ActResultFuture result;
+    actor_task().Act(ToRequestList(action), result.GetCallback());
+    ExpectOkResult(result);
+
+    // Page is now scrolled.
+    EXPECT_GT(EvalJs(web_contents(), "window.scrollY"), 0);
+  }
+}
+
 // Ensure clicks can be sent to elements that are only partially onscreen.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_ClippedElements) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_ClippedElements) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/click_with_overflow_clip.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -269,7 +291,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_ClippedElements) {
 }
 
 // Ensure clicks can be sent to a coordinate onscreen.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_SentToCoordinate) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_SentToCoordinate) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -312,7 +334,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_SentToCoordinate) {
 
 // Sending a click to a coordinate not in the viewport should fail without
 // dispatching events.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
                        ClickTool_SentToCoordinateOffScreen) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
@@ -352,7 +374,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
 }
 
 // Ensure click is using viewport coordinate.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
                        ClickTool_ViewportCoordinate) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
@@ -384,7 +406,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
 
 // Ensure click works correctly when clicking on a cross process iframe using a
 // DomNodeId
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
                        ClickTool_Subframe_DomNodeId) {
   // This test only applies if cross-origin frames are put into separate
   // processes.
@@ -421,7 +443,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
 
 // Ensure that page tools (click is arbitrary here) correctly add the acted on
 // tab to the task's tab set.
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
                        ClickTool_RecordActingOnTask) {
   ASSERT_TRUE(actor_task().GetTabs().empty());
 
@@ -438,7 +460,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest,
   EXPECT_TRUE(actor_task().GetTabs().contains(active_tab()->GetHandle()));
 }
 
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_Delay) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_Delay) {
   const GURL url =
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
@@ -470,7 +492,7 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, ClickTool_Delay) {
   EXPECT_GE(delta, features::kGlicActorClickDelay.Get());
 }
 
-IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, UserInteractionTriggered) {
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, UserInteractionTriggered) {
   const GURL start_url =
       embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
@@ -489,14 +511,23 @@ IN_PROC_BROWSER_TEST_P(ActorClickToolBrowserTest, UserInteractionTriggered) {
   ASSERT_TRUE(observer.WasUserInteractionReceived());
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    ActorClickToolBrowserTest,
-    testing::Values(::features::ActorPaintStabilityMode::kDisabled,
-                    ::features::ActorPaintStabilityMode::kLogOnly,
-                    ::features::ActorPaintStabilityMode::kEnabled),
-    [](const testing::TestParamInfo<::features::ActorPaintStabilityMode>&
-           info) { return DescribePaintStabilityMode(info.param); });
+// Test that we can dispatch a click to a checkbox that's entirely overlaid by
+// a pseudo element in its associated label.
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, CheckboxOverlayedByPseudo) {
+  const GURL start_url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), start_url));
+
+  std::optional<int> checkbox_id =
+      GetDOMNodeId(*main_frame(), "#checkboxPseudo");
+  ASSERT_TRUE(checkbox_id);
+
+  std::unique_ptr<ToolRequest> action =
+      MakeClickRequest(*main_frame(), checkbox_id.value());
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+}
 
 class ActorClickToolScaledBrowserTest : public ActorToolsTest {
  public:

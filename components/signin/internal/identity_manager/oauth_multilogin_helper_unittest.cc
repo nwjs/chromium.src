@@ -14,6 +14,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
@@ -234,8 +235,7 @@ const char
               "isSecure": true,
               "isHttpOnly": false,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "device_bound_session_info": [
@@ -1503,8 +1503,7 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
               "isSecure": true,
               "isHttpOnly": false,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "device_bound_session_info": [
@@ -1692,8 +1691,7 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
               "isSecure": true,
               "isHttpOnly": false,
               "maxAge": 31536000,
-              "priority": "HIGH",
-              "sameParty": "1"
+              "priority": "HIGH"
             }
           ],
           "device_bound_session_info": [

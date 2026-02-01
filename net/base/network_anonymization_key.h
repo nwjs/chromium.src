@@ -12,11 +12,11 @@
 #include <tuple>
 #include <utility>
 
+#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
 #include "net/base/net_export.h"
-#include "net/base/network_isolation_key.h"
 #include "net/base/network_isolation_partition.h"
 #include "net/base/schemeful_site.h"
 
@@ -25,6 +25,8 @@ class Value;
 }
 
 namespace net {
+
+class NetworkIsolationKey;
 
 // NetworkAnonymizationKey (NAK) is used to partition shared network state based
 // on the context in which requests were made. Most network state is divided

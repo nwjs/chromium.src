@@ -27,6 +27,7 @@
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/permissions/test/mock_permission_prompt_factory.h"
 #include "components/prefs/pref_service.h"
+#include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/network_service_util.h"
@@ -576,6 +577,7 @@ IN_PROC_BROWSER_TEST_F(RequestStorageAccessForEnabledBrowserTest,
 IN_PROC_BROWSER_TEST_F(RequestStorageAccessForEnabledBrowserTest,
                        RequestStorageAccessForEmbeddedOriginScoping) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
+  base::HistogramTester histogram_tester;
 
   SetBlockThirdPartyCookies(true);
 
@@ -599,6 +601,13 @@ IN_PROC_BROWSER_TEST_F(RequestStorageAccessForEnabledBrowserTest,
                                             /*cors_enabled=*/true),
             "");
 
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::
+          kStorageAccessAPI_requestStorageAccessFor_Method_AsyncSuccess,
+      /*expected_count=*/0);
+
   EXPECT_THAT(
       ukm_recorder.GetMetricsEntryValues(kRequestStorageAccessUkmEntryName,
                                          kRequestStorageResultMetricName),
@@ -614,6 +623,13 @@ class RequestStorageAccessForWithFirstPartySetsBrowserTest
     // problematic for tests that check histograms, because
     // ScopedAlwaysSampleForTesting doesn't affect other processes.
     content::ForceInProcessNetworkService();
+  }
+
+  void SetUpOnMainThread() override {
+    RequestStorageAccessForBaseBrowserTest::SetUpOnMainThread();
+    // Explicitly enable Related Website Sets (formerly First Party Sets).
+    browser()->profile()->GetPrefs()->SetBoolean(
+        prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -785,6 +801,13 @@ IN_PROC_BROWSER_TEST_F(
                   kRequestOutcomeHistogram,
                   TopLevelStorageAccessRequestOutcome::kGrantedByFirstPartySet),
               Gt(0));
+
+  content::FetchHistogramsFromChildProcesses();
+  histogram_tester.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::
+          kStorageAccessAPI_requestStorageAccessFor_Method_AsyncSuccess,
+      /*expected_count=*/1);
 
   EXPECT_THAT(
       ukm_recorder.GetMetricsEntryValues(kRequestStorageAccessUkmEntryName,
@@ -1224,20 +1247,7 @@ IN_PROC_BROWSER_TEST_F(RequestStorageAccessForWithFirstPartySetsBrowserTest,
   EXPECT_EQ("prompt", QueryPermission(GetPrimaryMainFrame(), kHostB));
 }
 
-class RequestStorageAccessForWithCHIPSBrowserTest
-    : public RequestStorageAccessForBaseBrowserTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    RequestStorageAccessForBaseBrowserTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitchASCII(
-        network::switches::kUseRelatedWebsiteSet,
-        base::StrCat({R"({"primary": "https://)", kHostA,
-                      R"(", "associatedSites": ["https://)", kHostC, R"("])",
-                      R"(, "serviceSites": ["https://)", kHostB, R"("]})"}));
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(RequestStorageAccessForWithCHIPSBrowserTest,
+IN_PROC_BROWSER_TEST_F(RequestStorageAccessForWithFirstPartySetsBrowserTest,
                        RequestStorageAccessFor_CoexistsWithCHIPS) {
   ukm::TestAutoSetUkmRecorder ukm_recorder;
   SetBlockThirdPartyCookies(true);
@@ -1393,12 +1403,6 @@ class TopLevelStorageExemptionReasonMetricTest
 
   const std::vector<int64_t>& expected_metric_value() {
     return GetParam().expected_metric_value;
-  }
-
-  std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
-    return {
-        content_settings::features::kTrackingProtection3pcd,
-    };
   }
 };
 

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {assert, assertNotReachedCase} from 'chrome://resources/js/assert.js';
 import {getRequiredElement} from 'chrome://resources/js/util.js';
 
 import type {BrowserProxyImpl} from './browser_proxy.js';
@@ -163,7 +164,7 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
       this.reload();
     });
     $.disabledByAdminCloseButton.addEventListener('click', () => {
-      this.browserProxy.handler.closePanel();
+      this.browserProxy.pageHandler.closePanel();
     });
     $.disabledByAdminPanel.querySelector('a')?.addEventListener('click', () => {
       this.openDisabledByAdminLink();
@@ -177,7 +178,7 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
         if (ev.code === 'Escape') {
           ev.stopPropagation();
           ev.preventDefault();
-          this.browserProxy.handler.closePanel();
+          this.browserProxy.pageHandler.closePanel();
         }
       }
     });
@@ -245,6 +246,7 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
         this.showPanel('guestPanel');
         break;
       case 'guestError':
+      case 'guestCaaError':
         this.setState(WebUiState.kGuestError);
         break;
       case 'regular':
@@ -257,6 +259,8 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
       case 'loadError':
         this.setState(WebUiState.kError);
         break;
+      default:
+        assertNotReachedCase(type);
     }
   }
 
@@ -275,8 +279,8 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
     }
     this.state = newState;
     this.states.get(this.state)!.onEnter?.call(this);
-    this.browserProxy.handler.webUiStateChanged(this.state);
-    this.browserProxy.handler.enableDragResize(
+    this.browserProxy.pageHandler.webUiStateChanged(this.state);
+    this.browserProxy.pageHandler.enableDragResize(
         this.state === WebUiState.kReady && this.guestResizeEnabled);
   }
 
@@ -442,6 +446,7 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
     this.trackLoadingStageEnd();
 
     const readyState = this.profileReadyState;
+    assert(readyState !== undefined);
     switch (readyState) {
       case ProfileReadyState.kIneligible:
       case ProfileReadyState.kUnknownError:
@@ -457,12 +462,16 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
         return;
       case ProfileReadyState.kReady:
         break;
+      default:
+        assertNotReachedCase(readyState);
     }
 
     // Blocking on cookie syncing here introduces latency, we should consider
     // ways to avoid it.
     this.trackLoadingStageStart(LoadingStage.AWAITING_COOKIE_SYNC);
-    const {result} = await this.browserProxy.handler.prepareForClient();
+    const {result} = this.browserProxy.glicPreloadHandler ?
+        await this.browserProxy.glicPreloadHandler.prepareForClient() :
+        await this.browserProxy.pageHandler.prepareForClient();
     this.trackLoadingStageEnd();
 
     switch (result) {
@@ -475,6 +484,8 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
       case PrepareForClientResult.kRequiresSignIn:
         this.setState(WebUiState.kSignIn);
         return;
+      default:
+        assertNotReachedCase(result);
     }
 
     // Load the web client only after cookie sync is complete.
@@ -514,7 +525,8 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
     // `kMaxWaitTimeMs`. Switch to error state at that time unless interrupted
     // by `webClientReady`.
     this.loadingTimer = setTimeout(() => {
-      if (this.webview?.waitingOnPanelWillOpen()) {
+      if (!loadTimeData.getBoolean('glicWebContentsWarming') &&
+          this.webview?.waitingOnPanelWillOpen()) {
         console.warn('Exceeded timeout waiting for notifyPanelWillOpen');
         this.setState(WebUiState.kError);
       } else if (
@@ -549,18 +561,18 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
     // Resize widget to size of new panel.
     if (id === 'guestPanel') {
       // For the guest webview, use the most recently requested size.
-      this.browserProxy.handler.resizeWidget(
+      this.browserProxy.pageHandler.resizeWidget(
           {width: this.lastWidth, height: this.lastHeight}, transitionDuration);
     }
     if (id === 'loadingPanel') {
-      this.browserProxy.handler.resizeWidget(
+      this.browserProxy.pageHandler.resizeWidget(
           {
             width: this.defaultWidth,
             height: this.floatingLoadingHeight,
           },
           transitionDuration);
     } else {
-      this.browserProxy.handler.resizeWidget(
+      this.browserProxy.pageHandler.resizeWidget(
           {
             width: this.defaultWidth,
             height: this.defaultHeight,
@@ -624,7 +636,7 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
   enableDragResize(enabled: boolean) {
     this.guestResizeEnabled = enabled;
     if (this.state === WebUiState.kReady) {
-      this.browserProxy.handler.enableDragResize(this.guestResizeEnabled);
+      this.browserProxy.pageHandler.enableDragResize(this.guestResizeEnabled);
     }
   }
 
@@ -650,8 +662,9 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
           case WebUiState.kShowLoading:
           case WebUiState.kHoldLoading:
             return;
+          default:
+            this.setState(WebUiState.kReady);
         }
-        this.setState(WebUiState.kReady);
         break;
       case WebClientState.UNRESPONSIVE:
         this.trackUnresponsiveState(
@@ -664,6 +677,10 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
         this.guestResizeEnabled = false;
         this.setState(WebUiState.kError);
         break;
+      case WebClientState.UNINITIALIZED:
+        break;
+      default:
+        assertNotReachedCase(state);
     }
   }
 
@@ -686,12 +703,12 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
       $.guestPanel.classList.toggle('debug', false);
       this.setState(WebUiState.kError);
     } else if (this.state === WebUiState.kReady) {
-      this.browserProxy.handler.closePanel();
+      this.browserProxy.pageHandler.closePanel();
     } else {
       // Reload in the background if user closes window while web client is not
       // ready. This is an escape hatch for situation where we're stuck in a
       // loading state caused by an error.
-      this.browserProxy.handler.closePanel().then(() => {
+      this.browserProxy.pageHandler.closePanel().then(() => {
         this.reload();
       });
     }
@@ -705,11 +722,11 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
   }
 
   private openProfilePicker(): void {
-    this.browserProxy.handler.openProfilePickerAndClosePanel();
+    this.browserProxy.pageHandler.openProfilePickerAndClosePanel();
   }
 
   private signIn(): void {
-    this.browserProxy.handler.signInAndClosePanel();
+    this.browserProxy.pageHandler.signInAndClosePanel();
   }
 
   // PageInterface implementation.
@@ -763,12 +780,14 @@ export class GlicAppController implements WebviewDelegate, ApiHostEmbedder {
             this.setState(WebUiState.kBeginLoad);
           }
           break;
+        default:
+          assertNotReachedCase(this.profileReadyState);
       }
     }
   }
 
   openDisabledByAdminLink(): void {
-    this.browserProxy.handler.openDisabledByAdminLinkAndClosePanel();
+    this.browserProxy.pageHandler.openDisabledByAdminLinkAndClosePanel();
   }
 
   isOnline() {

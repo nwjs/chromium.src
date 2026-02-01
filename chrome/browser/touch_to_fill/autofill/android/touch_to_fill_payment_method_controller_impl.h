@@ -23,10 +23,10 @@ namespace autofill {
 
 namespace payments {
 struct BnplIssuerContext;
+struct BnplTosModel;
 }  // namespace payments
 
 class BnplIssuer;
-struct BnplTosModel;
 class ContentAutofillClient;
 class Iban;
 class LoyaltyCard;
@@ -57,11 +57,16 @@ class TouchToFillPaymentMethodControllerImpl
   bool ShowIbans(std::unique_ptr<TouchToFillPaymentMethodView> view,
                  base::WeakPtr<TouchToFillDelegate> delegate,
                  base::span<const Iban> ibans_to_suggest) override;
-  bool ShowLoyaltyCards(std::unique_ptr<TouchToFillPaymentMethodView> view,
-                        base::WeakPtr<TouchToFillDelegate> delegate,
-                        base::span<const LoyaltyCard> affiliated_loyalty_cards,
-                        base::span<const LoyaltyCard> all_loyalty_cards,
-                        bool first_time_usage) override;
+  bool ShowAffiliatedLoyaltyCards(
+      std::unique_ptr<TouchToFillPaymentMethodView> view,
+      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::span<const LoyaltyCard> affiliated_loyalty_cards,
+      base::span<const LoyaltyCard> all_loyalty_cards,
+      bool first_time_usage) override;
+  bool ShowAllLoyaltyCards(
+      std::unique_ptr<TouchToFillPaymentMethodView> view,
+      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::span<const LoyaltyCard> all_loyalty_cards) override;
   bool OnPurchaseAmountExtracted(
       base::span<const payments::BnplIssuerContext> bnpl_issuer_contexts,
       std::optional<int64_t> extracted_amount,
@@ -79,7 +84,7 @@ class TouchToFillPaymentMethodControllerImpl
   bool ShowErrorScreen(std::unique_ptr<TouchToFillPaymentMethodView> view,
                        const std::u16string& title,
                        const std::u16string& description) override;
-  bool ShowBnplIssuerTos(BnplTosModel bnpl_tos_model,
+  bool ShowBnplIssuerTos(payments::BnplTosModel bnpl_tos_model,
                          base::OnceClosure accept_callback,
                          base::OnceClosure cancel_callback) override;
   void Hide() override;

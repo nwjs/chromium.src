@@ -511,6 +511,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   void ExtendAndInvalidateSelectionByChar(
       const PageCharacterIndex& index) override;
   uint32_t GetCharCount(uint32_t page_index) const override;
+  uint32_t GetCharUnicode(const PageCharacterIndex& index) const override;
   PageOrientation GetCurrentOrientation() const override;
   std::vector<gfx::Rect> GetScreenRectsForCaret(
       const PageCharacterIndex& index) const override;
@@ -593,8 +594,8 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // Searches for a text fragment within the text of the PDF.
   void SearchForFragment(const std::u16string& term,
-                         int character_to_start_searching_from,
-                         int last_character_index_to_search,
+                         int char_to_start_searching_from,
+                         int last_char_index_to_search,
                          int page_to_search,
                          AddSearchResultCallback add_result_callback);
 
@@ -608,6 +609,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Sets the blink interval for the caret. No-op if the caret was never
   // initialized. Virtual to support testing.
   virtual void SetCaretBlinkInterval(base::TimeDelta interval);
+
+  base::span<const PDFiumRange> find_results_for_testing() const {
+    return find_results_;
+  }
 
  private:
   // This is a base class for shared functions and data needed for change
@@ -831,8 +836,8 @@ class PDFiumEngine : public DocumentLoader::Client,
   void SearchUsingICU(const std::u16string& term,
                       bool case_sensitive,
                       bool first_search,
-                      int character_to_start_searching_from,
-                      int last_character_index_to_search,
+                      int char_to_start_searching_from,
+                      int last_char_index_to_search,
                       int current_page,
                       int last_page_to_search,
                       AddSearchResultCallback add_result_callback);
@@ -1205,7 +1210,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   int next_page_to_search_ = -1;
   // Where to stop searching.
   int last_page_to_search_ = -1;
-  int last_character_index_to_search_ = -1;  // -1 if search until end of page.
+  int last_char_index_to_search_ = -1;  // -1 if search until end of page.
   // Which result the user has currently selected. (0-based)
   std::optional<size_t> current_find_index_;
   // Where to resume searching. (0-based)

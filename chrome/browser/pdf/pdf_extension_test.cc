@@ -1514,7 +1514,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest,
                                        /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
 #if BUILDFLAG(IS_WIN)
-  const int kFirstPosition = ui::IsFluentScrollbarEnabled() ? 917 : 915;
+  constexpr int kFirstPosition = 917;
 #elif BUILDFLAG(IS_CHROMEOS)
   constexpr int kFirstPosition = 937;
 #else
@@ -1533,7 +1533,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionScrollTest,
                                        /*command=*/false);
   ASSERT_NO_FATAL_FAILURE(scroll_waiter.Wait());
 #if BUILDFLAG(IS_WIN)
-  const int kSecondPosition = ui::IsFluentScrollbarEnabled() ? 1834 : 1831;
+  constexpr int kSecondPosition = 1834;
 #elif BUILDFLAG(IS_CHROMEOS)
   constexpr int kSecondPosition = 1875;
 #else
@@ -3383,7 +3383,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionPrerenderTest,
   content::test::PrerenderHostRegistryObserver registry_observer(*web_contents);
   prerender_helper().AddPrerenderAsync(pdf_url);
   registry_observer.WaitForTrigger(pdf_url);
-  const content::FrameTreeNodeId host_id =
+  const content::PrerenderHostId host_id =
       prerender_helper().GetHostForUrl(pdf_url);
   EXPECT_TRUE(host_id);
 

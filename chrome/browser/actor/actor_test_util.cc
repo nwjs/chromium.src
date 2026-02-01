@@ -6,11 +6,11 @@
 
 #include <memory>
 #include <string_view>
+#include <utility>
 
 #include "base/base64.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/shared_types.h"
@@ -412,8 +412,8 @@ Actions MakeMediaControl(tabs::TabHandle tab_handle,
   } else if (std::get_if<PauseMedia>(&media_control)) {
     media_control_action->mutable_pause();
   } else if (const auto* seek = std::get_if<SeekMedia>(&media_control)) {
-    media_control_action->mutable_seek()->set_seek_time_microseconds(
-        seek->seek_time_microseconds);
+    media_control_action->mutable_seek()->set_seek_time_milliseconds(
+        seek->seek_time_milliseconds);
   }
   return action;
 }
@@ -618,7 +618,7 @@ void ExpectErrorResult(PerformActionsFuture& future,
 }
 
 void PrintTo(const mojom::ActionResultCode& code, std::ostream* os) {
-  *os << base::to_underlying(code);
+  *os << std::to_underlying(code);
 }
 
 void SetUpBlocklist(base::CommandLine* command_line,
@@ -655,6 +655,30 @@ std::string EncodeURI(const std::string& component) {
   url::RawCanonOutputT<char> encoded;
   url::EncodeURIComponent(component, &encoded);
   return std::string(encoded.view());
+}
+
+ExecutionEngineStateWaiter::ExecutionEngineStateWaiter(
+    base::OnceClosure callback,
+    ExecutionEngine& execution_engine,
+    ExecutionEngine::State target_state)
+    : callback_(std::move(callback)),
+      execution_engine_(execution_engine.GetWeakPtr()),
+      target_state_(target_state) {
+  execution_engine_->AddObserver(this);
+}
+
+ExecutionEngineStateWaiter::~ExecutionEngineStateWaiter() {
+  if (execution_engine_) {
+    execution_engine_->RemoveObserver(this);
+  }
+}
+
+void ExecutionEngineStateWaiter::OnStateChanged(
+    ExecutionEngine::State old_state,
+    ExecutionEngine::State new_state) {
+  if (new_state == target_state_) {
+    std::move(callback_).Run();
+  }
 }
 
 }  // namespace actor

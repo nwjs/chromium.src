@@ -99,6 +99,11 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
       bridge_(bridge),
       identity_manager_(
           IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile())),
+      form_data_importer_(std::make_unique<FormDataImporter>(
+          this,
+          ios::HistoryServiceFactory::GetForProfile(
+              profile_,
+              ServiceAccessType::EXPLICIT_ACCESS))),
       infobar_manager_(infobar_manager),
       log_router_(AutofillLogRouterFactory::GetForProfile(profile_)),
       ablation_study_(GetApplicationContext()->GetLocalState()) {
@@ -232,12 +237,6 @@ const signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager()
 }
 
 FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
-  if (!form_data_importer_) {
-    form_data_importer_ = std::make_unique<FormDataImporter>(
-        this, ios::HistoryServiceFactory::GetForProfile(
-                  profile_, ServiceAccessType::EXPLICIT_ACCESS));
-  }
-
   return form_data_importer_.get();
 }
 
@@ -404,9 +403,6 @@ bool ChromeAutofillClientIOS::IsPasswordManagerEnabled() const {
       password_manager::prefs::kCredentialsEnableService);
 }
 
-void ChromeAutofillClientIOS::DidFillForm(AutofillTriggerSource trigger_source,
-                                          bool is_refill) {}
-
 bool ChromeAutofillClientIOS::IsContextSecure() const {
   return consider_as_secure_for_testing_ ||
          IsContextSecureForWebState(web_state());
@@ -474,7 +470,7 @@ PasswordFormClassification ChromeAutofillClientIOS::ClassifyAsPasswordForm(
     AutofillManager& manager,
     FormGlobalId form_id,
     FieldGlobalId field_id) const {
-  FormStructure* form_structure = manager.FindCachedFormById(form_id);
+  const FormStructure* form_structure = manager.FindCachedFormById(form_id);
   if (!form_structure) {
     return {};
   }

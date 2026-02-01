@@ -8,6 +8,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_clipboard_utils.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
@@ -16,10 +17,7 @@
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/toasts/api/toast_id.h"
-#include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/render_frame_host.h"
@@ -28,26 +26,15 @@
 #include "ui/base/clipboard/clipboard_metadata.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/toasts/api/toast_id.h"
+#include "chrome/browser/ui/toasts/toast_controller.h"
+#endif
+
 namespace glic {
 
 namespace {
-
-content::RenderFrameHost* GetGuestFrame(
-    content::RenderFrameHost* parent_frame) {
-  if (!parent_frame) {
-    return nullptr;
-  }
-  content::RenderFrameHost* guest_frame = nullptr;
-  parent_frame->ForEachRenderFrameHostWithAction(
-      [&guest_frame](content::RenderFrameHost* rfh) {
-        if (rfh->GetLastCommittedOrigin() == GetGuestOrigin()) {
-          guest_frame = rfh;
-          return content::RenderFrameHost::FrameIterationAction::kStop;
-        }
-        return content::RenderFrameHost::FrameIterationAction::kContinue;
-      });
-  return guest_frame;
-}
 
 // Based on URLToImageMarkup from clipboard_utilities.cc.
 std::u16string GetImageMarkup(const GURL& src_url,
@@ -296,7 +283,12 @@ void GlicShareImageHandler::OnCopyPolicyCheckComplete(
     ShareComplete(ShareImageResult::kFailedNoTab);
     return;
   }
-  BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
+  BrowserWindowInterface* browser =
+#if !BUILDFLAG(IS_ANDROID)
+      tab->GetBrowserWindowInterface();
+#else
+      nullptr;  // NEEDS_ANDROID_IMPL
+#endif
   if (!browser) {
     ShareComplete(ShareImageResult::kFailedNoBrowser);
     return;
@@ -358,8 +350,7 @@ void GlicShareImageHandler::DoPastePolicyCheck() {
   }
 
   auto* host = &instance->host();
-  auto* glic_contents = host->webui_contents();
-  auto* glic_rfh = GetGuestFrame(glic_contents->GetPrimaryMainFrame());
+  auto* glic_rfh = host->GetGuestMainFrame();
   if (!glic_rfh) {
     ShareComplete(ShareImageResult::kFailedNoFrame);
     return;
@@ -453,12 +444,14 @@ void GlicShareImageHandler::MaybeShowErrorToast(tabs::TabInterface* tab) {
   if (!tab) {
     return;
   }
-
+#if !BUILDFLAG(IS_ANDROID)
   if (BrowserWindowInterface* browser = tab->GetBrowserWindowInterface()) {
     if (auto* controller = browser->GetFeatures().toast_controller()) {
       controller->MaybeShowToast(ToastParams(ToastId::kGlicShareImageFailed));
     }
   }
+#else  // TODO(b/470059315): Implement for android
+#endif
 }
 
 void GlicShareImageHandler::StopObservingNavigation() {

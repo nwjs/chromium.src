@@ -9,7 +9,6 @@
 #include <stdint.h>
 
 #include <list>
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -22,6 +21,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
 #include "content/browser/indexed_db/indexed_db_value.h"
@@ -43,7 +43,6 @@ struct IndexedDBDataLossInfo;
 class Connection;
 class DatabaseCallbacks;
 class Transaction;
-enum class CursorType;
 
 // This class maps to a single IDB database:
 // https://www.w3.org/TR/IndexedDB/#database
@@ -103,13 +102,15 @@ class CONTENT_EXPORT Database {
   // (BucketContext).
   Status ForceClose(const std::string& message) &&;
 
-  void ScheduleOpenConnection(std::unique_ptr<PendingConnection> connection);
+  void ScheduleOpenConnection(std::unique_ptr<PendingConnection> connection,
+                              base::TimeDelta synchronous_duration);
 
   // `on_deletion_complete` is called only if the database existed and was
   // actually deleted.
   void ScheduleDeleteDatabase(
       mojo::AssociatedRemote<blink::mojom::IDBFactoryClient> factory_client,
-      base::OnceClosure on_deletion_complete);
+      base::OnceClosure on_deletion_complete,
+      base::TimeDelta synchronous_duration);
 
   // Number of connections that have progressed passed initial open call.
   size_t ConnectionCount() const { return connections_.size(); }
@@ -132,7 +133,7 @@ class CONTENT_EXPORT Database {
   Status GetOperation(int64_t object_store_id,
                       int64_t index_id,
                       blink::IndexedDBKeyRange key_range,
-                      indexed_db::CursorType cursor_type,
+                      bool key_only,
                       blink::mojom::IDBDatabase::GetCallback callback,
                       Transaction* transaction);
 
@@ -148,7 +149,7 @@ class CONTENT_EXPORT Database {
     int64_t index_id;
     blink::IndexedDBKeyRange key_range;
     blink::mojom::IDBCursorDirection direction;
-    indexed_db::CursorType cursor_type;
+    bool key_only;
     blink::mojom::IDBTaskType task_type;
     blink::mojom::IDBDatabase::OpenCursorCallback callback;
   };
@@ -314,6 +315,10 @@ class CONTENT_EXPORT Database {
       Transaction* current_transaction,
       std::vector<PartitionedLockManager::PartitionedLockRequest>&
           lock_requests);
+
+  // Returns `nullptr` if the object store does not exist.
+  const blink::IndexedDBObjectStoreMetadata* GetObjectStoreMetadataIfExists(
+      int64_t object_store_id) const;
 
   // Gets metadata for the given object store ID, asserting that the object
   // store exists.

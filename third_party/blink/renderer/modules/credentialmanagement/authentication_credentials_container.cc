@@ -11,6 +11,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
+#include "device/fido/public/fido_constants.h"
 #include "mojo/public/mojom/base/values.mojom-blink.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/features.h"
@@ -575,9 +576,8 @@ void OnGetComplete(std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
   UseCounter::Count(resolver->GetExecutionContext(),
                     WebFeature::kCredentialManagerGetReturnedCredential);
   if (mediation == Mediation::IMMEDIATE) {
-    UseCounter::Count(
-        resolver->GetExecutionContext(),
-        WebFeature::kCredentialsGetImmediateMediationPasswordSuccess);
+    UseCounter::Count(resolver->GetExecutionContext(),
+                      WebFeature::kCredentialsGetImmediateMediationPasswordSuccess);
   }
   resolver->Resolve(mojo::ConvertTo<Credential*>(std::move(credential_info)));
 }
@@ -795,9 +795,8 @@ void OnGetAssertionComplete(
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kWebAuthnConditionalUiGetSuccess);
     } else if (mediation == Mediation::IMMEDIATE) {
-      UseCounter::Count(
-          resolver->GetExecutionContext(),
-          WebFeature::kCredentialsGetImmediateMediationPublicKeySuccess);
+      UseCounter::Count(resolver->GetExecutionContext(),
+                        WebFeature::kCredentialsGetImmediateMediationPublicKeySuccess);
     }
 
     auto* authenticator_response =
@@ -862,8 +861,7 @@ void OnAuthenticatorGetCredentialComplete(
   auto password_response =
       std::move(get_credential_response->get_password_response());
   OnGetComplete(std::move(scoped_resolver), RequiredOriginType::kSecure,
-                mediation, CredentialManagerError::SUCCESS,
-                std::move(password_response));
+                mediation, CredentialManagerError::SUCCESS, std::move(password_response));
 }
 
 void OnSmsReceive(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
@@ -974,10 +972,9 @@ bool IsPaymentExtensionValid(const CredentialCreationOptions* options,
 
 const char* validatePRFInputs(
     const blink::AuthenticationExtensionsPRFValues& values) {
-  constexpr size_t kMaxInputSize = 256;
-  if (DOMArrayPiece(values.first()).ByteLength() > kMaxInputSize ||
-      (values.hasSecond() &&
-       DOMArrayPiece(values.second()).ByteLength() > kMaxInputSize)) {
+  if (DOMArrayPiece(values.first()).ByteLength() > device::kMaxPRFInputSize ||
+      (values.hasSecond() && DOMArrayPiece(values.second()).ByteLength() >
+                                 device::kMaxPRFInputSize)) {
     return "'prf' extension contains excessively large input";
   }
   return nullptr;
@@ -1083,7 +1080,55 @@ bool IsImmediateGetRequest(const ExecutionContext& context,
   return false;
 }
 
+enum class WebAuthenticationResidentKeyRequirement {
+  // LINT.IfChange(WebAuthenticationResidentKeyRequirement)
+  kUnspecified = 0,
+  kRkDiscouraged = 1,
+  kRkPreferred = 2,
+  kRkRequired = 3,
+  kRequireRkTrue = 4,
+  kRequireRkFalse = 5,
+  kRkUnknown = 6,
+
+  kMaxValue = kRkUnknown,
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/webauthn/enums.xml:WebAuthenticationResidentKeyRequirement)
+};
+
+WebAuthenticationResidentKeyRequirement GetResidentKeyRequirementForLogging(
+    PublicKeyCredentialCreationOptions* public_key) {
+  if (public_key->hasAuthenticatorSelection()) {
+    const auto* authenticator_selection = public_key->authenticatorSelection();
+    if (authenticator_selection->hasResidentKey()) {
+      if (authenticator_selection->residentKey() == "discouraged") {
+        return WebAuthenticationResidentKeyRequirement::kRkDiscouraged;
+      } else if (authenticator_selection->residentKey() == "preferred") {
+        return WebAuthenticationResidentKeyRequirement::kRkPreferred;
+      } else if (authenticator_selection->residentKey() == "required") {
+        return WebAuthenticationResidentKeyRequirement::kRkRequired;
+      } else {
+        return WebAuthenticationResidentKeyRequirement::kRkUnknown;
+      }
+    } else if (authenticator_selection->hasRequireResidentKey()) {
+      if (authenticator_selection->requireResidentKey()) {
+        return WebAuthenticationResidentKeyRequirement::kRequireRkTrue;
+      } else {
+        return WebAuthenticationResidentKeyRequirement::kRequireRkFalse;
+      }
+    }
+  }
+  return WebAuthenticationResidentKeyRequirement::kUnspecified;
+}
+
+void LogResidentKeyRequirement(PublicKeyCredentialCreationOptions* public_key) {
+  base::UmaHistogramEnumeration(
+      "WebAuthentication.MakeCredential.ResidentKeyRequirement",
+      GetResidentKeyRequirementForLogging(public_key));
+}
+
 }  // namespace
+
+const char AuthenticationCredentialsContainer::kSupplementName[] =
+    "AuthenticationCredentialsContainer";
 
 DOMException* AuthenticatorStatusToDOMException(
     AuthenticatorStatus status,
@@ -1313,13 +1358,19 @@ class AuthenticationCredentialsContainer::PublicKeyRequestAbortAlgorithm final
 CredentialsContainer* AuthenticationCredentialsContainer::credentials(
     Navigator& navigator) {
   AuthenticationCredentialsContainer* credentials =
-      navigator.GetAuthenticationCredentialsContainer();
+      Supplement<Navigator>::From<AuthenticationCredentialsContainer>(
+          navigator);
   if (!credentials) {
-    credentials = MakeGarbageCollected<AuthenticationCredentialsContainer>();
-    navigator.SetAuthenticationCredentialsContainer(credentials);
+    credentials =
+        MakeGarbageCollected<AuthenticationCredentialsContainer>(navigator);
+    ProvideTo(navigator, credentials);
   }
   return credentials;
 }
+
+AuthenticationCredentialsContainer::AuthenticationCredentialsContainer(
+    Navigator& navigator)
+    : Supplement<Navigator>(navigator) {}
 
 ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
     ScriptState* script_state,
@@ -1644,21 +1695,29 @@ AuthenticationCredentialsContainer::create(
   if (options->hasPassword()) {
     UseCounter::Count(resolver->GetExecutionContext(),
                       WebFeature::kCredentialManagerCreatePasswordCredential);
-    resolver->Resolve(
+    auto* password_credentials =
         options->password()->IsPasswordCredentialData()
             ? PasswordCredential::Create(
                   options->password()->GetAsPasswordCredentialData(),
                   exception_state)
             : PasswordCredential::Create(
-                  options->password()->GetAsHTMLFormElement(),
-                  exception_state));
+                  options->password()->GetAsHTMLFormElement(), exception_state);
+    if (exception_state.HadException()) [[unlikely]] {
+      return {};
+    }
+    resolver->Resolve(password_credentials);
     return promise;
   }
   if (options->hasFederated()) {
     UseCounter::Count(resolver->GetExecutionContext(),
                       WebFeature::kCredentialManagerCreateFederatedCredential);
-    resolver->Resolve(
-        FederatedCredential::Create(options->federated(), exception_state));
+    auto* federated_credentials =
+        FederatedCredential::Create(options->federated(), exception_state);
+    if (exception_state.HadException()) [[unlikely]] {
+      return {};
+    }
+
+    resolver->Resolve(federated_credentials);
     return promise;
   }
   DCHECK(options->hasPublicKey());
@@ -1841,6 +1900,7 @@ AuthenticationCredentialsContainer::create(
           (rk_requirement == mojom::blink::ResidentKeyRequirement::REQUIRED);
     }
   }
+
   // An empty list uses default algorithm identifiers.
   if (options->publicKey()->pubKeyCredParams().size() != 0) {
     HashSet<int16_t> algorithm_set;
@@ -1885,6 +1945,8 @@ AuthenticationCredentialsContainer::create(
     mojo_options->relying_party->id =
         resolver->GetExecutionContext()->GetSecurityOrigin()->Domain();
   }
+
+  LogResidentKeyRequirement(options->publicKey());
 
   auto* authenticator =
       CredentialManagerProxy::From(script_state)->Authenticator();
@@ -1970,6 +2032,7 @@ AuthenticationCredentialsContainer::preventSilentAccess(
 }
 
 void AuthenticationCredentialsContainer::Trace(Visitor* visitor) const {
+  Supplement<Navigator>::Trace(visitor);
   CredentialsContainer::Trace(visitor);
 }
 

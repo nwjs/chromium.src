@@ -22,6 +22,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.view.View;
 
 import androidx.core.graphics.Insets;
@@ -38,12 +39,13 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
@@ -78,8 +80,8 @@ public class TopInsetCoordinatorUnitTest {
     @Captor
     private ArgumentCaptor<LayoutStateProvider.LayoutStateObserver> mLayoutStateObserverCaptor;
 
-    private final ObservableSupplierImpl<@Nullable Tab> mTabSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNullableObservableSupplier<Tab> mTabSupplier =
+            ObservableSuppliers.createNullable();
     private final OneshotSupplierImpl<LayoutStateProvider> mLayoutStateProviderSupplier =
             new OneshotSupplierImpl<>();
 
@@ -124,6 +126,8 @@ public class TopInsetCoordinatorUnitTest {
         mTopInsetCoordinator.destroy();
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     @SuppressWarnings("DirectInvocationOnMock")
     public void testOnApplyWindowInsets_ConsumeTopInset() {
@@ -218,7 +222,8 @@ public class TopInsetCoordinatorUnitTest {
         Matrix portraitMatrix = new Matrix();
         Matrix landscapeMatrix = new Matrix();
         landscapeMatrix.setScale(2f, 9f);
-        BackgroundImageInfo imageInfo = new BackgroundImageInfo(portraitMatrix, landscapeMatrix);
+        BackgroundImageInfo imageInfo =
+                new BackgroundImageInfo(portraitMatrix, landscapeMatrix, new Point(), new Point());
 
         mNtpCustomizationConfigManager.setBackgroundImageTypeForTesting(
                 NtpBackgroundImageType.IMAGE_FROM_DISK);
@@ -247,12 +252,12 @@ public class TopInsetCoordinatorUnitTest {
                 NtpBackgroundImageType.CHROME_COLOR);
         mNtpCustomizationConfigManager.notifyBackgroundColorChanged(
                 mContext, /* fromInitialization= */ true, NtpBackgroundImageType.DEFAULT);
-        assertEquals(colorInfo, mNtpCustomizationConfigManager.getNtpThemeColorInfoForTesting());
+        assertEquals(colorInfo, mNtpCustomizationConfigManager.getNtpThemeColorInfo());
         verify(mInsetObserver, never()).retriggerOnApplyWindowInsets();
 
         mNtpCustomizationConfigManager.notifyBackgroundColorChanged(
                 mContext, /* fromInitialization= */ false, NtpBackgroundImageType.DEFAULT);
-        assertEquals(colorInfo, mNtpCustomizationConfigManager.getNtpThemeColorInfoForTesting());
+        assertEquals(colorInfo, mNtpCustomizationConfigManager.getNtpThemeColorInfo());
         verify(mInsetObserver).retriggerOnApplyWindowInsets();
     }
 
@@ -299,7 +304,7 @@ public class TopInsetCoordinatorUnitTest {
         assertNotNull(mTopInsetCoordinator.getTrackingTabForTesting());
 
         // Verifies that observers are removed when the customized background is removed.
-        setBackgroundType(NtpBackgroundImageType.THEME_COLLECTION, NtpBackgroundImageType.DEFAULT);
+        resetBackgroundType(NtpBackgroundImageType.THEME_COLLECTION);
         verify(mNtpTab, times(2)).removeObserver(any(TabObserver.class));
         verify(mLayoutStateProvider)
                 .removeObserver(any(LayoutStateProvider.LayoutStateObserver.class));
@@ -309,7 +314,7 @@ public class TopInsetCoordinatorUnitTest {
         // Verifies it is no-op when the background type is set to the default one again.
         clearInvocations(mNtpTab);
         clearInvocations(mLayoutStateProvider);
-        setBackgroundType(NtpBackgroundImageType.DEFAULT, NtpBackgroundImageType.DEFAULT);
+        resetBackgroundType(NtpBackgroundImageType.DEFAULT);
         verify(mNtpTab, never()).removeObserver(any(TabObserver.class));
         verify(mLayoutStateProvider, never())
                 .removeObserver(any(LayoutStateProvider.LayoutStateObserver.class));
@@ -337,7 +342,7 @@ public class TopInsetCoordinatorUnitTest {
 
         // Verifies that retriggerOnApplyWindowInsets() is called when the customized background is
         // removed.
-        setBackgroundType(NtpBackgroundImageType.THEME_COLLECTION, NtpBackgroundImageType.DEFAULT);
+        resetBackgroundType(NtpBackgroundImageType.THEME_COLLECTION);
         verify(mInsetObserver).retriggerOnApplyWindowInsets();
 
         // Verifies that retriggerOnApplyWindowInsets() isn't called again when the background type
@@ -433,5 +438,11 @@ public class TopInsetCoordinatorUnitTest {
         mNtpCustomizationConfigManager.setBackgroundImageTypeForTesting(newType);
         mTopInsetCoordinator.onNtpBackgroundChanged(
                 /* fromInitialization= */ false, oldType, newType);
+    }
+
+    private void resetBackgroundType(@NtpBackgroundImageType int oldType) {
+        mNtpCustomizationConfigManager.setBackgroundImageTypeForTesting(
+                NtpBackgroundImageType.DEFAULT);
+        mTopInsetCoordinator.onNtpBackgroundReset(oldType);
     }
 }

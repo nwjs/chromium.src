@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -62,6 +63,7 @@
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
+#include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
@@ -98,11 +100,14 @@
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/process_manager_delegate.h"
 #include "extensions/browser/safe_browsing_delegate.h"
+#include "extensions/browser/unpacked_installer.h"
 #include "extensions/browser/updater/scoped_extension_updater_keep_alive.h"
 #include "extensions/browser/url_request_util.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/features/feature_channel.h"
+#include "extensions/common/features/feature_developer_mode_only.h"
+#include "extensions/common/manifest_handlers/chrome_url_overrides_handler.h"
 #include "extensions/common/mojom/view_type.mojom-shared.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "url/gurl.h"
@@ -120,6 +125,10 @@
 #include "components/user_manager/user_manager.h"
 #else
 #include "extensions/browser/updater/null_extension_cache.h"
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/common/extensions/manifest_handlers/settings_overrides_handler.h"
 #endif
 
 #include "content/nw/src/api/generated_api_registration.h"
@@ -976,6 +985,99 @@ bool ChromeExtensionsBrowserClient::HasBeenBlocked(
   ExtensionActionRunner* action_runner =
       ExtensionActionRunner::GetForWebContents(web_contents);
   return action_runner && action_runner->WantsToRun(&extension);
+}
+
+void ChromeExtensionsBrowserClient::ShowWarningMessageBox(
+    const std::u16string& title,
+    const std::u16string& message) {
+  // TODO(crbug.com/425390966): Find a way to make this dialog asynchronous
+  // so that we don't block the main thread.
+  //
+  // This dialog is synchronous to prevent a race condition during startup.
+  //
+  // In the asynchronous case, the sequence of events is:
+  // 1. A startup task to load an extension fails, and an asynchronous call
+  //    is made to show this parentless dialog.
+  // 2. The dialog's widget initializes, registering an accessibility observer
+  //    with `AXPlatform`. The async call then returns immediately, marking
+  //    the startup task as complete.
+  // 3. Because the startup task is finished and no windows are open, the
+  //    browser process begins its shutdown sequence.
+  // 4. During shutdown, `AXPlatform` is destroyed before the dialog is. Its
+  //    destructor's `CHECK` for no remaining observers fails because the
+  //    dialog's observer is still registered, causing a crash.
+  //
+  // By using a synchronous dialog, we block the startup task from completing
+  // until the user dismisses the alert, ensuring steps 3 and 4 cannot
+  // happen until after the dialog and its observers are gone.
+  chrome::ShowWarningMessageBoxSync(gfx::NativeWindow(), title, message);
+}
+
+void ChromeExtensionsBrowserClient::
+    RecordCommandLineMetricsOnUnpackedInstallation(
+        content::BrowserContext* context,
+        const Extension* extension) const {
+  if (!extension->is_extension() ||
+      extension->location() != mojom::ManifestLocation::kCommandLine) {
+    return;
+  }
+
+  ExtensionRegistry* extension_registry = ExtensionRegistry::Get(context);
+  if (!extension_registry->GetInstalledExtension(extension->id())) {
+    return;
+  }
+
+  // Manifest settings override metrics.
+  base::UmaHistogramCounts100("Extensions.CommandLineInstalled", 1);
+
+  bool new_tab_page_set =
+      URLOverrides::GetChromeURLOverrides(extension).count("newtab");
+  bool default_search_engine_set = false;
+  // SettingsOverrides are only available on Windows and macOS.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  const SettingsOverrides* settings = SettingsOverrides::Get(extension);
+  default_search_engine_set = settings && settings->search_engine &&
+                              settings->search_engine->is_default;
+#endif
+
+  if (new_tab_page_set && default_search_engine_set) {
+    base::UmaHistogramEnumeration(
+        "Extensions.CommandLineManifestSettingsOverride",
+        kSearchEngineAndNewTabPage);
+  } else if (new_tab_page_set) {
+    base::UmaHistogramEnumeration(
+        "Extensions.CommandLineManifestSettingsOverride", kNewTabPage);
+  } else if (default_search_engine_set) {
+    base::UmaHistogramEnumeration(
+        "Extensions.CommandLineManifestSettingsOverride", kSearchEngine);
+  } else {
+    base::UmaHistogramEnumeration(
+        "Extensions.CommandLineManifestSettingsOverride", kNoOverride);
+  }
+
+  // Developer mode metrics.
+  bool dev_mode_enabled =
+      GetCurrentDeveloperMode(util::GetBrowserContextId(context));
+
+  if (extension_registry->enabled_extensions().Contains(extension->id())) {
+    if (dev_mode_enabled) {
+      base::UmaHistogramCounts100(
+          "Extensions.CommandLineWithDeveloperModeOn.Enabled", 1);
+    } else {
+      base::UmaHistogramCounts100(
+          "Extensions.CommandLineWithDeveloperModeOff.Enabled", 1);
+    }
+  }
+
+  if (extension_registry->disabled_extensions().Contains(extension->id())) {
+    if (dev_mode_enabled) {
+      base::UmaHistogramCounts100(
+          "Extensions.CommandLineWithDeveloperModeOn.Disabled", 1);
+    } else {
+      base::UmaHistogramCounts100(
+          "Extensions.CommandLineWithDeveloperModeOff.Disabled", 1);
+    }
+  }
 }
 
 // static

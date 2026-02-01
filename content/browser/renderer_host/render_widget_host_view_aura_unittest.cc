@@ -670,18 +670,6 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
 
   void TearDown() override { TearDownEnvironment(); }
 
-  void SimulateMemoryPressure(base::MemoryPressureLevel level) {
-    // Here should be base::MemoryPressureListener::NotifyMemoryPressure, but
-    // since the FrameEvictionManager is installing a MemoryPressureListener
-    // which uses base::ObserverListThreadSafe, which furthermore remembers the
-    // message loop for the thread it was created in. Between tests, the
-    // FrameEvictionManager singleton survives and and the MessageLoop gets
-    // destroyed. The correct fix would be to have base::ObserverListThreadSafe
-    // look
-    // up the proper message loop every time (see crbug.com/443824.)
-    FrameEvictionManager::GetInstance()->OnMemoryPressure(level);
-  }
-
   MockWidgetInputHandler::MessageVector GetAndResetDispatchedMessages() {
     return widget_host_->input_handler()->GetAndResetDispatchedMessages();
   }
@@ -1400,7 +1388,8 @@ TEST_F(RenderWidgetHostViewAuraTest, SetCompositionText) {
       events[0]->ToIME();
   EXPECT_TRUE(ime_message);
   EXPECT_TRUE(ime_message->Matches(composition_text.text, ime_text_spans,
-                                   gfx::Range::InvalidRange(), 4, 4));
+                                   gfx::Range::InvalidRange(), 4, 4,
+                                   blink::mojom::ImeState::kNone));
 
   view_->ImeCancelComposition();
   EXPECT_FALSE(view_->has_composition_text_);
@@ -3380,82 +3369,6 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
     UNSAFE_TODO(views[i])->Destroy();
 }
 
-// Test that changing the memory pressure should delete saved frames. This test
-// only applies to ChromeOS.
-TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFramesWithMemoryPressure) {
-  // Make sure |parent_view_| is evicted to avoid interfering with the code
-  // below.
-  parent_view_->Hide();
-  auto* dfh = parent_view_->delegated_frame_host_.get();
-  static_cast<viz::FrameEvictorClient*>(dfh)->EvictDelegatedFrame(
-      dfh->GetFrameEvictorForTesting()->CollectSurfaceIdsForEviction());
-
-  // The test logic below relies on having max_renderer_frames > 2.  By default,
-  // this value is calculated from total physical memory and causes the test to
-  // fail when run on hardware with < 256MB of RAM.
-  const size_t kMaxRendererFrames = 5;
-  FrameEvictionManager::GetInstance()->set_max_number_of_saved_frames(
-      kMaxRendererFrames);
-
-  size_t renderer_count = kMaxRendererFrames;
-  gfx::Rect view_rect(100, 100);
-
-  std::unique_ptr<RenderWidgetHostImpl* []> hosts(
-      new RenderWidgetHostImpl*[renderer_count]);
-  std::unique_ptr<FakeRenderWidgetHostViewAura* []> views(
-      new FakeRenderWidgetHostViewAura*[renderer_count]);
-
-  // Create a bunch of renderers.
-  for (size_t i = 0; i < renderer_count; ++i) {
-    int32_t routing_id = process_host_->GetNextRoutingID();
-
-    delegates_.push_back(base::WrapUnique(new MockRenderWidgetHostDelegate));
-    UNSAFE_TODO(hosts[i]) = MockRenderWidgetHostImpl::Create(
-        GetFrameTree(), delegates_.back().get(),
-        site_instance_group_->GetSafeRef(), routing_id, /*hidden = */ false);
-    delegates_.back()->set_widget_host(UNSAFE_TODO(hosts[i]));
-
-    UNSAFE_TODO(hosts[i])->BindWidgetInterfaces(
-        mojo::PendingAssociatedRemote<blink::mojom::WidgetHost>()
-            .InitWithNewEndpointAndPassReceiver(),
-        TestRenderWidgetHost::CreateStubWidgetRemote());
-    UNSAFE_TODO(hosts[i])->BindFrameWidgetInterfaces(
-        mojo::PendingAssociatedRemote<blink::mojom::FrameWidgetHost>()
-            .InitWithNewEndpointAndPassReceiver(),
-        TestRenderWidgetHost::CreateStubFrameWidgetRemote());
-    UNSAFE_TODO(hosts[i])->RendererWidgetCreated(/*for_frame_widget=*/true);
-
-    UNSAFE_TODO(views[i]) =
-        new FakeRenderWidgetHostViewAura(UNSAFE_TODO(hosts[i]));
-    UNSAFE_TODO(views[i])->InitAsChild(nullptr);
-    ParentHostView(UNSAFE_TODO(views[i]), parent_view_);
-    UNSAFE_TODO(views[i])->SetSize(view_rect.size());
-    UNSAFE_TODO(views[i])->Show();
-    EXPECT_HAS_FRAME(UNSAFE_TODO(views[i]));
-  }
-
-  // If we hide one, it should not get evicted.
-  views[0]->Hide();
-  base::RunLoop().RunUntilIdle();
-  EXPECT_HAS_FRAME(views[0]);
-  // Using a lesser memory pressure event however, should evict.
-  SimulateMemoryPressure(base::MEMORY_PRESSURE_LEVEL_MODERATE);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EVICTED(views[0]);
-
-  // Check the same for a higher pressure event.
-  UNSAFE_TODO(views[1])->Hide();
-  base::RunLoop().RunUntilIdle();
-  EXPECT_HAS_FRAME(UNSAFE_TODO(views[1]));
-  SimulateMemoryPressure(base::MEMORY_PRESSURE_LEVEL_CRITICAL);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EVICTED(UNSAFE_TODO(views[1]));
-
-  for (size_t i = 0; i < renderer_count; ++i) {
-    UNSAFE_TODO(views[i])->Destroy();
-  }
-}
-
 TEST_F(RenderWidgetHostViewAuraTest, VisibleViewportTest) {
   gfx::Rect view_rect(100, 100);
 
@@ -5176,14 +5089,54 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEventsHandled) {
 // forwarding NativeWebKeyboardEvents with Arabic-Indic digit in InsertChar
 // upon receipt of a KeyEvent containing an ASCII digit.
 // This test verifies that behavior.
-TEST_F(RenderWidgetHostViewAuraTest, InsertCharArabicDigitSubstitution) {
-  ResetArabicDigitSubStateForTesting();
+TEST_F(RenderWidgetHostViewAuraTest, ArabicIndicDigitInputRightAlt) {
+  ResetArabicIndicDigitInputStateForTesting();
 
   InitViewForFrame(nullptr);
   view_->Show();
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kArabicDigitSubstitution);
+  scoped_feature_list.InitAndEnableFeature(features::kArabicIndicDigitInput);
+  ui::ScopedKeyboardLayout keyboard_layout(ui::KEYBOARD_LAYOUT_ARABIC);
+
+  // Calling ActivateKeyboardLayout does not trigger
+  // TSFTextStore::OnLanguageChanged nor does it generate a WM_INPUTLANGCHANGE
+  // message. So for testing purposes call OnInputMethodChanged directly.
+  view_->OnInputMethodChanged();
+
+  constexpr BYTE kKeyDown = 0x80;
+  constexpr BYTE kKeyUp = 0x00;
+  constexpr int kKeyboardStateArraySize = 256;
+  BYTE keyboard_state[kKeyboardStateArraySize] = {};
+  ASSERT_TRUE(GetKeyboardState(keyboard_state));
+  keyboard_state[VK_RMENU] = kKeyDown;
+  ASSERT_TRUE(SetKeyboardState(keyboard_state));
+  for (int i = 0; i < 10; ++i) {
+    ui::KeyEvent key_event = ui::KeyEvent::FromCharacter(
+        i + u'0', static_cast<ui::KeyboardCode>(ui::VKEY_0 + i),
+        ui::DomCode::NONE, ui::EF_ALT_DOWN);
+    view_->InsertChar(key_event);
+    const input::NativeWebKeyboardEvent* event =
+        delegates_.back()->last_event();
+    ASSERT_TRUE(event);
+
+    char16_t expected = static_cast<char16_t>(i + kArabicIndicZero);
+    EXPECT_EQ(expected, event->windows_key_code) << "Digit index: " << i;
+    EXPECT_EQ(expected, event->text[0]) << "Digit index: " << i;
+    EXPECT_EQ(expected, event->unmodified_text[0]) << "Digit index: " << i;
+  }
+  keyboard_state[VK_RMENU] = kKeyUp;
+  ASSERT_TRUE(SetKeyboardState(keyboard_state));
+}
+
+TEST_F(RenderWidgetHostViewAuraTest, ArabicIndicDigitInputCtrlAndAlt) {
+  ResetArabicIndicDigitInputStateForTesting();
+
+  InitViewForFrame(nullptr);
+  view_->Show();
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kArabicIndicDigitInput);
   ui::ScopedKeyboardLayout keyboard_layout(ui::KEYBOARD_LAYOUT_ARABIC);
 
   // Calling ActivateKeyboardLayout does not trigger
@@ -5194,8 +5147,9 @@ TEST_F(RenderWidgetHostViewAuraTest, InsertCharArabicDigitSubstitution) {
   for (int i = 0; i < 10; ++i) {
     ui::KeyEvent key_event(ui::EventType::kKeyPressed,
                            static_cast<ui::KeyboardCode>(ui::VKEY_0 + i),
-                           ui::DomCode::NONE, ui::EF_NONE);
-    view_->InsertChar(key_event);
+                           ui::DomCode::NONE,
+                           (ui::EF_ALT_DOWN | ui::EF_CONTROL_DOWN));
+    view_->OnKeyEvent(&key_event);
     const input::NativeWebKeyboardEvent* event =
         delegates_.back()->last_event();
     ASSERT_TRUE(event);
@@ -6454,8 +6408,8 @@ TEST_F(InputMethodResultAuraTest, CommitTextBeforeCursor) {
     MockWidgetInputHandler::DispatchedIMEMessage* ime_message =
         events[0]->ToIME();
     EXPECT_TRUE(ime_message);
-    EXPECT_TRUE(
-        ime_message->Matches(u"hello", {}, gfx::Range::InvalidRange(), -5, -5));
+    EXPECT_TRUE(ime_message->Matches(u"hello", {}, gfx::Range::InvalidRange(),
+                                     -5, -5, blink::mojom::ImeState::kNone));
   }
 }
 

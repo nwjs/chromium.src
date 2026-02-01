@@ -9,18 +9,10 @@
 #include <functional>
 #include <limits>
 
-#include "base/functional/callback_helpers.h"
-#include "base/task/sequenced_task_runner.h"
-#include "base/task/thread_pool.h"
-#include "build/build_config.h"
-
-#if BUILDFLAG(IS_POSIX)
-#include <sys/resource.h>
-#endif
-
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
@@ -29,8 +21,11 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/system/sys_info.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "net/base/net_errors.h"
 #include "net/base/prioritized_task_runner.h"
@@ -45,6 +40,10 @@
 #include "net/disk_cache/simple/simple_synchronous_entry.h"
 #include "net/disk_cache/simple/simple_util.h"
 #include "net/disk_cache/simple/simple_version_upgrade.h"
+
+#if BUILDFLAG(IS_POSIX)
+#include <sys/resource.h>
+#endif
 
 using base::FilePath;
 using base::Time;
@@ -214,7 +213,8 @@ SimpleBackendImpl::SimpleBackendImpl(
     SimpleFileTracker* file_tracker,
     int64_t max_bytes,
     net::CacheType cache_type,
-    net::NetLog* net_log)
+    net::NetLog* net_log,
+    net::CacheEncryptionDelegate* cache_encryption_delegate)
     : Backend(cache_type),
       file_operations_factory_(
           file_operations_factory
@@ -229,7 +229,8 @@ SimpleBackendImpl::SimpleBackendImpl(
           base::MakeRefCounted<SimplePostOperationWaiterTable>()),
       post_open_by_hash_waiting_(
           base::MakeRefCounted<SimplePostOperationWaiterTable>()),
-      net_log_(net_log) {
+      net_log_(net_log),
+      cache_encryption_delegate_(cache_encryption_delegate) {
   // Treat negative passed-in sizes same as in other backends, as default.
   if (orig_max_size_ < 0)
     orig_max_size_ = 0;
@@ -359,10 +360,10 @@ void SimpleBackendImpl::DoomEntries(std::vector<uint64_t>* entry_hashes,
                      std::move(mass_doom_entry_hashes), barrier_callback));
 }
 
-int32_t SimpleBackendImpl::GetEntryCount(
-    net::Int32CompletionOnceCallback callback) const {
+base::expected<int32_t, net::Error> SimpleBackendImpl::GetEntryCount(
+    GetEntryCountCallback callback) const {
   // TODO(pasko): Use directory file count when index is not ready.
-  return index_->GetEntryCount();
+  return base::ok(index_->GetEntryCount());
 }
 
 EntryResult SimpleBackendImpl::OpenEntry(const std::string& key,

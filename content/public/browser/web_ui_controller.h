@@ -20,7 +20,6 @@ class GURL;
 namespace content {
 
 class Page;
-class PerWebUIBrowserInterfaceBroker;
 class RenderFrameHost;
 class WebUI;
 class WebUIBrowserInterfaceBrokerRegistry;
@@ -32,6 +31,11 @@ class CONTENT_EXPORT WebUIController {
   // An opaque identifier used to identify a WebUIController's concrete type.
   // This is used for safe downcasting.
   typedef const void* Type;
+
+  enum TrustPolicy {
+    kTrusted,
+    kUntrusted,
+  };
 
   explicit WebUIController(WebUI* web_ui);
   virtual ~WebUIController();
@@ -53,16 +57,12 @@ class CONTENT_EXPORT WebUIController {
   // its state if necessary.
   virtual void WebUIPrimaryPageChanged(Page& page) {}
 
-  // Called when a WebUI page load is about to be committed, even if RenderFrame
-  // is reused. This sets up MojoJS interface broker.
-  void WebUIReadyToCommitNavigation(RenderFrameHost* render_frame_host);
-
   // Allows the controller to directly populate the local resource loader
   // config. This is used to add shared resources or dynamically generated
   // content, e.g. theme colors, without creating a full WebUIDataSource.
   //
   // `requesting_origin` is the origin of the WebUI page that is requesting the
-  // resources, e.g. "chrome://reload-button.top-chrome". It matches the origin
+  // resources, e.g. "chrome://webui-toolbar.top-chrome". It matches the origin
   // that the `config` will be sent to.
   virtual void PopulateLocalResourceLoaderConfig(
       blink::mojom::LocalResourceLoaderConfig* config,
@@ -97,15 +97,10 @@ class CONTENT_EXPORT WebUIController {
 
   // TODO(calamity): Make this abstract once all subclasses implement GetType().
   virtual Type GetType();
-
-  PerWebUIBrowserInterfaceBroker* broker_for_testing() { return broker_.get(); }
+  virtual TrustPolicy GetTrustPolicy();
 
  private:
   raw_ptr<WebUI> web_ui_;
-
-  // The interface broker that handles Mojo.bindInterface requests from the
-  // renderer.
-  std::unique_ptr<PerWebUIBrowserInterfaceBroker> broker_;
 };
 
 // This macro declares a static variable inside the class that inherits from

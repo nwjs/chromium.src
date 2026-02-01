@@ -100,7 +100,7 @@ void ParseMargin(const String& margin_parameter,
     if (margin.size() == 4) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kSyntaxError,
-          "Extra text found at the end of " + marginName + "Margin.");
+          StrCat({"Extra text found at the end of ", marginName, "Margin."}));
       break;
     }
     const CSSParserToken token = stream.Peek();
@@ -121,14 +121,16 @@ void ParseMargin(const String& margin_parameter,
           default:
             exception_state.ThrowDOMException(
                 DOMExceptionCode::kSyntaxError,
-                marginName + "Margin must be specified in pixels or percent.");
+                StrCat({marginName,
+                        "Margin must be specified in pixels or percent."}));
         }
         stream.ConsumeIncludingWhitespace();
         break;
       default:
         exception_state.ThrowDOMException(
             DOMExceptionCode::kSyntaxError,
-            marginName + "Margin must be specified in pixels or percent.");
+            StrCat({marginName,
+                    "Margin must be specified in pixels or percent."}));
     }
   }
 }
@@ -209,10 +211,11 @@ String StringifyMargin(const Vector<Length>& margin) {
   StringBuilder string_builder;
 
   const auto append_length = [&](const Length& length) {
-    string_builder.AppendNumber(length.IntValue());
     if (length.IsPercent()) {
+      string_builder.AppendNumber(length.Percent());
       string_builder.Append('%');
     } else {
+      string_builder.AppendNumber(length.IntValue());
       string_builder.Append(base::byte_span_from_cstring("px"));
     }
   };

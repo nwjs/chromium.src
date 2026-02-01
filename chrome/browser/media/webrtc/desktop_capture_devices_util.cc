@@ -41,6 +41,10 @@
 #include "chrome/browser/media/webrtc/desktop_capture_devices_util_win.h"
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_MAC)
+#include "third_party/webrtc/modules/desktop_capture/mac/window_list_utils.h"
+#endif  // BUILDFLAG(IS_MAC)
+
 namespace {
 
 // TODO(crbug.com/40181897): Eliminate code duplication with
@@ -357,14 +361,30 @@ void OnAudioDeviceIdObtained(
       std::move(on_media_stream_capture_indicator_ui_created_callback));
 }
 
-std::optional<std::string> GetApplicationId(intptr_t window_id) {
-#if BUILDFLAG(IS_WIN)
-  base::ProcessId process_id = GetAppMainProcessId(window_id);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+namespace {
+std::optional<std::string> ProcessIdToApplicationLoopbackDeviceId(
+    base::ProcessId process_id,
+    bool restrict_own_audio) {
   if (process_id == base::kNullProcessId) {
     return std::nullopt;
   }
-
+  if (restrict_own_audio && base::GetCurrentProcId() == process_id) {
+    return media::CreateRestrictOwnAudioBrowserLoopbackDeviceId();
+  }
   return media::CreateApplicationLoopbackDeviceId(process_id);
+}
+}  // namespace
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+std::optional<std::string> GetApplicationId(intptr_t window_id,
+                                            bool restrict_own_audio) {
+#if BUILDFLAG(IS_WIN)
+  return ProcessIdToApplicationLoopbackDeviceId(GetAppMainProcessId(window_id),
+                                                restrict_own_audio);
+#elif BUILDFLAG(IS_MAC)
+  return ProcessIdToApplicationLoopbackDeviceId(
+      webrtc::GetWindowOwnerPid(window_id), restrict_own_audio);
 #else
   return std::nullopt;
 #endif  // BUILDFLAG(IS_WIN)
@@ -392,7 +412,9 @@ void GetAudioDeviceId(content::DesktopMediaID desktop_media_id,
              desktop_media_id.window_audio_type ==
                  content::DesktopMediaID::AudioType::kApplication) {
     base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, base::BindOnce(&GetApplicationId, desktop_media_id.id),
+        FROM_HERE,
+        base::BindOnce(&GetApplicationId, desktop_media_id.id,
+                       restrict_own_audio),
         std::move(audio_device_id_obtained_callback));
     return;
   } else {

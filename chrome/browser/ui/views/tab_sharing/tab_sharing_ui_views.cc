@@ -13,7 +13,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -298,21 +297,15 @@ ScreensharingControlsHistogramLogger& TabSharingUIViews::GetUmaLogger() {
   return uma_logger_;
 }
 
-void TabSharingUIViews::OnBrowserAdded(Browser* browser) {
+void TabSharingUIViews::OnBrowserCreated(BrowserWindowInterface* browser) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   CHECK(browser);
 
-  if (IsCapturableByCapturer(browser->profile())) {
-    browser->tab_strip_model()->AddObserver(this);
+  if (IsCapturableByCapturer(browser->GetProfile())) {
+    // TODO(crbug.com/452120900): Observer is auto-unregistered by the
+    // TabStripModel destructor.
+    browser->GetTabStripModel()->AddObserver(this);
   }
-}
-
-void TabSharingUIViews::OnBrowserRemoved(Browser* browser) {
-  BrowserList* browser_list = BrowserList::GetInstance();
-  if (browser_list->empty()) {
-    browser_list->RemoveObserver(this);
-  }
-  browser->tab_strip_model()->RemoveObserver(this);
 }
 
 void TabSharingUIViews::OnTabStripModelChanged(
@@ -341,9 +334,10 @@ void TabSharingUIViews::OnTabStripModelChanged(
   }
 }
 
-void TabSharingUIViews::TabChangedAt(WebContents* contents,
-                                     int index,
-                                     TabChangeType change_type) {
+void TabSharingUIViews::OnTabChangedAt(tabs::TabInterface* tab,
+                                       int index,
+                                       TabChangeType change_type) {
+  content::WebContents* contents = tab->GetContents();
   // Sad tab cannot be shared so don't create an infobar for it.
   auto* sad_tab_helper = SadTabHelper::FromWebContents(contents);
   if (sad_tab_helper && sad_tab_helper->sad_tab()) {
@@ -414,21 +408,23 @@ void TabSharingUIViews::ApplyDlpForAllUsersForTesting() {
 
 void TabSharingUIViews::CreateInfobarsForAllTabs() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
+  GlobalBrowserCollection::GetInstance()->ForEach(
       [this](BrowserWindowInterface* browser) {
         if (!IsCapturableByCapturer(browser->GetProfile())) {
           return true;
         }
 
-        OnBrowserAdded(browser->GetBrowserForMigrationOnly());
+        OnBrowserCreated(browser);
 
         TabStripModel* const tab_strip_model = browser->GetTabStripModel();
         for (int i = 0; i < tab_strip_model->count(); i++) {
           CreateInfobarForWebContents(tab_strip_model->GetWebContentsAt(i));
         }
         return true;
-      });
-  BrowserList::GetInstance()->AddObserver(this);
+      },
+      BrowserCollection::Order::kCreation);
+
+  browser_collection_observer_.Observe(GlobalBrowserCollection::GetInstance());
 #if BUILDFLAG(IS_CHROMEOS)
   // Observe only for managed users.
   if (g_apply_dlp_for_all_users_for_testing_ ||
@@ -471,7 +467,7 @@ void TabSharingUIViews::CreateInfobarForWebContents(WebContents* contents) {
   // active, create an observer that will inform us when its compliance state
   // changes.
   if (capturer_restricted_to_same_origin_ && is_share_instead_button_possible &&
-      !base::Contains(same_origin_observers_, contents)) {
+      !same_origin_observers_.contains(contents)) {
     // We explicitly remove all infobars and clear all policy observers before
     // destruction, so base::Unretained is safe here.
     same_origin_observers_[contents] = std::make_unique<SameOriginObserver>(
@@ -529,7 +525,7 @@ void TabSharingUIViews::CreateInfobarForWebContents(WebContents* contents) {
 }
 
 void TabSharingUIViews::RemoveInfobarsForAllTabs() {
-  BrowserList::GetInstance()->RemoveObserver(this);
+  browser_collection_observer_.Reset();
   TabStripModelObserver::StopObservingAll(this);
 
   for (const auto& infobars_entry : infobars_) {

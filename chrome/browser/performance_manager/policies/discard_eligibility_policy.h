@@ -7,6 +7,7 @@
 
 #include <map>
 
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
@@ -128,6 +129,17 @@ class DiscardEligibilityPolicy
   void SetNoDiscardPatternsForProfile(const std::string& browser_context_id,
                                       const std::vector<std::string>& patterns);
   void ClearNoDiscardPatternsForProfile(const std::string& browser_context_id);
+
+  // Indicates if the page will be immediately perceptible to the users after
+  // discard.
+  //
+  // This is a subset of CanDiscard() and is used by
+  // DiscardPageWithCrashedSubframePolicy.
+  bool WillDiscardBePerceptible(const PageNode* page_node) const;
+
+  // Indicates if `page_node` can be discarded. This mostly focuses on whether
+  // the page is in the discard blocklist.
+  bool IsDiscardAllowed(const PageNode* page_node) const;
 
   // Indicates if `page_node` can be urgently discarded, using a list of
   // criteria depending on `discard_reason`. If `minimum_time_in_background` is

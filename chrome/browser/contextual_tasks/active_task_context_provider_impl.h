@@ -37,7 +37,7 @@ class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
       const ActiveTaskContextProviderImpl&) = delete;
 
   // ActiveTaskContextProvider implementation.
-  void OnSidePanelStateUpdated() override;
+  void RefreshContext() override;
   void SetSessionHandleGetter(
       SessionHandleGetter session_handle_getter) override;
   void AddObserver(ActiveTaskContextProvider::Observer* observer) override;
@@ -57,9 +57,6 @@ class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
   void PrimaryPageChanged(content::Page& page) override;
 
  private:
-  // Determines the active task and triggers a context fetch.
-  void RefreshContext();
-
   // Callback for when GetContextForTask() completes.
   void OnGetContextForTask(int callback_id,
                            std::unique_ptr<ContextualTaskContext> context);

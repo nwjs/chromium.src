@@ -94,10 +94,19 @@ class EventRouter : public KeyedService,
 
   // The pref key for the list of event names for which an extension has
   // registered from its lazy background page.
-  static const char kRegisteredLazyEvents[];
+  static inline constexpr const char kRegisteredLazyEvents[] = "events";
   // The pref key for the list of event names for which an extension has
   // registered from its service worker.
-  static const char kRegisteredServiceWorkerEvents[];
+  static inline constexpr const char kRegisteredServiceWorkerEvents[] =
+      "serviceworkerevents";
+
+  // A dictionary of event names to lists of filters that this extension has
+  // registered from its lazy background page.
+  static inline constexpr const char kFilteredEvents[] = "filtered_events";
+  // Similar to `kFilteredEvents`, but applies to extension service worker
+  // events.
+  static inline constexpr const char kFilteredServiceWorkerEvents[] =
+      "filtered_service_worker_events";
 
   // Observers register interest in events with a particular name and are
   // notified when a listener is added or removed. Observers are matched by
@@ -366,7 +375,7 @@ class EventRouter : public KeyedService,
                            OnUserSiteSettingsChanged);
   FRIEND_TEST_ALL_PREFIXES(DeveloperPrivateApiUnitTest,
                            ExtensionUpdatedEventOnPinnedActionsChange);
-  FRIEND_TEST_ALL_PREFIXES(DeveloperPrivateApiAllowlistUnitTest,
+  FRIEND_TEST_ALL_PREFIXES(DeveloperPrivateApiUnitTest,
                            ExtensionUpdatedEventOnAllowlistWarningChange);
   FRIEND_TEST_ALL_PREFIXES(DeveloperPrivateApiWithPermittedSitesUnitTest,
                            OnUserSiteSettingsChanged);

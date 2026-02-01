@@ -12,7 +12,9 @@
 #import "ios/chrome/browser/credential_exchange/model/credential_exchange_passkey.h"
 #import "ios/chrome/browser/credential_exchange/model/credential_exchange_password.h"
 #import "ios/chrome/browser/credential_exchange/model/credential_export_manager_swift.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "net/base/apple/url_conversions.h"
+#import "ui/base/l10n/l10n_util.h"
 
 @implementation CredentialExporter {
   // Used as a presentation anchor for OS views. Must not be nil.
@@ -41,17 +43,22 @@
                         passkeys:
                             (std::vector<sync_pb::WebauthnCredentialSpecifics>)
                                 passkeys
-           securityDomainSecrets:(NSArray<NSData*>*)securityDomainSecrets
-    API_AVAILABLE(ios(26.0)) {
+                trustedVaultKeys:(NSArray<NSData*>*)trustedVaultKeys
+                       userEmail:(NSString*)userEmail API_AVAILABLE(ios(26.0)) {
   NSArray<CredentialExchangePassword*>* exportedPasswords =
       [self transformPasswords:std::move(passwords)];
   NSArray<CredentialExchangePasskey*>* exportedPasskeys =
       [self transformPasskeys:std::move(passkeys)
-                 usingSecrets:securityDomainSecrets];
+          usingTrustedVaultKeys:trustedVaultKeys];
 
-  [_credentialExportManager startExportWithPasswords:exportedPasswords
-                                            passkeys:exportedPasskeys
-                                              window:_window];
+  [_credentialExportManager
+      startExportWithPasswords:exportedPasswords
+                      passkeys:exportedPasskeys
+                        window:_window
+                     userEmail:userEmail
+                  exporterName:
+                      l10n_util::GetNSString(
+                          IDS_IOS_CREDENTIAL_EXCHANGE_EXPORTER_DISPLAY_NAME)];
 }
 
 #pragma mark - Private
@@ -80,15 +87,15 @@
 
 // Returns an array of passkeys formatted for the credential export API.
 - (NSArray<CredentialExchangePasskey*>*)
-    transformPasskeys:
-        (std::vector<sync_pb::WebauthnCredentialSpecifics>)passkeys
-         usingSecrets:(NSArray<NSData*>*)secrets {
+        transformPasskeys:
+            (std::vector<sync_pb::WebauthnCredentialSpecifics>)passkeys
+    usingTrustedVaultKeys:(NSArray<NSData*>*)trustedVaultKeys {
   NSMutableArray<CredentialExchangePasskey*>* exportedPasskeys =
       [NSMutableArray arrayWithCapacity:passkeys.size()];
 
   for (const sync_pb::WebauthnCredentialSpecifics& passkey : passkeys) {
     NSData* privateKey = [self decryptPrivateKeyForPasskey:passkey
-                                              usingSecrets:secrets];
+                                     usingTrustedVaultKeys:trustedVaultKeys];
 
     if (!privateKey) {
       continue;
@@ -116,18 +123,17 @@
   return exportedPasskeys;
 }
 
-// Attempts to decrypt the private key for a given passkey using the available
-// security domain secrets.
+// Attempts to decrypt the private key for a given `passkey` with
+// `trustedVaultKeys`.
 - (NSData*)decryptPrivateKeyForPasskey:
                (const sync_pb::WebauthnCredentialSpecifics&)passkey
-                          usingSecrets:(NSArray<NSData*>*)secrets {
-  sync_pb::WebauthnCredentialSpecifics_Encrypted decrypted_data;
-  for (NSData* securityDomainSecret in secrets) {
+                 usingTrustedVaultKeys:(NSArray<NSData*>*)trustedVaultKeys {
+  sync_pb::WebauthnCredentialSpecifics_Encrypted decrypted;
+  for (NSData* trustedVaultKey in trustedVaultKeys) {
     if (webauthn::passkey_model_utils::DecryptWebauthnCredentialSpecificsData(
-            base::apple::NSDataToSpan(securityDomainSecret), passkey,
-            &decrypted_data)) {
-      return [NSData dataWithBytes:decrypted_data.private_key().data()
-                            length:decrypted_data.private_key().size()];
+            base::apple::NSDataToSpan(trustedVaultKey), passkey, &decrypted)) {
+      return [NSData dataWithBytes:decrypted.private_key().data()
+                            length:decrypted.private_key().size()];
     }
   }
   return nil;

@@ -37,7 +37,6 @@
 #include <queue>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
@@ -51,11 +50,13 @@
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
+#include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/dom/range.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
@@ -206,6 +207,20 @@
 namespace blink {
 namespace {
 
+bool IsIgnoredAsInsideInactiveColumnTab(Node* node) {
+  if (!node || !RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled() ||
+      node->IsCarouselPseudoElement()) {
+    return false;
+  }
+  // Check if we are inside a ::column with inactive ::scroll-marker.
+  // The IsInsideInactiveColumnTab bit is set by ScrollMarkerGroupData when
+  // the active column changes.
+  if (const LayoutObject* layout_object = node->GetLayoutObject()) {
+    return layout_object->EnclosingBox()->InsideInactiveColumnTab();
+  }
+  return false;
+}
+
 const ScrollMarkerPseudoElement* GetScrollMarker(const Node* node) {
   auto* element = DynamicTo<Element>(node);
   if (!element) {
@@ -213,6 +228,22 @@ const ScrollMarkerPseudoElement* GetScrollMarker(const Node* node) {
   }
   return DynamicTo<ScrollMarkerPseudoElement>(
       element->GetPseudoElement(kPseudoIdScrollMarker));
+}
+
+// Returns the ::column::scroll-marker pseudo-element for the first column of
+// `node`, or nullptr if not found.
+const ScrollMarkerPseudoElement* GetColumnScrollMarker(const Node* node) {
+  auto* element = DynamicTo<Element>(node);
+  if (!element) {
+    return nullptr;
+  }
+  const ColumnPseudoElementsVector* column_pseudo_elements =
+      element->GetColumnPseudoElements();
+  if (!column_pseudo_elements || column_pseudo_elements->empty()) {
+    return nullptr;
+  }
+  return DynamicTo<ScrollMarkerPseudoElement>(
+      column_pseudo_elements->front()->GetPseudoElement(kPseudoIdScrollMarker));
 }
 
 bool IsTabsModeScrollMarker(const ScrollMarkerPseudoElement& scroll_marker) {
@@ -227,11 +258,17 @@ bool IsTabsModeScrollMarker(const ScrollMarkerPseudoElement& scroll_marker) {
          ScrollMarkerGroup::ScrollMarkerMode::kTabs;
 }
 
-// Returns `true` if `node` has ::scroll-marker and the originating
-// element of its ::scroll-marker-group has scroll-marker-group property
-// set to `tabs` mode.
-bool IsOriginatingElementForScrollMarkerInTabsMode(const Node* node) {
+// Returns `true` if `node` has ::scroll-marker or ::column::scroll-marker, and
+// the originating element of its ::scroll-marker-group has scroll-marker-group
+// property set to `tabs` mode.
+bool IsUltimateOriginatingElementForScrollMarkerInTabsMode(const Node* node) {
   const ScrollMarkerPseudoElement* scroll_marker = GetScrollMarker(node);
+  // Check ::column::scroll-marker if no regular ::scroll-marker found, as
+  // if the originating element is ::column the tabpanel role is given to the
+  // originating element of the ::column.
+  if (!scroll_marker) {
+    scroll_marker = GetColumnScrollMarker(node);
+  }
   return scroll_marker && IsTabsModeScrollMarker(*scroll_marker);
 }
 
@@ -1127,7 +1164,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
           ax::mojom::blink::Role::kVideo,
       });
 
-  if (base::Contains(always_included_computed_roles, RoleValue())) {
+  if (always_included_computed_roles.contains(RoleValue())) {
     return kIncludeObject;
   }
 
@@ -1234,36 +1271,36 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   return kDefaultBehavior;
 }
 
-bool AXNodeObject::ComputeIsIgnoredAsInsideInactiveScrollMarkerTab() {
-  Node* node = GetNode();
-  if (!node || !RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled()) {
+bool AXNodeObject::ComputeIsIgnoredAsInsideInactiveScrollMarkerTab() const {
+  if (!RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled()) {
     return false;
   }
-  if (node->IsCarouselPseudoElement()) {
-    // The carousel pseudo-elements should never be ignored.
-    return false;
-  }
-  if (IsOriginatingElementForInactiveScrollMarkerInTabsMode(node)) {
-    return true;
-  }
-  if (!ParentObject()) {
-    return false;
+  if (Node* node = GetNode()) {
+    if (node->IsCarouselPseudoElement()) {
+      // The carousel pseudo-elements should never be ignored.
+      return false;
+    }
+    // Check if this node is the originating element for inactive
+    // ::scroll-marker in tabs mode.
+    if (IsOriginatingElementForInactiveScrollMarkerInTabsMode(node)) {
+      return true;
+    }
   }
   // As soon as one of the ancestors is the originating element for
   // ::scroll-marker in tabs mode, we know this node is inside the originating
   // element for ::scroll-marker in tabs mode, so we just propagate this info
   // down to the children.
-  return ParentObject()
-      ->InsideOriginatingElementForInactiveScrollMarkerInTabsMode();
+  return ParentObject() && ParentObject()->InsideInactiveScrollMarkerTab();
 }
 
 bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
   Node* node = GetNode();
 
   // Everything (besides carousel pseudo-elements) inside and including the
-  // originating element of the
-  // ::scroll-marker is in tabs mode should be ignored in AX tree.
-  if (InsideOriginatingElementForInactiveScrollMarkerInTabsMode()) {
+  // originating element of the ::scroll-marker is in tabs mode should be
+  // ignored in AX tree.
+  if (InsideInactiveScrollMarkerTab() ||
+      IsIgnoredAsInsideInactiveColumnTab(node)) {
     if (ignored_reasons) {
       ignored_reasons->push_back(IgnoredReason(kAXInactiveCarouselTabContent));
     }
@@ -1491,8 +1528,8 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
     return std::nullopt;
   }
 
-  if (element->IsPseudoElement()) {
-    for (const ContentData* content_data = style->GetContentData();
+  if (auto* pseudo_element = DynamicTo<PseudoElement>(element)) {
+    for (const ContentData* content_data = pseudo_element->GetContentData();
          content_data; content_data = content_data->Next()) {
       if (content_data->IsAlt()) {
         return ContentData::ConcatenateAltText(*content_data);
@@ -2246,7 +2283,7 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
   // the originating element of ::scroll-marker is given an implicit
   // role of tabpanel.
   if (RuntimeEnabledFeatures::CSSScrollMarkerGroupModesEnabled() &&
-      IsOriginatingElementForScrollMarkerInTabsMode(node)) {
+      IsUltimateOriginatingElementForScrollMarkerInTabsMode(node)) {
     return ax::mojom::blink::Role::kTabPanel;
   }
 
@@ -2348,8 +2385,12 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
     }
 
     if (GetCSSAltText(GetElement())) {
-      const ComputedStyle* style = GetElement()->GetComputedStyle();
-      ContentData* content_data = style->GetContentData();
+      const ContentData* content_data = nullptr;
+      if (auto* pseudo = DynamicTo<PseudoElement>(GetElement())) {
+        content_data = pseudo->GetContentData();
+      } else {
+        content_data = GetElement()->GetComputedStyle()->GetContentData();
+      }
       // We just check the first item of the content list to determine the
       // appropriate role, should only ever be image or text.
       // TODO(accessibility) Is it possible to use CSS alt text on an HTML tag
@@ -3172,7 +3213,19 @@ AccessibilitySelectedState AXNodeObject::IsSelected() const {
 
   // Selection follows focus, but ONLY in single selection containers, and only
   // if aria-selected was not present to override.
-  return IsSelectedFromFocus() ? kSelectedStateTrue : kSelectedStateFalse;
+  if (IsSelectedFromFocus()) {
+    return kSelectedStateTrue;
+  }
+
+  // Per ARIA spec, implicit selection is not allowed when:
+  // - Container is multiselectable, or
+  // - Any item has aria-checked.
+  const AXObject* container = ContainerWidget();
+  if (container && (container->IsMultiSelectable() ||
+                    !AXObjectCache().IsImplicitSelectionAllowed(container))) {
+    return kSelectedStateUndefined;
+  }
+  return kSelectedStateFalse;
 }
 
 bool AXNodeObject::IsSelectedFromFocusSupported() const {
@@ -3360,8 +3413,7 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
       CommandEventType command = command_for_element->GetCommandEventType(
           html_element->command(), html_element->GetExecutionContext());
       bool is_popover_command =
-          command_for_element->IsValidBuiltinPopoverCommand(*html_element,
-                                                            command);
+          command_for_element->IsValidBuiltinPopoverCommand(command);
       if (command_for_element && is_popover_command &&
           !element->IsDescendantOrShadowDescendantOf(command_for_element)) {
         return command_for_element->popoverOpen() ? kExpandedExpanded
@@ -3591,6 +3643,8 @@ void AXNodeObject::SerializeMarkerAttributes(ui::AXNodeData* node_data) const {
   if (aria_marker_type) {
     AXRange range = AXRange::RangeOfContents(*this);
     marker_types.push_back(ToAXMarkerType(aria_marker_type.value()));
+    highlight_types.push_back(
+        static_cast<int32_t>(ax::mojom::blink::HighlightType::kNone));
     marker_starts.push_back(range.Start().TextOffset());
     marker_ends.push_back(range.End().TextOffset());
   }
@@ -3623,7 +3677,7 @@ void AXNodeObject::SerializeMarkerAttributes(ui::AXNodeData* node_data) const {
     }
 
     marker_types.push_back(ToAXMarkerType(marker->GetType()));
-    highlight_types.push_back(static_cast<int32_t>(highlight_type));
+    highlight_types.push_back(highlight_type);
     auto start_pos = AXPosition::FromPosition(
         start_position, AXObjectCache(), TextAffinity::kDownstream,
         AXPositionAdjustmentBehavior::kMoveLeft);
@@ -3633,6 +3687,10 @@ void AXNodeObject::SerializeMarkerAttributes(ui::AXNodeData* node_data) const {
     marker_starts.push_back(start_pos.TextOffset());
     marker_ends.push_back(end_pos.TextOffset());
   }
+
+  DCHECK_EQ(marker_types.size(), highlight_types.size());
+  DCHECK_EQ(marker_types.size(), marker_starts.size());
+  DCHECK_EQ(marker_types.size(), marker_ends.size());
 
   if (marker_types.empty())
     return;
@@ -3868,6 +3926,13 @@ AXObject::AXObjectVector AXNodeObject::RadioButtonsInGroup() const {
     return radio_buttons;
 
   if (auto* node_radio_button = DynamicTo<HTMLInputElement>(node_.Get())) {
+    if (auto* cache = DynamicTo<AXObjectCacheImpl>(AXObjectCache())) {
+      radio_buttons = cache->GetRadioButtonGroupMembers(node_radio_button);
+      if (!radio_buttons.empty()) {
+        return radio_buttons;
+      }
+    }
+
     HeapVector<Member<HTMLInputElement>> html_radio_buttons =
         FindAllRadioButtonsWithSameName(node_radio_button);
     for (HTMLInputElement* radio_button : html_radio_buttons) {
@@ -5255,7 +5320,9 @@ String AXNodeObject::TextAlternative(
   // visible element without causing an accessibility error or user problem.
   // Note: if this is part of another label or description, it needs to be
   // computed as a name, in order to contribute to that.
-  if (aria_label_or_description_root || !IsNameProhibited()) {
+  if ((aria_label_or_description_root || !IsNameProhibited()) &&
+      !(has_explicitly_empty_native_text_alternative &&
+        (IsA<HTMLImageElement>(node) || IsA<HTMLAreaElement>(node)))) {
     String resulting_text = TextAlternativeFromTooltip(
         name_from, name_sources, &found_text_alternative, &text_alternative,
         related_objects);
@@ -6025,7 +6092,9 @@ void AXNodeObject::AddPseudoElementChildrenFromLayoutTree() {
     // All added pseudo-element descendants are included in the tree.
     if (AXObject* ax_child = AXObjectCache().GetOrCreate(child, this)) {
       DCHECK(AXObjectCacheImpl::IsRelevantPseudoElementDescendant(*child));
-      AddChildAndCheckIncluded(ax_child);
+      if (ax_child->IsIncludedInTree()) {
+        AddChildAndCheckIncluded(ax_child);
+      }
     }
     child = child->NextSibling();
   }
@@ -7238,7 +7307,7 @@ String AXNodeObject::NativeTextAlternative(
       name_sources->push_back(NameSource(*found_text_alternative, kAltAttr));
       name_sources->back().type = name_from;
     }
-    if (!alt.empty()) {
+    if (!alt.IsNull()) {
       text_alternative = alt;
       if (name_sources) {
         NameSource& source = name_sources->back();

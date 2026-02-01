@@ -209,7 +209,7 @@ void AutofillClient::TriggerAutofillAiSavePromptSurvey(
   NOTIMPLEMENTED();
 }
 
-bool AutofillClient::IsActorTaskActive() const {
+bool AutofillClient::IsTabInActorMode() const {
   return false;
 }
 
@@ -231,12 +231,6 @@ bool AutofillClient::ShowAutofillFieldIphForFeature(
 void AutofillClient::HideAutofillFieldIph() {}
 
 void AutofillClient::NotifyIphFeatureUsed(AutofillClient::IphFeature feature) {}
-
-std::optional<AutofillClient::PopupScreenLocation>
-AutofillClient::GetPopupScreenLocation() const {
-  NOTIMPLEMENTED();
-  return std::nullopt;
-}
 
 std::optional<AutofillClient::SuggestionUiSessionId>
 AutofillClient::GetSessionIdForCurrentAutofillSuggestions() const {

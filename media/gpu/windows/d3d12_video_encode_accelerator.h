@@ -113,7 +113,7 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
       const std::optional<gfx::Size>& size);
 
   Microsoft::WRL::ComPtr<ID3D12Resource>
-  CreateResourceForGpuMemoryBufferVideoFrame(const VideoFrame& frame);
+  CreateResourceForDXGIHandleBackedVideoFrame(const VideoFrame& frame);
 
   Microsoft::WRL::ComPtr<ID3D12Resource>
   CreateResourceForSharedMemoryVideoFrame(const VideoFrame& frame);
@@ -210,6 +210,13 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAccelerator
       GUARDED_BY_CONTEXT(encoder_sequence_checker_);
 
   base::queue<BitstreamBuffer> bitstream_buffers_
+      GUARDED_BY_CONTEXT(encoder_sequence_checker_);
+
+  // Persistent D3D12 resources for if the input frame needs to be copied from
+  // shared memory.
+  Microsoft::WRL::ComPtr<ID3D12Resource> upload_buffer_
+      GUARDED_BY_CONTEXT(encoder_sequence_checker_);
+  Microsoft::WRL::ComPtr<ID3D12Resource> input_texture_
       GUARDED_BY_CONTEXT(encoder_sequence_checker_);
 
   // Cache for shared handle to D3D12Resource mapping when caching is enabled.

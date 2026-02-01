@@ -7,6 +7,7 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/functional/callback_helpers.h"
@@ -14,11 +15,16 @@
 #include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
+#include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
+#include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
 #include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_screenshotter.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
+#include "components/dom_distiller/core/task_tracker.h"
 #include "components/translate/core/browser/translate_client.h"
 #include "components/translate/core/browser/translate_driver.h"
 #include "content/public/browser/tts_controller.h"
@@ -118,7 +124,8 @@ class ReadAnythingUntrustedPageHandler :
 #endif
     public ui::AXActionHandlerObserver,
     public read_anything::mojom::UntrustedPageHandler,
-    public ReadAnythingSidePanelController::Observer,
+    public ReadAnythingLifecycleObserver,
+    public PinnedToolbarActionsModel::Observer,
     public translate::TranslateDriver::LanguageDetectionObserver {
  public:
   ReadAnythingUntrustedPageHandler(
@@ -139,8 +146,18 @@ class ReadAnythingUntrustedPageHandler :
       const ReadAnythingUntrustedPageHandler&) = delete;
   ~ReadAnythingUntrustedPageHandler() override;
 
+  const std::optional<std::string>& dom_distiller_title() const {
+    return dom_distiller_title_;
+  }
+  const std::optional<std::string>& dom_distiller_content() const {
+    return dom_distiller_content_;
+  }
+  bool ack_timed_out_for_testing() const { return ack_timed_out_for_testing_; }
+
   static const int kMaxWordsDistilled = 25000;
   static const int kWordsDistilledBuckets = 100;
+  static constexpr base::TimeDelta kReadingModeHiddenAckTimeout =
+      base::Seconds(2);
 
   void AccessibilityEventReceived(const ui::AXUpdatesAndEvents& details);
   void AccessibilityLocationChangesReceived(
@@ -154,6 +171,7 @@ class ReadAnythingUntrustedPageHandler :
   bool CheckForPdfContentAfterLoad();
 
   // read_anything::mojom::UntrustedPageHandler:
+  void GetPresentationState() override;
   void OnVoiceChange(const std::string& voice,
                      const std::string& lang) override;
   void OnLanguagePrefChange(const std::string& lang, bool enabled) override;
@@ -172,19 +190,36 @@ class ReadAnythingUntrustedPageHandler :
   void OnColorChange(read_anything::mojom::Colors color) override;
   void OnHighlightGranularityChanged(
       read_anything::mojom::HighlightGranularity granularity) override;
+  void OnLineFocusChanged(read_anything::mojom::LineFocus line_focus) override;
   void GetVoicePackInfo(const std::string& language) override;
   void InstallVoicePack(const std::string& language) override;
   void UninstallVoice(const std::string& language) override;
   void OnDistillationStatus(read_anything::mojom::DistillationStatus status,
                             int word_count) override;
+  void AckReadingModeHidden() override;
+  void TogglePinState() override;
+  void SendPinStateRequest() override;
+  bool immersive_read_anything_pin_state() {
+    return immersive_read_anything_pin_state_;
+  }
+  // PinnedToolbarModel::Observer
+  void OnActionsChanged() override;
+
+  // Checks toolbar pin status to assess whether or not to update the pin status
+  // of read anything immersive
+  void MaybeUpdateImmersivePinStatus();
 
   // TranslateDriver::LanguageDetectionObserver:
   void OnLanguageDetermined(
       const translate::LanguageDetectionDetails& details) override;
   void OnTranslateDriverDestroyed(translate::TranslateDriver* driver) override;
 
-  // ReadAnythingSidePanelController::Observer:
+  // ReadAnythingLifecycleObserver:
+  void OnDestroyed() override;
   void OnTabWillDetach() override;
+  void Activate(bool active,
+                std::optional<ReadAnythingOpenTrigger> open_trigger) override;
+  void OnReadingModePresenterChanged() override;
 
   // Logs the extension installation state. Intended to get more information
   // on system voice usage.
@@ -245,6 +280,8 @@ class ReadAnythingUntrustedPageHandler :
                      ui::AXNodeID target_node_id) override;
   void ScrollToTargetNode(const ui::AXTreeID& target_tree_id,
                           ui::AXNodeID target_node_id) override;
+  void CloseUI() override;
+  void TogglePresentation() override;
   void OnSelectionChange(const ui::AXTreeID& target_tree_id,
                          ui::AXNodeID anchor_node_id,
                          int anchor_offset,
@@ -252,11 +289,6 @@ class ReadAnythingUntrustedPageHandler :
                          int focus_offset) override;
   void OnCollapseSelection() override;
   void OnScreenshotRequested() override;
-
-  // ReadAnythingSidePanelController::Observer:
-  void Activate(bool active,
-                std::optional<ReadAnythingOpenTrigger> open_trigger) override;
-  void OnSidePanelControllerDestroyed() override;
 
   void SetDefaultLanguageCode(const std::string& code);
 
@@ -266,14 +298,16 @@ class ReadAnythingUntrustedPageHandler :
 
   void SetUpPdfObserver();
 
+  void OnGetPresentationState();
+
+  // Called when reading_mode_hidden_ack_timer_ times out without hearing back
+  // from the page_.
+  void OnReadingModeHiddenAckTimeout();
+
   void OnGetVoicePackInfo(read_anything::mojom::VoicePackInfoPtr info);
 
   // Logs the current visual settings values.
   void LogTextStyle();
-
-  // Adds this as an observer of the ReadAnythingSidePanelController tied to a
-  // tab.
-  void ObserveWebContentsSidePanelController(tabs::TabInterface* tab);
 
   void PerformActionInTargetTree(const ui::AXActionData& data);
 
@@ -292,9 +326,26 @@ class ReadAnythingUntrustedPageHandler :
       GetDependencyParserModelCallback callback,
       bool is_available);
 
+  // Called if IsReadAnythingWithReadabilityEnabled is enabled. Triggers
+  // DomDistiller Distillation for the current page.
+  void RequestDomDistillerDistillation(content::WebContents* contents);
+
+  // Called by the DistillerDelegate with the result of a DomDistiller
+  // distillation.
+  void ProcessDistilledArticle(
+      const dom_distiller::DistilledArticleProto* article_proto);
+
+  // The Reading Mode controller for both immersive and side-panel reading mode,
+  // used when the immersive reading mode flag is enabled.
+  raw_ptr<ReadAnythingController> read_anything_controller_;
+  // Legacy side-panel reading mode controller, only to be used when the
+  // immersive reading mode flag is disabled.
+  // TODO: (crbug.com/449162079) Remove this when immersive reading mode flag is
+  // fully rolled out.
   raw_ptr<ReadAnythingSidePanelController> side_panel_controller_;
   const raw_ptr<Profile> profile_;
   const raw_ptr<content::WebUI> web_ui_;
+  raw_ptr<tabs::TabInterface> tab_;
 
   std::unique_ptr<ReadAnythingWebContentsObserver> main_observer_;
 
@@ -306,6 +357,11 @@ class ReadAnythingUntrustedPageHandler :
   // `web_screenshotter_` is used to capture a screenshot of the main web
   // contents requested.
   std::unique_ptr<ReadAnythingScreenshotter> web_screenshotter_;
+
+  // Private implementation for dom_distiller::ViewRequestDelegate, not part of
+  // the public API.
+  class DistillerDelegate;
+  std::unique_ptr<DistillerDelegate> distiller_delegate_;
 
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
@@ -342,6 +398,17 @@ class ReadAnythingUntrustedPageHandler :
   // recognized as a pdf after it finishes loading.
   bool is_pdf_ = false;
 
+  // This manages the life cycle of the pinned toolbar observer. We observe
+  // the pinned toolbar to ensure capture user pin changes in the toolbar ui.
+  base::ScopedObservation<PinnedToolbarActionsModel,
+                          PinnedToolbarActionsModel::Observer>
+      pinned_toolbar_actions_observation_{this};
+  bool immersive_read_anything_pin_state_ = false;
+
+  // We keep a pointer to the pinned_toolbar to propagate changes to the pin
+  // status onto the toolbar.
+  raw_ptr<PinnedToolbarActionsModel> pinned_toolbar_;
+
   base::ScopedClosureRunner audible_closure_;
 
   // Observes LanguageDetectionObserver, which notifies us when the language of
@@ -354,6 +421,14 @@ class ReadAnythingUntrustedPageHandler :
   // Otherwise, it may incorrectly return that the page is not a pdf if
   // reading mode checks if a page is a pdf immediately after loading.
   base::OneShotTimer timer_;
+  // Timer for checking that the page_ is still responsive after reading mode
+  // is hidden.
+  base::OneShotTimer reading_mode_hidden_ack_timer_;
+  bool ack_timed_out_for_testing_ = false;
+
+  // Hold DOM distiller distillation results.
+  std::optional<std::string> dom_distiller_title_;
+  std::optional<std::string> dom_distiller_content_;
 
   base::WeakPtrFactory<ReadAnythingUntrustedPageHandler> weak_factory_{this};
 };

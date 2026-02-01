@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 
+#include "base/byte_size.h"
 #include "base/strings/stringprintf.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/features.h"
@@ -45,6 +46,7 @@
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 
 namespace blink {
@@ -67,19 +69,6 @@ CanvasRenderingContext::CanvasRenderingContext(
   // the problem has to do with a pre-finalizer being called
   // prematurely.
   CHECK(host_);
-}
-
-base::ByteCount CanvasRenderingContext::AllocatedBufferSize() const {
-  if (!Host() || isContextLost()) {
-    return base::ByteCount(0);
-  }
-  const gfx::Size& size = DrawingBufferSize();
-  if (size.IsEmpty()) {
-    return base::ByteCount(0);
-  }
-  int buffer_count = AllocatedBufferCountPerPixel();
-  return buffer_count *
-         base::ByteCount(GetSharedImageFormat().EstimatedSizeInBytes(size));
 }
 
 void CanvasRenderingContext::Dispose() {
@@ -105,7 +94,7 @@ CanvasRenderingContext::GetEnclosingContextForDrawElement(
     ExceptionState& exception_state) {
   auto build_error = [&func_name](const char* format) {
     StringBuilder builder;
-    builder.AppendFormat(format, func_name.Utf8().c_str());
+    UNSAFE_TODO(builder.AppendFormat(format, func_name.Utf8().c_str()));
     return builder.ToString();
   };
 
@@ -156,7 +145,7 @@ bool CanvasRenderingContext::IsDrawElementImageEligible(
 
   auto build_error = [&func_name](const char* format) {
     StringBuilder builder;
-    builder.AppendFormat(format, func_name.Utf8().c_str());
+    UNSAFE_TODO(builder.AppendFormat(format, func_name.Utf8().c_str()));
     return builder.ToString();
   };
 
@@ -206,10 +195,9 @@ bool CanvasRenderingContext::IsDrawElementImageEligible(
 
 std::optional<cc::PaintRecord> CanvasRenderingContext::GetElementPaintRecord(
     Element* element,
+    std::optional<CullRect> cull_rect,
     const String& func_name,
     ExceptionState& exception_state) {
-  element->GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
-      DocumentUpdateReason::kCanvasDrawElementImage);
   if (!IsDrawElementImageEligible(element, func_name, exception_state)) {
     return std::nullopt;
   }
@@ -221,12 +209,13 @@ std::optional<cc::PaintRecord> CanvasRenderingContext::GetElementPaintRecord(
   CHECK(layout_box->IsStacked());
   PaintLayer* layer = layout_box->EnclosingLayer();
 
-  auto box_rect =
-      gfx::Rect(ToCeiledSize(layer->GetLayoutBox()->StitchedSize()));
-  // TODO(https://issues.chromium.org/379143301): Figure out the actual painted
-  // rect of the element plus its descendants, and use that instead of the
-  // box's size.
-  OverriddenCullRectScope cull_rect_scope(*layer, CullRect(box_rect),
+  if (!cull_rect) {
+    auto box_rect =
+        gfx::Rect(ToCeiledSize(layer->GetLayoutBox()->StitchedSize()));
+    cull_rect.emplace(box_rect);
+  }
+
+  OverriddenCullRectScope cull_rect_scope(*layer, *cull_rect,
                                           /*disable_expansion*/ true);
 
   PaintLayerPainter paint_layer_painter = PaintLayerPainter(*layer);
@@ -254,12 +243,32 @@ std::optional<cc::PaintRecord> CanvasRenderingContext::GetElementPaintRecord(
 
 scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
     Element* element,
+    std::optional<float> sx,
+    std::optional<float> sy,
+    std::optional<float> swidth,
+    std::optional<float> sheight,
     std::optional<uint32_t> width,
     std::optional<uint32_t> height,
     const String& func_name,
     ExceptionState& exception_state) {
+  element->GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kCanvasDrawElementImage);
+
+  // Element size in physical coordinates.
+  gfx::SizeF box_size;
+  if (element->GetLayoutBox()) {
+    box_size = gfx::SizeF(element->GetLayoutBox()->StitchedSize());
+  }
+  gfx::RectF src_rect(box_size);
+  std::optional<CullRect> cull_rect;
+  if (sx && sy && swidth && sheight) {
+    float dpr = element->ComputedStyleRef().EffectiveZoom();
+    src_rect = gfx::RectF(*sx * dpr, *sy * dpr, *swidth * dpr, *sheight * dpr);
+    cull_rect.emplace(gfx::ToEnclosingRect(src_rect));
+  }
+
   std::optional<cc::PaintRecord> paint_record =
-      GetElementPaintRecord(element, func_name, exception_state);
+      GetElementPaintRecord(element, cull_rect, func_name, exception_state);
   if (!paint_record) {
     return nullptr;
   }
@@ -270,8 +279,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
   // size scaled to canvas grid coordinates. This causes the element to have
   // the same proportions when appearing inside the canvas as it would have
   // were it painted outside the canvas.
-  gfx::SizeF intrinsic_size =
-      gfx::SizeF(element->GetLayoutBox()->StitchedSize());
+  gfx::SizeF intrinsic_size(src_rect.size());
   gfx::Vector2dF canvas_scale =
       canvas_element->PhysicalPixelToCanvasGridScaleFactor();
   intrinsic_size.Scale(canvas_scale.x(), canvas_scale.y());
@@ -290,8 +298,10 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
   if (!surface) {
     return nullptr;
   }
+
   SkiaPaintCanvas skia_paint_canvas(surface->getCanvas());
   skia_paint_canvas.scale(canvas_scale.x(), canvas_scale.y());
+  skia_paint_canvas.translate(-src_rect.x(), -src_rect.y());
   skia_paint_canvas.drawPicture(*paint_record);
   return UnacceleratedStaticBitmapImage::Create(surface->makeImageSnapshot());
 }

@@ -9,7 +9,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -432,12 +431,15 @@ OzoneImageBacking::OzoneImageBacking(
   bool used_by_webgpu = usage.HasAny(SHARED_IMAGE_USAGE_WEBGPU_READ |
                                      SHARED_IMAGE_USAGE_WEBGPU_WRITE);
   write_streams_count_ = 0;
-  if (used_by_gl)
+  if (used_by_gl) {
     write_streams_count_++;  // gl can write
-  if (used_by_vulkan)
+  }
+  if (used_by_vulkan) {
     write_streams_count_++;  // vulkan can write
-  if (used_by_webgpu)
+  }
+  if (used_by_webgpu) {
     write_streams_count_++;  // webgpu can write
+  }
 
   if (write_streams_count_ == 1) {
     // Initialize last_write_stream_ if its a single stream for cases where
@@ -682,10 +684,11 @@ bool OzoneImageBacking::BeginAccess(bool readonly,
     DCHECK(write_fence_.is_null());  // `write_fence_` should be null.
     // For write access we expect new `write_fence_` so we can move the
     // old fence here.
-    if (!readonly)
+    if (!readonly) {
       fences->emplace_back(std::move(external_write_fence_));
-    else
+    } else {
       fences->emplace_back(external_write_fence_.Clone());
+    }
   }
 
   // If current stream is different than `last_write_stream_` then wait on that
@@ -695,10 +698,11 @@ bool OzoneImageBacking::BeginAccess(bool readonly,
                .is_null());  // `external_write_fence_` should be null.
     // For write access we expect new `write_fence_` so we can move the old
     // fence here.
-    if (!readonly)
+    if (!readonly) {
       fences->emplace_back(std::move(write_fence_));
-    else
+    } else {
       fences->emplace_back(write_fence_.Clone());
+    }
   }
 
   if (readonly) {
@@ -742,7 +746,7 @@ void OzoneImageBacking::EndAccess(bool readonly,
       read_fences_[access_stream] = std::move(fence);
     }
   } else {
-    DCHECK(!base::Contains(read_fences_, access_stream));
+    DCHECK(!read_fences_.contains(access_stream));
     write_fence_ = std::move(fence);
     last_write_stream_ = access_stream;
   }

@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -20,7 +19,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/atomic_flag.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -35,7 +33,6 @@
 #include "chrome/browser/sessions/session_service_log.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
@@ -75,10 +72,7 @@ using sessions::SerializedNavigationEntryTestHelper;
 
 class SessionServiceTest : public BrowserWithTestWindowTest {
  public:
-  SessionServiceTest() : window_bounds(0, 1, 2, 3) {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kSideBySide, features::kSideBySideSessionRestore}, {});
-  }
+  SessionServiceTest() : window_bounds(0, 1, 2, 3) {}
 
  protected:
   void SetUp() override {
@@ -222,7 +216,6 @@ class SessionServiceTest : public BrowserWithTestWindowTest {
 
   std::unique_ptr<SessionService> session_service_;
   SessionServiceTestHelper helper_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class MockSessionServiceBaseObserver : public SessionServiceBaseObserver {
@@ -1259,7 +1252,7 @@ TEST_F(SessionServiceTest, TabGroupMetadataSaved) {
 
   for (int group_ndx = 0; group_ndx < kNumGroups; ++group_ndx) {
     const tab_groups::TabGroupId group_id = group_ids[group_ndx];
-    ASSERT_TRUE(base::Contains(tab_groups, group_id));
+    ASSERT_TRUE(tab_groups.contains(group_id));
     EXPECT_EQ(visual_data[group_ndx], tab_groups[group_id]->visual_data);
     if (tab_groups[group_id]->saved_guid.has_value()) {
       EXPECT_EQ(saved_guids[group_ndx],
@@ -1343,7 +1336,7 @@ TEST_F(SessionServiceTest, SplitTabDataSaved) {
 
   for (int split_ndx = 0; split_ndx < kNumSplitTabs; ++split_ndx) {
     const split_tabs::SplitTabId split_id = split_ids[split_ndx];
-    ASSERT_TRUE(base::Contains(split_tab_map, split_id));
+    ASSERT_TRUE(split_tab_map.contains(split_id));
     EXPECT_EQ(visual_data[split_ndx],
               split_tab_map[split_id]->split_visual_data_);
   }

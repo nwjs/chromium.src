@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/rand_util.h"
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
+#include "base/allocator/partition_alloc_support.h"
 
 #include <algorithm>
 #include <array>
@@ -18,11 +14,11 @@
 #include <string_view>
 
 #include "base/allocator/partition_alloc_features.h"
-#include "base/allocator/partition_alloc_support.h"
 #include "base/allocator/scheduler_loop_quarantine_config.h"
 #include "base/at_exit.h"
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/cpu.h"
 #include "base/debug/dump_without_crashing.h"
@@ -40,6 +36,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/pending_task.h"
+#include "base/rand_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock_impl.h"
@@ -113,10 +110,10 @@ BootloaderOverride GetBootloaderOverride() {
       "persist.device_config.runtime_native_boot.bootloader_override",
       bootloader_override_str);
 
-  if (strcmp(bootloader_override_str, "force_on") == 0) {
+  if (UNSAFE_TODO(strcmp(bootloader_override_str, "force_on")) == 0) {
     return BootloaderOverride::kForceOn;
   }
-  if (strcmp(bootloader_override_str, "force_off") == 0) {
+  if (UNSAFE_TODO(strcmp(bootloader_override_str, "force_off")) == 0) {
     return BootloaderOverride::kForceOff;
   }
   return BootloaderOverride::kDefault;
@@ -127,6 +124,15 @@ BootloaderOverride GetBootloaderOverride() {
 // first attempt. This is based on the insight that processes often don't live
 // paste this minute.
 constexpr base::TimeDelta kFirstPAPurgeOrReclaimDelay = base::Minutes(1);
+
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+// Only tolerate up to |total_size_of_committed_pages >>
+// k***MaxEmptySlotSpansDirtyBytesShift| dirty bytes in empty slot
+// spans.
+constexpr int kForegroundMaxEmptySlotSpansDirtyBytesShift = 2;
+constexpr int kBackgroundMaxEmptySlotSpansDirtyBytesShift = 3;
+constexpr int kDefaultMaxEmptySlotSpansDirtyBytesShift = 3;
+#endif
 
 // This is defined in content/public/common/content_switches.h, which is not
 // accessible in ::base. They must be kept in sync.
@@ -165,10 +171,6 @@ class LockMetricsRecorderSupport
  private:
   base::LockMetricsRecorder* recorder_;
 };
-
-}  // namespace
-
-namespace {
 
 void RunThreadCachePeriodicPurge() {
   // Micros, since periodic purge should typically take at most a few ms.
@@ -696,9 +698,10 @@ void CheckDanglingRawPtrBufferEmpty() {
       LOG(ERROR) << debug::StackTrace(
                         // This call truncates the `nullptr` tail of the stack
                         // trace (see the `is_partitioned` CHECK above).
-                        span(raw_stack_trace.begin(),
-                             std::ranges::partition_point(
-                                 raw_stack_trace, is_frame_ptr_not_null)))
+                        UNSAFE_TODO(
+                            span(raw_stack_trace.begin(),
+                                 std::ranges::partition_point(
+                                     raw_stack_trace, is_frame_ptr_not_null))))
                  << "\n";
     }
 #else
@@ -1245,6 +1248,14 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       }
 #endif  // BUILDFLAG(IS_ANDROID)
     }
+
+#if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
+    if (base::FeatureList::IsEnabled(
+            base::features::kPartitionAllocLockTuneSpin)) {
+      partition_alloc::internal::SpinningMutex::SetSpinCount(
+          base::features::kPartitionAllocLockSpinCount.Get());
+    }
+#endif  // BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARM64)
   }
 #endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
 
@@ -1275,8 +1286,10 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
 
   if (base::FeatureList::IsEnabled(
           base::features::kPartitionAllocLargeEmptySlotSpanRing)) {
+    int16_t size = static_cast<int16_t>(
+        features::kPartitionAllocLargeEmptySlotSpanRingSize.Get());
     allocator_shim::internal::PartitionAllocMalloc::Allocator()
-        ->EnableLargeEmptySlotSpanRing();
+        ->AdjustSlotSpanRing(size, kDefaultMaxEmptySlotSpansDirtyBytesShift);
   }
 
   // `ReconfigureAfterTaskRunnerInit()` is called on the Main thread.
@@ -1352,7 +1365,7 @@ void PartitionAllocSupport::ReconfigureAfterTaskRunnerInit(
     // Devices almost always report less physical memory than what they actually
     // have, so use 3.2GB (a threshold commonly uses throughout code) to avoid
     // accidentally catching devices advertised as 4GB.
-    if (base::SysInfo::AmountOfPhysicalMemory().InGiBF() < 3.2) {
+    if (base::SysInfo::AmountOfTotalPhysicalMemory().InGiBF() < 3.2) {
       largest_cached_size_ = ::partition_alloc::kThreadCacheDefaultSizeThreshold;
     }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -1400,7 +1413,10 @@ void PartitionAllocSupport::OnForegrounded(bool has_main_frame) {
 #endif  // PA_CONFIG(THREAD_CACHE_SUPPORTED)
   if (base::FeatureList::IsEnabled(
           features::kPartitionAllocAdjustSizeWhenInForeground)) {
-    allocator_shim::AdjustDefaultAllocatorForForeground();
+    int16_t size = static_cast<int16_t>(
+        features::kPartitionAllocForegroundEmptySlotSpanRingSize.Get());
+    allocator_shim::internal::PartitionAllocMalloc::Allocator()
+        ->AdjustSlotSpanRing(size, kForegroundMaxEmptySlotSpansDirtyBytesShift);
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 }
@@ -1439,7 +1455,10 @@ void PartitionAllocSupport::OnBackgrounded() {
 #endif  // PA_CONFIG(THREAD_CACHE_SUPPORTED)
   if (base::FeatureList::IsEnabled(
           features::kPartitionAllocAdjustSizeWhenInForeground)) {
-    allocator_shim::AdjustDefaultAllocatorForBackground();
+    int16_t size = static_cast<int16_t>(
+        features::kPartitionAllocBackgroundEmptySlotSpanRingSize.Get());
+    allocator_shim::internal::PartitionAllocMalloc::Allocator()
+        ->AdjustSlotSpanRing(size, kBackgroundMaxEmptySlotSpansDirtyBytesShift);
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 }

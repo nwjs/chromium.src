@@ -1813,6 +1813,9 @@ void WebFrameWidgetImpl::UpdateVisualProperties(
   // VisualProperties waterfall, instead of coming to each WebFrameWidgetImpl
   // independently.
   // https://developer.mozilla.org/en-US/docs/Web/CSS/@media/display-mode
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  ui::mojom::blink::WindowShowState old_show_state = window_show_state_;
+#endif
   SetDisplayMode(visual_properties.display_mode);
   SetWindowShowState(visual_properties.window_show_state);
   SetResizable(visual_properties.resizable);
@@ -1868,6 +1871,12 @@ void WebFrameWidgetImpl::UpdateVisualProperties(
           remote_frame->DidChangeVisibleViewportSize(visible_viewport_size);
         });
   }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  if (old_show_state != window_show_state_) {
+    View()->OnWindowShowStateChanged(old_show_state, window_show_state_);
+  }
+#endif  //  !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // All non-top-level Widgets (child local-root frames, GuestViews,
   // etc.) propagate and consume the page scale factor as "external", meaning
@@ -2124,10 +2133,10 @@ void WebFrameWidgetImpl::SetShouldThrottleFrameRate(bool flag) {
 }
 
 void WebFrameWidgetImpl::RequestMainFrameOnCompositorAnimation(
-    cc::PropertyChangeForcesCommitCriteria
-        property_change_forces_commit_criteria) {
+    cc::PropertyChangeForcesCommitCriteria criteria,
+    bool force_propagation) {
   widget_base_->LayerTreeHost()->RequestMainFrameOnCompositorAnimation(
-      property_change_forces_commit_criteria);
+      criteria, force_propagation);
 }
 
 std::optional<int> WebFrameWidgetImpl::GetMaxRenderBufferBounds() const {
@@ -2151,10 +2160,6 @@ void WebFrameWidgetImpl::SetBrowserControlsShownRatio(float top_ratio,
 void WebFrameWidgetImpl::SetBrowserControlsParams(
     cc::BrowserControlsParams params) {
   widget_base_->LayerTreeHost()->SetBrowserControlsParams(params);
-}
-
-void WebFrameWidgetImpl::SetLoadProgress(float progress) {
-  widget_base_->LayerTreeHost()->SetLoadProgress(progress);
 }
 
 void WebFrameWidgetImpl::SetMaxSafeAreaInsets(
@@ -2896,8 +2901,12 @@ void WebFrameWidgetImpl::ObserveGestureEventAndResult(
     const gfx::Vector2dF& unused_delta,
     const cc::OverscrollBehavior& overscroll_behavior,
     bool event_processed) {
-  if (!widget_base_->LayerTreeHost()->GetSettings().enable_elastic_overscroll)
+  const cc::LayerTreeSettings& settings =
+      widget_base_->LayerTreeHost()->GetSettings();
+  if (!settings.enable_elastic_overscroll_on_root &&
+      !settings.enable_elastic_overscroll_for_subscroll) {
     return;
+  }
 
   cc::InputHandlerScrollResult scroll_result;
   scroll_result.did_scroll = event_processed;
@@ -3799,7 +3808,6 @@ void WebFrameWidgetImpl::ResetVirtualKeyboardVisibilityRequest() {
     return;
   controller->SetVirtualKeyboardVisibilityRequest(
       ui::mojom::blink::VirtualKeyboardVisibilityRequest::NONE);
-  ;
 }
 
 bool WebFrameWidgetImpl::GetSelectionBoundsInWindow(
@@ -3926,7 +3934,8 @@ bool WebFrameWidgetImpl::SetComposition(
     const Vector<ui::ImeTextSpan>& ime_text_spans,
     const gfx::Range& replacement_range,
     int selection_start,
-    int selection_end) {
+    int selection_end,
+    mojom::blink::ImeState ime_state) {
   WebInputMethodController* controller = GetActiveWebInputMethodController();
   if (!controller)
     return false;
@@ -3937,7 +3946,7 @@ bool WebFrameWidgetImpl::SetComposition(
           ? WebRange(base::checked_cast<int>(replacement_range.start()),
                      base::checked_cast<int>(replacement_range.length()))
           : WebRange(),
-      selection_start, selection_end);
+      selection_start, selection_end, ime_state);
 }
 
 void WebFrameWidgetImpl::CommitText(

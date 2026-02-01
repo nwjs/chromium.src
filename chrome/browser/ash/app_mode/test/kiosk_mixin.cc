@@ -33,7 +33,6 @@
 #include "components/policy/core/common/cloud/test/policy_builder.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "url/gurl.h"
@@ -194,9 +193,6 @@ void ConfigureWebApp(ScopedDevicePolicyUpdate& update,
 // Configures a Kiosk isolated web app and related device policies.
 void ConfigureIsolatedWebApp(ScopedDevicePolicyUpdate& update,
                              const KioskMixin::IsolatedWebAppOption& option) {
-  web_app::IwaKeyDistributionInfoProvider::GetInstance()
-      .SkipManagedAllowlistChecksForTesting(option.skip_iwa_allowlist_checks);
-
   DeviceLocalAccountInfoProto* account =
       update.policy_payload()->mutable_device_local_accounts()->add_account();
 
@@ -459,15 +455,13 @@ KioskMixin::IsolatedWebAppOption::IsolatedWebAppOption(
     GURL update_manifest_url,
     std::string update_channel,
     std::string pinned_version,
-    bool allow_downgrades,
-    bool skip_iwa_allowlist_checks)
+    bool allow_downgrades)
     : account_id(std::string(account_id)),
       web_bundle_id(web_bundle_id),
       update_manifest_url(std::move(update_manifest_url)),
       update_channel(std::move(update_channel)),
       pinned_version(std::move(pinned_version)),
-      allow_downgrades(allow_downgrades),
-      skip_iwa_allowlist_checks(skip_iwa_allowlist_checks) {}
+      allow_downgrades(allow_downgrades) {}
 
 KioskMixin::IsolatedWebAppOption::IsolatedWebAppOption(
     const KioskMixin::IsolatedWebAppOption&) = default;

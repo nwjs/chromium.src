@@ -4,18 +4,30 @@
 
 #include "components/signin/internal/identity_manager/token_binding_helper.h"
 
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
+#include "base/containers/to_vector.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/signin/public/base/hybrid_encryption_key.h"
 #include "components/signin/public/base/hybrid_encryption_key_test_utils.h"
 #include "components/signin/public/base/session_binding_test_utils.h"
+#include "components/unexportable_keys/background_task_origin.h"
+#include "components/unexportable_keys/features.h"
+#include "components/unexportable_keys/mock_unexportable_key.h"
+#include "components/unexportable_keys/mock_unexportable_key_provider.h"
+#include "components/unexportable_keys/scoped_mock_unexportable_key_provider.h"
 #include "components/unexportable_keys/service_error.h"
 #include "components/unexportable_keys/unexportable_key_id.h"
+#include "components/unexportable_keys/unexportable_key_service.h"
 #include "components/unexportable_keys/unexportable_key_service_impl.h"
 #include "components/unexportable_keys/unexportable_key_task_manager.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
@@ -26,7 +38,11 @@
 #include "url/gurl.h"
 
 namespace {
+
 using GenerateAssertionFuture = base::test::TestFuture<std::string>;
+using ::base::test::ErrorIs;
+using ::testing::Eq;
+using ::testing::Return;
 
 constexpr crypto::SignatureVerifier::SignatureAlgorithm
     kAcceptableAlgorithms[] = {crypto::SignatureVerifier::ECDSA_SHA256};
@@ -48,6 +64,14 @@ class TokenBindingHelperTest : public testing::Test {
   }
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
+
+  unexportable_keys::ScopedMockUnexportableKeyProvider&
+  SwitchToMockKeyProvider() {
+    // Using `emplace()` to destroy the existing scoped object before
+    // constructing a new one.
+    return scoped_key_provider_
+        .emplace<unexportable_keys::ScopedMockUnexportableKeyProvider>();
+  }
 
   unexportable_keys::UnexportableKeyId GenerateNewKey() {
     base::test::TestFuture<
@@ -74,10 +98,13 @@ class TokenBindingHelperTest : public testing::Test {
   base::test::TaskEnvironment task_environment_{
       // QUEUED - tasks don't run until `RunUntilIdle()` is called.
       base::test::TaskEnvironment::ThreadPoolExecutionMode::QUEUED};
-  crypto::ScopedFakeUnexportableKeyProvider scoped_key_provider_;
+  std::variant<crypto::ScopedFakeUnexportableKeyProvider,
+               unexportable_keys::ScopedMockUnexportableKeyProvider>
+      scoped_key_provider_;
   unexportable_keys::UnexportableKeyTaskManager unexportable_key_task_manager_;
   unexportable_keys::UnexportableKeyServiceImpl unexportable_key_service_{
       unexportable_key_task_manager_,
+      unexportable_keys::BackgroundTaskOrigin::kRefreshTokenBinding,
       crypto::UnexportableKeyProvider::Config(),
   };
   TokenBindingHelper helper_{unexportable_key_service_};
@@ -237,4 +264,79 @@ TEST_F(TokenBindingHelperTest, GenerateBindingKeyAssertionNoEphemeralKey) {
   histogram_tester().ExpectUniqueSample(kGenerateAssertionResultHistogram,
                                         TokenBindingHelper::kNoErrorForMetrics,
                                         /*expected_bucket_count=*/1);
+}
+
+TEST_F(TokenBindingHelperTest, StartGarbageCollectionDeletesUnusedKeys) {
+  unexportable_keys::MockUnexportableKeyProvider& mock_key_provider =
+      SwitchToMockKeyProvider().mock();
+
+  std::vector<uint8_t> used_wrapped_key_in_memory = {1, 2, 3};
+  std::vector<uint8_t> used_wrapped_key_in_db = {10, 11, 12};
+  std::vector<uint8_t> unused_wrapped_key1 = {4, 5, 6};
+  std::vector<uint8_t> unused_wrapped_key2 = {7, 8, 9};
+  // This key is unused but created after the current process started.
+  std::vector<uint8_t> unused_wrapped_key_new = {13, 14, 15};
+
+  auto create_mock_key = [](const std::vector<uint8_t>& wrapped_key) {
+    auto mock_key = std::make_unique<unexportable_keys::MockUnexportableKey>();
+    ON_CALL(*mock_key, GetWrappedKey).WillByDefault(Return(wrapped_key));
+    return mock_key;
+  };
+
+  auto used_unexportable_key_in_memory =
+      create_mock_key(used_wrapped_key_in_memory);
+  auto used_unexportable_key_in_db = create_mock_key(used_wrapped_key_in_db);
+  auto unused_unexportable_key1 = create_mock_key(unused_wrapped_key1);
+  auto unused_unexportable_key2 = create_mock_key(unused_wrapped_key2);
+  auto unused_unexportable_key_new = create_mock_key(unused_wrapped_key_new);
+  EXPECT_CALL(*unused_unexportable_key_new, GetCreationTime())
+      .WillOnce(Return(base::Time::Now()));
+
+  EXPECT_CALL(mock_key_provider, GetAllSigningKeysSlowly())
+      .WillOnce(Return(
+          base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
+              std::move(used_unexportable_key_in_memory),
+              std::move(used_unexportable_key_in_db),
+              std::move(unused_unexportable_key1),
+              std::move(unused_unexportable_key2),
+              std::move(unused_unexportable_key_new),
+          })));
+
+  helper().SetBindingKey(CoreAccountId::FromGaiaId(GaiaId("account_id")),
+                         used_wrapped_key_in_memory);
+  helper().StartGarbageCollection({used_wrapped_key_in_db});
+
+  EXPECT_CALL(mock_key_provider,
+              DeleteSigningKeySlowly(Eq(unused_wrapped_key1)))
+      .WillOnce(Return(true));
+  EXPECT_CALL(mock_key_provider,
+              DeleteSigningKeySlowly(Eq(unused_wrapped_key2)))
+      .WillOnce(Return(true));
+  EXPECT_CALL(mock_key_provider,
+              DeleteSigningKeySlowly(Eq(used_wrapped_key_in_memory)))
+      .Times(0);
+  EXPECT_CALL(mock_key_provider,
+              DeleteSigningKeySlowly(Eq(used_wrapped_key_in_db)))
+      .Times(0);
+  EXPECT_CALL(mock_key_provider,
+              DeleteSigningKeySlowly(Eq(unused_wrapped_key_new)))
+      .Times(0);
+  RunBackgroundTasks();
+
+  histogram_tester().ExpectUniqueSample(
+      "Crypto.UnexportableKeys.GarbageCollection.RefreshTokenBinding."
+      "TotalKeyCount",
+      5, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Crypto.UnexportableKeys.GarbageCollection.RefreshTokenBinding."
+      "UsedKeyCount",
+      3, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Crypto.UnexportableKeys.GarbageCollection.RefreshTokenBinding."
+      "ObsoleteKeyCount",
+      2, 1);
+  histogram_tester().ExpectUniqueSample(
+      "Crypto.UnexportableKeys.GarbageCollection.RefreshTokenBinding."
+      "ObsoleteKeyDeletionCount",
+      2, 1);
 }

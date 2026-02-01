@@ -56,6 +56,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/autofill/address_bubbles_controller.h"
+#include "chrome/browser/ui/autofill/autofill_bubble_controller_base.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "chrome/browser/ui/autofill/chrome_otp_phish_guard_delegate.h"
 #include "chrome/browser/ui/autofill/edit_address_profile_dialog_controller_impl.h"
@@ -164,8 +165,9 @@
 #include "chrome/browser/fast_checkout/fast_checkout_client_impl.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/signin/android/signin_bridge.h"
-#include "chrome/browser/ui/android/autofill/autofill_accessibility_utils.h"
+#include "chrome/browser/ui/android/autofill/autofill_ai_save_update_entity_flow_manager.h"
 #include "chrome/browser/ui/android/autofill/save_update_address_profile_flow_manager.h"
+#include "chrome/browser/ui/autofill/autofill_message_controller_impl.h"
 #include "chrome/browser/ui/autofill/autofill_snackbar_type.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_controller_android.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_infobar_delegate_mobile.h"
@@ -664,6 +666,10 @@ ChromeAutofillClient::GetPaymentsAutofillClient() {
 }
 
 strike_database::StrikeDatabase* ChromeAutofillClient::GetStrikeDatabase() {
+  if (!web_contents()) {
+    return nullptr;
+  }
+
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   // No need to return a StrikeDatabase in incognito mode. It is primarily
@@ -836,7 +842,7 @@ void ChromeAutofillClient::ConfirmSaveAddressProfile(
     AddressProfileSavePromptCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
   save_update_address_profile_flow_manager_->OfferSave(
-      web_contents(), profile, original_profile,
+      profile, original_profile,
       save_address_bubble_type == SaveAddressBubbleType::kMigrateToAccount
           ? SaveUpdateAddressProfilePromptMode::kMigrateProfile
           : SaveUpdateAddressProfilePromptMode::kSaveNewProfile,
@@ -910,13 +916,6 @@ base::span<const Suggestion> ChromeAutofillClient::GetAutofillSuggestions()
     const {
   return suggestion_controller_ ? suggestion_controller_->GetSuggestions()
                                 : base::span<const Suggestion>();
-}
-
-std::optional<AutofillClient::PopupScreenLocation>
-ChromeAutofillClient::GetPopupScreenLocation() const {
-  return suggestion_controller_
-             ? suggestion_controller_->GetPopupScreenLocation()
-             : std::make_optional<AutofillClient::PopupScreenLocation>();
 }
 
 std::optional<AutofillClient::SuggestionUiSessionId>
@@ -1055,20 +1054,13 @@ void ChromeAutofillClient::TriggerAutofillAiSavePromptSurvey(
 #endif
 }
 
-bool ChromeAutofillClient::IsActorTaskActive() const {
-#if !BUILDFLAG(IS_ANDROID)
-  actor::ActorKeyedService* actor_service =
-      actor::ActorKeyedService::Get(GetProfile());
-  if (!actor_service) {
-    return false;
-  }
-
-  const tabs::TabInterface* tab_interface =
-      tabs::TabInterface::MaybeGetFromContents(web_contents());
-  return tab_interface && actor_service->IsActiveOnTab(*tab_interface);
-#else
+bool ChromeAutofillClient::IsTabInActorMode() const {
+  // TODO(crbug.com/469428128) Enable on android once crrev.com/c/7298488 lands.
+#if BUILDFLAG(IS_ANDROID)
   return false;
-#endif
+#else
+  return active_actor_task_.has_value();
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 bool ChromeAutofillClient::IsAutofillEnabled() const {
@@ -1098,17 +1090,6 @@ bool ChromeAutofillClient::IsPasswordManagerEnabled() const {
   return settings_service &&
          settings_service->IsSettingEnabled(
              password_manager::PasswordManagerSetting::kOfferToSavePasswords);
-}
-
-void ChromeAutofillClient::DidFillForm(AutofillTriggerSource trigger_source,
-                                       bool is_refill) {
-#if BUILDFLAG(IS_ANDROID)
-  if (trigger_source == AutofillTriggerSource::kTouchToFillCreditCard &&
-      !is_refill) {
-    autofill::AutofillAccessibilityHelper::GetInstance()->AnnounceTextForA11y(
-        l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM));
-  }
-#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 bool ChromeAutofillClient::IsContextSecure() const {
@@ -1166,6 +1147,16 @@ ChromeAutofillClient::GetAutofillSnackbarController() {
 
   return autofill_snackbar_controller_impl_.get();
 }
+
+AutofillMessageController*
+ChromeAutofillClient::GetAutofillMessageController() {
+  if (!autofill_message_controller_) {
+    autofill_message_controller_ =
+        std::make_unique<AutofillMessageControllerImpl>(web_contents());
+  }
+
+  return autofill_message_controller_.get();
+}
 #endif
 
 FormInteractionsFlowId
@@ -1182,7 +1173,8 @@ ChromeAutofillClient::GetCurrentFormInteractionsFlowId() {
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>
 ChromeAutofillClient::GetDeviceAuthenticator() {
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_CHROMEOS)
   device_reauth::DeviceAuthParams params(
       base::Seconds(60), device_reauth::DeviceAuthSource::kAutofill);
 
@@ -1264,9 +1256,29 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
                   web_contents->GetBrowserContext())));
   }
 #if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kAutofillAiWithDataSchema)) {
+    autofill_ai_save_update_entity_flow_manager_ =
+        std::make_unique<AutofillAiSaveUpdateEntityFlowManager>(
+            web_contents, GetAutofillMessageController());
+  }
   save_update_address_profile_flow_manager_ =
-      std::make_unique<SaveUpdateAddressProfileFlowManager>();
+      std::make_unique<SaveUpdateAddressProfileFlowManager>(
+          this, GetAutofillMessageController());
   fast_checkout_client_ = std::make_unique<FastCheckoutClientImpl>(this);
+#else
+  // TODO(crbug.com/469428128) Enable on android once crrev.com/c/7298488 lands.
+  if (actor::ActorKeyedService* actor_service =
+          base::FeatureList::IsEnabled(features::kAutofillActorMode)
+              ? actor::ActorKeyedService::Get(GetProfile())
+              : nullptr) {
+    // `base::Unretained(this)` is safe since
+    // `actor_task_state_changed_subscription_` removes the subscription when
+    // `this` is destroyed.
+    actor_task_state_changed_subscription_ =
+        actor_service->AddTaskStateChangedCallback(
+            base::BindRepeating(&ChromeAutofillClient::OnActorTaskStateChange,
+                                base::Unretained(this)));
+  }
 #endif
 }
 
@@ -1422,16 +1434,65 @@ void ChromeAutofillClient::ShowEntityImportBubble(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     EntityImportPromptResultCallback prompt_closed_callback) {
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  autofill_ai_save_update_entity_flow_manager_->OfferSave(
+      new_entity, std::move(old_entity), std::move(prompt_closed_callback));
+#else
   if (auto* controller = AutofillAiImportDataController::GetOrCreate(
           &*web_contents(), GetAppLocale())) {
     controller->ShowPrompt(std::move(new_entity), std::move(old_entity),
                            std::move(prompt_closed_callback));
+  } else {
+    std::move(prompt_closed_callback)
+        .Run(AutofillClient::AutofillAiBubbleClosedReason::kUnknown);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+void ChromeAutofillClient::OnActorTaskStateChange(
+    actor::TaskId task_id,
+    actor::ActorTask::State state) {
+  if (active_actor_task_ && *active_actor_task_ != task_id) {
+    // The update is for an actor that isn't working on the current tab.
     return;
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
-  std::move(prompt_closed_callback)
-      .Run(AutofillClient::AutofillAiBubbleClosedReason::kUnknown);
+
+  // The actor task on this tab has finished.
+  // TODO(crbug.com/472336281): The state changes leading to the task
+  // completion should be issued before the `ActorTask` gets removed.
+  if (actor::ActorTask::IsCompletedState(state)) {
+    active_actor_task_.reset();
+    return;
+  }
+
+  const actor::ActorTask* task =
+      actor::ActorKeyedService::Get(GetProfile())->GetTask(task_id);
+  // Since the callbacks are asynchronous and can be executed in any order. It
+  // may happen that the update notification is issued for a task that already
+  // finished.
+  if (!task) {
+    // Given the early return earlier in the function, it is guaranteed that if
+    // the `active_actor_task_` is set, its value is the same as `task_id`.
+    // Since fetching the `ActorTask` for `task_id` did not return any valid
+    // object and the `task_id`s are unique, the `ActorTask` that was active on
+    // this tab must have finished by now.
+    active_actor_task_.reset();
+    return;
+  }
+
+  const tabs::TabInterface* tab_interface =
+      tabs::TabInterface::MaybeGetFromContents(web_contents());
+  if (tab_interface && !task->HasTab(tab_interface->GetHandle())) {
+    // The status update is for an actor that isn't interacting with this tab.
+    // The value of `is_actor_mode_` shouldn't be updated.
+    return;
+  }
+
+  // TODO(crbug.com/469428128): Evaluate whether
+  // `actor::ActorTask::State::kCreated` state should enable the actor mode.
+  active_actor_task_ = task_id;
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace autofill

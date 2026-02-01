@@ -9,22 +9,25 @@
 
 #import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/bwg_settings_mutator.h"
 
-@protocol ApplicationCommands;
+class AuthenticationService;
 @protocol BWGSettingsConsumer;
 class PrefService;
+@protocol SceneCommands;
 
 // BWG Mediator.
 @interface BWGSettingsMediator : NSObject <BWGSettingsMutator>
 
-// The application command handler for this mediator.
-@property(nonatomic, weak) id<ApplicationCommands> applicationHandler;
+// The scene commands handler for this mediator.
+@property(nonatomic, weak) id<SceneCommands> sceneHandler;
 
 // Usually the view controller.
 @property(nonatomic, weak) id<BWGSettingsConsumer> consumer;
 
 // Designated initializer. All the parameters should not be null.
+// 'authService': authentication service for the profile.
 // `prefService`: preference service from the profile.
-- (instancetype)initWithPrefService:(PrefService*)prefService
+- (instancetype)initWithAuthService:(AuthenticationService*)authService
+                        prefService:(PrefService*)prefService
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

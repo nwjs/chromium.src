@@ -29,7 +29,6 @@
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_fallback_list.h"
 #include "third_party/blink/renderer/platform/fonts/font_fallback_map.h"
-#include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_shaper.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_bloberizer.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_spacing.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
@@ -55,21 +54,6 @@ FontFallbackList* GetOrCreateFontFallbackList(
                                       ? font_selector->GetFontFallbackMap()
                                       : FontCache::Get().GetFontFallbackMap();
   return fallback_map.Get(font_description);
-}
-
-const ShapeResult* ShapeWordWithoutSpacing(const TextRun& word_run,
-                                           const Font& font) {
-  ShapeCacheEntry* cache_entry = font.GetShapeCache()->Add(word_run);
-  if (cache_entry && *cache_entry) {
-    return *cache_entry;
-  }
-
-  HarfBuzzShaper shaper(word_run.NormalizedUTF16());
-  ShapeResult* shape_result = shaper.Shape(&font, word_run.Direction());
-  if (cache_entry) {
-    *cache_entry = shape_result;
-  }
-  return shape_result;
 }
 
 }  // namespace
@@ -134,7 +118,6 @@ void Font::DrawEmphasisMarks(cc::PaintCanvas* canvas,
   if (ShouldSkipDrawing())
     return;
 
-  FontCachePurgePreventer purge_preventer;
   const auto emphasis_glyph_data = GetEmphasisMarkGlyphData(mark);
   if (!emphasis_glyph_data.font_data)
     return;
@@ -230,10 +213,6 @@ bool Font::HasNonInitialFontFeatures() const {
   return EnsureFontFallbackList()->HasNonInitialFontFeatures(font_description_);
 }
 
-ShapeCache* Font::GetShapeCache() const {
-  return EnsureFontFallbackList()->GetShapeCache(font_description_);
-}
-
 bool Font::CanShapeWordByWord() const {
   return EnsureFontFallbackList()->CanShapeWordByWord(GetFontDescription());
 }
@@ -268,18 +247,12 @@ void Font::WillUseFontData(const String& text) const {
 GlyphData Font::GetEmphasisMarkGlyphData(const AtomicString& mark) const {
   if (mark.empty())
     return GlyphData();
-  if (!RuntimeEnabledFeatures::EmphasisMarkShapeCacheEnabled()) {
-    return ShapeWordWithoutSpacing(TextRun(mark), *this)
-        ->EmphasisMarkGlyphData(font_description_);
-  }
   return EnsureFontFallbackList()
       ->GetOrCreateEmphasisMarkShape(*this, mark)
       .EmphasisMarkGlyphData(font_description_);
 }
 
 int Font::EmphasisMarkAscent(const AtomicString& mark) const {
-  FontCachePurgePreventer purge_preventer;
-
   const auto mark_glyph_data = GetEmphasisMarkGlyphData(mark);
   const SimpleFontData* mark_font_data = mark_glyph_data.font_data;
   if (!mark_font_data)
@@ -289,8 +262,6 @@ int Font::EmphasisMarkAscent(const AtomicString& mark) const {
 }
 
 int Font::EmphasisMarkDescent(const AtomicString& mark) const {
-  FontCachePurgePreventer purge_preventer;
-
   const auto mark_glyph_data = GetEmphasisMarkGlyphData(mark);
   const SimpleFontData* mark_font_data = mark_glyph_data.font_data;
   if (!mark_font_data)
@@ -300,8 +271,6 @@ int Font::EmphasisMarkDescent(const AtomicString& mark) const {
 }
 
 int Font::EmphasisMarkHeight(const AtomicString& mark) const {
-  FontCachePurgePreventer purge_preventer;
-
   const auto mark_glyph_data = GetEmphasisMarkGlyphData(mark);
   const SimpleFontData* mark_font_data = mark_glyph_data.font_data;
   if (!mark_font_data)

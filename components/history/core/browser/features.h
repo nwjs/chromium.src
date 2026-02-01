@@ -64,8 +64,26 @@ BASE_DECLARE_FEATURE(kRazeOldHistoryDatabase);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kBrowsingHistoryActorIntegrationM1);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
 BASE_DECLARE_FEATURE(kBrowsingHistoryActorIntegrationM2);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kBrowsingHistoryActorIntegrationM3);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+bool IsBrowsingHistoryActorIntegrationM1Enabled();
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+bool IsBrowsingHistoryActorIntegrationM2Enabled();
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+bool IsBrowsingHistoryActorIntegrationM3Enabled();
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kHistoryQueryOnlyLocalFirst);
 
 }  // namespace history
 

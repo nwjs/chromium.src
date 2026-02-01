@@ -39,10 +39,6 @@ namespace content_settings {
 class CookieSettings;
 }
 
-namespace privacy_sandbox {
-class TrackingProtectionSettings;
-}  // namespace privacy_sandbox
-
 namespace permissions {
 class ObjectPermissionContextBase;
 class PermissionActionsHistory;
@@ -77,10 +73,6 @@ class PermissionsClient {
   // Retrieves the CookieSettings for this context.
   virtual scoped_refptr<content_settings::CookieSettings> GetCookieSettings(
       content::BrowserContext* browser_context) = 0;
-
-  // Retrieves the TrackingProtectionSettings for this context.
-  virtual privacy_sandbox::TrackingProtectionSettings*
-  GetTrackingProtectionSettings(content::BrowserContext* browser_context) = 0;
 
   // Retrieves the subresource filter activation from browser website settings.
   virtual bool IsSubresourceFilterActivated(
@@ -129,14 +121,14 @@ class PermissionsClient {
       const GURL& origin);
 
   // Retrieves the ukm::SourceId (if any) associated with this
-  // |permission_type|, |browser_context|, and |web_contents|. |web_contents|
-  // may be null. |callback| will be called with the result, and may be run
-  // synchronously if the result is available immediately.
+  // |permission_type|, |browser_context|, and |render_frame_host|.
+  // |render_frame_host| may be null. |callback| will be called with the result,
+  // and may be run synchronously if the result is available immediately.
   using GetUkmSourceIdCallback =
       base::OnceCallback<void(std::optional<ukm::SourceId>)>;
   virtual void GetUkmSourceId(ContentSettingsType permission_type,
                               content::BrowserContext* browser_context,
-                              content::WebContents* web_contents,
+                              content::RenderFrameHost* render_frame_host,
                               const GURL& requesting_origin,
                               GetUkmSourceIdCallback callback);
 

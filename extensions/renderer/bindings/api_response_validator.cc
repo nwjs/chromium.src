@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <ostream>
 
-#include "base/containers/contains.h"
 #include "extensions/renderer/bindings/api_binding_util.h"
 #include "extensions/renderer/bindings/api_signature.h"
 #include "extensions/renderer/bindings/api_type_reference_map.h"
@@ -44,7 +43,7 @@ void APIResponseValidator::TestHandler::HandleFailure(
 
 bool APIResponseValidator::TestHandler::ShouldIgnoreSignature(
     const std::string& signature_name) const {
-  return base::Contains(signatures_to_ignore_, signature_name);
+  return signatures_to_ignore_.contains(signature_name);
 }
 
 APIResponseValidator::APIResponseValidator(const APITypeReferenceMap* type_refs)
@@ -62,8 +61,9 @@ void APIResponseValidator::ValidateResponse(
 
   // If the callback is API-provided, the response can't be validated against
   // the expected schema because the callback may modify the arguments.
-  if (callback_type == CallbackType::kAPIProvided)
+  if (callback_type == CallbackType::kAPIProvided) {
     return;
+  }
 
   // If the call failed, there are no expected arguments.
   if (!api_error.empty()) {
@@ -77,8 +77,9 @@ void APIResponseValidator::ValidateResponse(
       type_refs_->GetAsyncResponseSignature(method_name);
   // If there's no corresponding signature, don't validate. This can
   // legitimately happen with APIs that create custom requests.
-  if (!signature || !signature->has_async_return_signature())
+  if (!signature || !signature->has_async_return_signature()) {
     return;
+  }
 
   std::string error;
   if (signature->ValidateResponse(context, response_arguments, *type_refs_,
@@ -105,12 +106,14 @@ void APIResponseValidator::ValidateEvent(
   const APISignature* signature = type_refs_->GetEventSignature(event_name);
   // If there's no corresponding signature, don't validate. This can
   // legitimately happen with APIs that create custom requests.
-  if (!signature)
+  if (!signature) {
     return;
+  }
 
   if (g_handler_for_testing &&
-      g_handler_for_testing->ShouldIgnoreSignature(event_name))
+      g_handler_for_testing->ShouldIgnoreSignature(event_name)) {
     return;
+  }
 
   // The following signatures are incorrect (the parameters dispatched to the
   // event don't match the schema's event definition). These should be fixed

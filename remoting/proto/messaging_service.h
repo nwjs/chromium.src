@@ -17,6 +17,12 @@
 // builds, they are populated by code in internal_stubs.h.
 namespace remoting::internal {
 
+// Contains the address which the endpoint should use for signaling.
+struct SignalingAddress {
+  // The `jid`, a.k.a. Jabber ID, to use for this endpoint in XMPP messages.
+  std::string jid;
+};
+
 // Message sent from the server when a channel is opened.
 struct ChannelOpenStruct {
   // Represents the approximate lifetime of the channel.
@@ -25,6 +31,9 @@ struct ChannelOpenStruct {
   // The amount of time to wait for a channel active message before the client
   // should recreate the messaging channel.
   std::optional<base::TimeDelta> inactivity_timeout;
+
+  // Provides the address which the endpoint should use for signaling.
+  SignalingAddress signaling_address;
 };
 
 // Message sent from the server to indicate that the channel is active.
@@ -35,6 +44,11 @@ struct IqStanzaStruct {
   IqStanzaStruct(const IqStanzaStruct&);
   IqStanzaStruct& operator=(const IqStanzaStruct&);
   ~IqStanzaStruct();
+
+  // Provides proof that the host is authorized to respond to client messages.
+  std::string messaging_authz_token;
+  // The IqStanza XML in serialized form.
+  std::string xml;
 };
 
 struct PingPongStruct {

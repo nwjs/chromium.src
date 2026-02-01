@@ -7,13 +7,11 @@
 #include <algorithm>
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/strcat.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
@@ -837,7 +835,7 @@ bool CreditCardFormEventLogger::DoesCardHaveOffer(
 
   auto card_linked_offer_map = offer_manager->GetCardLinkedOffersMap(
       client().GetLastCommittedPrimaryMainFrameURL());
-  return base::Contains(card_linked_offer_map, credit_card.guid());
+  return card_linked_offer_map.contains(credit_card.guid());
 }
 
 bool CreditCardFormEventLogger::DoSuggestionsIncludeVirtualCard() {

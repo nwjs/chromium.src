@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.ui.hats.TestSurveyUtils.setSurveyConfigForceUsingTestingConfig;
 import static org.chromium.chrome.browser.ui.hats.TestSurveyUtils.setTestSurveyConfigForTrigger;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 
 import android.app.Activity;
 import android.content.res.Resources;
@@ -45,7 +46,6 @@ import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.hats.SurveyClient;
 import org.chromium.chrome.browser.ui.hats.SurveyClientFactory;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
@@ -70,12 +70,12 @@ public class PrivacySandboxSurveyControllerTest {
     @Mock Activity mActivity;
     @Mock Profile mProfile;
     @Mock MessageDispatcher mMessageDispatcher;
-    ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     @Mock SurveyClient mSurveyClient;
     @Mock SurveyClientFactory mSurveyClientFactory;
     @Mock IdentityServicesProvider mIdentityServicesProvider;
     @Mock IdentityManager mIdentityManager;
 
+    private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private static final String SENTIMENT_SURVEY_TRIGGER = "privacy-sandbox-sentiment-survey";
 
     @Before
@@ -169,7 +169,7 @@ public class PrivacySandboxSurveyControllerTest {
                         "PrivacySandbox.Surveys.SurfaceAttempts",
                         PrivacySandboxSurveyController.PrivacySandboxSurveyType.SENTIMENT_SURVEY);
         MockTab startTab = new MockTab(0, mProfile);
-        mActivityTabProvider.set(startTab);
+        mActivityTabProvider.setForTesting(startTab);
         PrivacySandboxSurveyController controller =
                 PrivacySandboxSurveyController.initialize(
                         mTabModelSelector,
@@ -180,12 +180,12 @@ public class PrivacySandboxSurveyControllerTest {
                         mProfile);
         // Record visiting a NTP.
         MockTab firstNtpTab = new MockTab(1, mProfile);
-        firstNtpTab.setUrl(new GURL(UrlConstants.NTP_URL));
-        mActivityTabProvider.set(firstNtpTab);
+        firstNtpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
+        mActivityTabProvider.setForTesting(firstNtpTab);
         MockTab secondNtpTab = new MockTab(2, mProfile);
-        secondNtpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        secondNtpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
         // Set the survey config to null to trigger the histogram
-        mActivityTabProvider.set(secondNtpTab);
+        mActivityTabProvider.setForTesting(secondNtpTab);
         verify(mSurveyClient)
                 .showSurvey(
                         mActivity,
@@ -205,7 +205,7 @@ public class PrivacySandboxSurveyControllerTest {
                         "PrivacySandbox.SentimentSurvey.Status",
                         PrivacySandboxSentimentSurveyStatus.INVALID_SURVEY_CONFIG);
         MockTab startTab = new MockTab(0, mProfile);
-        mActivityTabProvider.set(startTab);
+        mActivityTabProvider.setForTesting(startTab);
         PrivacySandboxSurveyController controller =
                 PrivacySandboxSurveyController.initialize(
                         mTabModelSelector,
@@ -215,11 +215,11 @@ public class PrivacySandboxSurveyControllerTest {
                         mActivityTabProvider,
                         mProfile);
         MockTab firstNtpTab = new MockTab(1, mProfile);
-        firstNtpTab.setUrl(new GURL(UrlConstants.NTP_URL));
-        mActivityTabProvider.set(firstNtpTab);
+        firstNtpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
+        mActivityTabProvider.setForTesting(firstNtpTab);
         MockTab secondNtpTab = new MockTab(2, mProfile);
-        secondNtpTab.setUrl(new GURL(UrlConstants.NTP_URL));
-        mActivityTabProvider.set(secondNtpTab);
+        secondNtpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
+        mActivityTabProvider.setForTesting(secondNtpTab);
         verify(mSurveyClient, times(0)).showSurvey(any(), any(), any(), any());
         histogramWatcher.assertExpected();
         controller.destroy();
@@ -232,7 +232,7 @@ public class PrivacySandboxSurveyControllerTest {
                 /* psdBitFields= */ new String[0],
                 /* psdStringFields= */ new String[0]);
         MockTab startTab = new MockTab(0, mProfile);
-        mActivityTabProvider.set(startTab);
+        mActivityTabProvider.setForTesting(startTab);
         PrivacySandboxSurveyController controller =
                 PrivacySandboxSurveyController.initialize(
                         mTabModelSelector,
@@ -242,11 +242,11 @@ public class PrivacySandboxSurveyControllerTest {
                         mActivityTabProvider,
                         mProfile);
         MockTab firstNtpTab = new MockTab(1, mProfile);
-        firstNtpTab.setUrl(new GURL(UrlConstants.NTP_URL));
-        mActivityTabProvider.set(firstNtpTab);
+        firstNtpTab.setUrl(new GURL(getOriginalNativeNtpUrl()));
+        mActivityTabProvider.setForTesting(firstNtpTab);
         // Record a null tab, normally if we see a 2nd NTP we will attempt to trigger a survey,
         // however we should no-op if we see a null tab.
-        mActivityTabProvider.set(null);
+        mActivityTabProvider.setForTesting(null);
         verify(mSurveyClient, times(0)).showSurvey(any(), any(), any(), any());
         controller.destroy();
     }

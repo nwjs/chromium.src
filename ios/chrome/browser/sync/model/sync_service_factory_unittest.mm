@@ -53,7 +53,7 @@ class SyncServiceFactoryTest : public PlatformTest {
  protected:
   // Returns the collection of default datatypes.
   syncer::DataTypeSet DefaultDatatypes() {
-    static_assert(59 == syncer::GetNumDataTypes(),
+    static_assert(60 == syncer::GetNumDataTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -88,6 +88,7 @@ class SyncServiceFactoryTest : public PlatformTest {
     datatypes.Put(syncer::USER_EVENTS);
     datatypes.Put(syncer::USER_CONSENTS);
     datatypes.Put(syncer::SEND_TAB_TO_SELF);
+    datatypes.Put(syncer::SHARING_MESSAGE);
     datatypes.Put(syncer::SAVED_TAB_GROUP);
     if (data_sharing::features::IsDataSharingFunctionalityEnabled()) {
       datatypes.Put(syncer::COLLABORATION_GROUP);
@@ -106,6 +107,9 @@ class SyncServiceFactoryTest : public PlatformTest {
     }
     if (base::FeatureList::IsEnabled(syncer::kSyncContextualTask)) {
       datatypes.Put(syncer::CONTEXTUAL_TASK);
+    }
+    if (base::FeatureList::IsEnabled(syncer::kSyncSkill)) {
+      datatypes.Put(syncer::SKILL);
     }
     return datatypes;
   }

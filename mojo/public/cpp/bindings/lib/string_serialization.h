@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #ifndef MOJO_PUBLIC_CPP_BINDINGS_LIB_STRING_SERIALIZATION_H_
 #define MOJO_PUBLIC_CPP_BINDINGS_LIB_STRING_SERIALIZATION_H_
 
@@ -14,6 +9,7 @@
 
 #include <string_view>
 
+#include "base/compiler_specific.h"
 #include "mojo/public/cpp/bindings/lib/array_internal.h"
 #include "mojo/public/cpp/bindings/lib/message_fragment.h"
 #include "mojo/public/cpp/bindings/lib/serialization_forward.h"
@@ -32,20 +28,23 @@ struct Serializer<StringDataView, MaybeConstUserType> {
 
   static void Serialize(MaybeConstUserType& input,
                         MessageFragment<String_Data>& fragment) {
-    if (CallIsNullIfExists<Traits>(input))
+    if (CallIsNullIfExists<Traits>(input)) {
       return;
+    }
 
     auto r = Traits::GetUTF8(input);
     fragment.AllocateArrayData(r.size());
-    if (r.size() > 0)
-      memcpy(fragment->storage(), r.data(), r.size());
+    if (r.size() > 0) {
+      UNSAFE_TODO(memcpy(fragment->storage(), r.data(), r.size()));
+    }
   }
 
   static bool Deserialize(String_Data* input,
                           UserType* output,
                           Message* message) {
-    if (!input)
+    if (!input) {
       return CallSetToNullIfExists<Traits>(output);
+    }
     return Traits::Read(StringDataView(input, message), output);
   }
 };

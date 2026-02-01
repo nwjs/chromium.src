@@ -43,7 +43,7 @@ namespace {
 constexpr char kWorkspaceUrlForUser0[] = "https://docs.google.com/u/0/";
 constexpr char kWorkspaceUrlForUser1[] =
     "https://mail.google.com/foo/bar?authuser=1";
-constexpr char kNonWorkspaceUrl[] = "https://google.com/";
+constexpr char kNonWorkspaceUrl[] = "https://not.workspace.com/";
 constexpr char kUserName[] = "test-user@chromium.org";
 
 constexpr char kContentAreaUser0[] = "foo@gmail.com";
@@ -270,7 +270,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "rule_name",
                                    "rule_id": "222",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "BLOCK"}
@@ -362,7 +362,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn_rule_name",
                                    "rule_id": "333",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -522,7 +522,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn rule name",
                                    "rule_id": "1416",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -570,7 +570,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "report_rule_name",
                                    "rule_id": "4321",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "BLOCK"}
@@ -678,7 +678,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "report_rule_name",
                                    "rule_id": "6543",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -847,7 +847,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "report_rule_name",
                                    "rule_id": "7654",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -1013,7 +1013,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "report_rule_name",
                                    "rule_id": "8765",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "REPORT"}
@@ -1056,7 +1056,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "report_rule_name",
                                    "rule_id": "9753",
                                    "destinations": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "REPORT"}
@@ -1242,7 +1242,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest, CopyReported) {
                                    "name": "report_only",
                                    "rule_id": "1248",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "REPORT"}
@@ -1333,7 +1333,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest, CopyBlocked) {
                                    "name": "block",
                                    "rule_id": "987",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "BLOCK"}
@@ -1431,7 +1431,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn",
                                    "rule_id": "3927",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -1534,7 +1534,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn_cancel",
                                    "rule_id": "101",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "destinations": {
                                      "os_clipboard": true
@@ -1640,7 +1640,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn_bypass",
                                    "rule_id": "12345",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "restrictions": [
                                      {"class": "CLIPBOARD", "level": "WARN"}
@@ -1802,7 +1802,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    "name": "warn_bypass_os",
                                    "rule_id": "111",
                                    "sources": {
-                                     "urls": ["google.com"]
+                                     "urls": ["google.com", "not.workspace.com"]
                                    },
                                    "destinations": {
                                      "os_clipboard": true
@@ -2086,122 +2086,6 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   EXPECT_EQ(paste_data->text, u"foo");
   run_loop_bypass.Run();
 }
-
-IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
-                       WriteTextToClipboard_Allowed) {
-  auto event_validator = event_report_validator_helper_->CreateValidator();
-  event_validator.ExpectNoReport();
-
-  EXPECT_TRUE(HandleWriteTextToClipboard(
-      contents(), ui::ClipboardBuffer::kCopyPaste, u"text"));
-
-  base::test::TestFuture<std::u16string> future;
-  ui::Clipboard::GetForCurrentThread()->ReadText(
-      ui::ClipboardBuffer::kCopyPaste, /*data_dst=*/nullptr,
-      future.GetCallback());
-  EXPECT_EQ(future.Get(), u"text");
-}
-
-IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
-                       WriteTextToClipboard_Blocked) {
-  base::RunLoop run_loop;
-  auto event_validator = event_report_validator_helper_->CreateValidator();
-  event_validator.SetDoneClosure(run_loop.QuitClosure());
-  if (use_proto_format()) {
-    chrome::cros::reporting::proto::DlpSensitiveDataEvent expected_event;
-    expected_event.set_url("about:blank");
-    expected_event.set_tab_url("about:blank");
-    expected_event.set_source("about:blank");
-    expected_event.set_content_type("text/plain");
-    expected_event.set_content_size(8);
-    expected_event.set_trigger(chrome::cros::reporting::proto::
-                                   DataTransferEventTrigger::CLIPBOARD_COPY);
-    expected_event.set_event_result(
-        chrome::cros::reporting::proto::EventResult::EVENT_RESULT_BLOCKED);
-
-    ::chrome::cros::reporting::proto::TriggeredRuleInfo triggered_rule;
-    triggered_rule.set_rule_id(987);
-    triggered_rule.set_rule_name("block");
-
-    *expected_event.add_triggered_rule_info() = triggered_rule;
-    expected_event.set_profile_identifier(
-        browser()->profile()->GetPath().AsUTF8Unsafe());
-    expected_event.set_profile_user_name(kUserName);
-
-    event_validator.ExpectSensitiveDataEvent(std::move(expected_event));
-  } else {
-    event_validator.ExpectDataControlsSensitiveDataEvent(
-        /*expected_url=*/"about:blank",
-        /*expected_tab_url=*/"about:blank",
-        /*expected_source=*/"about:blank",
-        /*expected_destination=*/"",
-        /*expected_mimetypes=*/
-        []() {
-          static std::set<std::string> set = {"text/plain"};
-          return &set;
-        }(),
-        /*expected_trigger=*/"CLIPBOARD_COPY",
-        /*triggered_rules=*/{{{0, machine_scope()}, {"987", "block"}}},
-        /*expected_result=*/"EVENT_RESULT_BLOCKED",
-        /*expected_profile_username=*/kUserName,
-        /*expected_profile_identifier=*/
-        browser()->profile()->GetPath().AsUTF8Unsafe(),
-        /*expected_content_size=*/8);
-  }
-
-  data_controls::SetDataControls(browser()->profile()->GetPrefs(), {R"({
-                                   "name": "block",
-                                   "rule_id": "987",
-                                   "sources": {
-                                     "urls": ["*"]
-                                   },
-                                   "restrictions": [
-                                     {"class": "CLIPBOARD", "level": "BLOCK"}
-                                   ]
-                                 })"},
-                                 machine_scope());
-  data_controls::DesktopDataControlsDialogTestHelper helper(
-      data_controls::DataControlsDialog::Type::kClipboardCopyBlock);
-
-  EXPECT_TRUE(HandleWriteTextToClipboard(
-      contents(), ui::ClipboardBuffer::kCopyPaste, u"text"));
-
-  helper.WaitForDialogToInitialize();
-  helper.CloseDialogWithoutBypass();
-  helper.WaitForDialogToClose();
-
-  base::test::TestFuture<std::u16string> future;
-  ui::Clipboard::GetForCurrentThread()->ReadText(
-      ui::ClipboardBuffer::kCopyPaste, /*data_dst=*/nullptr,
-      future.GetCallback());
-  EXPECT_EQ(future.Get(), u"");
-  run_loop.Run();
-}
-
-IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
-                       DragAndDropForText_Allowed) {
-  auto event_validator = event_report_validator_helper_->CreateValidator();
-  event_validator.ExpectNoReport();
-
-  EXPECT_TRUE(DragAndDropForTextIsAllowed(contents()));
-}
-
-IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
-                       DragAndDropForText_Blocked) {
-  data_controls::SetDataControls(browser()->profile()->GetPrefs(), {R"({
-                                   "name": "block",
-                                   "rule_id": "987",
-                                   "sources": {
-                                     "urls": ["*"]
-                                   },
-                                   "restrictions": [
-                                     {"class": "CLIPBOARD", "level": "BLOCK"}
-                                   ]
-                                 })"},
-                                 machine_scope());
-  EXPECT_FALSE(DragAndDropForTextIsAllowed(contents()));
-}
-
 IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                        StartFindBarWithSelectedText_Allowed) {
   auto event_validator = event_report_validator_helper_->CreateValidator();

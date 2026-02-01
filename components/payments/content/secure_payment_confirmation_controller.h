@@ -57,9 +57,17 @@ class SecurePaymentConfirmationController
   void OnInitialized(InitializationTask* initialization_task) override;
 
   // Callbacks for user interaction.
-  void OnCancel();
   void OnConfirm();
+  void OnAnotherWay();
+  void OnCancel();
   void OnOptOut();
+
+  void SetIsDialogShowingForTesting(bool is_dialog_showing) {
+    is_dialog_showing_ = is_dialog_showing;
+  }
+  void SetIsErrorDialogForTesting(bool is_error_dialog) {
+    is_error_dialog_ = is_error_dialog;
+  }
 
   base::WeakPtr<SecurePaymentConfirmationController> GetWeakPtr();
 
@@ -78,6 +86,8 @@ class SecurePaymentConfirmationController
   base::WeakPtr<SecurePaymentConfirmationView> view_;
 
   int number_of_initialization_tasks_ = 0;
+  bool is_dialog_showing_ = false;
+  bool is_error_dialog_ = false;
 
   base::WeakPtrFactory<SecurePaymentConfirmationController> weak_ptr_factory_{
       this};

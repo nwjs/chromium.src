@@ -75,6 +75,9 @@ WebViewAutofillClientIOS::WebViewAutofillClientIOS(
       personal_data_manager_(personal_data_manager),
       autocomplete_history_manager_(autocomplete_history_manager),
       identity_manager_(identity_manager),
+      form_data_importer_(
+          std::make_unique<FormDataImporter>(this,
+                                             /*history_service=*/nullptr)),
       strike_database_(strike_database),
       sync_service_(sync_service),
       log_router_(log_router) {}
@@ -167,10 +170,6 @@ const signin::IdentityManager* WebViewAutofillClientIOS::GetIdentityManager()
 }
 
 FormDataImporter* WebViewAutofillClientIOS::GetFormDataImporter() {
-  if (!form_data_importer_) {
-    form_data_importer_ =
-        std::make_unique<FormDataImporter>(this, /*history_service=*/nullptr);
-  }
   return form_data_importer_.get();
 }
 
@@ -270,9 +269,6 @@ bool WebViewAutofillClientIOS::IsPasswordManagerEnabled() const {
   return GetPrefs()->GetBoolean(
       password_manager::prefs::kCredentialsEnableService);
 }
-
-void WebViewAutofillClientIOS::DidFillForm(AutofillTriggerSource trigger_source,
-                                           bool is_refill) {}
 
 bool WebViewAutofillClientIOS::IsContextSecure() const {
   return IsContextSecureForWebState(web_state());

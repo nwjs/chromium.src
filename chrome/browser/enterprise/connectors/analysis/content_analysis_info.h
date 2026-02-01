@@ -7,7 +7,8 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
+#include "chrome/browser/profiles/profile.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/content_analysis_info_base.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "content/public/browser/clipboard_types.h"
@@ -29,7 +30,7 @@ class ContentAnalysisInfo : public ContentAnalysisInfoBase {
   // Adds shared fields to `request` before sending it to the binary upload
   // service. Connector-specific fields need to be added to the request
   // separately.
-  void InitializeRequest(safe_browsing::BinaryUploadService::Request* request,
+  void InitializeRequest(BinaryUploadRequest* request,
                          bool include_enterprise_only_fields = true);
 
   // Returns email of the active Gaia user based on the values provided by

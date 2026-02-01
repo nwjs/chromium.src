@@ -10,7 +10,6 @@
 
 #include "base/android/jni_android.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 
@@ -20,14 +19,6 @@
 namespace supervised_user {
 
 namespace {
-const char kSupervisionConflictHistogramName[] =
-    "SupervisedUsers.FamilyLinkSupervisionConflict";
-enum class SupervisionHasConflict : int {
-  kNoConflict = 0,
-  kHasConflict = 1,
-  kMaxValue = kHasConflict,
-};
-
 // Each of the content filters have their own kill switch. This function
 // returns true if the feature is enabled for the given setting.
 bool IsFeatureEnabledForSetting(std::string_view setting_name) {
@@ -47,25 +38,9 @@ bool IsFeatureEnabledForSetting(std::string_view setting_name) {
 }
 }  // namespace
 
-std::unique_ptr<ContentFiltersObserverBridge>
-ContentFiltersObserverBridge::Create(
-    std::string_view setting_name,
-    base::RepeatingClosure on_enabled,
-    base::RepeatingClosure on_disabled,
-    base::RepeatingCallback<bool()> is_subject_to_parental_controls) {
-  return std::make_unique<ContentFiltersObserverBridge>(
-      setting_name, on_enabled, on_disabled, is_subject_to_parental_controls);
-}
-
 ContentFiltersObserverBridge::ContentFiltersObserverBridge(
-    std::string_view setting_name,
-    base::RepeatingClosure on_enabled,
-    base::RepeatingClosure on_disabled,
-    base::RepeatingCallback<bool()> is_subject_to_parental_controls)
-    : setting_name_(setting_name),
-      on_enabled_(on_enabled),
-      on_disabled_(on_disabled),
-      is_subject_to_parental_controls_(is_subject_to_parental_controls) {}
+    std::string_view setting_name)
+    : setting_name_(setting_name) {}
 
 ContentFiltersObserverBridge::~ContentFiltersObserverBridge() {
   if (bridge_) {
@@ -75,41 +50,35 @@ ContentFiltersObserverBridge::~ContentFiltersObserverBridge() {
   }
 }
 
+void ContentFiltersObserverBridge::SetEnabledForTesting(bool enabled) {
+  SetEnabled(enabled);
+}
+
 void ContentFiltersObserverBridge::OnChange(JNIEnv* env, bool enabled) {
-  // Warning: callsites can pass env=nullptr. Update them before utilizing *env.
+  DVLOG(1) << "ContentFiltersObserverBridge received onChange for setting "
+           << setting_name_ << " with value "
+           << (enabled ? "enabled" : "disabled");
+  SetEnabled(enabled);
+}
 
-  LOG(INFO) << "ContentFiltersObserverBridge received onChange for setting "
-            << setting_name_ << " with value "
-            << (enabled ? "enabled" : "disabled");
+void ContentFiltersObserverBridge::SetEnabled(bool enabled) {
   if (!IsFeatureEnabledForSetting(setting_name_)) {
-    LOG(INFO)
-        << "ContentFiltersObserverBridge change ignored: feature disabled";
-    return;
-  }
-
-  // This prevents the content filters from being enabled for family link
-  // accounts.
-  if (base::FeatureList::IsEnabled(
-          kSupervisedUserOverrideLocalSupervisionForFamilyLinkAccounts) &&
-      is_subject_to_parental_controls_.Run() && enabled) {
-    base::UmaHistogramEnumeration(kSupervisionConflictHistogramName,
-                                  SupervisionHasConflict::kHasConflict);
-    LOG(INFO)
-        << "ContentFiltersObserverBridge change ignored: family link user";
+    DVLOG(1) << "ContentFiltersObserverBridge change ignored: feature disabled";
     return;
   }
 
   enabled_ = enabled;
-  if (enabled) {
-    on_enabled_.Run();
-  } else {
-    on_disabled_.Run();
-  }
+  NotifyObservers();
+}
+
+void ContentFiltersObserverBridge::NotifyObservers() {
+  observer_list_.Notify(&Observer::OnContentFiltersObserverChanged,
+                        setting_name_);
 }
 
 void ContentFiltersObserverBridge::Init() {
   if (!IsFeatureEnabledForSetting(setting_name_)) {
-    LOG(INFO)
+    DVLOG(1)
         << "ContentFiltersObserverBridge not initialized: feature disabled";
     return;
   }
@@ -122,7 +91,7 @@ void ContentFiltersObserverBridge::Init() {
 
 void ContentFiltersObserverBridge::Shutdown() {
   if (!IsFeatureEnabledForSetting(setting_name_)) {
-    LOG(INFO) << "ContentFiltersObserverBridge not shutdown: feature disabled";
+    DVLOG(1) << "ContentFiltersObserverBridge not shutdown: feature disabled";
     return;
   }
 
@@ -135,10 +104,13 @@ bool ContentFiltersObserverBridge::IsEnabled() const {
   return enabled_;
 }
 
-void ContentFiltersObserverBridge::SetEnabled(bool enabled) {
-  enabled_ = enabled;
+void ContentFiltersObserverBridge::AddObserver(Observer* observer) {
+  observer_list_.AddObserver(observer);
 }
 
+void ContentFiltersObserverBridge::RemoveObserver(Observer* observer) {
+  observer_list_.RemoveObserver(observer);
+}
 }  // namespace supervised_user
 
 DEFINE_JNI(ContentFiltersObserverBridge)

@@ -11,13 +11,11 @@ import type {ContextualEntrypointAndCarouselElement} from './contextual_entrypoi
 export function getHtml(this: ContextualEntrypointAndCarouselElement) {
   const showDescription =
       this.showContextMenuDescription_ && !this.shouldShowRecentTabChip_;
-  const toolChipsVisible = this.shouldShowRecentTabChip_ ||
-      this.inDeepSearchMode_ || this.inCreateImageMode_;
   const toolChips = html`
         ${
       this.shouldShowRecentTabChip_ ? html`
         <composebox-recent-tab-chip id="recentTabChip"
-            class="upload-button"
+            class="upload-button contextual-chip"
             .recentTab="${this.recentTabForChip_}"
             @add-tab-context="${this.addTabContext_}">
         </composebox-recent-tab-chip>
@@ -25,7 +23,7 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
                                       ''}
       ${
       this.shouldShowLensSearchChip_ ? html`
-        <cr-composebox-lens-search id="lensSearchChip" class="upload-button">
+        <cr-composebox-lens-search id="lensSearchChip" class="upload-button contextual-chip">
         </cr-composebox-lens-search>
       ` :
                                        ''}
@@ -59,6 +57,28 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
       <div class="context-menu-container" part="context-menu-and-tools"
           @mousedown="${this.preventFocus_}"
           @click="${this.onContextMenuContainerClick_}">
+        ${this.showModelPicker ? html`
+        <cr-composebox-contextual-entrypoint-button id="contextEntrypoint"
+            part="composebox-entrypoint"
+            exportparts="context-menu-entrypoint-icon"
+            class="upload-button no-overlap"
+            .tabSuggestions="${this.tabSuggestions}"
+            .entrypointName="${this.entrypointName}"
+            @open-image-upload="${this.openImageUpload_}"
+            @open-file-upload="${this.openFileUpload_}"
+            @add-tab-context="${this.addTabContext_}"
+            @delete-tab-context="${this.onDeleteFile_}"
+            .hasImageFiles="${this.hasImageFiles()}"
+            .hideEntrypointButton="${this.shouldHideEntrypointButton_}"
+            .disabledTabIds="${this.addedTabsIds_}"
+            .fileNum="${this.files_.size}"
+            .searchboxLayoutMode="${this.searchboxLayoutMode}"
+            ?inputs-disabled="${this.inputsDisabled_}"
+            ?show-context-menu-description="${showDescription}"
+            glif-animation-state="${this.contextMenuGlifAnimationState}">
+        </cr-composebox-contextual-entrypoint-button>
+        ` :
+                                                html`
         <cr-composebox-context-menu-entrypoint id="contextEntrypoint"
             part="composebox-entrypoint"
             exportparts="context-menu-entrypoint-icon"
@@ -80,12 +100,12 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
             ?inputs-disabled="${this.inputsDisabled_}"
             ?show-context-menu-description="${showDescription}"
             glif-animation-state="${this.contextMenuGlifAnimationState}">
-        </cr-composebox-context-menu-entrypoint>
+        </cr-composebox-context-menu-entrypoint>`}
         ${
       this.searchboxLayoutMode === 'Compact' && this.showVoiceSearch ?
           voiceSearchButton :
           ''}
-        ${this.shouldShowToolChips_ ? toolChips : ''}
+        ${this.shouldShowToolChipsForTallMode_ ? toolChips : ''}
         ${
       this.searchboxLayoutMode === 'TallTopContext' && this.showVoiceSearch ?
           voiceSearchButton :
@@ -99,8 +119,8 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
 
   // clang-format off
   return html`<!--_html_template_start_-->
-  ${this.searchboxLayoutMode === 'Compact' ? contextMenu : ''}
-  <div part="carousel-container">
+  ${this.searchboxLayoutMode === 'Compact' && !this.isOmniboxInCompactMode_ ? contextMenu : ''}
+    <div part="carousel-container">
     ${this.showFileCarousel_ ? html`
       <cr-composebox-file-carousel
         part="cr-composebox-file-carousel"
@@ -110,7 +130,7 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
         .files="${Array.from(this.files_.values())}"
         @delete-file="${this.onDeleteFile_}">
       </cr-composebox-file-carousel> ` : ''}
-    ${this.submitButtonShown && (this.searchboxLayoutMode === 'Compact' || this.searchboxLayoutMode === 'TallBottomContext') ?
+    ${this.submitButtonShown && this.searchboxLayoutMode === 'Compact' ?
       html`<slot name="submit-button"></slot>` :
       ''}
   </div>
@@ -120,11 +140,11 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
   ` : ''}
   <!-- Suggestions are slotted in from the parent component. -->
   <slot id="dropdownMatches"></slot>
-  ${this.searchboxLayoutMode === 'Compact' && toolChipsVisible && this.entrypointName === 'Realbox' ? html`
+  ${this.shouldShowToolChipsForCompactMode_ ? html`
     <div class="context-menu-container" id="toolChipsContainer"
         part="tool-chips-container">${toolChips}</div>
   ` : ''}
-  ${this.searchboxLayoutMode === 'TallBottomContext' || this.searchboxLayoutMode === '' ? html`
+  ${this.searchboxLayoutMode === 'TallBottomContext' || this.searchboxLayoutMode === '' || this.isOmniboxInCompactMode_ ? html`
     ${this.contextMenuEnabled_ ? contextMenu : html`
       <div part="upload-container" id="uploadContainer" class="icon-fade">
           <cr-icon-button
@@ -163,6 +183,9 @@ export function getHtml(this: ContextualEntrypointAndCarouselElement) {
   ${(this.searchboxLayoutMode === 'TallBottomContext' || !this.searchboxLayoutMode) && this.showVoiceSearch ?
           voiceSearchButton :
           ''}
+  ${this.submitButtonShown && this.searchboxLayoutMode === 'TallBottomContext' ?
+      html`<slot name="submit-button"></slot>` :
+      ''}
 <!--_html_template_end_-->`;
   // clang-format on
 }

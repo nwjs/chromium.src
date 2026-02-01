@@ -61,6 +61,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabGridItemTouchHelperCa
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarExplicitTrigger;
 import org.chromium.chrome.tab_ui.R;
@@ -230,7 +231,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
             @Nullable TabSwitcherDragHandler tabSwitcherDragHandler,
             @Nullable UndoBarExplicitTrigger undoBarExplicitTrigger,
             @Nullable SnackbarManager snackbarManager,
-            int allowedSelectionCount) {
+            int allowedSelectionCount,
+            boolean isSingleContextMode) {
         mMode = mode;
         mTabActionState = initialTabActionState;
         mActivity = activity;
@@ -309,24 +311,22 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                         return group;
                     },
                     TabGridViewBinder::bindTab);
-            if (ChromeFeatureList.sAndroidTabDeclutterArchiveTabGroups.isEnabled()) {
-                // If the need arises based on diverging functionality between tabs and tab
-                // groups, an alternative view binder and model can be implemented.
-                mAdapter.registerType(
-                        UiType.TAB_GROUP,
-                        parent -> {
-                            ViewGroup group =
-                                    (ViewGroup)
-                                            LayoutInflater.from(activity)
-                                                    .inflate(
-                                                            R.layout.tab_grid_card_item,
-                                                            parentView,
-                                                            false);
-                            group.setClickable(true);
-                            return group;
-                        },
-                        TabGridViewBinder::bindTab);
-            }
+            // If the need arises based on diverging functionality between tabs and tab
+            // groups, an alternative view binder and model can be implemented.
+            mAdapter.registerType(
+                    UiType.TAB_GROUP,
+                    parent -> {
+                        ViewGroup group =
+                                (ViewGroup)
+                                        LayoutInflater.from(activity)
+                                                .inflate(
+                                                        R.layout.tab_grid_card_item,
+                                                        parentView,
+                                                        false);
+                        group.setClickable(true);
+                        return group;
+                    },
+                    TabGridViewBinder::bindTab);
 
             recyclerListener =
                     (holder) -> {
@@ -388,7 +388,8 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
                         onTabGroupCreation,
                         undoBarExplicitTrigger,
                         snackbarManager,
-                        allowedSelectionCount);
+                        allowedSelectionCount,
+                        isSingleContextMode);
 
         try (TraceEvent e = TraceEvent.scoped("TabListCoordinator.setupRecyclerView")) {
             // Ignore attachToParent initially. In some activitys multiple TabListCoordinators are
@@ -461,7 +462,10 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
         if (emptyViewParent != null) {
             mTabListEmptyCoordinator =
                     new TabListEmptyCoordinator(
-                            emptyViewParent, mModelList, this::runOnItemAnimatorFinished);
+                            mRecyclerView,
+                            emptyViewParent,
+                            mModelList,
+                            this::runOnItemAnimatorFinished);
         }
         mTabListHighlighter = new TabListHighlighter(mModelList);
         mTabListMergeAnimationManager = new TabListMergeAnimationManager(mRecyclerView);
@@ -983,7 +987,7 @@ public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyO
     /**
      * @see TabListMediator#specialItemExistsInModel(int)
      */
-    boolean specialItemExists(@TabSwitcherMessageManager.MessageType int itemIdentifier) {
+    boolean specialItemExists(@MessageType int itemIdentifier) {
         return mMediator.specialItemExistsInModel(itemIdentifier);
     }
 

@@ -12,16 +12,15 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/download_item_warning_data.h"
 #include "chrome/browser/download/download_prefs.h"
-#include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_downloads_delegate.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #include "chrome/browser/policy/dm_token_utils.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_opening_job.h"
@@ -36,6 +35,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/download/public/common/download_item.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/enterprise/connectors/core/reporting_utils.h"
@@ -51,6 +51,7 @@
 #include "content/public/browser/download_item_utils.h"
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -60,6 +61,8 @@ using DeepScanTrigger = DownloadItemWarningData::DeepScanTrigger;
 namespace safe_browsing {
 
 namespace {
+
+using ::enterprise_connectors::BinaryUploadRequest;
 
 DownloadCheckResult GetHighestPrecedenceResult(DownloadCheckResult result_1,
                                                DownloadCheckResult result_2) {
@@ -78,6 +81,7 @@ DownloadCheckResult GetHighestPrecedenceResult(DownloadCheckResult result_1,
       DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED,
       DownloadCheckResult::BLOCKED_SCAN_FAILED,
       DownloadCheckResult::FORCE_SAVE_TO_GDRIVE,
+      DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE,
       DownloadCheckResult::POTENTIALLY_UNWANTED,
       DownloadCheckResult::SENSITIVE_CONTENT_WARNING,
       DownloadCheckResult::PROMPT_FOR_SCANNING,
@@ -130,6 +134,8 @@ enterprise_connectors::EventResult GetEventResult(
       return enterprise_connectors::EventResult::WARNED;
 
     case DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
+      return enterprise_connectors::EventResult::FORCED_SAVE_TO_CLOUD;
+    case DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE:
       return enterprise_connectors::EventResult::FORCED_SAVE_TO_CLOUD;
     case DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED:
     case DownloadCheckResult::BLOCKED_TOO_LARGE:
@@ -224,12 +230,13 @@ bool EnterpriseResultIsFailure(
 void RecordEnterpriseScan(
     std::unique_ptr<FileAnalysisRequest> request,
     enterprise_connectors::ScanRequestUploadResult result) {
-  const std::string result_info =
-      enterprise_connectors::ScanRequestUploadResultToString(result);
+  const std::string result_info = base::StrCat(
+      {"Skipped - ",
+       enterprise_connectors::ScanRequestUploadResultToString(result)});
   safe_browsing::WebUIContentInfoSingleton::GetInstance()
       ->AddToDeepScanRequests(
           request->per_profile_request(), /*access_token*/ "",
-          /*upload_info*/ base::StrCat({"Skipped - ", result_info}),
+          /*upload_info*/ result_info,
           /*upload_url*/ "", request->content_analysis_request());
   safe_browsing::WebUIContentInfoSingleton::GetInstance()
       ->AddToDeepScanResponses(
@@ -246,6 +253,8 @@ DownloadCheckResult ResponseToDownloadCheckResult(
   auto malware_action =
       enterprise_connectors::TriggeredRule::ACTION_UNSPECIFIED;
   auto dlp_action = enterprise_connectors::TriggeredRule::ACTION_UNSPECIFIED;
+  auto force_save_to_cloud_destination =
+      enterprise_connectors::TriggeredRule::UNSPECIFIED;
 
   for (const auto& result : response.results()) {
     if (result.tag() == "malware") {
@@ -268,6 +277,15 @@ DownloadCheckResult ResponseToDownloadCheckResult(
       for (const auto& rule : result.triggered_rules()) {
         dlp_action = enterprise_connectors::GetHighestPrecedenceAction(
             dlp_action, rule.action());
+
+        if (rule.has_force_save_to_cloud_destination()) {
+          DCHECK(rule.action() ==
+                 enterprise_connectors::TriggeredRule::FORCE_SAVE_TO_CLOUD);
+          force_save_to_cloud_destination = enterprise_connectors::
+              GetHighestPrecedenceForceSaveToCloudDestination(
+                  force_save_to_cloud_destination,
+                  rule.force_save_to_cloud_destination());
+        }
       }
     }
   }
@@ -291,7 +309,14 @@ DownloadCheckResult ResponseToDownloadCheckResult(
   } else {
     switch (dlp_action) {
       case enterprise_connectors::TriggeredRule::FORCE_SAVE_TO_CLOUD:
-        return DownloadCheckResult::FORCE_SAVE_TO_GDRIVE;
+        switch (force_save_to_cloud_destination) {
+          case enterprise_connectors::TriggeredRule::CORP_G_DRIVE:
+            return DownloadCheckResult::FORCE_SAVE_TO_GDRIVE;
+          case enterprise_connectors::TriggeredRule::CORP_ONEDRIVE:
+            return DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE;
+          case enterprise_connectors::TriggeredRule::UNSPECIFIED:
+            NOTREACHED();
+        }
       case enterprise_connectors::TriggeredRule::BLOCK:
         return DownloadCheckResult::SENSITIVE_CONTENT_BLOCK;
       case enterprise_connectors::TriggeredRule::WARN:
@@ -532,7 +557,7 @@ void DeepScanningRequest::OnGetPackageFileRequestData(
     const base::FilePath& current_path,
     std::unique_ptr<FileAnalysisRequest> request,
     enterprise_connectors::ScanRequestUploadResult result,
-    BinaryUploadService::Request::Data data) {
+    BinaryUploadRequest::Data data) {
   file_metadata_.insert({current_path, enterprise_connectors::FileMetadata(
                                            final_path.AsUTF8Unsafe(), data.hash,
                                            data.mime_type, data.size)});
@@ -554,7 +579,7 @@ void DeepScanningRequest::OnGetFileRequestData(
     const base::FilePath& file_path,
     std::unique_ptr<FileAnalysisRequest> request,
     enterprise_connectors::ScanRequestUploadResult result,
-    BinaryUploadService::Request::Data data) {
+    BinaryUploadRequest::Data data) {
   if (ShouldTerminateEarly(result)) {
     // We record the scan here because the request is terminated early and won't
     // be uploaded to CloudBinaryUploadService.
@@ -580,14 +605,14 @@ void DeepScanningRequest::OnDownloadRequestReady(
   upload_start_times_[current_path] = base::TimeTicks::Now();
   Profile* profile =
       Profile::FromBrowserContext(metadata_->GetBrowserContext());
-  BinaryUploadService* binary_upload_service =
+  enterprise_connectors::BinaryUploadService* binary_upload_service =
       download_service_->GetBinaryUploadService(profile, analysis_settings_);
   if (binary_upload_service) {
     binary_upload_service->MaybeUploadForDeepScanning(
         std::move(deep_scan_request));
   } else {
     OnScanComplete(current_path,
-                   enterprise_connectors::ScanRequestUploadResult::UNKNOWN,
+                   enterprise_connectors::ScanRequestUploadResult::kUnknown,
                    enterprise_connectors::ContentAnalysisResponse());
   }
 }
@@ -618,12 +643,12 @@ void DeepScanningRequest::OnConsumerScanComplete(
     enterprise_connectors::ContentAnalysisResponse response) {
   bool is_invalid_password =
       result ==
-          enterprise_connectors::ScanRequestUploadResult::FILE_ENCRYPTED ||
-      (result == enterprise_connectors::ScanRequestUploadResult::SUCCESS &&
+          enterprise_connectors::ScanRequestUploadResult::kFileEncrypted ||
+      (result == enterprise_connectors::ScanRequestUploadResult::kSuccess &&
        metadata_->IsTopLevelEncryptedArchive() &&
        HasDecryptionFailedResult(response));
   bool is_success =
-      result == enterprise_connectors::ScanRequestUploadResult::SUCCESS &&
+      result == enterprise_connectors::ScanRequestUploadResult::kSuccess &&
       !is_invalid_password;
   CHECK(IsConsumerTriggered());
   DownloadCheckResult download_result = DownloadCheckResult::UNKNOWN;
@@ -660,41 +685,47 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
 
   DownloadCheckResult download_result = DownloadCheckResult::UNKNOWN;
 
-  if (result ==
-          enterprise_connectors::ScanRequestUploadResult::FILE_TOO_LARGE &&
+  if (result == enterprise_connectors::ScanRequestUploadResult::kFileTooLarge &&
       analysis_settings_.block_large_files) {
     download_result = DownloadCheckResult::BLOCKED_TOO_LARGE;
   } else if (result == enterprise_connectors::ScanRequestUploadResult::
-                           FILE_ENCRYPTED &&
+                           kFileEncrypted &&
              analysis_settings_.block_password_protected_files) {
     download_result = DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED;
     // WebProtect could still issue a block or warn verdict based on the
     // metadata of large or encrypted files. Therefore we should check the
     // `response` for these two cases as well.
   } else if (result == enterprise_connectors::ScanRequestUploadResult::
-                           FILE_TOO_LARGE ||
+                           kFileTooLarge ||
              result == enterprise_connectors::ScanRequestUploadResult::
-                           FILE_ENCRYPTED) {
+                           kFileEncrypted) {
     MaybeUpdateDownloadCheckResult(response, download_result);
   } else if (result ==
-             enterprise_connectors::ScanRequestUploadResult::SUCCESS) {
+             enterprise_connectors::ScanRequestUploadResult::kSuccess) {
     request_tokens_.push_back(response.request_token());
     download_result = ResponseToDownloadCheckResult(response);
-    if (download_result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE) {
-      if (!base::FeatureList::IsEnabled(
-              enterprise_data_protection::kEnableForceDownloadToCloud)) {
+
+    // Handle force save to cloud if the feature is enabled.
+    if (download_result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE ||
+        download_result == DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE) {
+      const auto& force_save_to_cloud_feature =
+          download_result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE
+              ? enterprise_data_protection::kEnableForceDownloadToCloud
+              : enterprise_data_protection::kEnableForceDownloadToOneDrive;
+
+      if (!base::FeatureList::IsEnabled(force_save_to_cloud_feature)) {
         download_result = DownloadCheckResult::SENSITIVE_CONTENT_BLOCK;
       } else if (web_contents()) {
         // `web_contents()` may be nullptr in several cases, if the tab owning
         // the download was opened by a download link, a restored page, or an
         // external application. For those cases, download to drive directly.
-        //
+
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
         // ProcessEnterpriseDownloadResult will run via
         // dialog callback.
         base::OnceClosure keep_closure = base::BindOnce(
             &DeepScanningRequest::ProcessEnterpriseDownloadResult,
-            weak_ptr_factory_.GetWeakPtr(),
-            DownloadCheckResult::FORCE_SAVE_TO_GDRIVE);
+            weak_ptr_factory_.GetWeakPtr(), download_result);
         base::OnceClosure discard_closure = base::BindOnce(
             &DeepScanningRequest::ProcessEnterpriseDownloadResult,
             weak_ptr_factory_.GetWeakPtr(),
@@ -703,7 +734,8 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
         new enterprise_connectors::ContentAnalysisDialogController(
             std::make_unique<
                 enterprise_connectors::ContentAnalysisDownloadsDelegate>(
-                u"", u"", GURL(), false, std::move(keep_closure),
+                metadata_->GetTargetFilePath().BaseName().AsUTF16Unsafe(), u"",
+                GURL(), false, std::move(keep_closure),
                 std::move(discard_closure), nullptr,
                 enterprise_connectors::ContentAnalysisResponse::Result::
                     TriggeredRule::CustomRuleMessage()),
@@ -715,6 +747,7 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
                 FORCE_SAVE_TO_CLOUD,
             nullptr);
         return;
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
       }
     }
   } else if (enterprise_connectors::ResultIsFailClosed(result) &&
@@ -779,8 +812,8 @@ void DeepScanningRequest::OnDownloadDestroyed(
 
   // We can't safely return a verdict for this download because it's already
   // been destroyed, so reset the callback here. We still need to run
-  // `FinishRequest` to notify the DownloadProtectionService that this deep scan
-  // has finished.
+  // `FinishRequest` to notify the DownloadProtectionService that this deep
+  // scan has finished.
   callback_.Reset();
 
   // `FinishRequest` always clears the `download_observation` and `metadata`,
@@ -870,17 +903,17 @@ void DeepScanningRequest::FinishRequest(DownloadCheckResult result) {
     DCHECK(IsEnterpriseTriggered());
 
     if (ReportOnlyScan()) {
-      // The event result in report-only will always match whatever danger type
-      // known before deep scanning since the UI will never be updated based on
-      // `result`.
+      // The event result in report-only will always match whatever danger
+      // type known before deep scanning since the UI will never be updated
+      // based on `result`.
       event_result = metadata_->GetPreScanEventResult(pre_scan_danger_type_);
     } else {
       Profile* profile =
           Profile::FromBrowserContext(metadata_->GetBrowserContext());
       // If FinishRequest is reached with an unknown `result` or an explicit
-      // failure, then it means no scanning request ever completed successfully,
-      // so `event_result` needs to reflect whatever danger type was known
-      // pre-deep scanning.
+      // failure, then it means no scanning request ever completed
+      // successfully, so `event_result` needs to reflect whatever danger type
+      // was known pre-deep scanning.
       event_result =
           (result == DownloadCheckResult::DEEP_SCANNED_FAILED ||
            result == DownloadCheckResult::UNKNOWN)
@@ -892,7 +925,8 @@ void DeepScanningRequest::FinishRequest(DownloadCheckResult result) {
   }
 
   // If the deep-scanning result is unknown for whatever reason, `callback_`
-  // should be called with whatever SB result was known prior to deep scanning.
+  // should be called with whatever SB result was known prior to deep
+  // scanning.
   if ((result == DownloadCheckResult::UNKNOWN ||
        result == DownloadCheckResult::DEEP_SCANNED_FAILED) &&
       IsEnterpriseTriggered()) {
@@ -976,7 +1010,7 @@ void DeepScanningRequest::AcknowledgeRequest(
     enterprise_connectors::EventResult event_result) {
   Profile* profile =
       Profile::FromBrowserContext(metadata_->GetBrowserContext());
-  BinaryUploadService* binary_upload_service =
+  enterprise_connectors::BinaryUploadService* binary_upload_service =
       download_service_->GetBinaryUploadService(profile, analysis_settings_);
   if (!binary_upload_service) {
     return;
@@ -986,7 +1020,7 @@ void DeepScanningRequest::AcknowledgeRequest(
   auto final_action = GetFinalAction(event_result);
 
   for (auto& token : request_tokens_) {
-    auto ack = std::make_unique<BinaryUploadService::Ack>(
+    auto ack = std::make_unique<enterprise_connectors::BinaryUploadAck>(
         analysis_settings_.cloud_or_local_settings);
     ack->set_request_token(token);
     ack->set_status(
@@ -1029,7 +1063,7 @@ bool DeepScanningRequest::ShouldTerminateEarly(
                    result, analysis_settings_.block_large_files,
                    analysis_settings_.block_password_protected_files)
              : result !=
-                   enterprise_connectors::ScanRequestUploadResult::SUCCESS;
+                   enterprise_connectors::ScanRequestUploadResult::kSuccess;
 }
 
 void DeepScanningRequest::OpenDownload() {

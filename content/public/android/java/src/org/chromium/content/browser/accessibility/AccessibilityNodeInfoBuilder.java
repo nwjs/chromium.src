@@ -70,6 +70,7 @@ import org.jni_zero.JNINamespace;
 
 import org.chromium.ax.mojom.TextPosition;
 import org.chromium.ax.mojom.TextStyle;
+import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -415,12 +416,13 @@ public class AccessibilityNodeInfoBuilder {
         node.setTooltipText(tooltipText);
         node.setExpandedState(expandedState);
 
-        // If we have enabled WINDOW_CONTENT_CHANGED live region events or deprecated
-        // TYPE_ANNOUNCEMENT, we should properly mark live region root nodes. Otherwise, we choose
-        // to use AnnounceLiveRegionText() to make this announcement for us.
-        if (ContentFeatureMap.isEnabled(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)
-                || ContentFeatureMap.isEnabled(
-                        ContentFeatureList.ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE)) {
+        // If we have deprecated TYPE_ANNOUNCEMENT, we should properly mark live region root nodes.
+        // Otherwise, we choose to use AnnounceLiveRegionText() to make this announcement for us.
+        // TODO(crbug.com/470048610): Once the Finch experiment for
+        // ACCESSIBILITY_IMPROVE_LIVE_REGION_ANNOUNCE is complete, we should add the flag to the
+        // if-statement below. However, until TalkBack 17.0 is released, we cannot send
+        // WINDOW_CONTENT_CHANGED events with a valid LiveRegion without altering user experience.
+        if (ContentFeatureMap.isEnabled(ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE)) {
             node.setLiveRegion(liveRegion);
         }
 
@@ -659,13 +661,22 @@ public class AccessibilityNodeInfoBuilder {
             int rowIndex,
             int rowSpan,
             int columnIndex,
-            int columnSpan) {
-        // TODO(crbug.com/443079218): convert to CollectionItemInfo.Builder to remove need for
-        // setting
-        // heading param.
-        node.setCollectionItemInfo(
-                AccessibilityNodeInfoCompat.CollectionItemInfoCompat.obtain(
-                        rowIndex, rowSpan, columnIndex, columnSpan, /* heading= */ false));
+            int columnSpan,
+            int sortDirection) {
+        AccessibilityNodeInfoCompat.CollectionItemInfoCompat.Builder builder =
+                new AccessibilityNodeInfoCompat.CollectionItemInfoCompat.Builder();
+
+        builder.setRowIndex(rowIndex)
+                .setRowSpan(rowSpan)
+                .setColumnIndex(columnIndex)
+                .setColumnSpan(columnSpan);
+
+        AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
+        if (delegate != null) {
+            delegate.setCollectionItemSortDirection(builder, sortDirection);
+        }
+
+        node.setCollectionItemInfo(builder.build());
     }
 
     @CalledByNative
@@ -691,6 +702,34 @@ public class AccessibilityNodeInfoBuilder {
     protected void setAccessibilityNodeInfoSelectionAttrs(
             AccessibilityNodeInfoCompat node, int startIndex, int endIndex) {
         node.setTextSelection(startIndex, endIndex);
+    }
+
+    @CalledByNative
+    protected void setAccessibilityNodeInfoExtendedSelectionAttrs(
+            AccessibilityNodeInfoCompat node,
+            int startVirtualViewId,
+            int startOffset,
+            int endVirtualViewId,
+            int endOffset) {
+        var aconfigFlaggedApiDelegate = AconfigFlaggedApiDelegate.getInstance();
+        if (aconfigFlaggedApiDelegate != null) {
+            aconfigFlaggedApiDelegate.setSelection(
+                    node,
+                    mDelegate.getView(),
+                    startVirtualViewId,
+                    startOffset,
+                    endVirtualViewId,
+                    endOffset);
+        }
+    }
+
+    @CalledByNative
+    protected void clearAccessibilityNodeInfoExtendedSelectionAttrs(
+            AccessibilityNodeInfoCompat node) {
+        var aconfigFlaggedApiDelegate = AconfigFlaggedApiDelegate.getInstance();
+        if (aconfigFlaggedApiDelegate != null) {
+            aconfigFlaggedApiDelegate.clearSelection(node);
+        }
     }
 
     @CalledByNative

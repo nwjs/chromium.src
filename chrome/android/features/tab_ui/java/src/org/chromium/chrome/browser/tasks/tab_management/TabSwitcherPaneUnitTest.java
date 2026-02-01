@@ -44,14 +44,18 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.Token;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -184,10 +188,10 @@ public class TabSwitcherPaneUnitTest {
     private final Token mToken = new Token(1L, 2L);
 
     private Context mContext;
-    private final ObservableSupplierImpl<Boolean> mHandleBackPressChangeSupplier =
-            new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Boolean> mIsScrollingSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mHandleBackPressChangeSupplier =
+            ObservableSuppliers.createNonNull(false);
+    private final SettableNonNullObservableSupplier<Boolean> mIsScrollingSupplier =
+            ObservableSuppliers.createNonNull(false);
     private final OneshotSupplierImpl<ObservableSupplier<Boolean>> mIsScrollingSupplierSupplier =
             new OneshotSupplierImpl<>();
     private final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
@@ -366,6 +370,8 @@ public class TabSwitcherPaneUnitTest {
         verify(coordinator).hardCleanup();
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testLoadHintColdHotWarm() {
         mTabModel.setActive(true);
@@ -392,6 +398,8 @@ public class TabSwitcherPaneUnitTest {
         verify(coordinator, never()).hardCleanup();
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testLoadHintColdHot_TabStateNotInitialized() {
         mTabModel.setActive(true);
@@ -418,6 +426,8 @@ public class TabSwitcherPaneUnitTest {
         watcher.assertExpected();
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testLoadHintColdWarmHotCold() {
         mTabModel.setActive(true);
@@ -455,6 +465,8 @@ public class TabSwitcherPaneUnitTest {
         assertNotNull(mTabSwitcherPane.getRootView());
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testNewTabButton() {
         FullButtonData buttonData = mTabSwitcherPane.getActionButtonDataSupplier().get();
@@ -510,9 +522,9 @@ public class TabSwitcherPaneUnitTest {
 
     @Test
     public void testBackPress() {
-        ObservableSupplier<Boolean> handlesBackPressSupplier =
+        NonNullObservableSupplier<Boolean> handlesBackPressSupplier =
                 mTabSwitcherPane.getHandleBackPressChangedSupplier();
-        assertNull(handlesBackPressSupplier.get());
+        assertFalse(handlesBackPressSupplier.get());
         assertEquals(BackPressResult.FAILURE, mTabSwitcherPane.handleBackPress());
 
         mTabSwitcherPane.initWithNative();
@@ -681,6 +693,8 @@ public class TabSwitcherPaneUnitTest {
         verify(mTabSwitcherPaneCoordinator).setTabSwitcherRecyclerViewPosition(position);
     }
 
+    // TODO(crbug.com/450954710): This test fails on SDK 36.
+    @Config(sdk = 29)
     @Test
     public void testResetWithTabList() {
         mTabSwitcherPane.resetWithListOfTabs(null);

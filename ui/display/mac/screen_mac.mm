@@ -182,8 +182,7 @@ DisplayMac BuildDisplayForScreen(NSScreen* screen) {
   display.set_is_monochrome(CGDisplayUsesForceToGray());
 
   // Query the display's refresh rate.
-  double refresh_rate = 1.0 / screen.minimumRefreshInterval;
-  display.set_display_frequency(refresh_rate);
+  display.set_display_frequency(screen.maximumFramesPerSecond);
 
   // CGDisplayRotation returns a double. Display::SetRotationAsDegree will
   // handle the unexpected situations were the angle is not a multiple of 90.
@@ -308,10 +307,15 @@ class ScreenMac : public Screen {
     return gfx::ScreenPointFromNSPoint([NSEvent mouseLocation]);
   }
 
+  // Previously this function uses -[NSWindow windowNumberAtPoint] which is
+  // problematic in fullscreen. It returns the AppKit-owned
+  // NSToolbarFullScreenWindow while the actual window under the cursor is the
+  // NativeWidgetMacOverlayNSWindow created by Chrome.
+  // See crbug.com/447718577 for details.
   bool IsWindowUnderCursor(gfx::NativeWindow native_window) override {
-    NSWindow* window = native_window.GetNativeNSWindow();
-    return [NSWindow windowNumberAtPoint:NSEvent.mouseLocation
-               belowWindowWithWindowNumber:0] == window.windowNumber;
+    return native_window ==
+           GetLocalProcessWindowAtPoint(GetCursorScreenPoint(),
+                                        std::set<gfx::NativeWindow>());
   }
 
   gfx::NativeWindow GetWindowAtScreenPoint(const gfx::Point& point) override {

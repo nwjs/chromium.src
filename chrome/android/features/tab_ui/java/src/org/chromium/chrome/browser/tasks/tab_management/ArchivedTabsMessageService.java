@@ -18,6 +18,7 @@ import android.view.ViewGroup;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -29,7 +30,6 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ServiceDismissActionProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListItemSizeChangedObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -119,7 +120,7 @@ public class ArchivedTabsMessageService
     private final Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
     private final ObservableSupplier<@Nullable TabGroupModelFilter>
             mCurrentTabGroupModelFilterSupplier;
-    private final ObservableSupplier<Integer> mTabCountSupplier;
+    private final NonNullObservableSupplier<Integer> mTabCountSupplier;
     private final Supplier<LayoutStateProvider> mLayoutStateProviderSupplier;
     private final LayoutStateObserver mLayoutStateObserver =
             new LayoutStateObserver() {
@@ -195,7 +196,6 @@ public class ArchivedTabsMessageService
                     if (tabListCoordinator == null) return;
                     tabListCoordinator.addTabListItemSizeChangedObserver(
                             mTabListItemSizeChangedObserver);
-                    if (!ChromeFeatureList.sTabArchivalDragDropAndroid.isEnabled()) return;
 
                     tabListCoordinator.setOnDropOnArchivalMessageCardEventListener(
                             tabId -> {
@@ -242,9 +242,7 @@ public class ArchivedTabsMessageService
         mModel.set(ICON_HIGHLIGHTED, mShowTwoStepIph);
     }
 
-    @Override
     public void destroy() {
-        super.destroy();
         if (mTabArchiveSettings != null) {
             mTabArchiveSettings.removeObserver(mTabArchiveSettingsObserver);
         }
@@ -259,9 +257,7 @@ public class ArchivedTabsMessageService
                     mTabListItemSizeChangedObserver);
         }
 
-        if (mTabCountSupplier != null) {
-            mTabCountSupplier.removeObserver(mTabCountObserver);
-        }
+        mTabCountSupplier.removeObserver(mTabCountObserver);
 
         var layoutStateProvider = mLayoutStateProviderSupplier.get();
         if (layoutStateProvider != null) {
@@ -294,8 +290,9 @@ public class ArchivedTabsMessageService
     }
 
     @Override
-    public void addObserver(MessageService.MessageObserver<@MessageType Integer> obs) {
-        super.addObserver(obs);
+    public void initialize(
+            ServiceDismissActionProvider<@MessageType Integer> serviceDismissActionProvider) {
+        super.initialize(serviceDismissActionProvider);
         maybeSendMessageToQueue(mTabCountSupplier.get());
     }
 
@@ -313,7 +310,7 @@ public class ArchivedTabsMessageService
         if (mTabGroupSyncService == null) return;
         if (tabCount <= 0) return;
         updateModelProperties(tabCount);
-        sendAvailabilityNotification((a, b) -> mModel);
+        queueMessage(dismiss -> mModel);
         mMessageSentToQueue = true;
         mAppendMessageRunnable.run();
     }
@@ -321,7 +318,7 @@ public class ArchivedTabsMessageService
     @VisibleForTesting
     void maybeInvalidatePreviouslySentMessage() {
         if (!mMessageSentToQueue) return;
-        sendInvalidNotification();
+        invalidateMessages();
         mMessageSentToQueue = false;
     }
 

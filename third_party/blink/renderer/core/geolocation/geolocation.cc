@@ -140,20 +140,24 @@ PositionOptions* OverrideAccuracyHint(const PositionOptions* options) {
 }  // namespace
 
 // static
+const char Geolocation::kSupplementName[] = "Geolocation";
+
+// static
 Geolocation* Geolocation::geolocation(Navigator& navigator) {
   if (!navigator.DomWindow())
     return nullptr;
 
-  Geolocation* supplement = navigator.GetGeolocation();
+  Geolocation* supplement = Supplement<Navigator>::From<Geolocation>(navigator);
   if (!supplement) {
     supplement = MakeGarbageCollected<Geolocation>(navigator);
-    navigator.SetGeolocation(supplement);
+    ProvideTo(navigator, supplement);
   }
   return supplement;
 }
 
 Geolocation::Geolocation(Navigator& navigator)
     : ActiveScriptWrappable<Geolocation>({}),
+      Supplement<Navigator>(navigator),
       ExecutionContextLifecycleObserver(navigator.DomWindow()),
       PageVisibilityObserver(navigator.DomWindow()->GetFrame()->GetPage()),
       one_shots_(MakeGarbageCollected<GeoNotifierSet>()),
@@ -173,6 +177,7 @@ void Geolocation::Trace(Visitor* visitor) const {
   visitor->Trace(geolocation_);
   visitor->Trace(geolocation_service_);
   ScriptWrappable::Trace(visitor);
+  Supplement<Navigator>::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
 }
@@ -240,6 +245,7 @@ void Geolocation::getCurrentPositionForBindings(
 
   if (!GetFrame())
     return;
+
 
   probe::BreakableLocation(GetExecutionContext(),
                            "Geolocation.getCurrentPosition");

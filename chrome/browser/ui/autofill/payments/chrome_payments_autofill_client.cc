@@ -56,7 +56,6 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/payments/autofill_error_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller_impl.h"
-#include "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller_impl.h"
@@ -92,11 +91,11 @@
 #include "chrome/browser/ui/android/autofill/card_expiration_date_fix_flow_view_android.h"
 #include "chrome/browser/ui/android/autofill/card_name_fix_flow_view_android.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/browser/ui/autofill/autofill_message_controller_impl.h"
+#include "chrome/browser/ui/autofill/autofill_message_model.h"
 #include "chrome/browser/ui/autofill/autofill_snackbar_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/android_bnpl_ui_delegate.h"
 #include "chrome/browser/ui/autofill/payments/android_payments_window_manager.h"
-#include "chrome/browser/ui/autofill/payments/autofill_message_controller.h"
-#include "chrome/browser/ui/autofill/payments/autofill_message_model.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_controller_android.h"
 #include "components/autofill/core/browser/payments/android_bnpl_strategy.h"
 #include "components/autofill/core/browser/payments/autofill_save_iban_ui_info.h"
@@ -753,18 +752,10 @@ void ChromePaymentsAutofillClient::OnUnmaskVerificationResult(
 VirtualCardEnrollmentManager*
 ChromePaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   if (!virtual_card_enrollment_manager_) {
-    PaymentsNetworkInterfaceVariation payments_network_interface;
-    if (base::FeatureList::IsEnabled(
-            features::
-                kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment)) {
-      payments_network_interface = GetMultipleRequestPaymentsNetworkInterface();
-    } else {
-      payments_network_interface = GetPaymentsNetworkInterface();
-    }
     virtual_card_enrollment_manager_ =
         std::make_unique<VirtualCardEnrollmentManager>(
             &client_->GetPersonalDataManager().payments_data_manager(),
-            payments_network_interface, &client_.get());
+            GetMultipleRequestPaymentsNetworkInterface(), &client_.get());
   }
 
   return virtual_card_enrollment_manager_.get();
@@ -964,7 +955,7 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillIban(
 #endif
 }
 
-bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+bool ChromePaymentsAutofillClient::ShowTouchToFillAffiliatedLoyaltyCard(
     base::WeakPtr<TouchToFillDelegate> delegate,
     std::vector<autofill::LoyaltyCard> loyalty_cards_to_suggest) {
 #if BUILDFLAG(IS_ANDROID)
@@ -987,7 +978,7 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
           feature_engagement::kIPHAutofillEnableLoyaltyCardsFeature);
 
   const bool loyalty_cards_shown =
-      GetTouchToFillPaymentMethodController()->ShowLoyaltyCards(
+      GetTouchToFillPaymentMethodController()->ShowAffiliatedLoyaltyCards(
           std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
           delegate, std::move(affiliated_loyalty_cards),
           std::move(loyalty_cards_to_suggest), first_time_usage);
@@ -995,6 +986,19 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
     tracker->NotifyEvent("keyboard_accessory_loyalty_cards_autofilled");
   }
   return loyalty_cards_shown;
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillForAllLoyaltyCards(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    std::vector<autofill::LoyaltyCard> loyalty_cards_to_suggest) {
+#if BUILDFLAG(IS_ANDROID)
+  return GetTouchToFillPaymentMethodController()->ShowAllLoyaltyCards(
+      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
+      delegate, std::move(loyalty_cards_to_suggest));
 #else
   // Touch To Fill is not supported on Desktop.
   NOTREACHED();
@@ -1154,24 +1158,24 @@ void ChromePaymentsAutofillClient::ShowCreditCardUploadSaveAndFillDialog(
   CHECK(save_and_fill_dialog_controller_);
   save_and_fill_dialog_controller_->ShowUploadDialog(
       std::move(legal_message_lines),
-      base::BindOnce(&CreateAndShowSaveAndFillDialog,
-                     save_and_fill_dialog_controller_->GetWeakPtr(),
-                     web_contents()),
       std::move(callback));
 #else
   NOTIMPLEMENTED();
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-void ChromePaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog() {
+void ChromePaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog(
+    CardSaveAndFillDialogCallback callback) {
 #if !BUILDFLAG(IS_ANDROID)
   if (!save_and_fill_dialog_controller_) {
     save_and_fill_dialog_controller_ =
         std::make_unique<SaveAndFillDialogControllerImpl>();
   }
-  save_and_fill_dialog_controller_->ShowPendingDialog(base::BindOnce(
-      &CreateAndShowSaveAndFillDialog,
-      save_and_fill_dialog_controller_->GetWeakPtr(), web_contents()));
+  save_and_fill_dialog_controller_->ShowPendingDialog(
+      base::BindOnce(&CreateAndShowSaveAndFillDialog,
+                     save_and_fill_dialog_controller_->GetWeakPtr(),
+                     web_contents()),
+      std::move(callback));
 #else
   NOTIMPLEMENTED();
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -1225,7 +1229,7 @@ AutofillMessageController&
 ChromePaymentsAutofillClient::GetAutofillMessageController() {
   if (!autofill_message_controller_) {
     autofill_message_controller_ =
-        std::make_unique<AutofillMessageController>(web_contents());
+        std::make_unique<AutofillMessageControllerImpl>(web_contents());
   }
 
   return *autofill_message_controller_;

@@ -77,10 +77,10 @@ MixerInput::MixerInput(Source* source, FilterGroup* filter_group)
       // Round up to nearest multiple of SincResampler::kMaxKernelSize. The read
       // size must be > kMaxKernelSize, so we round up to at least 2 *
       // kMaxKernelSize.
-      source_read_size_ =
-          RoundUpMultiple(std::max(source_->desired_read_size(),
-                                   ::media::SincResampler::kMaxKernelSize + 1),
-                          ::media::SincResampler::kMaxKernelSize);
+      source_read_size_ = RoundUpMultiple(
+          std::max(static_cast<size_t>(source_->desired_read_size()),
+                   ::media::SincResampler::kMaxKernelSize + 1),
+          ::media::SincResampler::kMaxKernelSize);
     }
     resample_ratio_ = static_cast<double>(input_samples_per_second_) /
                       output_samples_per_second_;
@@ -312,7 +312,7 @@ int MixerInput::FillAudioData(int num_frames,
   CHECK_LE(num_channels_, kMaxChannels);
   float* channels[kMaxChannels];
   for (int c = 0; c < num_channels_; ++c) {
-    UNSAFE_TODO(channels[c]) = dest->channel_span(c).data();
+    UNSAFE_TODO(channels[c]) = dest->channel(c).data();
   }
   if (first_buffer_ && redirected) {
     // If the first buffer is redirected, don't provide any data to the mixer

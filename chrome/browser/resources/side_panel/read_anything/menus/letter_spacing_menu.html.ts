@@ -4,7 +4,7 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ToolbarEvent} from '../shared/common.js';
+import {ToolbarEvent} from '../content/read_anything_types.js';
 
 import type {LetterSpacingMenuElement} from './letter_spacing_menu.js';
 
@@ -15,6 +15,7 @@ export function getHtml(this: LetterSpacingMenuElement) {
     id="menu"
     label="$i18n{letterSpacingTitle}"
     .menuItems="${this.options_}"
+    .nonModal="${this.nonModal}"
     event-name="${ToolbarEvent.LETTER_SPACING}"
     current-selected-index="${this.restoredLetterSpacingIndex_()}"
     @letter-spacing-change="${this.onLetterSpacingChange_}">

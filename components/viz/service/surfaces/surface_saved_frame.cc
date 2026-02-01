@@ -65,17 +65,24 @@ size_t GetSharedPassIndex(
 // static
 std::unique_ptr<SurfaceSavedFrame> SurfaceSavedFrame::CreateForTesting(
     CompositorFrameTransitionDirective directive,
-    gpu::SharedImageInterface* shared_image_interface) {
-  return base::WrapUnique(
-      new SurfaceSavedFrame(base::PassKey<SurfaceSavedFrame>(),
-                            std::move(directive), shared_image_interface));
+    gpu::SharedImageInterface* shared_image_interface,
+    OnViewTransitionResourcesCapturedCallback
+        view_transition_resources_captured_callback) {
+  return base::WrapUnique(new SurfaceSavedFrame(
+      base::PassKey<SurfaceSavedFrame>(), std::move(directive),
+      shared_image_interface,
+      std::move(view_transition_resources_captured_callback)));
 }
 
 SurfaceSavedFrame::SurfaceSavedFrame(
     CompositorFrameTransitionDirective directive,
-    gpu::SharedImageInterface* shared_image_interface)
+    gpu::SharedImageInterface* shared_image_interface,
+    OnViewTransitionResourcesCapturedCallback
+        view_transition_resources_captured_callback)
     : directive_(std::move(directive)),
-      shared_image_interface_(shared_image_interface) {
+      shared_image_interface_(shared_image_interface),
+      view_transition_resources_captured_callback_(
+          std::move(view_transition_resources_captured_callback)) {
   // If we're using BlitRequests, then we better have a shared image interface.
   CHECK(shared_image_interface_);
 
@@ -86,9 +93,13 @@ SurfaceSavedFrame::SurfaceSavedFrame(
 SurfaceSavedFrame::SurfaceSavedFrame(
     base::PassKey<SurfaceSavedFrame>,
     CompositorFrameTransitionDirective directive,
-    gpu::SharedImageInterface* shared_image_interface)
+    gpu::SharedImageInterface* shared_image_interface,
+    OnViewTransitionResourcesCapturedCallback
+        view_transition_resources_captured_callback)
     : directive_(std::move(directive)),
-      shared_image_interface_(shared_image_interface) {
+      shared_image_interface_(shared_image_interface),
+      view_transition_resources_captured_callback_(
+          std::move(view_transition_resources_captured_callback)) {
   frame_result_.emplace();
 }
 
@@ -166,11 +177,30 @@ void SurfaceSavedFrame::RequestCopyOfOutput(
         std::move(shared_image));
   }
 
-  // DispatchCopyDoneCallback early for cross frame sink view transitions.
+  // DispatchCopyDoneCallback early if that feature is enabled.
   if ((features::ShouldAckCOREarlyForViewTransition() &&
-       directive_.maybe_cross_frame_sink()) ||
+       directive_.delay_layer_tree_view_deletion()) ||
       copy_request_count_ == 0) {
     DispatchCopyDoneCallback();
+  }
+
+  // If this is an empty COR, immediately signal that all resources have been
+  // captured, as we will never receive a signal back from
+  // NotifyCopyOfOutputComplete.
+  //
+  // TODO(crbug.com/464502666): Refactor completion signals once
+  // ShouldAckCOREarlyForViewTransition becomes the default.
+  //
+  // This will remove a benign race between DispatchCopyDoneCallback and
+  // DispatchViewTransitionResourcesCaptured, which are sent on separate Mojo
+  // pipes.
+  //
+  // It will also resolve confusing behavior when
+  // kAckCopyOutputRequestEarlyForViewTransition is enabled, where
+  // DispatchCopyDoneCallback is invoked at the start of the request rather than
+  // at actual completion.
+  if (copy_request_count_ == 0) {
+    DispatchViewTransitionResourcesCaptured();
   }
 }
 
@@ -180,6 +210,16 @@ void SurfaceSavedFrame::DispatchCopyDoneCallback() {
       base::BindOnce(std::move(directive_finished_callback_), directive_));
 }
 
+void SurfaceSavedFrame::DispatchViewTransitionResourcesCaptured() {
+  if (view_transition_resources_captured_callback_.is_null()) {
+    return;
+  }
+
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(view_transition_resources_captured_callback_),
+                     directive_.transition_token()));
+}
 std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
     const CompositorRenderPass& render_pass,
     bool is_software,
@@ -263,11 +303,17 @@ void SurfaceSavedFrame::NotifyCopyOfOutputComplete(
   // Even if we early out, we update the count since we are no longer waiting
   // for this result.
   --copy_request_count_;
-  // Callback is run already for cross frame view transitions.
+  // Callback is run already when ShouldAckCOREarlyForViewTransition is enabled
   if (!(features::ShouldAckCOREarlyForViewTransition() &&
-        directive_.maybe_cross_frame_sink()) &&
+        directive_.delay_layer_tree_view_deletion()) &&
       copy_request_count_ == 0) {
     DispatchCopyDoneCallback();
+  }
+
+  // If we are the last COR we can safely signal that all view transitions
+  // resources have been captured
+  if (copy_request_count_ == 0) {
+    DispatchViewTransitionResourcesCaptured();
   }
 
   // Return if the result is empty.

@@ -67,11 +67,13 @@ class DOMContentLoadedListener final
   Member<ProcessingInstruction> processing_instruction_;
 };
 
+DocumentXSLT::DocumentXSLT(Document& document)
+    : Supplement<Document>(document) {}
+
 void DocumentXSLT::ApplyXSLTransform(Document& document,
                                      ProcessingInstruction* pi) {
   DCHECK(!pi->IsLoading());
-  CHECK(RuntimeEnabledFeatures::XSLTEnabled() &&
-        RuntimeEnabledFeatures::XSLTSpecialTrialEnabled());
+  CHECK(XSLTProcessor::XSLTEnabled());
   XSLTProcessor* processor = XSLTProcessor::Create(
       document, ASSERT_NO_EXCEPTION, WebFeature::kXSLProcessingInstruction);
   processor->SetXSLStyleSheet(To<XSLStyleSheet>(pi->sheet()));
@@ -146,15 +148,21 @@ bool DocumentXSLT::SheetLoaded(Document& document, ProcessingInstruction* pi) {
   return true;
 }
 
+// static
+const char DocumentXSLT::kSupplementName[] = "DocumentXSLT";
+
 bool DocumentXSLT::HasTransformSourceDocument(Document& document) {
-  return document.GetDocumentXSLT();
+  return Supplement<Document>::From<DocumentXSLT>(document);
 }
 
 void DocumentXSLT::SetHasTransformSource(Document& document) {
   DCHECK(!HasTransformSourceDocument(document));
-  document.SetDocumentXSLT(MakeGarbageCollected<DocumentXSLT>());
+  Supplement<Document>::ProvideTo(document,
+                                  MakeGarbageCollected<DocumentXSLT>(document));
 }
 
-void DocumentXSLT::Trace(Visitor* visitor) const {}
+void DocumentXSLT::Trace(Visitor* visitor) const {
+  Supplement<Document>::Trace(visitor);
+}
 
 }  // namespace blink

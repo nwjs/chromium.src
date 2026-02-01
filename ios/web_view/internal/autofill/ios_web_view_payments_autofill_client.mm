@@ -24,7 +24,6 @@
 #import "components/autofill/core/browser/payments/payments_network_interface.h"
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #import "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller.h"
-#import "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_prompt_controller.h"
 #import "components/autofill/core/common/autofill_prefs.h"
@@ -216,16 +215,13 @@ IOSWebViewPaymentsAutofillClient::GetPaymentsNetworkInterface() {
 
 MultipleRequestPaymentsNetworkInterface*
 IOSWebViewPaymentsAutofillClient::GetMultipleRequestPaymentsNetworkInterface() {
-  if (GetPrefService()->GetBoolean(ios_web_view::kCWVAutofillVCNUsageEnabled)) {
-    if (!multiple_request_payments_network_interface_) {
-      multiple_request_payments_network_interface_ =
-          std::make_unique<payments::MultipleRequestPaymentsNetworkInterface>(
-              client_->GetURLLoaderFactory(), *client_->GetIdentityManager(),
-              web_state_->GetBrowserState()->IsOffTheRecord());
-    }
-    return multiple_request_payments_network_interface_.get();
+  if (!multiple_request_payments_network_interface_) {
+    multiple_request_payments_network_interface_ =
+        std::make_unique<payments::MultipleRequestPaymentsNetworkInterface>(
+            client_->GetURLLoaderFactory(), *client_->GetIdentityManager(),
+            web_state_->GetBrowserState()->IsOffTheRecord());
   }
-  return nullptr;
+  return multiple_request_payments_network_interface_.get();
 }
 
 void IOSWebViewPaymentsAutofillClient::ShowAutofillErrorDialog(
@@ -269,19 +265,10 @@ VirtualCardEnrollmentManager*
 IOSWebViewPaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   if (GetPrefService()->GetBoolean(ios_web_view::kCWVAutofillVCNUsageEnabled)) {
     if (!virtual_card_enrollment_manager_) {
-      PaymentsNetworkInterfaceVariation payments_network_interface;
-      if (base::FeatureList::IsEnabled(
-              features::
-                  kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment)) {
-        payments_network_interface =
-            GetMultipleRequestPaymentsNetworkInterface();
-      } else {
-        payments_network_interface = GetPaymentsNetworkInterface();
-      }
       virtual_card_enrollment_manager_ =
           std::make_unique<VirtualCardEnrollmentManager>(
               &client_->GetPersonalDataManager().payments_data_manager(),
-              payments_network_interface, &client_.get());
+              GetMultipleRequestPaymentsNetworkInterface(), &client_.get());
     }
     return virtual_card_enrollment_manager_.get();
   }
@@ -391,7 +378,13 @@ bool IOSWebViewPaymentsAutofillClient::ShowTouchToFillIban(
   return false;
 }
 
-bool IOSWebViewPaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+bool IOSWebViewPaymentsAutofillClient::ShowTouchToFillAffiliatedLoyaltyCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
+  return false;
+}
+
+bool IOSWebViewPaymentsAutofillClient::ShowTouchToFillForAllLoyaltyCards(
     base::WeakPtr<TouchToFillDelegate> delegate,
     std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
   return false;
@@ -462,8 +455,8 @@ void IOSWebViewPaymentsAutofillClient::ShowCreditCardUploadSaveAndFillDialog(
     const LegalMessageLines& legal_message_lines,
     CardSaveAndFillDialogCallback callback) {}
 
-void IOSWebViewPaymentsAutofillClient::
-    ShowCreditCardSaveAndFillPendingDialog() {}
+void IOSWebViewPaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog(
+    CardSaveAndFillDialogCallback callback) {}
 
 void IOSWebViewPaymentsAutofillClient::HideCreditCardSaveAndFillDialog() {}
 

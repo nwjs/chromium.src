@@ -18,7 +18,6 @@ import android.os.Handler;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.BackgroundColorSpan;
@@ -72,6 +71,7 @@ import org.chromium.content.browser.WindowEventObserver;
 import org.chromium.content.browser.WindowEventObserverManager;
 import org.chromium.content.browser.picker.InputDialogContainer;
 import org.chromium.content.browser.webcontents.WebContentsImpl;
+import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.ImeAdapter;
@@ -748,7 +748,7 @@ public class ImeAdapterImpl
                 if (imeTextSpans == null || imeTextSpans.length == 0) {
                     textParam = text;
                 } else {
-                    SpannableStringBuilder spannable = new SpannableStringBuilder(text);
+                    SpannableString spannable = new SpannableString(text);
                     for (ImeTextSpan info : imeTextSpans) {
                         int flags = 0;
                         if (info.getType() == ImeTextSpanType.MISSPELLING_SUGGESTION) {
@@ -1131,6 +1131,16 @@ public class ImeAdapterImpl
 
     boolean sendCompositionToNative(
             CharSequence text, int newCursorPosition, boolean isCommit, int unicodeFromKeyEvent) {
+        return sendCompositionToNative(
+                text, newCursorPosition, isCommit, unicodeFromKeyEvent, false);
+    }
+
+    boolean sendCompositionToNative(
+            CharSequence text,
+            int newCursorPosition,
+            boolean isCommit,
+            int unicodeFromKeyEvent,
+            boolean isTextSuggestionSelected) {
         if (!isValid()) return false;
         onImeEvent();
         long timestampMs = SystemClock.uptimeMillis();
@@ -1209,7 +1219,8 @@ public class ImeAdapterImpl
                             ImeAdapterImpl.this,
                             text,
                             text.toString(),
-                            newCursorPosition);
+                            newCursorPosition,
+                            isTextSuggestionSelected);
         }
 
         ImeAdapterImplJni.get()
@@ -1715,7 +1726,14 @@ public class ImeAdapterImpl
     @CalledByNative
     private void onResizeScrollableViewport(boolean contentsHeightReduced) {
         if (!contentsHeightReduced) {
-            cancelRequestToScrollFocusedEditableNodeIntoView();
+            // Note: When the keyboard is shown, the viewport height can grow and shrink as various
+            // pieces of state are updated asynchronously. If we're waiting to scroll (non-empty
+            // mFocusPreOSKViewportRect), don't scroll yet, but don't cancel the request either.
+            // TODO(b/462636368): Avoid excessive churn in the Blink viewport height.
+            if (!ContentFeatureMap.isEnabled(
+                    ContentInternalFeatures.SCROLL_AFTER_OSK_VIEWPORT_SHRINK_FIX)) {
+                cancelRequestToScrollFocusedEditableNodeIntoView();
+            }
             return;
         }
 
@@ -1833,7 +1851,8 @@ public class ImeAdapterImpl
                                 suggestionHighlightColor,
                                 isAutoCorrectionSpan
                                         ? new String[0]
-                                        : suggestionSpan.getSuggestions());
+                                        : suggestionSpan.getSuggestions(),
+                                /* shouldHideSuggestionMenu= */ !isEasyCorrectSpan);
             }
         }
     }
@@ -1887,14 +1906,16 @@ public class ImeAdapterImpl
                 boolean removeOnFinishComposing,
                 int underlineColor,
                 int suggestionHighlightColor,
-                String[] suggestions);
+                String[] suggestions,
+                boolean shouldHideSuggestionMenu);
 
         void setComposingText(
                 long nativeImeAdapterAndroid,
                 ImeAdapterImpl self,
                 CharSequence text,
                 String textStr,
-                int newCursorPosition);
+                int newCursorPosition,
+                boolean isTextSuggestionSelected);
 
         void commitText(
                 long nativeImeAdapterAndroid,

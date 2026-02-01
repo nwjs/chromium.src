@@ -2,13 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "chrome/browser/ash/system_logs/single_log_file_log_source.h"
 
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -172,8 +169,9 @@ void SingleLogFileLogSource::ContinueReadFile(
   // Read from file until end.
   std::string new_result_string;
   new_result_string.resize(size_to_read);
-  size_t size_read =
-      file_.ReadAtCurrentPos(&new_result_string[0], size_to_read);
+  std::optional<size_t> read_bytes =
+      file_.ReadAtCurrentPos(base::as_writable_byte_span(new_result_string));
+  size_t size_read = read_bytes.value_or(0);
   new_result_string.resize(size_read);
 
   const bool file_was_rotated = file_inode_ != GetInodeValue(GetLogFilePath());

@@ -25,6 +25,7 @@
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/i18n/icu_util.h"
 #include "base/immediate_crash.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -62,7 +63,6 @@
 
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ConvertUTF8ToJavaString;
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 
 namespace {
@@ -316,7 +316,7 @@ class JsSandboxIsolate::InspectorClient final
 };
 
 JsSandboxIsolate::JsSandboxIsolate(
-    const base::android::JavaParamRef<jobject>& j_isolate,
+    const base::android::JavaRef<jobject>& j_isolate,
     const size_t max_heap_size_bytes)
     : j_isolate_(j_isolate),
       isolate_max_heap_size_bytes_(max_heap_size_bytes),
@@ -357,10 +357,10 @@ JsSandboxIsolate::~JsSandboxIsolate() {
 // in v8. Only isolate_task_runner_ should be used to interact with the isolate
 // for thread-affine v8 APIs. The callback is invoked from the
 // isolate_task_runner_.
-jboolean JsSandboxIsolate::EvaluateJavascript(
+bool JsSandboxIsolate::EvaluateJavascript(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& jcode,
-    const base::android::JavaParamRef<jobject>& j_callback) {
+    const base::android::JavaRef<jstring>& jcode,
+    const base::android::JavaRef<jobject>& j_callback) {
   std::string code = ConvertJavaStringToUTF8(env, jcode);
   scoped_refptr<JsSandboxIsolateCallback> callback =
       base::MakeRefCounted<JsSandboxIsolateCallback>(
@@ -376,13 +376,13 @@ jboolean JsSandboxIsolate::EvaluateJavascript(
 // Called from Binder thread.
 // Refer to comment above EvaluateJavascript method. In addition, this method
 // checks for streaming failures.
-jboolean JsSandboxIsolate::EvaluateJavascriptWithFd(
+bool JsSandboxIsolate::EvaluateJavascriptWithFd(
     JNIEnv* env,
     const jint fd,
     const jlong length,
     const jlong offset,
-    const base::android::JavaParamRef<jobject>& j_callback,
-    const base::android::JavaParamRef<jobject>& j_pfd) {
+    const base::android::JavaRef<jobject>& j_callback,
+    const base::android::JavaRef<jobject>& j_pfd) {
   scoped_refptr<JsSandboxIsolateCallback> callback =
       base::MakeRefCounted<JsSandboxIsolateCallback>(
           base::android::ScopedJavaGlobalRef<jobject>(j_callback), true);
@@ -405,9 +405,9 @@ void JsSandboxIsolate::DestroyNative(JNIEnv* env) {
 }
 
 // Called from Binder thread.
-jboolean JsSandboxIsolate::ProvideNamedData(
+bool JsSandboxIsolate::ProvideNamedData(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& jname,
+    const base::android::JavaRef<jstring>& jname,
     const jint fd,
     const jint length) {
   std::string name = ConvertJavaStringToUTF8(env, jname);
@@ -418,9 +418,7 @@ jboolean JsSandboxIsolate::ProvideNamedData(
 }
 
 // Called from Binder thread.
-void JsSandboxIsolate::SetConsoleEnabled(
-    JNIEnv* env,
-    const jboolean enable) {
+void JsSandboxIsolate::SetConsoleEnabled(JNIEnv* env, const bool enable) {
   control_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&JsSandboxIsolate::SetConsoleEnabledOnControlThread,
@@ -1182,7 +1180,7 @@ void JsSandboxIsolate::ProvideMessagePortOnIsolateThread(
 void JsSandboxIsolate::ProvideMessagePort(
     JNIEnv* env,
     std::string name,
-    const base::android::JavaParamRef<jobject>& j_message_port) {
+    const base::android::JavaRef<jobject>& j_message_port) {
   isolate_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(
@@ -1207,6 +1205,11 @@ JsSandboxIsolate::GetIsolateTaskRunner() {
 
 static void JNI_JsSandboxIsolate_InitializeEnvironment(JNIEnv* env) {
   base::ThreadPoolInstance::CreateAndStartWithDefaultParams("JsSandboxIsolate");
+#if ICU_UTIL_DATA_IMPL == ICU_UTIL_DATA_FILE
+  // Since we don't go through ContentMain, and we aren't a "browser" process,
+  // we don't get ICU initialized for us, so we must do this ourselves.
+  CHECK(base::i18n::InitializeICU());
+#endif
 #ifdef V8_USE_EXTERNAL_STARTUP_DATA
   gin::V8Initializer::LoadV8Snapshot();
 #endif
@@ -1216,7 +1219,7 @@ static void JNI_JsSandboxIsolate_InitializeEnvironment(JNIEnv* env) {
 
 static jlong JNI_JsSandboxIsolate_CreateNativeJsSandboxIsolateWrapper(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& j_sandbox_isolate,
+    const base::android::JavaRef<jobject>& j_sandbox_isolate,
     jlong max_heap_size_bytes) {
   CHECK_GE(max_heap_size_bytes, 0);
   JsSandboxIsolate* processor = new JsSandboxIsolate(

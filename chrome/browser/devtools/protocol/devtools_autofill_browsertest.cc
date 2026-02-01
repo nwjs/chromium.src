@@ -515,7 +515,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AddressFormFilled) {
       notification.FindListByDottedPath("filledFields");
   ASSERT_EQ(filled_fields->size(), filled_fields_by_autofill.size());
   for (size_t i = 0; i < filled_fields->size(); ++i) {
-    FormStructure& fs =
+    const FormStructure& fs =
         CHECK_DEREF(main_autofill_manager().FindCachedFormById(form_id()));
     const base::Value& ff = (*filled_fields)[i];
     const FormFieldData& ffd = filled_fields_by_autofill[i];
@@ -573,10 +573,10 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AutofillInOOPIFs) {
   ASSERT_TRUE(content::WaitForLoadStop(web_contents()));
 
   EXPECT_TRUE(main_autofill_manager().WaitForFormWithNFields(10));
-  ASSERT_EQ(main_autofill_manager().form_structures().size(), 1u);
+  ASSERT_EQ(test_api(main_autofill_manager()).form_structures().size(), 1u);
 
   FormData form =
-      main_autofill_manager().form_structures().begin()->second->ToFormData();
+      test_api(main_autofill_manager()).form_structures().front()->ToFormData();
 
   autofill::MockAutofillManagerObserver observer;
   main_autofill_manager().AddObserver(&observer);
@@ -624,7 +624,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AddressFormFilledInOOPIFs) {
   Attach();
 
   EXPECT_TRUE(main_autofill_manager().WaitForFormWithNFields(10));
-  ASSERT_EQ(main_autofill_manager().form_structures().size(), 1u);
+  ASSERT_EQ(test_api(main_autofill_manager()).form_structures().size(), 1u);
 
   std::string frame_target_id = GetOOPIFTargetId();
   std::string session_id = AttachToTarget(frame_target_id);
@@ -634,7 +634,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest, AddressFormFilledInOOPIFs) {
 
   AutofillProfile profile = CreateTestProfile();
   FormData form =
-      main_autofill_manager().form_structures().begin()->second->ToFormData();
+      test_api(main_autofill_manager()).form_structures().front()->ToFormData();
   base::flat_set<FieldGlobalId> filled_fields_by_autofill{
       {form.fields()[0].global_id(), form.fields()[1].global_id()}};
   main_autofill_manager().NotifyObservers(
@@ -666,7 +666,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest,
 
   AutofillProfile profile_a = CreateTestProfile();
   FormData form_a =
-      main_autofill_manager().form_structures().begin()->second->ToFormData();
+      test_api(main_autofill_manager()).form_structures().front()->ToFormData();
   const base::flat_set<FieldGlobalId> filled_fields_by_autofill_a = {
       {form_a.fields()[0].global_id(), form_a.fields()[1].global_id()}};
   main_autofill_manager().NotifyObservers(
@@ -685,7 +685,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAutofillTest,
 
   AutofillProfile profile_b = CreateTestProfile();
   FormData form_b =
-      main_autofill_manager().form_structures().begin()->second->ToFormData();
+      test_api(main_autofill_manager()).form_structures().front()->ToFormData();
   const base::flat_set<FieldGlobalId> filled_fields_by_autofill_b = {
       {form_b.fields()[0].global_id(), form_b.fields()[1].global_id()}};
   main_autofill_manager().NotifyObservers(

@@ -20,7 +20,6 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/lru_cache.h"
 #include "base/functional/callback.h"
-#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/shared_memory_mapping.h"
@@ -36,7 +35,6 @@
 #include "cc/input/browser_controls_offset_manager_client.h"
 #include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/input/input_handler.h"
-#include "cc/input/progress_bar_offset_manager.h"
 #include "cc/input/scrollbar_animation_controller.h"
 #include "cc/layers/layer_collections.h"
 #include "cc/metrics/average_lag_tracking_manager.h"
@@ -143,8 +141,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                     public MutatorHostClient,
                                     public ImageAnimationController::Client,
                                     public CompositorDelegateForInput,
-                                    public EventLatencyTracker,
-                                    public base::MemoryPressureListener {
+                                    public EventLatencyTracker {
  public:
   // A struct of data for a single UIResource, including the backing
   // pixels, and metadata about it.
@@ -166,6 +163,13 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     // The name with which to refer to the resource in frames submitted to the
     // display compositor.
     viz::ResourceId resource_id_for_export;
+
+    // The size of the shared_image of this UI Resource
+    //
+    // When UIResourceData is created using
+    // LayerTreeHostImpl::CreateUIResourceFromImportedResource shared_image
+    // is not set, so we store the size separately.
+    gfx::Size size;
   };
 
   static std::unique_ptr<LayerTreeHostImpl> Create(
@@ -212,6 +216,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool OnlyExpandTopControlsAtPageTop() const override;
   bool HaveRootScrollNode() const override;
   void SetNeedsCommit() override;
+  base::TimeDelta CurrentFrameInterval() const override;
 
   // ImageAnimationController::Client implementation.
   void RequestBeginFrameForAnimatedImages() override;
@@ -357,6 +362,9 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void SetPrefersReducedMotion(bool prefers_reduced_motion);
 
   void SetMayThrottleIfUndrawnFrames(bool may_throttle_if_undrawn_frames);
+  bool may_throttle_if_undrawn_frames() const {
+    return may_throttle_if_undrawn_frames_;
+  }
 
   // Analogous to a commit, this function is used to create a sync tree and
   // add impl-side invalidations to it.
@@ -657,6 +665,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool IsPinchGestureActive() const;
   // See comment in equivalent InputHandler method for what this means.
   ActivelyScrollingType GetActivelyScrollingType() const;
+  bool IsHandlingInteraction() const;
   bool IsCurrentScrollMainRepainted() const;
   bool ScrollAffectsScrollHandler() const;
   void SetExternalPinchGestureActive(bool active);
@@ -687,9 +696,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   }
   BrowserControlsOffsetManager* browser_controls_manager() {
     return browser_controls_offset_manager_.get();
-  }
-  ProgressBarOffsetManager* progress_bar_manager() {
-    return progress_bar_offset_manager_.get();
   }
   const GlobalStateThatImpactsTilePriority& global_tile_state() {
     return global_tile_state_;
@@ -726,6 +732,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                 const UIResourceBitmap& bitmap);
   virtual void CreateUIResourceFromImportedResource(UIResourceId uid,
                                                     viz::ResourceId resource_id,
+                                                    const gfx::Size& size,
                                                     bool is_opaque);
 
   // Deletes a UI resource.  May safely be called more than once.
@@ -736,6 +743,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool EvictedUIResourcesExist() const;
 
   virtual viz::ResourceId ResourceIdForUIResource(UIResourceId uid) const;
+
+  virtual gfx::Size GetUIResourceSize(UIResourceId uid) const;
 
   virtual bool IsUIResourceOpaque(UIResourceId uid) const;
 
@@ -901,6 +910,18 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool send_frame_token_to_embedder() const {
     return send_frame_token_to_embedder_;
   }
+  void set_is_handling_interaction_from_client(bool is_handling_interaction) {
+    DCHECK(settings().trees_in_viz_in_viz_process);
+    is_handling_interaction_from_client_ = is_handling_interaction;
+  }
+
+  // Returns a bitfield of debug information that indicates why HasDamage() is
+  // true.
+  uint32_t LastFrameHasDamageData() const {
+    return last_frame_has_damage_data_;
+  }
+
+  void AddDamageDataCrashKeys(uint32_t damage_data, bool is_viz);
 
  protected:
   LayerTreeHostImpl(
@@ -1029,8 +1050,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // active tree.
   void ActivateStateForImages();
 
-  void OnMemoryPressure(base::MemoryPressureLevel level) override;
-
   void AllocateLocalSurfaceId();
 
   // Log the AverageLag events from the frame identified by |frame_token| and
@@ -1090,6 +1109,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // expensiveness of this function.
   void MaybeFlashEnteredViewportScrollbars(ElementId element_id,
                                            const gfx::Vector2dF& scroll_delta);
+
+  uint32_t GetHasDamageData() const;
 
   // Once bound, this instance owns the InputHandler. However, an InputHandler
   // need not be bound so this should be null-checked before dereferencing.
@@ -1184,7 +1205,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   std::unique_ptr<BrowserControlsOffsetManager>
       browser_controls_offset_manager_;
-  std::unique_ptr<ProgressBarOffsetManager> progress_bar_offset_manager_;
 
   std::unique_ptr<PageScaleAnimation> page_scale_animation_;
 
@@ -1306,9 +1326,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   viz::VerticalScrollDirection last_vertical_scroll_direction_ =
       viz::VerticalScrollDirection::kNull;
 
-  std::unique_ptr<base::AsyncMemoryPressureListenerRegistration>
-      memory_pressure_listener_registration_;
-
   PresentationTimeCallbackBuffer presentation_time_callbacks_;
 
   // `compositor_frame_reporting_controller_` is an observer of
@@ -1406,11 +1423,18 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // pass it from renderer to viz.
   bool send_frame_token_to_embedder_ = false;
 
+  // Only used in TreesInViz mode. Stores whether the client is handling an
+  // interaction (e.g. scroll or touch). This is required because the
+  // InputDelegate, which normally provides this information, is not present
+  // in the Viz process.
+  bool is_handling_interaction_from_client_ = false;
+
   // Settings whether we dump generated compositor frame during DrawLayers.
   // They are for debug purposes for TreesInViz and TreeAnimationsInViz.
   bool dump_compositor_frame_ = false;
   uint32_t dump_compositor_frame_begin_ = 0;
   uint32_t dump_compositor_frame_end_ = 0;
+  uint32_t last_frame_has_damage_data_ = 0;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

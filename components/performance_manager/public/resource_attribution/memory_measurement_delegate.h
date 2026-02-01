@@ -9,10 +9,9 @@
 #include <stdint.h>
 
 #include <compare>
-#include <map>
 #include <memory>
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/containers/variant_map.h"
 #include "base/functional/callback_forward.h"
 #include "components/performance_manager/public/resource_attribution/process_context.h"
@@ -36,11 +35,11 @@ class MemoryMeasurementDelegate {
   //
   // MemoryMeasurementProvider will wrap this in a full MemorySummaryResult.
   struct MemorySummaryMeasurement {
-    base::ByteCount resident_set_size;
-    base::ByteCount private_footprint;
+    base::ByteSize resident_set_size;
+    base::ByteSize private_footprint;
 
     // Only populated by default on Linux, ChromeOS and Android.
-    base::ByteCount private_swap;
+    base::ByteSize private_swap;
 
     // Division operator required by SplitResourceAmongFramesAndWorkers().
     constexpr MemorySummaryMeasurement operator/(size_t divisor) {

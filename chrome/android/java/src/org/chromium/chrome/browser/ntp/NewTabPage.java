@@ -38,9 +38,12 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -60,7 +63,6 @@ import org.chromium.chrome.browser.feed.FeedSurfaceProvider.RestoringState;
 import org.chromium.chrome.browser.feed.FeedSwipeRefreshLayout;
 import org.chromium.chrome.browser.feed.NtpFeedSurfaceLifecycleManager;
 import org.chromium.chrome.browser.feed.componentinterfaces.SurfaceCoordinator;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.LifecycleObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
@@ -130,8 +132,10 @@ import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
 import java.util.List;
@@ -198,14 +202,14 @@ public class NewTabPage
     private final TabModelSelector mTabModelSelector;
     private final TemplateUrlService mTemplateUrlService;
     private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
-    private final ObservableSupplier<Integer> mTabStripHeightSupplier;
+    private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
 
     private @Nullable SingleTabSwitcherCoordinator mSingleTabSwitcherCoordinator;
     private @Nullable ViewGroup mSingleTabCardContainer;
     private @Nullable HomeModulesCoordinator mHomeModulesCoordinator;
     private @Nullable ViewGroup mHomeModulesContainer;
-    private final ObservableSupplierImpl<Tab> mMostRecentTabSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNullableObservableSupplier<Tab> mMostRecentTabSupplier =
+            ObservableSuppliers.createNullable();
     private @Nullable Point mContextMenuStartPosition;
 
     private final Activity mActivity;
@@ -222,7 +226,9 @@ public class NewTabPage
     private NtpCustomizationConfigManager.@org.chromium.build.annotations.Nullable
             HomepageStateListener
             mHomepageStateListener;
-    // A flag to use light tint on toolbar and status bar icons.
+
+    // A flag to use light tint on toolbar and status bar icons. The light tint isn't applied on
+    // tablet mode.
     private boolean mUseLightIconTint;
 
     private @Nullable SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
@@ -499,6 +505,7 @@ public class NewTabPage
      * @param browserControlsStateProvider {@link BrowserControlsStateProvider} to observe for
      *     offset changes.
      * @param activityTabProvider Provides the current active tab.
+     * @param modalDialogManagerSupplier Supplies the {@link ModalDialogManager}.
      * @param snackbarManager {@link SnackbarManager} object.
      * @param lifecycleDispatcher Activity lifecycle dispatcher.
      * @param tabModelSelector {@link TabModelSelector} object.
@@ -512,6 +519,7 @@ public class NewTabPage
      * @param shareDelegateSupplier Supplies the Delegate used to open SharingHub.
      * @param windowAndroid The containing window of this page.
      * @param toolbarSupplier Supplies the {@link Toolbar}.
+     * @param activityResultTracker Tracker of activity results.
      * @param homeSurfaceTracker Used to decide whether we are the home surface.
      * @param tabContentManagerSupplier Used to create tab thumbnails.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
@@ -525,6 +533,7 @@ public class NewTabPage
             Activity activity,
             BrowserControlsStateProvider browserControlsStateProvider,
             Supplier<@Nullable Tab> activityTabProvider,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
             SnackbarManager snackbarManager,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             TabModelSelector tabModelSelector,
@@ -539,8 +548,9 @@ public class NewTabPage
             WindowAndroid windowAndroid,
             Supplier<Toolbar> toolbarSupplier,
             @Nullable HomeSurfaceTracker homeSurfaceTracker,
+            ActivityResultTracker activityResultTracker,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            ObservableSupplier<Integer> tabStripHeightSupplier,
+            NonNullObservableSupplier<Integer> tabStripHeightSupplier,
             OneshotSupplier<ModuleRegistry> moduleRegistrySupplier,
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             ObservableSupplier<TopInsetCoordinator> topInsetCoordinatorSupplier,
@@ -687,6 +697,10 @@ public class NewTabPage
                 lifecycleDispatcher,
                 mTab.getProfile(),
                 windowAndroid,
+                activityResultTracker,
+                bottomSheetController,
+                modalDialogManagerSupplier,
+                snackbarManager,
                 mIsTablet,
                 mTabStripHeightSupplier,
                 () -> assumeNonNull(mTemplateUrlService.getComposeplateUrl()));
@@ -834,12 +848,7 @@ public class NewTabPage
                             boolean fromInitialization,
                             @NtpBackgroundImageType int oldType,
                             @NtpBackgroundImageType int newType) {
-                        mUseLightIconTint = true;
-                        if (NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
-                            return;
-                        }
-                        mNewTabPageLayout.onCustomizedBackgroundChanged(
-                                /* applyWhiteBackgroundOnSearchBox= */ true);
+                        onBackgroundChangedImpl(/* applyWhiteBackgroundOnSearchBox= */ true);
                     }
 
                     @Override
@@ -849,17 +858,23 @@ public class NewTabPage
                             boolean fromInitialization,
                             @NtpBackgroundImageType int oldType,
                             @NtpBackgroundImageType int newType) {
-                        mUseLightIconTint = false;
+                        onBackgroundChangedImpl(/* applyWhiteBackgroundOnSearchBox= */ false);
+                    }
 
-                        if (!NtpCustomizationUtils.shouldApplyWhiteBackgroundOnSearchBox(oldType)) {
-                            return;
-                        }
-                        // Resets the fake search box's background.
-                        mNewTabPageLayout.onCustomizedBackgroundChanged(
-                                /* applyWhiteBackgroundOnSearchBox= */ false);
+                    @Override
+                    public void onBackgroundReset(@NtpBackgroundImageType int oldType) {
+                        onBackgroundChangedImpl(/* applyWhiteBackgroundOnSearchBox= */ false);
                     }
                 };
-        NtpCustomizationConfigManager.getInstance().addListener(mHomepageStateListener, mContext);
+        NtpCustomizationConfigManager.getInstance()
+                .addListener(mHomepageStateListener, mContext, /* skipNotify= */ false);
+    }
+
+    private void onBackgroundChangedImpl(boolean applyWhiteBackgroundOnSearchBox) {
+        if (!mIsTablet) {
+            mUseLightIconTint = applyWhiteBackgroundOnSearchBox;
+        }
+        mNewTabPageLayout.onCustomizedBackgroundChanged(applyWhiteBackgroundOnSearchBox);
     }
 
     /** Initializes whether to use a light tint color on icons of toolbar and status bar. */
@@ -1574,17 +1589,13 @@ public class NewTabPage
 
     @Override
     public void customizeSettings() {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION)) {
-            NtpCustomizationCoordinatorFactory.getInstance()
-                    .create(
-                            mContext,
-                            mBottomSheetController,
-                            mTab::getProfile,
-                            NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS)
-                    .showBottomSheet();
-        } else {
-            HomeModulesConfigManager.getInstance().onMenuClick(mContext);
-        }
+        NtpCustomizationCoordinatorFactory.getInstance()
+                .create(
+                        mContext,
+                        mBottomSheetController,
+                        mTab::getProfile,
+                        NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS)
+                .showBottomSheet();
     }
 
     @Override

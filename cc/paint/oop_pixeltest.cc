@@ -142,7 +142,7 @@ class OopPixelTest : public testing::Test,
 
     raster_context_provider_ =
         base::MakeRefCounted<viz::TestInProcessContextProvider>(
-            viz::TestContextType::kGpuRaster, /*support_locking=*/false,
+            viz::TestContextType::kRaster, /*support_locking=*/false,
             &gr_shader_cache_, &use_shader_cache_shm_count_);
     gpu::ContextResult result =
         raster_context_provider_->BindToCurrentSequence();
@@ -273,7 +273,7 @@ class OopPixelTest : public testing::Test,
                                       options.resource_size);
     gpu::SyncToken sync_token =
         gpu::RasterScopedAccess::EndAccess(std::move(ri_access));
-    sii->DestroySharedImage(sync_token, std::move(client_shared_image));
+    client_shared_image->UpdateDestructionSyncToken(sync_token);
     return result;
   }
 
@@ -1079,13 +1079,12 @@ TEST_F(OopPixelTest, DrawHdrImageWithMetadata) {
         sk_make_sp<FakePaintImageGenerator>(image->imageInfo());
     {
       ImageHeaderMetadata image_metadata;
-      image_metadata.hdr_metadata.emplace();
       if (peak_luminance.has_value()) {
-        image_metadata.hdr_metadata->cta_861_3.emplace(peak_luminance.value(),
-                                                       kContentAvgNits);
+        image_metadata.hdr_metadata.cta_861_3.emplace(peak_luminance.value(),
+                                                      kContentAvgNits);
       }
       if (white_luminance.has_value()) {
-        image_metadata.hdr_metadata->ndwl.emplace(white_luminance.value());
+        image_metadata.hdr_metadata.ndwl.emplace(white_luminance.value());
       }
       image_generator->SetImageHeaderMetadata(image_metadata);
       EXPECT_TRUE(image->peekPixels(&image_generator->GetPixmap()));
@@ -2697,7 +2696,7 @@ TEST_F(OopPixelTest, WritePixels) {
       ReadbackMailbox(ri, dest_client_si->mailbox(), options.resource_size);
   sync_token = gpu::RasterScopedAccess::EndAccess(std::move(ri_access));
 
-  sii->DestroySharedImage(sync_token, std::move(dest_client_si));
+  dest_client_si->UpdateDestructionSyncToken(sync_token);
   ExpectEquals(actual, expected);
 }
 
@@ -2858,8 +2857,8 @@ TEST_P(OopYUVToRGBPixelTest, CopyI420SharedImage) {
   gpu::RasterScopedAccess::EndAccess(std::move(src_ri_access));
   gpu::SyncToken sync_token =
       gpu::RasterScopedAccess::EndAccess(std::move(dest_ri_access));
-  sii->DestroySharedImage(sync_token, std::move(dest_client_si));
-  sii->DestroySharedImage(sync_token, std::move(yuv_client_si));
+  dest_client_si->UpdateDestructionSyncToken(sync_token);
+  yuv_client_si->UpdateDestructionSyncToken(sync_token);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -2940,8 +2939,8 @@ TEST_F(OopPixelTest, CopyNV12SharedImage) {
   gpu::RasterScopedAccess::EndAccess(std::move(src_ri_access));
   gpu::SyncToken sync_token =
       gpu::RasterScopedAccess::EndAccess(std::move(dest_ri_access));
-  sii->DestroySharedImage(sync_token, std::move(dest_client_si));
-  sii->DestroySharedImage(sync_token, std::move(y_uv_client_si));
+  dest_client_si->UpdateDestructionSyncToken(sync_token);
+  y_uv_client_si->UpdateDestructionSyncToken(sync_token);
 }
 #endif  // !BUILDFLAG(IS_ANDROID_EMULATOR)
 

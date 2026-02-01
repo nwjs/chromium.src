@@ -10,13 +10,11 @@ private let kSpacingAfterImage: CGFloat = 12
 
 // The half-sheet variation of the "Bring Android Tabs" prompt that uses the
 // ConfirmationAlertViewController as a template.
-// TODO(crbug.com/427169284): Replace @preconcurrency with @MainActor when all test bots
-// support this new syntax. @preconcurrency tells the Swift 6 compiler to do concurrency
-// chencking during the run-time instead of the compile time.
+@MainActor
 @objcMembers
 class BringAndroidTabsPromptConfirmationAlertViewController:
   ConfirmationAlertViewController,  // super class
-  @preconcurrency ConfirmationAlertActionHandler,  // protocol
+  @MainActor ConfirmationAlertActionHandler,  // protocol
   UIAdaptivePresentationControllerDelegate
 {
   // Delegate to handle user actions.
@@ -48,7 +46,7 @@ class BringAndroidTabsPromptConfirmationAlertViewController:
     // before calling the confirmation alert's `viewDidLoad`.
     self.image = UIImage(named: "bring_android_tabs_icon")
     self.imageHasFixedSize = true
-    self.customSpacingBeforeImageIfNoNavigationBar = kSpacingBeforeImage
+    self.customSpacingBeforeImage = kSpacingBeforeImage
     self.customSpacingAfterImage = kSpacingAfterImage
     self.titleString = L10nUtils.pluralString(
       messageId: IDS_IOS_BRING_ANDROID_TABS_PROMPT_TITLE,

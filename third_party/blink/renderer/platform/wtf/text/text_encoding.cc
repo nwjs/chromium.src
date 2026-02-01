@@ -37,11 +37,8 @@
 
 namespace blink {
 
-TextEncoding::TextEncoding(const char* name)
-    : name_(AtomicString(AtomicCanonicalTextEncodingName(name))) {}
-
-TextEncoding::TextEncoding(const String& name)
-    : name_(AtomicString(AtomicCanonicalTextEncodingName(name))) {}
+TextEncoding::TextEncoding(StringView name)
+    : name_(AtomicCanonicalTextEncodingName(name)) {}
 
 String TextEncoding::Decode(base::span<const uint8_t> data,
                             bool stop_on_error,
@@ -49,8 +46,9 @@ String TextEncoding::Decode(base::span<const uint8_t> data,
   if (!name_)
     return String();
 
-  return NewTextCodec(*this)->Decode(data, FlushBehavior::kDataEOF,
-                                     stop_on_error, saw_error);
+  std::unique_ptr<TextCodec> codec = NewTextCodec(*this);
+  CHECK(codec);
+  return codec->Decode(data, FlushBehavior::kDataEOF, stop_on_error, saw_error);
 }
 
 std::string TextEncoding::Encode(const StringView& string,
@@ -62,7 +60,8 @@ std::string TextEncoding::Encode(const StringView& string,
     return std::string();
 
   std::unique_ptr<TextCodec> text_codec = NewTextCodec(*this);
-  return VisitCharacters(string, [&text_codec, handling](auto chars) {
+  CHECK(text_codec);
+  return VisitCharacters(string, [&text_codec, handling](const auto& chars) {
     return text_codec->Encode(chars, handling);
   });
 }
@@ -71,8 +70,10 @@ bool TextEncoding::UsesVisualOrdering() const {
   if (NoExtendedTextEncodingNameUsed())
     return false;
 
-  static const char* const kA = AtomicCanonicalTextEncodingName("ISO-8859-8");
-  return name_ == kA;
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      AtomicString, canonical_8859_8,
+      (AtomicCanonicalTextEncodingName("ISO-8859-8")));
+  return name_ == canonical_8859_8;
 }
 
 bool TextEncoding::IsNonByteBasedEncoding() const {

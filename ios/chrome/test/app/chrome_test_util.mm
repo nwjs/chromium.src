@@ -81,6 +81,9 @@ ProfileIOS* GetProfile(bool incognito) {
   return incognito ? profile->GetOffTheRecordProfile() : profile;
 }
 
+// When present, stores a browser that will override the one from SceneState.
+Browser* gMainBrowserOverride;
+
 }  // namespace
 
 namespace chrome_test_util {
@@ -113,7 +116,14 @@ ProfileIOS* GetCurrentIncognitoProfile() {
   return GetProfile(true);
 }
 
+void SetMainBrowserOverride(Browser* browser) {
+  gMainBrowserOverride = browser;
+}
+
 Browser* GetMainBrowser() {
+  if (gMainBrowserOverride) {
+    return gMainBrowserOverride;
+  }
   return GetForegroundActiveScene()
       .browserProviderInterface.mainBrowserProvider.browser;
 }
@@ -145,14 +155,14 @@ UIViewController* GetActiveViewController() {
   return active_view_controller;
 }
 
-id<ApplicationCommands,
+id<SceneCommands,
    BrowserCommands,
    BrowserCoordinatorCommands,
    CountryCodePickerCommands,
    UnitConversionCommands,
    DriveFilePickerCommands>
 HandlerForActiveBrowser() {
-  return static_cast<id<ApplicationCommands, BrowserCommands,
+  return static_cast<id<SceneCommands, BrowserCommands,
                         BrowserCoordinatorCommands, UnitConversionCommands,
                         CountryCodePickerCommands, DriveFilePickerCommands>>(
       GetMainBrowser()->GetCommandDispatcher());

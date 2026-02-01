@@ -4,6 +4,7 @@
 
 #include "services/viz/public/cpp/compositing/begin_frame_args_mojom_traits.h"
 
+#include "base/notreached.h"
 #include "mojo/public/cpp/base/time_mojom_traits.h"
 #include "services/viz/public/cpp/crash_keys.h"
 
@@ -86,5 +87,21 @@ bool StructTraits<viz::mojom::BeginFrameAckDataView, viz::BeginFrameAck>::Read(
   out->has_damage = data.has_damage();
   return true;
 }
+
+#if BUILDFLAG(IS_MAC)
+// static
+bool StructTraits<viz::mojom::CADisplayLinkParamsDataView,
+                  viz::CADisplayLinkParams>::
+    Read(viz::mojom::CADisplayLinkParamsDataView data,
+         viz::CADisplayLinkParams* out) {
+  if (!data.ReadTimestamp(&out->timestamp) ||
+      !data.ReadTargetTimestamp(&out->target_timestamp) ||
+      !data.ReadInterval(&out->interval)) {
+    return false;
+  }
+  out->display_id = data.display_id();
+  return true;
+}
+#endif
 
 }  // namespace mojo

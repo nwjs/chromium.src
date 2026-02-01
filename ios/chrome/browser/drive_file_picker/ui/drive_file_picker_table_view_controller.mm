@@ -40,7 +40,7 @@ constexpr CGFloat kCellVerticalMarginsText = 12.0;
 constexpr CGFloat kCellVerticalMarginsTextAndSecondaryText = 8.0;
 constexpr CGFloat kCellTextToSecondaryTextVerticalPadding = 4.0;
 
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
 constexpr CGFloat kTitleLogoSpacing = 3.0;
 constexpr CGFloat kLogoTitleFontMultiplier = 1.75;
 
@@ -699,8 +699,16 @@ void SetSearchBarText(UISearchBar* searchBar, NSString* text) {
   cell.contentConfiguration = driveFilePickerContentConfiguration;
 
   // Set up background.
-  UIBackgroundConfiguration* backgroundConfiguration =
-      [UIBackgroundConfiguration listGroupedCellConfiguration];
+  UIBackgroundConfiguration* backgroundConfiguration;
+  if (@available(iOS 18.0, *)) {
+    backgroundConfiguration = [UIBackgroundConfiguration listCellConfiguration];
+  }
+#if !defined(__IPHONE_18_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_18_0
+  else {
+    backgroundConfiguration =
+        [UIBackgroundConfiguration listGroupedCellConfiguration];
+  }
+#endif
   backgroundConfiguration.backgroundColor =
       [UIColor colorNamed:kGroupedSecondaryBackgroundColor];
   cell.backgroundConfiguration = backgroundConfiguration;
@@ -750,7 +758,7 @@ void SetSearchBarText(UISearchBar* searchBar, NSString* text) {
 }
 
 - (void)setRootTitle {
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   BOOL darkModeEnabled =
       (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
   self.navigationItem.titleView = CreateGoogleDriveImageView(darkModeEnabled);

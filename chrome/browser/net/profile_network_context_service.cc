@@ -42,7 +42,6 @@
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
-#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/sct_reporting_service.h"
 #include "chrome/browser/ssl/sct_reporting_service_factory.h"
@@ -60,6 +59,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/embedder_support/pref_names.h"
 #include "components/embedder_support/switches.h"
@@ -166,6 +166,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+#include "chrome/browser/signin/bound_session_credentials/unexportable_key_provider_config.h"  // nogncheck
 #include "chrome/browser/signin/bound_session_credentials/unexportable_key_service_factory.h"  // nogncheck
 #include "components/unexportable_keys/mojom/unexportable_key_service.mojom.h"  // nogncheck
 #include "components/unexportable_keys/mojom/unexportable_key_service_proxy_impl.h"  // nogncheck
@@ -252,6 +253,13 @@ bool IsContentSettingsTypeEnabled(ContentSettingsType type) {
       return content_settings::CookieSettings::GetContentSettingsTypes()
           .contains(type);
   }
+}
+
+void FlushClientCertCache(Profile* profile) {
+  profile->ForEachLoadedStoragePartition(
+      [](content::StoragePartition* storage_partition) {
+        storage_partition->GetNetworkContext()->FlushClientCertCache();
+      });
 }
 
 void UpdateCookieSettings(Profile* profile, ContentSettingsType type) {
@@ -672,15 +680,6 @@ void ProfileNetworkContextService::OnMitigationsEnabledFor3pcdChanged(
       [&](content::StoragePartition* storage_partition) {
         storage_partition->GetCookieManagerForBrowserProcess()
             ->SetMitigationsEnabledFor3pcd(enable);
-      });
-}
-
-void ProfileNetworkContextService::OnTrackingProtectionEnabledFor3pcdChanged(
-    bool enable) {
-  profile_->ForEachLoadedStoragePartition(
-      [&](content::StoragePartition* storage_partition) {
-        storage_partition->GetCookieManagerForBrowserProcess()
-            ->SetTrackingProtectionEnabledFor3pcd(enable);
       });
 }
 
@@ -1173,9 +1172,8 @@ ProfileNetworkContextService::CreateCookieManagerParams(
   out->mitigations_enabled_for_3pcd =
       cookie_settings.MitigationsEnabledFor3pcd();
 
-  out->tracking_protection_enabled_for_3pcd =
-      TrackingProtectionSettingsFactory::GetForProfile(profile)
-          ->IsTrackingProtection3pcdEnabled();
+  out->tracking_protection_enabled_for_3pcd = base::FeatureList::IsEnabled(
+      content_settings::features::kTrackingProtection3pcd);
 
   return out;
 }
@@ -1408,6 +1406,14 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         ->AddCookieEncryptionManagerToNetworkContextParams(
             network_context_params);
 
+#if BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
+    if (enterprise_encryption::ShouldEncryptHttpCache(profile_->GetPrefs())) {
+      g_browser_process->system_network_context_manager()
+          ->AddCacheEncryptionProviderToNetworkContextParams(
+              network_context_params);
+    }
+#endif  // BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
+
     network_context_params->file_paths->trust_token_database_name =
         base::FilePath(chrome::kTrustTokenFilename);
 
@@ -1529,16 +1535,6 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
       GetCertificatePolicy(GetPartitionPath(relative_partition_path));
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Disable idle sockets close on memory pressure if configured by finch or
-  // about://flags.
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kDisableIdleSocketsCloseOnMemoryPressure)) {
-    network_context_params->disable_idle_sockets_close_on_memory_pressure =
-        true;
-  }
-#endif
-
   network_context_params->reset_http_cache_backend =
       GetHttpCacheBackendResetParam(g_browser_process->local_state());
 
@@ -1592,6 +1588,13 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
 
   network_context_params->device_bound_sessions_enabled =
       base::FeatureList::IsEnabled(net::features::kDeviceBoundSessions);
+  // Restrict sessions on google.com and youtube.com so that we can run
+  // an experiment to understand their session's impact on Chrome's
+  // special cookie handling for these sites.
+  network_context_params->device_bound_sessions_restricted_sites =
+      std::vector<net::SchemefulSite>{
+          net::SchemefulSite(GURL("https://google.com")),
+          net::SchemefulSite(GURL("https://youtube.com"))};
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
   if (base::FeatureList::IsEnabled(net::features::kDeviceBoundSessions) &&
@@ -1603,10 +1606,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         receiver = uks_remote.InitWithNewPipeAndPassReceiver();
     unexportable_keys::UnexportableKeyServiceProxyImpl* uks =
         UnexportableKeyServiceFactory::
-            RecreateMojoProxyForProfileAndPurposeWithReceiver(
-                profile_,
-                UnexportableKeyServiceFactory::KeyPurpose::
-                    kDeviceBoundSessionCredentials,
+            RecreateMojoProxyForStoragePartitionPathAndPurposeWithReceiver(
+                profile_, relative_partition_path,
+                unexportable_keys::KeyPurpose::kDeviceBoundSessionCredentials,
                 std::move(receiver));
     if (uks) {
       network_context_params->bound_sessions_unexportable_key_service =
@@ -1645,6 +1647,9 @@ void ProfileNetworkContextService::OnContentSettingChanged(
   switch (content_type) {
     case ContentSettingsType::ANTI_ABUSE:
       UpdateAntiAbuseSettings(profile_);
+      break;
+    case ContentSettingsType::AUTO_SELECT_CERTIFICATE:
+      FlushClientCertCache(profile_);
       break;
     case ContentSettingsType::DEFAULT:
       UpdateAntiAbuseSettings(profile_);

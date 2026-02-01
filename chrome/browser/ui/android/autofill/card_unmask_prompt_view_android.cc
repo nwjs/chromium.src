@@ -18,7 +18,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/CardUnmaskBridge_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace autofill {
@@ -73,8 +73,8 @@ void CardUnmaskPromptViewAndroid::OnUserInput(JNIEnv* env,
                                               const std::u16string& cvc,
                                               const std::u16string& month,
                                               const std::u16string& year,
-                                              jboolean enable_fido_auth,
-                                              jboolean was_checkbox_visible) {
+                                              bool enable_fido_auth,
+                                              bool was_checkbox_visible) {
   controller_->OnUnmaskPromptAccepted(cvc, month, year, enable_fido_auth,
                                       was_checkbox_visible);
 }

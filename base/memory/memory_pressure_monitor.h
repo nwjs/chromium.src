@@ -6,9 +6,8 @@
 #define BASE_MEMORY_MEMORY_PRESSURE_MONITOR_H_
 
 #include "base/base_export.h"
-#include "base/functional/callback.h"
-#include "base/memory/memory_pressure_listener.h"
-#include "base/time/time.h"
+#include "base/functional/callback_forward.h"
+#include "base/memory/memory_pressure_level.h"
 
 namespace base {
 
@@ -41,8 +40,7 @@ enum class MemoryPressureMonitorTag {
 // all MemoryPressureListener instances via a callback.
 class BASE_EXPORT MemoryPressureMonitor {
  public:
-  using DispatchCallback =
-      base::RepeatingCallback<void(MemoryPressureLevel level)>;
+  using DispatchCallback = RepeatingCallback<void(MemoryPressureLevel level)>;
 
   MemoryPressureMonitor(const MemoryPressureMonitor&) = delete;
   MemoryPressureMonitor& operator=(const MemoryPressureMonitor&) = delete;
@@ -54,7 +52,7 @@ class BASE_EXPORT MemoryPressureMonitor {
 
   // Returns the currently observed memory pressure.
   virtual MemoryPressureLevel GetCurrentPressureLevel(
-      base::MemoryPressureMonitorTag tag) const = 0;
+      MemoryPressureMonitorTag tag) const = 0;
 
  protected:
   MemoryPressureMonitor();

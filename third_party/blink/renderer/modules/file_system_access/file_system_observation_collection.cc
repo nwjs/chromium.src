@@ -11,16 +11,21 @@
 namespace blink {
 
 // static
+const char FileSystemObservationCollection::kSupplementName[] =
+    "FileSystemObservationCollection";
+
+// static
 FileSystemObservationCollection* FileSystemObservationCollection::From(
     ExecutionContext* context) {
   DCHECK(context);
   DCHECK(context->IsContextThread());
 
   FileSystemObservationCollection* data =
-      context->GetFileSystemObservationCollection();
+      Supplement<ExecutionContext>::From<FileSystemObservationCollection>(
+          context);
   if (!data) {
     data = MakeGarbageCollected<FileSystemObservationCollection>(*context);
-    context->SetFileSystemObservationCollection(data);
+    Supplement<ExecutionContext>::ProvideTo(*context, data);
   }
 
   return data;
@@ -28,7 +33,7 @@ FileSystemObservationCollection* FileSystemObservationCollection::From(
 
 FileSystemObservationCollection::FileSystemObservationCollection(
     ExecutionContext& context)
-    : execution_context_(context) {}
+    : Supplement<ExecutionContext>(context), execution_context_(context) {}
 
 void FileSystemObservationCollection::AddObservation(
     FileSystemObserver* observer,
@@ -77,6 +82,7 @@ void FileSystemObservationCollection::RemoveObserver(
 void FileSystemObservationCollection::Trace(Visitor* visitor) const {
   visitor->Trace(observation_map_);
   visitor->Trace(execution_context_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 }  // namespace blink

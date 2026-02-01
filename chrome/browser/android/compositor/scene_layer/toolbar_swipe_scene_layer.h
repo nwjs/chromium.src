@@ -26,15 +26,15 @@ class ToolbarSwipeSceneLayer : public SceneLayer {
 
   void UpdateLayer(JNIEnv* env,
                    jint id,
-                   jboolean left_tab,
-                   jboolean can_use_live_layer,
+                   bool left_tab,
+                   bool can_use_live_layer,
                    jint default_background_color,
                    jfloat x,
                    jfloat y);
 
   void SetTabContentManager(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& jtab_content_manager);
+      const base::android::JavaRef<jobject>& jtab_content_manager);
 
   bool ShouldShowBackground() override;
 

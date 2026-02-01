@@ -36,8 +36,9 @@ enum class COMPONENT_EXPORT(COMPONENTS_DBUS) ResponseError {
 
 using Dictionary = std::map<std::string, dbus_utils::Variant>;
 
+using Results = base::expected<Dictionary, ResponseError>;
 using ResponseCallback = base::OnceCallback<void(
-    /*results=*/base::expected<Dictionary, ResponseError>)>;
+    /*results=*/Results)>;
 
 class COMPONENT_EXPORT(COMPONENTS_DBUS) Request {
  public:
@@ -96,6 +97,10 @@ class COMPONENT_EXPORT(COMPONENTS_DBUS) Request {
   // method on the request object, and the callback will not be run.
   ~Request();
 
+  // Don't run "Close" on destruction. Use this to allow the D-Bus request to
+  // outlive this Request object.
+  void Release();
+
  private:
   Request(scoped_refptr<dbus::Bus> bus, ResponseCallback callback);
 
@@ -119,6 +124,7 @@ class COMPONENT_EXPORT(COMPONENTS_DBUS) Request {
   dbus::ObjectPath request_object_path_;
   ResponseCallback callback_;
   std::string portal_service_name_;
+  bool released_ = false;
   base::WeakPtrFactory<Request> weak_ptr_factory_{this};
 };
 

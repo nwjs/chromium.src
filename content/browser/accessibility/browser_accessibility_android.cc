@@ -330,6 +330,7 @@ bool BrowserAccessibilityAndroid::IsCollection() const {
     case ax::mojom::Role::kMenu:
     case ax::mojom::Role::kMenuBar:
     case ax::mojom::Role::kMenuListPopup:
+    case ax::mojom::Role::kTabList:
       return true;
     default:
       return ui::IsTableLike(GetRole());
@@ -346,6 +347,7 @@ bool BrowserAccessibilityAndroid::IsCollectionItem() const {
     case ax::mojom::Role::kMenuItemCheckBox:
     case ax::mojom::Role::kMenuItemRadio:
     case ax::mojom::Role::kMenuListOption:
+    case ax::mojom::Role::kTab:
       return true;
     default:
       return ui::IsCellOrTableHeader(GetRole());
@@ -538,13 +540,13 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
     }
   }
 
-  // Allows users to select options in a listbox with touch interaction.
-  if (GetRole() == ax::mojom::Role::kListBoxOption) {
-    return true;
-  }
-
   while (parent) {
-    if (ui::IsControl(parent->GetRole()) && !IsFocusable()) {
+    // Generally, if a parent is a control (like a combobox) and the child isn't
+    // focusable, the child is hidden to reduce clutter.
+    // However, an exception is made for kListBoxOption so it remains exposed
+    // for touch interaction.
+    if (ui::IsControl(parent->GetRole()) && !IsFocusable() &&
+        GetRole() != ax::mojom::Role::kListBoxOption) {
       return false;
     }
 
@@ -1068,12 +1070,17 @@ std::u16string BrowserAccessibilityAndroid::GetValueForControl() const {
 std::u16string BrowserAccessibilityAndroid::GetHint() const {
   std::vector<std::u16string> strings;
 
-  // If we're returning the value as the main text, the name needs to be
-  // part of the hint.
-  if (ShouldExposeValueAsName(GetValueForControl()) &&
-      ComputeAndroidNameTo() == AndroidNameTo::kText) {
-    if (std::u16string name = GetNameAsString16(); !name.empty()) {
-      strings.push_back(name);
+  // TODO(accessibility): Remove this path once we roll out supplemental
+  // descriptions.
+  if (!base::FeatureList::IsEnabled(
+          features::kAccessibilityPopulateSupplementalDescriptionApi)) {
+    // If we're returning the value as the main text, the name needs to be
+    // part of the hint.
+    if (ShouldExposeValueAsName(GetValueForControl()) &&
+        ComputeAndroidNameTo() == AndroidNameTo::kText) {
+      if (std::u16string name = GetNameAsString16(); !name.empty()) {
+        strings.push_back(name);
+      }
     }
   }
 
@@ -1162,6 +1169,17 @@ std::u16string BrowserAccessibilityAndroid::GetSupplementalDescription() const {
   if (ComputeAndroidNameTo() == AndroidNameTo::kSupplementalDescription) {
     return GetNameAsString16();
   }
+
+  // The control's value has been promoted to the primary `text` field.
+  // In this situation, the accessible name (which was originally destined
+  // for `text`) should be demoted to `supplementalDescription`.
+  if (base::FeatureList::IsEnabled(
+          features::kAccessibilityPopulateSupplementalDescriptionApi) &&
+      ShouldExposeValueAsName(GetValueForControl()) &&
+      ComputeAndroidNameTo() == AndroidNameTo::kText) {
+    return GetNameAsString16();
+  }
+
   return u"";
 }
 
@@ -1853,18 +1871,63 @@ bool BrowserAccessibilityAndroid::Scroll(int direction,
 // form AXB and new_value_ to be of the form AYB, where X and Y are the pieces
 // that don't match. We take the X to be the "removed" characters and Y to be
 // the "added" characters.
-
+//
+// The above diff-based text change calculation is effective, except for text
+// committed by CJKV IMEs. For these IMEs, the actual text change for
+// accessibility services is the entire committed string, which may not align
+// with a minimal character-level diff. For example, if a composition "はn"
+// results in "はな", the committed text is "はな", not just "な".
+// Given: |' (cursor location in composition), X' (prior composition text),
+// | (cursor location after commit), X (committed text), A (prefix text),
+// B (postfix text) where the old value is A|'X'B, and the new value is AX|B,
+// the indices are derived as follows:
+// * fromIndex = location(|') = location(|) - len(X)
+// * addedCount = len(X)
+// * removedCount = len(X') = len(A|'X'B) - (len(AX|B) - len(X))
 int BrowserAccessibilityAndroid::GetTextChangeFromIndex() const {
+  if (::features::IsAccessibilityTextChangeTypesEnabled()) {
+    int committed_text_length =
+        node()->GetIntAttribute(ax::mojom::IntAttribute::kCommittedTextLength);
+    // If the text change is due to a IME text commit.
+    if (committed_text_length > 0) {
+      // Cursor should move to the end of committed text.
+      DCHECK_GE(GetSelectionStart() - committed_text_length, 0);
+      // This is current_cursor_location - len(X).
+      return GetSelectionStart() - committed_text_length;
+    }
+  }
+
   // This is len(A)
   return CommonPrefixLength(old_value_, new_value_);
 }
 
 int BrowserAccessibilityAndroid::GetTextChangeAddedCount() const {
+  if (::features::IsAccessibilityTextChangeTypesEnabled()) {
+    int committed_text_length =
+        node()->GetIntAttribute(ax::mojom::IntAttribute::kCommittedTextLength);
+    // If the text change is due to a IME text commit.
+    if (committed_text_length > 0) {
+      // This is len(X).
+      return committed_text_length;
+    }
+  }
+
   // This is len(AYB) - (len(A) + len(B)), or len(Y), the added characters.
   return new_value_.length() - CommonEndLengths(old_value_, new_value_);
 }
 
 int BrowserAccessibilityAndroid::GetTextChangeRemovedCount() const {
+  if (::features::IsAccessibilityTextChangeTypesEnabled()) {
+    int committed_text_length =
+        node()->GetIntAttribute(ax::mojom::IntAttribute::kCommittedTextLength);
+    // If the text change is due to a IME text commit.
+    if (committed_text_length > 0) {
+      // This is len(A|X'B)-(len(AX|B) - len(X))
+      return old_value_.length() -
+             (new_value_.length() - committed_text_length);
+    }
+  }
+
   // This is len(AXB) - (len(A) + len(B)), or len(X), the removed characters.
   return old_value_.length() - CommonEndLengths(old_value_, new_value_);
 }
@@ -2046,7 +2109,8 @@ int BrowserAccessibilityAndroid::ColumnCount() const {
       GetRole() == ax::mojom::Role::kListBox ||
       GetRole() == ax::mojom::Role::kMenu ||
       GetRole() == ax::mojom::Role::kMenuBar ||
-      GetRole() == ax::mojom::Role::kMenuListPopup) {
+      GetRole() == ax::mojom::Role::kMenuListPopup ||
+      GetRole() == ax::mojom::Role::kTabList) {
     ax_cols = 1;
   }
 
@@ -2089,6 +2153,30 @@ int BrowserAccessibilityAndroid::ColumnSpan() const {
   }
 
   return ax_col_span;
+}
+
+BrowserAccessibilityAndroid::AndroidSortDirection
+BrowserAccessibilityAndroid::GetSortDirection() const {
+  if (!HasIntAttribute(ax::mojom::IntAttribute::kSortDirection)) {
+    return ANDROID_SORT_DIRECTION_NONE;
+  }
+  CHECK(IsTableHeader());
+
+  auto sort_direction = static_cast<ax::mojom::SortDirection>(
+      GetIntAttribute(ax::mojom::IntAttribute::kSortDirection));
+
+  switch (sort_direction) {
+    case ax::mojom::SortDirection::kAscending:
+      return ANDROID_SORT_DIRECTION_ASCENDING;
+    case ax::mojom::SortDirection::kDescending:
+      return ANDROID_SORT_DIRECTION_DESCENDING;
+    case ax::mojom::SortDirection::kOther:
+      return ANDROID_SORT_DIRECTION_OTHER;
+    case ax::mojom::SortDirection::kNone:
+    case ax::mojom::SortDirection::kUnsorted:
+      NOTREACHED();
+  }
+  return ANDROID_SORT_DIRECTION_NONE;
 }
 
 float BrowserAccessibilityAndroid::RangeMin() const {
@@ -2584,13 +2672,13 @@ BrowserAccessibilityAndroid::ComputeAndroidNameTo() const {
         name_to_cache_ = AndroidNameTo::kText;
       }
       break;
+    case ax::mojom::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::NameFrom::kCssAltText:
     case ax::mojom::NameFrom::kPopoverTarget:
     case ax::mojom::NameFrom::kInterestFor:
       name_to_cache_ = AndroidNameTo::kContentDescription;
       break;
     case ax::mojom::NameFrom::kNone:
-    case ax::mojom::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::NameFrom::kCaption:
     case ax::mojom::NameFrom::kContents:
     case ax::mojom::NameFrom::kPlaceholder:

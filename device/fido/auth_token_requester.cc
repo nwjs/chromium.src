@@ -7,7 +7,6 @@
 #include <set>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
@@ -15,7 +14,7 @@
 #include "components/device_event_log/device_event_log.h"
 #include "device/fido/authenticator_supported_options.h"
 #include "device/fido/fido_authenticator.h"
-#include "device/fido/fido_constants.h"
+#include "device/fido/public/fido_constants.h"
 
 namespace device {
 
@@ -154,13 +153,12 @@ void AuthTokenRequester::OnGetUVRetries(
 void AuthTokenRequester::OnGetUVToken(
     CtapDeviceResponseCode status,
     std::optional<pin::TokenResponse> response) {
-  if (!base::Contains(
-          std::set<CtapDeviceResponseCode>{
-              CtapDeviceResponseCode::kCtap2ErrUvInvalid,
-              CtapDeviceResponseCode::kCtap2ErrOperationDenied,
-              CtapDeviceResponseCode::kCtap2ErrUvBlocked,
-              CtapDeviceResponseCode::kSuccess},
-          status)) {
+  if (!(std::set<CtapDeviceResponseCode>{
+            CtapDeviceResponseCode::kCtap2ErrUvInvalid,
+            CtapDeviceResponseCode::kCtap2ErrOperationDenied,
+            CtapDeviceResponseCode::kCtap2ErrUvBlocked,
+            CtapDeviceResponseCode::kSuccess})
+           .contains(status)) {
     // The request was rejected outright, no touch occurred.
     FIDO_LOG(ERROR) << "Ignoring status " << static_cast<int>(status)
                     << " from " << authenticator_->GetDisplayName();

@@ -48,6 +48,10 @@ class ActorOverlayHandler : public mojom::ActorOverlayPageHandler,
   // mojom::ActorOverlayPage:
   // Forwards the scrim background visibility to WebUI.
   void SetOverlayBackground(bool is_visible);
+  // Forwards the cursor coordinates to WebUI.
+  void MoveCursorTo(const gfx::Point& point, base::OnceClosure callback);
+  // Notifies WebUI to trigger a click animation at the current coordinate.
+  void TriggerClickAnimation(base::OnceClosure callback);
 
   // Forwards the border glow visibility to WebUI.
   void SetBorderGlowVisibility(bool is_visible);

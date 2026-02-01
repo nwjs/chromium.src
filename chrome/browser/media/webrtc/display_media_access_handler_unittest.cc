@@ -31,7 +31,6 @@
 #include "media/audio/audio_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
-#include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -378,7 +377,9 @@ TEST_F(DisplayMediaAccessHandlerTest, OverMaxLengthDomainRejected) {
   ProcessRequest(content::DesktopMediaID(content::DesktopMediaID::TYPE_WINDOW,
                                          content::DesktopMediaID::kFakeId),
                  &result, devices, false /* request_audio */);
-  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::INVALID_STATE, result);
+  EXPECT_EQ(blink::mojom::MediaStreamRequestResult::
+                CAPTURE_NOT_ALLOWED_FOR_LONG_DOMAINS,
+            result);
 }
 
 class DisplayMediaAccessHandlerActiveRfhTest

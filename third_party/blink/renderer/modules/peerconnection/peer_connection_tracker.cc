@@ -473,13 +473,17 @@ class InternalStandardStatsObserver : public webrtc::RTCStatsCollectorCallback {
   CrossThreadOnceFunction<void(int, base::Value::List)> completion_callback_;
 };
 
+// static
+const char PeerConnectionTracker::kSupplementName[] = "PeerConnectionTracker";
+
 PeerConnectionTracker& PeerConnectionTracker::From(LocalDOMWindow& window) {
-  PeerConnectionTracker* tracker = window.GetPeerConnectionTracker();
+  PeerConnectionTracker* tracker =
+      Supplement<LocalDOMWindow>::From<PeerConnectionTracker>(window);
   if (!tracker) {
     tracker = MakeGarbageCollected<PeerConnectionTracker>(
         window, window.GetTaskRunner(TaskType::kNetworking),
         base::PassKey<PeerConnectionTracker>());
-    window.SetPeerConnectionTracker(tracker);
+    ProvideTo(window, tracker);
   }
   return *tracker;
 }
@@ -509,7 +513,7 @@ PeerConnectionTracker::PeerConnectionTracker(
     LocalDOMWindow& window,
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
     base::PassKey<PeerConnectionTracker>)
-    : local_dom_window_(window),
+    : Supplement<LocalDOMWindow>(window),
       // Do not set a lifecycle notifier for `peer_connection_tracker_host_` to
       // ensure that its mojo pipe stays alive until the execution context is
       // destroyed. `RTCPeerConnection`, which owns a `RTCPeerConnectionHandler`
@@ -530,7 +534,7 @@ PeerConnectionTracker::PeerConnectionTracker(
 PeerConnectionTracker::PeerConnectionTracker(
     mojo::PendingRemote<blink::mojom::blink::PeerConnectionTrackerHost> host,
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner)
-    : local_dom_window_(nullptr),
+    : Supplement(nullptr),
       peer_connection_tracker_host_(nullptr),
       receiver_(this, nullptr),
       main_thread_task_runner_(std::move(main_thread_task_runner)) {
@@ -543,8 +547,8 @@ void PeerConnectionTracker::Bind(
     mojo::PendingReceiver<blink::mojom::blink::PeerConnectionManager>
         receiver) {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
-  receiver_.Bind(std::move(receiver),
-                 local_dom_window_->GetTaskRunner(TaskType::kMiscPlatformAPI));
+  receiver_.Bind(std::move(receiver), GetSupplementable()->GetTaskRunner(
+                                          TaskType::kMiscPlatformAPI));
 }
 
 void PeerConnectionTracker::OnSuspend() {
@@ -556,8 +560,7 @@ void PeerConnectionTracker::OnSuspend() {
       peer_connection_local_id_map_;
   for (const auto& pair : peer_connection_map_copy) {
     RTCPeerConnectionHandler* peer_connection_handler = pair.key;
-    if (!base::Contains(peer_connection_local_id_map_,
-                        peer_connection_handler)) {
+    if (!peer_connection_local_id_map_.Contains(peer_connection_handler)) {
       // Skip peer connections that have been unregistered during this method
       // call. Avoids use-after-free.
       continue;

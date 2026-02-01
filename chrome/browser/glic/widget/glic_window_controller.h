@@ -15,18 +15,22 @@
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
 #include "base/scoped_observation_traits.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "build/build_config.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/public/glic_close_options.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
-#include "chrome/browser/glic/widget/local_hotkey_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/views/widget/widget.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/widget/local_hotkey_manager.h"
+#endif
 
 class Browser;
 
@@ -48,6 +52,11 @@ class GlicWidget;
 class GlicKeyedService;
 enum class AttachChangeReason;
 
+struct ConversationInfo {
+  std::string id;
+  std::string title;
+};
+
 // MIGRATION IN PROGRESS - WARNING
 //
 // GlicWindowController is a misleading name!
@@ -67,6 +76,13 @@ class GlicWindowController {
   virtual std::vector<GlicInstance*> GetInstances() = 0;
   virtual GlicInstance* GetInstanceForTab(
       const tabs::TabInterface* tab) const = 0;
+  virtual void CreateNewConversationForTabs(
+      const std::vector<tabs::TabInterface*>& tabs) = 0;
+  virtual void MoveTabsToConversation(
+      const std::vector<tabs::TabInterface*>& tabs,
+      const std::string& conversation_id) = 0;
+  virtual std::vector<ConversationInfo> GetRecentConversations(
+      size_t limit) = 0;
 
   // Show, summon, or activate the panel if needed, or close it if it's already
   // active and prevent_close is false.
@@ -84,7 +100,7 @@ class GlicWindowController {
   virtual void Shutdown() = 0;
 
   // Close the panel but keep the glic WebContents alive in the background.
-  virtual void Close() = 0;
+  virtual void Close(const CloseOptions& options) = 0;
   // Closes the active embedder of an instance with matching render_frame_host
   // without resetting webcontents.
   virtual void CloseInstanceWithFrame(
@@ -93,7 +109,8 @@ class GlicWindowController {
   // with resetting webcontents.
   virtual void CloseAndShutdownInstanceWithFrame(
       content::RenderFrameHost* render_frame_host) = 0;
-
+  virtual void ArchiveInstanceWithFrame(
+      content::RenderFrameHost* render_frame_host) = 0;
   // Returns wehether or not the glic window is currently showing detached.
   // When True |GetGlicWidget| will return a valid ptr.
   virtual bool IsDetached() const = 0;
@@ -200,7 +217,6 @@ class GlicWindowControllerInterface : public GlicWindowController,
   // On Windows make sure that the client area size remains the same even if
   // the widget size changes because the widget is resizable.
   virtual void MaybeSetWidgetCanResize() = 0;
-
 };
 
 }  // namespace glic

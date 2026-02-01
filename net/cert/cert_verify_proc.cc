@@ -285,25 +285,10 @@ void RecordTrustAnchorHistogram(const std::vector<SHA256HashValue>& spki_hashes,
     return false;
   }
 
-  switch (*cert_algorithm) {
-    case bssl::SignatureAlgorithm::kRsaPkcs1Sha1:
-    case bssl::SignatureAlgorithm::kEcdsaSha1:
-      verify_result->has_sha1 = true;
-      return true;  // For now.
-
-    case bssl::SignatureAlgorithm::kRsaPkcs1Sha256:
-    case bssl::SignatureAlgorithm::kRsaPkcs1Sha384:
-    case bssl::SignatureAlgorithm::kRsaPkcs1Sha512:
-    case bssl::SignatureAlgorithm::kEcdsaSha256:
-    case bssl::SignatureAlgorithm::kEcdsaSha384:
-    case bssl::SignatureAlgorithm::kEcdsaSha512:
-    case bssl::SignatureAlgorithm::kRsaPssSha256:
-    case bssl::SignatureAlgorithm::kRsaPssSha384:
-    case bssl::SignatureAlgorithm::kRsaPssSha512:
-      return true;
-  }
-
-  NOTREACHED();
+  verify_result->has_sha1 =
+      *cert_algorithm == bssl::SignatureAlgorithm::kRsaPkcs1Sha1 ||
+      *cert_algorithm == bssl::SignatureAlgorithm::kEcdsaSha1;
+  return true;
 }
 
 // InspectSignatureAlgorithmsInChain() sets |verify_result->has_*| based on
@@ -420,11 +405,12 @@ scoped_refptr<CertVerifyProc> CertVerifyProc::CreateBuiltinWithChromeRootStore(
     std::unique_ptr<CTVerifier> ct_verifier,
     scoped_refptr<CTPolicyEnforcer> ct_policy_enforcer,
     const ChromeRootStoreData* root_store_data,
+    const ChromeRootStoreMtcMetadata* root_store_mtc_metadata,
     const InstanceParams instance_params,
     std::optional<network_time::TimeTracker> time_tracker) {
   std::unique_ptr<TrustStoreChrome> chrome_root =
-      root_store_data ? std::make_unique<TrustStoreChrome>(*root_store_data)
-                      : std::make_unique<TrustStoreChrome>();
+      std::make_unique<TrustStoreChrome>(root_store_data,
+                                         root_store_mtc_metadata);
   return CreateCertVerifyProcBuiltin(
       std::move(cert_net_fetcher), std::move(crl_set), std::move(ct_verifier),
       std::move(ct_policy_enforcer),

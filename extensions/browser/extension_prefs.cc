@@ -2299,10 +2299,6 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterListPref(pref_names::kInitialInstallList);
   registry->RegisterStringPref(pref_names::kInitialInstallProviderName,
                                /*default_value=*/std::string());
-
-  registry->RegisterBooleanPref(
-      pref_names::kExtensionForceInstallWithNonMalwareViolationsEnabled,
-      /*default_value=*/false);
 }
 
 template <class ExtensionIdContainer>
@@ -2520,6 +2516,8 @@ void ExtensionPrefs::FinishExtensionInfoPrefs(
   // Clear state that may be registered from a previous install.
   extension_dict->Remove(EventRouter::kRegisteredLazyEvents);
   extension_dict->Remove(EventRouter::kRegisteredServiceWorkerEvents);
+  extension_dict->Remove(EventRouter::kFilteredEvents);
+  extension_dict->Remove(EventRouter::kFilteredServiceWorkerEvents);
   extension_dict->Remove(WebRequestEventRouter::kFilteredLazyListeners);
 
   // FYI, all code below here races on sudden shutdown because |extension_dict|,

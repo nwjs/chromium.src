@@ -356,183 +356,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAsyncQuicSession);
 // A flag to make multiport context creation asynchronous.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncMultiPortPath);
 
-// Enables custom proxy configuration for the IP Protection experimental proxy.
-NET_EXPORT BASE_DECLARE_FEATURE(kEnableIpProtectionProxy);
-
-// Sets the name of the IP protection auth token server.
-NET_EXPORT extern const base::FeatureParam<std::string> kIpPrivacyTokenServer;
-
-// Sets the path component of the IP protection auth token server URL used for
-// getting initial token signing data.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyTokenServerGetInitialDataPath;
-
-// Sets the path component of the IP protection auth token server URL used for
-// getting blind-signed tokens.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyTokenServerGetTokensPath;
-
-// Sets the path component of the IP protection auth token server URL used for
-// getting proxy configuration.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyTokenServerGetProxyConfigPath;
-
-// Sets the batch size to fetch new auth tokens for IP protection.
-NET_EXPORT extern const base::FeatureParam<int>
-    kIpPrivacyAuthTokenCacheBatchSize;
-
-// Sets the cache low-water-mark for auth tokens for IP protection.
-NET_EXPORT extern const base::FeatureParam<int>
-    kIpPrivacyAuthTokenCacheLowWaterMark;
-
-// Sets the normal time between fetches of the IP protection proxy list.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyProxyListFetchInterval;
-
-// Sets the minimum time between fetches of the IP protection proxy list, such
-// as when a re-fetch is forced due to an error.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyProxyListMinFetchInterval;
-
-// Fetches of the IP Protection proxy list will have a random time in the range
-// of plus or minus this delta added to their interval.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyProxyListFetchIntervalFuzz;
-
-// Overrides the ProxyA hostname normally set by the proxylist fetch.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyProxyAHostnameOverride;
-
-// Overrides the ProxyB hostname normally set by the proxylist fetch.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyProxyBHostnameOverride;
-
-// Controls whether IP Protection _proxying_ is bypassed by not including any
-// of the proxies in the proxy list. This supports experimental comparison of
-// connections that _would_ have been proxied, but were not.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyDirectOnly;
-
-// If true, pass OAuth token to Phosphor in GetProxyConfig API for IP
-// Protection. This is used by E2E tests to ensure a stable geo for tokens
-// and proxy config.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyIncludeOAuthTokenInGetProxyConfig;
-
-// Controls whether a header ("IP-Protection: 1") should be added to proxied
-// network requests.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyAddHeaderToProxiedRequests;
-
-// Token expirations will have a random time between 5 seconds and this delta
-// subtracted from their expiration, in order to even out the load on the token
-// servers.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyExpirationFuzz;
-
-// Backoff time applied when fetching tokens from the IP Protection auth
-// token server encounters an error indicating that the primary account is not
-// eligible (e.g., user is signed in but not eligible for IP protection) or
-// a 403 (FORBIDDEN) status code (e.g., quota exceeded).
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyTryGetAuthTokensNotEligibleBackoff;
-
-// Backoff time applied when fetching tokens from the IP Protection auth
-// token server encounters a transient error, such as a failure to fetch
-// an OAuth token for a primary account or a network issue.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyTryGetAuthTokensTransientBackoff;
-
-// Backoff time applied when fetching tokens from the IP Protection auth
-// token server encounters a 400 (BAD REQUEST) or 401 (UNAUTHORIZED) status code
-// which suggests a bug.
-NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kIpPrivacyTryGetAuthTokensBugBackoff;
-
-// Jitter (as a percentage) to apply to backoff time calculations.
-NET_EXPORT extern const base::FeatureParam<double> kIpPrivacyBackoffJitter;
-
-// If true, only proxy traffic when the top-level site uses the http:// or
-// https:// schemes. This prevents attempts to proxy from top-level sites with
-// chrome://, chrome-extension://, or other non-standard schemes, in addition to
-// top-level sites using less common schemes like blob:// and data://.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyRestrictTopLevelSiteSchemes;
-
-// If true, IP protection will attempt to use QUIC to connect to proxies,
-// falling back to HTTPS.  If false, it will only use HTTPs.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxies;
-
-// If true, IP protection will only use QUIC to connect to proxies, with no
-// fallback to HTTPS. This is intended for development of the QUIC
-// functionality.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseQuicProxiesOnly;
-
-// Fallback to direct when connections to IP protection proxies fail. This
-// defaults to true and is intended for development of the QUIC functionality.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyFallbackToDirect;
-
-// Identifier for an experiment arm, to be sent to IP Protection proxies and the
-// token server in the `Ip-Protection-Debug-Experiment-Arm` header. The default
-// value, 0, is not sent.
-NET_EXPORT extern const base::FeatureParam<int> kIpPrivacyDebugExperimentArm;
-
-// When enabled and an IP protection delegate can be be created in the
-// `NetworkContext`, a `IpProtectionProxyDelegate` will ALWAYS be created even
-// for `NetworkContexts` that do not participate in IP protection. This is
-// necessary for the WebView traffic experiment. By default, this feature param
-// is false and will not create a delegate when IP protection is not enabled.
-// Further, this also prevents the unnecessary instantiation of the
-// `IpProtectionCore` for a `NetworkContext` that does not participate in IP
-// protection.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyAlwaysCreateCore;
-
-// Enables IP protection in incognito mode only. The default value of this
-// feature is false, which maintains the existing behavior when
-// `kEnableIpProtectionProxy` is enabled, IPP is enabled in both regular and
-// incognito browsing sessions. When set to true, the main profile Network
-// Context won't proxy traffic using IP Protection.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyOnlyInIncognito;
-
-// Enables the ability to detect when a user has requests being actively
-// proxied by IP Protection and thus allowing the user to made aware and offer
-// the ability to bypass IP Protection via the User Bypass UX.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyEnableUserBypass;
-
-// If true, IP Protection will be disabled by default for enterprise users.
-// Otherwise, IP Protection will be enabled by default for enterprise users (but
-// can still be opted out of via enterprise policy). This is intended to be used
-// as a kill-switch in case significant enterprise breakage is encountered
-// during the IP Protection rollout. Note that this has no effect unless the
-// `kEnableIpProtectionProxy` feature is enabled.
-// TODO(https://crbug.com/41496985): Remove this feature a few milestones after
-// launch assuming no major enterprise breakage is encountered.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyDisableForEnterpriseByDefault;
-
-// Enables the ability for IP Protected requests to be marked and inspected
-// within the DevTools panel. Requests sent through IP Protection will include
-// an icon besides the Network entry, as well as be able to be filtered within
-// the Network panel. Tracked at https://crbug.com/425645896.
-NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyEnableIppInDevTools;
-
-// Enables the ability for IP protection features to be gated in the Privacy
-// and Security Panel within DevTools. When this flag is enabled, the IP
-// Protection section will be shown in the Privacy and Security section of the
-// DevTools panel allowing users to view proxied requests and bypass IP
-// Protection locally.
-// Do not remove or enable this flag for all users until crbug.com/442349180
-// is resolved.
-NET_EXPORT extern const base::FeatureParam<bool>
-    kIpPrivacyEnableIppPanelInDevTools;
-
-// A comma-separated list of domains (eTLD+1) for which all requests will be
-// proxied.
-NET_EXPORT extern const base::FeatureParam<std::string>
-    kIpPrivacyUnconditionalProxyDomainList;
-
-// Enables more advanced handling of IP Protection proxy request failures.
-NET_EXPORT BASE_DECLARE_FEATURE(kEnableIpPrivacyProxyAdvancedFallbackLogic);
-
 // Maximum report body size (KB) to include in serialized reports. Bodies
 // exceeding this are omitted when kExcludeLargeBodyReports is enabled.  Use
 // Reporting.ReportBodySize UMA histogram to monitor report body sizes and
@@ -653,6 +476,20 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
 // quota, and has associated signing caching for refreshes.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionSigningQuotaAndCaching);
 
+// This feature controls whether DBSC is allowed to register sessions on
+// a certain list of sites, as specified in
+// `device_bound_sessions_restricted_sites` in the
+// `NetworkContextParams`.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsForRestrictedSites);
+
+// This feature controls whether we add a query param to registration on
+// restricted sites.
+NET_EXPORT BASE_DECLARE_FEATURE(
+    kDeviceBoundSessionsForRestrictedSitesExperimentId);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    std::string,
+    kDeviceBoundSessionsForRestrictedSitesExperimentIdParam);
+
 // Enables more checks when creating a SpdySession for proxy. These checks are
 // already applied to non-proxy SpdySession creations.
 // TODO(crbug.com/343519247): Remove this once we are sure that these checks are
@@ -674,6 +511,12 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSimdutfBase64Support);
 
 // Further optimize parsing data: URLs.
 NET_EXPORT BASE_DECLARE_FEATURE(kFurtherOptimizeParsingDataUrls);
+
+// Preserve MIME type parameters in data: URLs for WPT compliance.
+// When enabled, non-charset parameters (e.g., "boundary=xxx") are preserved
+// in the Content-Type header, and quoted parameter values are properly
+// normalized. See https://fetch.spec.whatwg.org/#data-url-processor
+NET_EXPORT BASE_DECLARE_FEATURE(kDataUrlMimeTypeParameterPreservation);
 
 // If enabled, unrecognized keys in a No-Vary-Search header will be ignored.
 // Otherwise, unrecognized keys are treated as if the header was invalid.
@@ -910,6 +753,20 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAddAutomaticWithDohFallbackMode);
 // If true, a CONNECT-UDP response is not needed to start sending datagrams.
 NET_EXPORT BASE_DECLARE_FEATURE(
     kUseQuicProxiesWithoutWaitingForConnectResponse);
+
+// If enabled, the configured bootstrap IP addresses of DoH providers will
+// be randomized for better load balancing of the initial DoH URL lookups.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableBootstrapIPRandomizationForDoh);
+
+#if BUILDFLAG(IS_APPLE)
+// If enabled, the GURL conversion for NSURLs will use the data representation
+// of the URL if it differs from the absolute string.
+NET_EXPORT BASE_DECLARE_FEATURE(kUseNSURLDataForGURLConversion);
+#endif  // BUILDFLAG(IS_APPLE)
+
+// Controls whether X509Util on Android (Cronet, and WebView only) should use
+// lock-free certificate verification mechanism.
+NET_EXPORT BASE_DECLARE_FEATURE(kUseLockFreeX509Verification);
 
 }  // namespace net::features
 

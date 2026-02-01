@@ -19,6 +19,7 @@
 #include "services/webnn/ort/platform_functions_ort.h"
 #include "services/webnn/ort/scoped_ort_types.h"
 #include "services/webnn/ort/tensor_impl_ort.h"
+#include "services/webnn/public/cpp/execution_providers_info.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
@@ -27,6 +28,29 @@
 #include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_c_api.h"
 
 namespace webnn::ort {
+
+namespace {
+
+std::optional<uint32_t> GetBatchedMatMulKDimensionLimit(
+    const OrtEpDevice* first_selected_device) {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
+
+  const char* ep_name = ort_api->EpDevice_EpName(first_selected_device);
+  const auto iter = kKnownEPs.find(UNSAFE_BUFFERS(base::cstring_view(ep_name)));
+  if (iter == kKnownEPs.end()) {
+    return std::nullopt;
+  }
+
+  OrtHardwareDeviceType hardware_device_type = ort_api->HardwareDevice_Type(
+      ort_api->EpDevice_Device(first_selected_device));
+  if (hardware_device_type != OrtHardwareDeviceType_NPU) {
+    return std::nullopt;
+  }
+
+  return iter->second.workarounds.npu_batched_matmul_k_dimension_limit;
+}
+
+}  // namespace
 
 // Represents the collection of resources associated with a particular graph.
 // These resources may outlive their associated `GraphImplOrt` instance while
@@ -51,10 +75,11 @@ class GraphImplOrt::ComputeResources {
 
   ~ComputeResources() = default;
 
-  void OrtRunSync(base::flat_map<std::string, scoped_refptr<WebNNTensorImpl>>
-                      named_input_tensors,
-                  base::flat_map<std::string, scoped_refptr<WebNNTensorImpl>>
-                      named_output_tensors) {
+  ScopedOrtStatus OrtRunSync(
+      base::flat_map<std::string, scoped_refptr<WebNNTensorImpl>>
+          named_input_tensors,
+      base::flat_map<std::string, scoped_refptr<WebNNTensorImpl>>
+          named_output_tensors) {
     SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.Inference");
 
     ScopedTrace scoped_trace("GraphImplOrt::ComputeResources::OrtRunSync");
@@ -81,11 +106,10 @@ class GraphImplOrt::ComputeResources {
     }
 
     const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
-    // TODO(crbug.com/433543131): Handle the inference error of MLGraph.
-    CALL_ORT_FUNC(ort_api->Run(session_.get(), nullptr, input_names.data(),
-                               input_tensors.data(), input_names.size(),
-                               output_names.data(), output_names.size(),
-                               output_tensors.data()));
+    return CALL_ORT_FUNC(ort_api->Run(
+        session_.get(), nullptr, input_names.data(), input_tensors.data(),
+        input_names.size(), output_names.data(), output_names.size(),
+        output_tensors.data()));
   }
 
  private:
@@ -119,7 +143,7 @@ void GraphImplOrt::CreateAndBuild(
 
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
-      {base::TaskPriority::USER_BLOCKING,
+      {base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN, base::MayBlock()},
       base::BindOnce(&GraphImplOrt::CreateAndBuildOnBackgroundThread,
                      std::move(graph_info), context->session_options(),
@@ -143,10 +167,13 @@ GraphImplOrt::CreateAndBuildOnBackgroundThread(
   SCOPED_UMA_HISTOGRAM_TIMER("WebNN.ORT.TimingMs.Compilation");
 
   scoped_trace.AddStep("Create model info");
-  std::unique_ptr<ModelEditor::ModelInfo> model_info =
-      GraphBuilderOrt::CreateAndBuild(*graph_info,
-                                      std::move(context_properties),
-                                      std::move(constant_operands));
+  std::optional<uint32_t> batched_matmul_k_dimension_limit =
+      GetBatchedMatMulKDimensionLimit(session_options->first_selected_device());
+  ASSIGN_OR_RETURN(std::unique_ptr<ModelEditor::ModelInfo> model_info,
+                   GraphBuilderOrt::CreateAndBuild(
+                       *graph_info, std::move(context_properties),
+                       std::move(constant_operands),
+                       std::move(batched_matmul_k_dimension_limit)));
 
   scoped_trace.AddStep("Create session from model");
   ScopedOrtSession session;
@@ -210,10 +237,16 @@ void GraphImplOrt::DispatchImpl(
         named_input_tensors,
     base::flat_map<std::string, scoped_refptr<WebNNTensorImpl>>
         named_output_tensors) {
+  const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
   // Ort runs the graph on its own thread, so this call blocks until execution
   // completes.
-  compute_resources_->OrtRunSync(std::move(named_input_tensors),
-                                 std::move(named_output_tensors));
+  ScopedOrtStatus status = compute_resources_->OrtRunSync(
+      std::move(named_input_tensors), std::move(named_output_tensors));
+  if (status.is_valid()) {
+    static_cast<ContextImplOrt*>(context_.get())
+        ->HandleContextLostOrCrash("Failed to run session.",
+                                   ort_api->GetErrorCode(status.get()));
+  }
 }
 
 }  // namespace webnn::ort

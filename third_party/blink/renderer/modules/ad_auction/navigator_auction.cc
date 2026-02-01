@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/checked_math.h"
@@ -2636,8 +2635,7 @@ bool CopyAllSlotsRequestedSizesFromIdlToMojo(
 
   // If `requested_size` is set, `all_slots_requested_sizes` must include it.
   if (output.auction_ad_config_non_shared_params->requested_size &&
-      !base::Contains(
-          distinct_sizes,
+      !distinct_sizes.contains(
           *output.auction_ad_config_non_shared_params->requested_size)) {
     exception_state.ThrowTypeError(
         StrCat({"allSlotsRequestedSizes for AuctionAdConfig with seller '",
@@ -3564,7 +3562,7 @@ void NavigatorAuction::AuctionHandle::ResolveToConfigResolved::React(
 }
 
 NavigatorAuction::NavigatorAuction(Navigator& navigator)
-    : navigator_(navigator),
+    : Supplement(navigator),
       queued_cross_site_joins_(kMaxActiveCrossSiteJoins,
                                BindRepeating(&NavigatorAuction::StartJoin,
                                              WrapWeakPersistent(this))),
@@ -3585,13 +3583,16 @@ NavigatorAuction::NavigatorAuction(Navigator& navigator)
 
 NavigatorAuction& NavigatorAuction::From(ExecutionContext* context,
                                          Navigator& navigator) {
-  NavigatorAuction* supplement = navigator.GetNavigatorAuction();
+  NavigatorAuction* supplement =
+      Supplement<Navigator>::From<NavigatorAuction>(navigator);
   if (!supplement) {
     supplement = MakeGarbageCollected<NavigatorAuction>(navigator);
-    navigator.SetNavigatorAuction(supplement);
+    ProvideTo(navigator, supplement);
   }
   return *supplement;
 }
+
+const char NavigatorAuction::kSupplementName[] = "NavigatorAuction";
 
 ScriptPromise<IDLUndefined> NavigatorAuction::joinAdInterestGroup(
     ScriptState* script_state,
@@ -3778,7 +3779,7 @@ ScriptPromise<IDLUndefined> NavigatorAuction::leaveAdInterestGroup(
 ScriptPromise<IDLUndefined> NavigatorAuction::leaveAdInterestGroupForDocument(
     ScriptState* script_state,
     ExceptionState& exception_state) {
-  LocalDOMWindow* window = navigator_->DomWindow();
+  LocalDOMWindow* window = GetSupplementable()->DomWindow();
   if (!window) {
     exception_state.ThrowSecurityError(
         "May not leaveAdInterestGroup from a Document that is not fully "
@@ -3992,7 +3993,7 @@ ScriptPromise<IDLString> NavigatorAuction::createAuctionNonce(
   auto promise = resolver->Promise();
 
   resolver->Resolve(CombineAuctionNonce(
-      navigator_->DomWindow()->document()->base_auction_nonce(),
+      GetSupplementable()->DomWindow()->document()->base_auction_nonce(),
       auction_nonce_counter_++));
   return promise;
 }
@@ -4038,7 +4039,7 @@ NavigatorAuction::runAdAuction(ScriptState* script_state,
       /*is_top_level=*/true, /*nested_pos=*/0, *script_state, *context,
       exception_state,
       /*resource_fetcher=*/
-      *navigator_->DomWindow()->document()->Fetcher(), *config);
+      *GetSupplementable()->DomWindow()->document()->Fetcher(), *config);
   if (!mojo_config) {
     return ScriptPromise<IDLNullable<V8UnionFencedFrameConfigOrUSVString>>();
   }

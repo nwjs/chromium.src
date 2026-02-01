@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="cy">
 <translation id="1076643793026027628">Mae Chrome yn agor dolenni Anhysbys YouTube yn y modd Anhysbys yn awtomatig.</translation>
+<translation id="1081114897601629648">Ni chafodd y cyfrineiriau canlynol eu mewnforio i Reolwr Cyfrineiriau Google, oherwydd nad ydynt yn cyfateb i'r gofynion.</translation>
 <translation id="1086486568852410168">Chwilio â Google Lens</translation>
 <translation id="1088490543924960890">Dechrau cadw cyfrineiriau gyda Rheolwr Cyfrineiriau Google</translation>
 <translation id="1143896152279775643">Bydd eich cyfrinair yn cael ei gadw i Reolwr Cyfrineiriau Google ar gyfer <ph name="EMAIL" />.</translation>
@@ -16,6 +17,7 @@
 <translation id="124228879633599436">Mae eich Chrome yn hen. Diweddarwch i gadw'n ddiogel.</translation>
 <translation id="1258531953614971819">Awgrym Chrome: Symud Chrome i'ch sgrîn hafan</translation>
 <translation id="1333745675627230582">Chwarae'r Gêm Chrome Dino</translation>
+<translation id="1343830902827845050">Mewngofnodi i Chrome</translation>
 <translation id="1352919863522755794">Ni allai Rheolwr Cyfrineiriau Google wirio'ch cyfrineiriau. Rhowch gynnig ar wirio'ch cysylltiad rhyngrwyd.</translation>
 <translation id="1394995526009609883">Gallwch ddiweddaru'ch dewisiadau unrhyw bryd yn y gosodiadau Chrome.</translation>
 <translation id="1407843355326180937">Mewngofnodwch i'r wefan hon a Chrome i gael eich nodau tudalen a rhagor ar eich holl ddyfeisiau.</translation>
@@ -103,7 +105,6 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="3167189358072330585">Nid yw'ch cyfrif yn gweithio ar Google Chrome. Cysylltwch â'ch gweinyddwr parth neu defnyddiwch Gyfrif Google rheolaidd i fewngofnodi.</translation>
 <translation id="320747600144551583">Awgrym Chrome: Bydd pori'n ddiogel gwell yn achub eich diwrnod</translation>
 <translation id="322254490661677575">I ddefnyddio a chadw data Chrome yn eich Cyfrif Google, rhowch eich cyfrinymadrodd.</translation>
-<translation id="3282568296779691940">Mewngofnodi i Chrome</translation>
 <translation id="3303503998967553377">Defnyddio gweithredoedd Chrome ar iOS</translation>
 <translation id="3348862487678490430">Ychwanegu eitem rhestr ddarllen at Chrome</translation>
 <translation id="3357827134511189025">Mewngofnodwch gyda'ch cyfrineiriau a'ch codau pas sydd wedi'u cadw o unrhyw ap gan ddefnyddio Chrome ar gyfer Awtolenwi</translation>
@@ -115,6 +116,7 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="3460369101684070455">I gael eich cyfrineiriau sydd wedi'u cadw yn eich apiau eraill yn hawdd, dewiswch Chrome ar gyfer Awtolenwi</translation>
 <translation id="3472587960215700950">Mae Chrome yn defnyddio Google Maps i roi cyfarwyddiadau a gwybodaeth leol i chi ar gyfeiriadau a ganfuwyd.</translation>
 <translation id="3482807551645716768">Cael mynediad at Chrome yn gyflymach o Sgrîn Hafan eich iPad.</translation>
+<translation id="3491067552520121605">Mae gennych gyfrineiriau neu godau pas yn Rheolwr Cyfrineiriau Google ar gyfer y gwefannau a ddangosir eisoes. Dewiswch gyfrif i gadw'r wybodaeth mewngofnodi a ddangosir, gan ddiystyru'r hyn sydd yn Rheolwr Cyfrineiriau Google.</translation>
 <translation id="3503014945441706099">Cael Gwell Pori'n Ddiogel ar gyfer y proffil Chrome hwn hefyd</translation>
 <translation id="3522659714780527202">I weld eich tabiau o ble bynnag rydych yn defnyddio Chrome, trowch gysoni ymlaen</translation>
 <translation id="364480321352456989">Mae eich Chrome yn hen.</translation>
@@ -134,6 +136,7 @@ Arhoswch ychydig funudau cyn allgofnodi. Os byddwch yn allgofnodi nawr, bydd y d
 <translation id="4167555379306984168">Dewch i weld beth sy'n newydd yn Chrome</translation>
 <translation id="417201473131094001">Ni chefnogir ar Chrome Canary</translation>
 <translation id="424864128008805179">Allgofnodi o Chrome?</translation>
+<translation id="4409545895715116037">Ni chafodd y codau pas canlynol eu mewnforio i Reolwr Cyfrineiriau Google, oherwydd nad ydynt yn cyfateb i'r gofynion.</translation>
 <translation id="4430797724889237570">Agorwch ddolenni o Gmail, Maps, YouTube ac apiau eraill yn Chrome</translation>
 <translation id="447252321002412580">Helpu i Wella nodweddion a pherfformiad Chrome</translation>
 <translation id="4523886039239821078">Mae rhai ychwanegion yn achosi i Chrome dorri. Dadosodwch:</translation>
@@ -272,6 +275,7 @@ Am ragor o osodiadau sy'n defnyddio data i wella'ch profiad Chrome, ewch i <ph n
 <translation id="7284245284340063465">Os byddwch yn anghofio'ch cyfrinymadrodd neu eisiau newid y gosodiad hwn, <ph name="BEGIN_LINK" />dileu'r data Chrome yn eich cyfrif<ph name="END_LINK" />.</translation>
 <translation id="7296102444587051536">Chrome ar gyfer iOS</translation>
 <translation id="7299681342915173313">Gallwch bellach ddefnyddio Chrome unrhyw bryd y byddwch yn tapio dolenni mewn e-byst, dogfennau ac apiau eraill.</translation>
+<translation id="7334364820047587268">Mae eisoes gennych gyfrineiriau ar gyfer y cyfrifon hyn yn eich Rheolwr Cyfrineiriau Google. Os dewiswch fewnforio un o'r cyfrineiriau isod, bydd yn disodli'r un presennol.</translation>
 <translation id="7344094882820374540">Cael diogelwch cryfaf Chrome o wefannau peryglus</translation>
 <translation id="7349129508108954623">Caniatáu i Chrome ddefnyddio Google Maps i roi cyfarwyddiadau a gwybodaeth leol i chi ar gyfeiriadau a ganfuwyd.</translation>
 <translation id="7371674917547846460">Cael y diweddaraf gydag awgrymiadau Chrome defnyddiol a mwy.</translation>
@@ -300,11 +304,11 @@ Am ragor o osodiadau sy'n defnyddio data i wella'ch profiad Chrome, ewch i <ph n
 <translation id="7787205077729386167">Agorwch y gosodiadau Chrome yn iOS yna tapiwch 'Default Browser App' a dewiswch Chrome.</translation>
 <translation id="778855399387580014">Dechrau chwiliad mewn tab Chrome newydd.</translation>
 <translation id="7792140019572081272">Mae Chrome yn cadw'ch data sensitif yn ddiogel gyda Face ID.</translation>
+<translation id="7825648984449922731">Golygu llun gyda Gemini yn Chrome</translation>
 <translation id="7855730255114109580">Mae Google Chrome yn gyfoes</translation>
 <translation id="787226752901403048">Mewngofnodwch i Chrome i rannu ac ymuno â grwpiau tabiau, a chydweithio ar syniadau</translation>
 <translation id="7897703007638178753">Gweld Tabiau Diweddar Chrome</translation>
 <translation id="7948283758957877064">Beth sy'n newydd yn Chrome</translation>
-<translation id="7996707498590516621">Creu llun gyda Gemini yn Chrome</translation>
 <translation id="8000174216052461231">Awgrym Chrome: Cael diogelwch cryfaf Chrome</translation>
 <translation id="8006014511203279255">Defnyddiwch Chrome unrhyw bryd y byddwch yn tapio dolenni mewn negeseuon neu apiau eraill.</translation>
 <translation id="8014670471808569312">Bydd Chrome yn cynnig cadw eich cyfrinair.</translation>

@@ -854,10 +854,12 @@ TEST_F(AutofillStructuredAddress,
                               VerificationStatus::kParsed);
   new_shorter_street->SetValue(u"123 Main St Av", VerificationStatus::kParsed);
 
-  old_street_1->MergeWithComponent(*new_longer_street);
+  old_street_1->MergeWithComponent(*new_longer_street,
+                                   /*newer_was_more_recently_used=*/true);
   EXPECT_EQ(old_street_1->GetValue(), new_longer_street->GetValue());
 
-  old_street_2->MergeWithComponent(*new_shorter_street);
+  old_street_2->MergeWithComponent(*new_shorter_street,
+                                   /*newer_was_more_recently_used=*/true);
   EXPECT_NE(old_street_2->GetValue(), new_shorter_street->GetValue());
 }
 
@@ -944,7 +946,8 @@ TEST_P(MergeStatesWithCanonicalNamesTest, MergeTest) {
       i18n_model_definition::CreateAddressComponentModel();
   SetTestValues(expectation_address.Root(), expectation_values);
 
-  older_address.Root()->MergeWithComponent(*newer_address.Root());
+  older_address.Root()->MergeWithComponent(
+      *newer_address.Root(), /*newer_was_more_recently_used=*/true);
   EXPECT_TRUE(older_address.Root()->SameAs(*expectation_address.Root()));
 }
 
@@ -2233,6 +2236,24 @@ TEST_F(AutofillStructuredAddress, ParseStreetAddressPL) {
        .apartment = "m.10",
        .apartment_type = "m.",
        .apartment_num = "10"},
+      {.country_code = "PL",
+       .street_address = "Ulubiona 9A/m.10",
+       .street_location = "Ulubiona 9A/m.10",
+       .street_name = "Ulubiona",
+       .building_and_unit = "9A/m.10",
+       .house_number = "9A",
+       .apartment = "m.10",
+       .apartment_type = "m.",
+       .apartment_num = "10"},
+      {.country_code = "PL",
+       .street_address = "ul.Ulubiona 9A/m.10",
+       .street_location = "ul.Ulubiona 9A/m.10",
+       .street_name = "Ulubiona",
+       .building_and_unit = "9A/m.10",
+       .house_number = "9A",
+       .apartment = "m.10",
+       .apartment_type = "m.",
+       .apartment_num = "10"}
   };
 
   for (const auto& test_case : test_cases) {
@@ -3067,8 +3088,10 @@ TEST_F(AutofillStructuredAddress, ZipCodeParsing) {
 }
 
 TEST_F(AutofillStructuredAddress, ZipCodeFormatting) {
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kAutofillSupportSplitZipCode};
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kAutofillSupportSplitZipCode},
+      /*disabled_features=*/{features::kAutofillUseINAddressModel});
   std::vector<AddressLineParsingTestCase> test_cases = {
       {.country_code = "US",
        .zip = "94043-4100",
@@ -3115,7 +3138,10 @@ TEST_F(AutofillStructuredAddress, ZipCodeFormatting) {
        .zip = "114 55",
        .zip_prefix = "114",
        .zip_suffix = "55"},
-  };
+      {.country_code = "IN",
+       .zip = "110 001",
+       .zip_prefix = "110",
+       .zip_suffix = "001"}};
 
   for (const auto& test_case : test_cases) {
     AddressComponentsStore address =
@@ -3233,7 +3259,8 @@ TEST_P(AutofillStructuredAddressMergeReformatTest, MergeAndReformat) {
           AddressCountryCode(test_case.country_code));
   SetTestValues(newer_address.Root(), test_case.new_address);
 
-  older_address.Root()->MergeWithComponent(*newer_address.Root());
+  older_address.Root()->MergeWithComponent(
+      *newer_address.Root(), /*newer_was_more_recently_used=*/true);
   older_address.Root()->CompleteFullTree();
   VerifyTestValues(older_address.Root(), test_case.expected_address);
 }

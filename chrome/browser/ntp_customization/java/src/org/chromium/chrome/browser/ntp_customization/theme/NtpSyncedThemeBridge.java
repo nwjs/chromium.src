@@ -42,9 +42,17 @@ public class NtpSyncedThemeBridge {
 
     /** Cleans up the C++ side of this class. */
     public void destroy() {
-        assert mNativeNtpSyncedThemeBridge != 0;
-        NtpSyncedThemeBridgeJni.get().destroy(mNativeNtpSyncedThemeBridge);
-        mNativeNtpSyncedThemeBridge = 0;
+        if (mNativeNtpSyncedThemeBridge != 0) {
+            NtpSyncedThemeBridgeJni.get().destroy(mNativeNtpSyncedThemeBridge);
+            mNativeNtpSyncedThemeBridge = 0;
+        }
+    }
+
+    /** Fetches the next image for a theme collection with daily refresh enabled. */
+    public void fetchNextThemeCollectionImage() {
+        if (mNativeNtpSyncedThemeBridge == 0) return;
+
+        NtpSyncedThemeBridgeJni.get().fetchNextThemeCollectionImage(mNativeNtpSyncedThemeBridge);
     }
 
     /**
@@ -87,6 +95,8 @@ public class NtpSyncedThemeBridge {
         long init(Profile profile, NtpSyncedThemeBridge caller);
 
         void destroy(long nativeNtpSyncedThemeBridge);
+
+        void fetchNextThemeCollectionImage(long nativeNtpSyncedThemeBridge);
 
         @Nullable CustomBackgroundInfo getCustomBackgroundInfo(long nativeNtpSyncedThemeBridge);
     }

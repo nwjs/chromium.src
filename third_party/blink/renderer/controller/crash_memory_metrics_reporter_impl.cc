@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "base/atomicops.h"
+#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/memory.h"
 #include "base/process/process_metrics.h"

@@ -36,8 +36,6 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
-#include "components/privacy_sandbox/tpcd_experiment_eligibility.h"
-#include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/content_features.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -173,17 +171,14 @@ PrivacySandboxSettingsImpl::PrivacySandboxSettingsImpl(
     std::unique_ptr<Delegate> delegate,
     HostContentSettingsMap* host_content_settings_map,
     scoped_refptr<content_settings::CookieSettings> cookie_settings,
-    TrackingProtectionSettings* tracking_protection_settings,
     PrefService* pref_service)
     : delegate_(std::move(delegate)),
       host_content_settings_map_(host_content_settings_map),
       cookie_settings_(cookie_settings),
-      tracking_protection_settings_(tracking_protection_settings),
       pref_service_(pref_service) {
   CHECK(pref_service_);
   CHECK(host_content_settings_map_);
   CHECK(cookie_settings_);
-  CHECK(tracking_protection_settings_);
   // "Clear on exit" causes a cookie deletion on shutdown. But for practical
   // purposes, we're notifying the observers on startup (which should be
   // equivalent, as no cookie operations could have happened while the profile
@@ -191,9 +186,6 @@ PrivacySandboxSettingsImpl::PrivacySandboxSettingsImpl(
   if (IsCookiesClearOnExitEnabled(host_content_settings_map_)) {
     OnCookiesCleared();
   }
-
-  tracking_protection_settings_observation_.Observe(
-      tracking_protection_settings_);
 
   pref_change_registrar_.Init(pref_service_);
   pref_change_registrar_.Add(
@@ -210,10 +202,8 @@ void PrivacySandboxSettingsImpl::Shutdown() {
   delegate_.reset();
   host_content_settings_map_ = nullptr;
   cookie_settings_.reset();
-  tracking_protection_settings_ = nullptr;
   pref_service_ = nullptr;
   pref_change_registrar_.Reset();
-  tracking_protection_settings_observation_.Reset();
 }
 
 PrivacySandboxSettingsImpl::Status
@@ -476,8 +466,7 @@ bool PrivacySandboxSettingsImpl::MaySendAttributionReport(
 bool PrivacySandboxSettingsImpl::
     IsAttributionReportingTransitionalDebuggingAllowed(
         const url::Origin& top_frame_origin,
-        const url::Origin& reporting_origin,
-        bool& can_bypass) const {
+        const url::Origin& reporting_origin) const {
   content_settings::CookieSettingsBase::CookieSettingWithMetadata
       cookie_setting_with_metadata;
   // With what is available here, we can create a cookie_partition_key for the
@@ -499,14 +488,6 @@ bool PrivacySandboxSettingsImpl::
       net::CookieSettingOverrides(), cookie_partition_key,
       &cookie_setting_with_metadata);
 
-  if (base::FeatureList::IsEnabled(
-          kAttributionDebugReportingCookieDeprecationTesting)) {
-    can_bypass =
-        cookie_setting_with_metadata.BlockedByThirdPartyCookieBlocking() &&
-        delegate_->AreThirdPartyCookiesBlockedByCookieDeprecationExperiment();
-  } else {
-    can_bypass = false;
-  }
   return allowed;
 }
 
@@ -613,8 +594,7 @@ PrivacySandboxSettingsImpl::GetM1FledgeAllowedStatus(
 PrivacySandboxSettingsImpl::Status
 PrivacySandboxSettingsImpl::GetFencedStorageReadEnabledStatus() const {
   // User has turned on the setting to block all third party cookies.
-  if (cookie_settings_->ShouldBlockThirdPartyCookies() &&
-      !cookie_settings_->AreThirdPartyCookiesLimited()) {
+  if (cookie_settings_->ShouldBlockThirdPartyCookies()) {
     return Status::kApisDisabled;
   }
 
@@ -868,13 +848,7 @@ bool PrivacySandboxSettingsImpl::IsPrivateAggregationDebugModeAllowed(
     return true;
   }
 
-  // Third-party cookie access is disabled, but we may still allow Private
-  // Aggregation's debug mode in this context if it was only blocked due to the
-  // 3PCD experiment.
-  return base::FeatureList::IsEnabled(
-             kPrivateAggregationDebugReportingCookieDeprecationTesting) &&
-         cookie_setting_with_metadata.BlockedByThirdPartyCookieBlocking() &&
-         delegate_->AreThirdPartyCookiesBlockedByCookieDeprecationExperiment();
+  return false;
 }
 
 void PrivacySandboxSettingsImpl::SetAllPrivacySandboxAllowedForTesting() {
@@ -970,10 +944,6 @@ PrivacySandboxSettingsImpl::GetM1PrivacySandboxApiEnabledStatus(
   DCHECK(pref_name == prefs::kPrivacySandboxM1TopicsEnabled ||
          pref_name == prefs::kPrivacySandboxM1FledgeEnabled ||
          pref_name == prefs::kPrivacySandboxM1AdMeasurementEnabled);
-  if (delegate_->IsCookieDeprecationExperimentEligible() &&
-      features::kCookieDeprecationTestingDisableAdsAPIs.Get()) {
-    return Status::kBlockedBy3pcdExperiment;
-  }
 
   bool should_ignore_restriction =
       pref_name == prefs::kPrivacySandboxM1AdMeasurementEnabled &&
@@ -997,37 +967,7 @@ PrivacySandboxSettingsImpl::GetM1PrivacySandboxApiEnabledStatus(
   return status;
 }
 
-TpcdExperimentEligibility
-PrivacySandboxSettingsImpl::GetCookieDeprecationExperimentCurrentEligibility()
-    const {
-  return delegate_->GetCookieDeprecationExperimentCurrentEligibility();
-}
-
-bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowed() const {
-  return delegate_->IsCookieDeprecationLabelAllowed();
-}
-
-bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowedForContext(
-    const url::Origin& top_frame_origin,
-    const url::Origin& context_origin) const {
-  if (!IsCookieDeprecationLabelAllowed()) {
-    return false;
-  }
-
-  return IsAllowed(
-      GetSiteAccessAllowedStatus(top_frame_origin, context_origin.GetURL()));
-}
-
-void PrivacySandboxSettingsImpl::OnBlockAllThirdPartyCookiesChanged() {
-  for (auto& observer : observers_) {
-    observer.OnRelatedWebsiteSetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
-  }
-}
-
 bool PrivacySandboxSettingsImpl::AreRelatedWebsiteSetsEnabled() const {
-  if (tracking_protection_settings_->IsTrackingProtection3pcdEnabled()) {
-    return cookie_settings_->AreThirdPartyCookiesLimited();
-  }
   return pref_service_->GetBoolean(
       prefs::kPrivacySandboxRelatedWebsiteSetsEnabled);
 }

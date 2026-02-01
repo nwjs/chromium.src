@@ -210,9 +210,14 @@ const size_t kTestSizes[] = {
     1 << 21,
 };
 constexpr size_t kTestSizesCount = std::size(kTestSizes);
-// A lambda function for unit tests to try both Free and FreeWithSize. It always
-// takes a size_t argument, but ignores it for the regular Free.
-using FreeFunction = void (*)(partition_alloc::PartitionRoot*, void*, size_t);
+// A lambda function for unit tests to try Free, FreeWithSize, and
+// FreeWithSizeAndAlignment. It always takes a size_t argument, but ignores it
+// for the regular Free.
+using FreeFunction = void (*)(partition_alloc::PartitionRoot*,
+                              void*,
+                              size_t,
+                              size_t);
+constexpr size_t kNoAlignment = 0;
 
 template <
     partition_alloc::AllocFlags alloc_flags,
@@ -233,7 +238,7 @@ void AllocateRandomly(partition_alloc::PartitionRoot* root,
 
   for (size_t i = 0; i < count; ++i) {
     if (allocations[i]) {
-      free_func(root, allocations[i], sizes[i]);
+      free_func(root, allocations[i], sizes[i], kNoAlignment);
     }
   }
 }
@@ -316,7 +321,7 @@ struct PartitionAllocTestParam {
 
 const std::vector<PartitionAllocTestParam> GetPartitionAllocTestParams() {
   std::vector<PartitionAllocTestParam> params;
-  auto free_func = [](PartitionRoot* root, void* ptr, size_t size) {
+  auto free_func = [](PartitionRoot* root, void* ptr, size_t, size_t) {
     root->FreeInline(ptr);
   };
   params.emplace_back(
@@ -337,13 +342,28 @@ const std::vector<PartitionAllocTestParam> GetPartitionAllocTestParams() {
 const std::vector<PartitionAllocTestParam>
 GetPartitionAllocWithSizedFreeTestParams() {
   auto params = GetPartitionAllocTestParams();
-  auto free_with_size_func = [](PartitionRoot* root, void* ptr, size_t size) {
+  auto free_with_size_func = [](PartitionRoot* root, void* ptr, size_t size,
+                                size_t) {
     root->FreeWithSizeInline(ptr, size);
   };
   params.emplace_back(PartitionAllocTestParam{BucketDistribution::kNeutral,
                                               false, free_with_size_func});
   params.emplace_back(PartitionAllocTestParam{BucketDistribution::kDenser,
                                               false, free_with_size_func});
+  return params;
+}
+
+const std::vector<PartitionAllocTestParam>
+GetPartitionAllocWithFreeWithSizeAndAlignmentTestParams() {
+  auto params = GetPartitionAllocTestParams();
+  auto free_with_size_and_alignment_func = [](PartitionRoot* root, void* ptr,
+                                              size_t size, size_t alignment) {
+    root->FreeWithSizeAndAlignmentInline(ptr, size, alignment);
+  };
+  params.emplace_back(PartitionAllocTestParam{
+      BucketDistribution::kNeutral, false, free_with_size_and_alignment_func});
+  params.emplace_back(PartitionAllocTestParam{
+      BucketDistribution::kDenser, false, free_with_size_and_alignment_func});
   return params;
 }
 
@@ -859,13 +879,21 @@ INSTANTIATE_TEST_SUITE_P(AlternateTestParams,
 class PartitionAllocWithSizedFreeTest : public PartitionAllocTest {
  public:
   void FreePtr(void* ptr, size_t size) {
-    GetParam().free_func(allocator.root(), ptr, size);
+    GetParam().free_func(allocator.root(), ptr, size, kNoAlignment);
   }
 };
 INSTANTIATE_TEST_SUITE_P(
     AlternateTestParams,
     PartitionAllocWithSizedFreeTest,
     testing::ValuesIn(GetPartitionAllocWithSizedFreeTestParams()));
+
+class PartitionAllocWithFreeWithSizeAndAlignmentTest
+    : public PartitionAllocTest {};
+INSTANTIATE_TEST_SUITE_P(
+    AlternateTestParams,
+    PartitionAllocWithFreeWithSizeAndAlignmentTest,
+    testing::ValuesIn(
+        GetPartitionAllocWithFreeWithSizeAndAlignmentTestParams()));
 
 // Check that the most basic of allocate / free pairs work.
 TEST_P(PartitionAllocWithSizedFreeTest, Basic) {
@@ -4317,7 +4345,10 @@ TEST_P(PartitionAllocTest, FundamentalAlignment) {
   }
 }
 
-void VerifyAlignment(PartitionRoot* root, size_t size, size_t alignment) {
+void VerifyAlignment(PartitionRoot* root,
+                     size_t size,
+                     size_t alignment,
+                     FreeFunction free_func) {
   std::vector<void*> allocated_ptrs;
 
   for (int index = 0; index < 3; index++) {
@@ -4330,11 +4361,11 @@ void VerifyAlignment(PartitionRoot* root, size_t size, size_t alignment) {
   }
 
   for (void* ptr : allocated_ptrs) {
-    root->Free(ptr);
+    free_func(root, ptr, size, alignment);
   }
 }
 
-TEST_P(PartitionAllocTest, AlignedAllocations) {
+TEST_P(PartitionAllocWithFreeWithSizeAndAlignmentTest, AlignedAlloc) {
   size_t alloc_sizes[] = {1,
                           10,
                           100,
@@ -4352,7 +4383,8 @@ TEST_P(PartitionAllocTest, AlignedAllocations) {
   for (size_t alloc_size : alloc_sizes) {
     for (size_t alignment = 1; alignment <= kMaxSupportedAlignment;
          alignment <<= 1) {
-      VerifyAlignment(allocator.root(), alloc_size, alignment);
+      VerifyAlignment(allocator.root(), alloc_size, alignment,
+                      GetParam().free_func);
     }
   }
 }
@@ -5910,7 +5942,9 @@ TEST_P(PartitionAllocTest, IncreaseEmptySlotSpanRingSize) {
             kDefaultEmptySlotSpanRingSize * bucket_size);
 
   // Now can cache more slot spans.
-  root->EnableLargeEmptySlotSpanRing();
+  constexpr size_t kLargeEmptySlotSpanRingSize = SlotSpanRingMaxSize::kMedium;
+  constexpr int kDirtyBytesShift = 0;
+  root->AdjustSlotSpanRing(kLargeEmptySlotSpanRingSize, kDirtyBytesShift);
 
   constexpr size_t single_slot_large_count = kDefaultEmptySlotSpanRingSize + 10;
   // The assertion following the alloc/free checks that the ring contains the
@@ -6221,12 +6255,16 @@ TEST_P(PartitionAllocTest, SortActiveSlotSpans) {
 TEST_P(PartitionAllocTest, GlobalEmptySlotSpanRingIndexResets) {
   // Switch to the larger slot span size, and set the
   // global_empty_slot_span_ring_index to one less than max.
-  allocator.root()->AdjustForForeground();
+  constexpr int16_t kLargeRingSize = SlotSpanRingMaxSize::kLarge;
+  constexpr int kLargeDirtyBytesShift = 2;
+  allocator.root()->AdjustSlotSpanRing(kLargeRingSize, kLargeDirtyBytesShift);
   allocator.root()->SetGlobalEmptySlotSpanRingIndexForTesting(
       internal::kMaxEmptySlotSpanRingSize - 1);
 
   // Switch to the smaller size, allocate, free, and clear the empty cache.
-  allocator.root()->AdjustForBackground();
+  constexpr int16_t kSmallRingSize = SlotSpanRingMaxSize::kMedium;
+  constexpr int kSmallirtyBytesShift = 3;
+  allocator.root()->AdjustSlotSpanRing(kSmallRingSize, kSmallirtyBytesShift);
   void* ptr = allocator.root()->Alloc(kTestAllocSize, type_name);
   allocator.root()->Free(ptr);
   ClearEmptySlotSpanCache();
@@ -6246,35 +6284,37 @@ TEST_P(PartitionAllocTest, FastReclaim) {
     return now;
   };
 
+  PurgeState purge_state;
+
   constexpr int kFlags = PurgeFlags::kDecommitEmptySlotSpans |
                          PurgeFlags::kDiscardUnusedSystemPages;
-  allocator.root()->PurgeMemory(kFlags);
+  allocator.root()->PurgeMemory(kFlags, purge_state);
   ASSERT_GT(now, base::TimeTicks());
   // Here and below, using PA_TS_UNCHECKED_READ since the root is not used
   // conccurently.
   //
   // Went around all buckets.
-  EXPECT_EQ(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            0u);
+  EXPECT_EQ(purge_state.next_bucket_index, 0u);
 
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Ran out of time.
-  unsigned int next_bucket =
-      PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index);
+  unsigned int next_bucket = purge_state.next_bucket_index;
   EXPECT_NE(next_bucket, 0u);
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Make some progress, but not through all buckets yet.
-  EXPECT_GT(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            next_bucket);
+  EXPECT_GT(purge_state.next_bucket_index, next_bucket);
 
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Ran out of time.
-  EXPECT_NE(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            0u);
+  EXPECT_NE(purge_state.next_bucket_index, 0u);
 
   // But eventually we make it through all buckets.
-  while (PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index) != 0) {
-    allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  while (purge_state.next_bucket_index != 0) {
+    allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                  purge_state);
   }
   // No expectation, test will time out if it's incorrect.
 
@@ -6289,40 +6329,38 @@ TEST_P(PartitionAllocTest, FastReclaimEventuallyLooksAtAllBuckets) {
     return now;
   };
 
+  PurgeState purge_state;
+
   constexpr int kFlags = PurgeFlags::kDecommitEmptySlotSpans |
                          PurgeFlags::kDiscardUnusedSystemPages;
-  allocator.root()->PurgeMemory(kFlags);
+  allocator.root()->PurgeMemory(kFlags, purge_state);
   ASSERT_GT(now, base::TimeTicks());
-  // Here and below, using PA_TS_UNCHECKED_READ since the root is not used
-  // conccurently.
-  //
   // Went around all buckets, generation is incremented.
-  EXPECT_EQ(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            0u);
-  EXPECT_EQ(PA_TS_UNCHECKED_READ(allocator.root()->purge_generation), 1u);
+  EXPECT_EQ(purge_state.next_bucket_index, 0u);
+  EXPECT_EQ(purge_state.generation, 1u);
 
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Ran out of time.
-  unsigned int next_bucket =
-      PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index);
+  unsigned int next_bucket = purge_state.next_bucket_index;
   EXPECT_NE(next_bucket, 0u);
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Make some progress, but not through all buckets yet.
-  EXPECT_GT(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            next_bucket);
-  EXPECT_EQ(PA_TS_UNCHECKED_READ(allocator.root()->purge_generation), 1u);
+  EXPECT_GT(purge_state.next_bucket_index, next_bucket);
+  EXPECT_EQ(purge_state.generation, 1u);
 
-  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                purge_state);
   // Ran out of time.
-  EXPECT_NE(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            0u);
+  EXPECT_NE(purge_state.next_bucket_index, 0u);
 
   // But eventually we make it through all generations.
-  while (PA_TS_UNCHECKED_READ(allocator.root()->purge_generation) != 0) {
-    allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration);
+  while (purge_state.generation != 0) {
+    allocator.root()->PurgeMemory(kFlags | PurgeFlags::kLimitDuration,
+                                  purge_state);
   }
-  EXPECT_EQ(PA_TS_UNCHECKED_READ(allocator.root()->purge_next_bucket_index),
-            0u);
+  EXPECT_EQ(purge_state.next_bucket_index, 0u);
 
   allocator.root()->now_maybe_overridden_for_testing = base::TimeTicks::Now;
 }

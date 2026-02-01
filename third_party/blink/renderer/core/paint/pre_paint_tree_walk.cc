@@ -48,6 +48,7 @@ bool IsLinkHighlighted(const LayoutObject& object) {
 }
 
 bool IsInFragmentationContext(const PhysicalBoxFragment* fragment) {
+  DCHECK(!RuntimeEnabledFeatures::FragmentedOofInCbEnabled());
   return fragment && fragment->IsFragmentainerBox();
 }
 
@@ -427,7 +428,8 @@ PrePaintInfo PrePaintTreeWalk::CreatePrePaintInfo(
   return PrePaintInfo(fragment, child.offset, fragment->IsFirstForNode(),
                       !fragment->GetBreakToken(),
                       /* is_inside_fragment_child */ false,
-                      IsInFragmentationContext(context.current_container));
+                      !RuntimeEnabledFeatures::FragmentedOofInCbEnabled() &&
+                          IsInFragmentationContext(context.current_container));
 }
 
 FragmentData* PrePaintTreeWalk::GetOrCreateFragmentData(
@@ -566,12 +568,23 @@ void PrePaintTreeWalk::UpdateContextForOOFContainer(
     const LayoutObject& object,
     PrePaintTreeWalkContext& context,
     const PhysicalBoxFragment* fragment) {
+  // Skip fragmentainers since the LayoutObject passed is for the fragmentation
+  // context root itself (e.g. the multicol container), and we've therefore
+  // already been here and done what needs to be done for that object, and set
+  // up any containing fragments. Doing it again for the fragmentainers now
+  // would be wrong, since it might make the fragmentainers containing fragments
+  // for OOF descendants when they shouldn't.
+  if (fragment && fragment->IsFragmentainerBox()) {
+    return;
+  }
+
   // If we're in a fragmentation context, the parent fragment of OOFs is the
   // fragmentainer, unless the object is monolithic, in which case nothing
   // contained by the object participates in the current block fragmentation
   // context. If we're not participating in block fragmentation, the containing
   // fragment of an OOF fragment is always simply the parent.
-  if (!IsInFragmentationContext(context.current_container) ||
+  if (RuntimeEnabledFeatures::FragmentedOofInCbEnabled() ||
+      !IsInFragmentationContext(context.current_container) ||
       (fragment && fragment->IsMonolithic())) {
     // Anonymous blocks are not allowed to be containing blocks, so we should
     // skip over any such elements.
@@ -583,8 +596,6 @@ void PrePaintTreeWalk::UpdateContextForOOFContainer(
   if (!object.CanContainAbsolutePositionObjects())
     return;
 
-  // The OOF containing block structure is special under block fragmentation: A
-  // fragmentable OOF is always a direct child of a fragmentainer.
   context.absolute_positioned_container = context.current_container;
   if (object.CanContainFixedPositionObjects())
     context.fixed_positioned_container = context.absolute_positioned_container;
@@ -726,7 +737,8 @@ const PhysicalBoxFragment* PrePaintTreeWalk::RebuildContextForMissedDescendant(
     PrePaintInfo pre_paint_info(
         box_fragment, paint_offset, /*is_first_for_node=*/false,
         /*is_last_for_node=*/false, /*is_inside_fragment_child=*/false,
-        IsInFragmentationContext(context.current_container));
+        !RuntimeEnabledFeatures::FragmentedOofInCbEnabled() &&
+            IsInFragmentationContext(context.current_container));
 
     // We're going to set up paint properties for the missing ancestors, and
     // update the context, but it should have no side-effects. That is, the
@@ -1003,9 +1015,11 @@ void PrePaintTreeWalk::WalkFragmentainer(
   fragmentainer_context.is_parent_first_for_node =
       fragmentainer.IsFirstForNode();
 
-  // Always keep track of the current innermost fragmentainer we're handling, as
-  // they may serve as containing blocks for OOF descendants.
-  fragmentainer_context.current_container = &fragmentainer;
+  if (!RuntimeEnabledFeatures::FragmentedOofInCbEnabled()) {
+    // Always keep track of the current innermost fragmentainer we're handling,
+    // as they may serve as containing blocks for OOF descendants.
+    fragmentainer_context.current_container = &fragmentainer;
+  }
 
   PaintPropertyTreeBuilderFragmentContext::ContainingBlockContext*
       containing_block_context = nullptr;
@@ -1231,7 +1245,8 @@ void PrePaintTreeWalk::WalkLayoutObjectChildren(
       PrePaintInfo pre_paint_info(
           box_fragment, paint_offset, is_first_for_node, is_last_for_node,
           is_inside_fragment_child,
-          IsInFragmentationContext(container_for_child));
+          !RuntimeEnabledFeatures::FragmentedOofInCbEnabled() &&
+              IsInFragmentationContext(container_for_child));
       Walk(*child, context, &pre_paint_info);
     } else {
       Walk(*child, context, /* pre_paint_info */ nullptr);

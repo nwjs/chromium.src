@@ -6,10 +6,10 @@
 
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
@@ -232,8 +232,7 @@ IN_PROC_BROWSER_TEST_F(InitialExternalExtensionLoaderRestartBrowserTest,
 // must *not* reinstall it.
 IN_PROC_BROWSER_TEST_F(InitialExternalExtensionLoaderRestartBrowserTest,
                        PRE_InitialExternalExtension) {
-  EXPECT_TRUE(
-      base::Contains(InitialInstallList(), base::Value(kTestExtensionId)));
+  EXPECT_TRUE(InitialInstallList().contains(kTestExtensionId));
 
   Extension* extension = GetInstalledExtension();
   ASSERT_TRUE(extension);
@@ -255,8 +254,7 @@ IN_PROC_BROWSER_TEST_F(InitialExternalExtensionLoaderRestartBrowserTest,
   // that the user preference is respected.
   PrepareExtensionInstallation();
 
-  EXPECT_TRUE(
-      base::Contains(InitialInstallList(), base::Value(kTestExtensionId)));
+  EXPECT_TRUE(InitialInstallList().contains(kTestExtensionId));
 
   EXPECT_FALSE(GetInstalledExtension());
 

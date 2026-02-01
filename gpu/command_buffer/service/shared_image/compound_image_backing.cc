@@ -4,6 +4,8 @@
 
 #include "gpu/command_buffer/service/shared_image/compound_image_backing.h"
 
+#include <ostream>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -41,6 +43,10 @@
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/gpu_memory_buffer_handle.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/gfx/win/d3d_shared_fence.h"
+#endif
 
 namespace gpu {
 namespace {
@@ -92,10 +98,17 @@ SharedImageUsageSet GetUsageFromAccessStream(SharedImageAccessStream stream) {
              SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_DISPLAY_WRITE;
     case SharedImageAccessStream::kDawn:
       return SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE;
+    case SharedImageAccessStream::kDawnBuffer:
+      return SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE;
     case SharedImageAccessStream::kOverlay:
       return SHARED_IMAGE_USAGE_SCANOUT;
     case SharedImageAccessStream::kVaapi:
       return SHARED_IMAGE_USAGE_VIDEO_DECODE;
+    case SharedImageAccessStream::kWebNNTensor:
+      // Note that SHARED_IMAGE_USAGE_WEBNN_SHARED_TENSOR is the main usage, we
+      // always need it for WebNN, the two other(*_TENSOR_READ/WRITE) are for
+      // additional functionality in webnn (upload/readback of the tensor).
+      return SHARED_IMAGE_USAGE_WEBNN_SHARED_TENSOR;
     case SharedImageAccessStream::kMemory:
       // Below usage set ensures that only SharedMemoryImageBacking will be able
       // to support this stream.
@@ -133,10 +146,14 @@ class WrappedGLTextureCompoundImageRepresentation
     AccessMode access_mode =
         mode == kReadAccessMode ? AccessMode::kRead : AccessMode::kWrite;
     compound_backing()->NotifyBeginAccess(wrapped_->backing(), access_mode);
+    access_mode_ = access_mode;
     return wrapped_->BeginAccess(mode);
   }
 
-  void EndAccess() final { wrapped_->EndAccess(); }
+  void EndAccess() override {
+    wrapped_->EndAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), access_mode_);
+  }
 
   gpu::TextureBase* GetTextureBase(int plane_index) final {
     return wrapped_->GetTextureBase(plane_index);
@@ -152,6 +169,7 @@ class WrappedGLTextureCompoundImageRepresentation
 
  private:
   std::unique_ptr<GLTextureImageRepresentation> wrapped_;
+  AccessMode access_mode_ = AccessMode::kNone;
 };
 
 class WrappedGLTexturePassthroughCompoundImageRepresentation
@@ -172,13 +190,17 @@ class WrappedGLTexturePassthroughCompoundImageRepresentation
   }
 
   // GLTexturePassthroughImageRepresentation implementation.
-  bool BeginAccess(GLenum mode) final {
+  bool BeginAccess(GLenum mode) override {
     AccessMode access_mode =
         mode == kReadAccessMode ? AccessMode::kRead : AccessMode::kWrite;
     compound_backing()->NotifyBeginAccess(wrapped_->backing(), access_mode);
+    access_mode_ = access_mode;
     return wrapped_->BeginAccess(mode);
   }
-  void EndAccess() final { wrapped_->EndAccess(); }
+  void EndAccess() override {
+    wrapped_->EndAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), access_mode_);
+  }
 
   gpu::TextureBase* GetTextureBase(int plane_index) final {
     return wrapped_->GetTextureBase(plane_index);
@@ -195,6 +217,7 @@ class WrappedGLTexturePassthroughCompoundImageRepresentation
 
  private:
   std::unique_ptr<GLTexturePassthroughImageRepresentation> wrapped_;
+  AccessMode access_mode_ = AccessMode::kNone;
 };
 
 class WrappedSkiaGaneshCompoundImageRepresentation
@@ -242,7 +265,11 @@ class WrappedSkiaGaneshCompoundImageRepresentation
     return wrapped_->BeginWriteAccess(begin_semaphores, end_semaphores,
                                       end_state);
   }
-  void EndWriteAccess() final { wrapped_->EndWriteAccess(); }
+  void EndWriteAccess() final {
+    wrapped_->EndWriteAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(),
+                                        AccessMode::kWrite);
+  }
 
   std::vector<sk_sp<GrPromiseImageTexture>> BeginReadAccess(
       std::vector<GrBackendSemaphore>* begin_semaphores,
@@ -253,7 +280,10 @@ class WrappedSkiaGaneshCompoundImageRepresentation
     return wrapped_->BeginReadAccess(begin_semaphores, end_semaphores,
                                      end_state);
   }
-  void EndReadAccess() final { wrapped_->EndReadAccess(); }
+  void EndReadAccess() final {
+    wrapped_->EndReadAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), AccessMode::kRead);
+  }
 
  private:
   std::unique_ptr<SkiaGaneshImageRepresentation> wrapped_;
@@ -293,14 +323,21 @@ class WrappedSkiaGraphiteCompoundImageRepresentation
                                           AccessMode::kWrite);
     return wrapped_->BeginWriteAccess();
   }
-  void EndWriteAccess() final { wrapped_->EndWriteAccess(); }
+  void EndWriteAccess() final {
+    wrapped_->EndWriteAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(),
+                                        AccessMode::kWrite);
+  }
 
   std::vector<scoped_refptr<GraphiteTextureHolder>> BeginReadAccess() final {
     compound_backing()->NotifyBeginAccess(wrapped_->backing(),
                                           AccessMode::kRead);
     return wrapped_->BeginReadAccess();
   }
-  void EndReadAccess() final { wrapped_->EndReadAccess(); }
+  void EndReadAccess() final {
+    wrapped_->EndReadAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), AccessMode::kRead);
+  }
 
  private:
   std::unique_ptr<SkiaGraphiteImageRepresentation> wrapped_;
@@ -324,19 +361,60 @@ class WrappedDawnCompoundImageRepresentation : public DawnImageRepresentation {
 
   // DawnImageRepresentation implementation.
   wgpu::Texture BeginAccess(wgpu::TextureUsage webgpu_usage,
-                            wgpu::TextureUsage internal_usage) final {
+                            wgpu::TextureUsage internal_usage) override {
     AccessMode access_mode =
         webgpu_usage & kWriteUsage ? AccessMode::kWrite : AccessMode::kRead;
     if (internal_usage & kWriteUsage) {
       access_mode = AccessMode::kWrite;
     }
     compound_backing()->NotifyBeginAccess(wrapped_->backing(), access_mode);
+    access_mode_ = access_mode;
     return wrapped_->BeginAccess(webgpu_usage, internal_usage);
   }
-  void EndAccess() final { wrapped_->EndAccess(); }
+  void EndAccess() override {
+    wrapped_->EndAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), access_mode_);
+  }
 
  private:
   std::unique_ptr<DawnImageRepresentation> wrapped_;
+  AccessMode access_mode_ = AccessMode::kNone;
+};
+
+class WrappedDawnBufferCompoundImageRepresentation
+    : public DawnBufferRepresentation {
+ public:
+  WrappedDawnBufferCompoundImageRepresentation(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      MemoryTypeTracker* tracker,
+      std::unique_ptr<DawnBufferRepresentation> wrapped)
+      : DawnBufferRepresentation(manager, backing, tracker),
+        wrapped_(std::move(wrapped)) {
+    DCHECK(wrapped_);
+  }
+
+ private:
+  CompoundImageBacking* compound_backing() {
+    return static_cast<CompoundImageBacking*>(backing());
+  }
+
+  wgpu::Buffer BeginAccess(wgpu::BufferUsage usage) override {
+    AccessMode access_mode = usage & wgpu::BufferUsage::MapWrite
+                                 ? AccessMode::kWrite
+                                 : AccessMode::kRead;
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(), access_mode);
+    access_mode_ = access_mode;
+    return wrapped_->BeginAccess(usage);
+  }
+
+  void EndAccess() override {
+    wrapped_->EndAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), access_mode_);
+  }
+
+  std::unique_ptr<DawnBufferRepresentation> wrapped_;
+  AccessMode access_mode_ = AccessMode::kNone;
 };
 
 class WrappedOverlayCompoundImageRepresentation
@@ -364,7 +442,8 @@ class WrappedOverlayCompoundImageRepresentation
     return wrapped_->BeginReadAccess(acquire_fence);
   }
   void EndReadAccess(gfx::GpuFenceHandle release_fence) final {
-    return wrapped_->EndReadAccess(std::move(release_fence));
+    wrapped_->EndReadAccess(std::move(release_fence));
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), AccessMode::kRead);
   }
 #if BUILDFLAG(IS_ANDROID)
   AHardwareBuffer* GetAHardwareBuffer() final {
@@ -389,6 +468,84 @@ class WrappedOverlayCompoundImageRepresentation
 
  private:
   std::unique_ptr<OverlayImageRepresentation> wrapped_;
+};
+
+class WrappedWebNNTensorCompoundImageRepresentation
+    : public WebNNTensorRepresentation {
+ public:
+  WrappedWebNNTensorCompoundImageRepresentation(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      MemoryTypeTracker* tracker,
+      std::unique_ptr<WebNNTensorRepresentation> wrapped)
+      : WebNNTensorRepresentation(manager, backing, tracker),
+        wrapped_(std::move(wrapped)) {
+    DCHECK(wrapped_);
+  }
+
+#if BUILDFLAG(IS_WIN)
+  scoped_refptr<gfx::D3DSharedFence> GetAcquireFence() const final {
+    return wrapped_->GetAcquireFence();
+  }
+
+  void SetReleaseFence(scoped_refptr<gfx::D3DSharedFence> release_fence) final {
+    wrapped_->SetReleaseFence(std::move(release_fence));
+  }
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> GetD3D12Buffer() const final {
+    return wrapped_->GetD3D12Buffer();
+  }
+#endif
+
+#if BUILDFLAG(IS_APPLE)
+  IOSurfaceRef GetIOSurface() const final { return wrapped_->GetIOSurface(); }
+#endif
+
+ private:
+  CompoundImageBacking* compound_backing() {
+    return static_cast<CompoundImageBacking*>(backing());
+  }
+
+  bool BeginAccess() override {
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(),
+                                          AccessMode::kWrite);
+    return wrapped_->BeginAccess();
+  }
+
+  void EndAccess() final {
+    wrapped_->EndAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(),
+                                        AccessMode::kWrite);
+  }
+
+  std::unique_ptr<WebNNTensorRepresentation> wrapped_;
+};
+
+class WrappedMemoryCompoundImageRepresentation
+    : public MemoryImageRepresentation {
+ public:
+  WrappedMemoryCompoundImageRepresentation(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      MemoryTypeTracker* tracker,
+      std::unique_ptr<MemoryImageRepresentation> wrapped)
+      : MemoryImageRepresentation(manager, backing, tracker),
+        wrapped_(std::move(wrapped)) {
+    CHECK(wrapped_);
+  }
+
+  CompoundImageBacking* compound_backing() {
+    return static_cast<CompoundImageBacking*>(backing());
+  }
+
+  SkPixmap BeginReadAccess() override {
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(),
+                                          AccessMode::kRead);
+    return wrapped_->BeginReadAccess();
+  }
+
+ private:
+  std::unique_ptr<MemoryImageRepresentation> wrapped_;
 };
 
 // static
@@ -516,6 +673,28 @@ std::unique_ptr<SharedImageBacking> CompoundImageBacking::Create(
       std::move(copy_manager), std::move(buffer_usage)));
 }
 
+std::unique_ptr<SharedImageBacking> CompoundImageBacking::WrapExternalBacking(
+    SharedImageFactory* shared_image_factory,
+    scoped_refptr<SharedImageCopyManager> copy_manager,
+    std::unique_ptr<SharedImageBacking> backing) {
+  if (!backing) {
+    return nullptr;
+  }
+
+  // We don't wrap an existing CompoundImageBacking which consists of a shm and
+  // a gpu backing.
+  CHECK_NE(backing->GetType(), SharedImageBackingType::kCompound);
+
+  backing->SetNotRefCounted();
+
+  auto si_usage =
+      shared_image_factory->IsSharedBetweenThreads(backing->usage());
+  auto buffer_usage = backing->buffer_usage();
+  return base::WrapUnique(new CompoundImageBacking(
+      std::move(si_usage), std::move(buffer_usage), std::move(backing),
+      std::move(copy_manager), shared_image_factory->GetWeakPtr()));
+}
+
 // static
 std::unique_ptr<SharedImageBacking>
 CompoundImageBacking::CreateSharedMemoryForTesting(
@@ -639,6 +818,48 @@ CompoundImageBacking::CompoundImageBacking(
   elements_.push_back(std::move(gpu_element));
 }
 
+CompoundImageBacking::CompoundImageBacking(
+    bool is_thread_safe,
+    std::optional<gfx::BufferUsage> buffer_usage,
+    std::unique_ptr<SharedImageBacking> backing,
+    scoped_refptr<SharedImageCopyManager> copy_manager,
+    base::WeakPtr<SharedImageFactory> shared_image_factory)
+    : ClearTrackingSharedImageBacking(backing->mailbox(),
+                                      backing->format(),
+                                      backing->size(),
+                                      backing->color_space(),
+                                      backing->surface_origin(),
+                                      backing->alpha_type(),
+                                      backing->usage(),
+                                      backing->debug_label(),
+                                      backing->GetEstimatedSize(),
+                                      is_thread_safe,
+                                      std::move(buffer_usage)),
+      shared_image_factory_(std::move(shared_image_factory)),
+      copy_manager_(std::move(copy_manager)) {
+  // Create the element from the backing.
+  ElementHolder element;
+  if (backing->GetType() == SharedImageBackingType::kSharedMemory) {
+    element.access_streams = kMemoryStreamSet;
+  } else {
+    element.access_streams =
+        base::Difference(AccessStreamSet::All(), kMemoryStreamSet);
+  }
+
+  // |backing| may have a cleared rect set (e.g. from initial pixel data).
+  // Propagate this to the CompoundImageBacking to keep them in sync.
+  ClearTrackingSharedImageBacking::SetClearedRect(backing->ClearedRect());
+
+  // The backing is already created, so this is not a lazy initialization.
+  element.backing = std::move(backing);
+
+  // Mark the backing as having the latest content since it's the only one
+  // created so far.
+  element.content_id_ = latest_content_id_;
+  elements_.push_back(std::move(element));
+  CHECK_EQ(elements_.size(), 1u);
+}
+
 CompoundImageBacking::~CompoundImageBacking() {
   if (pending_copy_to_gmb_callback_) {
     std::move(pending_copy_to_gmb_callback_).Run(/*success=*/false);
@@ -697,18 +918,44 @@ void CompoundImageBacking::NotifyBeginAccess(SharedImageBacking* backing,
   }
 }
 
+void CompoundImageBacking::NotifyEndAccess(SharedImageBacking* backing,
+                                           RepresentationAccessMode mode) {
+  CHECK(backing);
+
+  // If the last access was a write and an underlying backing was accessed,
+  // propagate its cleared rect to the compound backing if it's different.
+  if (mode == RepresentationAccessMode::kWrite) {
+    auto cleared_rect = backing->ClearedRect();
+    if (cleared_rect != ClearedRect()) {
+      ClearTrackingSharedImageBacking::SetClearedRect(cleared_rect);
+    }
+  }
+}
+
 SharedImageBackingType CompoundImageBacking::GetType() const {
   return SharedImageBackingType::kCompound;
 }
 
 void CompoundImageBacking::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
-  CHECK(!in_fence);
+  // Update() synchronizes CPU-side writes (from Shared Memory or GMB) with the
+  // GPU. Hence it must target the backing which owns the CPU-mappable memory.
+  //
+  // Per this backing's design:
+  // 1. SharedMemoryImageBacking if present is the exclusive owner of CPU
+  // memory.
+  // 2. A SharedMemoryImageBacking or other CPU-mappable backing is always
+  // created only at initialization time. Hence it is guaranteed to be at
+  // elements_[0].
+  // 3. |elements_| always contains at least one element.
+  CHECK(!elements_.empty());
+  auto& element = elements_[0];
+  CHECK(element.backing);
+  element.backing->Update(std::move(in_fence));
 
-  // Find a shared memory backing to update.
-  auto& shm_element = GetShmElement();
-  CHECK(shm_element.backing);
-  ++latest_content_id_;
-  shm_element.content_id_ = latest_content_id_;
+  // Incrementing the content ID marks this backing as the new "source
+  // of truth." Subsequent access to other backings will trigger an
+  // efficient copy from this element to ensure consistency.
+  element.content_id_ = ++latest_content_id_;
 }
 
 bool CompoundImageBacking::CopyToGpuMemoryBuffer() {
@@ -775,6 +1022,18 @@ gfx::Rect CompoundImageBacking::ClearedRect() const {
 
 void CompoundImageBacking::SetClearedRect(const gfx::Rect& cleared_rect) {
   ClearTrackingSharedImageBacking::SetClearedRect(cleared_rect);
+
+  // Propagate the cleared rect to all underlying backings. This is important
+  // because SetClearedRect can be called on a CompoundImageBacking without a
+  // preceding BeginAccess call (e.g. in WebGPU's AssociateMailbox with the
+  // WEBGPU_MAILBOX_DISCARD flag). In such cases, it is hard to know which
+  // backing is currently being accessed. so we must ensure all potential
+  // backings are updated
+  for (auto& element : elements_) {
+    if (element.backing) {
+      element.backing->SetClearedRect(cleared_rect);
+    }
+  }
 }
 
 void CompoundImageBacking::MarkForDestruction() {
@@ -786,9 +1045,31 @@ void CompoundImageBacking::MarkForDestruction() {
 }
 
 gfx::GpuMemoryBufferHandle CompoundImageBacking::GetGpuMemoryBufferHandle() {
-  auto& element = GetShmElement();
+  // A GpuMemoryBufferHandle corresponds to the shared memory or native buffer
+  // (like an IOSurface, AHardwareBuffer, or DXGI Handle) that backs the image.
+  //
+  // Per this backing's design:
+  // 1. Any CPU-mappable backing including SharedMemoryImageBacking is always
+  // created only at initialization time and never allocated dynamically during
+  // runtime. Hence it is guaranteed to be at elements_[0].
+  // 2. |elements_| always contains at least one element.
+  CHECK(!elements_.empty());
+  auto& element = elements_[0];
   CHECK(element.backing);
   return element.backing->GetGpuMemoryBufferHandle();
+}
+
+scoped_refptr<gfx::NativePixmap> CompoundImageBacking::GetNativePixmap() {
+  // The purpose of this function is to get NativePixmap for overlay testing,
+  // so it needs be the same NativePixmap that we would later get from the
+  // ProduceOverlay representation. Hence using Overlay stream backing here.
+  for (const auto& element : elements_) {
+    if (element.access_streams.Has(SharedImageAccessStream::kOverlay) &&
+        element.backing) {
+      return element.backing->GetNativePixmap();
+    }
+  }
+  return nullptr;
 }
 
 std::unique_ptr<DawnImageRepresentation> CompoundImageBacking::ProduceDawn(
@@ -808,6 +1089,28 @@ std::unique_ptr<DawnImageRepresentation> CompoundImageBacking::ProduceDawn(
     return nullptr;
 
   return std::make_unique<WrappedDawnCompoundImageRepresentation>(
+      manager, this, tracker, std::move(real_rep));
+}
+
+std::unique_ptr<DawnBufferRepresentation>
+CompoundImageBacking::ProduceDawnBuffer(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker,
+    const wgpu::Device& device,
+    wgpu::BackendType backend_type,
+    scoped_refptr<SharedContextState> context_state) {
+  auto* backing = GetOrAllocateBacking(SharedImageAccessStream::kDawnBuffer);
+  if (!backing) {
+    return nullptr;
+  }
+
+  auto real_rep = backing->ProduceDawnBuffer(manager, tracker, device,
+                                             backend_type, context_state);
+  if (!real_rep) {
+    return nullptr;
+  }
+
+  return std::make_unique<WrappedDawnBufferCompoundImageRepresentation>(
       manager, this, tracker, std::move(real_rep));
 }
 
@@ -891,6 +1194,40 @@ CompoundImageBacking::ProduceOverlay(SharedImageManager* manager,
     return nullptr;
 
   return std::make_unique<WrappedOverlayCompoundImageRepresentation>(
+      manager, this, tracker, std::move(real_rep));
+}
+
+std::unique_ptr<WebNNTensorRepresentation>
+CompoundImageBacking::ProduceWebNNTensor(SharedImageManager* manager,
+                                         MemoryTypeTracker* tracker) {
+  auto* backing = GetOrAllocateBacking(SharedImageAccessStream::kWebNNTensor);
+  if (!backing) {
+    return nullptr;
+  }
+
+  auto real_rep = backing->ProduceWebNNTensor(manager, tracker);
+  if (!real_rep) {
+    return nullptr;
+  }
+
+  return std::make_unique<WrappedWebNNTensorCompoundImageRepresentation>(
+      manager, this, tracker, std::move(real_rep));
+}
+
+std::unique_ptr<MemoryImageRepresentation> CompoundImageBacking::ProduceMemory(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker) {
+  auto* backing = GetOrAllocateBacking(SharedImageAccessStream::kMemory);
+  if (!backing) {
+    return nullptr;
+  }
+
+  auto real_rep = backing->ProduceMemory(manager, tracker);
+  if (!real_rep) {
+    return nullptr;
+  }
+
+  return std::make_unique<WrappedMemoryCompoundImageRepresentation>(
       manager, this, tracker, std::move(real_rep));
 }
 
@@ -1022,7 +1359,7 @@ SharedImageBacking* CompoundImageBacking::GetOrAllocateBacking(
     }
   }
 
-  LOG(ERROR) << "Could not find or create a backing for representation.";
+  LOG(ERROR) << "Could not find or create a backing for stream " << stream;
   return nullptr;
 }
 
@@ -1113,6 +1450,38 @@ void CompoundImageBacking::ElementHolder::CreateBackingIfNecessary() {
 SharedImageBacking* CompoundImageBacking::ElementHolder::GetBacking() {
   CreateBackingIfNecessary();
   return backing.get();
+}
+
+GPU_GLES2_EXPORT std::ostream& operator<<(
+    std::ostream& os,
+    gpu::SharedImageAccessStream access_stream) {
+  switch (access_stream) {
+    case gpu::SharedImageAccessStream::kSkia:
+      os << "kSkia";
+      break;
+    case gpu::SharedImageAccessStream::kOverlay:
+      os << "kOverlay";
+      break;
+    case gpu::SharedImageAccessStream::kGL:
+      os << "kGL";
+      break;
+    case gpu::SharedImageAccessStream::kDawn:
+      os << "kDawn";
+      break;
+    case gpu::SharedImageAccessStream::kDawnBuffer:
+      os << "kDawnBuffer";
+      break;
+    case gpu::SharedImageAccessStream::kMemory:
+      os << "kMemory";
+      break;
+    case gpu::SharedImageAccessStream::kVaapi:
+      os << "kVaapi";
+      break;
+    case gpu::SharedImageAccessStream::kWebNNTensor:
+      os << "kWebNNTensor";
+      break;
+  }
+  return os;
 }
 
 }  // namespace gpu

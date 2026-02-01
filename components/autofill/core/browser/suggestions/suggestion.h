@@ -15,7 +15,6 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/types/cxx23_to_underlying.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -113,8 +112,7 @@ struct Suggestion {
     PaymentsPayload();
     PaymentsPayload(std::u16string main_text_content_description,
                     bool should_display_terms_available,
-                    Guid guid,
-                    bool is_local_payments_method);
+                    Guid guid);
     PaymentsPayload(const PaymentsPayload&);
     PaymentsPayload(PaymentsPayload&&);
     PaymentsPayload& operator=(const PaymentsPayload&);
@@ -137,9 +135,6 @@ struct Suggestion {
 
     // Payments method identifier associated with suggestion.
     Guid guid;
-
-    // If true, the payments method associated with the suggestion is local.
-    bool is_local_payments_method = false;
 
     // The amount of the payment as extracted from the page. For example, used
     // for BNPL suggestions to confirm the amount is in the supported range for
@@ -174,7 +169,7 @@ struct Suggestion {
   struct IdentityCredentialPayload final {
     IdentityCredentialPayload();
     IdentityCredentialPayload(
-        GURL configURL,
+        GURL config_url,
         std::string account_id,
         const std::map<FieldType, std::u16string>& fields);
     IdentityCredentialPayload(const IdentityCredentialPayload&);
@@ -546,7 +541,11 @@ struct Suggestion {
   std::optional<std::u16string> voice_over;
 
   // If specified, this text will be played back if the user accepts this
-  // suggestion.
+  // suggestion. Announcing messages in response to user actions is discouraged
+  // on Android, this message has no effect on that platform.
+  // TODO: crbug.com/467577615 - Redesign accessibility labels on Android so
+  // that they better reflect the information that's going to be filled in the
+  // form.
   std::optional<std::u16string> acceptance_a11y_announcement;
 
   // When `type` is

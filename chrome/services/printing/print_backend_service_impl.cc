@@ -20,6 +20,7 @@
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/sequence_bound.h"
@@ -49,7 +50,10 @@
 #endif
 
 #if BUILDFLAG(IS_LINUX)
+#include "base/command_line.h"
 #include "base/no_destructor.h"
+#include "components/printing/common/print_dialog_linux_factory.h"
+#include "content/public/common/content_switches.h"  // nogncheck
 #include "ui/linux/linux_ui.h"
 #include "ui/linux/linux_ui_delegate_stub.h"
 #include "ui/linux/linux_ui_factory.h"
@@ -473,6 +477,10 @@ void PrintBackendServiceImpl::Init(
   // are using `TestPrintingContext`.
   InstantiateLinuxUiDelegate();
   ui::LinuxUi::SetInstance(ui::GetDefaultLinuxUi());
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kSingleProcess)) {
+    print_dialog_factory_ = std::make_unique<PrintDialogLinuxFactory>();
+  }
 #endif  // BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN)

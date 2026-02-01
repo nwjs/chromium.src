@@ -12,7 +12,6 @@
 
 #include "base/barrier_closure.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/functional/callback.h"
 #include "base/functional/concurrent_closures.h"
 #include "base/i18n/time_formatting.h"
@@ -261,6 +260,10 @@ base::Value::Dict ManifestSilentUpdateCompletionInfo::ToDebugValue() {
                : base::EmptyString16());
 }
 
+std::string ManifestSilentUpdateCompletionInfo::ToString() {
+  return ToDebugValue().DebugString();
+}
+
 ManifestSilentUpdateCommand::ManifestSilentUpdateCommand(
     content::WebContents& web_contents,
     std::optional<base::Time> previous_time_for_silent_icon_update,
@@ -316,8 +319,13 @@ void ManifestSilentUpdateCommand::StartWithLock(
   data_retriever_ = lock_->web_contents_manager().CreateDataRetriever();
 
   SetStage(ManifestSilentUpdateCommandStage::kFetchingNewManifestData);
+  // This explicitly does NOT ask to download the primary icon, to prevent
+  // network usage and because we check for the icon downloading later.
+  // However, kValidManifestIgnoreDisplay does still check for the existence of
+  // a primary icon url.
+  // TODO(https://crbug.com/468037835): Make this criteria logic not need the
+  // whole InstallableManager layer here if possible.
   webapps::InstallableParams params;
-  params.valid_primary_icon = true;
   params.check_eligibility = true;
   params.installable_criteria =
       webapps::InstallableCriteria::kValidManifestIgnoreDisplay;
@@ -395,15 +403,8 @@ void ManifestSilentUpdateCommand::StartManifestToInstallInfoJob(
     blink::mojom::ManifestPtr opt_manifest) {
   CHECK_EQ(stage_, ManifestSilentUpdateCommandStage::kAcquiringAppLock);
   CHECK(app_lock_->IsGranted());
-
-  bool is_trusted_app_for_manifest_installs =
-      app_lock_->registrar().AppMatches(app_id_, WebAppFilter::IsTrusted());
-
-  // Only allow apps that are either trusted, or they open in a dedicated
-  // window.
-  if (!is_trusted_app_for_manifest_installs &&
-      !app_lock_->registrar().AppMatches(
-          app_id_, WebAppFilter::OpensInDedicatedWindow())) {
+  if (!app_lock_->registrar().AppMatches(app_id_,
+                                         WebAppFilter::InstalledInChrome())) {
     CompleteCommandAndSelfDestruct(
         FROM_HERE, ManifestSilentUpdateCheckResult::kAppNotAllowedToUpdate);
     return;
@@ -414,7 +415,7 @@ void ManifestSilentUpdateCommand::StartManifestToInstallInfoJob(
   construct_options.defer_icon_fetching = true;
   construct_options.record_icon_results_on_update = true;
   construct_options.use_manifest_icons_as_trusted =
-      is_trusted_app_for_manifest_installs;
+      app_lock_->registrar().AppMatches(app_id_, WebAppFilter::IsTrusted());
 
   // The `background_installation` and `install_source` fields here don't matter
   // because this is not logged anywhere.
@@ -937,7 +938,7 @@ void ManifestSilentUpdateCommand::WritePendingUpdateToWebAppUpdateObservers(
   if (trigger_pending_update_observers) {
     app_lock_->registrar().NotifyPendingUpdateInfoChanged(
         app_id_, pending_update.has_value(),
-        WebAppRegistrar::PendingUpdateInfoChangePassKey());
+        base::PassKey<ManifestSilentUpdateCommand>());
   }
 }
 

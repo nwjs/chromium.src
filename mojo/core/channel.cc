@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/core/channel.h"
 
 #include <stddef.h>
@@ -464,8 +459,9 @@ Channel::MessagePtr Channel::Message::Deserialize(
     size_t data_num_bytes,
     HandlePolicy handle_policy,
     base::ProcessHandle from_process) {
-  if (data_num_bytes < sizeof(LegacyHeader))
+  if (data_num_bytes < sizeof(LegacyHeader)) {
     return nullptr;
+  }
 
   const LegacyHeader* legacy_header =
       reinterpret_cast<const LegacyHeader*>(data);
@@ -478,8 +474,9 @@ Channel::MessagePtr Channel::Message::Deserialize(
   // If a message isn't explicitly identified as type NORMAL_LEGACY, it is
   // expected to have a full-size header.
   const Header* header = nullptr;
-  if (legacy_header->message_type != MessageType::NORMAL_LEGACY)
+  if (legacy_header->message_type != MessageType::NORMAL_LEGACY) {
     header = reinterpret_cast<const Header*>(data);
+  }
 
   uint32_t extra_header_size = 0;
   auto data_span = UNSAFE_TODO(
@@ -572,9 +569,11 @@ Channel::MessagePtr Channel::Message::Deserialize(
   std::vector<PlatformHandleInTransit> handles(num_handles);
   for (size_t i = 0; i < num_handles; i++) {
     HANDLE handle = base::win::Uint32ToHandle(
-        static_cast<ComplexMessage*>(message.get())->handles_[i].handle);
-    if (PlatformHandleInTransit::IsPseudoHandle(handle))
+        UNSAFE_TODO(static_cast<ComplexMessage*>(message.get())->handles_[i])
+            .handle);
+    if (PlatformHandleInTransit::IsPseudoHandle(handle)) {
       return nullptr;
+    }
     if (from_process == base::kNullProcessHandle) {
       handles[i] = PlatformHandleInTransit(
           PlatformHandle(base::win::ScopedHandle(handle)));
@@ -650,8 +649,9 @@ base::span<const char> Channel::Message::payload_span() const {
 }
 
 size_t Channel::Message::payload_size() const {
-  if (is_legacy_message())
+  if (is_legacy_message()) {
     return legacy_header()->num_bytes - sizeof(LegacyHeader);
+  }
   return size_ - header()->num_header_bytes;
 }
 
@@ -750,23 +750,26 @@ ComplexMessage::ComplexMessage(size_t capacity,
 #if BUILDFLAG(IS_WIN)
     handles_ = reinterpret_cast<HandleEntry*>(mutable_extra_header());
     // Initialize all handles to invalid values.
-    for (size_t i = 0; i < max_handles_; ++i)
-      handles_[i].handle = base::win::HandleToUint32(INVALID_HANDLE_VALUE);
+    for (size_t i = 0; i < max_handles_; ++i) {
+      UNSAFE_TODO(handles_[i]).handle =
+          base::win::HandleToUint32(INVALID_HANDLE_VALUE);
+    }
 #elif BUILDFLAG(MOJO_USE_APPLE_CHANNEL)
     mach_ports_header_ =
         reinterpret_cast<MachPortsExtraHeader*>(mutable_extra_header());
     mach_ports_header_->num_ports = 0;
     // Initialize all handles to invalid values.
     for (size_t i = 0; i < max_handles_; ++i) {
-      mach_ports_header_->entries[i] = {0};
+      UNSAFE_TODO(mach_ports_header_->entries[i]) = {0};
     }
 #endif
   }
 }
 
 size_t ComplexMessage::capacity() const {
-  if (is_legacy_message())
+  if (is_legacy_message()) {
     return capacity_ - sizeof(LegacyHeader);
+  }
   return capacity_ - header()->num_header_bytes;
 }
 
@@ -832,22 +835,23 @@ void ComplexMessage::SetHandles(
   header()->num_handles = static_cast<uint16_t>(new_handles.size());
   std::swap(handle_vector_, new_handles);
 #if BUILDFLAG(IS_WIN)
-  memset(handles_, 0, extra_header_size());
+  UNSAFE_TODO(memset(handles_, 0, extra_header_size()));
   for (size_t i = 0; i < handle_vector_.size(); i++) {
     HANDLE handle = handle_vector_[i].remote_handle();
-    if (handle == INVALID_HANDLE_VALUE)
+    if (handle == INVALID_HANDLE_VALUE) {
       handle = handle_vector_[i].handle().GetHandle().Get();
-    handles_[i].handle = base::win::HandleToUint32(handle);
+    }
+    UNSAFE_TODO(handles_[i]).handle = base::win::HandleToUint32(handle);
   }
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(MOJO_USE_APPLE_CHANNEL)
   if (mach_ports_header_) {
     for (size_t i = 0; i < max_handles_; ++i) {
-      mach_ports_header_->entries[i] = {0};
+      UNSAFE_TODO(mach_ports_header_->entries[i]) = {0};
     }
     for (size_t i = 0; i < handle_vector_.size(); i++) {
-      mach_ports_header_->entries[i].type =
+      UNSAFE_TODO(mach_ports_header_->entries[i]).type =
           static_cast<uint8_t>(handle_vector_[i].handle().type());
     }
     mach_ports_header_->num_ports = handle_vector_.size();
@@ -1056,6 +1060,7 @@ void Channel::ShutDown() {
     // so the Channel can notify once it's finally being destroyed.
     delegate_ = nullptr;
   }
+  delayed_messages_.clear();
 }
 
 void Channel::WriteNextIpczMessage(
@@ -1069,8 +1074,9 @@ void Channel::WriteNextIpczMessage(
 char* Channel::GetReadBuffer(size_t* buffer_capacity) {
   DCHECK(read_buffer_);
   size_t required_capacity = *buffer_capacity;
-  if (!required_capacity)
+  if (!required_capacity) {
     required_capacity = kReadBufferSize;
+  }
 
   *buffer_capacity = required_capacity;
   return read_buffer_->Reserve(required_capacity);
@@ -1092,10 +1098,10 @@ bool Channel::OnReadComplete(size_t bytes_read, size_t* next_read_size_hint) {
       read_buffer_->Realign();
     }
 
-    DispatchResult result =
-        TryDispatchMessage(base::span(read_buffer_->occupied_bytes(),
-                                      read_buffer_->num_occupied_bytes()),
-                           next_read_size_hint);
+    DispatchResult result = TryDispatchMessage(
+        UNSAFE_TODO(base::span(read_buffer_->occupied_bytes(),
+                               read_buffer_->num_occupied_bytes())),
+        next_read_size_hint);
     if (result == DispatchResult::kOK) {
       if (ShouldRecordSubsampledHistograms()) {
         RecordReceivedMessageProcessType();
@@ -1184,6 +1190,7 @@ Channel::DispatchResult Channel::TryDispatchMessage(
     // on Linux).
     if (Message::IsExperimentalV3(header)) {
       uint32_t sequence_number = Message::ExtractChannelSequenceNumber(header);
+      DCHECK(sequence_number > dispatched_message_count_);
       if (sequence_number != dispatched_message_count_ + 1) {
         DelayMessage(sequence_number, buffer.first(num_bytes),
                      std::move(handles), std::move(envelope));
@@ -1244,7 +1251,7 @@ Channel::DispatchResult Channel::TryDispatchMessage(
       return DispatchResult::kError;
     }
     extra_header_size = header->num_header_bytes - sizeof(Message::Header);
-    extra_header = extra_header_size ? header + 1 : nullptr;
+    extra_header = extra_header_size ? UNSAFE_TODO(header + 1) : nullptr;
     payload_size = header->num_bytes - header->num_header_bytes;
     payload = payload_size
                   ? reinterpret_cast<Message::Header*>(const_cast<char*>(
@@ -1252,9 +1259,10 @@ Channel::DispatchResult Channel::TryDispatchMessage(
                   : nullptr;
   } else {
     payload_size = legacy_header->num_bytes - sizeof(Message::LegacyHeader);
-    payload = payload_size
-                  ? const_cast<Message::LegacyHeader*>(&legacy_header[1])
-                  : nullptr;
+    payload =
+        payload_size
+            ? const_cast<Message::LegacyHeader*>(UNSAFE_TODO(&legacy_header[1]))
+            : nullptr;
   }
 
   const uint16_t num_handles =
@@ -1296,8 +1304,9 @@ Channel::DispatchResult Channel::TryDispatchMessage(
 }
 
 void Channel::OnError(Error error) {
-  if (delegate_)
+  if (delegate_) {
     delegate_->OnChannelError(error);
+  }
 }
 
 bool Channel::OnControlMessage(Message::MessageType message_type,
@@ -1340,8 +1349,9 @@ bool Channel::DispatchDelayedMessages() {
     DelayedMessage delayed_message = std::move(it->second);
     delayed_messages_.erase(it);
     dispatched_message_count_++;
-    const auto& header = *reinterpret_cast<const Message::IpczHeader*>(
-        delayed_message.data.data());
+    const auto& header =
+        *UNSAFE_TODO(reinterpret_cast<const Message::IpczHeader*>(
+            delayed_message.data.data()));
     auto data =
         base::span<const char>(delayed_message.data).subspan(header.size);
 

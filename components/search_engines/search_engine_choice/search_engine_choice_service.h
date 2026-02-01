@@ -186,40 +186,48 @@ class SearchEngineChoiceService : public KeyedService {
   // used by this service.
   Client& GetClientForTesting();
 
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(ChoiceStatus)
   enum class ChoiceStatus {
     // Metadata indicates that a search engine choice has been made and is
     // considered valid.
-    kValid,
+    kValid = 0,
     // No search engine choice has been made yet.
-    kNotMade,
+    kNotMade = 1,
     // The current search engine choice has been made on a different device.
-    kFromRestoredDevice,
+    kFromRestoredDevice = 2,
     // There is no default search provider available, likely disabled by
     // enterprise policies.
-    kDefaultSearchDisabled,
+    kDefaultSearchDisabled = 3,
     // The current default search provider is set by enterprise policies.
-    kCurrentIsSetByPolicy,
+    kCurrentIsSetByPolicy = 4,
     // The current default search provider is set by an extension.
-    kCurrentIsSetByExtension,
+    kCurrentIsSetByExtension = 5,
     // The current default search provider is non-Google prepopulated one.
-    kCurrentIsNonGooglePrepopulated,
+    kCurrentIsNonGooglePrepopulated = 6,
     // The current default search provider is a custom, client-specified URL.
     // For example, it could be entered manually by the user or picked up as
     // site search.
-    kCurrentIsNotPrepopulated,
+    kCurrentIsNotPrepopulated = 7,
     // The current default search provider is coming from search provider
     // overrides set by the admin or non-standard distribution channel.
-    kCurrentIsDistributionCustom,
+    kCurrentIsDistributionCustom = 8,
     // The current default search provider has a prepopulated ID that doesn't
     // match any of the preopulated engines currently available.
-    kCurrentIsUnknownPrepopulated,
+    kCurrentIsUnknownPrepopulated = 9,
     // The user is not eligible for the choice screen based on their account
     // capabilities.
-    kAccountNotEligible,
+    kAccountNotEligible = 10,
     // The device is not eligible for the choice screen based on its management
     // status.
-    kManaged,
+    kManaged = 11,
+
+    kMaxValue = kManaged
   };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/search/enums.xml:SearchEngineChoiceStatus)
+
   ChoiceStatus EvaluateSearchProviderChoiceForTesting(
       const TemplateURLService& template_url_service);
 
@@ -240,6 +248,11 @@ class SearchEngineChoiceService : public KeyedService {
   void AddObserver(Observer* obs) { observers_.AddObserver(obs); }
 
   void RemoveObserver(Observer* obs) { observers_.RemoveObserver(obs); }
+
+  std::optional<SearchEngineChoiceScreenConditions>
+  recorded_profile_load_choice_screen_eligibility() const {
+    return recorded_profile_load_choice_screen_eligibility_;
+  }
 
   // Register Local state preferences in `registry`.
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
@@ -286,6 +299,9 @@ class SearchEngineChoiceService : public KeyedService {
   const raw_ref<signin::IdentityManager> identity_manager_;
   const raw_ref<policy::ManagementService> platform_management_service_;
   base::ObserverList<Observer> observers_;
+
+  std::optional<SearchEngineChoiceScreenConditions>
+      recorded_profile_load_choice_screen_eligibility_;
 
   // Used to track whether `MaybeRecordChoiceScreenDisplayState()` has already
   // been called for this profile, to monitor the prevalence of some unexpected

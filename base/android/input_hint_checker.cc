@@ -74,9 +74,8 @@ void InputHintChecker::InitializeFeatures() {
   }
 }
 
-void InputHintChecker::SetView(
-    JNIEnv* env,
-    const jni_zero::JavaParamRef<jobject>& root_view) {
+void InputHintChecker::SetView(JNIEnv* env,
+                               const jni_zero::JavaRef<jobject>& root_view) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   InitState state = FetchState();
   if (state == InitState::kFailedToInitialize) {
@@ -314,9 +313,8 @@ void InputHintChecker::RecordInputHintResult(InputHintResult result) {
   UMA_HISTOGRAM_ENUMERATION("Android.InputHintChecker.InputHintResult", result);
 }
 
-static void JNI_InputHintChecker_SetView(
-    _JNIEnv* env,
-    const jni_zero::JavaParamRef<jobject>& v) {
+static void JNI_InputHintChecker_SetView(_JNIEnv* env,
+                                         const jni_zero::JavaRef<jobject>& v) {
   InputHintChecker::GetInstance().SetView(env, v);
 }
 
@@ -329,22 +327,21 @@ static void JNI_InputHintChecker_OnCompositorViewHolderTouchEvent(
   checker.set_is_after_input_yield(false);
 }
 
-static jboolean JNI_InputHintChecker_IsInitializedForTesting(_JNIEnv* env) {
+static bool JNI_InputHintChecker_IsInitializedForTesting(_JNIEnv* env) {
   return InputHintChecker::GetInstance().IsInitializedForTesting();  // IN-TEST
 }
 
-static jboolean JNI_InputHintChecker_FailedToInitializeForTesting(
-    _JNIEnv* env) {
+static bool JNI_InputHintChecker_FailedToInitializeForTesting(_JNIEnv* env) {
   return InputHintChecker::GetInstance()
       .FailedToInitializeForTesting();  // IN-TEST
 }
 
-static jboolean JNI_InputHintChecker_HasInputForTesting(_JNIEnv* env) {
+static bool JNI_InputHintChecker_HasInputForTesting(_JNIEnv* env) {
   InputHintChecker& checker = InputHintChecker::GetInstance();
   return checker.HasInputImplNoThrottlingForTesting(env);  // IN-TEST
 }
 
-static jboolean JNI_InputHintChecker_HasInputWithThrottlingForTesting(
+static bool JNI_InputHintChecker_HasInputWithThrottlingForTesting(
     _JNIEnv* env) {
   InputHintChecker& checker = InputHintChecker::GetInstance();
   return checker.HasInputImplWithThrottlingForTesting(env);  // IN-TEST
@@ -352,7 +349,7 @@ static jboolean JNI_InputHintChecker_HasInputWithThrottlingForTesting(
 
 static void JNI_InputHintChecker_SetIsAfterInputYieldForTesting(  // IN-TEST
     _JNIEnv* env,
-    jboolean after) {
+    bool after) {
   InputHintChecker::GetInstance().disable_metric_subsampling();
   InputHintChecker::GetInstance().set_is_after_input_yield(after);
 }

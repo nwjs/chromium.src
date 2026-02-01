@@ -172,6 +172,7 @@ group("make_platform_generated") {
     ":font_family_names",
     ":runtime_enabled_features",
     ":runtime_feature_state_override_context",
+    "//third_party/blink/public:buildflags",
     "//third_party/blink/public/common:buildflags",
     "//third_party/blink/renderer/platform/heap:blink_heap_buildflags",
     "//third_party/blink/renderer/platform/network:make_generated",
@@ -635,7 +636,6 @@ component("platform") {
     "fonts/canvas_rotation_in_vertical.h",
     "fonts/character_range.h",
     "fonts/custom_font_data.h",
-    "fonts/fallback_list_composite_key.h",
     "fonts/font.cc",
     "fonts/font.h",
     "fonts/font_baseline.h",
@@ -643,8 +643,6 @@ component("platform") {
     "fonts/font_cache.h",
     "fonts/font_cache_client.h",
     "fonts/font_cache_key.h",
-    "fonts/font_cache_memory_dump_provider.cc",
-    "fonts/font_cache_memory_dump_provider.h",
     "fonts/font_custom_platform_data.cc",
     "fonts/font_custom_platform_data.h",
     "fonts/font_data.h",
@@ -776,7 +774,6 @@ component("platform") {
     "fonts/shaping/ng_shape_cache.h",
     "fonts/shaping/run_segmenter.cc",
     "fonts/shaping/run_segmenter.h",
-    "fonts/shaping/shape_cache.h",
     "fonts/shaping/shape_options.h",
     "fonts/shaping/shape_result.cc",
     "fonts/shaping/shape_result.h",
@@ -903,6 +900,9 @@ component("platform") {
     "graphics/canvas_resource_dispatcher.h",
     "graphics/canvas_resource_provider.cc",
     "graphics/canvas_resource_provider.h",
+    "graphics/canvas_snapshot_provider.h",
+    "graphics/canvas_snapshot_provider_external_bitmap.cc",
+    "graphics/canvas_snapshot_provider_external_bitmap.h",
     "graphics/color.cc",
     "graphics/color.h",
     "graphics/color_behavior.h",
@@ -1461,8 +1461,6 @@ component("platform") {
     "peerconnection/webrtc_util.h",
     "peerconnection/webrtc_video_track_source.cc",
     "peerconnection/webrtc_video_track_source.h",
-    "privacy_budget/identifiability_digest_helpers.cc",
-    "privacy_budget/identifiability_digest_helpers.h",
     "region_capture_crop_id.cc",
     "region_capture_crop_id.h",
     "resolution_units.h",
@@ -1474,6 +1472,8 @@ component("platform") {
     "storage/blink_storage_key.h",
     "storage/blink_storage_key_hash.h",
     "storage/blink_storage_key_mojom_traits.cc",
+    "supplementable.cc",
+    "supplementable.h",
     "text/bidi_paragraph.cc",
     "text/bidi_paragraph.h",
     "text/capitalize.cc",
@@ -1528,7 +1528,6 @@ component("platform") {
     "text/text_encoding_detector.cc",
     "text/text_encoding_detector.h",
     "text/text_justify.h",
-    "text/text_run.cc",
     "text/text_run.h",
     "text/truncation.h",
     "text/unicode_bidi.h",
@@ -1956,7 +1955,7 @@ component("platform") {
     allow_circular_includes_from += [ ":blink_x86_avx" ]
   }
 
-  if (current_cpu == "arm64" || (current_cpu == "arm" && arm_use_neon)) {
+  if (current_cpu == "arm64" || current_cpu == "arm") {
     sources += [ "audio/cpu/arm/delay_neon.cc" ]
   }
 
@@ -2202,7 +2201,6 @@ source_set("blink_platform_unittests_sources") {
     "exported/web_string_test.cc",
     "exported/web_thread_safe_data_test.cc",
     "fonts/bitmap_glyphs_block_list_test.cc",
-    "fonts/fallback_list_composite_key_test.cc",
     "fonts/font_cache_test.cc",
     "fonts/font_description_test.cc",
     "fonts/font_fallback_iterator_test.cc",
@@ -2274,6 +2272,7 @@ source_set("blink_platform_unittests_sources") {
     "graphics/decoding_image_generator_test.cc",
     "graphics/deferred_image_decoder_test_wo_platform.cc",
     "graphics/filters/fe_composite_test.cc",
+    "graphics/filters/fe_turbulence_test.cc",
     "graphics/filters/image_filter_builder_test.cc",
     "graphics/gpu/drawing_buffer_test.cc",
     "graphics/gpu/shared_gpu_context_test.cc",
@@ -2634,6 +2633,11 @@ group("blink_platform_unittests_data") {
     "//third_party/blink/web_tests/third_party/",
   ]
 
+  if (enable_jxl_decoder) {
+    # Required by JXL image decoder tests.
+    data += [ "//third_party/blink/web_tests/external/wpt/jpegxl/" ]
+  }
+
   data_deps = [
     "//testing/buildbot/filters:blink_platform_unittests",
     "//third_party/hyphenation-patterns:test_data",
@@ -2711,6 +2715,9 @@ source_set("blink_image_decoder_fuzzer_test_support") {
     "image-decoders/image_decoder_fuzzer_utils.h",
   ]
   deps = [ ":platform" ]
+  if (enable_jxl_decoder) {
+    deps += [ "//third_party/rust/jxl/v0_2/wrapper:jxl_rs" ]
+  }
 }
 
 # Fuzzer for blink::unicode::MathVariant.
@@ -2823,9 +2830,9 @@ fuzzer_test("web_icon_sizes_fuzzer") {
   additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
 }
 
-# Fuzzer for blink::CrabbyAVIFImageDecoder
-fuzzer_test("blink_crabbyavif_decoder_fuzzer") {
-  sources = [ "image-decoders/avif/crabbyavif_image_decoder_fuzzer.cc" ]
+# Fuzzer for blink::AVIFImageDecoder
+fuzzer_test("blink_avif_decoder_fuzzer") {
+  sources = [ "image-decoders/avif/avif_image_decoder_fuzzer.cc" ]
   deps = [
     ":blink_fuzzer_test_support",
     ":blink_image_decoder_fuzzer_test_support",
@@ -2834,6 +2841,23 @@ fuzzer_test("blink_crabbyavif_decoder_fuzzer") {
   seed_corpuses = [ "//third_party/blink/web_tests/images/resources/avif" ]
   libfuzzer_options = [ "rss_limit_mb=8192" ]
   additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
+}
+
+if (enable_jxl_decoder) {
+  # Fuzzer for blink::JXLImageDecoder
+  fuzzer_test("blink_jxl_decoder_fuzzer") {
+    sources = [ "image-decoders/jxl/jxl_image_decoder_fuzzer.cc" ]
+    deps = [
+      ":blink_fuzzer_test_support",
+      ":blink_image_decoder_fuzzer_test_support",
+      ":platform",
+      "//third_party/rust/jxl/v0_2/wrapper:jxl_rs",
+    ]
+    seed_corpuses =
+        [ "//third_party/blink/web_tests/external/wpt/jpegxl/resources" ]
+    libfuzzer_options = [ "rss_limit_mb=8192" ]
+    additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
+  }
 }
 
 # Fuzzer for blink::ICOImageDecoder.

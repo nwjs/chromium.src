@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.incognito.reauth;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.os.Bundle;
+import android.os.PersistableBundle;
 
 import androidx.activity.OnBackPressedCallback;
 
@@ -52,6 +53,9 @@ public class IncognitoReauthControllerImpl
     // A key that would be persisted in saved instance that would be true if there were
     // incognito tabs present before Chrome went to background.
     public static final String KEY_IS_INCOGNITO_REAUTH_PENDING = "incognitoReauthPending";
+
+    // TODO(crbug.com/474346053): Find a better home for this persistent state key.
+    public static final String PREVIOUS_VERSION_CODE = "previous_version_code";
 
     /**
      * A list of all {@link IncognitoReauthCallback} that would be triggered from
@@ -325,6 +329,12 @@ public class IncognitoReauthControllerImpl
     public void onSaveInstanceState(Bundle outState) {
         // TODO(crbug.com/40242374): Incognito does not lock correctly for versions < Android P.
         outState.putBoolean(KEY_IS_INCOGNITO_REAUTH_PENDING, mIncognitoReauthPending);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
+        // TODO(crbug.com/40242374): Incognito does not lock correctly for versions < Android P.
+        outPersistentState.putBoolean(KEY_IS_INCOGNITO_REAUTH_PENDING, mIncognitoReauthPending);
     }
 
     /** Override from {@link StartStopWithNativeObserver}. */

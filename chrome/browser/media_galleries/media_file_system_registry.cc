@@ -12,16 +12,15 @@
 #include <vector>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
-#include "base/notreached.h"
 #include "build/build_config.h"
 #include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
+#include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
 #include "chrome/browser/media_galleries/gallery_watch_manager.h"
 #include "chrome/browser/media_galleries/media_file_system_context.h"
 #include "chrome/browser/media_galleries/media_galleries_preferences_factory.h"
@@ -40,10 +39,6 @@
 #include "storage/browser/file_system/external_mount_points.h"
 #include "storage/common/file_system/file_system_mount_option.h"
 #include "storage/common/file_system/file_system_types.h"
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
-#endif
 
 using content::BrowserThread;
 using content::NavigationController;
@@ -244,8 +239,9 @@ class ExtensionGalleriesHost {
       const MediaGalleryPrefInfo& gallery_info =
           galleries_info.find(pref_id)->second;
       const std::string& device_id = gallery_info.device_id;
-      if (!base::Contains(*attached_devices, device_id))
+      if (!attached_devices->contains(device_id)) {
         continue;
+      }
 
       PrefIdFsInfoMap::const_iterator existing_info =
           pref_id_map_.find(pref_id);
@@ -295,7 +291,7 @@ class ExtensionGalleriesHost {
       base::FilePath path = gallery.AbsolutePath();
       const std::string& device_id = gallery.device_id;
 
-      if (base::Contains(pref_id_map_, gallery.pref_id)) {
+      if (pref_id_map_.contains(gallery.pref_id)) {
         result = base::File::FILE_OK;
       } else if (MediaStorageUtil::CanCreateFileSystem(device_id, path) &&
                  file_system_context_->RegisterFileSystem(device_id, fs_name,
@@ -403,7 +399,7 @@ void MediaFileSystemRegistry::RegisterMediaFileSystemForExtension(
       preferences->GalleriesForExtension(*extension);
 
   if (gallery == preferences->known_galleries().end() ||
-      !base::Contains(permitted_galleries, pref_id)) {
+      !permitted_galleries.contains(pref_id)) {
     content::GetIOThreadTaskRunner({})->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(callback), base::File::FILE_ERROR_NOT_FOUND));
@@ -423,9 +419,9 @@ void MediaFileSystemRegistry::RegisterMediaFileSystemForExtension(
 MediaGalleriesPreferences* MediaFileSystemRegistry::GetPreferences(
     Profile* profile) {
   // Create an empty ExtensionHostMap for this profile on first initialization.
-  if (!base::Contains(extension_hosts_map_, profile)) {
+  if (!extension_hosts_map_.contains(profile)) {
     extension_hosts_map_[profile] = ExtensionHostMap();
-    DCHECK(!base::Contains(profile_subscription_map_, profile));
+    DCHECK(!profile_subscription_map_.contains(profile));
     profile_subscription_map_[profile] =
         MediaFileSystemRegistryShutdownNotifierFactory::GetInstance()
             ->Get(profile)
@@ -516,13 +512,11 @@ class MediaFileSystemRegistry::MediaFileSystemContextImpl
   void RevokeFileSystem(const std::string& fs_name) override {
     ExternalMountPoints::GetSystemInstance()->RevokeFileSystem(fs_name);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
     content::GetIOThreadTaskRunner({})->PostTask(
         FROM_HERE,
         base::BindOnce(&MTPDeviceMapService::RevokeMTPFileSystem,
                        base::Unretained(MTPDeviceMapService::GetInstance()),
                        fs_name));
-#endif
   }
 
   base::FilePath GetRegisteredPath(const std::string& fs_name) const override {
@@ -555,7 +549,6 @@ class MediaFileSystemRegistry::MediaFileSystemContextImpl
   bool RegisterFileSystemForMTPDevice(const std::string& device_id,
                                       const std::string fs_name,
                                       const base::FilePath& path) {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
     DCHECK(!StorageInfo::IsMassStorageDevice(device_id));
 
@@ -573,9 +566,6 @@ class MediaFileSystemRegistry::MediaFileSystemContextImpl
                        base::Unretained(MTPDeviceMapService::GetInstance()),
                        path.value(), fs_name, true /* read only */));
     return result;
-#else
-    NOTREACHED();
-#endif
   }
 };
 
@@ -629,8 +619,9 @@ void MediaFileSystemRegistry::OnGalleryRemoved(
         extension_registry->enabled_extensions().GetByID(it->first));
   }
   for (size_t i = 0; i < extensions.size(); ++i) {
-    if (!base::Contains(extension_hosts_map_, profile))
+    if (!extension_hosts_map_.contains(profile)) {
       break;
+    }
     auto gallery_host_it = extension_host_map.find(extensions[i]->id());
     if (gallery_host_it == extension_host_map.end())
       continue;

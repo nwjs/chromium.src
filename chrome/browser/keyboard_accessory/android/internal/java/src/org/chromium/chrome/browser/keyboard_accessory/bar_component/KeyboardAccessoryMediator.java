@@ -178,7 +178,13 @@ class KeyboardAccessoryMediator
         List<BarItem> fixedBarItems = new ArrayList<BarItem>();
         if (showFloatingKeyboardAccessory()) {
             fixedBarItems.add(mModel.get(SHEET_OPENER_ITEM));
-            fixedBarItems.add(mModel.get(DISMISS_ITEM));
+            // Dismiss button shouldn't be added when dynamic positioning is used.
+            // TODO(crbug.com/458610269): Delete the the dismiss button after dynamic positioning is
+            // launched.
+            if (!ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+                fixedBarItems.add(mModel.get(DISMISS_ITEM));
+            }
         } else {
             scrollableItems.add(mModel.get(SHEET_OPENER_ITEM));
         }
@@ -253,11 +259,10 @@ class KeyboardAccessoryMediator
     private boolean shouldShowSuggestion(AutofillSuggestion suggestion) {
         switch (suggestion.getSuggestionType()) {
             case SuggestionType.INSECURE_CONTEXT_PAYMENT_DISABLED_MESSAGE:
-                // The insecure context warning has a replacement in the fallback sheet.
+            // The insecure context warning has a replacement in the fallback sheet.
             case SuggestionType.TITLE:
             case SuggestionType.SEPARATOR:
             case SuggestionType.UNDO_OR_CLEAR:
-            case SuggestionType.ALL_LOYALTY_CARDS_ENTRY:
             case SuggestionType.ALL_SAVED_PASSWORDS_ENTRY:
             case SuggestionType.GENERATE_PASSWORD_ENTRY:
             case SuggestionType.MANAGE_ADDRESS:

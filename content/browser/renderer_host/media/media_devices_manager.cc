@@ -663,7 +663,8 @@ void MediaDevicesManager::EnumerateAndRankDevices(
   SendLogMessage(base::StringPrintf(
       "EnumerateDevices({render_process_id=%d}, {render_frame_id=%d}, "
       "{request_audio=%s}, {request_video=%s})",
-      render_frame_host_id.child_id, render_frame_host_id.frame_routing_id,
+      render_frame_host_id.child_id.value(),
+      render_frame_host_id.frame_routing_id,
       base::ToString(request_audio_input_capabilities),
       base::ToString(request_video_input_capabilities)));
 
@@ -695,7 +696,7 @@ bool MediaDevicesManager::IsAudioOutputDeviceExplicitlyAuthorized(
   }
   blink::WebMediaDeviceInfo device_info;
   device_info.device_id = raw_device_id;
-  return base::Contains(authorized_devices->second, device_info);
+  return authorized_devices->second.contains(device_info);
 }
 
 void MediaDevicesManager::GetSpeakerSelectionAndMicrophonePermissionState(
@@ -703,9 +704,10 @@ void MediaDevicesManager::GetSpeakerSelectionAndMicrophonePermissionState(
     base::OnceCallback<void(PermissionDeniedState, bool)> callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
+  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
   permission_checker_->GetSpeakerSelectionAndMicrophonePermissionState(
-      render_frame_host_id.child_id, render_frame_host_id.frame_routing_id,
-      std::move(callback));
+      render_frame_host_id.child_id.GetUnsafeValue(),
+      render_frame_host_id.frame_routing_id, std::move(callback));
 }
 
 uint32_t MediaDevicesManager::SubscribeDeviceChangeNotifications(
@@ -1006,8 +1008,9 @@ void MediaDevicesManager::CheckPermissionsForEnumerateDevices(
     EnumerateDevicesCallback callback,
     const MediaDeviceSaltAndOrigin& salt_and_origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
   permission_checker_->CheckPermissions(
-      requested_types, render_frame_host_id.child_id,
+      requested_types, render_frame_host_id.child_id.GetUnsafeValue(),
       render_frame_host_id.frame_routing_id,
       base::BindOnce(&MediaDevicesManager::OnPermissionsCheckDone,
                      weak_factory_.GetWeakPtr(), render_frame_host_id,
@@ -1102,7 +1105,7 @@ void MediaDevicesManager::OnDevicesEnumerated(
     if (authorized_devices != audio_device_origin_map_.end()) {
       for (const auto& enum_device : enumeration[static_cast<size_t>(
                MediaDeviceType::kMediaAudioOutput)]) {
-        if (base::Contains(authorized_devices->second, enum_device)) {
+        if (authorized_devices->second.contains(enum_device)) {
           translation[static_cast<size_t>(MediaDeviceType::kMediaAudioOutput)]
               .push_back(TranslateMediaDeviceInfo(
                   /*has_permission=*/true, salt_and_origin, enum_device));
@@ -1191,7 +1194,7 @@ void MediaDevicesManager::GotAudioInputCapabilities(
     size_t capabilities_index,
     const std::optional<media::AudioParameters>& parameters) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(base::Contains(enumeration_states_, state_id));
+  DCHECK(enumeration_states_.contains(state_id));
 
   auto& enumeration_state = enumeration_states_[state_id];
   DCHECK_GT(enumeration_state.num_pending_audio_input_capabilities, 0);
@@ -1599,8 +1602,9 @@ void MediaDevicesManager::CheckPermissionForDeviceChange(
     const blink::WebMediaDeviceInfoArray& device_infos,
     const MediaDeviceSaltAndOrigin& salt_and_origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
   permission_checker_->CheckPermission(
-      type, render_frame_host_id.child_id,
+      type, render_frame_host_id.child_id.GetUnsafeValue(),
       render_frame_host_id.frame_routing_id,
       base::BindOnce(&MediaDevicesManager::OnCheckedPermissionForDeviceChange,
                      weak_factory_.GetWeakPtr(), subscription_id,

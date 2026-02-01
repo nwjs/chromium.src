@@ -15,6 +15,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/platform_thread.h"
+#include "base/time/time.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "read_anything_app_model.h"
 #include "read_anything_test_utils.h"
@@ -169,10 +170,11 @@ TEST_F(ReadAnythingAppModelTest, OnSettingsRestoredFromPrefs) {
   bool links_enabled = false;
   bool images_enabled = true;
   auto color = read_anything::mojom::Colors::kDark;
+  auto line_focus = read_anything::mojom::LineFocus::kWindow3;
 
   model().OnSettingsRestoredFromPrefs(line_spacing, letter_spacing, font_name,
                                       font_size, links_enabled, images_enabled,
-                                      color);
+                                      color, line_focus);
 
   EXPECT_EQ(line_spacing, model().line_spacing());
   EXPECT_EQ(letter_spacing, model().letter_spacing());
@@ -181,6 +183,28 @@ TEST_F(ReadAnythingAppModelTest, OnSettingsRestoredFromPrefs) {
   EXPECT_EQ(links_enabled, model().links_enabled());
   EXPECT_EQ(images_enabled, model().images_enabled());
   EXPECT_EQ(color, model().color_theme());
+}
+
+TEST_F(ReadAnythingAppModelTest, ResetLineFocusSession_ResetsToStartingValue) {
+  const std::optional<base::TimeTicks> start_time =
+      model().line_focus_session_start_time();
+  const int mouse_distance = model().line_focus_mouse_distance();
+  const int scroll_distance = model().line_focus_scroll_distance();
+  const int keyboard_lines = model().line_focus_keyboard_lines();
+  const int speech_lines = model().line_focus_speech_lines();
+  model().set_line_focus_session_start_time(base::TimeTicks::Now());
+  model().set_line_focus_mouse_distance(mouse_distance + 100);
+  model().set_line_focus_scroll_distance(scroll_distance + 100);
+  model().set_line_focus_keyboard_lines(keyboard_lines + 100);
+  model().set_line_focus_speech_lines(speech_lines + 100);
+
+  model().ResetLineFocusSession();
+
+  ASSERT_EQ(model().line_focus_session_start_time(), start_time);
+  ASSERT_EQ(model().line_focus_mouse_distance(), mouse_distance);
+  ASSERT_EQ(model().line_focus_scroll_distance(), scroll_distance);
+  ASSERT_EQ(model().line_focus_keyboard_lines(), keyboard_lines);
+  ASSERT_EQ(model().line_focus_speech_lines(), speech_lines);
 }
 
 TEST_F(ReadAnythingAppModelTest, SetTreeInfoUrlInformation_RunsCallback) {
@@ -616,12 +640,12 @@ TEST_F(ReadAnythingAppModelTest, DisplayNodeIdsContains_ContentNodes) {
   // it in AccessibilityEventReceived, it will re-distill the tree.
   AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({3, 4});
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
-  EXPECT_FALSE(base::Contains(model().display_node_ids(), 2));
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 3));
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 4));
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 5));
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 6));
+  EXPECT_TRUE(model().display_node_ids().contains(1));
+  EXPECT_FALSE(model().display_node_ids().contains(2));
+  EXPECT_TRUE(model().display_node_ids().contains(3));
+  EXPECT_TRUE(model().display_node_ids().contains(4));
+  EXPECT_TRUE(model().display_node_ids().contains(5));
+  EXPECT_TRUE(model().display_node_ids().contains(6));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -636,10 +660,10 @@ TEST_F(ReadAnythingAppModelTest,
   update.nodes[2].AddState(ax::mojom::State::kIgnored);
   AccessibilityEventReceived({std::move(update)});
   ProcessDisplayNodes({2, 3, 4});
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 1));
-  EXPECT_TRUE(base::Contains(model().display_node_ids(), 2));
-  EXPECT_FALSE(base::Contains(model().display_node_ids(), 3));
-  EXPECT_FALSE(base::Contains(model().display_node_ids(), 4));
+  EXPECT_TRUE(model().display_node_ids().contains(1));
+  EXPECT_TRUE(model().display_node_ids().contains(2));
+  EXPECT_FALSE(model().display_node_ids().contains(3));
+  EXPECT_FALSE(model().display_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -699,10 +723,10 @@ TEST_F(ReadAnythingAppModelTest,
 
   AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 2));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 4));
+  EXPECT_TRUE(model().selection_node_ids().contains(1));
+  EXPECT_TRUE(model().selection_node_ids().contains(2));
+  EXPECT_TRUE(model().selection_node_ids().contains(3));
+  EXPECT_TRUE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -716,10 +740,10 @@ TEST_F(ReadAnythingAppModelTest,
   update.tree_data.sel_is_backward = true;
   AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 2));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  EXPECT_TRUE(base::Contains(model().selection_node_ids(), 4));
+  EXPECT_TRUE(model().selection_node_ids().contains(1));
+  EXPECT_TRUE(model().selection_node_ids().contains(2));
+  EXPECT_TRUE(model().selection_node_ids().contains(3));
+  EXPECT_TRUE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -740,10 +764,10 @@ TEST_F(ReadAnythingAppModelTest,
 
   AccessibilityEventReceived({std::move(update)});
   model().PostProcessSelection();
-  EXPECT_FALSE(base::Contains(model().display_node_ids(), 1));
-  EXPECT_FALSE(base::Contains(model().selection_node_ids(), 2));
-  EXPECT_FALSE(base::Contains(model().selection_node_ids(), 3));
-  EXPECT_FALSE(base::Contains(model().selection_node_ids(), 4));
+  EXPECT_FALSE(model().display_node_ids().contains(1));
+  EXPECT_FALSE(model().selection_node_ids().contains(2));
+  EXPECT_FALSE(model().selection_node_ids().contains(3));
+  EXPECT_FALSE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest, Reset_ResetsState) {
@@ -768,11 +792,11 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsState) {
   // Assert initial state before model().Resetting.
   ASSERT_TRUE(model().distillation_in_progress());
 
-  ASSERT_TRUE(base::Contains(model().display_node_ids(), 1));
-  ASSERT_TRUE(base::Contains(model().display_node_ids(), 3));
-  ASSERT_TRUE(base::Contains(model().display_node_ids(), 4));
-  ASSERT_TRUE(base::Contains(model().display_node_ids(), 5));
-  ASSERT_TRUE(base::Contains(model().display_node_ids(), 6));
+  ASSERT_TRUE(model().display_node_ids().contains(1));
+  ASSERT_TRUE(model().display_node_ids().contains(3));
+  ASSERT_TRUE(model().display_node_ids().contains(4));
+  ASSERT_TRUE(model().display_node_ids().contains(5));
+  ASSERT_TRUE(model().display_node_ids().contains(6));
 
   model().Reset({1, 2});
 
@@ -782,11 +806,11 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsState) {
   ASSERT_TRUE(base::Contains(model().content_node_ids(), 1));
   ASSERT_TRUE(base::Contains(model().content_node_ids(), 2));
 
-  ASSERT_FALSE(base::Contains(model().display_node_ids(), 1));
-  ASSERT_FALSE(base::Contains(model().display_node_ids(), 3));
-  ASSERT_FALSE(base::Contains(model().display_node_ids(), 4));
-  ASSERT_FALSE(base::Contains(model().display_node_ids(), 5));
-  ASSERT_FALSE(base::Contains(model().display_node_ids(), 6));
+  ASSERT_FALSE(model().display_node_ids().contains(1));
+  ASSERT_FALSE(model().display_node_ids().contains(3));
+  ASSERT_FALSE(model().display_node_ids().contains(4));
+  ASSERT_FALSE(model().display_node_ids().contains(5));
+  ASSERT_FALSE(model().display_node_ids().contains(6));
 
   // Calling model().Reset with different content nodes updates the content
   // nodes.
@@ -810,9 +834,9 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsSelectionState) {
   model().PostProcessSelection();
 
   // Assert initial selection state.
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_TRUE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
 
   ASSERT_TRUE(model().has_selection());
 
@@ -825,9 +849,9 @@ TEST_F(ReadAnythingAppModelTest, Reset_ResetsSelectionState) {
   model().Reset({1, 2});
 
   // Assert model().Reset selection state.
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 3));
+  ASSERT_FALSE(model().selection_node_ids().contains(1));
+  ASSERT_FALSE(model().selection_node_ids().contains(2));
+  ASSERT_FALSE(model().selection_node_ids().contains(3));
 
   ASSERT_FALSE(model().has_selection());
 
@@ -854,9 +878,9 @@ TEST_F(ReadAnythingAppModelTest, PostProcessSelection_SelectionStateCorrect) {
   ASSERT_FALSE(model().requires_post_process_selection());
   ASSERT_TRUE(model().has_selection());
 
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_TRUE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
 
   ASSERT_EQ(model().start_offset(), 0);
   ASSERT_EQ(model().end_offset(), 0);
@@ -1431,17 +1455,17 @@ TEST_F(ReadAnythingAppModelTest,
   ASSERT_EQ(model().end_node_id(), 5);
 
   // 1 and 3 are ancestors, so they are included as selection nodes..
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
 
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 5));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 6));
+  ASSERT_TRUE(model().selection_node_ids().contains(5));
+  ASSERT_TRUE(model().selection_node_ids().contains(6));
 
   // Even though 3 is a generic container with more than one child, its
   // sibling nodes are included in the selection because the start node
   // includes it.
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
+  ASSERT_TRUE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -1480,10 +1504,10 @@ TEST_F(ReadAnythingAppModelTest,
   ASSERT_EQ(model().start_node_id(), 4);
   ASSERT_EQ(model().end_node_id(), 4);
 
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 4));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_FALSE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
+  ASSERT_TRUE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -1522,10 +1546,10 @@ TEST_F(ReadAnythingAppModelTest,
   ASSERT_EQ(model().start_node_id(), 4);
   ASSERT_EQ(model().end_node_id(), 4);
 
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 4));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_FALSE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
+  ASSERT_TRUE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -1562,10 +1586,10 @@ TEST_F(ReadAnythingAppModelTest,
   ASSERT_EQ(model().start_node_id(), 4);
   ASSERT_EQ(model().end_node_id(), 4);
 
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 2));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 4));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_FALSE(model().selection_node_ids().contains(2));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
+  ASSERT_TRUE(model().selection_node_ids().contains(4));
 }
 
 TEST_F(
@@ -1603,14 +1627,14 @@ TEST_F(
   ASSERT_EQ(model().end_node_id(), 5);
 
   // 1 and 3 are ancestors, so they are included as selection nodes..
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 1));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 3));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 4));
-  ASSERT_TRUE(base::Contains(model().selection_node_ids(), 5));
+  ASSERT_TRUE(model().selection_node_ids().contains(1));
+  ASSERT_TRUE(model().selection_node_ids().contains(3));
+  ASSERT_TRUE(model().selection_node_ids().contains(4));
+  ASSERT_TRUE(model().selection_node_ids().contains(5));
 
   // Since 3 is a generic container with more than one child, its sibling nodes
   // are not included, so 2 is ignored.
-  ASSERT_FALSE(base::Contains(model().selection_node_ids(), 2));
+  ASSERT_FALSE(model().selection_node_ids().contains(2));
 }
 
 TEST_F(ReadAnythingAppModelTest, ResetTextSize_ReturnsTextSizeToDefault) {

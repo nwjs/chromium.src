@@ -60,7 +60,6 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -349,22 +348,15 @@ class PageLoadMetricsBrowserTest : public InProcessBrowserTest {
     no_state_prefetch_manager->SetNoStatePrefetchContentsFactoryForTest(
         no_state_prefetch_contents_factory);
 
-    content::SessionStorageNamespace* storage_namespace =
-        browser()
-            ->tab_strip_model()
-            ->GetActiveWebContents()
-            ->GetController()
-            .GetDefaultSessionStorageNamespace();
-    ASSERT_TRUE(storage_namespace);
-
     std::unique_ptr<prerender::test_utils::TestPrerender> test_prerender =
         no_state_prefetch_contents_factory->ExpectNoStatePrefetchContents(
             prerender::FINAL_STATUS_NOSTATE_PREFETCH_FINISHED);
 
     std::unique_ptr<prerender::NoStatePrefetchHandle> no_state_prefetch_handle =
-        no_state_prefetch_manager->AddSameOriginSpeculation(
-            url, storage_namespace, gfx::Size(640, 480),
-            url::Origin::Create(url));
+        no_state_prefetch_manager->StartPrefetchingFromLinkRelPrerender(
+            /*process_id=*/-1, /*route_id=*/-1, url,
+            blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
+            content::Referrer(), url::Origin::Create(url), gfx::Size(640, 480));
     ASSERT_EQ(no_state_prefetch_handle->contents(), test_prerender->contents());
 
     // The final status may be either  FINAL_STATUS_NOSTATE_PREFETCH_FINISHED or
@@ -1079,21 +1071,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, Redirect) {
   VerifyNavigationMetrics({final_url});
 }
 
-class PageLoadMetricsPre3pcdBrowserTest : public PageLoadMetricsBrowserTest {
- public:
-  PageLoadMetricsPre3pcdBrowserTest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        content_settings::features::kTrackingProtection3pcd);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // Triggers nostate prefetch, and verifies that the UKM metrics related to
 // nostate prefetch are recorded correctly.
-IN_PROC_BROWSER_TEST_F(PageLoadMetricsPre3pcdBrowserTest,
-                       NoStatePrefetchMetrics) {
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, NoStatePrefetchMetrics) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   GURL url = embedded_test_server()->GetURL("/title1.html");
@@ -2878,6 +2858,205 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, MAYBE_InputEventsForClick) {
       {url, embedded_test_server()->GetURL("/title1.html")});
 }
 
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
+                       InputEventsForFormSubmission) {
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // Make sure that the initial implicit navigation is ended by navigating to an
+  // untracked URL.
+  NavigateToUntrackedUrl();
+
+  {
+    // Initial browser initiated navigation.
+    base::HistogramTester histogram_tester;
+    auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
+    waiter->AddPageExpectation(TimingField::kLoadEvent);
+    waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+    GURL url = embedded_test_server()->GetURL("a.test", "/title1.html");
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+    waiter->Wait();
+    histogram_tester.ExpectTotalCount(internal::kHistogramInputToNavigation, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationLinkClick, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationFormSubmit, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToFirstContentfulPaint, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureBrowserInitiated, 1);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureRendererInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureBrowserInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureRendererInitiated,
+        0);
+    histogram_tester.ExpectTotalCount("Navigation.Timeline.Total.Duration", 1);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.Duration", 1);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.MainFrameOnly.Duration",
+        1);
+    EXPECT_GT(
+        histogram_tester.GetTotalSum("Navigation.Timeline.Total.Duration"), 0);
+    // InteractionTo* metrics are not recorded when there is no user input.
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToActualNavigationStart.Duration", 0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "MainFrameOnly.Duration",
+        0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "ExcludingBeforeUnload.MainFrameOnly.Duration",
+        0);
+  }
+
+  {
+    // Renderer initiated navigation via script without a user gesture.
+    base::HistogramTester histogram_tester;
+    auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
+    waiter->AddPageExpectation(TimingField::kLoadEvent);
+    waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+    ASSERT_TRUE(ExecJs(web_contents(),
+                       R"(
+                         var form = document.createElement('form');
+                         form.method = 'POST';
+                         form.action = '/title2.html';
+                         const input = document.createElement('input');
+                         input.type = 'text';
+                         input.name = 'q';
+                         input.value = 'test';
+                         form.appendChild(input);
+                         document.body.appendChild(form);
+                         form.submit();
+                       )",
+                       content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+    waiter->Wait();
+    histogram_tester.ExpectTotalCount(internal::kHistogramInputToNavigation, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationLinkClick, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationFormSubmit, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToFirstContentfulPaint, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureBrowserInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureRendererInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureBrowserInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureRendererInitiated,
+        1);
+    histogram_tester.ExpectTotalCount("Navigation.Timeline.Total.Duration", 1);
+    EXPECT_GT(
+        histogram_tester.GetTotalSum("Navigation.Timeline.Total.Duration"), 0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.Duration", 1);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.MainFrameOnly.Duration",
+        1);
+    // InteractionTo* metrics are not recorded when there is no user input.
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToActualNavigationStart.Duration", 0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToActualNavigationStart."
+        "MainFrameOnly.Duration",
+        0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "MainFrameOnly.Duration",
+        0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "ExcludingBeforeUnload.MainFrameOnly.Duration",
+        0);
+  }
+
+  {
+    // Renderer initiated navigation with key input.
+    base::HistogramTester histogram_tester;
+    auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
+    waiter->AddPageExpectation(TimingField::kLoadEvent);
+    waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+    ASSERT_TRUE(ExecJs(web_contents(),
+                       R"(
+                         var form = document.createElement('form');
+                         form.method = 'POST';
+                         form.action = '/title3.html';
+                         input = document.createElement('input');
+                         input.type = 'text';
+                         input.name = 'q';
+                         input.value = 'test';
+                         form.appendChild(input);
+                         document.body.appendChild(form);
+                         input.focus();
+                       )",
+                       content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+    SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents());
+    SimulateKeyPress(web_contents(), ui::DomKey::ENTER, ui::DomCode::ENTER,
+                     ui::VKEY_RETURN, false, false, false, false);
+    waiter->Wait();
+    histogram_tester.ExpectTotalCount(internal::kHistogramInputToNavigation, 1);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationLinkClick, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToNavigationFormSubmit, 1);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputToFirstContentfulPaint, 1);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureBrowserInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithUserGestureRendererInitiated, 1);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureBrowserInitiated, 0);
+    histogram_tester.ExpectTotalCount(
+        internal::kHistogramInputCoverageWithoutUserGestureRendererInitiated,
+        0);
+    histogram_tester.ExpectTotalCount("Navigation.Timeline.Total.Duration", 1);
+    int64_t total_duration =
+        histogram_tester.GetTotalSum("Navigation.Timeline.Total.Duration");
+    EXPECT_GT(total_duration, 0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.Duration", 1);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.TotalExcludingBeforeUnload.MainFrameOnly.Duration",
+        1);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToActualNavigationStart.Duration", 1);
+    EXPECT_GT(
+        histogram_tester.GetTotalSum(
+            "Navigation.Timeline.InteractionToActualNavigationStart.Duration"),
+        0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToActualNavigationStart."
+        "MainFrameOnly.Duration",
+        1);
+    EXPECT_GT(histogram_tester.GetTotalSum(
+                  "Navigation.Timeline.InteractionToActualNavigationStart."
+                  "MainFrameOnly.Duration"),
+              0);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "MainFrameOnly.Duration",
+        1);
+    EXPECT_GT(histogram_tester.GetTotalSum(
+                  "Navigation.Timeline.InteractionToNavigationFinished."
+                  "MainFrameOnly.Duration"),
+              total_duration);
+    histogram_tester.ExpectTotalCount(
+        "Navigation.Timeline.InteractionToNavigationFinished."
+        "ExcludingBeforeUnload.MainFrameOnly.Duration",
+        1);
+    EXPECT_GT(histogram_tester.GetTotalSum(
+                  "Navigation.Timeline.InteractionToNavigationFinished."
+                  "ExcludingBeforeUnload.MainFrameOnly.Duration"),
+              total_duration);
+  }
+}
+
 class SoftNavigationBrowserTest : public PageLoadMetricsBrowserTest {
  public:
   void TestSoftNavigation(bool soft_navs_is_web_exposed) {
@@ -4451,7 +4630,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderPageLoadMetricsBrowserTest,
 
   // Load a page in the prerender.
   GURL prerender_url = embedded_test_server()->GetURL("/title2.html");
-  content::FrameTreeNodeId host_id =
+  content::PrerenderHostId host_id =
       prerender_helper_.AddPrerender(prerender_url);
   content::test::PrerenderHostObserver host_observer(*web_contents(), host_id);
   EXPECT_FALSE(host_observer.was_activated());

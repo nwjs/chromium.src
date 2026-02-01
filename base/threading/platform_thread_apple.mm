@@ -310,7 +310,8 @@ bool PlatformThreadBase::CanChangeThreadType(ThreadType from, ThreadType to) {
 namespace internal {
 
 void SetCurrentThreadTypeImpl(ThreadType thread_type,
-                              MessagePumpType pump_type_hint) {
+                              MessagePumpType pump_type_hint,
+                              bool may_change_affinity) {
   std::optional<qos_class_t> qos_class = ThreadTypeToQoSClass(thread_type);
 
   if (qos_class) {
@@ -318,7 +319,6 @@ void SetCurrentThreadTypeImpl(ThreadType thread_type,
   } else {
     CHECK_EQ(thread_type, ThreadType::kRealtimeAudio);
     SetPriorityRealtimeAudio(GetCurrentThreadRealtimePeriod());
-    DCHECK_EQ([NSThread.currentThread threadPriority], 1.0);
   }
 }
 
@@ -335,9 +335,10 @@ PlatformPriorityOverride SetThreadTypeOverride(
   return PlatformPriorityOverride();
 }
 
-void RemoveThreadTypeOverrideImpl(
+void RemoveThreadTypeOverride(
+    PlatformThreadHandle thread_handle,
     const PlatformPriorityOverride& priority_override_handle,
-    ThreadType thread_type) {
+    ThreadType initial_thread_type) {
   if (priority_override_handle == nullptr) {
     return;
   }

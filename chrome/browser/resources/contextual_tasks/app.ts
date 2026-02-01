@@ -16,7 +16,6 @@ import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import type {ContextualTasksComposeboxElement} from './composebox.js';
-import type {Tab} from './contextual_tasks.mojom-webui.js';
 import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
 import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
 import {PostMessageHandler} from './post_message_handler.js';
@@ -33,6 +32,7 @@ export interface ContextualTasksAppElement {
     threadFrame: chrome.webviewTag.WebView,
     composebox: ContextualTasksComposeboxElement,
     composeboxHeaderWrapper: HTMLElement,
+    composeboxHeader: HTMLElement,
   };
 }
 
@@ -107,7 +107,6 @@ export class ContextualTasksAppElement extends CrLitElement {
         reflect: true,
       },
       threadTitle_: {type: String},
-      contextTabs_: {type: Array},
       darkMode_: {
         type: Boolean,
         reflect: true,
@@ -116,7 +115,7 @@ export class ContextualTasksAppElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
-      showComposebox_: {type: Boolean},
+      isInBasicMode_: {type: Boolean, reflect: true},
       // Means no queries have been submitted in current AIM thread.
       isZeroState_: {
         type: Boolean,
@@ -124,7 +123,6 @@ export class ContextualTasksAppElement extends CrLitElement {
       },
       isAiPage_: {type: Boolean, reflect: true},
       isLensOverlayShowing_: {type: Boolean},
-      showComposeboxHeader_: {type: Boolean},
     };
   }
 
@@ -136,20 +134,15 @@ export class ContextualTasksAppElement extends CrLitElement {
   protected accessor darkMode_: boolean = loadTimeData.getBoolean('darkMode');
   private pendingUrl_: string = '';
   protected accessor threadTitle_: string = '';
-  protected accessor contextTabs_: Tab[] = [];
-  protected accessor showComposebox_: boolean = true;
+  protected accessor isInBasicMode_: boolean = false;
   protected accessor isErrorPageVisible_: boolean = false;
   protected accessor isZeroState_: boolean = false;
-  protected accessor showComposeboxHeader_: boolean = true;
 
   protected friendlyZeroStateSubtitle: string =
       loadTimeData.getString('friendlyZeroStateSubtitle');
   protected friendlyZeroStateTitle: string =
       loadTimeData.getString('friendlyZeroStateTitle');
   private listenerIds_: number[] = [];
-  // The OAuth token to use for embedded page requests. Null if not yet set.
-  // Can be empty if the user is not signed in or the token couldn't be fetched.
-  private oauthToken_: string|null = null;
   private commonSearchParams_: {[key: string]: string} = {};
   private postMessageHandler_!: PostMessageHandler;
   private forcedEmbeddedPageHost =
@@ -176,6 +169,10 @@ export class ContextualTasksAppElement extends CrLitElement {
   override async connectedCallback() {
     super.connectedCallback();
 
+    // Record the WebUI URL in case one of the events below fires and changes
+    // it.
+    const webUiUrlOnLoad = new URL(window.location.href);
+
     const callbackRouter = this.browserProxy_.callbackRouter;
     this.listenerIds_ = [
       callbackRouter.onSidePanelStateChanged.addListener(
@@ -192,20 +189,14 @@ export class ContextualTasksAppElement extends CrLitElement {
           this.postMessageToWebview.bind(this)),
       callbackRouter.onHandshakeComplete.addListener(
           this.onHandshakeComplete.bind(this)),
-      callbackRouter.onContextUpdated.addListener((tabs: Tab[]) => {
-        this.contextTabs_ = tabs;
-      }),
-      callbackRouter.setOAuthToken.addListener((oauthToken: string) => {
-        this.oauthToken_ = oauthToken;
-        this.maybeLoadPendingUrl_();
-      }),
+
+      // TODO(crbug.com/474359572): Rename this to be more descriptive of what
+      // it actually does.
       callbackRouter.hideInput.addListener(() => {
-        this.showComposebox_ = false;
-        this.showComposeboxHeader_ = false;
+        this.isInBasicMode_ = true;
       }),
       callbackRouter.restoreInput.addListener(() => {
-        this.showComposebox_ = true;
-        this.showComposeboxHeader_ = true;
+        this.isInBasicMode_ = false;
       }),
       callbackRouter.setTaskDetails.addListener(updateTaskDetailsInUrl),
       callbackRouter.onZeroStateChange.addListener((isZeroState: boolean) => {
@@ -233,8 +224,7 @@ export class ContextualTasksAppElement extends CrLitElement {
 
     // Check if the URL that loaded this page has a task attached to it. If it
     // does, we'll use the tasks URL to load the embedded page.
-    const params = new URLSearchParams(window.location.search);
-    const taskUuid = params.get('task');
+    const taskUuid = webUiUrlOnLoad.searchParams.get('task');
     let threadUrl = '';
     if (taskUuid) {
       const {url} =
@@ -250,8 +240,19 @@ export class ContextualTasksAppElement extends CrLitElement {
       this.$.composebox.clearInputAndFocus();
     }
 
-    // Check if the initial render should be zero state.
     const threadUrlAsUrl = new URL(threadUrl);
+
+    // If the "open_history" param has any value, open the history panel.
+    if (webUiUrlOnLoad.searchParams.has('open_history')) {
+      threadUrlAsUrl.searchParams.set('atvm', '1');
+
+      // Remove the param so subsequent loads don't show history again.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('open_history');
+      window.history.replaceState({}, '', url.href);
+    }
+
+    // Check if the initial render should be zero state.
     const {isZeroState} = await this.browserProxy_.handler.isZeroState(
         {url: threadUrlAsUrl.href} as Url);
     this.isZeroState_ = isZeroState;
@@ -260,7 +261,8 @@ export class ContextualTasksAppElement extends CrLitElement {
     // webview) until oauth tokens are received from the WebUI controller. This
     // prevents situations where the user is technically signed out of the
     // embedded frame and unable to save or access existing data.
-    this.pendingUrl_ = this.maybeUpdateThreadUrlForRestore(threadUrl);
+    this.pendingUrl_ =
+        this.maybeUpdateThreadUrlForRestore(threadUrlAsUrl, webUiUrlOnLoad);
     this.maybeLoadPendingUrl_();
   }
 
@@ -268,8 +270,6 @@ export class ContextualTasksAppElement extends CrLitElement {
     super.disconnectedCallback();
     this.listenerIds_.forEach(
         id => this.browserProxy_.callbackRouter.removeListener(id));
-    this.$.threadFrame.request.onBeforeSendHeaders.removeListener(
-        this.onBeforeSendHeaders);
     this.$.threadFrame.request.onBeforeRequest.removeListener(
         this.onBeforeRequest);
   }
@@ -290,14 +290,14 @@ export class ContextualTasksAppElement extends CrLitElement {
   // Conditionally update the provided thread URL so it restores an existing
   // thread. If the thread URL already contains the params for loading a
   // specific thread, this will return the same URL that was provided.
-  private maybeUpdateThreadUrlForRestore(threadUrl: string): string {
+  private maybeUpdateThreadUrlForRestore(threadUrl: URL, webUiUrl: URL):
+      string {
     // Check if the provided URL is default by checking for thread ID, turn ID,
     // and title. If those params are not present, but are present on the WebUI
     // URL, apply them to the thread URL.
     // TODO(470107169): The ContextualTasksService should provide this URL
     //                  based on task ID alone.
-    const updatedThreadUrl = new URL(threadUrl);
-    const webUiUrl = new URL(window.location.href);
+    const updatedThreadUrl = new URL(threadUrl.href);
     const threadUrlHasParams = embeddedUrlHasThreadParams(updatedThreadUrl);
     const webUiUrlHasParams = webUiUrlHasThreadParams(webUiUrl);
     if (!threadUrlHasParams && webUiUrlHasParams) {
@@ -316,11 +316,8 @@ export class ContextualTasksAppElement extends CrLitElement {
 
   private maybeLoadPendingUrl_() {
     // If all the data needed to make the initial request is available, load the
-    // pending URL. If the OAuth token is empty, that signifies that the user is
-    // not signed in, so the URL can still be loaded. If the OAuth token is
-    // null, and therefore not yet set, do not load the URL.
-    if (this.pendingUrl_ && this.commonSearchParams_ &&
-        this.oauthToken_ != null) {
+    // pending URL.
+    if (this.pendingUrl_ && this.commonSearchParams_) {
       this.$.threadFrame.src = this.pendingUrl_;
       this.pendingUrl_ = '';
     }
@@ -345,16 +342,6 @@ export class ContextualTasksAppElement extends CrLitElement {
   }
 
   private setupWebviewRequestOverrides() {
-    // Setup the webview request overrides to add the OAuth token to the request
-    // headers.
-    this.$.threadFrame.request.onBeforeSendHeaders.addListener(
-        this.onBeforeSendHeaders, {
-          // These should be valid values from web_request.d.ts.
-          types: 'main_frame,xmlhttprequest,websocket'.split(',') as any,
-          urls: ['<all_urls>'],
-        },
-        ['blocking', 'requestHeaders', 'extraHeaders']);
-
     this.$.threadFrame.request.onBeforeRequest.addListener(
         this.onBeforeRequest, {
           types: ['main_frame'] as any,
@@ -410,22 +397,8 @@ export class ContextualTasksAppElement extends CrLitElement {
             return {};
           };
 
-  private onBeforeSendHeaders:
-      ChromeEventFunctionType<typeof chrome.webRequest.onBeforeSendHeaders> =
-          (details): chrome.webRequest.BlockingResponse => {
-            // Return a promise that will be resolved with the new request
-            // headers. This will block the request until the OAuth token is
-            // fetched.
-            const requestHeaders = details.requestHeaders || [];
-            requestHeaders.push({
-              'name': 'Authorization',
-              'value': `Bearer ${this.oauthToken_}`,
-            });
-            return {requestHeaders};
-          };
-
-  getPendingUrlForTesting() {
-    return this.pendingUrl_;
+  getThreadUrlForTesting() {
+    return this.$.threadFrame.src;
   }
 }
 

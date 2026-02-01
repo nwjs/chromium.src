@@ -622,7 +622,8 @@ bool ResourceLoader::WillFollowRedirect(
 
     if (Context().CalculateIfAdSubresource(
             *new_request, /*alias_url=*/std::nullopt, resource_type,
-            options.initiator_info, /*out_rule=*/nullptr)) {
+            options.initiator_info, /*scan_stack_for_ads=*/false,
+            /*out_rule=*/nullptr)) {
       new_request->SetIsAdResource();
     }
 
@@ -949,7 +950,11 @@ void ResourceLoader::DidReceiveResponseInternal(
   // A response should not serve partial content if it was not requested via a
   // Range header: https://fetch.spec.whatwg.org/#main-fetch
   if (response.GetType() == network::mojom::FetchResponseType::kOpaque &&
-      response.HttpStatusCode() == 206 && response.HasRangeRequested() &&
+      (response.HttpStatusCode() == 206 ||
+       (base::FeatureList::IsEnabled(
+            features::kBlockPartialResponseWithoutRange) &&
+        response.HttpStatusCode() == 416)) &&
+      response.HasRangeRequested() &&
       !initial_request.HttpHeaderFields().Contains(http_names::kRange)) {
     HandleError(ResourceError::CancelledDueToAccessCheckError(
         response.CurrentRequestUrl(), ResourceRequestBlockedReason::kOther));
@@ -1539,7 +1544,8 @@ bool ResourceLoader::ShouldBlockRequestBasedOnSubresourceFilterDnsAliasCheck(
     if (!resource_->GetResourceRequest().IsAdResource() &&
         Context().CalculateIfAdSubresource(
             resource_->GetResourceRequest(), alias_url, resource_type,
-            options.initiator_info, /*out_rule=*/nullptr)) {
+            options.initiator_info, /*scan_stack_for_ads=*/false,
+            /*out_rule=*/nullptr)) {
       resource_->SetIsAdResource();
       cname_alias_info_for_testing_.was_ad_tagged_based_on_alias = true;
     }

@@ -8,7 +8,6 @@
 #include <string>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
@@ -275,8 +274,6 @@ TEST_F(DiscardEligibilityPolicyTest, TestCannotDiscardPdf) {
       page_node(),
       {DiscardReason::EXTERNAL, DiscardReason::FROZEN_WITH_GROWING_MEMORY});
 }
-
-// TODO(crbug.com/422767952): Add a test case for Glic-pinned tabs.
 
 TEST_F(DiscardEligibilityPolicyTest, TestCannotDiscardPageWithoutMainFrame) {
   ResetFrameNode();

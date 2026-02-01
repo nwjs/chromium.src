@@ -9,7 +9,7 @@
 #include "components/password_manager/core/browser/password_manager_buildflags.h"
 
 namespace password_manager::features {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+#if !BUILDFLAG(IS_IOS)  // Desktop
 BASE_FEATURE(kActorActiveDisablesFillingOnPageLoad,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLogin, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -24,7 +24,7 @@ BASE_FEATURE(kActorLoginReauthTaskRefocus, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginQualityLogs, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginSameSiteIframeSupport,
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAndroidSmsOtpFilling, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -75,9 +75,6 @@ BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
 );
 
 BASE_FEATURE(kDebugUiForOtps, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kDownloadModelForPasswordChange,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDisableFillingOnPageLoadForLeakedCredentials,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -138,6 +135,9 @@ BASE_FEATURE(kPasswordManualFallbackAvailable,
 
 BASE_FEATURE(kPasswordManagerLogToTerminal, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kProactivelyDownloadModelForPasswordChange,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kRestartToGainAccessToKeychain,
 #if BUILDFLAG(IS_MAC)
@@ -146,7 +146,6 @@ BASE_FEATURE(kRestartToGainAccessToKeychain,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
 
 BASE_FEATURE(kShowRecoveryPassword, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -165,16 +164,8 @@ BASE_FEATURE(kSkipUndecryptablePasswords,
 
 BASE_FEATURE(kStopLoginCheckOnFailedLogin, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTriggerPasswordResyncAfterDeletingUndecryptablePasswords,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected,
-#if BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMarkAllCredentialsAsLeaked, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -189,14 +180,6 @@ BASE_FEATURE(kRunPasswordChangeInBackgroundTab,
 
 BASE_FEATURE(kReduceRequirementsForPasswordChange,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kReloadPasswordsOnTrustedVaultEncryptionChange,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kRetrieveTrustedVaultKeyKeyboardAccessoryAction,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kUseActionablesForImprovedPasswordChange,
              base::FEATURE_DISABLED_BY_DEFAULT);

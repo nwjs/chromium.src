@@ -17,8 +17,9 @@
 #include "chrome/browser/actor/tools/move_mouse_tool_request.h"
 #include "chrome/browser/actor/tools/type_tool_request.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
+#include "chrome/browser/actor/ui/actor_ui_metrics_types.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
-#include "chrome/browser/actor/ui/mocks/mock_actor_ui_state_manager.h"
+#include "chrome/browser/actor/ui/test_support/mock_actor_ui_state_manager.h"
 #include "chrome/browser/actor/ui/ui_event.h"
 #include "chrome/common/actor/action_result.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -318,6 +319,22 @@ TEST_F(EventDispatcherTest, SyncActorTaskChange_NewTask) {
       .task_id = TaskId(222),
       .old_state = ActorTask::State::kCreated,
       .new_state = ActorTask::State::kActing});
+}
+
+TEST_F(EventDispatcherTest, SyncActor_StopTask) {
+  EXPECT_CALL(
+      *mock_state_manager_,
+      OnUiEvent(VariantWith<StopTask>(AllOf(
+          Field(&StopTask::task_id, TaskId(1)),
+          Field(&StopTask::final_state, ActorTask::State::kCancelled),
+          Field(&StopTask::title, ""),
+          Field(&StopTask::last_acted_on_tab_handle, tabs::TabHandle(5309))))))
+      .Times(1);
+  dispatcher_->OnActorTaskSyncChange(UiEventDispatcher::StopTask{
+      .task_id = TaskId(1),
+      .final_state = ActorTask::State::kCancelled,
+      .title = "",
+      .last_acted_on_tab_handle = tabs::TabHandle(5309)});
 }
 
 TEST_F(EventDispatcherTest, SyncActor_RemoveTab) {

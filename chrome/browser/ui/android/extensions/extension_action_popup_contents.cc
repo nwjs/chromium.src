@@ -20,7 +20,7 @@
 #include "chrome/browser/ui/android/extensions/jni_headers/ExtensionActionPopupContents_jni.h"
 
 using base::android::AttachCurrentThread;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 using content::RenderFrameHost;
 using content::WebContents;
@@ -159,7 +159,7 @@ static ScopedJavaLocalRef<jobject> JNI_ExtensionActionPopupContents_Create(
   GURL popup_url = action->GetPopupUrl(tab_id);
 
   std::unique_ptr<ExtensionViewHost> host =
-      ExtensionViewHostFactory::CreatePopupHost(popup_url, browser);
+      ExtensionViewHostFactory::CreatePopupHost(*extension, popup_url, browser);
   DCHECK(host);
 
   // The ExtensionActionPopupContents C++ object's lifetime is managed by its

@@ -60,6 +60,7 @@
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/layout/table_layout.h"
 #include "ui/views/layout/table_layout_view.h"
+#include "ui/views/metadata/view_factory.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 
@@ -657,8 +658,6 @@ void AddSuggestionContentToView(
     std::unique_ptr<views::View> icon,
     PopupRowContentView& content_view) {
   bool should_show_new_fop_format =
-      base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableNewFopDisplayDesktop) &&
       IsPaymentMethodSuggestion(suggestion);
   // Adjust the row height based on the number of subtexts (lines of text).
   int row_height = views::MenuConfig::instance().touchable_menu_height;

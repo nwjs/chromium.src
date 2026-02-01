@@ -17,6 +17,7 @@
 #include "ui/base/unowned_user_data/user_data_factory.h"
 
 using auto_launch_util::StartupLaunchMode;
+using base::test::TaskEnvironment;
 
 namespace {
 
@@ -27,6 +28,7 @@ class TestStartupLaunchManager : public StartupLaunchManager {
   MOCK_METHOD1(UpdateLaunchOnStartup,
                void(std::optional<StartupLaunchMode> startup_mode));
 };
+
 }  // namespace
 
 class StartupLaunchManagerTest : public testing::Test {
@@ -39,8 +41,16 @@ class StartupLaunchManagerTest : public testing::Test {
                   &browser_process);
             }));
 
-    // Initialize StartupLaunchManager as it is not created yet.
-    TestingBrowserProcess::GetGlobal()->CreateGlobalFeaturesForTesting();
+    // Construct StartupLaunchManager with mocked override.
+    TestingBrowserProcess::GetGlobal()->SetUpGlobalFeaturesForTesting(
+        /*profile_manager=*/false);
+
+    // Release startup launch manager's own lock.
+    launch_on_startup_manager()->CommitLaunchOnStartupState();
+  }
+
+  void TearDown() override {
+    TestingBrowserProcess::GetGlobal()->TearDownGlobalFeaturesForTesting();
   }
 
   TestStartupLaunchManager* launch_on_startup_manager() {
@@ -48,71 +58,167 @@ class StartupLaunchManagerTest : public testing::Test {
         StartupLaunchManager::From(g_browser_process));
   }
 
+ protected:
+  TaskEnvironment task_environment_{TaskEnvironment::TimeSource::MOCK_TIME};
+
  private:
-  base::test::TaskEnvironment task_environment_;
   ui::UserDataFactory::ScopedOverride scoped_override_;
 };
 
 TEST_F(StartupLaunchManagerTest, RegisterLaunchOnStartup) {
   TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+
   EXPECT_CALL(*launch_manager,
               UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
       .Times(testing::Exactly(1));
-  launch_manager->RegisterLaunchOnStartup(StartupLaunchReason::kExtensions);
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 
   // Registering the same reason shouldn't update the registry keys again
   EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
       .Times(testing::Exactly(0));
-  launch_manager->RegisterLaunchOnStartup(StartupLaunchReason::kExtensions);
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 }
 
 TEST_F(StartupLaunchManagerTest, UnregisterLaunchOnStartup) {
   TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+  StartupLaunchManager::Client glic_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kGlic);
+
   EXPECT_CALL(*launch_manager,
               UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
       .Times(testing::Exactly(1));
-  launch_manager->RegisterLaunchOnStartup(StartupLaunchReason::kExtensions);
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
+  glic_startup_launch_client.SetLaunchOnStartup(false);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 
   // Glic never registered with the manager so unregistering it shouldn't affect
   // whether chrome should launch on startup.
   EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
       .Times(testing::Exactly(0));
-  launch_manager->UnregisterLaunchOnStartup(StartupLaunchReason::kGlic);
+  glic_startup_launch_client.SetLaunchOnStartup(false);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 
   // The launch manager shouldn't launch on start up anymore after extensions is
   // unregistered.
   EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup({std::nullopt}))
       .Times(testing::Exactly(1));
-  launch_manager->UnregisterLaunchOnStartup(StartupLaunchReason::kExtensions);
+  extensions_startup_launch_client.SetLaunchOnStartup(false);
 }
 
 TEST_F(StartupLaunchManagerTest, RegisterMultipleReasons) {
   TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+  StartupLaunchManager::Client glic_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kGlic);
+
   EXPECT_CALL(*launch_manager,
               UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
       .Times(testing::Exactly(1));
-  launch_manager->RegisterLaunchOnStartup(StartupLaunchReason::kExtensions);
-  testing::Mock::VerifyAndClearExpectations(launch_manager);
-
-  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
-      .Times(testing::Exactly(0));
-  launch_manager->RegisterLaunchOnStartup(StartupLaunchReason::kGlic);
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
+  glic_startup_launch_client.SetLaunchOnStartup(true);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 
   // The launch manager should continue to launch on start up because glic is
   // still registered.
   EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
       .Times(testing::Exactly(0));
-  launch_manager->UnregisterLaunchOnStartup(StartupLaunchReason::kExtensions);
+  extensions_startup_launch_client.SetLaunchOnStartup(false);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 
   // Unregister glic so the launch manager shouldn't launch on startup anymore.
   EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup({std::nullopt}))
       .Times(testing::Exactly(1));
-  launch_manager->UnregisterLaunchOnStartup(StartupLaunchReason::kGlic);
+  glic_startup_launch_client.SetLaunchOnStartup(false);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+}
+
+TEST_F(StartupLaunchManagerTest, WaitForAllClientsToInit) {
+  TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+  StartupLaunchManager::Client glic_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kGlic);
+
+  // The first client being initialized should not update the registry.
+  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
+      .Times(testing::Exactly(0));
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+
+  // Registry should be updated now as all clients have registered once.
+  EXPECT_CALL(*launch_manager,
+              UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
+      .Times(testing::Exactly(1));
+  glic_startup_launch_client.SetLaunchOnStartup(true);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+}
+
+TEST_F(StartupLaunchManagerTest, ForceReleaseLocks) {
+  TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+  StartupLaunchManager::Client glic_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kGlic);
+
+  // The first client being initialized should not update the registry.
+  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
+      .Times(testing::Exactly(0));
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+
+  // Forcing lock release should update the registry.
+  EXPECT_CALL(*launch_manager,
+              UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
+      .Times(testing::Exactly(1));
+  task_environment_.FastForwardBy(base::Minutes(1));
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+
+  // Client updates should still keep functioning.
+  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup({std::nullopt}))
+      .Times(testing::Exactly(1));
+  extensions_startup_launch_client.SetLaunchOnStartup(false);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+}
+
+TEST_F(StartupLaunchManagerTest, WaitForStartupLaunchManagerToInit) {
+  // Destroy the current startup launch manager instance and recreate it.
+  TestingBrowserProcess::GetGlobal()->TearDownGlobalFeaturesForTesting();
+  TestingBrowserProcess::GetGlobal()->SetUpGlobalFeaturesForTesting(
+      /*profile_manager=*/false);
+
+  TestStartupLaunchManager* const launch_manager = launch_on_startup_manager();
+
+  StartupLaunchManager::Client extensions_startup_launch_client =
+      StartupLaunchManager::Client(StartupLaunchReason::kExtensions);
+
+  // Startup launch manager should not update registry since it is not
+  // initialized yet.
+  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup(testing::_))
+      .Times(testing::Exactly(0));
+  extensions_startup_launch_client.SetLaunchOnStartup(true);
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+
+  // Startup launch manager should update registry once initialized.
+  EXPECT_CALL(*launch_manager,
+              UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
+      .Times(testing::Exactly(1));
+  launch_manager->CommitLaunchOnStartupState();
+  testing::Mock::VerifyAndClearExpectations(launch_manager);
+
+  // Client updates should now write to registry without waiting.
+  EXPECT_CALL(*launch_manager, UpdateLaunchOnStartup({std::nullopt}))
+      .Times(testing::Exactly(1));
+  extensions_startup_launch_client.SetLaunchOnStartup(false);
   testing::Mock::VerifyAndClearExpectations(launch_manager);
 }

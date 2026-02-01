@@ -134,15 +134,34 @@ def entry_point_method(sb,
         _prep_param(sb, native.is_proxy, param) for param in params
     ]
 
+    if cpp_class:
+      with sb.statement():
+        sb(f'{cpp_class}* _ptr = reinterpret_cast<{cpp_class}*>'
+           f'({native.params[0].cpp_name()})')
+
+    sb('/* Use a wrapper function to allow compiler to pick an overloaded ')
+    sb('version of JNI function */\n')
+    with sb.statement():
+      sb('auto _jni_func_wrapper = [&](auto&&... args) ->\n')
+      if cpp_class:
+        sb(f'decltype(_ptr->{native.capitalized_name}')
+      else:
+        sb(f'decltype(JNI_{native.java_class.name}_{native.capitalized_name}')
+      sb(f'(std::forward<decltype(args)>(args)...))')
+      with sb.block(no_trailing_newline=True):
+        with sb.statement():
+          if cpp_class:
+            sb(f'return _ptr->{native.capitalized_name}')
+          else:
+            sb(f'return JNI_{native.java_class.name}_{native.capitalized_name}')
+          sb(f'(std::forward<decltype(args)>(args)...)')
+
     with sb.statement():
       if not return_type.is_void():
         sb('auto _ret = ')
-      if cpp_class:
-        sb(f'reinterpret_cast<{cpp_class}*>({native.params[0].cpp_name()})'
-           f'->{native.capitalized_name}')
-      else:
-        sb(f'JNI_{native.java_class.name}_{native.capitalized_name}')
+      sb('jni_zero::internal::DispatchJniFunc')
       with sb.param_list() as plist:
+        plist.append('_jni_func_wrapper')
         plist.append('env')
         if not native.static:
           plist.append('jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)')
@@ -183,7 +202,7 @@ def entry_point_method(sb,
 
 def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, *,
                              enable_definition_macros):
-  macro_name = f'DEFINE_JNI_FOR_{jni_obj.java_class.name}'
+  macro_name = f'DEFINE_JNI_FOR_{jni_obj.java_class.name}_SEE_JNI_ZERO_README'
   if enable_definition_macros and jni_obj.natives:
     with sb.section(
         'Example signatures (to be implemented by #including file).'):
@@ -193,6 +212,11 @@ def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, *,
           sb('\n')
 
     with sb.section('Java to native functions'):
+      # Ensure compiler warns if DEFINE_JNI(ClassName) is not used.
+      sb(f'// Emit a warning if DEFINE_JNI({jni_obj.java_class.name}) is ')
+      sb('missing in the including .cc file.\n')
+      sb('#pragma clang diagnostic push\n')
+      sb('#pragma clang diagnostic warning "-Wunused-macros"\n')
       with sb.cpp_macro(macro_name):
         # Anonymous namespace to scope the "using namespace" declaration.
         # All symbols use extern "C", so it doesn't actually hide symbols.
@@ -201,6 +225,7 @@ def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, *,
             sb(f'using namespace {jni_obj.jni_namespace};\n')
           for native in jni_obj.natives:
             entry_point_method(sb, jni_mode, jni_obj, native, gen_jni_class)
+      sb('#pragma clang diagnostic pop')
   elif enable_definition_macros:
     sb(f'// There are no Java->Native methods.\n')
     sb(f'#define {macro_name}()\n')

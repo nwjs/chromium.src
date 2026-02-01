@@ -729,9 +729,7 @@ class Browser : public TabStripModelObserver,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
   void OnTabGroupChanged(const TabGroupChange& change) override;
-  void TabPinnedStateChanged(TabStripModel* tab_strip_model,
-                             content::WebContents* contents,
-                             int index) override;
+  void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
   void TabGroupedStateChanged(TabStripModel* tab_strip_model,
                               std::optional<tab_groups::TabGroupId> old_group,
                               std::optional<tab_groups::TabGroupId> new_group,
@@ -801,6 +799,7 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents) override;
   content::WebContents* GetResponsibleWebContents(
       content::WebContents* web_contents) override;
+  std::optional<gfx::Rect> GetWindowBoundsInScreen() override;
 
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/compute_pressure/pressure_observer_manager.h"
 
 #include "base/notreached.h"
+#include "base/task/single_thread_task_runner.h"
 #include "mojo/public/cpp/bindings/pending_flush.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "services/device/public/mojom/pressure_update.mojom-blink.h"
@@ -31,18 +32,24 @@ PressureSource V8PressureSourceToPressureSource(V8PressureSource::Enum source) {
 }  // namespace
 
 // static
+const char PressureObserverManager::kSupplementName[] =
+    "PressureObserverManager";
+
+// static
 PressureObserverManager* PressureObserverManager::From(
     ExecutionContext* context) {
-  PressureObserverManager* manager = context->GetPressureObserverManager();
+  PressureObserverManager* manager =
+      Supplement<ExecutionContext>::From<PressureObserverManager>(context);
   if (!manager) {
     manager = MakeGarbageCollected<PressureObserverManager>(context);
-    context->SetPressureObserverManager(manager);
+    Supplement<ExecutionContext>::ProvideTo(*context, manager);
   }
   return manager;
 }
 
 PressureObserverManager::PressureObserverManager(ExecutionContext* context)
     : ExecutionContextLifecycleStateObserver(context),
+      Supplement<ExecutionContext>(*context),
       pressure_manager_(context) {
   UpdateStateIfNeeded();
   for (const auto& source : PressureObserver::knownSources()) {
@@ -104,6 +111,7 @@ void PressureObserverManager::Trace(Visitor* visitor) const {
   visitor->Trace(pressure_manager_);
   visitor->Trace(source_to_client_);
   ExecutionContextLifecycleStateObserver::Trace(visitor);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 void PressureObserverManager::EnsureConnection(

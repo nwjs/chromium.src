@@ -29,7 +29,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/paint_preview/player/android/jni_headers/PlayerCompositorDelegateImpl_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -38,28 +38,21 @@ namespace paint_preview {
 namespace {
 
 // To minimize peak memory usage limit the number of concurrent bitmap requests.
-// These correspond to memory pressure levels None, Moderate, Critical
-// respectively. If a value of 0 is used for any level the process will abort
-// once that memory level is reached.
-constexpr std::
-    array<size_t, PlayerCompositorDelegateAndroid::PressureLevelCount::kLevels>
-        kMaxParallelBitmapRequests = {3, 2, 0};
-constexpr std::
-    array<size_t, PlayerCompositorDelegateAndroid::PressureLevelCount::kLevels>
-        kMaxParallelBitmapRequestsLowMemory = {2, 1, 0};
+constexpr size_t kMaxParallelBitmapRequests = 3;
+constexpr size_t kMaxParallelBitmapRequestsLowMemory = 2;
 
 }  // namespace
 
 static jlong JNI_PlayerCompositorDelegateImpl_Initialize(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_object,
+    const JavaRef<jobject>& j_object,
     jlong paint_preview_service,
     jlong j_capture_result_ptr,
-    const JavaParamRef<jstring>& j_url_spec,
-    const JavaParamRef<jstring>& j_directory_key,
-    jboolean j_main_frame_mode,
-    const JavaParamRef<jobject>& j_compositor_error_callback,
-    jboolean j_is_low_mem) {
+    const JavaRef<jstring>& j_url_spec,
+    const JavaRef<jstring>& j_directory_key,
+    bool j_main_frame_mode,
+    const JavaRef<jobject>& j_compositor_error_callback,
+    bool j_is_low_mem) {
   TRACE_EVENT0("paint_preview", "JNI_PlayerCompositorDelegateImpl_Initialize");
   PlayerCompositorDelegateAndroid* delegate =
       new PlayerCompositorDelegateAndroid(
@@ -72,14 +65,14 @@ static jlong JNI_PlayerCompositorDelegateImpl_Initialize(
 
 PlayerCompositorDelegateAndroid::PlayerCompositorDelegateAndroid(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_object,
+    const JavaRef<jobject>& j_object,
     PaintPreviewBaseService* paint_preview_service,
     jlong j_capture_result_ptr,
-    const JavaParamRef<jstring>& j_url_spec,
-    const JavaParamRef<jstring>& j_directory_key,
-    jboolean j_main_frame_mode,
-    const JavaParamRef<jobject>& j_compositor_error_callback,
-    jboolean j_is_low_mem)
+    const JavaRef<jstring>& j_url_spec,
+    const JavaRef<jstring>& j_directory_key,
+    bool j_main_frame_mode,
+    const JavaRef<jobject>& j_compositor_error_callback,
+    bool j_is_low_mem)
     : PlayerCompositorDelegate(),
       request_id_(0),
       task_runner_(base::ThreadPool::CreateTaskRunner(
@@ -100,12 +93,12 @@ PlayerCompositorDelegateAndroid::PlayerCompositorDelegateAndroid(
       paint_preview_service, GURL(url_string),
       DirectoryKey{
           base::android::ConvertJavaStringToUTF8(env, j_directory_key)},
-      static_cast<bool>(j_main_frame_mode),
+      j_main_frame_mode,
       base::BindOnce(&base::android::RunIntCallbackAndroid,
                      ScopedJavaGlobalRef<jobject>(j_compositor_error_callback)),
       base::Seconds(15),
-      (static_cast<bool>(j_is_low_mem) ? kMaxParallelBitmapRequestsLowMemory
-                                       : kMaxParallelBitmapRequests));
+      (j_is_low_mem ? kMaxParallelBitmapRequestsLowMemory
+                    : kMaxParallelBitmapRequests));
 
   java_ref_.Reset(env, j_object);
 }
@@ -170,17 +163,6 @@ PlayerCompositorDelegateAndroid::GetRootFrameOffsets(JNIEnv* env) {
   return j_offsets;
 }
 
-void PlayerCompositorDelegateAndroid::OnMemoryPressure(
-    base::MemoryPressureLevel memory_pressure_level) {
-  // Don't handle the critical case leave that to the base class implementation
-  // which should kill the preview.
-  if (memory_pressure_level == base::MEMORY_PRESSURE_LEVEL_MODERATE) {
-    Java_PlayerCompositorDelegateImpl_onModerateMemoryPressure(
-        base::android::AttachCurrentThread(), java_ref_);
-  }
-  PlayerCompositorDelegate::OnMemoryPressure(memory_pressure_level);
-}
-
 // static
 void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
     const base::flat_map<base::UnguessableToken, mojom::FrameDataPtr>& frames,
@@ -220,8 +202,8 @@ void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
 jint PlayerCompositorDelegateAndroid::RequestBitmap(
     JNIEnv* env,
     std::optional<base::UnguessableToken>& frame_guid,
-    const JavaParamRef<jobject>& j_bitmap_callback,
-    const JavaParamRef<jobject>& j_error_callback,
+    const JavaRef<jobject>& j_bitmap_callback,
+    const JavaRef<jobject>& j_error_callback,
     jfloat j_scale_factor,
     jint j_clip_x,
     jint j_clip_y,
@@ -250,10 +232,9 @@ jint PlayerCompositorDelegateAndroid::RequestBitmap(
       /*run_callback_on_default_task_runner=*/false);
 }
 
-jboolean PlayerCompositorDelegateAndroid::CancelBitmapRequest(
-    JNIEnv* env,
-    jint j_request_id) {
-  return static_cast<jboolean>(PlayerCompositorDelegate::CancelBitmapRequest(
+bool PlayerCompositorDelegateAndroid::CancelBitmapRequest(JNIEnv* env,
+                                                          jint j_request_id) {
+  return static_cast<bool>(PlayerCompositorDelegate::CancelBitmapRequest(
       static_cast<int32_t>(j_request_id)));
 }
 
@@ -275,8 +256,7 @@ void PlayerCompositorDelegateAndroid::OnJavaBitmapCallback(
   if (result.status ==
       mojom::PaintPreviewCompositor::BitmapStatus::kAllocFailed) {
     base::android::RunRunnableAndroid(j_error_callback);
-    // Treat this as a critical memory pressure failure. We should abort.
-    OnMemoryPressure(base::MEMORY_PRESSURE_LEVEL_CRITICAL);
+    PlayerCompositorDelegate::OnAllocationFailure();
     return;
   }
 
@@ -319,9 +299,8 @@ ScopedJavaLocalRef<jstring> PlayerCompositorDelegateAndroid::OnClick(
 
 void PlayerCompositorDelegateAndroid::SetCompressOnClose(
     JNIEnv* env,
-    jboolean compress_on_close) {
-  PlayerCompositorDelegate::SetCompressOnClose(
-      static_cast<bool>(compress_on_close));
+    bool compress_on_close) {
+  PlayerCompositorDelegate::SetCompressOnClose(compress_on_close);
 }
 
 void PlayerCompositorDelegateAndroid::Destroy(JNIEnv* env) {

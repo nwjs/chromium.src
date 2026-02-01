@@ -15,12 +15,10 @@
 
 class Profile;
 
-namespace safe_browsing {
-class BinaryUploadService;
-}  // namespace safe_browsing
-
 namespace enterprise_connectors {
 
+class BinaryUploadService;
+class BinaryUploadRequest;
 class ContentAnalysisInfo;
 
 // Handles the management of a `PagePrintAnalysisRequest` and reporting for a
@@ -33,7 +31,7 @@ class PagePrintRequestHandler : public RequestHandlerBase {
 
   static std::unique_ptr<PagePrintRequestHandler> Create(
       ContentAnalysisInfo* content_analysis_info,
-      safe_browsing::BinaryUploadService* upload_service,
+      BinaryUploadService* upload_service,
       Profile* profile,
       GURL url,
       const std::string& printer_name,
@@ -58,7 +56,7 @@ class PagePrintRequestHandler : public RequestHandlerBase {
       std::unique_ptr<PagePrintAnalysisRequest> request);
 
   PagePrintRequestHandler(ContentAnalysisInfo* content_analysis_info,
-                          safe_browsing::BinaryUploadService* upload_service,
+                          BinaryUploadService* upload_service,
                           Profile* profile,
                           GURL url,
                           const std::string& printer_name,
@@ -77,7 +75,7 @@ class PagePrintRequestHandler : public RequestHandlerBase {
   // Called in the edge case where a printed page is too large and should be
   // exempt from scanning.
   void FinishLargeDataRequestEarly(
-      std::unique_ptr<safe_browsing::BinaryUploadService::Request> request);
+      std::unique_ptr<BinaryUploadRequest> request);
 
   // The printed page to be scanned. This will be moved for scanning, so don't
   // assume this is populated for code that runs afterwards (response handling,

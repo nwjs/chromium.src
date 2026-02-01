@@ -9,7 +9,6 @@
 #include <memory>
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -115,7 +114,7 @@ BrowserWindowInterface* WaitForBrowserNotInSet(
   if (!new_browser) {
     new_browser = WaitForBrowserToOpen();
     // The new browser should never be in |excluded_browsers|.
-    DCHECK(!base::Contains(excluded_browsers, new_browser));
+    DCHECK(!excluded_browsers.contains(new_browser));
   }
   return new_browser;
 }
@@ -1079,6 +1078,28 @@ void ViewBoundsWaiter::OnViewBoundsChanged(views::View* observed_view) {
     // This is necessary to avoid deadlock in case a view's bounds change
     // to nonempty and then empty before the RunLoop is started.
     observed_non_empty_bounds_ = true;
+    run_loop_.Quit();
+  }
+}
+
+ViewVisibilityWaiter::ViewVisibilityWaiter(views::View* observed_view,
+                                           bool expected_visible)
+    : view_(observed_view), expected_visible_(expected_visible) {
+  observation_.Observe(view_.get());
+}
+
+ViewVisibilityWaiter::~ViewVisibilityWaiter() = default;
+
+void ViewVisibilityWaiter::Wait() {
+  if (expected_visible_ != view_->GetVisible()) {
+    run_loop_.Run();
+  }
+}
+
+void ViewVisibilityWaiter::OnViewVisibilityChanged(views::View* observed_view,
+                                                   views::View* starting_view,
+                                                   bool visible) {
+  if (expected_visible_ == observed_view->GetVisible()) {
     run_loop_.Quit();
   }
 }

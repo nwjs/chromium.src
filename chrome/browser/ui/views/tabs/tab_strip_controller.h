@@ -18,7 +18,6 @@
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/gfx/range/range.h"
 
-class Browser;
 class BrowserWindowInterface;
 class ScopedTabStripModalUI;
 class Tab;
@@ -47,7 +46,7 @@ class TabStripController {
   virtual ~TabStripController() = default;
 
   // Returns the selection model of the tabstrip.
-  virtual const ui::ListSelectionModel& GetSelectionModel() const = 0;
+  virtual ui::ListSelectionModel GetSelectionModel() const = 0;
 
   // Returns the number of tabs in the model.
   virtual int GetCount() const = 0;
@@ -157,15 +156,8 @@ class TabStripController {
   // Creates the new tab.
   virtual void CreateNewTab(NewTabTypes context) = 0;
 
-  // Creates a new tab, and loads `location` in the tab. If `location` is a
-  // valid URL, then simply loads the URL, otherwise this can open a
-  // search-result page for `location`.
-  virtual void CreateNewTabWithLocation(const std::u16string& location) = 0;
-
   // Notifies controller that the user started dragging this tabstrip's tabs.
-  // `dragging_window` indicates if the whole window is moving, or if tabs are
-  // moving within a window.
-  virtual void OnStartedDragging(bool dragging_window) = 0;
+  virtual void OnStartedDragging() = 0;
 
   // Notifies controller that the user stopped dragging this tabstrip's tabs.
   // This is also called when the tabs that the user is dragging were detached
@@ -226,20 +218,8 @@ class TabStripController {
   virtual bool IsFrameCondensed() const = 0;
 
   // Returns whether the shapes of background tabs are visible against the
-  // frame.
-  virtual bool HasVisibleBackgroundTabShapes() const = 0;
-
-  // Returns whether the shapes of background tabs are visible against the
   // frame for either active or inactive windows.
   virtual bool EverHasVisibleBackgroundTabShapes() const = 0;
-
-  // Returns whether tab strokes can ever be drawn. If true, strokes will only
-  // be drawn if necessary.
-  virtual bool CanDrawStrokes() const = 0;
-
-  // Returns the color of the browser frame for the given window activation
-  // state.
-  virtual SkColor GetFrameColor(BrowserFrameActiveState active_state) const = 0;
 
   // For non-transparent windows, returns the background tab image resource ID
   // if the image has been customized, directly or indirectly, by the theme.
@@ -249,15 +229,8 @@ class TabStripController {
   // Returns the accessible tab name.
   virtual std::u16string GetAccessibleTabName(const Tab* tab) const = 0;
 
-  // Returns the profile associated with the Tabstrip.
-  virtual Profile* GetProfile() const = 0;
-
   // Returns the interface for the browser hosting the tab strip.
   virtual BrowserWindowInterface* GetBrowserWindowInterface() = 0;
-
-  // TODO(tluk): Migrate use of Browser to BrowserWindowInterface and remove
-  // this method.
-  virtual Browser* GetBrowser() = 0;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Returns whether the current app instance is locked for OnTask. Only

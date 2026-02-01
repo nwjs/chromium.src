@@ -149,6 +149,10 @@ class SystemTrustStoreChromeWithUnOwnedSystemStore : public SystemTrustStore {
     return trust_store_chrome_->Contains(trust_anchor);
   }
 
+  bool IsKnownMtcAnchor(const bssl::MTCAnchor* anchor) const override {
+    return trust_store_chrome_->ContainsMTCAnchor(anchor);
+  }
+
   bool IsLocallyTrustedRoot(
       const bssl::ParsedCertificate* trust_anchor) override {
     return non_crs_trust_store_collection_.GetTrust(trust_anchor)
@@ -157,6 +161,10 @@ class SystemTrustStoreChromeWithUnOwnedSystemStore : public SystemTrustStore {
 
   int64_t chrome_root_store_version() const override {
     return trust_store_chrome_->version();
+  }
+
+  std::optional<base::Time> mtc_metadata_update_time() const override {
+    return trust_store_chrome_->mtc_metadata_update_time();
   }
 
   base::span<const ChromeRootCertConstraints> GetChromeRootConstraints(
@@ -304,6 +312,10 @@ class SystemTrustStoreFuchsia : public SystemTrustStore {
 
   bool IsKnownRoot(const bssl::ParsedCertificate* trust_anchor) const override {
     return GetFuchsiaRootCerts().system_trust_store()->Contains(trust_anchor);
+  }
+
+  bool IsKnownMtcAnchor(const bssl::MTCAnchor* anchor) const override {
+    return false;
   }
 };
 

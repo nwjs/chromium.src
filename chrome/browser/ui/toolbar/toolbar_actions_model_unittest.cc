@@ -20,6 +20,7 @@
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/extension_action_test_util.h"
@@ -27,13 +28,13 @@
 #include "chrome/browser/extensions/extension_service_user_test_base.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/test_extension_system.h"
-#include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/toolbar/test_toolbar_action_view_model.h"
 #include "chrome/common/pref_names.h"
 #include "components/crx_file/id_util.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
 #include "extensions/browser/extension_action_manager.h"
@@ -44,6 +45,7 @@
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/test_extension_registry_observer.h"
 #include "extensions/browser/uninstall_reason.h"
+#include "extensions/browser/unpacked_installer.h"
 #include "extensions/common/api/extension_action/action_info.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
@@ -221,6 +223,7 @@ void ToolbarActionsModelUnitTest::InitToolbarModelAndObserver() {
 
 void ToolbarActionsModelUnitTest::TearDown() {
   model_observer_.reset();
+  toolbar_model_ = nullptr;
   extensions::ExtensionServiceUserTestBase::TearDown();
 }
 
@@ -1173,6 +1176,47 @@ TEST_F(ToolbarActionsModelUnitTest, DefaultPinnedByPolicy) {
 
   EXPECT_FALSE(toolbar_model()->IsActionPinned(extension->id()));
   EXPECT_THAT(toolbar_model()->pinned_action_ids(), ::testing::IsEmpty());
+}
+
+TEST_F(ToolbarActionsModelUnitTest,
+       DefaultPinnedWorksWhenPolicyLoadsAfterInstall) {
+  Init();
+
+  // Install an extension.
+  scoped_refptr<const extensions::Extension> extension =
+      extensions::ExtensionBuilder("test extension")
+          .SetAction(extensions::ActionInfo::Type::kBrowser)
+          .SetLocation(ManifestLocation::kInternal)
+          .Build();
+  ASSERT_TRUE(AddExtension(extension));
+
+  EXPECT_EQ(1u, num_actions());
+  EXPECT_FALSE(toolbar_model()->IsActionPinned(extension->id()));
+
+  // Set the extension to default-pin via enterprise policy.
+  const std::string extension_id = extension->id();
+  std::string json = base::StringPrintf(
+      R"({
+        "%s": {
+          "toolbar_pin": "default_pinned"
+        }
+      })",
+      extension_id.c_str());
+  auto parsed =
+      base::JSONReader::Read(json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(parsed);
+  policy::PolicyMap map;
+  map.Set("ExtensionSettings", policy::POLICY_LEVEL_MANDATORY,
+          policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_PLATFORM,
+          std::move(*parsed), nullptr);
+  policy_provider()->UpdateChromePolicy(map);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return toolbar_model()->IsActionPinned(extension->id()); }));
+
+  // The change in policy should trigger the model to be updated.
+  EXPECT_TRUE(toolbar_model()->IsActionPinned(extension->id()));
+  EXPECT_THAT(toolbar_model()->pinned_action_ids(),
+              ::testing::ElementsAre(extension->id()));
 }
 
 // Tests that the pin state (and position) for extensions that are unloaded

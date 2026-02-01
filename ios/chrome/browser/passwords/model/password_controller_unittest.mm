@@ -30,7 +30,6 @@
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/autofill/ios/common/field_data_manager_factory_ios.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
-#import "components/autofill/ios/form_util/form_util_java_script_feature.h"
 #import "components/password_manager/core/browser/leak_detection/mock_leak_detection_check_factory.h"
 #import "components/password_manager/core/browser/password_form_manager.h"
 #import "components/password_manager/core/browser/password_form_metrics_recorder.h"
@@ -49,9 +48,9 @@
 #import "components/safe_browsing/core/browser/password_protection/stub_password_reuse_detection_manager_client.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/autofill/form_input_accessory/coordinator/form_input_accessory_mediator.h"
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_controller.h"
-#import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_mediator.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/web/model/chrome_web_client.h"
@@ -518,10 +517,10 @@ class PasswordControllerTest : public PlatformTest {
   // FormInputAccessoryMediatorfor testing.
   FormInputAccessoryMediator* accessoryMediator_;
 
+  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
+
   // PasswordController for testing.
   PasswordController* passwordController_;
-
-  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
 
   raw_ptr<MockPasswordManagerClient> weak_client_;
 };
@@ -1284,8 +1283,7 @@ class PasswordControllerTestSimple : public PlatformTest {
 
     web::test::OverrideJavaScriptFeatures(
         profile_.get(),
-        {autofill::FormUtilJavaScriptFeature::GetInstance(),
-         password_manager::PasswordManagerJavaScriptFeature::GetInstance()});
+        {password_manager::PasswordManagerJavaScriptFeature::GetInstance()});
 
     web::ContentWorld content_world =
         password_manager::PasswordManagerJavaScriptFeature::GetInstance()

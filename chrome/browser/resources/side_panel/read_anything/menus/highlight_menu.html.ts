@@ -4,7 +4,7 @@
 
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ToolbarEvent} from '../shared/common.js';
+import {ToolbarEvent} from '../content/read_anything_types.js';
 
 import type {HighlightMenuElement} from './highlight_menu.js';
 
@@ -15,6 +15,7 @@ export function getHtml(this: HighlightMenuElement) {
     id="menu"
     label="$i18n{voiceHighlightLabel}"
     .menuItems="${this.options_}"
+    .nonModal="${this.nonModal}"
     event-name="${ToolbarEvent.HIGHLIGHT_CHANGE}"
     current-selected-index="${this.restoredHighlightIndex_()}"
     @highlight-change="${this.onHighlightChange_}">

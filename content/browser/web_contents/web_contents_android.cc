@@ -65,7 +65,6 @@ using base::android::ConvertJavaStringToUTF16;
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ConvertUTF16ToJavaString;
 using base::android::ConvertUTF8ToJavaString;
-using base::android::JavaParamRef;
 using base::android::JavaRef;
 using base::android::RunRunnableAndroid;
 using base::android::ScopedJavaGlobalRef;
@@ -267,7 +266,7 @@ WebContentsAndroid::GetJavaObject() {
 
 void WebContentsAndroid::CaptureContentAsBitmapForTesting(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& jcallback) {
+    const base::android::JavaRef<jobject>& jcallback) {
   ui::GrabViewSnapshot(
       web_contents_->GetNativeView(), gfx::Rect(web_contents_->GetSize()),
       base::BindOnce(
@@ -325,7 +324,7 @@ WebContentsAndroid::GetTopLevelNativeWindow(JNIEnv* env) {
 
 void WebContentsAndroid::SetTopLevelNativeWindow(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jwindow_android) {
+    const JavaRef<jobject>& jwindow_android) {
   ui::WindowAndroid* window =
       ui::WindowAndroid::FromJavaWindowAndroid(jwindow_android);
   auto* old_window = web_contents_->GetTopLevelNativeWindow();
@@ -341,7 +340,7 @@ void WebContentsAndroid::SetTopLevelNativeWindow(
 
 void WebContentsAndroid::SetViewAndroidDelegate(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jview_delegate) {
+    const JavaRef<jobject>& jview_delegate) {
   ui::ViewAndroid* view_android = web_contents_->GetView()->GetNativeView();
   view_android->SetDelegate(jview_delegate);
 }
@@ -441,8 +440,7 @@ void WebContentsAndroid::PasteAsPlainText(JNIEnv* env) {
   web_contents_->PasteAndMatchStyle();
 }
 
-void WebContentsAndroid::Replace(JNIEnv* env,
-                                 const JavaParamRef<jstring>& jstr) {
+void WebContentsAndroid::Replace(JNIEnv* env, const JavaRef<jstring>& jstr) {
   web_contents_->Replace(base::android::ConvertJavaStringToUTF16(env, jstr));
 }
 
@@ -489,7 +487,7 @@ ScopedJavaLocalRef<jobject> WebContentsAndroid::GetLastCommittedURL(
                                           web_contents_->GetLastCommittedURL());
 }
 
-jboolean WebContentsAndroid::IsIncognito(JNIEnv* env) {
+bool WebContentsAndroid::IsIncognito(JNIEnv* env) {
   return web_contents_->GetBrowserContext()->IsOffTheRecord();
 }
 
@@ -509,15 +507,15 @@ void WebContentsAndroid::SuspendAllMediaPlayers(JNIEnv* env) {
   web_contents_->media_web_contents_observer()->SuspendAllMediaPlayers();
 }
 
-void WebContentsAndroid::SetAudioMuted(JNIEnv* env, jboolean mute) {
+void WebContentsAndroid::SetAudioMuted(JNIEnv* env, bool mute) {
   web_contents_->SetAudioMuted(mute);
 }
 
-jboolean WebContentsAndroid::IsAudioMuted(JNIEnv* env) {
+bool WebContentsAndroid::IsAudioMuted(JNIEnv* env) {
   return web_contents_->IsAudioMuted();
 }
 
-jboolean WebContentsAndroid::FocusLocationBarByDefault(JNIEnv* env) {
+bool WebContentsAndroid::FocusLocationBarByDefault(JNIEnv* env) {
   return web_contents_->FocusLocationBarByDefault();
 }
 
@@ -559,8 +557,8 @@ void WebContentsAndroid::SelectAroundCaretAck(
 
 void WebContentsAndroid::SelectAroundCaret(JNIEnv* env,
                                            jint granularity,
-                                           jboolean should_show_handle,
-                                           jboolean should_show_context_menu,
+                                           bool should_show_handle,
+                                           bool should_show_context_menu,
                                            jint startOffset,
                                            jint endOffset,
                                            jint surroundingTextLength) {
@@ -579,7 +577,7 @@ void WebContentsAndroid::AdjustSelectionByCharacterOffset(
     JNIEnv* env,
     jint start_adjust,
     jint end_adjust,
-    jboolean show_selection_menu) {
+    bool show_selection_menu) {
   web_contents_->AdjustSelectionByCharacterOffset(start_adjust, end_adjust,
                                                   show_selection_menu);
 }
@@ -595,10 +593,9 @@ bool WebContentsAndroid::InitializeRenderFrameForJavaScript() {
   return true;
 }
 
-void WebContentsAndroid::EvaluateJavaScript(
-    JNIEnv* env,
-    const JavaParamRef<jstring>& script,
-    const JavaParamRef<jobject>& callback) {
+void WebContentsAndroid::EvaluateJavaScript(JNIEnv* env,
+                                            const JavaRef<jstring>& script,
+                                            const JavaRef<jobject>& callback) {
   RenderViewHost* rvh = web_contents_->GetRenderViewHost();
   DCHECK(rvh);
 
@@ -624,8 +621,8 @@ void WebContentsAndroid::EvaluateJavaScript(
 
 void WebContentsAndroid::EvaluateJavaScriptForTests(
     JNIEnv* env,
-    const JavaParamRef<jstring>& script,
-    const JavaParamRef<jobject>& callback) {
+    const JavaRef<jstring>& script,
+    const JavaRef<jobject>& callback) {
   RenderViewHost* rvh = web_contents_->GetRenderViewHost();
   DCHECK(rvh);
 
@@ -654,7 +651,7 @@ void WebContentsAndroid::EvaluateJavaScriptForTests(
 void WebContentsAndroid::AddMessageToDevToolsConsole(
     JNIEnv* env,
     jint level,
-    const JavaParamRef<jstring>& message) {
+    const JavaRef<jstring>& message) {
   DCHECK_GE(level, 0);
   DCHECK_LE(level, static_cast<int>(blink::mojom::ConsoleMessageLevel::kError));
 
@@ -665,21 +662,21 @@ void WebContentsAndroid::AddMessageToDevToolsConsole(
 
 void WebContentsAndroid::PostMessageToMainFrame(
     JNIEnv* env,
-    const JavaParamRef<jobject>& jmessage,
-    const JavaParamRef<jstring>& jsource_origin,
-    const JavaParamRef<jstring>& jtarget_origin,
-    const JavaParamRef<jobjectArray>& jports) {
+    const JavaRef<jobject>& jmessage,
+    const JavaRef<jstring>& jsource_origin,
+    const JavaRef<jstring>& jtarget_origin,
+    const JavaRef<jobjectArray>& jports) {
   content::MessagePortProvider::PostMessageToFrame(
       web_contents_->GetPrimaryPage(), env, jsource_origin, jtarget_origin,
       jmessage, jports);
 }
 
-jboolean WebContentsAndroid::HasAccessedInitialDocument(JNIEnv* env) {
+bool WebContentsAndroid::HasAccessedInitialDocument(JNIEnv* env) {
   return static_cast<WebContentsImpl*>(web_contents_)->
       HasAccessedInitialDocument();
 }
 
-jboolean WebContentsAndroid::HasViewTransitionOptIn(JNIEnv* env) {
+bool WebContentsAndroid::HasViewTransitionOptIn(JNIEnv* env) {
   auto* opt_in_state = ViewTransitionOptInState::GetForCurrentDocument(
       web_contents_->GetPrimaryMainFrame());
   return opt_in_state &&
@@ -697,7 +694,7 @@ jfloat WebContentsAndroid::GetLoadProgress(JNIEnv* env) {
 
 void WebContentsAndroid::RequestSmartClipExtract(
     JNIEnv* env,
-    const JavaParamRef<jobject>& callback,
+    const JavaRef<jobject>& callback,
     jint x,
     jint y,
     jint width,
@@ -734,9 +731,9 @@ void WebContentsAndroid::AXTreeSnapshotCallback(
 
 void WebContentsAndroid::RequestAccessibilitySnapshot(
     JNIEnv* env,
-    const JavaParamRef<jobject>& view_structure_root,
-    const JavaParamRef<jobject>& view_structure_builder,
-    const JavaParamRef<jobject>& callback) {
+    const JavaRef<jobject>& view_structure_root,
+    const JavaRef<jobject>& view_structure_builder,
+    const JavaRef<jobject>& callback) {
   // Secure the Java objects in scoped objects and give ownership of them to the
   // base::OnceCallback below.
   ScopedJavaGlobalRef<jobject> j_callback;
@@ -770,7 +767,7 @@ ScopedJavaLocalRef<jstring> WebContentsAndroid::GetEncoding(JNIEnv* env) const {
 
 void WebContentsAndroid::Discard(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& on_discarded) {
+    const base::android::JavaRef<jobject>& on_discarded) {
   web_contents_->Discard(base::BindOnce(
       &base::android::RunRunnableAndroid,
       base::android::ScopedJavaGlobalRef<jobject>(on_discarded)));
@@ -778,7 +775,7 @@ void WebContentsAndroid::Discard(
 
 void WebContentsAndroid::SetOverscrollRefreshHandler(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& overscroll_refresh_handler) {
+    const base::android::JavaRef<jobject>& overscroll_refresh_handler) {
   WebContentsViewAndroid* view =
       static_cast<WebContentsViewAndroid*>(web_contents_->GetView());
   view->SetOverscrollRefreshHandler(
@@ -798,11 +795,11 @@ void WebContentsAndroid::SetStylusHandwritingEnabled(JNIEnv* env,
 
 int WebContentsAndroid::DownloadImage(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& jurl,
-    jboolean is_fav_icon,
+    const base::android::JavaRef<jobject>& jurl,
+    bool is_fav_icon,
     jint max_bitmap_size,
-    jboolean bypass_cache,
-    const base::android::JavaParamRef<jobject>& jcallback) {
+    bool bypass_cache,
+    const base::android::JavaRef<jobject>& jcallback) {
   const gfx::Size preferred_size;
   return web_contents_->DownloadImage(
       url::GURLAndroid::ToNativeGURL(env, jurl), is_fav_icon, preferred_size,
@@ -812,7 +809,7 @@ int WebContentsAndroid::DownloadImage(
                      ScopedJavaGlobalRef<jobject>(env, jcallback)));
 }
 
-void WebContentsAndroid::SetHasPersistentVideo(JNIEnv* env, jboolean value) {
+void WebContentsAndroid::SetHasPersistentVideo(JNIEnv* env, bool value) {
   web_contents_->SetHasPersistentVideo(value);
 }
 
@@ -905,7 +902,7 @@ void WebContentsAndroid::OnScaleFactorChanged(JNIEnv* env) {
   }
 }
 
-void WebContentsAndroid::SetFocus(JNIEnv* env, jboolean focused) {
+void WebContentsAndroid::SetFocus(JNIEnv* env, bool focused) {
   WebContentsViewAndroid* view =
       static_cast<WebContentsViewAndroid*>(web_contents_->GetView());
   view->SetFocus(focused);
@@ -956,12 +953,11 @@ jint WebContentsAndroid::GetCurrentBackForwardTransitionStage(JNIEnv* env) {
   return static_cast<jint>(stage);
 }
 
-void WebContentsAndroid::SetLongPressLinkSelectText(JNIEnv* env,
-                                                    jboolean enabled) {
+void WebContentsAndroid::SetLongPressLinkSelectText(JNIEnv* env, bool enabled) {
   web_contents_->SetLongPressLinkSelectText((bool)enabled);
 }
 
-void WebContentsAndroid::SetCanAcceptLoadDrops(JNIEnv* env, jboolean enabled) {
+void WebContentsAndroid::SetCanAcceptLoadDrops(JNIEnv* env, bool enabled) {
   web_contents_->SetCanAcceptLoadDrops((bool)enabled);
 }
 
@@ -969,9 +965,8 @@ bool WebContentsAndroid::GetCanAcceptLoadDropsForTesting(JNIEnv* env) {
   return web_contents_->GetCanAcceptLoadDropsForTesting();  // IN-TEST
 }
 
-void WebContentsAndroid::SetSupportsForwardTransitionAnimation(
-    JNIEnv* env,
-    jboolean supports) {
+void WebContentsAndroid::SetSupportsForwardTransitionAnimation(JNIEnv* env,
+                                                               bool supports) {
   web_contents_->SetSupportsForwardTransitionAnimation(supports);
 }
 
@@ -979,8 +974,8 @@ jint WebContentsAndroid::GetOriginalWindowOpenDisposition(JNIEnv* env) {
   return static_cast<jint>(web_contents_->GetOriginalWindowOpenDisposition());
 }
 
-jboolean WebContentsAndroid::HasOpener(JNIEnv* env) {
-  return static_cast<jboolean>(web_contents_->HasOpener());
+bool WebContentsAndroid::HasOpener(JNIEnv* env) {
+  return static_cast<bool>(web_contents_->HasOpener());
 }
 
 void WebContentsAndroid::UpdateWindowControlsOverlay(JNIEnv* env,
@@ -1006,7 +1001,7 @@ void WebContentsAndroid::SetSupportsDraggableRegions(
 
 void WebContentsAndroid::UpdateOffsetTagDefinitions(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& jtag_definitions) {
+    const base::android::JavaRef<jobject>& jtag_definitions) {
   ui::BrowserControlsOffsetTagDefinitions tag_definitions =
       ui::FromJavaBrowserControlsOffsetTagDefinitions(env, jtag_definitions);
   if (!offset_tag_mediator_) {

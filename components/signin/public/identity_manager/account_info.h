@@ -69,6 +69,59 @@ struct AccountInfo : public CoreAccountInfo {
   AccountInfo& operator=(const AccountInfo& other);
   AccountInfo& operator=(AccountInfo&& other) noexcept;
 
+  // Returns an account ID.
+  //
+  // The account ID is always known but `GetAccountId()`
+  // may return an empty object in the following scenarios:
+  // 1. `AccountInfo` itself is empty.
+  // 2. `AccountInfo` is still being initialized inside of the signin component.
+  //
+  // TODO(crbug.com/458409080): eliminate case 1 by replacing empty
+  // `AccountInfo`s with `std::optional<AccountInfo>`.
+  // TODO(crbug.com/40268200): eliminate case 2 when migration to Gaia ID
+  // completes and we always can create `CoreAccountId` from `GaiaId`.
+  const CoreAccountId& GetAccountId() const;
+
+  // Returns Gaia ID of the account.
+  //
+  // The Gaia ID is always known but `GetGaiaId()` may return an empty object in
+  // the following scenarios:
+  // 1. `AccountInfo` itself is empty.
+  // 2. The account is under migration and its Gaia ID isn't known yet (ChromeOS
+  // only).
+  // 3. `AccountInfo` was created by calling
+  // `AccountTrackerService::StartTrackingAccount()` without providing a Gaia
+  // ID.
+  //
+  // TODO(crbug.com/458409080): eliminate case 1 by replacing empty
+  // `AccountInfo`s with `std::optional<AccountInfo>`.
+  // TODO(crbug.com/40268200): eliminate case 2 when migration to Gaia ID
+  // completes and all accounts have populated Gaia ID.
+  // TODO(crbug.com/40283608): eliminate case 3 when the account tracker stops
+  // tracking new incomplete accounts.
+  const GaiaId& GetGaiaId() const;
+
+  // Returns email address of the account.
+  //
+  // Displaying the email in display fields (e.g. Android View) can be
+  // restricted. Please verify displayability using
+  // `CanHaveEmailAddressDisplayed()`.
+  //
+  // The email is always known but `GetEmail()` may return an empty string in
+  // the following scenarios:
+  // 1. `AccountInfo` itself is empty.
+  // 2. `AccountInfo` was created by calling
+  // `AccountTrackerService::StartTrackingAccount()` without providing an email.
+  //
+  // TODO(crbug.com/458409080): eliminate case 1 by replacing empty
+  // `AccountInfo`s with `std::optional<AccountInfo>`.
+  // TODO(crbug.com/40283608): eliminate case 2 when the account tracker stops
+  // tracking new incomplete accounts.
+  std::string_view GetEmail() const;
+
+  // Returns whether the account is under advanced protection.
+  bool IsUnderAdvancedProtection() const;
+
   // Returns the full name of the account.
   // Returns std::nullopt if the value is unknown yet.
   std::optional<std::string_view> GetFullName() const;
@@ -146,12 +199,14 @@ struct AccountInfo : public CoreAccountInfo {
   // Returns `kUnknown` the value is unknown.
   signin::Tribool CanApplyAccountLevelEnterprisePolicies() const;
 
+#if !BUILDFLAG(IS_IOS)
   bool IsEduAccount() const;
 
   // Returns true if the account email can be used in display fields.
   // If `capabilities.can_have_email_address_displayed()` is unknown at the time
   // this function is called, the email address will be considered displayable.
   bool CanHaveEmailAddressDisplayed() const;
+#endif
 
   // The following struct members are going to be moved to the private section
   // soon, do not use them directly.
@@ -162,13 +217,7 @@ struct AccountInfo : public CoreAccountInfo {
   std::string full_name;
   // Deprecated: Use GetGivenName() instead.
   std::string given_name;
-  // Deprecated: Use GetHostedDomain() instead.
-  std::string hosted_domain;
-  // Deprecated: Use GetAvatarUrl() instead.
-  std::string picture_url;
 
-  // Deprecated: Use GetLastDownloadedAvatarUrlWithSize() instead.
-  std::string last_downloaded_image_url_with_size;
   // Deprecated: Use GetAvatarImage() instead.
   gfx::Image account_image;
 
@@ -179,13 +228,16 @@ struct AccountInfo : public CoreAccountInfo {
 
   // Deprecated: Use GetAccountCapabilities() instead.
   AccountCapabilities capabilities;
-  // Deprecated: Use IsChildAccount() instead.
-  signin::Tribool is_child_account = signin::Tribool::kUnknown;
   // Deprecated: Use GetLocale() instead.
   std::string locale;
 
  private:
   friend class Builder;
+
+  std::string hosted_domain_;
+  std::string picture_url_;
+  std::string last_downloaded_image_url_with_size_;
+  signin::Tribool is_child_account_ = signin::Tribool::kUnknown;
 };
 
 // Builder class for constructing AccountInfo objects.
@@ -215,6 +267,7 @@ class AccountInfo::Builder {
   AccountInfo Build();
 
   // Setters for CoreAccountInfo members.
+  Builder& SetEmail(std::string_view email);
   Builder& SetAccountId(const CoreAccountId& account_id);
   Builder& SetIsUnderAdvancedProtection(bool is_under_advanced_protection);
 
@@ -224,10 +277,13 @@ class AccountInfo::Builder {
   // To keep a value unknown, do not call a corresponding setter.
   Builder& SetFullName(std::string_view full_name);
   Builder& SetGivenName(std::string_view given_name);
+  Builder& SetLocale(std::string_view locale);
+
+  // The following AccountInfo class members can be reset back to the unknown
+  // state by setting an empty value.
   Builder& SetLastDownloadedAvatarUrlWithSize(
       std::string_view avatar_url_with_size);
   Builder& SetAvatarImage(const gfx::Image& avatar_image);
-  Builder& SetLocale(std::string_view locale);
 
   // The following AccountInfo class members have well-defined empty values.
   //

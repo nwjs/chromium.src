@@ -5,13 +5,15 @@
 #ifndef CHROME_BROWSER_GLIC_TEST_SUPPORT_GLIC_TEST_UTIL_H_
 #define CHROME_BROWSER_GLIC_TEST_SUPPORT_GLIC_TEST_UTIL_H_
 
-#include "chrome/browser/glic/host/glic.mojom-data-view.h"
+#include "base/memory/weak_ptr.h"
+#include "chrome/browser/glic/host/glic.mojom-forward.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/views/widget/widget.h"
 
+class AccountCapabilitiesTestMutator;
 class BrowserWindowInterface;
 class Profile;
 
@@ -129,7 +131,8 @@ class GlicInstanceTracker {
   BrowserWindowInterface* GetBrowser();
   void Clear();
 
-  raw_ptr<Profile> profile_;
+  // Using a WeakPtr because some tests destroy the browser / profile.
+  base::WeakPtr<Profile> profile_;
   // These determine which glic instance is tracked by this class. This affects
   // many functions in this fixture. Only one will be present at a time.
   std::optional<InstanceId> tracked_instance_id_;
@@ -139,12 +142,13 @@ class GlicInstanceTracker {
   bool track_only_glic_instance_ = false;
 };
 
-// Signs in a primary account, accepts the FRE, and enables model execution
+// Signs in a primary account, accepts the FRE, and enables the relevant
 // capability for that profile. browser_tests and interactive_ui_tests should
 // use GlicTestEnvironment. These methods are for unit_tests.
-void ForceSigninAndModelExecutionCapability(Profile* profile);
+void ForceSigninAndGlicCapability(Profile* profile);
 void SigninWithPrimaryAccount(Profile* profile);
-void SetModelExecutionCapability(Profile* profile, bool enabled);
+void SetGlicCapability(Profile* profile, bool enabled);
+void SetGlicCapability(AccountCapabilitiesTestMutator& mutator, bool enabled);
 void SetFRECompletion(Profile* profile, prefs::FreStatus fre_status);
 
 void InvalidateAccount(Profile* profile);

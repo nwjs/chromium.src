@@ -89,6 +89,13 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="FALLBACK_ON_TIMEOUT_UNSANDBOXED"/>
 </enum>
 
+<enum name="AndroidChildProcessConnectionServiceNames">
+  <int value="0" label="JavaSandboxed"/>
+  <int value="1" label="NativeOnlySandboxed"/>
+  <int value="2" label="Privileged"/>
+  <int value="3" label="Other"/>
+</enum>
+
 <!-- LINT.IfChange(AndroidDefaultBrowserState) -->
 
 <enum name="AndroidDefaultBrowserPromoOutcomeType">
@@ -429,12 +436,24 @@ chromium-metrics-reviews@google.com.
 
 <enum name="AndroidWebViewRenderProcessGoneResult">
   <int value="0" label="Java Exception thrown inside onRenderProcessGone()"/>
-  <int value="1" label="Renderer crash not handled"/>
-  <int value="2" label="Renderer kill (OOM or update) not handled"/>
-  <int value="3" label="Crash or kill was handled for all WebViews"/>
+  <int value="1" label="Renderer crash not handled (deprecated)"/>
+  <int value="2"
+      label="Renderer kill (OOM or update) not handled (deprecated)"/>
+  <int value="3"
+      label="Crash or kill was handled for all WebViews (deprecated)"/>
   <int value="4" label="Renderer crash was handled for all WebViews"/>
   <int value="5"
       label="Renderer kill (OOM or update) was handled for all WebViews"/>
+  <int value="6"
+      label="Renderer crash not handled (app process visible to user)"/>
+  <int value="7"
+      label="Renderer crash not handled (app process in background)"/>
+  <int value="8"
+      label="Renderer kill (OOM or update) not handled (app process visible
+             to user)"/>
+  <int value="9"
+      label="Renderer kill (OOM or update) not handled (app process in
+             background)"/>
 </enum>
 
 <enum name="AndroidWebViewSafeModeActionName">
@@ -673,7 +692,8 @@ chromium-metrics-reviews@google.com.
   <int value="152" label="Profile.hasCustomHeader"/>
   <int value="153" label="Profile.clearCustomHeader"/>
   <int value="154" label="Profile.clearAllCustomHeaders"/>
-  <int value="155" label="WebSettingsCompat.setBackForwardCacheSettings"/>
+  <int value="155"
+      label="WebSettingsCompat.setBackForwardCacheSettings (deprecated)"/>
   <int value="156" label="WebSettingsCompat.getBackForwardCacheSettings"/>
   <int value="157" label="BackForwardCacheSettings.getTimeoutInSeconds"/>
   <int value="158" label="BackForwardCacheSettings.getMaxPagesInCache"/>
@@ -784,22 +804,24 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="(11) MANUAL_FILLING"/>
   <int value="7" label="(09) FULLSCREEN"/>
   <int value="8" label="(03) BOTTOM_SHEET"/>
-  <int value="9" label="(13) TAB_MODAL_HANDLER"/>
+  <int value="9" label="(15) TAB_MODAL_HANDLER"/>
   <int value="10"
       label="(XX) TAB_SWITCHER (if Start surface is disabled. Deprecated)"/>
-  <int value="11" label="(14) CLOSE_WATCHER"/>
-  <int value="12" label="(17) TAB_HISTORY"/>
+  <int value="11" label="(16) CLOSE_WATCHER"/>
+  <int value="12" label="(19) TAB_HISTORY"/>
   <int value="13" label="(XX) TAB_RETURN_TO_CHROME_START_SURFACE (Deprecated)"/>
-  <int value="14" label="(19) SHOW_READING_LIST"/>
-  <int value="15" label="(20) MINIMIZE_APP_AND_CLOSE_TAB"/>
-  <int value="16" label="(15) FIND_TOOLBAR"/>
-  <int value="17" label="(12) LOCATION_BAR"/>
+  <int value="14" label="(21) SHOW_READING_LIST"/>
+  <int value="15" label="(22) MINIMIZE_APP_AND_CLOSE_TAB"/>
+  <int value="16" label="(17) FIND_TOOLBAR"/>
+  <int value="17" label="(14) LOCATION_BAR"/>
   <int value="18" label="(01) XR_DELEGATE"/>
   <int value="19" label="(04) PAGE_INSIGHTS_BOTTOM_SHEET"/>
-  <int value="20" label="(16) BOTTOM_CONTROLS"/>
+  <int value="20" label="(18) BOTTOM_CONTROLS"/>
   <int value="21" label="(07) HUB"/>
   <int value="22" label="(06) ARCHIVED_TABS_DIALOG"/>
-  <int value="23" label="(18) NATIVE_PAGE"/>
+  <int value="23" label="(20) NATIVE_PAGE"/>
+  <int value="24" label="(12) CANCEL_TAB_STRIP_DRAG"/>
+  <int value="25" label="(13) CANCEL_TAB_SWITCHER_DRAG"/>
 </enum>
 
 <!-- LINT.IfChange(BackPressTabCloseType) -->
@@ -908,6 +930,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Window manager"/>
   <int value="2" label="Instance retention period expiration"/>
   <int value="3" label="No tabs in window"/>
+  <int value="4" label="Recent Tabs page"/>
 </enum>
 
 <enum name="ContactsPickerDialogAction">
@@ -1319,6 +1342,8 @@ chromium-metrics-reviews@google.com.
   <int value="64" label="ReloadPage"/>
   <int value="65" label="MultiInstanceCreationLimit"/>
   <int value="66" label="PermissionPromptLoud"/>
+  <int value="67" label="SaveUpdateEntity"/>
+  <int value="68" label="SigninSurvey"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1394,6 +1419,9 @@ chromium-metrics-reviews@google.com.
 <enum name="NewWindowAppSource">
   <int value="0" label="Undefined app source."/>
   <int value="1" label="Menu option (eg. app menu, context menu, etc.)"/>
+  <int value="2" label="Window Manager in app menu."/>
+  <int value="3" label="Keyboard shortcut."/>
+  <int value="4" label="Recent Tabs page."/>
 </enum>
 
 <enum name="NightMode">
@@ -1930,7 +1958,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="SelectionHandlesActive"/>
   <int value="5" label="(Obsolete) CanTriggerBackGesture"/>
   <int value="6" label="ImeIsActive"/>
-  <int value="7" label="RequestedByEmbedder"/>
+  <int value="7" label="(Obsolete) RequestedByEmbedder"/>
   <int value="8" label="SystemServerDidNotTransfer"/>
   <int value="9" label="BrowserTokenChanged"/>
   <int value="10" label="MultipleBrowserWindowsOpen"/>
@@ -2382,6 +2410,15 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="WebView.onWindowFocusChanged"/>
 </enum>
 
+<enum name="WebViewApiCallTracingController">
+<!-- LINT.IfChange(WebViewApiCallTracingController) -->
+
+  <int value="0" label="WebView.TracingStart"/>
+  <int value="1" label="WebView.TracingStartWithMemoryDump"/>
+<!-- LINT.ThenChange(/android_webview/browser/tracing/aw_tracing_controller.h:WebViewApiCallTracingController) -->
+
+</enum>
+
 <enum name="WebViewCallbackType">
   <int value="0" label="WebViewClient.onReceivedLoginRequest"/>
   <int value="1" label="WebViewClient.onReceivedClientCertRequest"/>
@@ -2730,6 +2767,7 @@ chromium-metrics-reviews@google.com.
   <int value="105" label="staticSetRendererLibraryPrefetchMode"/>
   <int value="106" label="staticGetRendererLibraryPrefetchMode"/>
   <int value="107" label="getDefaultCookieManager"/>
+  <int value="108" label="getProfileStore"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup) -->

@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -13,11 +14,9 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
-#include "components/guest_view/browser/guest_view_base.h"
 #include "components/language/core/common/language_util.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
-#include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "net/base/url_util.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
@@ -27,6 +26,11 @@
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "url/gurl.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "components/guest_view/browser/guest_view_base.h"
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#endif
 
 namespace glic {
 
@@ -115,6 +119,10 @@ bool IsGlicWebUI(const content::WebContents* web_contents) {
 }
 
 bool OnGuestAdded(content::WebContents* guest_contents) {
+#if BUILDFLAG(IS_ANDROID)
+  // TODO_GLIC_ANDROID: revisit this.
+  return false;
+#else
   // Only handle the glic webview. Explicitly check the guest type here in case
   // glic's web content happens to load a mime handler.
   if (!extensions::WebViewGuest::FromWebContents(guest_contents)) {
@@ -132,9 +140,12 @@ bool OnGuestAdded(content::WebContents* guest_contents) {
   if (!service) {
     return false;
   }
+
+#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(features::kGlicWindowDragRegions)) {
     guest_contents->SetSupportsDraggableRegions(true);
   }
+#endif
 
   service->GuestAdded(guest_contents);
 
@@ -148,6 +159,7 @@ bool OnGuestAdded(content::WebContents* guest_contents) {
       "Glic.Host.WebView.AutoPlay",
       WebViewAutoPlayProgress::kWebContentsObserverRegistered);
   return true;
+#endif
 }
 
 }  // namespace glic

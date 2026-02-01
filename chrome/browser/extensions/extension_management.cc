@@ -125,9 +125,7 @@ ExtensionManagement::ExtensionManagement(Profile* profile)
                              pref_change_callback);
   pref_change_registrar_.Add(pref_names::kExtensionUnpublishedAvailability,
                              pref_change_callback);
-  pref_change_registrar_.Add(
-      pref_names::kExtensionForceInstallWithNonMalwareViolationsEnabled,
-      pref_change_callback);
+
   // Note that both |global_settings_| and |default_settings_| will be null
   // before first call to Refresh(), so in order to resolve this, Refresh() must
   // be called in the initialization of ExtensionManagement.
@@ -251,16 +249,22 @@ bool ExtensionManagement::HasAllowlistedExtension() {
   }
 
   // If there are deferred extensions try loading them.
+  if (deferred_ids_.empty()) {
+    return false;
+  }
+
   while (!deferred_ids_.empty()) {
     auto extension_id = *deferred_ids_.begin();
     // This will remove the entry from |deferred_ids_|.
     LoadDeferredExtensionSetting(extension_id);
-    DCHECK(!base::Contains(deferred_ids_, extension_id));
+    DCHECK(!deferred_ids_.contains(extension_id));
     if (AccessById(extension_id)->installation_mode ==
         ManagedInstallationMode::kAllowed) {
+      NotifyExtensionManagementPrefChanged();
       return true;
     }
   }
+  NotifyExtensionManagementPrefChanged();
 
   return false;
 }
@@ -492,11 +496,6 @@ bool ExtensionManagement::IsGreylistedForceInstalledInLowTrustEnvironment(
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   if (!base::FeatureList::IsEnabled(
           kDisableForceInstalledExtensionsInLowTrustEnviromentWhenGreylisted)) {
-    return false;
-  }
-
-  if (profile_->GetPrefs()->GetBoolean(
-          pref_names::kExtensionForceInstallWithNonMalwareViolationsEnabled)) {
     return false;
   }
 
@@ -735,8 +734,7 @@ void ExtensionManagement::Refresh() {
   default_settings_ = std::make_unique<internal::IndividualSettings>();
 
   // Parse default settings.
-  const base::Value wildcard("*");
-  if ((denied_list_pref && base::Contains(*denied_list_pref, wildcard)) ||
+  if ((denied_list_pref && denied_list_pref->contains("*")) ||
       (extension_request_pref && extension_request_pref->GetBool())) {
     default_settings_->installation_mode = ManagedInstallationMode::kBlocked;
   }
@@ -874,8 +872,8 @@ void ExtensionManagement::Refresh() {
             // entry. This ensures that the entry in these settings matches
             // the entry in the forcelist. Also don't defer if the extension
             // is installed.
-            if (base::Contains(*settings_by_id, extension_id) ||
-                base::Contains(installed_extensions, extension_id)) {
+            if (settings_by_id->contains(extension_id) ||
+                installed_extensions.contains(extension_id)) {
               return false;
             }
             auto* install_mode =
@@ -931,8 +929,10 @@ bool ExtensionManagement::ParseById(const std::string& extension_id,
 
 internal::IndividualSettings* ExtensionManagement::GetSettingsForId(
     const std::string& extension_id) {
-  if (base::Contains(deferred_ids_, extension_id))
+  if (deferred_ids_.contains(extension_id)) {
     LoadDeferredExtensionSetting(extension_id);
+    NotifyExtensionManagementPrefChanged();
+  }
 
   auto iter_id = settings_by_id_.find(extension_id);
   if (iter_id == settings_by_id_.end())
@@ -943,7 +943,7 @@ internal::IndividualSettings* ExtensionManagement::GetSettingsForId(
 
 void ExtensionManagement::LoadDeferredExtensionSetting(
     const std::string& extension_id) {
-  DCHECK(base::Contains(deferred_ids_, extension_id));
+  DCHECK(deferred_ids_.contains(extension_id));
 
   // No need to check again later.
   deferred_ids_.erase(extension_id);

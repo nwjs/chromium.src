@@ -16,6 +16,7 @@ import android.app.PictureInPictureParams;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.text.TextUtils;
 import android.util.Rational;
 
@@ -152,6 +153,9 @@ public class CustomTabMinimizationManager
             putIntoBundleFromModel(outState, mModel);
         }
     }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {}
 
     /** Minimize the Custom Tab into picture-in-picture. */
     @Override
@@ -330,7 +334,7 @@ public class CustomTabMinimizationManager
                         mActivity, mActivity.findViewById(android.R.id.content), mModel);
     }
 
-    private void updateTabForMinimization(Tab tab) {
+    private void updateTabForMinimization(@Nullable Tab tab) {
         if (tab == null) return;
 
         tab.stopLoading();
@@ -338,7 +342,7 @@ public class CustomTabMinimizationManager
         TabUtils.pauseMedia(tab);
     }
 
-    private void updateTabForMaximization(Tab tab) {
+    private void updateTabForMaximization(@Nullable Tab tab) {
         if (tab == null) return;
         tab.show(FROM_USER, ON_ACTIVITY_SHOWN_THEN_SHOW);
         var webContents = tab.getWebContents();

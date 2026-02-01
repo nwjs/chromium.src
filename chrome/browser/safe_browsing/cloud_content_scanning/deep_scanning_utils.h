@@ -11,8 +11,8 @@
 
 #include "base/time/time.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/common.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/safe_browsing/core/browser/referrer_chain_provider.h"
@@ -112,7 +112,7 @@ void DecrementCrashKey(ScanningCrashKey key, int delta = 1);
 
 // Returns true for consumer scans and not on enterprise scans.
 bool IsConsumerScanRequest(
-    const safe_browsing::BinaryUploadService::Request& request);
+    const enterprise_connectors::BinaryUploadRequest& request);
 
 }  // namespace safe_browsing
 

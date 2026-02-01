@@ -143,10 +143,14 @@ TextureDrawQuad* CreateCandidateQuadAt(
       resource_size_in_pixels, is_overlay_candidate);
 
   auto* overlay_quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
-  overlay_quad->SetNew(shared_quad_state, rect, rect, needs_blending,
-                       resource_id, kUVTopLeft, kUVBottomRight,
-                       SkColors::kTransparent, nearest_neighbor,
-                       /*secure_output_only=*/false, protected_video_type);
+  overlay_quad->SetNew(
+      shared_quad_state, rect, rect, needs_blending, resource_id,
+      /*top_left=*/gfx::ScalePoint(kUVTopLeft, rect.width(), rect.height()),
+      /*bottom_right=*/
+      gfx::ScalePoint(kUVBottomRight, rect.width(), rect.height()),
+      SkColors::kTransparent, nearest_neighbor,
+      /*secure_output=*/false, protected_video_type,
+      /*is_tex_coords_normalized=*/false);
 
   return overlay_quad;
 }
@@ -194,12 +198,14 @@ class CALayerOverlayTest : public testing::Test {
     output_surface_ = nullptr;
   }
 
-  std::optional<OverlayCandidate>& GetDefaultPrimaryPlane(
-      const gfx::Size& size) {
-    primary_plane_ = OverlayProcessorInterface::ProcessOutputSurfaceAsOverlay(
-        size, size, SinglePlaneFormat::kRGBA_8888,
-        gfx::ColorSpace::CreateSRGB(), false, 1.0, gpu::Mailbox());
-    return primary_plane_;
+  OverlayProcessorInterface::PrimaryPlaneParams GetDefaultPrimaryPlane(
+      const gfx::Size& primary_plane_size) {
+    return OverlayProcessorInterface::PrimaryPlaneParams{
+        .viewport_size = primary_plane_size,
+        .resource_size_in_pixels = primary_plane_size,
+        .supports_hdr = false,
+        .is_opaque = true,
+    };
   }
 
   std::unique_ptr<SkiaOutputSurface> output_surface_;
@@ -368,11 +374,15 @@ TEST_F(CALayerOverlayTest, TextureDrawQuadVideoOverlay) {
     auto* texture_video_quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     texture_video_quad->SetNew(
         pass->shared_quad_state_list.back(), gfx::Rect(size), gfx::Rect(size),
-        /*needs_blending=*/false, resource_id, kUVTopLeft, kUVBottomRight,
+        /*needs_blending=*/false, resource_id,
+        /*top_left=*/gfx::ScalePoint(kUVTopLeft, size.width(), size.height()),
+        /*bottom_right=*/
+        gfx::ScalePoint(kUVBottomRight, size.width(), size.height()),
         SkColors::kTransparent,
         /*nearest_neighbor=*/false,
         /*secure_output_only=*/false,
-        /*video_type=*/gfx::ProtectedVideoType::kClear);
+        /*video_type=*/gfx::ProtectedVideoType::kClear,
+        /*is_tex_coords_normalized=*/false);
     texture_video_quad->is_video_frame = true;
 
     OverlayCandidateList ca_layer_list;
@@ -479,8 +489,7 @@ class CALayerOverlayRPDQTest : public CALayerOverlayTest {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadNoFilters) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   ProcessForOverlays();
 
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
@@ -501,8 +510,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadAllValidFilters) {
   render_pass_filters_[render_pass_id_] = &filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   ProcessForOverlays();
 
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
@@ -513,8 +521,8 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadOpacityFilterScale) {
   render_pass_filters_[render_pass_id_] = &filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 2), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
+  quad_->SetFilters(gfx::Vector2dF(1, 2), gfx::PointF(), 1.0f);
   ProcessForOverlays();
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -524,8 +532,8 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBlurFilterScale) {
   render_pass_filters_[render_pass_id_] = &filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 2), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
+  quad_->SetFilters(gfx::Vector2dF(1, 2), gfx::PointF(), 1.0f);
   ProcessForOverlays();
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -536,8 +544,8 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadDropShadowFilterScale) {
   render_pass_filters_[render_pass_id_] = &filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 2), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
+  quad_->SetFilters(gfx::Vector2dF(1, 2), gfx::PointF(), 1.0f);
   ProcessForOverlays();
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -547,8 +555,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBackgroundFilter) {
   render_pass_backdrop_filters_[render_pass_id_] = &backdrop_filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   ProcessForOverlays();
   EXPECT_EQ(0U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -556,8 +563,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadBackgroundFilter) {
 TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadMask) {
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   ProcessForOverlays();
   EXPECT_EQ(1U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -567,8 +573,7 @@ TEST_F(CALayerOverlayRPDQTest, RenderPassDrawQuadUnsupportedFilter) {
   render_pass_filters_[render_pass_id_] = &filters_;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, kInvalidResourceId, gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   ProcessForOverlays();
   EXPECT_EQ(0U, test::NumOverlaysExcludingPrimaryPlane(ca_layer_list_));
 }
@@ -578,14 +583,12 @@ TEST_F(CALayerOverlayRPDQTest, TooManyRenderPassDrawQuads) {
   int count = 35;
   quad_->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                 kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                false, 1.0f);
+                gfx::Size(), gfx::RectF(), false);
   for (int i = 1; i < count; ++i) {
     auto* quad = pass_->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
     quad->SetNew(pass_->shared_quad_state_list.back(), kOverlayRect,
                  kOverlayRect, render_pass_id_, ResourceId(2), gfx::RectF(),
-                 gfx::Size(), gfx::Vector2dF(1, 1), gfx::PointF(), gfx::RectF(),
-                 false, 1.0f);
+                 gfx::Size(), gfx::RectF(), false);
   }
 
   ProcessForOverlays();

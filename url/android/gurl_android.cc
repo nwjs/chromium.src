@@ -20,10 +20,8 @@
 #include "url/url_jni_headers/GURL_jni.h"
 
 using jni_zero::AttachCurrentThread;
-using jni_zero::JavaParamRef;
 using jni_zero::JavaRef;
 using jni_zero::ScopedJavaLocalRef;
-
 
 namespace url {
 namespace {
@@ -78,32 +76,28 @@ ScopedJavaLocalRef<jobject> GURLAndroid::EmptyGURL(JNIEnv* env) {
 
 static void JNI_GURL_GetOrigin(JNIEnv* env,
                                GURL& gurl,
-                               const JavaParamRef<jobject>& target) {
+                               const JavaRef<jobject>& target) {
   InitFromGURL(env, gurl.DeprecatedGetOriginAsURL(), target);
 }
 
-static jboolean JNI_GURL_DomainIs(JNIEnv* env,
-                                  GURL& gurl,
-                                  std::string& domain) {
+static bool JNI_GURL_DomainIs(JNIEnv* env, GURL& gurl, std::string& domain) {
   return gurl.DomainIs(domain);
 }
 
-static jboolean JNI_GURL_EqualsIgnoringRef(JNIEnv* env,
-                                           GURL& gurl,
-                                           GURL& other) {
+static bool JNI_GURL_EqualsIgnoringRef(JNIEnv* env, GURL& gurl, GURL& other) {
   return gurl.EqualsIgnoringRef(other);
 }
 
 static void JNI_GURL_Init(JNIEnv* env,
                           std::string& spec,
-                          const base::android::JavaParamRef<jobject>& target) {
+                          const base::android::JavaRef<jobject>& target) {
   auto gurl = GURL(spec);
   InitFromGURL(env, gurl, target);
 }
 
 static void JNI_GURL_InitNative(JNIEnv* env,
                                 std::string& spec,
-                                jboolean is_valid,
+                                bool is_valid,
                                 jlong native_gurl,
                                 jlong native_parsed) {
   GURL* gurl = reinterpret_cast<GURL*>(native_gurl);
@@ -114,11 +108,11 @@ static void JNI_GURL_InitNative(JNIEnv* env,
 static void JNI_GURL_ReplaceComponents(
     JNIEnv* env,
     GURL& gurl,
-    const JavaParamRef<jstring>& j_username_replacement,
-    jboolean clear_username,
-    const JavaParamRef<jstring>& j_password_replacement,
-    jboolean clear_password,
-    const JavaParamRef<jobject>& j_result) {
+    const JavaRef<jstring>& j_username_replacement,
+    bool clear_username,
+    const JavaRef<jstring>& j_password_replacement,
+    bool clear_password,
+    const JavaRef<jobject>& j_result) {
   GURL::Replacements replacements;
 
   // Replacement strings must remain in scope for ReplaceComponents().

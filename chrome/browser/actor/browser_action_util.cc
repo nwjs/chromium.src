@@ -17,9 +17,11 @@
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/to_string.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/actor/shared_types.h"
@@ -94,12 +96,13 @@ using ::tabs::TabInterface;
 
 namespace {
 
-// Test only callback for overriding the TabObservationResult provided from
-// BuildActionsResultWithObservations.
-base::RepeatingCallback<apc::TabObservation::TabObservationResult()>&
+// Test only callback for mutating and returning the TabObservationResult
+// provided from BuildActionsResultWithObservations.
+base::RepeatingCallback<void(apc::TabObservation*,
+                             const FetchPageContextResult&)>&
 GetTabObservationResultOverrideForTesting() {
-  static base::NoDestructor<
-      base::RepeatingCallback<apc::TabObservation::TabObservationResult()>>
+  static base::NoDestructor<base::RepeatingCallback<void(
+      apc::TabObservation*, const FetchPageContextResult&)>>
       callback;
   return *callback;
 }
@@ -581,8 +584,8 @@ std::unique_ptr<ToolRequest> CreateMediaControlRequest(
       media_control = PauseMedia();
       break;
     case MediaControlAction::kSeek:
-      media_control = SeekMedia{.seek_time_microseconds =
-                                    action.seek().seek_time_microseconds()};
+      media_control = SeekMedia{.seek_time_milliseconds =
+                                    action.seek().seek_time_milliseconds()};
       break;
     default:
       return nullptr;
@@ -835,8 +838,9 @@ void FetchCallback(
   TabInterface* const tab = tab_handle.Get();
 
   if (!GetTabObservationResultOverrideForTesting().is_null()) {
-    tab_observation->set_result(
-        GetTabObservationResultOverrideForTesting().Run());
+    // TODO(bokan): result might not have a value in which case this CHECKs (but
+    // this is a test-only issue).
+    GetTabObservationResultOverrideForTesting().Run(tab_observation, **result);
     return;
   }
 
@@ -907,10 +911,9 @@ void FetchCallback(
         (fetch_result.annotated_page_content_result.value().end_time -
          start_time)
             .InMilliseconds());
-    base::UmaHistogramMediumTimes(
-        "Actor.PageContext.APC.Duration",
+    RecordPageContextApcDuration(
         fetch_result.annotated_page_content_result.value().end_time -
-            fetch_context_time);
+        fetch_context_time);
   }
 
   {
@@ -922,8 +925,7 @@ void FetchCallback(
     latency_step->set_latency_stop_ms(
         (fetch_result.screenshot_result.value().end_time - start_time)
             .InMilliseconds());
-    base::UmaHistogramMediumTimes(
-        "Actor.PageContext.Screenshot.Duration",
+    RecordPageContextScreenshotDuration(
         fetch_result.screenshot_result.value().end_time - fetch_context_time);
   }
 
@@ -1077,14 +1079,13 @@ void BuildActionsResultWithObservations(
   }
 
   actor_service->GetJournal().Log(
-      GURL(), TaskId(), "Observing Tabs",
+      GURL(), task.id(), "Observing Tabs",
       JournalDetailsBuilder()
           .Add("tab_observations", last_acted_tabs.size())
           .Add("tabs_to_fetch", tabs_to_fetch.size())
           .Build());
 
-  base::UmaHistogramCounts1000("Actor.PageContext.TabCount",
-                               tabs_to_fetch.size());
+  RecordPageContextTabCount(tabs_to_fetch.size());
 
   if (skip_async_observation_information) {
     std::move(callback).Run(actions_start_time, result_code,
@@ -1096,9 +1097,9 @@ void BuildActionsResultWithObservations(
   base::RepeatingClosure barrier = base::BarrierClosure(
       tabs_to_fetch.size(),
       base::BindOnce(std::move(callback), actions_start_time, result_code,
-                     index_of_failed_action, action_results,
-                     task.id(), skip_async_observation_information,
-                     std::move(response), std::move(journal_entry)));
+                     index_of_failed_action, action_results, task.id(),
+                     skip_async_observation_information, std::move(response),
+                     std::move(journal_entry)));
   for (auto& [tab, tab_observation] : tabs_to_fetch) {
     // tab_observation can be Unretained because the underlying APC is owned
     // by the barrier which is ref-counted.
@@ -1112,9 +1113,9 @@ void BuildActionsResultWithObservations(
 }
 
 void SetTabObservationResultOverrideForTesting(
-    base::RepeatingCallback<
-        optimization_guide::proto::TabObservation::TabObservationResult()>
-        callback) {
+    base::RepeatingCallback<void(
+        optimization_guide::proto::TabObservation*,
+        const page_content_annotations::FetchPageContextResult&)> callback) {
   GetTabObservationResultOverrideForTesting() = callback;
 }
 

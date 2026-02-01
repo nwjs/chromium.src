@@ -39,8 +39,12 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRule;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -91,21 +95,22 @@ public class HubCoordinatorUnitTest {
     @Mock private Tracker mTracker;
     @Mock private SearchActivityClient mSearchActivityClient;
     @Mock private HubColorMixer mHubColorMixer;
-    private final ObservableSupplierImpl<Boolean> mHubVisibilitySupplier =
-            new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Boolean> mTabSwitcherBackPressSupplier =
-            new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Boolean> mIncognitoTabSwitcherBackPressSupplier =
-            new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Tab> mTabSupplier = new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mHubVisibilitySupplier =
+            ObservableSuppliers.createNonNull(false);
+    private final SettableNonNullObservableSupplier<Boolean> mTabSwitcherBackPressSupplier =
+            ObservableSuppliers.createNonNull(false);
+    private final SettableNonNullObservableSupplier<Boolean>
+            mIncognitoTabSwitcherBackPressSupplier = ObservableSuppliers.createNonNull(false);
+    private final SettableNullableObservableSupplier<Tab> mTabSupplier =
+            ObservableSuppliers.createNullable();
     private final ObservableSupplierImpl<Integer> mPreviousLayoutTypeSupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<DisplayButtonData> mReferenceButtonDataSupplier =
             new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Boolean> mRegularHubSearchEnabledStateSupplier =
-            new ObservableSupplierImpl<>();
-    private final ObservableSupplierImpl<Boolean> mIncognitoHubSearchEnabledStateSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mRegularHubSearchEnabledStateSupplier =
+            ObservableSuppliers.createNonNull(false);
+    private final SettableNonNullObservableSupplier<Boolean>
+            mIncognitoHubSearchEnabledStateSupplier = ObservableSuppliers.createNonNull(false);
     private final OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
             new OneshotSupplierImpl<>();
     private final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
@@ -434,5 +439,45 @@ public class HubCoordinatorUnitTest {
 
                             coordinator.destroy();
                         });
+    }
+
+    @Test
+    public void onPaneSwipe_recordsHistograms() {
+        var leftSwipeWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.Hub.PaneSwiped.Left", PaneId.TAB_SWITCHER)
+                        .expectNoRecords("Android.Hub.PaneSwiped.Right")
+                        .build();
+        mHubCoordinator.onPaneSwipe(true);
+        leftSwipeWatcher.assertExpected("Expected a left swipe to be recorded.");
+
+        var rightSwipeWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.Hub.PaneSwiped.Right", PaneId.INCOGNITO_TAB_SWITCHER)
+                        .expectNoRecords("Android.Hub.PaneSwiped.Left")
+                        .build();
+        mHubCoordinator.onPaneSwipe(false);
+        rightSwipeWatcher.assertExpected("Expected a right swipe to be recorded.");
+    }
+
+    @Test
+    public void onPaneSwipe_cyclesToNextPane() {
+        mHubCoordinator.onPaneSwipe(true);
+        verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
+    }
+
+    @Test
+    public void onPaneSwipe_cyclesToPreviousPane() {
+        mHubCoordinator.onPaneSwipe(false);
+        verify(mPaneManager).focusPane(PaneId.INCOGNITO_TAB_SWITCHER);
+    }
+
+    @Test
+    public void onPaneSwipe_wrapsAroundFromLastPane() {
+        reset(mPaneManager);
+        assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
+        mHubCoordinator.onPaneSwipe(true);
+        verify(mPaneManager).focusPane(PaneId.TAB_SWITCHER);
     }
 }

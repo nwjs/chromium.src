@@ -35,6 +35,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/geometry/test/geometry_util.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gfx/video_types.h"
@@ -180,12 +181,12 @@ void CompareDrawQuad(DrawQuad* quad, DrawQuad* copy) {
   }                                                                           \
   SETUP_AND_COPY_QUAD_ALL_RP(Type, quad_all, copy_a);
 
-#define CREATE_QUAD_NEW_RP(Type, a, b, c, d, e, f, g, h, i, j, copy_a)       \
-  Type* quad_new = render_pass->CreateAndAppendDrawQuad<Type>();             \
-  {                                                                          \
-    QUAD_DATA quad_new->SetNew(shared_state, quad_rect, a, b, c, d, e, f, g, \
-                               h, i, j);                                     \
-  }                                                                          \
+#define CREATE_QUAD_NEW_RP(Type, a, b, c, d, e, f, g, h, i, j, copy_a)        \
+  Type* quad_new = render_pass->CreateAndAppendDrawQuad<Type>();              \
+  {                                                                           \
+    QUAD_DATA quad_new->SetNew(shared_state, quad_rect, a, b, c, d, e, h, i); \
+    quad_new->SetFilters(f, g, j);                                            \
+  }                                                                           \
   SETUP_AND_COPY_QUAD_NEW_RP(Type, quad_new, copy_a);
 
 TEST(DrawQuadTest, CopyDebugBorderDrawQuad) {
@@ -306,7 +307,7 @@ TEST(DrawQuadTest, CopyTextureDrawQuad) {
   CREATE_QUAD_NEW(TextureDrawQuad, visible_rect, blending, resource_id,
                   tex_coord_rect.origin(), tex_coord_rect.bottom_right(),
                   SkColors::kTransparent, nearest_neighbor, secure_output_only,
-                  protected_video_type);
+                  protected_video_type, /*is_tex_coords_normalized=*/false);
   EXPECT_EQ(DrawQuad::Material::kTextureContent, copy_quad->material);
   EXPECT_EQ(visible_rect, copy_quad->visible_rect);
   EXPECT_EQ(blending, copy_quad->needs_blending);
@@ -318,13 +319,49 @@ TEST(DrawQuadTest, CopyTextureDrawQuad) {
 
   CREATE_QUAD_ALL(TextureDrawQuad, resource_id, tex_coord_rect.origin(),
                   tex_coord_rect.bottom_right(), SkColors::kTransparent,
-                  nearest_neighbor, secure_output_only, protected_video_type);
+                  nearest_neighbor, secure_output_only, protected_video_type,
+                  /*is_tex_coords_normalized=*/false);
   EXPECT_EQ(DrawQuad::Material::kTextureContent, copy_quad->material);
   EXPECT_EQ(resource_id, copy_quad->resource_id);
   EXPECT_EQ(tex_coord_rect, copy_quad->GetNormalizedTexCoords(gfx::Size(1, 1)));
   EXPECT_EQ(nearest_neighbor, copy_quad->nearest_neighbor);
   EXPECT_EQ(secure_output_only, copy_quad->secure_output_only);
   EXPECT_EQ(protected_video_type, copy_quad->protected_video_type);
+}
+
+TEST(DrawQuadTest, TextureDrawQuadNormalization) {
+  gfx::Rect rect(100, 100);
+  bool needs_blending = true;
+  const gfx::RectF uv_rect(0.0f, 0.0f, 1.0f, 1.0f);
+  const gfx::RectF tex_coord_rect(0.0f, 0.0f, 50.0f, 50.0f);
+  const gfx::Size resource_size(100, 50);
+  ResourceId resource_id(1);
+  constexpr float kEpsilon = 1e-5f;
+  SharedQuadState shared_state;
+
+  TextureDrawQuad quad;
+  // Test default (normalized = true)
+  quad.SetNew(&shared_state, rect, rect, needs_blending, resource_id,
+              uv_rect.origin(), uv_rect.bottom_right(), SkColors::kTransparent,
+              false, false, gfx::ProtectedVideoType::kClear,
+              /*is_tex_coords_normalized=*/true);
+
+  EXPECT_RECTF_NEAR(uv_rect, quad.GetNormalizedTexCoords(resource_size),
+                    kEpsilon);
+  EXPECT_RECTF_NEAR(gfx::ScaleRect(uv_rect, 100.f, 50.f),
+                    quad.GetUnnormalizedTexCoords(resource_size), kEpsilon);
+
+  // Test unnormalized (normalized = false)
+  quad.SetNew(&shared_state, rect, rect, needs_blending, resource_id,
+              tex_coord_rect.origin(), tex_coord_rect.bottom_right(),
+              SkColors::kTransparent, false, false,
+              gfx::ProtectedVideoType::kClear,
+              /*is_tex_coords_normalized=*/false);
+
+  EXPECT_RECTF_NEAR(gfx::ScaleRect(tex_coord_rect, 1.f / 100.f, 1.f / 50.f),
+                    quad.GetNormalizedTexCoords(resource_size), kEpsilon);
+  EXPECT_RECTF_NEAR(tex_coord_rect,
+                    quad.GetUnnormalizedTexCoords(resource_size), kEpsilon);
 }
 
 TEST(DrawQuadTest, CopyTileDrawQuad) {
@@ -439,8 +476,8 @@ TEST_F(DrawQuadIteratorTest, CompositorRenderPassDrawQuad) {
   gfx::Rect quad_rect(30, 40, 50, 60);
   quad_new->SetNew(shared_state, quad_rect, visible_rect, render_pass_id,
                    new_mask_resource_id, mask_uv_rect, mask_texture_size,
-                   filters_scale, filters_origin, tex_coord_rect,
-                   force_anti_aliasing_off, backdrop_filter_quality);
+                   tex_coord_rect, force_anti_aliasing_off);
+  quad_new->SetFilters(filters_scale, filters_origin, backdrop_filter_quality);
   EXPECT_EQ(kInvalidResourceId, quad_new->mask_resource_id());
 }
 
@@ -470,8 +507,8 @@ TEST_F(DrawQuadIteratorTest, SurfaceDrawQuad) {
 TEST_F(DrawQuadIteratorTest, TextureDrawQuad) {
   gfx::Rect visible_rect(40, 50, 30, 20);
   ResourceId resource_id(82);
-  gfx::PointF uv_top_left(0.5f, 224.f);
-  gfx::PointF uv_bottom_right(51.5f, 260.f);
+  gfx::PointF tex_coord_top_left(0.5f, 224.f);
+  gfx::PointF tex_coord_bottom_right(51.5f, 260.f);
   bool nearest_neighbor = true;
   bool secure_output_only = true;
   gfx::ProtectedVideoType protected_video_type =
@@ -479,8 +516,10 @@ TEST_F(DrawQuadIteratorTest, TextureDrawQuad) {
 
   CREATE_SHARED_STATE();
   CREATE_QUAD_NEW(TextureDrawQuad, visible_rect, needs_blending, resource_id,
-                  uv_top_left, uv_bottom_right, SkColors::kTransparent,
-                  nearest_neighbor, secure_output_only, protected_video_type);
+                  tex_coord_top_left, tex_coord_bottom_right,
+                  SkColors::kTransparent, nearest_neighbor, secure_output_only,
+                  protected_video_type,
+                  /*is_tex_coords_normalized=*/false);
   EXPECT_EQ(resource_id, quad_new->resource_id);
 }
 
@@ -633,7 +672,8 @@ class TextureDrawQuadTest
         /*needs_blending=*/true, ResourceId{1}, gfx::PointF(), gfx::PointF(),
         /*background=*/SkColors::kTransparent,
         /*nearest=*/false,
-        /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
+        /*secure_output=*/false, gfx::ProtectedVideoType::kClear,
+        /*is_tex_coords_normalized=*/false);
 
     texture_quad->rounded_display_masks_info = rounded_display_masks_info;
   }

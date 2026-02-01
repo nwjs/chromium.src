@@ -10,7 +10,6 @@
 #import "base/apple/foundation_util.h"
 #import "base/auto_reset.h"
 #import "base/check_op.h"
-#import "base/containers/contains.h"
 #import "base/containers/enum_set.h"
 #import "base/containers/fixed_flat_map.h"
 #import "base/i18n/message_formatter.h"
@@ -37,7 +36,6 @@
 #import "ios/chrome/browser/settings/model/sync/utils/sync_util.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/sync_switch_item.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_command_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_consumer.h"
@@ -338,52 +336,33 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   [model addItem:self.encryptionItem
       toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
 
-  if (IsLinkedServicesSettingIosEnabled()) {
-    // PersonalizeGoogleServicesItemType.
-    TableViewImageItem* personalizeGoogleServicesItem =
-        [[TableViewImageItem alloc]
-            initWithType:PersonalizeGoogleServicesItemType];
-    if (self.isEEAAccount) {
-      personalizeGoogleServicesItem.title = GetNSString(
-          IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_TITLE_EEA);
-      personalizeGoogleServicesItem.accessoryView = [[UIImageView alloc]
-          initWithImage:DefaultAccessorySymbolConfigurationWithRegularWeight(
-                            kChevronForwardSymbol)];
-    } else {
-      personalizeGoogleServicesItem.title =
-          GetNSString(IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_TITLE);
-      personalizeGoogleServicesItem.accessoryView = [[UIImageView alloc]
-          initWithImage:DefaultAccessorySymbolConfigurationWithRegularWeight(
-                            kExternalLinkSymbol)];
-    }
-    personalizeGoogleServicesItem.accessoryView.tintColor =
-        [UIColor colorNamed:kTextQuaternaryColor];
-    personalizeGoogleServicesItem.detailText = GetNSString(
-        IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_DESCRIPTION);
-    personalizeGoogleServicesItem.accessibilityIdentifier =
-        kPersonalizeGoogleServicesIdentifier;
-    personalizeGoogleServicesItem.accessibilityTraits |=
-        UIAccessibilityTraitButton;
-    [model addItem:personalizeGoogleServicesItem
-        toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
+  // PersonalizeGoogleServicesItemType.
+  TableViewImageItem* personalizeGoogleServicesItem =
+      [[TableViewImageItem alloc]
+          initWithType:PersonalizeGoogleServicesItemType];
+  if (self.isEEAAccount) {
+    personalizeGoogleServicesItem.title =
+        GetNSString(IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_TITLE_EEA);
+    personalizeGoogleServicesItem.accessoryView = [[UIImageView alloc]
+        initWithImage:DefaultAccessorySymbolConfigurationWithRegularWeight(
+                          kChevronForwardSymbol)];
   } else {
-    // GoogleActivityControlsItemType.
-    TableViewImageItem* googleActivityControlsItem = [[TableViewImageItem alloc]
-        initWithType:GoogleActivityControlsItemType];
-    googleActivityControlsItem.accessoryView = [[UIImageView alloc]
+    personalizeGoogleServicesItem.title =
+        GetNSString(IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_TITLE);
+    personalizeGoogleServicesItem.accessoryView = [[UIImageView alloc]
         initWithImage:DefaultAccessorySymbolConfigurationWithRegularWeight(
                           kExternalLinkSymbol)];
-    googleActivityControlsItem.accessoryView.tintColor =
-        [UIColor colorNamed:kTextQuaternaryColor];
-    googleActivityControlsItem.title =
-        GetNSString(IDS_IOS_MANAGE_SYNC_GOOGLE_ACTIVITY_CONTROLS_TITLE);
-    googleActivityControlsItem.detailText =
-        GetNSString(IDS_IOS_MANAGE_SYNC_GOOGLE_ACTIVITY_CONTROLS_DESCRIPTION);
-    googleActivityControlsItem.accessibilityTraits |=
-        UIAccessibilityTraitButton;
-    [model addItem:googleActivityControlsItem
-        toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
   }
+  personalizeGoogleServicesItem.accessoryView.tintColor =
+      [UIColor colorNamed:kTextQuaternaryColor];
+  personalizeGoogleServicesItem.detailText =
+      GetNSString(IDS_IOS_MANAGE_SYNC_PERSONALIZE_GOOGLE_SERVICES_DESCRIPTION);
+  personalizeGoogleServicesItem.accessibilityIdentifier =
+      kPersonalizeGoogleServicesIdentifier;
+  personalizeGoogleServicesItem.accessibilityTraits |=
+      UIAccessibilityTraitButton;
+  [model addItem:personalizeGoogleServicesItem
+      toSectionWithIdentifier:AdvancedSettingsSectionIdentifier];
 
   // AdvancedSettingsSectionIdentifier.
   TableViewImageItem* dataFromChromeSyncItem =
@@ -499,16 +478,13 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   [model addItem:item
       toSectionWithIdentifier:ManageAndSignOutSectionIdentifier];
 
-  if (base::FeatureList::IsEnabled(kIOSManageAccountStorage)) {
-    // Manage account storage item.
-    item = [[TableViewTextItem alloc] initWithType:ManageAccountStorageType];
-    item.text =
-        GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_STORAGE_ITEM);
-    item.textColor = [UIColor colorNamed:kBlueColor];
-    item.accessibilityTraits |= UIAccessibilityTraitButton;
-    [model addItem:item
-        toSectionWithIdentifier:ManageAndSignOutSectionIdentifier];
-  }
+  // Manage account storage item.
+  item = [[TableViewTextItem alloc] initWithType:ManageAccountStorageType];
+  item.text = GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_STORAGE_ITEM);
+  item.textColor = [UIColor colorNamed:kBlueColor];
+  item.accessibilityTraits |= UIAccessibilityTraitButton;
+  [model addItem:item
+      toSectionWithIdentifier:ManageAndSignOutSectionIdentifier];
 
   // Manage accounts on this device item.
   item = [[TableViewTextItem alloc] initWithType:ManageAccountsItemType];
@@ -559,6 +535,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   item.text = l10n_util::GetNSString(
       IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SWITCH_ACCOUNT_ITEM);
   item.textColor = [UIColor colorNamed:kBlueColor];
+  item.accessibilityTraits |= UIAccessibilityTraitButton;
   [model addItem:item
       toSectionWithIdentifier:SwitchAccountAndSignOutSectionIdentifier];
 
@@ -566,6 +543,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   item = [[TableViewTextItem alloc] initWithType:SignOutItemType];
   item.text = GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM);
   item.textColor = [UIColor colorNamed:kBlueColor];
+  item.accessibilityTraits |= UIAccessibilityTraitButton;
   [model addItem:item
       toSectionWithIdentifier:SwitchAccountAndSignOutSectionIdentifier];
   if (self.forcedSigninEnabled) {
@@ -838,6 +816,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     switchItem.target = self;
     switchItem.selector = @selector(itemSwitchToggled:);
     switchItem.tag = itemType;
+    switchItem.accessibilityTraits = UIAccessibilityTraitToggleButton;
     switchItem.accessibilityIdentifier = accessibilityIdentifier;
     return switchItem;
   } else {
@@ -847,6 +826,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     button.textColor = [UIColor colorNamed:kTextSecondaryColor];
     button.statusText = GetNSString(IDS_IOS_SETTING_OFF);
     button.accessibilityIdentifier = accessibilityIdentifier;
+    button.accessibilityTraits = UIAccessibilityTraitButton;
     button.target = self;
     button.selector = @selector(itemButtonTapped:);
     return button;
@@ -932,7 +912,6 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     case SwitchAccountItemType:
     case SignOutItemType:
     case EncryptionItemType:
-    case GoogleActivityControlsItemType:
     case DataFromChromeSync:
     case PersonalizeGoogleServicesItemType:
     case PrimaryAccountReauthErrorItemType:
@@ -1084,9 +1063,6 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
       [self.syncErrorHandler openPassphraseDialogWithModalPresentation:NO];
       break;
     }
-    case GoogleActivityControlsItemType:
-      [self.commandHandler openWebAppActivityDialog];
-      break;
     case DataFromChromeSync:
       [self.commandHandler openDataFromChromeSyncWebPage];
       break;

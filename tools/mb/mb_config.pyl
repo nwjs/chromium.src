@@ -385,7 +385,7 @@
     'codesearch_gen_chromium_cronet_bot_remoteexec': [
       # Set is_cronet_build to true in order to build cronet.
       'codesearch_cronet_remoteexec', 'android_without_codecs', 'static', 'is_cronet_build',
-      'cronet_android', 'arm_no_neon', 'android_fastbuild'
+      'cronet_android', 'arm', 'android_fastbuild'
     ],
 
     'codesearch_gen_chromium_fuchsia_bot_remoteexec': [
@@ -554,7 +554,7 @@
     ],
 
     'official_remoteexec_minimal_symbols_android': [
-      'official', 'remoteexec', 'minimal_symbols', 'android', 'pgo_phase_0', 'no_default_afdo'
+      'official', 'remoteexec', 'minimal_symbols', 'android', 'arm', 'pgo_phase_0', 'no_default_afdo'
     ],
 
     'official_remoteexec_minimal_symbols_android_arm64_high_end': [
@@ -570,7 +570,7 @@
     ],
 
     'official_remoteexec_minimal_symbols_android_pgo': [
-      'official', 'remoteexec', 'minimal_symbols', 'android'
+      'official', 'remoteexec', 'minimal_symbols', 'android', 'arm',
     ],
 
     'official_remoteexec_minimal_symbols_android_thin_lto_opt': [
@@ -748,11 +748,6 @@
       'gn_args': 'test_host_cpu="arm64"',
     },
 
-    'arm_no_neon': {
-      'mixins': ['arm'],
-      'gn_args': 'arm_use_neon=false',
-    },
-
     'asan': {
       'gn_args': 'is_asan=true',
     },
@@ -814,27 +809,27 @@
     # Same as regulary codesearch without blink_enable_generated_code_formatting
     'codesearch_cronet_remoteexec': {
       'gn_args': 'clang_use_chrome_plugins=false enable_kythe_annotations=true',
-      'mixins': ['remoteexec', 'clang', 'shared', 'debug', 'minimal_symbols'],
+      'mixins': ['remoteexec', 'clang', 'shared', 'debug', 'minimal_symbols', 'use_system_headers'],
     },
 
     # Same as regular codesearch except ios does not allow component builds
     'codesearch_ios_remoteexec': {
       'gn_args': 'clang_use_chrome_plugins=false enable_kythe_annotations=true',
       'mixins': ['remoteexec', 'clang', 'debug', 'minimal_symbols',
-                 'blink_enable_generated_code_formatting'],
+                 'blink_enable_generated_code_formatting', 'use_system_headers'],
     },
 
     'codesearch_release_remoteexec': {
       'gn_args': 'clang_use_chrome_plugins=false enable_kythe_annotations=true',
       'mixins': ['release', 'static', 'remoteexec',
-                 'blink_enable_generated_code_formatting'],
+                 'blink_enable_generated_code_formatting', 'use_system_headers'],
     },
 
     # Settings used by the codesearch builders to generate cross-references.
     'codesearch_remoteexec': {
       'gn_args': 'clang_use_chrome_plugins=false enable_kythe_annotations=true',
       'mixins': ['remoteexec', 'clang', 'shared', 'debug', 'minimal_symbols',
-                 'blink_enable_generated_code_formatting'],
+                 'blink_enable_generated_code_formatting', 'use_system_headers'],
     },
 
     'codesigning_identity': {
@@ -1135,6 +1130,10 @@
 
     'use_siso': {
       'gn_args': 'use_siso=true',
+    },
+
+    'use_system_headers': {
+      'gn_args': 'system_headers_in_deps=true',
     },
 
     'v8_enable_debugging_features': {

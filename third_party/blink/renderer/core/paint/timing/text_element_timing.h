@@ -30,10 +30,9 @@ class CORE_EXPORT TextElementTiming final
     : public GarbageCollected<TextElementTiming> {
  public:
   explicit TextElementTiming(LocalDOMWindow&);
+
   TextElementTiming(const TextElementTiming&) = delete;
   TextElementTiming& operator=(const TextElementTiming&) = delete;
-
-  static TextElementTiming& From(LocalDOMWindow&);
 
   static inline bool NeededForTiming(Node& node) {
     auto* element = DynamicTo<Element>(node);
@@ -61,7 +60,6 @@ class CORE_EXPORT TextElementTiming final
  private:
   void EnsureContainerTiming();
 
-  Member<LocalDOMWindow> local_dom_window_;
   Member<WindowPerformance> performance_;
   Member<ContainerTiming> container_timing_;
 };

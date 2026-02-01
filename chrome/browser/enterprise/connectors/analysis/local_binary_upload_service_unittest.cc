@@ -11,6 +11,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
+#include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/test/fake_content_analysis_sdk_manager.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/device_signals/core/browser/mock_system_signals_service_host.h"
@@ -22,7 +23,6 @@
 
 namespace enterprise_connectors {
 
-using ::safe_browsing::BinaryUploadService;
 using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::NotNull;
@@ -32,13 +32,13 @@ using ::testing::SaveArg;
 constexpr char kFakeUserActionId[] = "1234567890";
 constexpr char kFakeUserActionId2[] = "0987654321";
 
-class MockRequest : public BinaryUploadService::Request {
+class MockRequest : public BinaryUploadRequest {
  public:
-  MockRequest(BinaryUploadService::ContentAnalysisCallback callback,
+  MockRequest(BinaryUploadRequest::ContentAnalysisCallback callback,
               LocalAnalysisSettings settings)
-      : BinaryUploadService::Request(
-            std::move(callback),
-            CloudOrLocalAnalysisSettings(std::move(settings))) {}
+      : BinaryUploadRequest(std::move(callback),
+                            CloudOrLocalAnalysisSettings(std::move(settings)),
+                            base::BindRepeating(&GetBrowserPolicyConnector)) {}
   MOCK_METHOD1(GetRequestData, void(DataCallback));
 };
 
@@ -105,7 +105,8 @@ class FakeLocalBinaryUploadService : public LocalBinaryUploadService {
     return &mock_system_signals_service_;
   }
 
-  void OnCancelRequestSent(std::unique_ptr<CancelRequests> cancel) override {
+  void OnCancelRequestSent(
+      std::unique_ptr<BinaryUploadCancelRequests> cancel) override {
     if (!cancel_quit_closure_.is_null()) {
       cancel_quit_closure_.Run();
     }
@@ -151,12 +152,12 @@ class LocalBinaryUploadServiceTest : public testing::Test {
         settings);
     request->set_tab_title("tab_title");
     ON_CALL(*request, GetRequestData(_))
-        .WillByDefault([](BinaryUploadService::Request::DataCallback callback) {
-          BinaryUploadService::Request::Data data;
+        .WillByDefault([](BinaryUploadRequest::DataCallback callback) {
+          BinaryUploadRequest::Data data;
           data.contents = "contents";
           data.size = data.contents.size();
           std::move(callback).Run(
-              enterprise_connectors::ScanRequestUploadResult::SUCCESS,
+              enterprise_connectors::ScanRequestUploadResult::kSuccess,
               std::move(data));
         });
     return request;
@@ -176,7 +177,7 @@ TEST_F(LocalBinaryUploadServiceTest, ClientCreatedFromMaybeAcknowledge) {
   settings.local_path = config.name;
   settings.user_specific = config.user_specific;
 
-  auto ack = std::make_unique<safe_browsing::BinaryUploadService::Ack>(
+  auto ack = std::make_unique<BinaryUploadAck>(
       CloudOrLocalAnalysisSettings(std::move(settings)));
   lbus.MaybeAcknowledge(std::move(ack));
 
@@ -193,7 +194,7 @@ TEST_F(LocalBinaryUploadServiceTest, ClientDestroyedWhenAckStatusIsAbnormal) {
   settings.local_path = config.name;
   settings.user_specific = config.user_specific;
 
-  auto ack = std::make_unique<safe_browsing::BinaryUploadService::Ack>(
+  auto ack = std::make_unique<BinaryUploadAck>(
       CloudOrLocalAnalysisSettings(std::move(settings)));
   lbus.MaybeAcknowledge(std::move(ack));
 
@@ -214,7 +215,7 @@ TEST_F(LocalBinaryUploadServiceTest, UploadSucceeds) {
 
   task_environment_.RunUntilIdle();
 
-  EXPECT_EQ(result, enterprise_connectors::ScanRequestUploadResult::SUCCESS);
+  EXPECT_EQ(result, enterprise_connectors::ScanRequestUploadResult::kSuccess);
 }
 
 TEST_F(LocalBinaryUploadServiceTest, UploadFailsWhenClientUnableToSend) {
@@ -230,7 +231,7 @@ TEST_F(LocalBinaryUploadServiceTest, UploadFailsWhenClientUnableToSend) {
   task_environment_.FastForwardBy(base::Minutes(1));
 
   EXPECT_EQ(result,
-            enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE);
+            enterprise_connectors::ScanRequestUploadResult::kUploadFailure);
 }
 
 TEST_F(LocalBinaryUploadServiceTest,
@@ -252,7 +253,7 @@ TEST_F(LocalBinaryUploadServiceTest,
 
   const content_analysis::sdk::ContentAnalysisRequest& sdk_request =
       fake_client_ptr->GetRequest(response.request_token());
-  EXPECT_EQ(result, enterprise_connectors::ScanRequestUploadResult::SUCCESS);
+  EXPECT_EQ(result, enterprise_connectors::ScanRequestUploadResult::kSuccess);
   EXPECT_TRUE(sdk_request.has_request_token());
   EXPECT_EQ(sdk_request.request_token(), response.request_token());
 }
@@ -323,7 +324,7 @@ TEST_F(LocalBinaryUploadServiceTest, PendingRequestsGetProcessed) {
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 
   for (auto result : results) {
-    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
   }
 }
 
@@ -385,10 +386,10 @@ TEST_F(LocalBinaryUploadServiceTest, TimeoutWhileActive) {
   EXPECT_EQ(1u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 
-  const std::map<LocalBinaryUploadService::Request::Id,
+  const std::map<BinaryUploadRequest::Id,
                  LocalBinaryUploadService::RequestInfo>& actives =
       lbus.GetActiveRequestsForTesting();
-  LocalBinaryUploadService::Request::Id id = actives.begin()->first;
+  BinaryUploadRequest::Id id = actives.begin()->first;
   lbus.OnTimeoutForTesting(id);
 
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
@@ -416,7 +417,7 @@ TEST_F(LocalBinaryUploadServiceTest, TimeoutWhilePending) {
 
   const std::vector<LocalBinaryUploadService::RequestInfo>& pendings =
       lbus.GetPendingRequestsForTesting();
-  LocalBinaryUploadService::Request::Id id = pendings[0].request->id();
+  BinaryUploadRequest::Id id = pendings[0].request->id();
   lbus.OnTimeoutForTesting(id);
 
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
@@ -447,7 +448,7 @@ TEST_F(LocalBinaryUploadServiceTest, OnConnectionRetryCompletesPending) {
 
   task_environment_.FastForwardBy(base::Minutes(1));
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 }
@@ -483,7 +484,7 @@ TEST_F(LocalBinaryUploadServiceTest, OnConnectionRetryCompletesManyPending) {
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
   for (size_t i = 0; i < kCount; ++i) {
-    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS,
+    EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess,
               results[i]);
   }
 }
@@ -500,27 +501,27 @@ TEST_F(LocalBinaryUploadServiceTest, FailureAfterTooManyRetries) {
 
   task_environment_.FastForwardBy(base::Minutes(1));
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE,
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kUploadFailure,
             result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 
   // New requests should fail while agent is not running.
-  result = enterprise_connectors::ScanRequestUploadResult::UNKNOWN;
+  result = enterprise_connectors::ScanRequestUploadResult::kUnknown;
   lbus.MaybeUploadForDeepScanning(MakeRequest(config, &result, &response));
 
   task_environment_.RunUntilIdle();
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE,
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kUploadFailure,
             result);
 
   // The next time the code tries to connect to a client it succeeds.
   fake_sdk_manager_.SetClientSendStatus(0);
 
   // New requests should succeed now that agent is running.
-  result = enterprise_connectors::ScanRequestUploadResult::UNKNOWN;
+  result = enterprise_connectors::ScanRequestUploadResult::kUnknown;
   lbus.MaybeUploadForDeepScanning(MakeRequest(config, &result, &response));
   task_environment_.RunUntilIdle();
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
 }
 
 TEST_F(LocalBinaryUploadServiceTest, CancelRequests) {
@@ -557,8 +558,7 @@ TEST_F(LocalBinaryUploadServiceTest, CancelRequests) {
             lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(1u, lbus.GetPendingRequestCountForTesting());
 
-  auto cr = std::make_unique<LocalBinaryUploadService::CancelRequests>(
-      cloud_or_local);
+  auto cr = std::make_unique<BinaryUploadCancelRequests>(cloud_or_local);
   cr->set_user_action_id(kFakeUserActionId);
   lbus.MaybeCancelRequests(std::move(cr));
 
@@ -618,8 +618,7 @@ TEST_F(LocalBinaryUploadServiceTest, CancelRequests_MultipleUserActions) {
   EXPECT_EQ(2u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 
-  auto cr = std::make_unique<LocalBinaryUploadService::CancelRequests>(
-      cloud_or_local);
+  auto cr = std::make_unique<BinaryUploadCancelRequests>(cloud_or_local);
   cr->set_user_action_id(kFakeUserActionId);
   lbus.MaybeCancelRequests(std::move(cr));
 
@@ -646,8 +645,7 @@ TEST_F(LocalBinaryUploadServiceTest,
   CloudOrLocalAnalysisSettings cloud_or_local(local);
   FakeLocalBinaryUploadService lbus(&profile_);
 
-  auto cr = std::make_unique<LocalBinaryUploadService::CancelRequests>(
-      cloud_or_local);
+  auto cr = std::make_unique<BinaryUploadCancelRequests>(cloud_or_local);
   cr->set_user_action_id("1234567890");
   lbus.MaybeCancelRequests(std::move(cr));
 
@@ -677,7 +675,7 @@ TEST_F(LocalBinaryUploadServiceTest, VerifyAgent) {
 
   task_environment_.RunUntilQuit();
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 }
@@ -701,7 +699,7 @@ TEST_F(LocalBinaryUploadServiceTest, VerifyAgent_NotOSVerified) {
 
   task_environment_.RunUntilQuit();
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE,
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kUploadFailure,
             result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
@@ -726,7 +724,7 @@ TEST_F(LocalBinaryUploadServiceTest, VerifyAgent_NoSubject) {
 
   task_environment_.RunUntilQuit();
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::UPLOAD_FAILURE,
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kUploadFailure,
             result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
@@ -750,7 +748,7 @@ TEST_F(LocalBinaryUploadServiceTest, VerifyAgent_VerifyNotNeeded) {
 
   task_environment_.RunUntilQuit();
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 }
@@ -772,7 +770,7 @@ TEST_F(LocalBinaryUploadServiceTest, VerifyAgent_MissingSystemSignalService) {
 
   task_environment_.RunUntilQuit();
 
-  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::SUCCESS, result);
+  EXPECT_EQ(enterprise_connectors::ScanRequestUploadResult::kSuccess, result);
   EXPECT_EQ(0u, lbus.GetActiveRequestCountForTesting());
   EXPECT_EQ(0u, lbus.GetPendingRequestCountForTesting());
 }

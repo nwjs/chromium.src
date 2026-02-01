@@ -7,16 +7,19 @@ package org.chromium.chrome.browser.compositor.layouts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +44,8 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.UserDataHost;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInfo;
@@ -48,7 +53,6 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.scene_layer.StaticTabSceneLayer;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.layouts.CompositorModelChangeProcessor;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -95,8 +99,6 @@ public class StaticLayoutUnitTest {
     @Mock private LayoutManagerHost mViewHost;
     @Mock StaticTabSceneLayer mStaticTabSceneLayer;
 
-    private CompositorModelChangeProcessor.FrameRequestSupplier mRequestSupplier;
-
     @Mock private TabContentManager mTabContentManager;
 
     @Mock private TabModelSelector mTabModelSelector;
@@ -118,18 +120,16 @@ public class StaticLayoutUnitTest {
     private Tab mTab2;
     @Captor private ArgumentCaptor<TabObserver> mTabObserverCaptor;
 
+    private final SettableNonNullObservableSupplier<Long> mFrameRequestSupplier =
+            ObservableSuppliers.createNonNull(0L);
     private CompositorAnimationHandler mCompositorAnimationHandler;
 
     private StaticLayout mStaticLayout;
     private PropertyModel mModel;
+    private SettableNonNullObservableSupplier<Boolean> mNeedsOffsetTagsSupplier;
 
     @Before
     public void setUp() {
-
-        mRequestSupplier =
-                new CompositorModelChangeProcessor.FrameRequestSupplier(
-                        CallbackUtils.emptyRunnable());
-
         mCompositorAnimationHandler = new CompositorAnimationHandler(mUpdateHost::requestUpdate);
         CompositorAnimationHandler.setTestingMode(true);
 
@@ -162,20 +162,21 @@ public class StaticLayoutUnitTest {
         doReturn(WIDTH).when(mViewHost).getWidth();
         doReturn(HEIGHT).when(mViewHost).getHeight();
         doReturn(mCompositorAnimationHandler).when(mUpdateHost).getAnimationHandler();
-
+        mNeedsOffsetTagsSupplier = ObservableSuppliers.createNonNull(true);
         mStaticLayout =
                 new StaticLayout(
                         mContext,
                         mUpdateHost,
                         mRenderHost,
                         mViewHost,
-                        mRequestSupplier,
+                        mFrameRequestSupplier,
+                        CallbackUtils.emptyRunnable(),
                         mTabModelSelector,
                         mTabContentManager,
                         mBrowserControlsStateProvider,
                         () -> mTopUiThemeColorProvider,
                         mStaticTabSceneLayer,
-                        true);
+                        mNeedsOffsetTagsSupplier);
         mModel = mStaticLayout.getModelForTesting();
         mStaticLayout.setIsActive(true);
 
@@ -407,5 +408,106 @@ public class StaticLayoutUnitTest {
                 .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
         assertEquals(tagsInfo.getContentOffsetTag(), mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
         assertEquals(offset, (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+    }
+
+    @Test
+    public void testContentOffsetTags_True() {
+        mNeedsOffsetTagsSupplier.set(true);
+        final int offset = 15;
+        doReturn(offset).when(mBrowserControlsStateProvider).getContentOffset();
+        BrowserControlsOffsetTagsInfo tagsInfo = new BrowserControlsOffsetTagsInfo();
+
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
+
+        assertEquals(
+                "Content offset should be applied when mNeedsOffsetTags is true.",
+                offset,
+                (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+        assertEquals(
+                "Content offset tag should be updated.",
+                tagsInfo.getContentOffsetTag(),
+                mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
+    }
+
+    @Test
+    public void testContentOffsetTags_False() {
+        mNeedsOffsetTagsSupplier.set(false);
+        final int offset = 15;
+        doReturn(offset).when(mBrowserControlsStateProvider).getContentOffset();
+        BrowserControlsOffsetTagsInfo tagsInfo = new BrowserControlsOffsetTagsInfo();
+
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
+
+        assertEquals(
+                "Content offset should be applied when mNeedsOffsetTags is false.",
+                offset,
+                (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+        assertNull(
+                "Content offset tag should not be updated.",
+                mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
+    }
+
+    @Test
+    public void testContentOffsetTags_Toggled() {
+        final int offset = 20;
+        doReturn(offset).when(mBrowserControlsStateProvider).getContentOffset();
+        BrowserControlsOffsetTagsInfo tagsInfo = new BrowserControlsOffsetTagsInfo();
+
+        // Initially true
+        mNeedsOffsetTagsSupplier.set(true);
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
+        assertEquals(
+                "Content offset should be applied when mNeedsOffsetTags is true.",
+                offset,
+                (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+        assertEquals(
+                "Content offset tag should be updated.",
+                tagsInfo.getContentOffsetTag(),
+                mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
+
+        // The update to new offset tag is not happening immediately; the update will be deferred to
+        // compositorMCP.
+        verify(mStaticTabSceneLayer, times(0)).update(mModel);
+
+        // Toggle to false
+        mNeedsOffsetTagsSupplier.set(false);
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
+        assertEquals(
+                "Content offset should still be applied even when mNeedsOffsetTags is false.",
+                offset,
+                (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+        assertEquals(
+                "Content offset tag should not be updated.",
+                null,
+                mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
+
+        // The update to reset offset tag will happen immediately.
+        verify(mStaticTabSceneLayer).update(mModel);
+        clearInvocations(mStaticTabSceneLayer);
+
+        // Toggle back to true
+        mNeedsOffsetTagsSupplier.set(true);
+        mBrowserControlsStateProviderObserverCaptor
+                .getValue()
+                .onOffsetTagsInfoChanged(null, tagsInfo, 0, true);
+        assertEquals(
+                "Content offset should be applied after toggling mNeedsOffsetTags back to true.",
+                offset,
+                (int) mModel.get(LayoutTab.CONTENT_OFFSET));
+        assertEquals(
+                "Content offset tag should be updated.",
+                tagsInfo.getContentOffsetTag(),
+                mModel.get(LayoutTab.CONTENT_OFFSET_TAG));
+
+        // The update will be handled by compositorMCP.
+        verify(mStaticTabSceneLayer, times(0)).update(mModel);
     }
 }

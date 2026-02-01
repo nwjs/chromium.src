@@ -21,6 +21,7 @@ import '../settings_columned_section.css.js';
 import '../settings_shared.css.js';
 // <if expr="_google_chrome">
 import '../internal/icons.html.js';
+import '../autofill_page/walletable_pass_detection_toggle.js';
 
 // </if>
 
@@ -74,7 +75,18 @@ export class CollapsibleCardElement extends
           return loadTimeData.getBoolean('userEligibleForAutofillAi');
         },
       },
-
+      /**
+       * Indicates whether the feature `kAutofillAiReauthRequired` is enabled.
+       */
+      // <if expr="is_win or is_macosx or is_chromeos">
+      autofillAiReauthOnViewingSensitiveDataEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'autofillAiReauthOnViewingSensitiveDataEnabled');
+        },
+      },
+      // </if>
       /**
          A "fake" preference object that reflects the state of the opt-in
          toggle for Enhanced Autofill and the presence/absence of an enterprise
@@ -89,6 +101,14 @@ export class CollapsibleCardElement extends
           type: chrome.settingsPrivate.PrefType.BOOLEAN,
           value: false,
         }),
+      },
+
+      isUserEligibleForWalletablePassDetection_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'isUserEligibleForWalletablePassDetection');
+        },
       },
 
       /**
@@ -115,7 +135,11 @@ export class CollapsibleCardElement extends
 
   declare private expanded_: boolean;
   declare private enhancedAutofillEligibleUser_: boolean;
+  // <if expr="is_win or is_macosx or is_chromeos">
+  declare private autofillAiReauthOnViewingSensitiveDataEnabled_: boolean;
+  // </if>
   declare private enhancedAutofillOptedIn_: chrome.settingsPrivate.PrefObject;
+  declare private isUserEligibleForWalletablePassDetection_: boolean;
   declare private autofillAiIgnoresWhetherAddressFillingIsEnabled_: boolean;
 
   private entityInstancesChangedListener_: EntityInstancesChangedListener|null =

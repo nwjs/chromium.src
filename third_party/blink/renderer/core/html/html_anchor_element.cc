@@ -33,10 +33,13 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/web/web_link_preview_triggerer.h"
+#include "third_party/blink/renderer/core/css/scroll_target_group_scope.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_data.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -379,7 +382,10 @@ void HTMLAnchorElementBase::SetURL(const KURL& url) {
 DOMOrigin* HTMLAnchorElementBase::GetDOMOrigin(LocalDOMWindow*) const {
   // No access check is necessary, as anchor elements are not accessible
   // cross-origin.
-  return DOMOrigin::Create(SecurityOrigin::Create(Url()));
+  if (FastHasAttribute(html_names::kHrefAttr)) {
+    return DOMOrigin::Create(SecurityOrigin::Create(Url()));
+  }
+  return nullptr;
 }
 
 String HTMLAnchorElementBase::Input() const {
@@ -681,11 +687,27 @@ HTMLAnchorElement::HTMLAnchorElement(Document& document)
     : HTMLAnchorElementBase(html_names::kATag, document) {}
 
 void HTMLAnchorElement::AttachLayoutTree(AttachContext& context) {
-  // It's ok to set the update flag here, since update traversal will only
-  // happen if there are elements with scroll-target-group property set, and
-  // if there are some, the update traversal will happen anyway.
-  GetDocument().SetNeedsScrollTargetGroupRelationsUpdate();
   HTMLAnchorElementBase::AttachLayoutTree(context);
+  // Only add to scope tree if there's a non-root enclosing scope.
+  // This avoids performance overhead on pages without scroll-target-group.
+  // When a scroll-target-group scope is created later, it will collect
+  // descendant anchors from the DOM.
+  ScrollTargetGroupScopeTree* tree =
+      GetDocument().GetStyleEngine().GetScrollTargetGroupScopeTree();
+  if (!tree) {
+    return;
+  }
+  // Only add anchors with a valid scroll target to the scroll target group.
+  if (!ScrollTargetElement()) {
+    return;
+  }
+  ScrollTargetGroupScope* scope =
+      tree->FindOrCreateEnclosingScopeForElement(*this);
+  // Only attach if there's a real scope (not root scope).
+  if (scope && scope->GetScopeRoot()) {
+    scope->AttachItem(*this);
+    tree->UpdateOutermostDirtyScope(scope);
+  }
 }
 
 void HTMLAnchorElement::DetachLayoutTree(bool performing_reattach) {
@@ -693,6 +715,31 @@ void HTMLAnchorElement::DetachLayoutTree(bool performing_reattach) {
     data->RemoveFromFocusGroup(*this);
   }
   HTMLAnchorElementBase::DetachLayoutTree(performing_reattach);
+}
+
+void HTMLAnchorElement::UpdateScrollTargetGroupMembership() {
+  // Remove from current focus group (if any).
+  if (ScrollMarkerGroupData* data = GetScrollTargetGroupContainerData()) {
+    data->RemoveFromFocusGroup(*this);
+  }
+
+  ScrollTargetGroupScopeTree* tree =
+      GetDocument().GetStyleEngine().GetScrollTargetGroupScopeTree();
+  if (!tree) {
+    return;
+  }
+
+  // If anchor has a valid scroll target, re-attach to the appropriate scope.
+  if (!ScrollTargetElement()) {
+    return;
+  }
+
+  ScrollTargetGroupScope* scope =
+      tree->FindOrCreateEnclosingScopeForElement(*this);
+  if (scope && scope->GetScopeRoot()) {
+    scope->AttachItem(*this);
+    tree->UpdateOutermostDirtyScope(scope);
+  }
 }
 
 Element* HTMLAnchorElement::ScrollTargetElement() const {
@@ -711,13 +758,13 @@ HTMLAnchorElement::AncestorScrollableAreaOfScrollTargetElement() const {
   if (!scroll_target || !scroll_target->GetLayoutObject()) {
     return nullptr;
   }
-  for (LayoutBox* parent_box = scroll_target->GetLayoutObject()->EnclosingBox();
-       parent_box; parent_box = parent_box->ParentBox()) {
-    if (ScrollableArea* scrollable_area =
-            scroll_into_view_util::GetScrollableAreaForLayoutBox(
-                *parent_box, /*make_visible_in_visual_viewport=*/false)) {
-      return DynamicTo<PaintLayerScrollableArea>(scrollable_area);
-    }
+  if (const LayoutBox* scroller =
+          scroll_target->GetLayoutObject()->ContainingScrollContainer()) {
+    ScrollableArea* scrollable_area =
+        scroll_into_view_util::GetScrollableAreaForLayoutBox(
+            *scroller,
+            /*make_visible_in_visual_viewport=*/false);
+    return DynamicTo<PaintLayerScrollableArea>(scrollable_area);
   }
   return nullptr;
 }

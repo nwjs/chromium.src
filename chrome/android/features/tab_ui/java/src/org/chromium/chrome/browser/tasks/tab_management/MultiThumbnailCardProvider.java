@@ -32,7 +32,6 @@ import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFavicon;
@@ -44,7 +43,6 @@ import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconMetadata;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.theme.ThemeModuleUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.tab_groups.TabGroupColorId;
@@ -343,26 +341,15 @@ public class MultiThumbnailCardProvider implements ThumbnailProvider {
                 @Nullable Bitmap thumbnail, int index, boolean showGhostLoadIllustration) {
             final RectF rect = mThumbnailRects.get(index);
             if (thumbnail == null) {
-                if (useNewGm3GtsTabGroupColors()) {
-                    mTextPaint.setColor(mResolvedTextColor);
-                    mColordEmptyThumbnailPaint.setColor(mResolvedEmptyPlaceholderColor);
-                    Paint emptyThumbnailPaint =
-                            mIsTabSelected
-                                    ? mSelectedEmptyThumbnailPaint
-                                    : mColordEmptyThumbnailPaint;
-                    mCanvas.drawRoundRect(rect, mRadius, mRadius, emptyThumbnailPaint);
-                } else {
-                    Paint emptyThumbnailPaint =
-                            mIsTabSelected ? mSelectedEmptyThumbnailPaint : mEmptyThumbnailPaint;
-                    mCanvas.drawRoundRect(rect, mRadius, mRadius, emptyThumbnailPaint);
-                }
+                mTextPaint.setColor(mResolvedTextColor);
+                mColordEmptyThumbnailPaint.setColor(mResolvedEmptyPlaceholderColor);
+                Paint emptyThumbnailPaint =
+                        mIsTabSelected ? mSelectedEmptyThumbnailPaint : mColordEmptyThumbnailPaint;
+                mCanvas.drawRoundRect(rect, mRadius, mRadius, emptyThumbnailPaint);
 
                 if (showGhostLoadIllustration) {
                     Resources res = mContext.getResources();
-                    if (useNewGm3GtsTabGroupColors()) {
-                        mEmptyThumbnailGhostLoadIllustration.setTint(
-                                mResolvedGhostIllustrationColor);
-                    }
+                    mEmptyThumbnailGhostLoadIllustration.setTint(mResolvedGhostIllustrationColor);
                     Drawable ghostLoadIllustration =
                             mIsTabSelected
                                     ? mSelectedEmptyThumbnailGhostLoadIllustration
@@ -488,12 +475,6 @@ public class MultiThumbnailCardProvider implements ThumbnailProvider {
                         });
             }
         }
-
-        /** Whether new GM3 colors are being used for the tab group colors. */
-        public static boolean useNewGm3GtsTabGroupColors() {
-            return ChromeFeatureList.sAndroidTabGroupsColorUpdateGm3.isEnabled()
-                    || ThemeModuleUtils.isForceEnableDependencies();
-        }
     }
 
     public MultiThumbnailCardProvider(
@@ -559,7 +540,7 @@ public class MultiThumbnailCardProvider implements ThumbnailProvider {
         mThumbnailFramePaint.setStyle(Paint.Style.STROKE);
         mThumbnailFramePaint.setStrokeWidth(
                 resources.getDimension(R.dimen.tab_list_mini_card_frame_size));
-        mThumbnailFramePaint.setColor(SemanticColorUtils.getDividerLineBgColor(context));
+        mThumbnailFramePaint.setColor(SemanticColorUtils.getDividerColor(context));
         mThumbnailFramePaint.setAntiAlias(true);
 
         // TODO(crbug.com/41477335): Use pre-defined styles to avoid style out of sync if any

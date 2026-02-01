@@ -119,11 +119,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Ineligible"/>
 </enum>
 
-<enum name="BooleanIsPrefetch">
-  <int value="0" label="Is not prefetch"/>
-  <int value="1" label="Is prefetch"/>
-</enum>
-
 <enum name="BooleanManagedPref">
   <int value="0" label="Unmanaged Pref"/>
   <int value="1" label="Managed Pref"/>
@@ -430,6 +425,11 @@ chromium-metrics-reviews@google.com.
   <int value="50" label="SUSPICIOUS"/>
   <int value="75" label="WARN"/>
   <int value="100" label="DANGEROUS"/>
+</enum>
+
+<enum name="SafeBrowsingSecuritySettingsBundle">
+  <int value="0" label="Standard"/>
+  <int value="1" label="Enhanced"/>
 </enum>
 
 <enum name="SafeBrowsingSettingsUserAction">

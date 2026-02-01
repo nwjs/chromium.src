@@ -9,6 +9,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/timer/timer.h"
+#include "base/trace_event/named_trigger.h"
 #include "base/trace_event/trace_event.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
@@ -183,6 +184,12 @@ void PrefetchMatchResolver::FindPrefetchInternal1(
         serving_page_metrics_container,
     Callback callback,
     perfetto::Flow flow) {
+  // TODO(crbug.com/342089123): Remove it when we don't need it.
+  if (is_nav_prerender) {
+    base::trace_event::EmitNamedTrigger(
+        "prefetch-matching-start-for-prerender");
+  }
+
   // See the comment of `self_`.
   auto prefetch_match_resolver = base::WrapUnique(new PrefetchMatchResolver(
       std::move(navigation_request), prefetch_service.GetWeakPtr(),
@@ -202,9 +209,26 @@ void PrefetchMatchResolver::FindPrefetchInternal2(
   TRACE_EVENT_BEGIN("loading", "PrefetchMatchResolver::FindPrefetch", flow_,
                     perfetto::Flow::FromPointer(this));
 
+  // We can't use `prefetch_ahead_of_prerender_for_metrics` as it is set in
+  // `RegisterCandidate()` and we'll miss
+  // `PrefetchMatchResolverAction::ActionKind::kDrop` case, which is our
+  // main motivation for this metrics.
+  const PrefetchContainer* prefetch_container_ahead_of_prerender;
+  if (is_nav_prerender_ && prerender_host_for_metrics_) {
+    prefetch_container_ahead_of_prerender =
+        prefetch_service_->FindPrefetchAheadOfPrerenderForMetrics(
+            prerender_host_for_metrics_->preload_pipeline_info());
+  } else {
+    prefetch_container_ahead_of_prerender = nullptr;
+  }
+
   auto [candidates, servable_states] = prefetch_service.CollectMatchCandidates(
       navigated_key_, is_nav_prerender_,
-      std::move(serving_page_metrics_container));
+      std::move(serving_page_metrics_container),
+      prefetch_container_ahead_of_prerender
+          ? &prefetch_container_ahead_of_prerender->key()
+          : nullptr,
+      &collect_result_ahead_of_prerender_for_metrics_);
   // Consume `candidates`.
   for (auto& prefetch_container : candidates) {
     // Register the candidate only if `PrefetchServiceWorkerState` is matching.
@@ -287,6 +311,14 @@ void PrefetchMatchResolver::FindPrefetchInternal2(
   TRACE_EVENT_END("loading");
 
   if (candidates_.size() == 0) {
+    if (is_nav_prerender_ && prerender_host_for_metrics_ &&
+        prefetch_container_ahead_of_prerender) {
+      base::UmaHistogramEnumeration(
+          "Prefetch.PrefetchMatchResolver.ExistsPaopThen."
+          "PrefetchPotentialCandidateCollectResult",
+          collect_result_ahead_of_prerender_for_metrics_);
+    }
+
     UnblockForNoCandidates();
   }
 }
@@ -781,6 +813,8 @@ void PrefetchMatchResolver::AttachPrefetchMatchPrerenderDebugMetrics() {
     metrics->prefetch_ahead_of_prerender_debug_metrics->queue_index =
         prefetch_service_->GetPrefetchSchedulerForMetrics().GetIndexForMetrics(
             *prefetch_container);
+    metrics->prefetch_ahead_of_prerender_debug_metrics->collect_result =
+        collect_result_ahead_of_prerender_for_metrics_;
   }();
 
   prefetch_match_metrics_->prerender_debug_metrics = std::move(metrics);

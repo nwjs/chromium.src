@@ -275,6 +275,9 @@
 	path = third_party/javalang/src
 	url = https://chromium.googlesource.com/external/github.com/c2nes/javalang
 	gclient-condition = checkout_android
+[submodule "third_party/nlohmann_json/src"]
+	path = third_party/nlohmann_json/src
+	url = https://chromium.googlesource.com/external/github.com/nlohmann/json
 [submodule "third_party/jsoncpp/source"]
 	path = third_party/jsoncpp/source
 	url = https://chromium.googlesource.com/external/github.com/open-source-parsers/jsoncpp
@@ -524,6 +527,9 @@
 [submodule "third_party/tflite/src"]
 	path = third_party/tflite/src
 	url = https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow
+[submodule "third_party/litert/src"]
+	path = third_party/litert/src
+	url = https://chromium.googlesource.com/external/github.com/google-ai-edge/LiteRT
 [submodule "third_party/vulkan-deps"]
 	path = third_party/vulkan-deps
 	url = https://chromium.googlesource.com/vulkan-deps
@@ -680,13 +686,13 @@
 	path = chrome/browser/resources/downloads/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/resources/downloads_internal
 	gclient-condition = checkout_src_internal
-[submodule "chrome/browser/resources/settings/internal"]
-	path = chrome/browser/resources/settings/internal
-	url = https://chrome-internal.googlesource.com/chrome/browser/resources/settings_internal
-	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/resources/history/internal"]
 	path = chrome/browser/resources/history/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/resources/history/internal
+	gclient-condition = checkout_src_internal
+[submodule "chrome/browser/resources/settings/internal"]
+	path = chrome/browser/resources/settings/internal
+	url = https://chrome-internal.googlesource.com/chrome/browser/resources/settings_internal
 	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/resources/webui_browser/internal"]
 	path = chrome/browser/resources/webui_browser/internal
@@ -852,10 +858,6 @@
 	path = clusterfuzz-data
 	url = https://chrome-internal.googlesource.com/chrome/tools/clusterfuzz-data
 	gclient-condition = checkout_clusterfuzz_data and checkout_src_internal
-[submodule "third_party/android_tools_internal"]
-	path = third_party/android_tools_internal
-	url = https://chrome-internal.googlesource.com/clank/third_party/android_tools
-	gclient-condition = checkout_android and checkout_src_internal
 [submodule "third_party/widevine/cdm/chromeos"]
 	path = third_party/widevine/cdm/chromeos
 	url = https://chrome-internal.googlesource.com/chrome/deps/widevine/cdm/chromeos

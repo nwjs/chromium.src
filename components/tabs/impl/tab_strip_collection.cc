@@ -339,7 +339,7 @@ std::unique_ptr<TabCollection> TabStripCollection::MaybeRemoveCollection(
 void TabStripCollection::InsertTabCollectionAt(
     std::unique_ptr<TabCollection> collection,
     int index,
-    int pinned,
+    bool pinned,
     std::optional<tab_groups::TabGroupId> parent_group) {
   TabCollection::Position insertion_details =
       GetInsertionDetails(index, pinned, parent_group);
@@ -444,6 +444,15 @@ void TabStripCollection::CreateSplit(
     MoveTabImpl(tab, tab_move_details);
     insertion_index += 1;
   }
+}
+
+void TabStripCollection::ReverseSplit(split_tabs::SplitTabId split_id) {
+  SplitTabCollection* split = GetSplitTabCollection(split_id);
+  // MoveTabImpl requires the position's index to be prior to the tab being
+  // moved, so use the final index of the split + 1.
+  TabCollection::Position positon = {split->GetHandle(),
+                                     split->TabCountRecursive()};
+  MoveTabImpl(split->GetTabAtIndexRecursive(0), positon);
 }
 
 void TabStripCollection::Unsplit(split_tabs::SplitTabId split_id) {
@@ -728,7 +737,7 @@ void TabStripCollection::MoveCollectionImpl(TabCollection* collection_ptr,
 
 TabCollection::Position TabStripCollection::GetInsertionDetails(
     int index,
-    int pinned,
+    bool pinned,
     std::optional<tab_groups::TabGroupId> group) {
   size_t direct_dst_index;
   TabCollection* insert_collection = nullptr;

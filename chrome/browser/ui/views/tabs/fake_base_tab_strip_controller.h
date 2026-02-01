@@ -36,12 +36,10 @@ class FakeBaseTabStripController : public TabStripController {
   void MoveTabIntoGroup(int index,
                         std::optional<tab_groups::TabGroupId> new_group);
 
-  ui::ListSelectionModel* selection_model() { return &selection_model_; }
-
   void set_tab_strip(TabStrip* tab_strip) { tab_strip_ = tab_strip; }
 
   // TabStripController overrides:
-  const ui::ListSelectionModel& GetSelectionModel() const override;
+  ui::ListSelectionModel GetSelectionModel() const override;
   int GetCount() const override;
   bool IsValidIndex(int index) const override;
   bool IsActiveTab(int index) const override;
@@ -71,8 +69,7 @@ class FakeBaseTabStripController : public TabStripController {
   int HasAvailableDragActions() const override;
   void OnDropIndexUpdate(std::optional<int> index, bool drop_before) override;
   void CreateNewTab(NewTabTypes context) override;
-  void CreateNewTabWithLocation(const std::u16string& loc) override;
-  void OnStartedDragging(bool dragging_window) override;
+  void OnStartedDragging() override;
   void OnStoppedDragging() override;
   void OnKeyboardFocusedTabChanged(std::optional<int> index) override;
   std::u16string GetGroupTitle(
@@ -93,17 +90,12 @@ class FakeBaseTabStripController : public TabStripController {
                      const tab_groups::TabGroupId& group) override;
   void RemoveTabFromGroup(int model_index) override;
   bool IsFrameCondensed() const override;
-  bool HasVisibleBackgroundTabShapes() const override;
   bool EverHasVisibleBackgroundTabShapes() const override;
-  bool CanDrawStrokes() const override;
-  SkColor GetFrameColor(BrowserFrameActiveState active_state) const override;
   std::optional<int> GetCustomBackgroundId(
       BrowserFrameActiveState active_state) const override;
   std::u16string GetAccessibleTabName(const Tab* tab) const override;
   TabGroup* GetTabGroup(const tab_groups::TabGroupId& group_id) const override;
-  Profile* GetProfile() const override;
   BrowserWindowInterface* GetBrowserWindowInterface() override;
-  Browser* GetBrowser() override;
   bool CanShowModalUI() const override;
   std::unique_ptr<ScopedTabStripModalUI> ShowModalUI() override;
 

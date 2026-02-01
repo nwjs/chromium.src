@@ -25,7 +25,7 @@ import './elements/viewer_toolbar.js';
 
 import {PdfHelpBubbleProxyImpl} from 'chrome://resources/cr_components/help_bubble/pdf_help_bubble_proxy.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
-import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
+import {assert, assertNotReached, assertNotReachedCase} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {LoadTimeDataRaw} from 'chrome://resources/js/load_time_data.js';
 import {listenOnce} from 'chrome://resources/js/util.js';
@@ -67,14 +67,13 @@ import type {ViewerToolbarElement} from './elements/viewer_toolbar.js';
 import {Ink2Manager} from './ink2_manager.js';
 //</if>
 import {LocalStorageProxyImpl} from './local_storage_proxy.js';
-import {convertDocumentDimensionsMessage, convertFormFocusChangeMessage, convertLoadProgressMessage} from './message_converter.js';
+import {convertDocumentDimensionsMessage, convertFormFocusChangeMessage, convertLoadProgressMessage, convertSendKeyEventMessage} from './message_converter.js';
 import {record, recordEnumeration, UserAction} from './metrics.js';
 import {NavigatorDelegateImpl, PdfNavigatorImpl, WindowOpenDisposition} from './navigator.js';
 import type {PdfNavigator} from './navigator.js';
-import {deserializeKeyEvent, LoadState} from './pdf_scripting_api.js';
+import {LoadState} from './pdf_scripting_api.js';
 import {getCss} from './pdf_viewer.css.js';
 import {getHtml} from './pdf_viewer.html.js';
-import type {KeyEventData} from './pdf_viewer_base.js';
 import {PdfViewerBaseElement} from './pdf_viewer_base.js';
 import {PdfViewerPrivateProxyImpl} from './pdf_viewer_private_proxy.js';
 import type {DocumentDimensionsMessageData} from './pdf_viewer_utils.js';
@@ -570,7 +569,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             this.isInTextAnnotationMode_()) {
           this.maybeCreateTextAnnotation_();
         }
-        // </if>
+        return;
+      // </if>
+      default:
+        break;
     }
 
     // Handle toolbar related key events.
@@ -629,6 +631,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         return;
       // </if>  not is_macosx
       // </if>  enable_pdf_ink2
+      default:
+        break;
     }
   }
 
@@ -1018,9 +1022,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
           case 'Paste':
             record(UserAction.PASTE);
             return;
+          default:
+            assertNotReached(
+                'Unknown executedEditCommand data received: ' + editCommand);
         }
-        assertNotReached(
-            'Unknown executedEditCommand data received: ' + editCommand);
       // <if expr="enable_pdf_ink2">
       case 'finishInkStroke':
         const modifiedData = data as unknown as {modified: boolean};
@@ -1054,9 +1059,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             caretBrowsingEnabledData.caretBrowsingEnabled;
         return;
       case 'sendKeyEvent':
-        const keyEventData = data as unknown as KeyEventData;
-        const keyEvent =
-            deserializeKeyEvent(keyEventData.keyEvent) as ExtendedKeyEvent;
+        const keyEvent = convertSendKeyEventMessage(data);
         keyEvent.fromPlugin = true;
         this.handleKeyEvent(keyEvent);
         return;
@@ -1116,8 +1119,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         }
         return;
         // </if>
+      default:
+        assertNotReached('Unknown message type received: ' + data.type);
     }
-    assertNotReached('Unknown message type received: ' + data.type);
   }
 
   forceFit(view: FittingType): void {
@@ -1862,6 +1866,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         // test.
         record(UserAction.SAVE_SEARCHIFIED);
         break;
+      default:
+        assertNotReachedCase(requestType);
     }
   }
 

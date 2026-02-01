@@ -442,7 +442,7 @@ template("generate_jni_impl") {
     if (_from_source) {
       java_library("${_final_target_name}_java") {
         forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
-        requires_android = true
+
         srcjars = [
           _srcjar_output,
           _placeholder_srcjar_output,
@@ -512,6 +512,13 @@ template("generate_jni") {
   generate_jni_impl(target_name) {
     forward_variables_from(invoker, "*", TESTONLY_AND_VISIBILITY)
     forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
+
+    if (!defined(invoker.enable_definition_macros)) {
+      enable_definition_macros =
+          build_with_chromium &&
+          filter_include([ get_label_info(":$target_name", "dir") ],
+                         [ "//third_party/webrtc/*" ]) == []
+    }
 
     # TODO(http://crbug.com/330720762): Change to False and migrate.
     allow_private_called_by_natives = true

@@ -78,6 +78,7 @@ class MockCryptoClientStream : public quic::QuicCryptoClientStream,
   std::unique_ptr<quic::QuicDecrypter>
   AdvanceKeysAndCreateCurrentOneRttDecrypter() override;
   bool EarlyDataAccepted() const override;
+  ssl_early_data_reason_t EarlyDataReason() const override;
   // Override QuicCryptoClientStream::SetServerApplicationStateForResumption()
   // to avoid tripping over the DCHECK on handshaker state.
   void SetServerApplicationStateForResumption(
@@ -96,6 +97,8 @@ class MockCryptoClientStream : public quic::QuicCryptoClientStream,
   void setHandshakeConfirmedForce(bool state);
 
   static quic::CryptoHandshakeMessage GetDummyCHLOMessage();
+
+  quic::QuicConfig* negotiated_config() { return negotiated_config_.get(); }
 
  protected:
   using quic::QuicCryptoClientStream::session;
@@ -118,6 +121,8 @@ class MockCryptoClientStream : public quic::QuicCryptoClientStream,
   const quic::QuicServerId server_id_;
   raw_ptr<const net::ProofVerifyDetailsChromium> proof_verify_details_;
   const quic::QuicConfig config_;
+  std::unique_ptr<quic::QuicConfig> negotiated_config_;
+  bool config_negotiated_ = false;
   base::WeakPtrFactory<MockCryptoClientStream> weak_factory_{this};
 };
 

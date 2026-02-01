@@ -6,12 +6,13 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_ROUTE_MATCHING_ROUTE_H_
 
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/route_matching/route_preposition.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_preposition.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 
 namespace blink {
 
+class AtomicString;
 class Document;
 class KURL;
 class URLPattern;
@@ -26,13 +27,13 @@ class Route : public EventTarget {
   URLPattern* pattern() const;
   bool matches() const { return matches_at_; }
 
-  bool Matches(RoutePreposition preposition) const {
+  bool Matches(NavigationPreposition preposition) const {
     switch (preposition) {
-      case RoutePreposition::kAt:
+      case NavigationPreposition::kAt:
         return matches_at_;
-      case RoutePreposition::kFrom:
+      case NavigationPreposition::kFrom:
         return matches_from_;
-      case RoutePreposition::kTo:
+      case NavigationPreposition::kTo:
         return matches_to_;
     }
   }
@@ -45,6 +46,15 @@ class Route : public EventTarget {
   // current state. Fire "activate" or "deactivate" events if the match status
   // changes. Return true if match status changed.
   bool UpdateMatchStatus(const KURL& previous_url, const KURL& next_url);
+
+  bool FromOrToMatchesParamInHref(const KURL& from,
+                                  const KURL& to,
+                                  const AtomicString& param,
+                                  const KURL& href) const;
+
+  bool HrefMatchesParam(const KURL& href,
+                        const AtomicString& key,
+                        const AtomicString& expected_value) const;
 
  private:
   // EventTarget:

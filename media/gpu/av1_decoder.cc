@@ -469,32 +469,27 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
     // Thus we should also extract HDR metadata here in case we
     // miss the information.
     if (current_frame_->hdr_cll_set()) {
-      if (!hdr_metadata_.has_value()) {
-        hdr_metadata_.emplace();
-      }
-      hdr_metadata_->cta_861_3 = ToGfxCta861_3(current_frame_->hdr_cll());
+      hdr_metadata_.cta_861_3 = ToGfxCta861_3(current_frame_->hdr_cll());
     }
     if (current_frame_->hdr_mdcv_set()) {
-      if (!hdr_metadata_.has_value()) {
-        hdr_metadata_.emplace();
-      }
-      hdr_metadata_->smpte_st_2086 =
+      hdr_metadata_.smpte_st_2086 =
           ToGfxSmpteSt2086(current_frame_->hdr_mdcv());
     }
-    if (current_frame_->itut_t35_set()) {
-      // SAFETY: The best we can do is trust the size provided by libgav1.
-      auto t35_payload_span = UNSAFE_BUFFERS(base::span<const uint8_t>(
-          current_frame_->itut_t35().payload_bytes,
-          static_cast<size_t>(current_frame_->itut_t35().payload_size)));
-      const std::optional<gfx::HdrMetadataAgtm> agtm =
-          GetHdrMetadataAgtmFromItutT35(current_frame_->itut_t35().country_code,
-                                        t35_payload_span);
-      if (agtm.has_value()) {
-        if (!hdr_metadata_.has_value()) {
-          hdr_metadata_.emplace();
+    if (current_frame_->itut_t35_count() > 0) {
+      // SAFETY: The best we can do is trust the count provided by libgav1.
+      for (const auto& itut_t35 : UNSAFE_BUFFERS(base::span(
+               current_frame_->itut_t35(),
+               static_cast<size_t>(current_frame_->itut_t35_count())))) {
+        // SAFETY: The best we can do is trust the size provided by libgav1.
+        auto t35_payload_span = UNSAFE_BUFFERS(base::span<const uint8_t>(
+            itut_t35.payload_bytes,
+            static_cast<size_t>(itut_t35.payload_size)));
+        if (auto agtm = GetSerializedAgtmItutT35(itut_t35.country_code,
+                                                 t35_payload_span)) {
+          // Overwrite existing AGTM metadata if any. If there is more than one
+          // metadata associated with this frame, use the last one.
+          hdr_metadata_.setSerializedAgtm(agtm);
         }
-        // Overwrite existing AGTM metadata if any.
-        hdr_metadata_->agtm = agtm;
       }
     }
 
@@ -516,8 +511,9 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
     // Set the color space for the picture.
     pic->set_colorspace(picture_color_space_);
 
-    if (hdr_metadata_)
+    if (!hdr_metadata_.IsEmpty()) {
       pic->set_hdr_metadata(hdr_metadata_);
+    }
 
     pic->frame_header = frame_header;
     if (decrypt_config_)
@@ -627,7 +623,7 @@ AV1Decoder::AV1Accelerator::Status AV1Decoder::DecodeAndOutputPicture(
   return AV1Accelerator::Status::kOk;
 }
 
-std::optional<gfx::HDRMetadata> AV1Decoder::GetHDRMetadata() const {
+gfx::HDRMetadata AV1Decoder::GetHDRMetadata() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return hdr_metadata_;
 }

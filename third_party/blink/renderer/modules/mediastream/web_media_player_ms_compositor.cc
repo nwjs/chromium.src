@@ -529,8 +529,7 @@ bool WebMediaPlayerMSCompositor::UpdateCurrentFrame(
     RenderUsingAlgorithm(deadline_min, deadline_max);
 
   {
-    bool tracing_or_dcheck_enabled = false;
-    TRACE_EVENT_CATEGORY_GROUP_ENABLED("media", &tracing_or_dcheck_enabled);
+    bool tracing_or_dcheck_enabled = TRACE_EVENT_CATEGORY_ENABLED("media");
 #if DCHECK_IS_ON()
     tracing_or_dcheck_enabled = true;
 #endif  // DCHECK_IS_ON()
@@ -624,7 +623,7 @@ void WebMediaPlayerMSCompositor::OnContextLost() {
   // has no concept of resetting current_frame_, so a black frame is set.
   base::AutoLock auto_lock(current_frame_lock_);
   if (!current_frame_ || (!current_frame_->HasSharedImage() &&
-                          !current_frame_->HasMappableGpuBuffer())) {
+                          !current_frame_->HasMappableSharedImage())) {
     return;
   }
   scoped_refptr<media::VideoFrame> black_frame =

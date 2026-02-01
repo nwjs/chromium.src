@@ -8,6 +8,7 @@
 #include "base/component_export.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
+#include "base/time/time.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/service_error.h"
 #include "components/unexportable_keys/unexportable_key_id.h"
@@ -79,6 +80,11 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyService {
   // calling `GetWrappedKey()` on a previous instance of `UnexportableKeyId`.
   // Invokes `callback` with a `ServiceError` if `wrapped_key` cannot be
   // imported.
+  //
+  // This method is also a supported way of transferring a key between
+  // `UnexportableKeyService` instances. A key's lifetime is controlled by the
+  // source `UnexportableKeyService` instance until this method completes in the
+  // destination service.
   virtual void FromWrappedSigningKeySlowlyAsync(
       base::span<const uint8_t> wrapped_key,
       BackgroundTaskPriority priority,
@@ -126,17 +132,6 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyService {
       BackgroundTaskPriority priority,
       base::OnceCallback<void(ServiceErrorOr<std::vector<UnexportableKeyId>>)>
           callback) = 0;
-
-// Copies a key from another service.
-  //
-  // Invokes `callback` with a `ServiceError` if `key_id_from_other_service` is
-  // not found. Otherwise, returns a new key ID that can be used to refer to the
-  // same key.
-  virtual void CopyKeyFromOtherService(
-      const UnexportableKeyService& other_service,
-      UnexportableKeyId key_id_from_other_service,
-      BackgroundTaskPriority priority,
-      base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback) = 0;
 
   // Schedules a new asynchronous signing task.
   // Might return a cached result if a task with the same combination of
@@ -212,6 +207,18 @@ class COMPONENT_EXPORT(UNEXPORTABLE_KEYS) UnexportableKeyService {
   // or `FromWrappedSigningKeySlowlyAsync()`
   virtual ServiceErrorOr<crypto::SignatureVerifier::SignatureAlgorithm>
   GetAlgorithm(UnexportableKeyId key_id) const = 0;
+
+  // Returns the tag of a key that `key_id` refers to.
+  // Returns a `ServiceError` if `key_id` is not found, or if the key does not
+  // support stateful operations.
+  virtual ServiceErrorOr<std::string> GetKeyTag(
+      UnexportableKeyId key_id) const = 0;
+
+  // Returns the time a key that `key_id` refers to was created.
+  // Returns a `ServiceError` if `key_id` is not found, or if the key does not
+  // support stateful operations.
+  virtual ServiceErrorOr<base::Time> GetCreationTime(
+      UnexportableKeyId key_id) const = 0;
 };
 
 }  // namespace unexportable_keys

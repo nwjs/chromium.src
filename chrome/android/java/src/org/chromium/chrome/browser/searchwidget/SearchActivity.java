@@ -91,6 +91,7 @@ import org.chromium.url.GURL;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.util.function.Supplier;
 
 /** Queries the user's default search engine and shows autocomplete suggestions. */
 @NullMarked
@@ -322,7 +323,7 @@ public class SearchActivity extends AsyncInitializationActivity
                         null,
                         assertNonNull(getWindowAndroid()),
                         /* activityTabSupplier= */ () -> null,
-                        getModalDialogManagerSupplier(),
+                        (Supplier<@Nullable ModalDialogManager>) getModalDialogManagerSupplier(),
                         /* shareDelegateSupplier= */ null,
                         /* incognitoStateProvider= */ null,
                         getLifecycleDispatcher(),
@@ -363,7 +364,7 @@ public class SearchActivity extends AsyncInitializationActivity
                                                 assumeNonNull(getProfileProviderSupplier().get())
                                                         .getOriginalProfile(),
                                                 ManagePasswordsReferrer.CHROME_SETTINGS,
-                                                () -> getModalDialogManager(),
+                                                getModalDialogManagerSupplier().asNonNull(),
                                                 /* managePasskeys= */ false),
                                 // Open Quick Delete Dialog callback:
                                 null,
@@ -587,9 +588,19 @@ public class SearchActivity extends AsyncInitializationActivity
 
     @Override
     public void onPauseWithNative() {
-        umaSessionEnd();
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES)) {
+            umaSessionEnd();
+        }
         RevenueStats.setCustomTabSearchClient(null);
         super.onPauseWithNative();
+    }
+
+    @Override
+    public void onStopWithNative() {
+        super.onStopWithNative();
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.UMA_SESSION_CORRECTNESS_FIXES)) {
+            umaSessionEnd();
+        }
     }
 
     @Override
@@ -722,7 +733,7 @@ public class SearchActivity extends AsyncInitializationActivity
     // defined on initialize in {@link SearchActivityLocationBarLayout}.
     private void setColorScheme(boolean isIncognito) {
         @ColorRes int anchorViewBackgroundColorRes = R.color.omnibox_suggestion_dropdown_bg;
-        @ColorRes int searchBoxColorRes = R.color.omnibox_suggestion_bg;
+        @ColorRes int searchBoxColorRes = R.color.search_suggestion_bg_color;
 
         var searchBoxBackground = mSearchBox.getBackground();
 

@@ -51,9 +51,15 @@ class MockReleaseCallback {
 };
 
 static void CollectResources(std::vector<ReturnedResource>* array,
-                             std::vector<ReturnedResource> returned) {
-  array->insert(array->end(), std::make_move_iterator(returned.begin()),
-                std::make_move_iterator(returned.end()));
+                             std::vector<ReturnedResourceViz> returned) {
+  for (auto& resource_viz : returned) {
+    ReturnedResource resource{
+        resource_viz.id,
+        gpu::SharedImageExportResult::CreateForTesting(resource_viz.sync_token),
+        std::move(resource_viz.release_fence), resource_viz.count,
+        resource_viz.lost};
+    array->emplace_back(std::move(resource));
+  }
 }
 
 class DisplayResourceProviderSoftwareTest : public testing::Test {
@@ -66,7 +72,7 @@ class DisplayResourceProviderSoftwareTest : public testing::Test {
 
   void InitializeProvider() {
     auto context_provider = base::MakeRefCounted<TestInProcessContextProvider>(
-        TestContextType::kSoftwareRaster, /*support_locking=*/false);
+        TestContextType::kRaster, /*support_locking=*/false);
     gpu::ContextResult result = context_provider->BindToCurrentSequence();
     CHECK_EQ(result, gpu::ContextResult::kSuccess);
     auto* gpu_service = context_provider->GpuService();

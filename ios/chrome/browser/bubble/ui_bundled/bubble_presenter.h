@@ -16,6 +16,7 @@ class FullscreenController;
 class HostContentSettingsMap;
 @class LayoutGuideCenter;
 class OverlayPresenter;
+@protocol BWGCommands;
 @protocol PageActionMenuEntryPointCommands;
 @protocol PopupMenuCommands;
 @protocol TabStripCommands;
@@ -70,6 +71,14 @@ class DeviceSwitcherResultDispatcher;
 // menu's entrypoint. The eligibility can depend on the UI hierarchy at the
 // moment, the configuration and the display history of the bubble, etc.
 - (void)presentHomeCustomizationTipBubble;
+
+// Optionally presents a help bubble associated with the NTP customization
+// menu's entrypoint, including background customization. The eligibility can
+// depend on the UI hierarchy at the moment, the configuration and the display
+// history of the bubble, etc. Unlike other bubbles, this bubble should be
+// controlled by the Feature Engagement Tracker externally to this class. This
+// class does not check the FET for this bubble.
+- (void)presentHomeBackgroundCustomizationTipBubble;
 
 // Optionally presents a help bubble to let the user know that they can change
 // the default mode (Desktop/Mobile) of the websites. The eligibility can depend
@@ -149,6 +158,13 @@ class DeviceSwitcherResultDispatcher;
 
 // Optionally presents a bubble associated with the reader mode options.
 - (void)presentReaderModeOptionsBubble;
+
+// Optionally presents a bubble associated with the Gemini image remix feature
+// (Page Action Menu entry point).
+- (void)presentGeminiImageRemixBubbleWithBWGHandler:(id<BWGCommands>)BWGHandler
+                    pageActionMenuEntryPointHandler:
+                        (id<PageActionMenuEntryPointCommands>)
+                            pageActionMenuEntryPointHandler;
 
 // Delegate method to be invoked when the user has performed a swipe on the
 // toolbar to switch tabs. Remove `toolbarSwipeGestureIPH` if visible.

@@ -9,11 +9,17 @@
 
 namespace blink {
 
+const char GlobalIndexedDB::kSupplementName[] = "GlobalIndexedDB";
+
+GlobalIndexedDB::GlobalIndexedDB(ExecutionContext& context)
+    : Supplement<ExecutionContext>(context) {}
+
 GlobalIndexedDB& GlobalIndexedDB::From(ExecutionContext& context) {
-  GlobalIndexedDB* supplement = context.GetGlobalIndexedDB();
+  GlobalIndexedDB* supplement =
+      Supplement<ExecutionContext>::From<GlobalIndexedDB>(context);
   if (!supplement) {
-    supplement = MakeGarbageCollected<GlobalIndexedDB>();
-    context.SetGlobalIndexedDB(supplement);
+    supplement = MakeGarbageCollected<GlobalIndexedDB>(context);
+    Supplement<ExecutionContext>::ProvideTo(context, supplement);
   }
   return *supplement;
 }
@@ -31,6 +37,7 @@ IDBFactory* GlobalIndexedDB::IdbFactory(ExecutionContext& context) {
 
 void GlobalIndexedDB::Trace(Visitor* visitor) const {
   visitor->Trace(idb_factory_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 }  // namespace blink

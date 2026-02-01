@@ -89,15 +89,17 @@ void HTMLIFrameElement::Trace(Visitor* visitor) const {
   visitor->Trace(sandbox_);
   visitor->Trace(policy_);
   HTMLFrameElementBase::Trace(visitor);
+  Supplementable<HTMLIFrameElement>::Trace(visitor);
 }
 
 HTMLIFrameElement::~HTMLIFrameElement() = default;
 
 const AttrNameToTrustedType& HTMLIFrameElement::GetCheckedAttributeTypes()
     const {
-  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
-                      ({{"srcdoc", std::pair{SpecificTrustedType::kHTML,
-                                             "HTMLIFrameElement"}}}));
+  DEFINE_STATIC_LOCAL(
+      AttrNameToTrustedType, attribute_map,
+      ({{"srcdoc", std::pair{SpecificTrustedType::kHTML,
+                             trusted_types_names::kHTMLIFrameElement}}}));
   return attribute_map;
 }
 
@@ -738,9 +740,9 @@ const V8UnionStringOrTrustedHTML* HTMLIFrameElement::srcdoc() const {
 
 void HTMLIFrameElement::setSrcdoc(const V8UnionStringOrTrustedHTML* value,
                                   ExceptionState& exception_state) {
-  String compliantValue =
-      TrustedTypesCheckForHTML(value, GetExecutionContext(),
-                               "HTMLIFrameElement", "srcdoc", exception_state);
+  String compliantValue = TrustedTypesCheckForHTML(
+      value, GetExecutionContext(), trusted_types_names::kHTMLIFrameElement,
+      trusted_types_names::kSrcdoc, exception_state);
   if (exception_state.HadException()) {
     return;
   }

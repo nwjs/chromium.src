@@ -64,8 +64,10 @@ ALIGNMENT_ORDER = [
     'StyleAspectRatio',
     'StyleIntrinsicLength',
     'StyleInheritedVariables',
+    'StyleNameScope',
     'StyleNonInheritedVariables',
     'StylePositionAnchor',
+    'StyleTriggerScope',
     'std::optional<StyleOverflowClipMargin>',
     'std::optional<blink::PositionAreaOffsets>',
     'std::optional<PhysicalOffset>',
@@ -109,6 +111,7 @@ ALIGNMENT_ORDER = [
     'wtf_size_t',
     'int',
     'PositionArea',
+    'GridLanesDirection',
     # Aligns like short
     'StyleFlexWrapData',
     'unsigned short',

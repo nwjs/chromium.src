@@ -1,0 +1,27 @@
+/* Copyright 2025 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #scheme=relative
+ * #import=chrome://resources/cr_elements/cr_shared_vars.css.js
+ * #import=../updater_shared.css.js
+ * #css_wrapper_metadata_end */
+
+cr-expand-button {
+  min-width: 100px;
+  padding: 0 12px;
+  width: 45%;
+}
+
+.raw-event-json {
+  font-family: monospace;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  background-color: var(--code-background-color);
+  color: var(--cr-primary-text-color);
+  padding: 4px;
+  margin-top: 4px;
+  border-radius: 5px;
+}

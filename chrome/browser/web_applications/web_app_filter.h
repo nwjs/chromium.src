@@ -11,7 +11,8 @@ namespace web_app {
 // the WebAppRegistrar that have certain capabilities.
 class WebAppFilter {
  public:
-  // Only consider web apps whose effective display mode is a browser tab.
+  // Only consider web apps whose effective display mode is a browser tab, or it
+  // is undefined.
   static WebAppFilter OpensInBrowserTab();
   // Only consider web apps whose effective display mode is a dedicated window
   // (essentially any display mode other than a browser tab).
@@ -63,6 +64,10 @@ class WebAppFilter {
   // `is_uninstalling` set to true.
   static WebAppFilter IsIsolatedWebAppIncludingUninstalling();
 
+  // Only consider web apps that are in the middle of an app migration, and will
+  // be treated rightfully so.
+  static WebAppFilter IsAppSuggestedForMigration();
+
   WebAppFilter(const WebAppFilter&);
   WebAppFilter& operator=(const WebAppFilter&) = default;
   ~WebAppFilter() = default;
@@ -97,6 +102,7 @@ class WebAppFilter {
   bool is_crafted_app_and_opens_in_dedicated_window_ = false;
   bool is_app_trusted_ = false;
   bool is_isolated_apps_including_uninstalling_ = false;
+  bool is_app_suggested_from_migration_ = false;
 };
 
 }  // namespace web_app

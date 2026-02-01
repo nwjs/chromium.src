@@ -293,7 +293,7 @@ public class ContentSettingsResources {
 
             case ContentSettingsType.COOKIES:
                 return new ResourceItem(
-                        R.drawable.gm_database_24,
+                        R.drawable.ic_database_fill_24dp,
                         R.string.site_data_page_title,
                         ContentSetting.ALLOW,
                         ContentSetting.BLOCK,
@@ -332,7 +332,7 @@ public class ContentSettingsResources {
 
             case ContentSettingsType.GEOLOCATION, ContentSettingsType.GEOLOCATION_WITH_OPTIONS:
                 return new ResourceItem(
-                        R.drawable.gm_filled_location_on_24,
+                        R.drawable.ic_location_on_fill_24dp,
                         R.string.website_settings_device_location,
                         ContentSetting.ASK,
                         ContentSetting.BLOCK,
@@ -407,9 +407,36 @@ public class ContentSettingsResources {
                         R.drawable.router_off_24,
                         R.string.website_settings_local_network_access_ask,
                         R.string.website_settings_local_network_access_block);
+
+            case ContentSettingsType.LOCAL_NETWORK:
+                return new ResourceItem(
+                        R.drawable.router_24,
+                        R.string.local_network_permission_title,
+                        ContentSetting.ASK,
+                        ContentSetting.BLOCK,
+                        R.string.website_settings_category_local_network_ask,
+                        R.string.website_settings_category_local_network_blocked,
+                        R.string.website_settings_category_local_network_a11y,
+                        R.drawable.router_off_24,
+                        R.string.website_settings_local_network_ask,
+                        R.string.website_settings_local_network_block);
+
+            case ContentSettingsType.LOOPBACK_NETWORK:
+                return new ResourceItem(
+                        R.drawable.ic_mobile_24dp,
+                        R.string.loopback_network_permission_title,
+                        ContentSetting.ASK,
+                        ContentSetting.BLOCK,
+                        R.string.website_settings_category_loopback_network_ask,
+                        R.string.website_settings_category_loopback_network_blocked,
+                        R.string.website_settings_category_loopback_network_a11y,
+                        R.drawable.ic_mobile_off_24dp,
+                        R.string.website_settings_loopback_network_ask,
+                        R.string.website_settings_loopback_network_block);
+
             case ContentSettingsType.MEDIASTREAM_CAMERA:
                 return new ResourceItem(
-                                R.drawable.gm_filled_videocam_24,
+                                R.drawable.ic_videocam_fill_24dp,
                                 R.string.website_settings_use_camera,
                                 ContentSetting.ASK,
                                 ContentSetting.BLOCK,
@@ -489,11 +516,11 @@ public class ContentSettingsResources {
                         R.string.website_settings_popups_redirects_allow,
                         R.string.website_settings_popups_redirects_block);
 
-                // PROTECTED_MEDIA_IDENTIFIER uses 3-state preference so some values are not used.
-                // If 3-state becomes more common we should update localMaps to support it better.
+            // PROTECTED_MEDIA_IDENTIFIER uses 3-state preference so some values are not used.
+            // If 3-state becomes more common we should update localMaps to support it better.
             case ContentSettingsType.PROTECTED_MEDIA_IDENTIFIER:
                 return new ResourceItem(
-                        R.drawable.permission_protected_media,
+                        R.drawable.ic_sync_saved_locally_24dp,
                         R.string.protected_content,
                         ContentSetting.ASK,
                         ContentSetting.BLOCK,
@@ -584,14 +611,14 @@ public class ContentSettingsResources {
 
             case ContentSettingsType.SOUND:
                 return new ResourceItem(
-                                R.drawable.ic_volume_up_grey600_24dp,
+                                R.drawable.ic_volume_up_fill_24dp,
                                 R.string.sound_permission_title,
                                 ContentSetting.ALLOW,
                                 ContentSetting.BLOCK,
                                 R.string.website_settings_category_sound_allowed,
                                 R.string.website_settings_category_sound_blocked,
                                 R.string.website_settings_category_sound_a11y,
-                                R.drawable.volume_off_24px,
+                                R.drawable.ic_volume_off_fill_24dp,
                                 R.string.website_settings_sound_allow,
                                 R.string.website_settings_sound_block)
                         .setDisabledDescriptionText(
@@ -1031,13 +1058,6 @@ public class ContentSettingsResources {
         }
         assert false;
         return 0;
-    }
-
-    /** Returns the summary for the Tracking Protection setting to be displayed in site settings. */
-    public static int getTrackingProtectionListSummary(boolean blockAll) {
-        return blockAll
-                ? R.string.third_party_cookies_link_row_sub_label_disabled
-                : R.string.third_party_cookies_link_row_sub_label_limited;
     }
 
     /**

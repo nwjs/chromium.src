@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/modules/gamepad/gamepad.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 
@@ -45,7 +46,7 @@ namespace device {
 template <class T>
 class GamepadImpl;
 using Gamepad = GamepadImpl<void>;
-}  // namespace device
+}
 
 namespace blink {
 
@@ -59,11 +60,14 @@ MODULES_EXPORT void fix_gamepad_nw(WebLocalFrame*);
 
 class MODULES_EXPORT NavigatorGamepad final
     : public GarbageCollected<NavigatorGamepad>,
+      public Supplement<Navigator>,
       public ExecutionContextClient,
       public PlatformEventController,
       public LocalDOMWindow::EventListenerObserver,
       public Gamepad::Client {
  public:
+  static const char kSupplementName[];
+
   static NavigatorGamepad& From(Navigator&);
 
   explicit NavigatorGamepad(Navigator&);

@@ -6,6 +6,7 @@
 
 #import <vector>
 
+#import "base/containers/to_vector.h"
 #import "base/functional/callback_helpers.h"
 #import "base/i18n/message_formatter.h"
 #import "base/metrics/user_metrics.h"
@@ -14,9 +15,11 @@
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/autofill/core/browser/foundations/browser_autofill_manager.h"
-#import "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator.h"
+#import "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
+#import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
+#import "ios/chrome/browser/autofill/ui_bundled/ios_chrome_payments_autofill_client.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_consumer.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/full_card_request_result_delegate_bridge.h"
@@ -31,6 +34,7 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/web_state.h"
 #import "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
@@ -65,14 +69,11 @@ std::vector<CreditCard> FetchCards(
   std::vector<const CreditCard*> fetched_cards =
       autofill::GetCreditCardsToSuggest(
           personal_data_manager.payments_data_manager());
-  std::vector<CreditCard> cards;
-  cards.reserve(fetched_cards.size());
-
   // Make copies of the received `fetched_cards` to not make any assumption over
   // their lifetime and make sure that the CreditCard objects stay valid
   // throughout the lifetime of this class.
-  std::ranges::transform(fetched_cards, std::back_inserter(cards),
-                         [](const CreditCard* card) { return *card; });
+  std::vector<CreditCard> cards = base::ToVector(
+      fetched_cards, [](const CreditCard* card) { return *card; });
 
   return cards;
 }
@@ -108,9 +109,9 @@ std::vector<CreditCard> FetchCards(
   self = [super init];
   if (self) {
     _personalDataManager = personalDataManager;
-    _personalDataManagerObserver.reset(
-        new autofill::PersonalDataManagerObserverBridge(self));
-    _personalDataManager->AddObserver(_personalDataManagerObserver.get());
+    _personalDataManagerObserver =
+        std::make_unique<autofill::PersonalDataManagerObserverBridge>(
+            _personalDataManager, self);
     _cards = FetchCards(*_personalDataManager);
     _reauthenticationModule = reauthenticationModule;
     _showAutofillFormButton = showAutofillFormButton;
@@ -138,10 +139,8 @@ std::vector<CreditCard> FetchCards(
 }
 
 - (void)disconnect {
-  if (_personalDataManager && _personalDataManagerObserver.get()) {
-    _personalDataManager->RemoveObserver(_personalDataManagerObserver.get());
-    _personalDataManagerObserver.reset();
-  }
+  _personalDataManagerObserver = nullptr;
+  _personalDataManager = nullptr;
 }
 
 #pragma mark - PersonalDataManagerObserver
@@ -318,7 +317,8 @@ std::vector<CreditCard> FetchCards(
 #pragma mark - FullCardRequestResultDelegateObserving
 
 - (void)onFullCardRequestSucceeded:(const CreditCard&)card
-                         fieldType:(manual_fill::PaymentFieldType)fieldType {
+                         fieldType:(manual_fill::PaymentFieldType)fieldType
+                       forWebState:(web::WebState*)webState {
   // Credit card are not shown as 'Secure'.
   ManualFillCreditCard* manualFillCreditCard = [[ManualFillCreditCard alloc]
       initWithCreditCard:card
@@ -338,7 +338,17 @@ std::vector<CreditCard> FetchCards(
       fillValue = manualFillCreditCard.CVC;
       break;
   }
-
+  // The progress dialog must be dismissed before processing the fill value.
+  // Otherwise, the subsequent focus shift may trigger a month or year
+  // dropdown while the dialog is still active, resulting in multiple
+  // overlapping UI elements and therefore a UI hangs.
+  auto* client = autofill::AutofillClientIOS::FromWebState(webState);
+  CHECK(client);
+  auto* paymentsClient = client->GetPaymentsAutofillClient();
+  CHECK(paymentsClient);
+  paymentsClient->CloseAutofillProgressDialog(
+      /*show_confirmation_before_closing=*/false,
+      /*no_interactive_authentication_callback=*/base::DoNothing());
   // Don't replace the locked card with the unlocked one, so the user will
   // have to unlock it again, if needed.
   [self.contentInjector userDidPickContent:fillValue

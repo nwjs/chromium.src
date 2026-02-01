@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/navigation_transitions/navigation_entry_screenshot_manager.h"
 
+#include "base/strings/to_string.h"
 #include "base/test/scoped_amount_of_physical_memory_override.h"
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/renderer_host/navigation_transitions/navigation_transition_config.h"
@@ -35,7 +36,7 @@ class NavigationEntryScreenshotManagerTest
   NavigationEntryScreenshotManagerTest()
       : task_environment_(std::make_unique<content::BrowserTaskEnvironment>(
             base::test::TaskEnvironment::MainThreadType::IO)),
-        memory_(base::MiB(GetParam().ram_mb)),
+        memory_(base::MiBU(GetParam().ram_mb)),
         min_required_physical_rm_mb_auto_reset_(
             NavigationTransitionConfig::SetMinRequiredPhysicalRamMbForTesting(
                 0)) {}

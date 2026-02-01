@@ -8,7 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
+#include "base/functional/callback.h"
+#include "printing/buildflags/buildflags.h"
 #include "printing/mojom/print.mojom.h"
 #include "printing/printing_context.h"
 
@@ -20,6 +21,22 @@ class PrintDialogLinuxInterface;
 // PrintingContext with optional native UI for print dialog and pdf_paper_size.
 class COMPONENT_EXPORT(PRINTING) PrintingContextLinux : public PrintingContext {
  public:
+  // Sets the factory that creates the print dialog.
+  class PrintDialogFactory {
+   public:
+    virtual ~PrintDialogFactory() = default;
+    virtual std::unique_ptr<PrintDialogLinuxInterface> CreatePrintDialog(
+        PrintingContextLinux* context,
+        bool show_system_dialog) = 0;
+#if BUILDFLAG(ENABLE_OOP_PRINTING_NO_OOP_BASIC_PRINT_DIALOG)
+    virtual std::unique_ptr<PrintDialogLinuxInterface>
+    CreatePrintDialogForSettings(PrintingContextLinux* context,
+                                 const PrintSettings& settings) = 0;
+#endif
+  };
+
+  static void SetPrintDialogFactory(PrintDialogFactory* factory);
+
   PrintingContextLinux(Delegate* delegate,
                        OutOfProcessBehavior out_of_process_behavior);
   PrintingContextLinux(const PrintingContextLinux&) = delete;
@@ -48,8 +65,10 @@ class COMPONENT_EXPORT(PRINTING) PrintingContextLinux : public PrintingContext {
   printing::NativeDrawingContext context() const override;
 
  private:
+  void EnsurePrintDialog(bool show_system_dialog);
+
   std::u16string document_name_;
-  raw_ptr<PrintDialogLinuxInterface> print_dialog_;
+  std::unique_ptr<PrintDialogLinuxInterface> print_dialog_;
 };
 
 }  // namespace printing

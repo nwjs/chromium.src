@@ -23,9 +23,12 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "net/base/cache_type.h"
+#include "net/base/net_errors.h"
 #include "net/base/net_export.h"
+#include "net/disk_cache/cache_encryption_delegate.h"
 #include "net/disk_cache/disk_cache.h"
 #include "net/disk_cache/simple/post_operation_waiter.h"
 #include "net/disk_cache/simple/simple_entry_impl.h"
@@ -70,7 +73,8 @@ class NET_EXPORT_PRIVATE SimpleBackendImpl final : public Backend,
       SimpleFileTracker* file_tracker,
       int64_t max_bytes,
       net::CacheType cache_type,
-      net::NetLog* net_log);
+      net::NetLog* net_log,
+      net::CacheEncryptionDelegate* cache_encryption_delegate);
 
   ~SimpleBackendImpl() override;
 
@@ -97,8 +101,8 @@ class NET_EXPORT_PRIVATE SimpleBackendImpl final : public Backend,
                    CompletionOnceCallback callback) override;
 
   // Backend:
-  int32_t GetEntryCount(
-      net::Int32CompletionOnceCallback callback) const override;
+  base::expected<int32_t, net::Error> GetEntryCount(
+      GetEntryCountCallback callback) const override;
   EntryResult OpenEntry(const std::string& key,
                         net::RequestPriority request_priority,
                         EntryResultCallback callback) override;
@@ -288,7 +292,7 @@ class NET_EXPORT_PRIVATE SimpleBackendImpl final : public Backend,
   scoped_refptr<SimplePostOperationWaiterTable> post_open_by_hash_waiting_;
 
   const raw_ptr<net::NetLog> net_log_;
-
+  const raw_ptr<net::CacheEncryptionDelegate> cache_encryption_delegate_;
   uint32_t entry_count_ = 0;
 
 #if BUILDFLAG(IS_ANDROID)

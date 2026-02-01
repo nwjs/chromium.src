@@ -11,7 +11,6 @@
 #include <memory>
 #include <vector>
 
-#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
@@ -34,8 +33,6 @@ class MidiMessageQueue;
 
 namespace content {
 
-class RenderFrameHost;
-
 class CONTENT_EXPORT MidiHost : public midi::MidiManagerClient,
                                 public midi::mojom::MidiSessionProvider,
                                 public midi::mojom::MidiSession {
@@ -50,7 +47,6 @@ class CONTENT_EXPORT MidiHost : public midi::MidiManagerClient,
   static void BindReceiver(
       ChildProcessId render_process_id,
       midi::MidiService* midi_service,
-      RenderFrameHost* host,
       mojo::PendingReceiver<midi::mojom::MidiSessionProvider> receiver);
 
   // MidiManagerClient implementation. These methods can be called on any thread
@@ -62,8 +58,7 @@ class CONTENT_EXPORT MidiHost : public midi::MidiManagerClient,
   void SetInputPortState(uint32_t port, midi::mojom::PortState state) override;
   void SetOutputPortState(uint32_t port, midi::mojom::PortState state) override;
   void ReceiveMidiData(uint32_t port,
-                       const uint8_t* data,
-                       size_t length,
+                       base::span<const uint8_t> data,
                        base::TimeTicks timestamp) override;
   void AccumulateMidiBytesSent(size_t n) override;
   void Detach() override;

@@ -9,12 +9,12 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/IntentHandler_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 
 namespace chrome {
 namespace android {
 
-static jboolean JNI_IntentHandler_IsCorsSafelistedHeader(
+static bool JNI_IntentHandler_IsCorsSafelistedHeader(
     JNIEnv* env,
     std::string& header_name,
     std::string& header_value) {

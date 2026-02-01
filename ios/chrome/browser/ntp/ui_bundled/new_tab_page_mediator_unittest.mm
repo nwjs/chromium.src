@@ -17,12 +17,11 @@
 #import "components/omnibox/browser/mock_aim_eligibility_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/test/test_sync_service.h"
-#import "ios/chrome/browser/browser_view/model/browser_view_visibility_audience.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
 #import "ios/chrome/browser/browser_view/public/browser_view_visibility_state.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/cells/content_suggestions_most_visited_item.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/content_suggestions_mediator.h"
-#import "ios/chrome/browser/content_suggestions/ui_bundled/user_account_image_update_delegate.h"
+#import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
+#import "ios/chrome/browser/content_suggestions/ui/user_account_image_update_delegate.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_observer.h"
@@ -31,6 +30,8 @@
 #import "ios/chrome/browser/home_customization/model/user_uploaded_image_manager_factory.h"
 #import "ios/chrome/browser/image_fetcher/model/image_fetcher_service_factory.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/model/ntp_background_image_cache_service.h"
+#import "ios/chrome/browser/ntp/model/ntp_background_image_cache_service_factory.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
@@ -51,7 +52,7 @@
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/test/toolbar_test_navigation_manager.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/test/toolbar_test_navigation_manager.h"
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -85,6 +86,24 @@ class NewTabPageMediatorTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    test_profile_builder.AddTestingFactory(
+        HomeBackgroundCustomizationServiceFactory::GetInstance(),
+        base::BindRepeating(
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+              return std::make_unique<HomeBackgroundCustomizationService>(
+                  profile->GetPrefs(),
+                  UserUploadedImageManagerFactory::GetForProfile(profile),
+                  nullptr);  // HomeBackgroundImageService is not needed for
+                             // this test.
+            }));
+    test_profile_builder.AddTestingFactory(
+        NTPBackgroundImageCacheServiceFactory::GetInstance(),
+        base::BindRepeating(
+            [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
+              return std::make_unique<NTPBackgroundImageCacheService>(
+                  HomeBackgroundCustomizationServiceFactory::GetForProfile(
+                      profile));
+            }));
     profile_ = std::move(test_profile_builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
@@ -132,6 +151,8 @@ class NewTabPageMediatorTest : public PlatformTest {
     HomeBackgroundCustomizationService* background_customization_service =
         HomeBackgroundCustomizationServiceFactory::GetForProfile(
             profile_.get());
+    NTPBackgroundImageCacheService* background_image_cache_service =
+        NTPBackgroundImageCacheServiceFactory::GetForProfile(profile_.get());
     image_fetcher::ImageFetcherService* image_fetcher_service =
         ImageFetcherServiceFactory::GetForProfile(profile_.get());
     UserUploadedImageManager* user_uploaded_image_manager =
@@ -152,6 +173,7 @@ class NewTabPageMediatorTest : public PlatformTest {
                    ios::RegionalCapabilitiesServiceFactory::GetForProfile(
                        profile_.get())
             backgroundCustomizationService:background_customization_service
+               backgroundImageCacheService:background_image_cache_service
                        imageFetcherService:image_fetcher_service
                   userUploadedImageManager:user_uploaded_image_manager
              browserViewVisibilityNotifier:browser_view_visibility_notifier_
@@ -233,8 +255,7 @@ class NewTabPageMediatorTest : public PlatformTest {
 TEST_F(NewTabPageMediatorTest, TestConsumerSetup) {
   // Setup.
   CreateMediator();
-  OCMExpect(
-      [header_consumer_ setSearchEngineLogoState:SearchEngineLogoState::kLogo]);
+  OCMExpect([header_consumer_ setDefaultSearchEngineName:[OCMArg any]]);
 
   // Action.
   [mediator_ setUp];
@@ -261,8 +282,6 @@ TEST_F(NewTabPageMediatorTest, TestShowAndHideFeed) {
 // Tests that the mediator updates the Discover feed with the visibility state
 // of the feed.
 TEST_F(NewTabPageMediatorTest, TestUpdateVisibilityStateOfFeed) {
-  using enum BrowserViewVisibilityState;
-
   CreateMediator();
   [mediator_ setUp];
 
@@ -271,35 +290,37 @@ TEST_F(NewTabPageMediatorTest, TestUpdateVisibilityStateOfFeed) {
       collectionViewLayout:[[UICollectionViewLayout alloc] init]];
   mediator_.contentCollectionView = collection_view;
 
-  id<BrowserViewVisibilityAudience> audience =
-      browser_view_visibility_notifier_->GetBrowserViewVisibilityAudience();
+  BrowserViewVisibilityStateChangedCallback callback =
+      browser_view_visibility_notifier_->GetNotificationCallback();
 
   // User is on new tab page.
   mediator_.NTPVisible = YES;
-  [audience browserViewDidTransitionToVisibilityState:kAppearing
-                                            fromState:kNotInViewHierarchy];
+  callback.Run(BrowserViewVisibilityState::kAppearing,
+               BrowserViewVisibilityState::kNotInViewHierarchy);
   EXPECT_EQ(test_discover_feed_service_->collection_view(), collection_view);
-  EXPECT_EQ(test_discover_feed_service_->visibility_state(), kAppearing);
+  EXPECT_EQ(test_discover_feed_service_->visibility_state(),
+            BrowserViewVisibilityState::kAppearing);
 
   // User turns off the feed.
   eligibility_handler_.enabled = false;
-  [audience browserViewDidTransitionToVisibilityState:kVisible
-                                            fromState:kAppearing];
-  EXPECT_EQ(test_discover_feed_service_->visibility_state(), kAppearing);
+  callback.Run(BrowserViewVisibilityState::kVisible,
+               BrowserViewVisibilityState::kAppearing);
+  EXPECT_EQ(test_discover_feed_service_->visibility_state(),
+            BrowserViewVisibilityState::kAppearing);
 
   // User turns the feed back on.
   eligibility_handler_.enabled = true;
-  [audience browserViewDidTransitionToVisibilityState:kCoveredByOmniboxPopup
-                                            fromState:kVisible];
+  callback.Run(BrowserViewVisibilityState::kCoveredByOmniboxPopup,
+               BrowserViewVisibilityState::kVisible);
   EXPECT_EQ(test_discover_feed_service_->visibility_state(),
-            kCoveredByOmniboxPopup);
+            BrowserViewVisibilityState::kCoveredByOmniboxPopup);
 
   // User has navigated away.
   mediator_.NTPVisible = NO;
-  [audience browserViewDidTransitionToVisibilityState:kVisible
-                                            fromState:kCoveredByOmniboxPopup];
+  callback.Run(BrowserViewVisibilityState::kVisible,
+               BrowserViewVisibilityState::kCoveredByOmniboxPopup);
   EXPECT_EQ(test_discover_feed_service_->visibility_state(),
-            kCoveredByOmniboxPopup);
+            BrowserViewVisibilityState::kCoveredByOmniboxPopup);
 }
 
 // Tests that -notifyLensBadgeDisplayed correctly notifies the tracker.
@@ -360,8 +381,6 @@ TEST_F(NewTabPageMediatorTest, TestAIMNotEligible) {
   CreateMediator(/*with_aim_eligibility_service=*/true);
   EXPECT_CALL(*aim_eligibility_service_, IsAimEligible())
       .WillRepeatedly(testing::Return(false));
-  OCMExpect(
-      [header_consumer_ setSearchEngineLogoState:SearchEngineLogoState::kLogo]);
 
   // Consumer should be notified.
   id ntp_consumer = OCMProtocolMock(@protocol(NewTabPageConsumer));
@@ -384,8 +403,6 @@ TEST_F(NewTabPageMediatorTest, TestAIMEligible) {
   CreateMediator(/*with_aim_eligibility_service=*/true);
   EXPECT_CALL(*aim_eligibility_service_, IsAimEligible())
       .WillRepeatedly(testing::Return(true));
-  OCMExpect(
-      [header_consumer_ setSearchEngineLogoState:SearchEngineLogoState::kLogo]);
 
   // Consumer should be notified.
   id ntp_consumer = OCMProtocolMock(@protocol(NewTabPageConsumer));
@@ -437,8 +454,6 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleBeforeSetUp) {
   EXPECT_OCMOCK_VERIFY(ntp_content_delegate);
 
   // Consumer are updated during setup.
-  OCMExpect(
-      [header_consumer_ setSearchEngineLogoState:SearchEngineLogoState::kLogo]);
   OCMExpect([ntp_consumer setAIMAllowed:YES]);
   OCMExpect([header_consumer_ setAIMAllowed:YES]);
   [mediator_ setUp];
@@ -468,8 +483,6 @@ TEST_F(NewTabPageMediatorTest, TestAIMBecomeEligibleAfterSetUp) {
   });
 
   CreateMediator(/*with_aim_eligibility_service=*/true);
-  OCMExpect(
-      [header_consumer_ setSearchEngineLogoState:SearchEngineLogoState::kLogo]);
 
   // Setup with non eligible.
   id ntp_consumer = OCMProtocolMock(@protocol(NewTabPageConsumer));

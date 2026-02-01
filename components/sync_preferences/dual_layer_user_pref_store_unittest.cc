@@ -40,6 +40,10 @@ constexpr char kMergeableDictPref2[] = "mergeable.dict.pref2";
 constexpr char kCustomMergePref[] = "custom.merge.pref";
 constexpr char kAlwaysSyncingPriorityPrefName[] =
     "always.syncing.priority.pref";
+#if BUILDFLAG(IS_CHROMEOS)
+constexpr char kOsPrefName[] = "os.pref";
+constexpr char kOsPriorityPrefName[] = "os.priority.pref";
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Assigning an id of 0 to all the test prefs.
 const TestSyncablePrefsDatabase::PrefsMap kSyncablePrefsDatabase = {
@@ -72,10 +76,21 @@ const TestSyncablePrefsDatabase::PrefsMap kSyncablePrefsDatabase = {
      {0, syncer::PRIORITY_PREFERENCES,
       PrefSensitivity::kExemptFromUserControlWhileSignedIn,
       MergeBehavior::kNone}},
+#if BUILDFLAG(IS_CHROMEOS)
+    {kOsPrefName,
+     {0, syncer::OS_PREFERENCES, PrefSensitivity::kNone, MergeBehavior::kNone}},
+    {kOsPriorityPrefName,
+     {0, syncer::OS_PRIORITY_PREFERENCES, PrefSensitivity::kNone,
+      MergeBehavior::kNone}},
+#endif  // BUILDFLAG(IS_CHROMEOS)
 };
 
 constexpr char kUserSelectedTypesPrefName[] =
     "dual_layer_user_pref_store.user_selected_sync_types";
+#if BUILDFLAG(IS_CHROMEOS)
+constexpr char kUserSelectedOsTypesPrefName[] =
+    "dual_layer_user_pref_store.user_selected_os_sync_types";
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 base::Value MakeDict(
     const std::vector<std::pair<std::string, std::string>>& values) {
@@ -206,7 +221,7 @@ class DualLayerUserPrefStoreTest : public DualLayerUserPrefStoreTestBase {
 #if BUILDFLAG(IS_CHROMEOS)
     dual_layer_store_->EnableType(syncer::OS_PREFERENCES);
     dual_layer_store_->EnableType(syncer::OS_PRIORITY_PREFERENCES);
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 };
 
@@ -985,43 +1000,6 @@ class DualLayerUserPrefStoreTestForTypes
 };
 
 TEST_F(DualLayerUserPrefStoreTestForTypes,
-       ShouldAddOnlyEnabledTypePrefsToAccountStore) {
-  // Enable only PRIORITY_PREFERENCES
-  store()->EnableType(syncer::PRIORITY_PREFERENCES);
-
-  store()->SetValue(kPriorityPrefName, base::Value("priority-value"), 0);
-  store()->SetValue(kPrefName, base::Value("pref-value"), 0);
-
-  ASSERT_TRUE(ValueInStoreIs(*store()->GetAccountPrefStore(), kPriorityPrefName,
-                             "priority-value"));
-  // Regular pref is only added to the local pref store.
-  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
-  EXPECT_TRUE(
-      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "pref-value"));
-}
-
-TEST_F(DualLayerUserPrefStoreTestForTypes,
-       ShouldAddPrefsToAccountStoreOnlyAfterEnabled) {
-  store()->SetValue(kPrefName, base::Value("pref-value"), 0);
-
-  // Pref is only added to the local pref store.
-  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
-  EXPECT_TRUE(
-      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "pref-value"));
-
-  store()->EnableType(syncer::PREFERENCES);
-  // The pref is not copied to the account store on enable.
-  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
-
-  store()->SetValue(kPrefName, base::Value("new_value"), 0);
-  // Both stores are updated now.
-  EXPECT_TRUE(
-      ValueInStoreIs(*store()->GetAccountPrefStore(), kPrefName, "new_value"));
-  EXPECT_TRUE(
-      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "new_value"));
-}
-
-TEST_F(DualLayerUserPrefStoreTestForTypes,
        ShouldClearAllSyncablePrefsOfTypeFromAccountStoreOnDisable) {
   store()->EnableType(syncer::PREFERENCES);
   store()->EnableType(syncer::PRIORITY_PREFERENCES);
@@ -1193,10 +1171,62 @@ TEST_F(DualLayerUserPrefStoreTestForTypes,
   }
 }
 
-TEST_F(DualLayerUserPrefStoreTestForTypes,
+class DualLayerUserPrefStoreTestWithoutUseSelectedTypes
+    : public DualLayerUserPrefStoreTestForTypes {
+ public:
+  DualLayerUserPrefStoreTestWithoutUseSelectedTypes() {
+    feature_list_.InitAndDisableFeature(
+        syncer::kSyncPreferencesUseSelectedTypes);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(DualLayerUserPrefStoreTestWithoutUseSelectedTypes,
+       ShouldAddOnlyEnabledTypePrefsToAccountStore) {
+  // Enable only PRIORITY_PREFERENCES
+  store()->EnableType(syncer::PRIORITY_PREFERENCES);
+
+  store()->SetValue(kPriorityPrefName, base::Value("priority-value"), 0);
+  store()->SetValue(kPrefName, base::Value("pref-value"), 0);
+
+  ASSERT_TRUE(ValueInStoreIs(*store()->GetAccountPrefStore(), kPriorityPrefName,
+                             "priority-value"));
+  // Regular pref is only added to the local pref store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "pref-value"));
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithoutUseSelectedTypes,
+       ShouldAddPrefsToAccountStoreOnlyAfterEnabled) {
+  store()->SetValue(kPrefName, base::Value("pref-value"), 0);
+
+  // Pref is only added to the local pref store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "pref-value"));
+
+  store()->EnableType(syncer::PREFERENCES);
+  // The pref is not copied to the account store on enable.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
+
+  store()->SetValue(kPrefName, base::Value("new_value"), 0);
+  // Both stores are updated now.
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetAccountPrefStore(), kPrefName, "new_value"));
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "new_value"));
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithoutUseSelectedTypes,
        ShouldNotSetAccountValueForNotActiveTypesIfNotAlreadyExists) {
   ASSERT_TRUE(ValueInStoreIsAbsent(*account_store(), kPrefName));
 
+  // Preferences sync is toggled on.
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
   // PREFERENCES type is not active.
   ASSERT_EQ(0u, store()->GetActiveTypesForTest().count(syncer::PREFERENCES));
 
@@ -1218,6 +1248,203 @@ TEST_F(DualLayerUserPrefStoreTestForTypes,
     EXPECT_TRUE(ValueInStoreIsAbsent(*account_store(), kPrefName));
   }
 }
+
+class DualLayerUserPrefStoreTestWithUseSelectedTypes
+    : public DualLayerUserPrefStoreTestForTypes {
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      syncer::kSyncPreferencesUseSelectedTypes};
+};
+
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldAddPrefsToAccountStoreIfPrefsIsToggledOn) {
+  // Preferences sync is toggled on.
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+
+  // Enable only PRIORITY_PREFERENCES
+  store()->EnableType(syncer::PRIORITY_PREFERENCES);
+  ASSERT_THAT(store()->GetActiveTypesForTest(),
+              testing::ElementsAre(syncer::PRIORITY_PREFERENCES));
+
+  store()->SetValue(kPriorityPrefName, base::Value("priority-value"), 0);
+  store()->SetValue(kPrefName, base::Value("pref-value"), 0);
+
+  ASSERT_TRUE(ValueInStoreIs(*store()->GetAccountPrefStore(), kPriorityPrefName,
+                             "priority-value"));
+  // Regular pref is added to the account store even though it is not active
+  // yet.
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetAccountPrefStore(), kPrefName, "pref-value"));
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldAddPrefsToAccountStoreOnlyAfterSelected) {
+  // Preferences sync is toggled off.
+  store()->SetUserSelectedTypesForTest({});
+
+  store()->SetValue(kPrefName, base::Value("value"), 0);
+
+  // Pref is only added to the local pref store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "value"));
+
+  // Preferences sync is toggled on.
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+  // The pref is not copied to the account store on enable.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPrefName));
+
+  store()->SetValue(kPrefName, base::Value("new_value"), 0);
+  // Both stores are updated now.
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetAccountPrefStore(), kPrefName, "new_value"));
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kPrefName, "new_value"));
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldSetAccountValueForNotActiveTypesIfNotAlreadyExists) {
+  ASSERT_TRUE(ValueInStoreIsAbsent(*account_store(), kPrefName));
+
+  // Preferences sync is toggled on.
+  store()->SetUserSelectedTypesForTest(
+      {syncer::UserSelectableType::kPreferences});
+  // PREFERENCES type is not active.
+  ASSERT_EQ(0u, store()->GetActiveTypesForTest().count(syncer::PREFERENCES));
+
+  // `kPrefName` is set in the account store even though PREFERENCES type is not
+  // active and the pref does not already exist in the account store.
+  {
+    store()->SetValue(kPrefName, base::Value("new_value1"), 0);
+    EXPECT_TRUE(ValueInStoreIs(*account_store(), kPrefName, "new_value1"));
+  }
+  {
+    store()->SetValueSilently(kPrefName, base::Value("new_value2"), 0);
+    EXPECT_TRUE(ValueInStoreIs(*account_store(), kPrefName, "new_value2"));
+  }
+  {
+    base::Value* value = nullptr;
+    ASSERT_TRUE(store()->GetMutableValue(kPrefName, &value));
+    *value = base::Value("new_value3");
+    store()->ReportValueChanged(kPrefName, 0);
+    EXPECT_TRUE(ValueInStoreIs(*account_store(), kPrefName, "new_value3"));
+  }
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldSetAccountValueForToggledOffTypesIfAlreadyExists) {
+  // Preferences sync is off.
+  store()->SetUserSelectedTypesForTest({});
+
+  // Set pre-existing account pref value.
+  account_store()->SetValue(kPref1, base::Value("value"), 0);
+  // Account pref value is still read.
+  EXPECT_TRUE(ValueInStoreIs(*store(), kPref1, "value"));
+
+  store()->SetValue(kPref1, base::Value("new_value"), 0);
+  store()->SetValue(kPref2, base::Value("new_value2"), 0);
+  // The new value is still written to the account store for `kPref1` even
+  // though preferences sync is off.
+  EXPECT_TRUE(
+      ValueInStoreIs(*store()->GetAccountPrefStore(), kPref1, "new_value"));
+  // The same is not true for `kPref2` since it is not already present in the
+  // account store.
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kPref2));
+}
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Test to verify that the user selected OS types are loaded from a pref in the
+// local store.
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldGetUserSelectedOsTypesFromLocalStore) {
+  // Multiple types.
+  local_store()->SetValueSilently(kUserSelectedOsTypesPrefName,
+                                  base::Value(base::Value::List()
+                                                  .Append("passwords")
+                                                  .Append("osPreferences")
+                                                  .Append("osApps")),
+                                  0);
+  // Only the interesting type (osPreferences) is returned.
+  EXPECT_EQ(store()->GetUserSelectedOsTypesForTest(),
+            syncer::UserSelectableOsTypeSet(
+                {syncer::UserSelectableOsType::kOsPreferences}));
+
+  // Empty list.
+  local_store()->SetValueSilently(kUserSelectedOsTypesPrefName,
+                                  base::Value(base::Value::List()), 0);
+  EXPECT_TRUE(store()->GetUserSelectedOsTypesForTest().empty());
+}
+
+// Test to verify that the user selected OS types are stored in a pref in the
+// local store.
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldSetUserSelectedOsTypesToLocalStore) {
+  // Multiple types.
+  store()->SetUserSelectedOsTypesForTest(syncer::UserSelectableOsTypeSet(
+      {syncer::UserSelectableOsType::kOsPreferences}));
+  EXPECT_TRUE(
+      ValueInStoreIs(*local_store(), kUserSelectedOsTypesPrefName,
+                     base::Value(base::Value::List().Append("osPreferences"))));
+  EXPECT_TRUE(
+      ValueInStoreIsAbsent(*account_store(), kUserSelectedOsTypesPrefName));
+
+  // Empty list.
+  store()->SetUserSelectedOsTypesForTest(syncer::UserSelectableOsTypeSet());
+  EXPECT_TRUE(ValueInStoreIs(*local_store(), kUserSelectedOsTypesPrefName,
+                             base::Value(base::Value::List())));
+}
+
+// Test to verify that OS prefs are added to the account store only if the OS
+// preferences type is enabled.
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldAddOsPrefsToAccountStoreIfOsPrefsIsToggledOn) {
+  // OS Preferences sync is toggled on.
+  store()->SetUserSelectedOsTypesForTest(
+      {syncer::UserSelectableOsType::kOsPreferences});
+
+  // Enable only OS_PRIORITY_PREFERENCES
+  store()->EnableType(syncer::OS_PRIORITY_PREFERENCES);
+  ASSERT_THAT(store()->GetActiveTypesForTest(),
+              testing::ElementsAre(syncer::OS_PRIORITY_PREFERENCES));
+
+  store()->SetValue(kOsPriorityPrefName, base::Value("priority-value"), 0);
+  store()->SetValue(kOsPrefName, base::Value("pref-value"), 0);
+
+  ASSERT_TRUE(ValueInStoreIs(*store()->GetAccountPrefStore(),
+                             kOsPriorityPrefName, "priority-value"));
+  // Regular pref is added to the account store even though it is not active
+  // yet.
+  EXPECT_TRUE(ValueInStoreIs(*store()->GetAccountPrefStore(), kOsPrefName,
+                             "pref-value"));
+}
+
+TEST_F(DualLayerUserPrefStoreTestWithUseSelectedTypes,
+       ShouldNotAddOsPrefsToAccountStoreIfOsPrefsIsToggledOff) {
+  // OS Preferences sync is toggled off.
+  store()->SetUserSelectedOsTypesForTest({});
+
+  // Enable only OS_PRIORITY_PREFERENCES
+  store()->EnableType(syncer::OS_PRIORITY_PREFERENCES);
+  ASSERT_THAT(store()->GetActiveTypesForTest(),
+              testing::ElementsAre(syncer::OS_PRIORITY_PREFERENCES));
+
+  store()->SetValue(kOsPriorityPrefName, base::Value("priority-value"), 0);
+  store()->SetValue(kOsPrefName, base::Value("pref-value"), 0);
+
+  // OS prefs are not added to the account store since the OS pref type is
+  // disabled, they are only added to the local pref store.
+  ASSERT_TRUE(ValueInStoreIs(*store()->GetLocalPrefStore(), kOsPriorityPrefName,
+                             "priority-value"));
+  EXPECT_TRUE(ValueInStoreIsAbsent(*store()->GetAccountPrefStore(),
+                                   kOsPriorityPrefName));
+  ASSERT_TRUE(
+      ValueInStoreIs(*store()->GetLocalPrefStore(), kOsPrefName, "pref-value"));
+  EXPECT_TRUE(
+      ValueInStoreIsAbsent(*store()->GetAccountPrefStore(), kOsPrefName));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 class MergeTestPrefModelAssociatorClient : public PrefModelAssociatorClient {
  public:
@@ -1269,12 +1496,17 @@ class DualLayerUserPrefStoreMergeTest : public testing::Test {
 
     dual_layer_store_->AddObserver(&observer_);
 
+    // Set preferences user selected type by default.
+    // TODO(crbug.com/464008640): Also set kOsPreferences for
+    // OS_{,PRIORITY_}PREFERENCES.
+    dual_layer_store_->SetUserSelectedTypesForTest(
+        {syncer::UserSelectableType::kPreferences});
     dual_layer_store_->EnableType(syncer::PREFERENCES);
     dual_layer_store_->EnableType(syncer::PRIORITY_PREFERENCES);
 #if BUILDFLAG(IS_CHROMEOS)
     dual_layer_store_->EnableType(syncer::OS_PREFERENCES);
     dual_layer_store_->EnableType(syncer::OS_PRIORITY_PREFERENCES);
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
   ~DualLayerUserPrefStoreMergeTest() override {

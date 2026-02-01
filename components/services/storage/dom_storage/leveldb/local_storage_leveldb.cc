@@ -4,10 +4,16 @@
 
 #include "components/services/storage/dom_storage/leveldb/local_storage_leveldb.h"
 
+#include "base/check.h"
+#include "base/containers/contains.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_view_util.h"
 #include "base/types/expected_macros.h"
 #include "components/services/storage/dom_storage/dom_storage_constants.h"
 #include "components/services/storage/dom_storage/leveldb/dom_storage_batch_operation_leveldb.h"
 #include "components/services/storage/dom_storage/leveldb/dom_storage_database_leveldb.h"
+#include "components/services/storage/dom_storage/leveldb/dom_storage_database_leveldb_utils.h"
 #include "components/services/storage/dom_storage/leveldb/local_storage_database.pb.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
@@ -24,20 +30,7 @@ DomStorageDatabase::Key CreatePrefixedStorageKey(
     const blink::StorageKey& storage_key) {
   const std::string serialized_storage_key =
       storage_key.SerializeForLocalStorage();
-
-  base::span<const uint8_t> serialized_storage_key_bytes =
-      base::as_byte_span(serialized_storage_key);
-
-  DomStorageDatabase::Key result;
-  result.reserve(prefix.size() + serialized_storage_key.size());
-
-  // Append `prefix`.
-  result.insert(result.end(), prefix.begin(), prefix.end());
-
-  // Append `storage_key`.
-  result.insert(result.end(), serialized_storage_key_bytes.begin(),
-                serialized_storage_key_bytes.end());
-  return result;
+  return CreatePrefixedKey(prefix, base::as_byte_span(serialized_storage_key));
 }
 
 // Removes a prefix like "META:" or "METAACCESS:" from `key` and then attempts
@@ -109,57 +102,43 @@ std::optional<DomStorageDatabase::MapMetadata> TryParseAccessMetadata(
   };
 }
 
-LocalStorageLevelDB::LocalStorageLevelDB(PassKey) {}
-
-LocalStorageLevelDB::~LocalStorageLevelDB() = default;
-
-DbStatus LocalStorageLevelDB::Open(
-    PassKey,
-    const base::FilePath& directory,
-    const std::string& name,
-    const std::optional<base::trace_event::MemoryAllocatorDumpGuid>&
-        memory_dump_id) {
-  ASSIGN_OR_RETURN(
-      leveldb_,
-      DomStorageDatabaseLevelDB::Open(
-          directory, name, memory_dump_id, kLocalStorageLevelDBVersionKey,
-          /*min_supported_version=*/kLocalStorageLevelDBVersion,
-          /*max_supported_version=*/kLocalStorageLevelDBVersion));
-  return DbStatus::OK();
-}
-
-DomStorageDatabase::Key LocalStorageLevelDB::CreateAccessMetaDataKey(
+// Returns "METAACCESS:<serialized `storage_key`>".
+DomStorageDatabase::Key CreateAccessMetaDataKey(
     const blink::StorageKey& storage_key) {
   return CreatePrefixedStorageKey(kAccessMetaPrefix, storage_key);
 }
 
-DomStorageDatabase::Key LocalStorageLevelDB::CreateWriteMetaDataKey(
+// Returns "META:<serialized `storage_key`>".
+DomStorageDatabase::Key CreateWriteMetaDataKey(
     const blink::StorageKey& storage_key) {
   return CreatePrefixedStorageKey(kWriteMetaPrefix, storage_key);
 }
 
-DomStorageDatabase::Value LocalStorageLevelDB::CreateAccessMetaDataValue(
-    base::Time last_accessed) {
+// Return the the serialized bytes for the `LocalStorageAreaAccessMetaData`
+// protobuf with `last_accessed`.
+DomStorageDatabase::Value CreateAccessMetaDataValue(base::Time last_accessed) {
   storage::LocalStorageAreaAccessMetaData metadata;
   metadata.set_last_accessed(last_accessed.ToInternalValue());
   return ToBytes(metadata.SerializeAsString());
 }
 
-DomStorageDatabase::Value LocalStorageLevelDB::CreateWriteMetaDataValue(
-    base::Time last_modified,
-    base::ByteSize total_size) {
+// Return the the serialized bytes for the `LocalStorageAreaWriteMetaData`
+// protobuf with `last_modified` and `total_size`.
+DomStorageDatabase::Value CreateWriteMetaDataValue(base::Time last_modified,
+                                                   base::ByteSize total_size) {
   storage::LocalStorageAreaWriteMetaData metadata;
   metadata.set_last_modified(last_modified.ToInternalValue());
   metadata.set_size_bytes(total_size.InBytes());
   return ToBytes(metadata.SerializeAsString());
 }
 
-DomStorageDatabase::Key LocalStorageLevelDB::GetMapPrefix(
-    const blink::StorageKey& storage_key) {
+// Returns "_<storage key>\x00", which matches all of the map key/value pairs
+// for `storage_key`.
+DomStorageDatabase::Key GetMapPrefix(const blink::StorageKey& storage_key) {
   const std::string serialized_storage_key =
       storage_key.SerializeForLocalStorage();
 
-  Key map_prefix;
+  DomStorageDatabase::Key map_prefix;
   map_prefix.reserve(/*kLocalStorageSessionId=*/1 +
                      serialized_storage_key.size() +
                      /*kLocalStorageKeyMapSeparator=*/1);
@@ -179,8 +158,69 @@ DomStorageDatabase::Key LocalStorageLevelDB::GetMapPrefix(
   return map_prefix;
 }
 
-DomStorageDatabaseLevelDB& LocalStorageLevelDB::GetLevelDB() {
-  return *leveldb_;
+LocalStorageLevelDB::LocalStorageLevelDB(PassKey) {}
+
+LocalStorageLevelDB::~LocalStorageLevelDB() = default;
+
+DbStatus LocalStorageLevelDB::Open(
+    PassKey,
+    const base::FilePath& directory,
+    const std::string& name,
+    const std::optional<base::trace_event::MemoryAllocatorDumpGuid>&
+        memory_dump_id) {
+  ASSIGN_OR_RETURN(
+      leveldb_,
+      DomStorageDatabaseLevelDB::Open(
+          directory, name, memory_dump_id, kLocalStorageLevelDBVersionKey,
+          /*min_supported_version=*/kLocalStorageLevelDBVersion,
+          /*max_supported_version=*/kLocalStorageLevelDBVersion));
+  return DbStatus::OK();
+}
+
+StatusOr<std::map<DomStorageDatabase::Key, DomStorageDatabase::Value>>
+LocalStorageLevelDB::ReadMapKeyValues(MapLocator map_locator) {
+  CHECK_EQ(map_locator.session_ids().size(), 1u);
+  CHECK_EQ(map_locator.session_ids()[0], kLocalStorageSessionId);
+  return leveldb_->GetMapKeyValues(GetMapPrefix(map_locator.storage_key()));
+}
+
+DbStatus LocalStorageLevelDB::UpdateMaps(
+    std::vector<MapBatchUpdate> map_updates) {
+  std::unique_ptr<DomStorageBatchOperationLevelDB> leveldb_batch =
+      leveldb_->CreateBatchOperation();
+
+  for (const MapBatchUpdate& map_update : map_updates) {
+    const MapLocator& map_locator = map_update.map_locator;
+    CHECK_EQ(map_locator.session_ids().size(), 1u);
+    CHECK_EQ(map_locator.session_ids()[0], kLocalStorageSessionId);
+
+    DomStorageDatabase::Key map_prefix =
+        GetMapPrefix(map_locator.storage_key());
+
+    DB_RETURN_IF_ERROR(
+        leveldb_batch->UpdateMapKeyValues(map_prefix, map_update));
+
+    // Optionally update the map's usage metadata.
+    if (!map_update.map_usage) {
+      continue;
+    }
+
+    if (map_update.map_usage->should_delete_all_usage()) {
+      DeleteMapUsageMetadata(*leveldb_batch, map_locator.storage_key());
+    } else {
+      PutMapUsageMetadata(*leveldb_batch, map_locator.storage_key(),
+                          map_update.map_usage->last_accessed(),
+                          map_update.map_usage->last_modified(),
+                          map_update.map_usage->total_size());
+    }
+  }
+  return leveldb_batch->Commit();
+}
+
+DbStatus LocalStorageLevelDB::CloneMap(MapLocator source_map,
+                                       MapLocator target_map) {
+  // Local storage does not support cloning.
+  NOTREACHED();
 }
 
 StatusOr<DomStorageDatabase::Metadata> LocalStorageLevelDB::ReadAllMetadata() {
@@ -242,6 +282,8 @@ StatusOr<DomStorageDatabase::Metadata> LocalStorageLevelDB::ReadAllMetadata() {
 
   // Create a vector of `MapMetadata` to return using the map's values.
   std::vector<DomStorageDatabase::MapMetadata> results;
+  results.reserve(storage_key_metadata_map.size());
+
   for (std::pair<const blink::StorageKey, DomStorageDatabase::MapMetadata>&
            storage_key_metadata : storage_key_metadata_map) {
     results.emplace_back(std::move(storage_key_metadata.second));
@@ -259,53 +301,95 @@ DbStatus LocalStorageLevelDB::PutMetadata(Metadata metadata) {
   // Record usage for each map in `metadata`.
   for (const DomStorageDatabase::MapMetadata& map_usage :
        metadata.map_metadata) {
-    const blink::StorageKey& storage_key = map_usage.map_locator.storage_key();
-
-    if (map_usage.last_accessed) {
-      // Add "METAACCESS:" entry.
-      batch->Put(CreateAccessMetaDataKey(storage_key),
-                 CreateAccessMetaDataValue(*map_usage.last_accessed));
-    }
-
-    if (map_usage.last_modified && map_usage.total_size) {
-      // Add "META:" entry.
-      batch->Put(CreateWriteMetaDataKey(storage_key),
-                 CreateWriteMetaDataValue(*map_usage.last_modified,
-                                          *map_usage.total_size));
-    }
+    PutMapUsageMetadata(*batch, map_usage.map_locator.storage_key(),
+                        map_usage.last_accessed, map_usage.last_modified,
+                        map_usage.total_size);
   }
   return batch->Commit();
 }
 
 DbStatus LocalStorageLevelDB::DeleteStorageKeysFromSession(
     std::string session_id,
-    std::vector<blink::StorageKey> storage_keys,
-    absl::flat_hash_set<int64_t> excluded_cloned_map_ids) {
-  // Local storage uses a single global session without clones.
+    std::vector<blink::StorageKey> metadata_to_delete,
+    std::vector<MapLocator> maps_to_delete) {
+  // Local storage uses a single global session without clones.  To avoid
+  // orphaned maps, each deleted storage key must also delete its map.
   CHECK_EQ(session_id, kLocalStorageSessionId);
-  CHECK_EQ(excluded_cloned_map_ids.size(), 0u);
+  CHECK_EQ(maps_to_delete.size(), metadata_to_delete.size());
 
   std::unique_ptr<DomStorageBatchOperationLevelDB> batch =
       leveldb_->CreateBatchOperation();
 
-  for (const blink::StorageKey& storage_key : storage_keys) {
-    // Erase all map key/value pairs.
-    DbStatus status = batch->DeletePrefixed(GetMapPrefix(storage_key));
-    if (!status.ok()) {
-      return status;
-    }
+  for (const blink::StorageKey& storage_key : metadata_to_delete) {
+    DeleteMapUsageMetadata(*batch, storage_key);
+  }
 
-    // Erase the "METAACCESS:" entry.
-    batch->Delete(CreateAccessMetaDataKey(storage_key));
+  // Erase all map key/value pairs.
+  for (const MapLocator& map : maps_to_delete) {
+    // A valid `map` must be in `storage_keys` and `kLocalStorageSessionId`.
+    CHECK_EQ(map.session_ids().size(), 1u);
+    CHECK_EQ(map.session_ids()[0], kLocalStorageSessionId);
+    DCHECK(base::Contains(metadata_to_delete, map.storage_key()));
 
-    // Erase the "META:" entry.
-    batch->Delete(CreateWriteMetaDataKey(storage_key));
+    DB_RETURN_IF_ERROR(batch->DeletePrefixed(GetMapPrefix(map.storage_key())));
   }
   return batch->Commit();
 }
 
+DbStatus LocalStorageLevelDB::DeleteSessions(
+    std::vector<std::string> session_ids,
+    std::vector<MapLocator> maps_to_delete) {
+  // Not implemented.  Since local storage uses a single global session, callers
+  // should delete the entire database instead of the session.
+  NOTREACHED();
+}
+
+DbStatus LocalStorageLevelDB::PurgeOrigins(std::set<url::Origin> origins) {
+  ASSIGN_OR_RETURN(Metadata all_metadata, ReadAllMetadata());
+
+  std::vector<blink::StorageKey> metadata_to_delete;
+  std::vector<DomStorageDatabase::MapLocator> maps_to_delete;
+
+  for (const DomStorageDatabase::MapMetadata& metadata :
+       all_metadata.map_metadata) {
+    // Ideally we would be recording last_accessed instead, but there is no
+    // historical data on that. Instead, we will use last_modified as a sanity
+    // check against other data as we try to understand how many 'old' storage
+    // buckets are still in use. This is split into two buckets for greater
+    // resolution on near and far term ages.
+    if (metadata.last_modified && *metadata.last_modified < base::Time::Now()) {
+      const int days_since_last_modified =
+          (base::Time::Now() - *metadata.last_modified).InDays();
+      base::UmaHistogramCustomCounts("LocalStorage.DaysSinceLastModified",
+                                     days_since_last_modified, 1,
+                                     kStaleBucketCutoffInDays, 100);
+    }
+
+    const blink::StorageKey& storage_key = metadata.map_locator.storage_key();
+
+    for (const auto& origin : origins) {
+      if (storage_key.origin() == origin ||
+          (storage_key.IsThirdPartyContext() &&
+           storage_key.top_level_site().IsSameSiteWith(origin))) {
+        metadata_to_delete.push_back(storage_key);
+        maps_to_delete.emplace_back(kLocalStorageSessionId, storage_key);
+        break;
+      }
+    }
+  }
+
+  return DeleteStorageKeysFromSession(kLocalStorageSessionId,
+                                      std::move(metadata_to_delete),
+                                      std::move(maps_to_delete));
+}
+
 DbStatus LocalStorageLevelDB::RewriteDB() {
   return leveldb_->RewriteDB();
+}
+
+DbStatus LocalStorageLevelDB::PutVersionForTesting(int64_t version) {
+  return leveldb_->Put(kLocalStorageLevelDBVersionKey,
+                       base::as_byte_span(base::NumberToString(version)));
 }
 
 void LocalStorageLevelDB::MakeAllCommitsFailForTesting() {
@@ -315,6 +399,45 @@ void LocalStorageLevelDB::MakeAllCommitsFailForTesting() {
 void LocalStorageLevelDB::SetDestructionCallbackForTesting(
     base::OnceClosure callback) {
   leveldb_->SetDestructionCallbackForTesting(std::move(callback));
+}
+
+DomStorageDatabaseLevelDB& LocalStorageLevelDB::GetLevelDBForTesting() {
+  return *leveldb_;
+}
+
+void LocalStorageLevelDB::PutMapUsageMetadata(
+    DomStorageBatchOperationLevelDB& batch,
+    const blink::StorageKey& map_storage_key,
+    std::optional<base::Time> last_accessed,
+    std::optional<base::Time> last_modified,
+    std::optional<base::ByteSize> total_size) {
+  // `PutMapUsageMetadata()` must have at least one value to write.
+  CHECK(last_accessed || last_modified);
+
+  // The "META:" entry requires both `last_modified` and `total_size`.
+  CHECK_EQ(last_modified.has_value(), total_size.has_value());
+
+  if (last_accessed) {
+    // Add "METAACCESS:" entry.
+    batch.Put(CreateAccessMetaDataKey(map_storage_key),
+              CreateAccessMetaDataValue(*last_accessed));
+  }
+
+  if (last_modified) {
+    // Add "META:" entry.
+    batch.Put(CreateWriteMetaDataKey(map_storage_key),
+              CreateWriteMetaDataValue(*last_modified, *total_size));
+  }
+}
+
+void LocalStorageLevelDB::DeleteMapUsageMetadata(
+    DomStorageBatchOperationLevelDB& batch,
+    const blink::StorageKey& map_storage_key) {
+  // Erase the "METAACCESS:" entry.
+  batch.Delete(CreateAccessMetaDataKey(map_storage_key));
+
+  // Erase the "META:" entry.
+  batch.Delete(CreateWriteMetaDataKey(map_storage_key));
 }
 
 }  // namespace storage

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "components/history/core/browser/history_types.h"
 #include "url/origin.h"
 
@@ -111,7 +112,7 @@ class VisitDatabase {
   // detection is performed, so if `times` has duplicate times,
   // `visits` may have duplicate visits. Includes visits that result in 404
   // error response codes.
-  bool GetVisitsForTimes(const std::vector<base::Time>& times,
+  bool GetVisitsForTimes(base::span<const base::Time> times,
                          VisitVector* visits);
 
   // Fills all visits in the time range [begin, end) to the given vector. Either
@@ -379,6 +380,11 @@ class VisitDatabase {
   // Called by the derived classes to migrate the older visits table which
   // doesn't have the `app_id` column.
   bool MigrateVisitsAddAppId();
+
+  // Helper to prepare the SQL statement and bind parameters for visible visits.
+  bool PrepareVisibleVisitsQuery(const QueryOptions& options,
+                                 std::optional<URLID> url_id_to_bind,
+                                 sql::Statement& out_statement);
 };
 
 // Columns, in order, of the visit table.

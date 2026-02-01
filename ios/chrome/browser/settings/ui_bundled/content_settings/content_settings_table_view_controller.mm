@@ -16,6 +16,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/block_popups_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
@@ -54,6 +55,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeSettingsDetectAddresses,
   ItemTypeSettingsMiniMapShowNative,
   ItemTypeSettingsDetectUnits,
+  ItemTypeSettingsShowReadingModeAvailable,
   ItemTypeSettingsWebInspector,
 };
 
@@ -69,12 +71,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
   TableViewMultiDetailTextItem* _openedInAnotherWindowItem;
   TableViewDetailIconItem* _defaultSiteMode;
   TableViewDetailIconItem* _webInspectorStateItem;
-
-  // PrefBackedBoolean for Mini Map show native setting state.
-  PrefBackedBoolean* _miniMapShowNativeEnabled;
-
-  // The item related to the switch for the "MiniMap native" setting.
-  TableViewSwitchItem* _miniMapShowNativeViewItem;
 }
 
 // PrefBackedBoolean for "Show Link Preview" setting state.
@@ -87,6 +83,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
 // PrefBackedBoolean for "Detect units" setting state.
 @property(nonatomic, strong, readonly) PrefBackedBoolean* detectUnitsEnabled;
 
+// PrefBackedBoolean for "Show when Reading mode is available" setting state.
+@property(nonatomic, strong, readonly)
+    PrefBackedBoolean* showReadingModeAvailableEnabled;
+
 // The item related to the switch for the "Show Link Preview" setting.
 @property(nonatomic, strong) TableViewSwitchItem* linkPreviewItem;
 
@@ -95,6 +95,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 // The item related to the switch for the "Detect units" setting.
 @property(nonatomic, strong) TableViewSwitchItem* detectUnitsItem;
+
+// The item related to the switch for the "Show when Reading mode is available"
+// setting.
+@property(nonatomic, strong) TableViewSwitchItem* showReadingModeAvailableItem;
 
 // The item related to the default mode used to load the pages.
 @property(nonatomic, strong) TableViewDetailIconItem* defaultModeItem;
@@ -150,15 +154,17 @@ typedef NS_ENUM(NSInteger, ItemType) {
                    prefName:prefs::kDetectAddressesEnabled];
     [_detectAddressesEnabled setObserver:self];
 
-    _miniMapShowNativeEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:prefService
-                   prefName:prefs::kIosMiniMapShowNativeMap];
-    [_miniMapShowNativeEnabled setObserver:self];
-
     _detectUnitsEnabled = [[PrefBackedBoolean alloc]
         initWithPrefService:prefService
                    prefName:prefs::kDetectUnitsEnabled];
     [_detectUnitsEnabled setObserver:self];
+
+    if (IsReaderModeAvailable() && IsReaderModeOmniboxEntryPointEnabled()) {
+      _showReadingModeAvailableEnabled = [[PrefBackedBoolean alloc]
+          initWithPrefService:prefService
+                     prefName:prefs::kIosReaderModeShowAvailability];
+      [_showReadingModeAvailableEnabled setObserver:self];
+    }
 
     _requestDesktopSetting = [[ContentSettingBackedBoolean alloc]
         initWithHostContentSettingsMap:settingsMap
@@ -225,12 +231,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [_detectAddressesEnabled stop];
   _detectAddressesEnabled.observer = nil;
   _detectAddressesEnabled = nil;
-  [_miniMapShowNativeEnabled stop];
-  _miniMapShowNativeEnabled.observer = nil;
-  _miniMapShowNativeEnabled = nil;
   [_detectUnitsEnabled stop];
   _detectUnitsEnabled.observer = nil;
   _detectUnitsEnabled = nil;
+  [_showReadingModeAvailableEnabled stop];
+  _showReadingModeAvailableEnabled.observer = nil;
+  _showReadingModeAvailableEnabled = nil;
   [_webInspectorEnabled stop];
   _webInspectorEnabled.observer = nil;
   _webInspectorEnabled = nil;
@@ -279,15 +285,16 @@ typedef NS_ENUM(NSInteger, ItemType) {
         toSectionWithIdentifier:SectionIdentifierSettings];
   }
 
-  if (base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink)) {
-    [model addItem:[self miniMapShowNativeViewItem]
-        toSectionWithIdentifier:SectionIdentifierSettings];
-  }
-
   if (base::FeatureList::IsEnabled(web::features::kEnableMeasurements)) {
     [model addItem:[self detectUnitItem]
         toSectionWithIdentifier:SectionIdentifierSettings];
   }
+
+  if (self.showReadingModeAvailableEnabled) {
+    [model addItem:[self showReadingModeAvailableItem]
+        toSectionWithIdentifier:SectionIdentifierSettings];
+  }
+
   if (web::features::IsWebInspectorSupportEnabled()) {
     self.webInspectorItem = [self webInspectorStateItem];
     [model addSectionWithIdentifier:SectionIdentifierDeveloperTools];
@@ -391,6 +398,26 @@ typedef NS_ENUM(NSInteger, ItemType) {
   return _linkPreviewItem;
 }
 
+- (TableViewSwitchItem*)showReadingModeAvailableItem {
+  if (!_showReadingModeAvailableItem) {
+    _showReadingModeAvailableItem = [[TableViewSwitchItem alloc]
+        initWithType:ItemTypeSettingsShowReadingModeAvailable];
+
+    _showReadingModeAvailableItem.text =
+        l10n_util::GetNSString(IDS_IOS_READING_MODE_SETTING_TITLE);
+    _showReadingModeAvailableItem.detailText =
+        l10n_util::GetNSString(IDS_IOS_READING_MODE_SETTING_DESCRIPTION);
+    _showReadingModeAvailableItem.on =
+        [self.showReadingModeAvailableEnabled value];
+    _showReadingModeAvailableItem.target = self;
+    _showReadingModeAvailableItem.selector =
+        @selector(showReadingModeAvailableSwitchToggled:);
+    _showReadingModeAvailableItem.accessibilityIdentifier =
+        kSettingsShowReadingModeAvailableCellId;
+  }
+  return _showReadingModeAvailableItem;
+}
+
 - (TableViewSwitchItem*)detectAddressItem {
   if (!_detectAddressesItem) {
     _detectAddressesItem = [[TableViewSwitchItem alloc]
@@ -407,23 +434,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
         kSettingsDetectAddressesCellId;
   }
   return _detectAddressesItem;
-}
-
-- (TableViewSwitchItem*)miniMapShowNativeViewItem {
-  if (!_miniMapShowNativeViewItem) {
-    _miniMapShowNativeViewItem = [[TableViewSwitchItem alloc]
-        initWithType:ItemTypeSettingsMiniMapShowNative];
-
-    _miniMapShowNativeViewItem.text =
-        l10n_util::GetNSString(IDS_IOS_MAPS_PREVIEWS_SETTING_TITLE);
-    _miniMapShowNativeViewItem.on = [_miniMapShowNativeEnabled value];
-    _miniMapShowNativeViewItem.target = self;
-    _miniMapShowNativeViewItem.selector =
-        @selector(detectMiniMapSwitchToggled:);
-    _miniMapShowNativeViewItem.accessibilityIdentifier =
-        kSettingsMimiMapNativeCellId;
-  }
-  return _miniMapShowNativeViewItem;
 }
 
 - (TableViewSwitchItem*)detectUnitItem {
@@ -520,6 +530,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
   } else if (observableBoolean == self.linkPreviewEnabled) {
     self.linkPreviewItem.on = [self.linkPreviewEnabled value];
     [self reconfigureCellsForItems:@[ self.linkPreviewItem ]];
+  } else if (observableBoolean == self.showReadingModeAvailableEnabled) {
+    self.showReadingModeAvailableItem.on =
+        [self.showReadingModeAvailableEnabled value];
+    [self reconfigureCellsForItems:@[ self.showReadingModeAvailableItem ]];
   } else if (observableBoolean == self.requestDesktopSetting &&
              self.defaultModeItem) {
     self.defaultModeItem.detailText = [self defaultModeDescription];
@@ -531,9 +545,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
   } else if (observableBoolean == self.detectAddressesEnabled) {
     self.detectAddressItem.on = [self.detectAddressesEnabled value];
     [self reconfigureCellsForItems:@[ self.detectAddressItem ]];
-  } else if (observableBoolean == _miniMapShowNativeEnabled) {
-    _miniMapShowNativeViewItem.on = [_miniMapShowNativeEnabled value];
-    [self reconfigureCellsForItems:@[ _miniMapShowNativeViewItem ]];
   } else if (observableBoolean == self.detectUnitsEnabled) {
     self.detectUnitsItem.on = [self.detectUnitsEnabled value];
     [self reconfigureCellsForItems:@[ self.detectUnitsItem ]];
@@ -550,16 +561,16 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self.linkPreviewEnabled setValue:newSwitchValue];
 }
 
+- (void)showReadingModeAvailableSwitchToggled:(UISwitch*)sender {
+  BOOL newSwitchValue = sender.isOn;
+  self.showReadingModeAvailableItem.on = newSwitchValue;
+  [self.showReadingModeAvailableEnabled setValue:newSwitchValue];
+}
+
 - (void)detectAddressesSwitchToggled:(UISwitch*)sender {
   BOOL newSwitchValue = sender.isOn;
   self.detectAddressesItem.on = newSwitchValue;
   [self.detectAddressesEnabled setValue:newSwitchValue];
-}
-
-- (void)detectMiniMapSwitchToggled:(UISwitch*)sender {
-  BOOL newSwitchValue = sender.isOn;
-  _miniMapShowNativeViewItem.on = newSwitchValue;
-  [_miniMapShowNativeEnabled setValue:newSwitchValue];
 }
 
 - (void)detectUnitsSwitchToggled:(UISwitch*)sender {

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "mojo/public/c/system/invitation.h"
 
 #include <cstdint>
@@ -19,7 +14,7 @@
 #include "base/base_switches.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
+#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -387,9 +382,9 @@ void MAYBE_InvitationTest::SendInvitationToClient(
   MojoHandle invitation;
   CHECK_EQ(MOJO_RESULT_OK, MojoCreateInvitation(nullptr, &invitation));
   for (uint32_t name = 0; name < num_primordial_pipes; ++name) {
-    CHECK_EQ(MOJO_RESULT_OK,
-             MojoAttachMessagePipeToInvitation(invitation, &name, 4, nullptr,
-                                               &primordial_pipes[name]));
+    UNSAFE_TODO(CHECK_EQ(MOJO_RESULT_OK, MojoAttachMessagePipeToInvitation(
+                                             invitation, &name, 4, nullptr,
+                                             &primordial_pipes[name])));
   }
 
   MojoPlatformProcessHandle process_handle;
@@ -583,7 +578,7 @@ class RemoteProcessState {
   void NotifyError(const std::string& error_message, bool disconnected) {
     base::AutoLock lock(lock_);
     CHECK(!disconnected_);
-    EXPECT_TRUE(base::Contains(error_message, expected_error_message_));
+    EXPECT_TRUE(error_message.contains(expected_error_message_));
     disconnected_ = disconnected;
     ++call_count_;
     if (error_callback_) {
@@ -1043,7 +1038,7 @@ TEST_F(MAYBE_InvitationTest, MultiBrokerNetwork) {
 MojoHandle CreateMemory(std::string_view contents) {
   auto region = base::WritableSharedMemoryRegion::Create(contents.size());
   auto mapping = region.Map();
-  memcpy(mapping.memory(), contents.data(), contents.size());
+  UNSAFE_TODO(memcpy(mapping.memory(), contents.data(), contents.size()));
   auto buffer = WrapReadOnlySharedMemoryRegion(
       base::WritableSharedMemoryRegion::ConvertToReadOnly(std::move(region)));
   return buffer.release().value();

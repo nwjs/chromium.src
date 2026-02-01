@@ -264,8 +264,8 @@ void WorkerGlobalScope::importScripts(
   // [...]
   for (const auto& url : urls) {
     url_strings.push_back(TrustedTypesCheckForScriptURL(
-        url, GetExecutionContext(), "WorkerGlobalScope", "importScripts",
-        exception_state));
+        url, GetExecutionContext(), trusted_types_names::kWorkerGlobalScope,
+        trusted_types_names::kImportScripts, exception_state));
     if (exception_state.HadException()) {
       return;
     }
@@ -278,7 +278,7 @@ void WorkerGlobalScope::importScripts(
 namespace {
 
 String NetworkErrorMessageAtImportScript(const KURL& url) {
-  return "The script at '" + url.ElidedString() + "' failed to load.";
+  return StrCat({"The script at '", url.ElidedString(), "' failed to load."});
 }
 
 }  // namespace
@@ -335,7 +335,7 @@ void WorkerGlobalScope::ImportScriptsInternal(const Vector<String>& urls,
     if (!url.IsValid()) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kSyntaxError,
-          "The URL '" + url_string + "' is invalid.");
+          StrCat({"The URL '", url_string, "' is invalid."}));
       return;
     }
     if (!GetContentSecurityPolicy()->AllowScriptFromSource(
@@ -856,14 +856,9 @@ void WorkerGlobalScope::Trace(Visitor* visitor) const {
   visitor->Trace(trusted_types_);
   visitor->Trace(worker_script_);
   visitor->Trace(browser_interface_broker_proxy_);
-  visitor->Trace(global_fetch_impl_);
-  visitor->Trace(global_cache_storage_impl_);
-  visitor->Trace(global_cookie_store_impl_);
-  visitor->Trace(global_performance_impl_);
-  visitor->Trace(font_face_set_worker_);
-  ExecutionContext::Trace(visitor);
-  WindowOrWorkerGlobalScope::Trace(visitor);
+  UniversalGlobalScope::Trace(visitor);
   WorkerOrWorkletGlobalScope::Trace(visitor);
+  Supplementable<WorkerGlobalScope>::Trace(visitor);
 }
 
 bool WorkerGlobalScope::HasPendingActivity() const {

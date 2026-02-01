@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <utility>
+#include <optional>
+#include <string>
 
 #include "base/check.h"
 #include "base/functional/bind.h"
@@ -37,14 +39,15 @@ void ChromeMetadataSource::Get(const std::string& key,
 
 void ChromeMetadataSource::OnSimpleLoaderComplete(
     RequestList::iterator it,
-    std::unique_ptr<std::string> response_body) {
+    std::optional<std::string> response_body) {
   const Callback& callback = it->get()->callback;
   const std::string& key = it->get()->key;
-  std::unique_ptr<std::string> data(new std::string());
-  bool ok = !!response_body;
-  if (ok)
-    data->swap(*response_body);
-  callback(ok, key, data.release());
+  std::string data;
+  bool ok = response_body.has_value();
+  if (ok) {
+    data.swap(*response_body);
+  }
+  callback(ok, key, std::move(data));
   requests_.erase(it);
 }
 
@@ -58,7 +61,7 @@ void ChromeMetadataSource::Download(const std::string& key,
                                     const Callback& downloaded) {
   GURL resource(validation_data_url_ + key);
   if (!resource.SchemeIsCryptographic()) {
-    downloaded(false, key, NULL);
+    downloaded(false, key, std::nullopt);
     return;
   }
   DCHECK(url_loader_factory_);

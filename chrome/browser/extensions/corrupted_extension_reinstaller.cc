@@ -4,7 +4,6 @@
 
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -77,16 +76,18 @@ void CorruptedExtensionReinstaller::ExpectReinstallForCorruption(
     const ExtensionId& id,
     std::optional<PolicyReinstallReason> reason_for_uma,
     mojom::ManifestLocation manifest_location_for_uma) {
-  if (base::Contains(expected_reinstalls_, id))
+  if (expected_reinstalls_.contains(id)) {
     return;
+  }
   expected_reinstalls_[id] = base::TimeTicks::Now();
   if (reason_for_uma)
     RecordPolicyReinstallReason(*reason_for_uma);
 }
 
 void CorruptedExtensionReinstaller::MarkResolved(const ExtensionId& id) {
-  if (!base::Contains(expected_reinstalls_, id))
+  if (!expected_reinstalls_.contains(id)) {
     return;
+  }
 
   base::TimeDelta latency = base::TimeTicks::Now() - expected_reinstalls_[id];
   base::UmaHistogramLongTimes("Extensions.CorruptPolicyExtensionResolved",
@@ -98,7 +99,7 @@ void CorruptedExtensionReinstaller::MarkResolved(const ExtensionId& id) {
 
 bool CorruptedExtensionReinstaller::IsReinstallForCorruptionExpected(
     const ExtensionId& id) const {
-  return base::Contains(expected_reinstalls_, id);
+  return expected_reinstalls_.contains(id);
 }
 
 bool CorruptedExtensionReinstaller::HasAnyReinstallForCorruption() const {

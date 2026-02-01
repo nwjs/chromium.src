@@ -660,14 +660,14 @@ void AwBrowserContext::SetExtraHeadersForUrl(const GURL& url,
 }
 
 // static
-static jboolean JNI_AwBrowserContext_IsValidHttpHeaderName(
+static bool JNI_AwBrowserContext_IsValidHttpHeaderName(
     JNIEnv* env,
     std::string& header_name) {
   return net::HttpUtil::IsValidHeaderName(header_name);
 }
 
 // static
-static jboolean JNI_AwBrowserContext_IsValidHttpHeaderValue(
+static bool JNI_AwBrowserContext_IsValidHttpHeaderValue(
     JNIEnv* env,
     std::string& header_value) {
   return net::HttpUtil::IsValidHeaderValue(header_value);
@@ -800,7 +800,7 @@ void AwBrowserContext::AddQuicHints(JNIEnv* env,
 
 void AwBrowserContext::SetServiceWorkerIoThreadClient(
     JNIEnv* const env,
-    const base::android::JavaParamRef<jobject>& io_thread_client) {
+    const base::android::JavaRef<jobject>& io_thread_client) {
   sw_io_thread_client_ =
       base::android::ScopedJavaGlobalRef<jobject>(io_thread_client);
 }

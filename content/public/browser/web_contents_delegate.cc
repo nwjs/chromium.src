@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/notreached.h"
@@ -334,12 +333,12 @@ WebContentsDelegate::~WebContentsDelegate() {
 }
 
 void WebContentsDelegate::Attach(WebContents* web_contents) {
-  DCHECK(!base::Contains(attached_contents_, web_contents));
+  DCHECK(!attached_contents_.contains(web_contents));
   attached_contents_.insert(web_contents);
 }
 
 void WebContentsDelegate::Detach(WebContents* web_contents) {
-  DCHECK(base::Contains(attached_contents_, web_contents));
+  DCHECK(attached_contents_.contains(web_contents));
   attached_contents_.erase(web_contents);
 }
 
@@ -402,6 +401,10 @@ bool WebContentsDelegate::OnlyExpandTopControlsAtPageTop() {
 PictureInPictureResult WebContentsDelegate::EnterPictureInPicture(
     WebContents* web_contents) {
   return PictureInPictureResult::kNotSupported;
+}
+
+std::optional<gfx::Rect> WebContentsDelegate::GetWindowBoundsInScreen() {
+  return std::nullopt;
 }
 
 bool WebContentsDelegate::ShouldAllowLazyLoad() {

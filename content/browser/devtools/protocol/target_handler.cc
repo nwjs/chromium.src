@@ -10,7 +10,6 @@
 #include <string_view>
 
 #include "base/base64.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -229,6 +228,8 @@ class BrowserToPageConnector {
 
     base::Value::Dict add_binding_params;
     add_binding_params.Set("name", binding_name);
+    // Expose to the default execution context only.
+    add_binding_params.Set("executionContextName", "");
     SendProtocolMessageToPage("Runtime.addBinding",
                               base::Value(std::move(add_binding_params)));
 
@@ -236,14 +237,13 @@ class BrowserToPageConnector {
         base::StringPrintf(kInitializerScript, binding_name.c_str());
 
     base::Value::Dict params;
-    params.Set("scriptSource", initializer_script);
-    SendProtocolMessageToPage("Page.addScriptToEvaluateOnLoad",
+    params.Set("source", initializer_script);
+    params.Set("worldName", "");
+    // Run the initializer script immediately on the current page. This is
+    // needed to expose the binding to the current page.
+    params.Set("runImmediately", true);
+    pending_request_id_ = SendProtocolMessageToPage("Page.addScriptToEvaluateOnNewDocument",
                               base::Value(std::move(params)));
-
-    base::Value::Dict evaluate_params;
-    evaluate_params.Set("expression", initializer_script);
-    pending_request_id_ = SendProtocolMessageToPage(
-        "Runtime.evaluate", base::Value(std::move(evaluate_params)));
     GetInstanceMap()[page_host_.get()].reset(this);
   }
 
@@ -901,7 +901,7 @@ bool TargetHandler::AutoAttach(TargetAutoAttacher* source,
   if (!auto_attach_target_filter_->Match(*host)) {
     return false;
   }
-  if (base::Contains(auto_attached_sessions_, host)) {
+  if (auto_attached_sessions_.contains(host)) {
     return false;
   }
   if (!auto_attach_service_workers_ &&
@@ -936,12 +936,12 @@ void TargetHandler::SetAttachedTargetsOfType(
     if (host->GetType() == type &&
         entry.second->auto_attacher_id_ ==
             reinterpret_cast<uintptr_t>(source) &&
-        !base::Contains(new_hosts, host)) {
+        !new_hosts.contains(host)) {
       AutoDetach(source, host.get());
     }
   }
   for (auto& host : new_hosts) {
-    if (!base::Contains(old_sessions, host.get())) {
+    if (!old_sessions.contains(host.get())) {
       AutoAttach(source, host.get(), false);
     }
   }
@@ -949,7 +949,7 @@ void TargetHandler::SetAttachedTargetsOfType(
 
 void TargetHandler::TargetInfoChanged(DevToolsAgentHost* host) {
   // Only send target info for targets we reported in any way.
-  if (!base::Contains(reported_hosts_, host) &&
+  if (!reported_hosts_.contains(host) &&
       auto_attached_sessions_.find(host) == auto_attached_sessions_.end()) {
     return;
   }
@@ -1238,7 +1238,7 @@ Response TargetHandler::CloseTarget(const std::string& target_id,
   if (access_mode_ == AccessMode::kAutoAttachOnly) {
     // Only allow to close the targets that we are attached to.
     if (target_id != owner_target_id_ &&
-        !base::Contains(auto_attached_sessions_, agent_host.get())) {
+        !auto_attached_sessions_.contains(agent_host.get())) {
       return Response::ServerError(kNotAllowedError);
     }
   }
@@ -1397,7 +1397,7 @@ void TargetHandler::DevToolsAgentHostCreated(DevToolsAgentHost* host) {
   }
   // If we start discovering late, all existing agent hosts will be reported,
   // but we could have already attached to some.
-  if (!base::Contains(reported_hosts_, host)) {
+  if (!reported_hosts_.contains(host)) {
     frontend_->TargetCreated(BuildTargetInfo(host));
     reported_hosts_.insert(host);
   }
@@ -1408,7 +1408,7 @@ void TargetHandler::DevToolsAgentHostNavigated(DevToolsAgentHost* host) {
 }
 
 void TargetHandler::DevToolsAgentHostDestroyed(DevToolsAgentHost* host) {
-  if (!base::Contains(reported_hosts_, host)) {
+  if (!reported_hosts_.contains(host)) {
     return;
   }
   frontend_->TargetDestroyed(host->GetId());
@@ -1425,7 +1425,7 @@ void TargetHandler::DevToolsAgentHostDetached(DevToolsAgentHost* host) {
 
 void TargetHandler::DevToolsAgentHostCrashed(DevToolsAgentHost* host,
                                              base::TerminationStatus status) {
-  if (!base::Contains(reported_hosts_, host)) {
+  if (!reported_hosts_.contains(host)) {
     return;
   }
   frontend_->TargetCrashed(host->GetId(), TerminationStatusToString(status),
@@ -1519,7 +1519,8 @@ void TargetHandler::CreateBrowserContext(
 }
 
 protocol::Response TargetHandler::GetBrowserContexts(
-    std::unique_ptr<protocol::Array<protocol::String>>* browser_context_ids) {
+    std::unique_ptr<protocol::Array<protocol::String>>* browser_context_ids,
+    std::optional<std::string>* default_browser_context_id) {
   if (access_mode_ != AccessMode::kBrowser) {
     return Response::ServerError(kNotAllowedError);
   }
@@ -1534,6 +1535,11 @@ protocol::Response TargetHandler::GetBrowserContexts(
   *browser_context_ids = std::make_unique<protocol::Array<protocol::String>>();
   for (auto* context : contexts) {
     (*browser_context_ids)->emplace_back(context->UniqueId());
+  }
+
+  BrowserContext* default_context = delegate->GetDefaultBrowserContext();
+  if (default_context) {
+    *default_browser_context_id = default_context->UniqueId();
   }
   return Response::Success();
 }

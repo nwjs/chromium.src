@@ -14,6 +14,7 @@
 #include "base/no_destructor.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
@@ -100,15 +101,16 @@ class VideoEncodeDelegateFactory
       VideoCodecProfile profile) override {
     switch (VideoCodecProfileToVideoCodec(profile)) {
       case VideoCodec::kH264:
-        return std::make_unique<D3D12VideoEncodeH264Delegate>(
-            video_device,
-            gpu_workarounds_.disable_d3d12_h264_encoder_non_reference_frames);
+        return std::make_unique<D3D12VideoEncodeH264Delegate>(video_device,
+                                                              gpu_workarounds_);
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
       case VideoCodec::kHEVC:
-        return std::make_unique<D3D12VideoEncodeH265Delegate>(video_device);
+        return std::make_unique<D3D12VideoEncodeH265Delegate>(video_device,
+                                                              gpu_workarounds_);
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
       case VideoCodec::kAV1:
-        return std::make_unique<D3D12VideoEncodeAV1Delegate>(video_device);
+        return std::make_unique<D3D12VideoEncodeAV1Delegate>(video_device,
+                                                             gpu_workarounds_);
       default:
         return nullptr;
     }
@@ -153,34 +155,39 @@ void GenerateResourceOnSynTokenReleased(
       shared_image_manager->ProduceVideo(
           d3d11_device, frame->shared_image()->mailbox(),
           command_buffer_helper->GetMemoryTypeTracker());
+  RETURN_ON_FAILURE_WITH_CALLBACK(representation ? S_OK : E_FAIL,
+                                  "Failed to produce video");
+
   auto scoped_read_access = representation->BeginScopedReadAccess();
-  Microsoft::WRL::ComPtr<ID3D11Texture2D> input_texture =
+  gpu::D3D11TextureAndArrayIndex input_texture =
       scoped_read_access->GetD3D11Texture();
 
+  D3D11_TEXTURE2D_DESC desc;
+  input_texture.texture->GetDesc(&desc);
+  bool is_texture_array = desc.ArraySize > 1;
+  // Array index must be 0 if input is not texture array.
+  CHECK(is_texture_array || !input_texture.array_index);
+
   Microsoft::WRL::ComPtr<IDXGIResource1> dxgi_resource;
-  HRESULT hr = input_texture.As(&dxgi_resource);
-  RETURN_ON_FAILURE_WITH_CALLBACK(
-      hr, "Failed to query IDXGIResource1 from input texture.");
+  HRESULT hr = input_texture.texture.As(&dxgi_resource);
+  CHECK_EQ(hr, S_OK);
 
   Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3d11_context;
   d3d11_device->GetImmediateContext(&d3d11_context);
   Microsoft::WRL::ComPtr<IDXGIDevice2> dxgi_device2;
   hr = d3d11_device.As(&dxgi_device2);
-  RETURN_ON_FAILURE_WITH_CALLBACK(
-      hr, "Failed to query IDXGIDevice2 from D3D11 device");
+  CHECK_EQ(hr, S_OK);
 
   base::win::ScopedHandle shared_handle;
-  HANDLE input_handle = nullptr;
-  hr = dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ,
-                                         nullptr, &input_handle);
-  bool use_shared_handle = false;
-  if (SUCCEEDED(hr)) {
-    use_shared_handle = true;
-    shared_handle.Set(input_handle);
+  if (!is_texture_array) {
+    HANDLE input_handle = nullptr;
+    hr = dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ,
+                                           nullptr, &input_handle);
+    if (SUCCEEDED(hr)) {
+      shared_handle.Set(input_handle);
+    }
   }
 
-  D3D11_TEXTURE2D_DESC desc;
-  input_texture->GetDesc(&desc);
   bool input_has_keyed_mutex =
       desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX;
   Microsoft::WRL::ComPtr<IDXGIKeyedMutex> keyed_mutex;
@@ -188,8 +195,8 @@ void GenerateResourceOnSynTokenReleased(
 
   // If the input_texture is backed by shared handle, BeginScopedReadAccess()
   // will automatically acquire the keyed mutex if it exists.
-  if (!use_shared_handle && input_has_keyed_mutex) {
-    hr = input_texture.As(&keyed_mutex);
+  if (!shared_handle.is_valid() && input_has_keyed_mutex) {
+    hr = input_texture.texture.As(&keyed_mutex);
     if (SUCCEEDED(hr)) {
       // Acquire the keyed mutex before using the texture in D3D12.
       hr = keyed_mutex->AcquireSync(0, INFINITE);
@@ -212,11 +219,11 @@ void GenerateResourceOnSynTokenReleased(
     d3d11_context->Flush();
   }
 
-  if (!use_shared_handle) {
-    // If shared handle creation fails, create a copy of the texture. This does
-    // not need to be a keyed mutex texture, as we will make sure the copy is
-    // finished before handing over to D3D12, and D3D11 will not touch it any
-    // more.
+  if (!shared_handle.is_valid()) {
+    // If shared handle creation fails or the texture is an array, create a copy
+    // of the texture. This does not need to be a keyed mutex texture, as we
+    // will make sure the copy is finished before handing over to D3D12, and
+    // D3D11 will not touch it any more.
     desc.MiscFlags =
         D3D11_RESOURCE_MISC_SHARED_NTHANDLE | D3D11_RESOURCE_MISC_SHARED;
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
@@ -232,7 +239,8 @@ void GenerateResourceOnSynTokenReleased(
         hr, "Failed to create shared texture for copying from shared image");
 
     d3d11_context->CopySubresourceRegion(shared_texture.Get(), 0, 0, 0, 0,
-                                         input_texture.Get(), 0, nullptr);
+                                         input_texture.texture.Get(),
+                                         input_texture.array_index, nullptr);
 
     // TODO(https://crbug.com/40275246): Pass a shared D3D11 fence and wait
     // on D3D12 video processor command queue, or D3D12 video encoder queue,
@@ -247,8 +255,7 @@ void GenerateResourceOnSynTokenReleased(
     }
 
     hr = shared_texture.As(&dxgi_resource);
-    RETURN_ON_FAILURE_WITH_CALLBACK(
-        hr, "Failed to query DXGI resource from shared texture");
+    CHECK_EQ(hr, S_OK);
 
     HANDLE copied_handle = nullptr;
     hr = dxgi_resource->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ,
@@ -653,10 +660,10 @@ void D3D12VideoEncodeAccelerator::RequestEncodingParametersChangeTask(
 }
 
 Microsoft::WRL::ComPtr<ID3D12Resource>
-D3D12VideoEncodeAccelerator::CreateResourceForGpuMemoryBufferVideoFrame(
+D3D12VideoEncodeAccelerator::CreateResourceForDXGIHandleBackedVideoFrame(
     const VideoFrame& frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
-  CHECK_EQ(frame.storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
+  CHECK(frame.HasMappableSharedImage());
 
   gfx::GpuMemoryBufferHandle handle = frame.GetGpuMemoryBufferHandle();
   Microsoft::WRL::ComPtr<ID3D12Resource> input_texture;
@@ -666,15 +673,14 @@ D3D12VideoEncodeAccelerator::CreateResourceForGpuMemoryBufferVideoFrame(
 
   const gfx::DXGIHandleToken& token = handle.dxgi_handle().token();
   if (caching_enabled) {
-    // The Video Capture Module (VCM) reuses a small, circular pool of
-    // GpuMemoryBuffers. This means the same buffer handle will reappear
-    // periodically, but each time it does, it will have been overwritten with a
-    // new frame's content by the producer. When the encoder sees a handle it
-    // has seen before, it retrieves the cached ID3D12Resource from the map.
-    // This resource object is still a valid view into the same underlying GPU
-    // resource allocation. When the GPU is instructed to use this resource for
-    // encoding, it reads the current content of that memory, which is the new
-    // frame's data.
+    // The Video Capture Module (VCM) reuses a small, circular pool of handles.
+    // This means the same buffer handle will reappear periodically, but each
+    // time it does, it will have been overwritten with a new frame's content
+    // by the producer. When the encoder sees a handle it has seen before, it
+    // retrieves the cached ID3D12Resource from the map. This resource object
+    // is still a valid view into the same underlying GPU resource allocation.
+    // When the GPU is instructed to use this resource for encoding, it reads
+    // the current content of that memory, which is the new frame's data.
     auto cache_it = shared_handle_cache_.Get(token);
     if (cache_it != shared_handle_cache_.end()) {
       return cache_it->second;
@@ -709,13 +715,21 @@ D3D12VideoEncodeAccelerator::CreateResourceForSharedMemoryVideoFrame(
   D3D12_RESOURCE_DESC input_texture_desc = CD3DX12_RESOURCE_DESC::Tex2D(
       DXGI_FORMAT_NV12, config_.input_visible_size.width(),
       config_.input_visible_size.height(), 1, 1);
-  Microsoft::WRL::ComPtr<ID3D12Resource> input_texture;
-  HRESULT hr = device_->CreateCommittedResource(
-      &D3D12HeapProperties::kDefault, D3D12_HEAP_FLAG_NONE, &input_texture_desc,
-      D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&input_texture));
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to CreateCommittedResource for input_texture";
-    return nullptr;
+  if (!input_texture_ ||
+      input_texture_->GetDesc().Width < input_texture_desc.Width ||
+      input_texture_->GetDesc().Height < input_texture_desc.Height) {
+    HRESULT hr = device_->CreateCommittedResource(
+        &D3D12HeapProperties::kDefault, D3D12_HEAP_FLAG_NONE,
+        &input_texture_desc, D3D12_RESOURCE_STATE_COMMON, nullptr,
+        IID_PPV_ARGS(&input_texture_));
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to CreateCommittedResource for input_texture";
+      return nullptr;
+    }
+    std::wstring debug_name = base::UTF8ToWide(base::StringPrintf(
+        "D3D12VEA input_texture_ %dx%d", config_.input_visible_size.width(),
+        config_.input_visible_size.height()));
+    CHECK_EQ(input_texture_->SetName(debug_name.c_str()), S_OK);
   }
 
   gfx::Size y_size = VideoFrame::PlaneSize(
@@ -726,18 +740,25 @@ D3D12VideoEncodeAccelerator::CreateResourceForSharedMemoryVideoFrame(
 
   D3D12_RESOURCE_DESC upload_buffer_desc =
       CD3DX12_RESOURCE_DESC::Buffer(uv_offset + uv_size.GetArea());
-  Microsoft::WRL::ComPtr<ID3D12Resource> upload_buffer;
-  hr = device_->CreateCommittedResource(
-      &D3D12HeapProperties::kUpload, D3D12_HEAP_FLAG_NONE, &upload_buffer_desc,
-      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&upload_buffer));
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to CreateCommittedResource for upload_buffer";
-    return nullptr;
+  if (!upload_buffer_ ||
+      upload_buffer_->GetDesc().Width < upload_buffer_desc.Width) {
+    HRESULT hr = device_->CreateCommittedResource(
+        &D3D12HeapProperties::kUpload, D3D12_HEAP_FLAG_NONE,
+        &upload_buffer_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+        IID_PPV_ARGS(&upload_buffer_));
+    if (FAILED(hr)) {
+      LOG(ERROR) << "Failed to CreateCommittedResource for upload_buffer";
+      return nullptr;
+    }
+    std::wstring debug_name = base::UTF8ToWide(base::StringPrintf(
+        "D3D12VEA upload_buffer_ %dx%d", config_.input_visible_size.width(),
+        config_.input_visible_size.height()));
+    CHECK_EQ(upload_buffer_->SetName(debug_name.c_str()), S_OK);
   }
 
   {
     ScopedD3D12ResourceMap map;
-    if (!map.Map(upload_buffer.Get())) {
+    if (!map.Map(upload_buffer_.Get())) {
       LOG(ERROR) << "Failed to map upload_buffer";
       return nullptr;
     }
@@ -755,7 +776,7 @@ D3D12VideoEncodeAccelerator::CreateResourceForSharedMemoryVideoFrame(
   }
 
   copy_command_queue_->CopyBufferToNV12Texture(
-      input_texture.Get(), upload_buffer.Get(), 0, y_size.width(), uv_offset,
+      input_texture_.Get(), upload_buffer_.Get(), 0, y_size.width(), uv_offset,
       uv_size.width());
 
   // TODO(crbug.com/382316466): Let command queue wait on the GPU
@@ -764,14 +785,14 @@ D3D12VideoEncodeAccelerator::CreateResourceForSharedMemoryVideoFrame(
     return nullptr;
   }
 
-  return input_texture;
+  return input_texture_;
 }
 
 void D3D12VideoEncodeAccelerator::EncodeTask(
     scoped_refptr<VideoFrame> frame,
     const VideoEncoder::EncodeOptions& options) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
-  if (!frame->HasMappableGpuBuffer() && frame->HasSharedImage()) {
+  if (!frame->HasMappableSharedImage() && frame->HasSharedImage()) {
     InputFrameRef input_frame(frame, options,
                               /*resolving_shared_image=*/true);
     input_frame.shared_image_token = frame->shared_image()->mailbox();
@@ -808,7 +829,7 @@ void D3D12VideoEncodeAccelerator::TryEncodeFrames() {
   while (!input_frames_queue_.empty() && !bitstream_buffers_.empty()) {
     auto& next_input = input_frames_queue_.front();
     if (next_input.resolving_shared_image ||
-        (!next_input.frame->HasMappableGpuBuffer() &&
+        (!next_input.frame->HasMappableSharedImage() &&
          next_input.frame->HasSharedImage() && !next_input.resolved_resource)) {
       // D3D12 VEA encodes frames one-by-one, so we will not try following
       // frames.
@@ -835,9 +856,9 @@ void D3D12VideoEncodeAccelerator::DoEncodeTask(
 
   scoped_refptr<VideoFrame> frame = input_frame.frame;
   Microsoft::WRL::ComPtr<ID3D12Resource> input_texture;
-  if (frame->storage_type() == VideoFrame::STORAGE_GPU_MEMORY_BUFFER) {
-    if (frame->HasNativeGpuMemoryBuffer()) {
-      input_texture = CreateResourceForGpuMemoryBufferVideoFrame(*frame);
+  if (frame->HasMappableSharedImage()) {
+    if (frame->HasNativeMappableSharedImage()) {
+      input_texture = CreateResourceForDXGIHandleBackedVideoFrame(*frame);
     } else {
       frame = ConvertToMemoryMappedFrame(std::move(frame));
       if (!frame) {
@@ -1000,7 +1021,7 @@ void D3D12VideoEncodeAccelerator::ResolveQueuedSharedImages() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
   for (auto& input_frame : input_frames_queue_) {
-    if (!input_frame.frame->HasMappableGpuBuffer() &&
+    if (!input_frame.frame->HasMappableSharedImage() &&
         input_frame.frame->HasSharedImage() &&
         !input_frame.resolve_shared_image_requested) {
       input_frame.resolve_shared_image_requested = true;

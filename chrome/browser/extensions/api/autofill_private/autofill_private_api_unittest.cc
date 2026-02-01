@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -37,6 +38,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/wallet/core/browser/walletable_permission_utils.h"
 #include "components/wallet/core/common/wallet_features.h"
 #include "components/wallet/core/common/wallet_prefs.h"
 #include "content/public/test/browser_test.h"
@@ -45,7 +47,7 @@ namespace {
 
 using ::testing::Eq;
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 using autofill::autofill_metrics::MandatoryReauthAuthenticationFlowEvent;
 
 // There are 2 boolean params set in the test suites.
@@ -57,7 +59,13 @@ class MandatoryReauthSettingsPageMetricsTest
     : public extensions::ExtensionApiTest,
       public testing::WithParamInterface<std::tuple<bool, bool>> {
  public:
-  MandatoryReauthSettingsPageMetricsTest() = default;
+  MandatoryReauthSettingsPageMetricsTest() {
+#if BUILDFLAG(IS_CHROMEOS)
+    // Enable the feature flag for this test.
+    scoped_feature_list_.InitAndEnableFeature(
+        autofill::features::kAutofillEnablePaymentsMandatoryReauthChromeOs);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+  }
   MandatoryReauthSettingsPageMetricsTest(
       const MandatoryReauthSettingsPageMetricsTest&) = delete;
   MandatoryReauthSettingsPageMetricsTest& operator=(
@@ -106,6 +114,9 @@ class MandatoryReauthSettingsPageMetricsTest
   content::BrowserContext* browser_context() {
     return GetActiveWebContents()->GetBrowserContext();
   }
+#if BUILDFLAG(IS_CHROMEOS)
+  base::test::ScopedFeatureList scoped_feature_list_;
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   autofill::TestAutofillClientInjector<autofill::TestContentAutofillClient>
       test_autofill_client_injector_;
@@ -188,13 +199,14 @@ INSTANTIATE_TEST_SUITE_P(,
 class AutofillPrivateApiUnitTest : public extensions::ExtensionApiTest {
  public:
   AutofillPrivateApiUnitTest() {
-    feature_list_.InitWithFeatures(
+    feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {
-            autofill::features::kAutofillAiWithDataSchema,
-            autofill::features::kAutofillAiWalletFlightReservation,
-            autofill::features::kAutofillAiWalletVehicleRegistration,
-            wallet::kWalletablePassDetection,
+            {autofill::features::kAutofillAiWithDataSchema, {}},
+            {autofill::features::kAutofillAiWalletFlightReservation, {}},
+            {autofill::features::kAutofillAiWalletVehicleRegistration, {}},
+            {wallet::kWalletablePassDetection,
+             {{wallet::kWalletablePassDetectionCountryAllowlist.name, "US"}}},
         },
         /*disabled_features=*/
         {autofill::features::kAutofillAiIgnoreLocale,
@@ -293,62 +305,26 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, LogServerCardLinkClicked) {
       autofill::AutofillMetrics::PaymentsSigninState::kSignedOut, 1);
 }
 
-class VirtualCardMultipleRequestPrivateApiUnittest
-    : public AutofillPrivateApiUnitTest,
-      public ::testing::WithParamInterface<bool> {
- public:
-  VirtualCardMultipleRequestPrivateApiUnittest() {
-    feature_list_.InitWithFeatureState(
-        autofill::features::
-            kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment,
-        MultipleRequestInVcnDownstreamEnrollmentEnabled());
-  }
-
-  ~VirtualCardMultipleRequestPrivateApiUnittest() override = default;
-
-  bool MultipleRequestInVcnDownstreamEnrollmentEnabled() const {
-    return GetParam();
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(AutofillPrivateApiUnitTest,
-                         VirtualCardMultipleRequestPrivateApiUnittest,
-                         ::testing::Bool());
-
-IN_PROC_BROWSER_TEST_P(VirtualCardMultipleRequestPrivateApiUnittest,
-                       RemoveVirtualCard) {
+IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, RemoveVirtualCard) {
   using autofill::payments::TestPaymentsNetworkInterface;
   autofill::payments::MockMultipleRequestPaymentsNetworkInterface*
       mock_multiple_request_payments_network_interface_;
   autofill::payments::UpdateVirtualCardEnrollmentRequestDetails details;
-  if (MultipleRequestInVcnDownstreamEnrollmentEnabled()) {
-    auto mock_multiple_request_payments_network_interface = std::make_unique<
-        autofill::payments::MockMultipleRequestPaymentsNetworkInterface>(
-        autofill_client()->GetURLLoaderFactory(),
-        *autofill_client()->GetIdentityManager());
-    mock_multiple_request_payments_network_interface_ =
-        mock_multiple_request_payments_network_interface.get();
-    autofill_client()
-        ->GetPaymentsAutofillClient()
-        ->set_multiple_request_payments_network_interface(
-            std::move(mock_multiple_request_payments_network_interface));
-    EXPECT_CALL(*mock_multiple_request_payments_network_interface_,
-                UpdateVirtualCardEnrollment(testing::_, testing::_))
-        .WillOnce(testing::DoAll(
-            testing::SaveArg<0>(&details),
-            testing::Return(autofill::payments::RequestId("11223344"))));
-  } else {
-    autofill_client()
-        ->GetPaymentsAutofillClient()
-        ->set_payments_network_interface(
-            std::make_unique<TestPaymentsNetworkInterface>(
-                autofill_client()->GetURLLoaderFactory(),
-                autofill_client()->GetIdentityManager(),
-                &personal_data_manager()));
-  }
+  auto mock_multiple_request_payments_network_interface = std::make_unique<
+      autofill::payments::MockMultipleRequestPaymentsNetworkInterface>(
+      autofill_client()->GetURLLoaderFactory(),
+      *autofill_client()->GetIdentityManager());
+  mock_multiple_request_payments_network_interface_ =
+      mock_multiple_request_payments_network_interface.get();
+  autofill_client()
+      ->GetPaymentsAutofillClient()
+      ->set_multiple_request_payments_network_interface(
+          std::move(mock_multiple_request_payments_network_interface));
+  EXPECT_CALL(*mock_multiple_request_payments_network_interface_,
+              UpdateVirtualCardEnrollment(testing::_, testing::_))
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&details),
+          testing::Return(autofill::payments::RequestId("11223344"))));
   // Required for adding the server card.
   payments_data_manager().SetSyncingForTest(
       /*is_syncing_for_test=*/true);
@@ -359,26 +335,8 @@ IN_PROC_BROWSER_TEST_P(VirtualCardMultipleRequestPrivateApiUnittest,
 
   EXPECT_TRUE(RunAutofillSubtest("removeVirtualCard"));
 
-  if (MultipleRequestInVcnDownstreamEnrollmentEnabled()) {
-    EXPECT_EQ(details.virtual_card_enrollment_request_type,
-              autofill::VirtualCardEnrollmentRequestType::kUnenroll);
-  } else {
-    EXPECT_THAT(
-        static_cast<TestPaymentsNetworkInterface*>(
-            autofill_client()
-                ->GetPaymentsAutofillClient()
-                ->GetPaymentsNetworkInterface())
-            ->update_virtual_card_enrollment_request_details(),
-        ::testing::AllOf(
-            ::testing::Field(
-                &autofill::payments::UpdateVirtualCardEnrollmentRequestDetails::
-                    instrument_id,
-                123),
-            ::testing::Field(
-                &autofill::payments::UpdateVirtualCardEnrollmentRequestDetails::
-                    virtual_card_enrollment_request_type,
-                autofill::VirtualCardEnrollmentRequestType::kUnenroll)));
-  }
+  EXPECT_EQ(details.virtual_card_enrollment_request_type,
+            autofill::VirtualCardEnrollmentRequestType::kUnenroll);
 }
 
 IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
@@ -492,6 +450,43 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest,
   EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedIntoWalletablePassDetection"));
 
   EXPECT_TRUE(RunAutofillSubtest("optOutOfWalletablePassDetection"));
+  EXPECT_TRUE(
+      RunAutofillSubtest("verifyUserOptedOutOfWalletablePassDetection"));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AutofillPrivateApiUnitTest,
+    SetWalletablePassDetectionOptInStatus_SwitchEligibility) {
+  autofill_client()->GetPrefs()->registry()->RegisterDictionaryPref(
+      wallet::prefs::kWalletablePassDetectionOptInStatus);
+  autofill_client()->SetUpPrefsAndIdentityForAutofillAi();
+
+  // Ensure we are eligible initially (US is usually supported).
+  autofill_client()->SetVariationConfigCountryCode(
+      autofill::GeoIpCountryCode("US"));
+  ASSERT_TRUE(wallet::IsEligibleForWalletablePassDetection(
+      autofill_client()->GetIdentityManager(),
+      wallet::GeoIpCountryCode(
+          autofill_client()->GetVariationConfigCountryCode().value())));
+
+  EXPECT_TRUE(RunAutofillSubtest("optIntoWalletablePassDetection"));
+  EXPECT_TRUE(RunAutofillSubtest("verifyUserOptedIntoWalletablePassDetection"));
+
+  EXPECT_TRUE(RunAutofillSubtest("optOutOfWalletablePassDetection"));
+  EXPECT_TRUE(
+      RunAutofillSubtest("verifyUserOptedOutOfWalletablePassDetection"));
+
+  // Become ineligible.
+  autofill_client()->SetVariationConfigCountryCode(
+      autofill::GeoIpCountryCode("XX"));
+  ASSERT_FALSE(wallet::IsEligibleForWalletablePassDetection(
+      autofill_client()->GetIdentityManager(),
+      wallet::GeoIpCountryCode(
+          autofill_client()->GetVariationConfigCountryCode().value())));
+
+  // Verify that we cannot opt into Walletable Pass Detection anymore.
+  EXPECT_TRUE(
+      RunAutofillSubtest("optIntoWalletablePassDetectionExpectingFailure"));
   EXPECT_TRUE(
       RunAutofillSubtest("verifyUserOptedOutOfWalletablePassDetection"));
 }

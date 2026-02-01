@@ -266,8 +266,8 @@ ScriptPromise<ImageBitmap> ImageBitmapFactories::CreateImageBitmap(
     const ImageBitmapOptions* options,
     ExceptionState& exception_state) {
   if (crop_rect && (crop_rect->width() == 0 || crop_rect->height() == 0)) {
-    exception_state.ThrowRangeError(String::Format(
-        "The crop rect %s is 0.", crop_rect->width() ? "height" : "width"));
+    exception_state.ThrowRangeError(UNSAFE_TODO(String::Format(
+        "The crop rect %s is 0.", crop_rect->width() ? "height" : "width")));
     return EmptyPromise();
   }
 
@@ -286,14 +286,20 @@ ScriptPromise<ImageBitmap> ImageBitmapFactories::CreateImageBitmap(
                                           exception_state);
 }
 
+const char ImageBitmapFactories::kSupplementName[] = "ImageBitmapFactories";
+
 ImageBitmapFactories& ImageBitmapFactories::From(ExecutionContext& context) {
-  ImageBitmapFactories* supplement = context.GetImageBitmapFactories();
+  ImageBitmapFactories* supplement =
+      Supplement<ExecutionContext>::From<ImageBitmapFactories>(context);
   if (!supplement) {
-    supplement = MakeGarbageCollected<ImageBitmapFactories>();
-    context.SetImageBitmapFactories(supplement);
+    supplement = MakeGarbageCollected<ImageBitmapFactories>(context);
+    Supplement<ExecutionContext>::ProvideTo(context, supplement);
   }
   return *supplement;
 }
+
+ImageBitmapFactories::ImageBitmapFactories(ExecutionContext& context)
+    : Supplement(context) {}
 
 void ImageBitmapFactories::AddLoader(ImageBitmapLoader* loader) {
   pending_loaders_.insert(loader);
@@ -306,6 +312,7 @@ void ImageBitmapFactories::DidFinishLoading(ImageBitmapLoader* loader) {
 
 void ImageBitmapFactories::Trace(Visitor* visitor) const {
   visitor->Trace(pending_loaders_);
+  Supplement<ExecutionContext>::Trace(visitor);
 }
 
 ImageBitmapFactories::ImageBitmapLoader::ImageBitmapLoader(

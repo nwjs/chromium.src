@@ -16,6 +16,8 @@
 #include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/test/base/android/android_browser_test.h"
 #include "components/feed/feed_feature_list.h"
+#include "components/policy/core/common/policy_pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -135,6 +137,19 @@ IN_PROC_BROWSER_TEST_F(CreateBrowserWindowAndroidBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(
     CreateBrowserWindowAndroidBrowserTest,
+    CreateBrowserWindowSync_IncognitoPopup_ReturnsIncognitoPopupWindow) {
+  auto type = BrowserWindowInterface::Type::TYPE_POPUP;
+  Profile* incognito_profile =
+      GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  BrowserWindowInterface* new_browser_window =
+      CreateBrowserWindowSync(type, incognito_profile);
+
+  AssertBrowserWindow(new_browser_window, type, incognito_profile);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    CreateBrowserWindowAndroidBrowserTest,
     CreateBrowserWindowSync_UnsupportedWindowType_ReturnsNull) {
   auto type =
       BrowserWindowInterface::Type::TYPE_APP;  // not supported on Android
@@ -188,6 +203,20 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(
     CreateBrowserWindowAndroidBrowserTest,
+    CreateBrowserWindowAsync_IncognitoPopup_TriggersCallbackWithIncognitoPopupWindow) {
+  auto type = BrowserWindowInterface::Type::TYPE_POPUP;
+  Profile* incognito_profile =
+      GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  BrowserWindowInterface* new_browser_window =
+      CreateBrowserWindowAsync(type, incognito_profile);
+
+  AssertBrowserWindow(new_browser_window, type, incognito_profile,
+                      /*expect_fully_initialized=*/true);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    CreateBrowserWindowAndroidBrowserTest,
     CreateBrowserWindowAsync_UnsupportedWindowType_TriggersCallbackWithNull) {
   auto type =
       BrowserWindowInterface::Type::TYPE_APP;  // not supported on Android
@@ -195,6 +224,39 @@ IN_PROC_BROWSER_TEST_F(
 
   BrowserWindowInterface* new_browser_window =
       CreateBrowserWindowAsync(type, profile);
+
+  EXPECT_EQ(new_browser_window, nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(CreateBrowserWindowAndroidBrowserTest,
+                       CreateBrowserWindowSync_IncognitoDisabled_ReturnsNull) {
+  Profile* incognito_profile =
+      GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  GetProfile()->GetPrefs()->SetInteger(
+      policy::policy_prefs::kIncognitoModeAvailability,
+      static_cast<int>(policy::IncognitoModeAvailability::kDisabled));
+
+  auto type = BrowserWindowInterface::Type::TYPE_NORMAL;
+
+  BrowserWindowInterface* new_browser_window =
+      CreateBrowserWindowSync(type, incognito_profile);
+
+  EXPECT_EQ(new_browser_window, nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    CreateBrowserWindowAndroidBrowserTest,
+    CreateBrowserWindowAsync_IncognitoDisabled_TriggersCallbackWithNull) {
+  Profile* incognito_profile =
+      GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  GetProfile()->GetPrefs()->SetInteger(
+      policy::policy_prefs::kIncognitoModeAvailability,
+      static_cast<int>(policy::IncognitoModeAvailability::kDisabled));
+
+  auto type = BrowserWindowInterface::Type::TYPE_NORMAL;
+
+  BrowserWindowInterface* new_browser_window =
+      CreateBrowserWindowAsync(type, incognito_profile);
 
   EXPECT_EQ(new_browser_window, nullptr);
 }

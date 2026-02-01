@@ -5,7 +5,6 @@
 #ifndef COMPONENTS_WEBAPPS_BROWSER_INSTALLABLE_INSTALLABLE_DATA_H_
 #define COMPONENTS_WEBAPPS_BROWSER_INSTALLABLE_INSTALLABLE_DATA_H_
 
-#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -75,15 +74,26 @@ struct InstallableData {
       web_page_metadata;
 
   // The URL of the chosen primary icon.
+  // This can be populated whether or not it was asked for in the params (as we
+  // populated it if anyone asked for it in the past for a page).
   const raw_ref<const GURL, DanglingUntriaged> primary_icon_url;
 
   // nullptr if the most appropriate primary icon couldn't be determined or
   // downloaded. The underlying primary icon is owned by the InstallableManager;
   // clients must copy the bitmap if they want to to use it.
+  // This can be populated whether or not it was asked for in the params (as we
+  // populated it if anyone asked for it in the past for a page).
+  // TODO(https://crbug.com/468037835): This is sometimes invalid vs the
+  // requesting params, as the first icon fetched is cached and always used.
   raw_ptr<const SkBitmap, DanglingUntriaged> primary_icon;
 
   // Whether the primary icon had the 'maskable' purpose, meaningless if no
   // primary_icon was requested.
+  // This can be populated whether or not it was asked for in the params (as we
+  // populated it if anyone asked for it in the past for a page).
+  // TODO(https://crbug.com/468037835): This is sometimes invalid vs the
+  // requesting params, as the first icon fetch configuration is cached and
+  // always used.
   const bool has_maskable_primary_icon;
 
   // The screenshots to show in the install UI.

@@ -9,15 +9,18 @@ import android.app.Activity;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneShotCallback;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.components.bookmarks.BookmarkId;
@@ -31,8 +34,9 @@ import org.chromium.content_public.browser.WebContents;
  */
 @NullMarked
 public class ReadingListBackPressHandler implements BackPressHandler, Destroyable {
-    private final ObservableSupplierImpl<Boolean> mBackPressChangedSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean> mBackPressChangedSupplier =
+            ObservableSuppliers.createNonNull(false);
+
     private final Activity mActivity;
     private final ActivityTabProvider mActivityTabProvider;
     private final ActivityTabTabObserver mActivityTabTabObserver;
@@ -78,12 +82,13 @@ public class ReadingListBackPressHandler implements BackPressHandler, Destroyabl
     private void setupLastUsedState(BookmarkModel bookmarkModel) {
         bookmarkModel.finishLoadingBookmarkModel(
                 () -> {
+                    Profile profile = mActivityTabProvider.get().getProfile();
                     // Note: there's a slight (but unlikely) chance the the user changed the last
                     // used url prior
                     // to tracking it here.
                     BookmarkUiState lastUsedState =
                             BookmarkUiState.createStateFromUrl(
-                                    mBookmarkManagerOpenerSupplier.get().getLastUsedUrl(),
+                                    mBookmarkManagerOpenerSupplier.get().getLastUsedUrl(profile),
                                     bookmarkModel);
                     mLastUsedParent = lastUsedState.getFolder();
                 });
@@ -118,7 +123,7 @@ public class ReadingListBackPressHandler implements BackPressHandler, Destroyabl
     }
 
     @Override
-    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+    public NonNullObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
         return mBackPressChangedSupplier;
     }
 

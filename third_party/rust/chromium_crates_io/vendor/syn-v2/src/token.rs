@@ -100,6 +100,13 @@ use crate::lifetime::Lifetime;
 #[cfg(feature = "parsing")]
 use crate::parse::{Parse, ParseStream};
 use crate::span::IntoSpans;
+#[cfg(feature = "extra-traits")]
+use core::cmp;
+#[cfg(feature = "extra-traits")]
+use core::fmt::{self, Debug};
+#[cfg(feature = "extra-traits")]
+use core::hash::{Hash, Hasher};
+use core::ops::{Deref, DerefMut};
 use proc_macro2::extra::DelimSpan;
 use proc_macro2::Span;
 #[cfg(feature = "printing")]
@@ -109,14 +116,7 @@ use proc_macro2::{Delimiter, Ident};
 #[cfg(feature = "parsing")]
 use proc_macro2::{Literal, Punct, TokenTree};
 #[cfg(feature = "printing")]
-use quote::{ToTokens, TokenStreamExt};
-#[cfg(feature = "extra-traits")]
-use std::cmp;
-#[cfg(feature = "extra-traits")]
-use std::fmt::{self, Debug};
-#[cfg(feature = "extra-traits")]
-use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use quote::{ToTokens, TokenStreamExt as _};
 
 /// Marker trait for types that represent single tokens.
 ///
@@ -219,7 +219,7 @@ macro_rules! define_keywords {
                 }
             }
 
-            impl std::default::Default for $name {
+            impl core::default::Default for $name {
                 fn default() -> Self {
                     $name {
                         span: Span::call_site(),
@@ -346,7 +346,7 @@ macro_rules! define_punctuation_structs {
                 }
             }
 
-            impl std::default::Default for $name {
+            impl core::default::Default for $name {
                 fn default() -> Self {
                     $name {
                         spans: [Span::call_site(); $len],
@@ -455,7 +455,7 @@ macro_rules! define_delimiters {
                 }
             }
 
-            impl std::default::Default for $name {
+            impl core::default::Default for $name {
                 fn default() -> Self {
                     $name(Span::call_site())
                 }
@@ -583,7 +583,7 @@ pub fn Group<S: IntoSpans<Span>>(span: S) -> Group {
     }
 }
 
-impl std::default::Default for Group {
+impl core::default::Default for Group {
     fn default() -> Self {
         Group {
             span: Span::call_site(),
@@ -978,6 +978,7 @@ pub(crate) mod parsing {
     use crate::buffer::Cursor;
     use crate::error::{Error, Result};
     use crate::parse::ParseStream;
+    use alloc::format;
     use proc_macro2::{Spacing, Span};
 
     pub(crate) fn keyword(input: ParseStream, token: &str) -> Result<Span> {
@@ -1057,8 +1058,9 @@ pub(crate) mod parsing {
 #[doc(hidden)]
 #[cfg(feature = "printing")]
 pub(crate) mod printing {
+    use crate::ext::PunctExt as _;
     use proc_macro2::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream};
-    use quote::TokenStreamExt;
+    use quote::TokenStreamExt as _;
 
     #[doc(hidden)]
     pub fn punct(s: &str, spans: &[Span], tokens: &mut TokenStream) {
@@ -1069,14 +1071,10 @@ pub(crate) mod printing {
         let ch = chars.next_back().unwrap();
         let span = spans.next_back().unwrap();
         for (ch, span) in chars.zip(spans) {
-            let mut op = Punct::new(ch, Spacing::Joint);
-            op.set_span(*span);
-            tokens.append(op);
+            tokens.append(Punct::new_spanned(ch, Spacing::Joint, *span));
         }
 
-        let mut op = Punct::new(ch, Spacing::Alone);
-        op.set_span(*span);
-        tokens.append(op);
+        tokens.append(Punct::new_spanned(ch, Spacing::Alone, *span));
     }
 
     pub(crate) fn keyword(s: &str, span: Span, tokens: &mut TokenStream) {

@@ -104,7 +104,7 @@ public class TabRemoverImplUnitTest {
         mTabModel.addTab(/* id= */ 0);
         TabClosureParams params = TabClosureParams.closeAllTabs().build();
         mTabRemoverImpl.forceCloseTabs(params);
-        verify(mTabGroupModelFilter).closeTabs(params);
+        verify(mTabModel).closeTabs(params);
     }
 
     @Test
@@ -145,7 +145,7 @@ public class TabRemoverImplUnitTest {
         handler.performAction();
         verify(mListener)
                 .willPerformActionOrShowDialog(DialogType.NONE, /* willSkipDialog= */ true);
-        verify(mTabGroupModelFilter).closeTabs(eq(params));
+        verify(mTabModel).closeTabs(eq(params));
         verify(mListener)
                 .onConfirmationDialogResult(
                         DialogType.NONE, ActionConfirmationResult.IMMEDIATE_CONTINUE);
@@ -191,7 +191,7 @@ public class TabRemoverImplUnitTest {
         verify(mOnResult).onResult(ActionConfirmationResult.IMMEDIATE_CONTINUE);
 
         handler.performAction();
-        verify(mTabGroupModelFilter).closeTabs(eq(params));
+        verify(mTabModel).closeTabs(eq(params));
         verify(mListener)
                 .onConfirmationDialogResult(
                         DialogType.NONE, ActionConfirmationResult.IMMEDIATE_CONTINUE);
@@ -203,7 +203,6 @@ public class TabRemoverImplUnitTest {
         int id = 0;
         Tab tab0 = mTabModel.addTab(id);
         tab0.setTabGroupId(TAB_GROUP_ID.tabGroupId);
-        tab0.setRootId(id);
         when(mTabGroupModelFilter.getTabsInGroup(TAB_GROUP_ID.tabGroupId))
                 .thenReturn(List.of(tab0));
         TabClosureParams params =
@@ -242,7 +241,7 @@ public class TabRemoverImplUnitTest {
         verify(mOnResult).onResult(ActionConfirmationResult.IMMEDIATE_CONTINUE);
 
         handler.performAction();
-        verify(mTabGroupModelFilter).closeTabs(any(TabClosureParams.class));
+        verify(mTabModel).closeTabs(any(TabClosureParams.class));
 
         verifyNoMoreInteractions(mListener);
     }
@@ -284,7 +283,7 @@ public class TabRemoverImplUnitTest {
         verify(mOnResult).onResult(ActionConfirmationResult.CONFIRMATION_POSITIVE);
 
         handler.performAction();
-        verify(mTabGroupModelFilter).closeTabs(any(TabClosureParams.class));
+        verify(mTabModel).closeTabs(any(TabClosureParams.class));
 
         verifyNoMoreInteractions(mListener);
     }
@@ -333,7 +332,7 @@ public class TabRemoverImplUnitTest {
         verify(mOnMaybeBlockingResult).onResult(maybeBlockingResult);
 
         handler.performAction();
-        verify(mTabGroupModelFilter).closeTabs(any(TabClosureParams.class));
+        verify(mTabModel).closeTabs(any(TabClosureParams.class));
 
         verifyNoMoreInteractions(mListener);
     }
@@ -383,7 +382,7 @@ public class TabRemoverImplUnitTest {
         verify(mOnMaybeBlockingResult).onResult(maybeBlockingResult);
 
         handler.performAction();
-        verify(mTabGroupModelFilter).closeTabs(any(TabClosureParams.class));
+        verify(mTabModel).closeTabs(any(TabClosureParams.class));
 
         verifyNoMoreInteractions(mListener);
     }

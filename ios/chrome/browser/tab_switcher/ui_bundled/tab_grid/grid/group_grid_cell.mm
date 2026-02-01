@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/group_tab_view.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_snapshots_view.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_snapshot_and_favicon.h"
+#import "ios/chrome/browser/tab_switcher/util/tab_group_color_palette.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -154,7 +155,8 @@ const CGFloat kTopBarLargeInset = 20;
     self.layer.shadowRadius = 4.0f;
     self.layer.shadowOpacity = 0.5f;
     self.layer.masksToBounds = NO;
-    _groupSnapshotsView.layer.cornerRadius = kGridCellCornerRadius;
+    _groupSnapshotsView.layer.cornerRadius =
+        kGridCellCornerRadius - kSnapshotViewLeadingOffset;
     _groupSnapshotsView.layer.masksToBounds = YES;
 
     NSArray* constraints = @[
@@ -207,6 +209,8 @@ const CGFloat kTopBarLargeInset = 20;
           [[UIColor blackColor] colorWithAlphaComponent:0.5];
       self.dimmingView.hidden = YES;
       self.dimmingView.alpha = 0.0;
+      self.dimmingView.layer.cornerRadius =
+          kGridCellCornerRadius - kSnapshotViewLeadingOffset;
       [contentContainer addSubview:self.dimmingView];
       AddSameConstraints(self.dimmingView, contentContainer);
     }
@@ -341,8 +345,21 @@ const CGFloat kTopBarLargeInset = 20;
 }
 
 - (void)setGroupColor:(UIColor*)groupColor {
-  _dotContainer.color = groupColor;
   _groupColor = groupColor;
+  _dotContainer.color = groupColor;
+
+  if (!IsTabGroupColorOnSurfaceEnabled()) {
+    return;
+  }
+  if (!groupColor) {
+    return;
+  }
+
+  TabGroupColorPalette* tabGroupColorPalette =
+      [[TabGroupColorPalette alloc] initWithSeedColor:groupColor];
+
+  // Apply the right tone to surfaces.
+  _dotContainer.color = tabGroupColorPalette.commonColor;
 }
 
 - (void)setTitle:(NSString*)title {
@@ -668,6 +685,8 @@ const CGFloat kTopBarLargeInset = 20;
   self.groupingBackgroundView.hidden = NO;
   self.dimmingView.hidden = NO;
   self.dimmingView.alpha = 1.0;
+  self.containerView.layer.cornerRadius =
+      kGridCellCornerRadius - kSnapshotViewLeadingOffset;
   [self.containerView bringSubviewToFront:self.dimmingView];
   self.containerView.transform = CGAffineTransformMakeScale(
       kGridCellHighlightScaleTransform, kGridCellHighlightScaleTransform);
@@ -685,6 +704,7 @@ const CGFloat kTopBarLargeInset = 20;
   self.groupingBackgroundView.alpha = 0.0;
   self.dimmingView.alpha = 0.0;
   self.containerView.transform = CGAffineTransformIdentity;
+  self.containerView.layer.cornerRadius = kGridCellCornerRadius;
   if (!self.border.hidden) {
     self.border.layer.borderWidth = kGridCellSelectionRingTintWidth;
   }

@@ -43,6 +43,7 @@
 #include "ui/views/controls/image_view.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
+#include "ui/views/metadata/view_factory.h"
 
 namespace ash::video_conference {
 
@@ -135,8 +136,6 @@ class RecentlyUsedImageButton : public views::ImageButton {
     SetImageModel(ButtonState::STATE_NORMAL,
                   ui::ImageModel::FromImageSkia(background_image_));
 
-    // TODO(b/332573200): only construct this button when the metadata is
-    // decodable.
     SetAccessibilityLabelFromMetadata(metadata);
 
     SetFlipCanvasOnPaintForRTLUI(false);

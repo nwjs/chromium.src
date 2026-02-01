@@ -5,12 +5,14 @@
 #include "components/optimization_guide/core/model_execution/on_device_context.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/to_string.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "services/on_device_model/ml/chrome_ml_audio_buffer.h"
+#include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 namespace optimization_guide {
@@ -119,10 +121,8 @@ bool OnDeviceContext::SetInput(MultimodalMessageReadView request,
       opts_.adapter->ConstructInputString(request, /*want_input_context=*/true);
   if (!input) {
     if (callback_) {
-      std::move(callback_).Run(base::unexpected(
-          OptimizationGuideModelExecutionError::FromModelExecutionError(
-              OptimizationGuideModelExecutionError::ModelExecutionError::
-                  kInvalidRequest)));
+      std::move(callback_).Run(
+          base::unexpected(OnDeviceError::kInvalidRequest));
     }
     return false;
   }

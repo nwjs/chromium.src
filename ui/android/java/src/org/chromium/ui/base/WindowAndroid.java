@@ -55,7 +55,8 @@ import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
@@ -124,8 +125,8 @@ public class WindowAndroid
     private @Nullable View mAnimationPlaceholderView;
 
     /** A mechanism for observing and updating the application window's bottom inset. */
-    private final ApplicationViewportInsetSupplier mApplicationBottomInsetSupplier =
-            new ApplicationViewportInsetSupplier();
+    private final ApplicationViewportInsetTracker mApplicationBottomInsetSupplier =
+            new ApplicationViewportInsetTracker();
 
     private @Nullable AndroidPermissionDelegate mPermissionDelegate;
 
@@ -211,8 +212,8 @@ public class WindowAndroid
     private final boolean mTrackOcclusion;
 
     /** True when this window is occluded. */
-    private final ObservableSupplierImpl<Boolean> mOcclusionSupplier =
-            new ObservableSupplierImpl<>(false);
+    private final SettableNonNullObservableSupplier<Boolean> mOcclusionSupplier =
+            ObservableSuppliers.createNonNull(false);
 
     private boolean mIsTopResumedActivity;
     private final boolean mActivityTopResumedSupported;
@@ -246,9 +247,7 @@ public class WindowAndroid
         mIntentRequestTracker = (IntentRequestTrackerImpl) tracker;
         mInsetObserver = insetObserver;
         mApplicationBottomInsetSupplier.setInsetObserver(mInsetObserver);
-        if (mInsetObserver != null
-                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                && UiAndroidFeatureList.sAndroidUseCorrectWindowBounds.isEnabled()) {
+        if (mInsetObserver != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             mWindowInsetObserver =
                     new WindowInsetObserver() {
                         @Override
@@ -277,6 +276,7 @@ public class WindowAndroid
         mLifetimeAssert = LifetimeAssert.create(this);
         // context does not have the same lifetime guarantees as an application context so we can't
         // hold a strong reference to it.
+        assert context != null : "Context when creating WindowAndroid must not be null.";
         mContextRef = new ImmutableWeakReference<>(context);
         mDisplayAndroid = display;
         mDisplayAndroid.addObserver(this);
@@ -999,7 +999,7 @@ public class WindowAndroid
     /**
      * @return A mechanism for updating and observing the bottom inset of the browser window.
      */
-    public ApplicationViewportInsetSupplier getApplicationBottomInsetSupplier() {
+    public ApplicationViewportInsetTracker getApplicationBottomInsetTracker() {
         return mApplicationBottomInsetSupplier;
     }
 
@@ -1377,12 +1377,10 @@ public class WindowAndroid
         mPointerLockingViewPrvFocusChangeListener = null;
     }
 
-    @VisibleForTesting(otherwise = PRIVATE)
     @Nullable View getPointerLockChangeViewForTesting() {
         return mPointerLockChangeView;
     }
 
-    @VisibleForTesting(otherwise = PRIVATE)
     View.@Nullable OnFocusChangeListener getPointerLockingViewFocusChangeListenerForTesting() {
         return mPointerLockingViewFocusChangeListener;
     }

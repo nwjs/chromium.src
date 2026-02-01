@@ -17,7 +17,6 @@
 #include "base/allocator/partition_alloc_support.h"
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -296,36 +295,6 @@ bool IsBackgrounded(std::optional<base::Process::Priority> process_priority) {
   }
 }
 
-perfetto::StaticString ProcessPriorityToString(
-    std::optional<base::Process::Priority> priority) {
-  if (!priority) {
-    return "Unknown";
-  }
-  switch (*priority) {
-    case base::Process::Priority::kBestEffort:
-      return "Best effort";
-    case base::Process::Priority::kUserVisible:
-      return "User visible";
-    case base::Process::Priority::kUserBlocking:
-      return "User blocking";
-  }
-  NOTREACHED();
-}
-
-perfetto::StaticString ProcessVisibilityToString(
-    std::optional<mojom::RenderProcessVisibleState> visible_state) {
-  if (!visible_state) {
-    return "Unknown";
-  }
-  switch (*visible_state) {
-    case mojom::RenderProcessVisibleState::kVisible:
-      return "Visible";
-    case mojom::RenderProcessVisibleState::kHidden:
-      return "Hidden";
-  }
-  NOTREACHED();
-}
-
 }  // namespace
 
 RenderThreadImpl::HistogramCustomizer::HistogramCustomizer() {
@@ -356,7 +325,7 @@ std::string RenderThreadImpl::HistogramCustomizer::ConvertToCustomHistogramName(
     const char* histogram_name) const {
   std::string name(histogram_name);
   if (!common_host_histogram_suffix_.empty() &&
-      base::Contains(custom_histograms_, name)) {
+      custom_histograms_.contains(name)) {
     name += common_host_histogram_suffix_;
   }
   return name;
@@ -491,13 +460,6 @@ RenderThreadImpl::RenderThreadImpl(
 }
 
 void RenderThreadImpl::Init() {
-  TRACE_EVENT_BEGIN("renderer", ProcessPriorityToString(std::nullopt),
-                    process_priority_track_);
-  TRACE_EVENT_BEGIN("renderer", ProcessVisibilityToString(std::nullopt),
-                    process_visibility_track_);
-  base::trace_event::TraceLog::GetInstance()->AddAsyncEnabledStateObserver(
-      weak_factory_.GetWeakPtr());
-
   TRACE_EVENT0("startup", "RenderThreadImpl::Init");
 
   SCOPED_UMA_HISTOGRAM_TIMER("Renderer.RenderThreadImpl.Init");
@@ -519,13 +481,12 @@ void RenderThreadImpl::Init() {
 
   // Establish the GPU channel now, so its ready when needed and we don't have
   // to wait on a sync call.
-  if (base::FeatureList::IsEnabled(features::kEarlyEstablishGpuChannel)) {
-    gpu_->EstablishGpuChannel(
-        base::BindOnce([](scoped_refptr<gpu::GpuChannelHost> host) {
-          if (host)
-            GetContentClient()->SetGpuInfo(host->gpu_info());
-        }));
-  }
+  gpu_->EstablishGpuChannel(
+      base::BindOnce([](scoped_refptr<gpu::GpuChannelHost> host) {
+        if (host) {
+          GetContentClient()->SetGpuInfo(host->gpu_info());
+        }
+      }));
 
   // NOTE: Do not add interfaces to |binders| within this method. Instead,
   // modify the definition of |ExposeRendererInterfacesToBrowser()| to ensure
@@ -567,7 +528,9 @@ void RenderThreadImpl::Init() {
   is_threaded_animation_enabled_ =
       !command_line.HasSwitch(switches::kDisableThreadedAnimation);
 
-  is_elastic_overscroll_enabled_ = switches::IsElasticOverscrollEnabled();
+  is_elastic_overscroll_enabled_on_root_ =
+      switches::IsElasticOverscrollEnabledOnRoot();
+  is_elastic_overscroll_supported_ = switches::IsElasticOverscrollSupported();
 
   if (command_line.HasSwitch(switches::kDisableLCDText)) {
     is_lcd_text_enabled_ = false;
@@ -595,7 +558,7 @@ void RenderThreadImpl::Init() {
   if (base::SingleThreadTaskRunner::GetMainThreadDefault()
           ->BelongsToCurrentThread()) {
     memory_pressure_listener_registration_ =
-        std::make_unique<base::SyncMemoryPressureListenerRegistration>(
+        std::make_unique<base::MemoryPressureListenerRegistration>(
             base::MemoryPressureListenerTag::kRenderThreadImpl, this);
   }
 
@@ -639,12 +602,6 @@ void RenderThreadImpl::Init() {
 }
 
 RenderThreadImpl::~RenderThreadImpl() {
-  base::trace_event::TraceLog::GetInstance()->RemoveAsyncEnabledStateObserver(
-      this);
-
-  TRACE_EVENT_END("renderer", process_priority_track_);
-  TRACE_EVENT_END("renderer", process_visibility_track_);
-
   // The destructor should not run in multi-process mode because Shutdown()
   // terminates the process. The destructor only needs to clean up for tests.
   CHECK(IsSingleProcess());
@@ -702,18 +659,6 @@ std::string RenderThreadImpl::GetLocale() {
   DCHECK(!lang.empty());
   return lang;
 }
-
-void RenderThreadImpl::OnTraceLogEnabled() {
-  TRACE_EVENT_END("renderer", process_priority_track_);
-  TRACE_EVENT_BEGIN("renderer", ProcessPriorityToString(process_priority_),
-                    process_priority_track_);
-
-  TRACE_EVENT_END("renderer", process_visibility_track_);
-  TRACE_EVENT_BEGIN("renderer", ProcessVisibilityToString(visible_state_),
-                    process_visibility_track_);
-}
-
-void RenderThreadImpl::OnTraceLogDisabled() {}
 
 mojom::RendererHost* RenderThreadImpl::GetRendererHost() {
   if (!renderer_host_) {
@@ -1069,7 +1014,6 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
                "RenderCompositor"),
           /*automatic_flushes=*/false, /*support_locking=*/false, limits,
           viz::command_buffer_metrics::ContextType::RENDERER_COMPOSITOR,
-          /*enable_gpu_rasterization=*/false,
           /*lose_context_when_out_of_memory=*/true);
 
   return video_frame_compositor_context_provider_;
@@ -1128,7 +1072,6 @@ RenderThreadImpl::SharedMainThreadContextProvider() {
           /*automatic_flushes=*/true, /*support_locking=*/false,
           gpu::SharedMemoryLimits(),
           viz::command_buffer_metrics::ContextType::RENDERER_MAIN_THREAD,
-          /*enable_gpu_rasterization=*/true,
           /*lose_context_when_out_of_memory=*/true);
 
   auto result = shared_main_thread_contexts_->BindToCurrentSequence();
@@ -1217,8 +1160,12 @@ bool RenderThreadImpl::IsLcdTextEnabled() {
   return is_lcd_text_enabled_;
 }
 
-bool RenderThreadImpl::IsElasticOverscrollEnabled() {
-  return is_elastic_overscroll_enabled_;
+bool RenderThreadImpl::IsElasticOverscrollEnabledOnRoot() {
+  return is_elastic_overscroll_enabled_on_root_;
+}
+
+bool RenderThreadImpl::IsElasticOverscrollSupported() {
+  return is_elastic_overscroll_supported_;
 }
 
 blink::scheduler::WebThreadScheduler*
@@ -1496,7 +1443,8 @@ void RenderThreadImpl::UpdateScrollbarTheme(
       params->jump_on_track_click);
 #endif  // BUILDFLAG(IS_MAC)
 #if BUILDFLAG(IS_APPLE)
-  is_elastic_overscroll_enabled_ = params->scroll_view_rubber_banding;
+  is_elastic_overscroll_enabled_on_root_ = params->scroll_view_rubber_banding;
+  is_elastic_overscroll_supported_ = params->scroll_view_rubber_banding;
 #else
   NOTREACHED();
 #endif  // BUILDFLAG(IS_APPLE)
@@ -1604,7 +1552,7 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
       gpu::kGpuFeatureStatusEnabled;
 
   auto shared_memory_limits =
-      support_gpu_rasterization ? gpu::SharedMemoryLimits::ForOOPRasterContext()
+      support_gpu_rasterization ? gpu::SharedMemoryLimits::ForGPURasterContext()
                                 : gpu::SharedMemoryLimits();
   shared_worker_context_provider_ =
       viz::ContextProviderCommandBuffer::CreateForRaster(
@@ -1615,7 +1563,6 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
           /*automatic_flushes=*/false, /*support_locking=*/true,
           shared_memory_limits,
           viz::command_buffer_metrics::ContextType::RENDERER_RASTER_WORKER,
-          /*enable_gpu_rasterization=*/support_gpu_rasterization,
           /*lose_context_when_out_of_memory=*/true);
 
   auto result = shared_worker_context_provider_->BindToCurrentSequence();
@@ -1764,7 +1711,7 @@ void RenderThreadImpl::OnMemoryPressureFromBrowserReceived(
   if (!blink_platform_impl_) {
     return;
   }
-  blink::RequestUserLevelMemoryPressureSignal();
+  blink::RequestUserLevelMemoryPressureSignal(level);
 }
 
 #endif

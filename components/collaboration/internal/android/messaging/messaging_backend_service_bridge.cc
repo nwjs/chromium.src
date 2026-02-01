@@ -114,7 +114,7 @@ MessagingBackendServiceBridge::GetMessagesForTab(
 base::android::ScopedJavaLocalRef<jobject>
 MessagingBackendServiceBridge::GetMessagesForGroup(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobject>& j_local_group_id,
+    const base::android::JavaRef<jobject>& j_local_group_id,
     const base::android::JavaRef<jstring>& j_sync_group_id,
     jint j_type) {
   auto type = static_cast<PersistentNotificationType>(j_type);
@@ -181,7 +181,7 @@ void MessagingBackendServiceBridge::ClearPersistentMessage(
 void MessagingBackendServiceBridge::RunInstantaneousMessageSuccessCallback(
     JNIEnv* env,
     jlong j_callback,
-    jboolean j_result) {
+    bool j_result) {
   CHECK(j_callback);
   std::unique_ptr<
       MessagingBackendService::InstantMessageDelegate::SuccessCallback>

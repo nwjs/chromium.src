@@ -30,6 +30,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_gen204_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
@@ -1664,16 +1665,8 @@ class ContextualTasksLensOverlayControllerInteractiveUiTest
       identity_test_environment_adaptor_;
 };
 
-#if BUILDFLAG(IS_WIN)
-// TODO(crbug.com/469373433): Flaky on Windows.
-#define MAYBE_LensSessionClosesOnSidePanelClose \
-  DISABLED_LensSessionClosesOnSidePanelClose
-#else
-#define MAYBE_LensSessionClosesOnSidePanelClose \
-  LensSessionClosesOnSidePanelClose
-#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
-                       MAYBE_LensSessionClosesOnSidePanelClose) {
+                       LensSessionClosesOnSidePanelClose) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
@@ -1698,16 +1691,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
       WaitForContextualPanelAndLensToClose());
 }
 
-#if BUILDFLAG(IS_WIN)
-// TODO(crbug.com/469373433): Flaky on Windows.
-#define MAYBE_LensSessionsCloseOnSidePanelClose_MultiTab \
-  DISABLED_LensSessionsCloseOnSidePanelClose_MultiTab
-#else
-#define MAYBE_LensSessionsCloseOnSidePanelClose_MultiTab \
-  LensSessionsCloseOnSidePanelClose_MultiTab
-#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
-                       MAYBE_LensSessionsCloseOnSidePanelClose_MultiTab) {
+                       LensSessionsCloseOnSidePanelClose_MultiTab) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
@@ -1750,17 +1735,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
       WaitForContextualPanelAndLensToClose());
 }
 
-#if BUILDFLAG(IS_WIN)
-// TODO(crbug.com/469373433): Flaky on Windows.
-#define MAYBE_LensSessionsCloseOnSidePanelClose_MultipleLensSessions \
-  DISABLED_LensSessionsCloseOnSidePanelClose_MultipleLensSessions
-#else
-#define MAYBE_LensSessionsCloseOnSidePanelClose_MultipleLensSessions \
-  LensSessionsCloseOnSidePanelClose_MultipleLensSessions
-#endif
-IN_PROC_BROWSER_TEST_F(
-    ContextualTasksLensOverlayControllerInteractiveUiTest,
-    MAYBE_LensSessionsCloseOnSidePanelClose_MultipleLensSessions) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
+                       LensSessionsCloseOnSidePanelClose_MultipleLensSessions) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
@@ -1900,6 +1876,83 @@ IN_PROC_BROWSER_TEST_F(
             LensSearchController::FromTabWebContents(web_contents);
         EXPECT_FALSE(lens_controller->IsClosing() || lens_controller->IsOff());
       }));
+}
+
+class LensOverlayControllerCsbTest : public LensOverlayControllerCUJTest {
+ public:
+  LensOverlayControllerCsbTest() = default;
+  ~LensOverlayControllerCsbTest() override = default;
+
+  InteractiveTestApi::MultiStep OpenLensOverlayProgrammatically(
+      bool should_show_csb) {
+    DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+    const GURL url = embedded_test_server()->GetURL(kDocumentWithNamedElement);
+
+    // In kDocumentWithNamedElement.
+    const DeepQuery kPathToBody{
+        "body",
+    };
+
+    return Steps(
+        InstrumentTab(kActiveTab), NavigateWebContents(kActiveTab, url),
+        EnsurePresent(kActiveTab, kPathToBody),
+        WaitForWebContentsPainted(kActiveTab), Do([=, this]() {
+          content::WebContents* web_contents =
+              browser()->tab_strip_model()->GetActiveWebContents();
+          auto* controller =
+              LensSearchController::FromTabWebContents(web_contents);
+          controller->OpenLensOverlay(
+              lens::LensOverlayInvocationSource::kAppMenu, should_show_csb);
+        }));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerCsbTest, ShowsCsbWhenEnabled) {
+  WaitForTemplateURLServiceToLoad();
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
+
+  const DeepQuery kPathToOverlaySearchboxInput{
+      "lens-overlay-app",
+      "cr-searchbox",
+      "input",
+  };
+
+  RunTestSequence(
+      OpenLensOverlayProgrammatically(/*should_show_csb=*/true),
+      InAnyContext(
+          InstrumentNonTabWebView(kOverlayId,
+                                  LensOverlayController::kOverlayId),
+          WaitForWebContentsReady(
+              kOverlayId, GURL(chrome::kChromeUILensOverlayUntrustedURL))),
+      InSameContext(WaitForShow(LensOverlayController::kOverlayId),
+                    WaitForScreenshotRendered(kOverlayId),
+                    EnsurePresent(kOverlayId, kPathToOverlaySearchboxInput)));
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerCsbTest, HidesCsbWhenDisabled) {
+  WaitForTemplateURLServiceToLoad();
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
+
+  const DeepQuery kPathToOverlaySearchboxInput{
+      "lens-overlay-app",
+      "cr-searchbox",
+      "input",
+  };
+
+  RunTestSequence(
+      OpenLensOverlayProgrammatically(/*should_show_csb=*/false),
+      InAnyContext(
+          InstrumentNonTabWebView(kOverlayId,
+                                  LensOverlayController::kOverlayId),
+          WaitForWebContentsReady(
+              kOverlayId, GURL(chrome::kChromeUILensOverlayUntrustedURL))),
+      InSameContext(
+          WaitForShow(LensOverlayController::kOverlayId),
+          WaitForScreenshotRendered(kOverlayId),
+          CheckJsResultAt(kOverlayId, kPathToOverlaySearchboxInput,
+                          "(el) => el.offsetParent === null || "
+                          "el.getBoundingClientRect().width === 0 || "
+                          "el.getBoundingClientRect().height === 0")));
 }
 
 }  // namespace

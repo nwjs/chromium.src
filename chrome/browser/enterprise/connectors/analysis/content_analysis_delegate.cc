@@ -37,7 +37,6 @@
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
@@ -48,6 +47,7 @@
 #include "components/enterprise/common/files_scan_data.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/analysis_settings.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/binary_upload_service.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
@@ -71,8 +71,6 @@
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_sdk_manager.h"  // nogncheck
 #endif
-
-using safe_browsing::BinaryUploadService;
 
 namespace enterprise_connectors {
 
@@ -228,7 +226,7 @@ void ContentAnalysisDelegate::Cancel(bool warning) {
   }
 
   // Ask the binary upload service to cancel requests if it can.
-  auto cancel = std::make_unique<BinaryUploadService::CancelRequests>(
+  auto cancel = std::make_unique<BinaryUploadCancelRequests>(
       data_.settings.cloud_or_local_settings);
   cancel->set_user_action_id(user_action_id_);
 
@@ -318,6 +316,10 @@ std::u16string ContentAnalysisDelegate::GetBypassJustificationLabel() const {
 
 std::optional<std::u16string>
 ContentAnalysisDelegate::OverrideCancelButtonText() const {
+  return std::nullopt;
+}
+
+std::optional<std::u16string> ContentAnalysisDelegate::GetFilename() const {
   return std::nullopt;
 }
 
@@ -563,7 +565,7 @@ void ContentAnalysisDelegate::FilesRequestCallback(
   // Remember to send acks for any responses.
   files_request_handler_->AppendFinalActionsTo(&final_actions_);
 
-  // No reporting here, because the MultiFileRequestHandler does that.
+  // No reporting here, because the FilesRequestHandler does that.
   DCHECK_EQ(results.size(), result_.paths_results.size());
   for (size_t index = 0; index < results.size(); ++index) {
     FinalContentAnalysisResult result = results[index].final_result;
@@ -656,12 +658,12 @@ ContentAnalysisDelegate::UploadData() {
 
   if (!data_.paths.empty()) {
     // Passing the settings using a reference is safe here, because
-    // MultiFileRequestHandler is owned by this class.
+    // FilesRequestHandler is owned by this class.
     files_request_handler_ = FilesRequestHandler::Create(
         this, GetBinaryUploadService(), profile_, url_, "", "",
         GetContentTransferMethod(), access_point_, data_.paths,
         base::BindOnce(&ContentAnalysisDelegate::FilesRequestCallback,
-                       GetWeakPtr()));
+                       weak_ptr_factory_.GetWeakPtr()));
     files_request_complete_ = !files_request_handler_->UploadData();
   } else {
     // If no files should be uploaded, the file request is complete.
@@ -797,8 +799,7 @@ void ContentAnalysisDelegate::FillAllResultsWith(bool status) {
 }
 
 BinaryUploadService* ContentAnalysisDelegate::GetBinaryUploadService() {
-  return safe_browsing::BinaryUploadService::GetForProfile(profile_,
-                                                           data_.settings);
+  return GetBinaryUploadServiceForConnector(profile_, data_.settings);
 }
 
 safe_browsing::SafeBrowsingNavigationObserverManager*
@@ -916,7 +917,7 @@ void ContentAnalysisDelegate::AckAllRequests() {
     // the agent never received the request for some reason (size, encryption,
     // etc.) so it doesn't make sense to send an ack.
     if (!token_and_action.first.empty()) {
-      auto ack = std::make_unique<safe_browsing::BinaryUploadService::Ack>(
+      auto ack = std::make_unique<BinaryUploadAck>(
           data_.settings.cloud_or_local_settings);
       ack->set_request_token(token_and_action.first);
       ack->set_status(ContentAnalysisAcknowledgement::SUCCESS);

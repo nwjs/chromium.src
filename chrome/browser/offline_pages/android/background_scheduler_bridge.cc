@@ -20,7 +20,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/BackgroundSchedulerBridge_jni.h"
 
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -28,12 +28,12 @@ namespace offline_pages {
 namespace android {
 
 // JNI call to start request processing in scheduled mode.
-static jboolean JNI_BackgroundSchedulerBridge_StartScheduledProcessing(
+static bool JNI_BackgroundSchedulerBridge_StartScheduledProcessing(
     JNIEnv* env,
-    const jboolean j_power_connected,
+    const bool j_power_connected,
     const jint j_battery_percentage,
     const jint j_net_connection_type,
-    const JavaParamRef<jobject>& j_callback_obj) {
+    const JavaRef<jobject>& j_callback_obj) {
   ScopedJavaGlobalRef<jobject> j_callback_ref;
   j_callback_ref.Reset(env, j_callback_obj);
 
@@ -121,7 +121,7 @@ const DeviceConditions&
 BackgroundSchedulerBridge::GetCurrentDeviceConditions() {
   JNIEnv* env = base::android::AttachCurrentThread();
   // Call the JNI methods to get the device conditions we need.
-  jboolean jpower = Java_BackgroundSchedulerBridge_getPowerConditions(env);
+  bool jpower = Java_BackgroundSchedulerBridge_getPowerConditions(env);
   jint jbattery = Java_BackgroundSchedulerBridge_getBatteryConditions(env);
   jint jnetwork = Java_BackgroundSchedulerBridge_getNetworkConditions(env);
 

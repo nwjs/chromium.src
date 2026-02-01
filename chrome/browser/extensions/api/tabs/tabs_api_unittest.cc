@@ -135,6 +135,8 @@ class TabsApiUnitTest : public ExtensionServiceTestBase {
   bool CommitPendingLoadForController(
       content::NavigationController& controller);
 
+  std::vector<content::WebContents*> CreateAndGetWebContents(int count);
+
  private:
   // ExtensionServiceTestBase:
   void SetUp() override;
@@ -195,6 +197,26 @@ bool TabsApiUnitTest::CommitPendingLoadForController(
   return true;
 }
 
+std::vector<content::WebContents*> TabsApiUnitTest::CreateAndGetWebContents(
+    int count) {
+  std::vector<int> tab_ids;
+  std::vector<content::WebContents*> web_contentses;
+  for (int i = 0; i < count; ++i) {
+    std::unique_ptr<content::WebContents> contents(
+        content::WebContentsTester::CreateTestWebContents(profile(), nullptr));
+
+    CreateSessionServiceTabHelper(contents.get());
+    tab_ids.push_back(
+        sessions::SessionTabHelper::IdForTab(contents.get()).id());
+    web_contentses.push_back(contents.get());
+
+    GetTabStripModel()->AppendWebContents(std::move(contents),
+                                          /*foreground=*/true);
+  }
+  CHECK_EQ(count, GetTabStripModel()->count());
+  return web_contentses;
+}
+
 // Bug fix for crbug.com/1196309. Ensure that an extension can't update the tab
 // strip while a tab drag is in progress.
 TEST_F(TabsApiUnitTest, IsTabStripEditable) {
@@ -228,7 +250,7 @@ TEST_F(TabsApiUnitTest, IsTabStripEditable) {
   }
 
   // Start logical drag.
-  browser_window()->SetTabStripNotEditableForTesting();
+  browser_window()->DisableTabStripEditingForTesting();
   ASSERT_FALSE(browser_window()->IsTabStripEditable());
 
   // Succeed with updates that don't interact with the tab strip model.
@@ -1793,8 +1815,12 @@ TEST_F(TabsApiUnitTest, SplitTabsWithHighlightFunction) {
                                           api_test_utils::FunctionMode::kNone));
 
   // Check that both sides of the split are selected.
-  ASSERT_TRUE(GetTabStripModel()->selection_model().IsSelected(0));
-  ASSERT_TRUE(GetTabStripModel()->selection_model().IsSelected(1));
+  ASSERT_TRUE(
+      GetTabStripModel()->selection_model().GetListSelectionModel().IsSelected(
+          0));
+  ASSERT_TRUE(
+      GetTabStripModel()->selection_model().GetListSelectionModel().IsSelected(
+          1));
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1849,40 +1875,9 @@ TEST_F(TabsApiUnitTest,
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-class TabsApiSideBySideUnitTest : public TabsApiUnitTest {
- public:
-  TabsApiSideBySideUnitTest() {
-    scoped_feature_list_.InitAndEnableFeature(features::kSideBySide);
-  }
-
- protected:
-  std::vector<content::WebContents*> CreateAndGetWebContents(int count) {
-    std::vector<int> tab_ids;
-    std::vector<content::WebContents*> web_contentses;
-    for (int i = 0; i < count; ++i) {
-      std::unique_ptr<content::WebContents> contents(
-          content::WebContentsTester::CreateTestWebContents(profile(),
-                                                            nullptr));
-
-      CreateSessionServiceTabHelper(contents.get());
-      tab_ids.push_back(
-          sessions::SessionTabHelper::IdForTab(contents.get()).id());
-      web_contentses.push_back(contents.get());
-
-      GetTabStripModel()->AppendWebContents(std::move(contents),
-                                            /*foreground=*/true);
-    }
-    CHECK_EQ(count, GetTabStripModel()->count());
-    return web_contentses;
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // Tests that calling chrome.tabs.move() works when a tab is moved within a
 // split view.
-TEST_F(TabsApiSideBySideUnitTest, TabsMoveWithinSplitView) {
+TEST_F(TabsApiUnitTest, TabsMoveWithinSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsMoveWithinSplitView").Build();
 
@@ -1924,7 +1919,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsMoveWithinSplitView) {
 
 // Tests that calling chrome.tabs.move() works when a tab within a split view is
 // moved.
-TEST_F(TabsApiSideBySideUnitTest, TabsMoveFromSplitView) {
+TEST_F(TabsApiUnitTest, TabsMoveFromSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsMoveFromSplitView").Build();
 
@@ -1961,7 +1956,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsMoveFromSplitView) {
 }
 
 // Tests that chrome.tabs.duplicate removes split view.
-TEST_F(TabsApiSideBySideUnitTest, TabsDuplicateSplitView) {
+TEST_F(TabsApiUnitTest, TabsDuplicateSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsDuplicateSplitView").Build();
 
@@ -1999,7 +1994,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsDuplicateSplitView) {
 
 // Tests that calling chrome.tabs.discard on an inactive tab in an active split
 // will discard that tab.
-TEST_F(TabsApiSideBySideUnitTest, TabsDiscardInactiveTabInActiveSplitView) {
+TEST_F(TabsApiUnitTest, TabsDiscardInactiveTabInActiveSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsDeleteFromSplitView").Build();
 
@@ -2034,7 +2029,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsDiscardInactiveTabInActiveSplitView) {
 
 // Tests that calling chrome.tabs.delete works when a tab within a split view
 // is deleted.
-TEST_F(TabsApiSideBySideUnitTest, TabsDeleteFromSplitView) {
+TEST_F(TabsApiUnitTest, TabsDeleteFromSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsDeleteFromSplitView").Build();
 
@@ -2068,7 +2063,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsDeleteFromSplitView) {
   EXPECT_FALSE(GetTabStripModel()->GetSplitForTab(0).has_value());
 }
 
-TEST_F(TabsApiSideBySideUnitTest, TabsQueryWithSplitView) {
+TEST_F(TabsApiUnitTest, TabsQueryWithSplitView) {
   scoped_refptr<const Extension> extension =
       ExtensionBuilder("TabsDeleteFromSplitView").Build();
 
@@ -2100,7 +2095,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsQueryWithSplitView) {
   EXPECT_EQ(split_id, tabs_list_with_split[0].GetDict().FindInt("splitViewId"));
 }
 
-TEST_F(TabsApiSideBySideUnitTest, TabsUngroupSingleTabFromSplitView) {
+TEST_F(TabsApiUnitTest, TabsUngroupSingleTabFromSplitView) {
   ASSERT_TRUE(GetTabStripModel()->SupportsTabGroups());
 
   scoped_refptr<const Extension> extension =
@@ -2134,7 +2129,7 @@ TEST_F(TabsApiSideBySideUnitTest, TabsUngroupSingleTabFromSplitView) {
   EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(1).has_value());
 }
 
-TEST_F(TabsApiSideBySideUnitTest, TabsUngroupBothTabsFromSplitView) {
+TEST_F(TabsApiUnitTest, TabsUngroupBothTabsFromSplitView) {
   ASSERT_TRUE(GetTabStripModel()->SupportsTabGroups());
 
   scoped_refptr<const Extension> extension =

@@ -319,12 +319,6 @@ class UserAgentUtilsTest : public testing::Test,
  public:
   // The minor version in the reduced UA string is always "0.0.0".
   static constexpr char kReducedMinorVersion[] = "0.0.0";
-  // The minor version in the ReduceUserAgentMinorVersion experiment is always
-  // "0.X.0", where X is the frozen build version.
-  const std::string kReduceUserAgentMinorVersion =
-      "0." +
-      std::string(blink::features::kUserAgentFrozenBuildVersion.Get().data()) +
-      ".0";
   // The suffix added after "Chrome/<major_version>.0.0.0" and before
   // "Safari/537.36" in the user agent string when the kUseMobileUserAgent
   // switch is enabled.
@@ -502,23 +496,6 @@ TEST_F(UserAgentUtilsTest, UserAgentStringFull) {
       {blink::features::kReduceUserAgentMinorVersion}, {});
   { VerifyGetUserAgentFunctions(); }
 
-  // Verify that three user agent functions return the correct user agent string
-  // when both kReduceUserAgentMinorVersion and kReduceUserAgentPlatformOsCpu
-  // turn on.
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion,
-       blink::features::kReduceUserAgentPlatformOsCpu},
-      {});
-  { VerifyGetUserAgentFunctions(); }
-
-  // Verify that three user agent functions return the correct user agent string
-  // when kReduceUserAgentPlatformOsCpu turns on.
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentPlatformOsCpu}, {});
-  { VerifyGetUserAgentFunctions(); }
-
   // Verify that three user agent functions return the correct user agent
   // when kReduceUserAgentMinorVersion turns off.
   scoped_feature_list.Reset();
@@ -527,7 +504,7 @@ TEST_F(UserAgentUtilsTest, UserAgentStringFull) {
   { VerifyGetUserAgentFunctions(); }
 
   // Verify that three user agent functions return the correct user agent
-  // without explicit features turn on.
+  // without explicit features turned on.
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures({}, {});
   { VerifyGetUserAgentFunctions(); }
@@ -542,8 +519,7 @@ TEST_F(UserAgentUtilsTest, ReduceUserAgentPlatformOsCpu) {
 #if BUILDFLAG(IS_ANDROID)
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion,
-       blink::features::kReduceUserAgentPlatformOsCpu},
+      {blink::features::kReduceUserAgentMinorVersion},
       {blink::features::kReduceUserAgentAndroidVersionDeviceModel});
   // Verify the mobile platform and oscpu user agent string is not reduced when
   // not using a mobile user agent.
@@ -565,9 +541,7 @@ TEST_F(UserAgentUtilsTest, ReduceUserAgentPlatformOsCpu) {
 #else
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion,
-       blink::features::kReduceUserAgentPlatformOsCpu},
-      {});
+      {blink::features::kReduceUserAgentMinorVersion}, {});
   ASSERT_FALSE(command_line->HasSwitch(kUseMobileUserAgent));
   {
     // Verify unified platform user agent is returned.
@@ -591,17 +565,14 @@ TEST_F(UserAgentUtilsTest, ReduceUserAgentPlatformOsCpu) {
 #if BUILDFLAG(IS_ANDROID)
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion,
-       blink::features::kReduceUserAgentPlatformOsCpu},
+      {blink::features::kReduceUserAgentMinorVersion},
       {blink::features::kReduceUserAgentAndroidVersionDeviceModel});
   EXPECT_NE(GetUnifiedPlatformForTesting().c_str(),
             GetUserAgentPlatformOsCpu(GetUserAgent()));
 #else
   scoped_feature_list.Reset();
   scoped_feature_list.InitWithFeatures(
-      {blink::features::kReduceUserAgentMinorVersion,
-       blink::features::kReduceUserAgentPlatformOsCpu},
-      {});
+      {blink::features::kReduceUserAgentMinorVersion}, {});
   EXPECT_EQ(GetUnifiedPlatformForTesting().c_str(),
             GetUserAgentPlatformOsCpu(GetUserAgent()));
 #endif
@@ -1031,15 +1002,13 @@ TEST_F(UserAgentUtilsTest, GetProductAndVersion) {
   std::string build_version;
   std::string patch_version;
 
-  // (1) Features: UserAgentReduction disabled.
+  // Feature kReduceUserAgentMinorVersion disabled.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{}, /*disabled_features=*/{
           blink::features::kReduceUserAgentMinorVersion});
 
-  // (1a) Policies: UserAgentReduction default.
-  product =
-      GetProductAndVersion(UserAgentReductionEnterprisePolicyState::kDefault);
+  product = GetProductAndVersion();
   EXPECT_TRUE(re2::RE2::FullMatch(product, kChromeProductVersionRegex,
                                   &major_version, &minor_version,
                                   &build_version));
@@ -1048,44 +1017,18 @@ TEST_F(UserAgentUtilsTest, GetProductAndVersion) {
   EXPECT_NE(build_version, "0");
   // Patch version cannot be tested as it would be set in a release branch.
 
-  // (1b) Policies: UserAgentReduction force enabled.
-  product = GetProductAndVersion(
-      UserAgentReductionEnterprisePolicyState::kForceEnabled);
+  // Feature kReduceUserAgentMinorVersion enabled with version.
+  scoped_feature_list.Reset();
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{blink::features::kReduceUserAgentMinorVersion},
+      /*disabled_features=*/{});
+  product = GetProductAndVersion();
   EXPECT_TRUE(re2::RE2::FullMatch(product, kChromeProductVersionRegex,
                                   &major_version, &minor_version,
                                   &build_version, &patch_version));
   EXPECT_EQ(major_version, version_info::GetMajorVersionNumber());
   EXPECT_EQ(minor_version, "0");
   EXPECT_EQ(build_version, "0");
-  EXPECT_EQ(patch_version, "0");
-
-  // (1c) Policies:: UserAgentReduction force disabled.
-  product = GetProductAndVersion(
-      UserAgentReductionEnterprisePolicyState::kForceDisabled);
-  EXPECT_TRUE(re2::RE2::FullMatch(product, kChromeProductVersionRegex,
-                                  &major_version, &minor_version,
-                                  &build_version));
-  EXPECT_EQ(major_version, version_info::GetMajorVersionNumber());
-  EXPECT_EQ(minor_version, "0");
-  EXPECT_NE(build_version, "0");
-  // Patch version cannot be tested as it would be set in a release branch.
-
-  // (2) Features: UserAgentReduction enabled with version.
-  scoped_feature_list.Reset();
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{blink::features::kReduceUserAgentMinorVersion,
-                             {{{"build_version", "0000"}}}}},
-      /*disabled_features=*/{});
-
-  // (2a) Policies: UserAgentReduction default.
-  product =
-      GetProductAndVersion(UserAgentReductionEnterprisePolicyState::kDefault);
-  EXPECT_TRUE(re2::RE2::FullMatch(product, kChromeProductVersionRegex,
-                                  &major_version, &minor_version,
-                                  &build_version, &patch_version));
-  EXPECT_EQ(major_version, version_info::GetMajorVersionNumber());
-  EXPECT_EQ(minor_version, "0");
-  EXPECT_EQ(build_version, "0000");
   EXPECT_EQ(patch_version, "0");
 }
 

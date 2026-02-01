@@ -7,12 +7,18 @@ import("//testing/test.gni")
 import("//third_party/protobuf/proto_library.gni")
 
 proto_library("proto") {
-  sources = [ "proto/legion.proto" ]
+  sources = [
+    "proto/google_rpc_code.proto",
+    "proto/legion.proto",
+  ]
 }
 
 # Generate serialization helper.
 proto_extras("proto_extras") {
-  sources = [ "proto/legion.proto" ]
+  sources = [
+    "proto/google_rpc_code.proto",
+    "proto/legion.proto",
+  ]
   deps = [ ":proto" ]
 }
 
@@ -25,12 +31,16 @@ source_set("features") {
 }
 
 source_set("legion") {
+  assert(!is_android,
+         "The target //components/legion is not supported on Android.")
   sources = [
     "attestation_handler.h",
     "attestation_handler_impl.cc",
     "attestation_handler_impl.h",
     "client.cc",
     "client.h",
+    "client_impl.cc",
+    "client_impl.h",
     "error_code.h",
     "legion_common.h",
     "secure_channel.h",
@@ -48,8 +58,13 @@ source_set("legion") {
     ":proto",
     ":proto_extras",
     "//base",
+    "//components/legion/attestation",
     "//components/legion/crypto",
+    "//components/legion/mojom",
+    "//components/legion/oak_session_service",
     "//components/legion/phosphor",
+    "//components/legion/proto_utils",
+    "//content/public/browser",
     "//crypto",
     "//mojo/public/cpp/system",
     "//net",
@@ -58,6 +73,7 @@ source_set("legion") {
     "//third_party/boringssl",
     "//third_party/oak:oak_proto",
     "//third_party/oak:oak_proto_extras",
+    "//url",
   ]
 }
 
@@ -65,7 +81,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "attestation_handler_impl_unittest.cc",
-    "client_unittest.cc",
+    "client_impl_unittest.cc",
     "secure_channel_impl_unittest.cc",
     "secure_session_async_impl_unittest.cc",
   ]
@@ -74,10 +90,12 @@ source_set("unit_tests") {
     ":proto",
     "//base",
     "//base/test:test_support",
-    "//components/legion/crypto",
-    "//components/legion/crypto:test_support",
+    "//components/legion/attestation",
     "//components/legion/crypto:unit_tests",
+    "//components/legion/mojom",
     "//components/legion/phosphor:unit_tests",
+    "//components/legion/proto_utils:unit_tests",
+    "//mojo/public/cpp/system",
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/oak:oak_proto",

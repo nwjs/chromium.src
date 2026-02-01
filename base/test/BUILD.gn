@@ -565,6 +565,34 @@ if (is_android) {
     testonly = true
     sources = [ "android/java/res/xml/file_paths_file_provider.xml" ]
   }
+
+  android_resources("leak_canary_test_resources") {
+    testonly = true
+
+    # This overrides a value set by leakcanary.
+    resource_overlay = true
+    sources = [ "android/javatests/res/values/leak_canary.xml" ]
+  }
+
+  android_library("leak_canary_java") {
+    testonly = true
+    sources = [
+      "android/javatests/src/org/chromium/base/test/util/CommonLeaks.java",
+      "android/javatests/src/org/chromium/base/test/util/LeakCanaryChecker.java",
+    ]
+    deps = [
+      ":leak_canary_test_resources",
+      "//base:base_java_test_support",
+      "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_core_java",
+      "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_instrumentation_java",
+      "//third_party/android_deps:com_squareup_leakcanary_leakcanary_android_java",
+      "//third_party/android_deps:com_squareup_leakcanary_shark_android_java",
+      "//third_party/android_deps:com_squareup_leakcanary_shark_java",
+      "//third_party/androidx:androidx_work_work_multiprocess_java",
+      "//third_party/androidx:androidx_work_work_runtime_java",
+      "//third_party/kotlin_stdlib:kotlin_stdlib_java",
+    ]
+  }
 }
 
 if (is_ios) {
@@ -585,6 +613,7 @@ if (is_ios) {
 executable("test_child_process") {
   testonly = true
   sources = [ "test_child_process.cc" ]
+  deps = [ "//base" ]
 }
 
 perfetto_cc_proto_descriptor("gen_cc_chrome_track_event_descriptor") {
@@ -695,7 +724,6 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/BaseElements.java",
       "android/javatests/src/org/chromium/base/test/transit/BatchedPublicTransitRule.java",
       "android/javatests/src/org/chromium/base/test/transit/CallbackCondition.java",
-      "android/javatests/src/org/chromium/base/test/transit/CarryOn.java",
       "android/javatests/src/org/chromium/base/test/transit/Condition.java",
       "android/javatests/src/org/chromium/base/test/transit/ConditionChecker.java",
       "android/javatests/src/org/chromium/base/test/transit/ConditionStatus.java",
@@ -703,6 +731,7 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/ConditionWaiter.java",
       "android/javatests/src/org/chromium/base/test/transit/ConditionWithResult.java",
       "android/javatests/src/org/chromium/base/test/transit/ConditionalState.java",
+      "android/javatests/src/org/chromium/base/test/transit/DisplayedCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/DisplayedPortion.java",
       "android/javatests/src/org/chromium/base/test/transit/Element.java",
       "android/javatests/src/org/chromium/base/test/transit/ElementFactory.java",
@@ -711,13 +740,17 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/Facility.java",
       "android/javatests/src/org/chromium/base/test/transit/FragmentElement.java",
       "android/javatests/src/org/chromium/base/test/transit/InstrumentationThreadCondition.java",
+      "android/javatests/src/org/chromium/base/test/transit/InternalViewFinder.java",
       "android/javatests/src/org/chromium/base/test/transit/LogicalElement.java",
       "android/javatests/src/org/chromium/base/test/transit/MoreViewConditions.java",
+      "android/javatests/src/org/chromium/base/test/transit/NotDisplayedAnymoreCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/OptionalViewElement.java",
       "android/javatests/src/org/chromium/base/test/transit/PayloadCallbackCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/PublicTransitConfig.java",
+      "android/javatests/src/org/chromium/base/test/transit/RootSpec.java",
       "android/javatests/src/org/chromium/base/test/transit/ScrollableFacility.java",
       "android/javatests/src/org/chromium/base/test/transit/SimpleConditions.java",
+      "android/javatests/src/org/chromium/base/test/transit/State.java",
       "android/javatests/src/org/chromium/base/test/transit/Station.java",
       "android/javatests/src/org/chromium/base/test/transit/StatusStore.java",
       "android/javatests/src/org/chromium/base/test/transit/TrafficControl.java",
@@ -729,12 +762,13 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/test/transit/TripBuilder.java",
       "android/javatests/src/org/chromium/base/test/transit/UiThreadCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewAndRoot.java",
-      "android/javatests/src/org/chromium/base/test/transit/ViewCarryOn.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewConditions.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewElement.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewElementMatchesCondition.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewFinder.java",
-      "android/javatests/src/org/chromium/base/test/transit/ViewSettledCarryOn.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewInterface.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewPresence.java",
+      "android/javatests/src/org/chromium/base/test/transit/ViewSettled.java",
       "android/javatests/src/org/chromium/base/test/transit/ViewSpec.java",
     ]
   }

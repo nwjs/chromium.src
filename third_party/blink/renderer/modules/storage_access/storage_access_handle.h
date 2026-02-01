@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
 
@@ -29,10 +30,13 @@ class StorageEstimate;
 class V8UnionSharedWorkerOptionsOrString;
 class V8UnionTrustedScriptURLOrUSVString;
 
-class MODULES_EXPORT StorageAccessHandle final : public ScriptWrappable {
+class MODULES_EXPORT StorageAccessHandle final
+    : public ScriptWrappable,
+      public Supplement<LocalDOMWindow> {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  static const char kSupplementName[];
   static const char kSessionStorageNotRequested[];
   static const char kLocalStorageNotRequested[];
   static const char kIndexedDBNotRequested[];
@@ -73,13 +77,10 @@ class MODULES_EXPORT StorageAccessHandle final : public ScriptWrappable {
       const V8UnionSharedWorkerOptionsOrString* name_or_options,
       ExceptionState& exception_state) const;
 
-  LocalDOMWindow* GetLocalDOMWindow() const { return local_dom_window_; }
-
  private:
   void GetDirectoryImpl(
       ScriptPromiseResolver<FileSystemDirectoryHandle>* resolver) const;
 
-  Member<LocalDOMWindow> local_dom_window_;
   Member<const StorageAccessTypes> storage_access_types_;
 };
 

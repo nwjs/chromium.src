@@ -14,6 +14,7 @@
 #import "base/test/bind.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
+#import "base/test/run_until.h"
 #import "components/affiliations/core/browser/fake_affiliation_service.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/google/core/common/google_util.h"
@@ -32,7 +33,6 @@
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/password_check_observer_bridge.h"
-#import "ios/chrome/browser/passwords/model/save_passwords_consumer.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/inline_promo_cell.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/inline_promo_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_check_item.h"
@@ -45,6 +45,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/ui/image/image_names.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
@@ -634,15 +635,7 @@ TEST_F(PasswordManagerViewControllerTest,
 
 // Tests that opening the PasswordManagerViewController in search mode shows the
 // expected content.
-// TODO(crbug.com/437314312): Deflake the test.
-TEST_F(PasswordManagerViewControllerTest, FLAKY_TestOpenInSearchMode) {
-  // TODO(crbug.com/437314312): Re-enable on device.
-#if !TARGET_OS_SIMULATOR
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    return;
-  }
-#endif
-
+TEST_F(PasswordManagerViewControllerTest, TestOpenInSearchMode) {
   // Call `settingsWillBeDismissed` on the initial view controller so that its
   // observers are reset.
   [GetPasswordManagerViewController() settingsWillBeDismissed];
@@ -673,8 +666,9 @@ TEST_F(PasswordManagerViewControllerTest, FLAKY_TestOpenInSearchMode) {
 
   // Verify that the search controller is active and that the content of table
   // view model is as expected in search mode.
-  RunUntilIdle();
-  EXPECT_TRUE(passwords_controller.navigationItem.searchController.active);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return passwords_controller.navigationItem.searchController.active;
+  }));
   EXPECT_EQ(1, [[passwords_controller tableViewModel] numberOfSections]);
   EXPECT_TRUE([passwords_controller.tableViewModel
       hasSectionForSectionIdentifier:SectionIdentifierSavedPasswords]);
@@ -1239,78 +1233,6 @@ TEST_F(PasswordManagerViewControllerTest, WidgetPromo) {
   EXPECT_NSEQ(item.promoImage,
               [UIImage imageNamed:WidgetPromoDisabledImageName()]);
   SetEditing(false);
-
-  [GetPasswordManagerViewController() settingsWillBeDismissed];
-}
-
-// Tests that the right metric is logged when tapping the widget promo's close
-// button.
-TEST_F(PasswordManagerViewControllerTest, WidgetPromoCloseButtonMetric) {
-  AddSavedForm1();
-
-  // Make Password Manager show the promo.
-  GetPasswordManagerViewController().shouldShowPasswordManagerWidgetPromo = YES;
-  [GetPasswordManagerViewController() reloadData];
-
-  // Bucket count should be zero.
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kPasswordManagerWidgetPromoActionHistogram,
-                                     PasswordManagerWidgetPromoAction::kClose,
-                                     0);
-
-  NSIndexPath* index_path = [NSIndexPath
-      indexPathForRow:0
-            inSection:GetSectionIndex(SectionIdentifierWidgetPromo)];
-  InlinePromoCell* cell = base::apple::ObjCCastStrict<InlinePromoCell>(
-      [GetPasswordManagerViewController() tableView:controller().tableView
-                              cellForRowAtIndexPath:index_path]);
-
-  // Simulate tap on promo's close button.
-  [cell.closeButton sendActionsForControlEvents:UIControlEventTouchUpInside];
-
-  // Bucket count should now be one.
-  histogram_tester.ExpectBucketCount(kPasswordManagerWidgetPromoActionHistogram,
-                                     PasswordManagerWidgetPromoAction::kClose,
-                                     1);
-
-  [GetPasswordManagerViewController() settingsWillBeDismissed];
-}
-
-// Tests that the right metric is logged when tapping the widget promo's more
-// info button.
-TEST_F(PasswordManagerViewControllerTest, WidgetPromoMoreInfoButtonMetric) {
-  AddSavedForm1();
-
-  // Make Password Manager show the promo.
-  GetPasswordManagerViewController().shouldShowPasswordManagerWidgetPromo = YES;
-  [GetPasswordManagerViewController() reloadData];
-
-  // Bucket count should be zero.
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(
-      kPasswordManagerWidgetPromoActionHistogram,
-      PasswordManagerWidgetPromoAction::kOpenInstructions, 0);
-
-  NSIndexPath* index_path = [NSIndexPath
-      indexPathForRow:0
-            inSection:GetSectionIndex(SectionIdentifierWidgetPromo)];
-  InlinePromoCell* cell = base::apple::ObjCCastStrict<InlinePromoCell>(
-      [GetPasswordManagerViewController() tableView:controller().tableView
-                              cellForRowAtIndexPath:index_path]);
-
-  OCMExpect([password_manager_view_controller_presentation_delegate_mock_
-      showPasswordManagerWidgetPromoInstructions]);
-
-  // Simulate tap on promo's more info button.
-  [cell.moreInfoButton sendActionsForControlEvents:UIControlEventTouchUpInside];
-
-  EXPECT_OCMOCK_VERIFY(
-      password_manager_view_controller_presentation_delegate_mock_);
-
-  // Bucket count should now be one.
-  histogram_tester.ExpectBucketCount(
-      kPasswordManagerWidgetPromoActionHistogram,
-      PasswordManagerWidgetPromoAction::kOpenInstructions, 1);
 
   [GetPasswordManagerViewController() settingsWillBeDismissed];
 }

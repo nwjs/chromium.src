@@ -6,6 +6,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/task/single_thread_task_runner.h"
 #include "media/base/eme_constants.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
@@ -337,9 +338,13 @@ void SetMediaKeysHandler::Trace(Visitor* visitor) const {
   visitor->Trace(timer_);
 }
 
+// static
+const char HTMLMediaElementEncryptedMedia::kSupplementName[] =
+    "HTMLMediaElementEncryptedMedia";
+
 HTMLMediaElementEncryptedMedia::HTMLMediaElementEncryptedMedia(
     HTMLMediaElement& element)
-    : html_media_element_(element),
+    : Supplement(element),
       is_waiting_for_key_(false),
       is_attaching_media_keys_(false) {}
 
@@ -350,11 +355,11 @@ HTMLMediaElementEncryptedMedia::~HTMLMediaElementEncryptedMedia() {
 HTMLMediaElementEncryptedMedia& HTMLMediaElementEncryptedMedia::From(
     HTMLMediaElement& element) {
   HTMLMediaElementEncryptedMedia* supplement =
-
-      element.GetHTMLMediaElementEncryptedMedia();
+      Supplement<HTMLMediaElement>::From<HTMLMediaElementEncryptedMedia>(
+          element);
   if (!supplement) {
     supplement = MakeGarbageCollected<HTMLMediaElementEncryptedMedia>(element);
-    element.SetHTMLMediaElementEncryptedMedia(supplement);
+    ProvideTo(element, supplement);
   }
   return *supplement;
 }
@@ -420,13 +425,13 @@ void HTMLMediaElementEncryptedMedia::Encrypted(
   DVLOG(EME_LOG_LEVEL) << __func__;
 
   Event* event;
-  if (html_media_element_->IsMediaDataCorsSameOrigin()) {
+  if (GetSupplementable()->IsMediaDataCorsSameOrigin()) {
     event = CreateEncryptedEvent(init_data_type, init_data);
   } else {
     // Current page is not allowed to see content from the media file,
     // so don't return the initData. However, they still get an event.
     event = CreateEncryptedEvent(media::EmeInitDataType::UNKNOWN, {});
-    html_media_element_->GetExecutionContext()->AddConsoleMessage(
+    GetSupplementable()->GetExecutionContext()->AddConsoleMessage(
         MakeGarbageCollected<ConsoleMessage>(
             mojom::ConsoleMessageSource::kJavaScript,
             mojom::ConsoleMessageLevel::kWarning,
@@ -437,8 +442,8 @@ void HTMLMediaElementEncryptedMedia::Encrypted(
             "response are CORS-same-origin."));
   }
 
-  event->SetTarget(html_media_element_);
-  html_media_element_->ScheduleEvent(event);
+  event->SetTarget(GetSupplementable());
+  GetSupplementable()->ScheduleEvent(event);
 }
 
 void HTMLMediaElementEncryptedMedia::DidBlockPlaybackWaitingForKey() {
@@ -454,8 +459,8 @@ void HTMLMediaElementEncryptedMedia::DidBlockPlaybackWaitingForKey() {
   //    to fire a simple event named waitingforkey at the media element.
   if (!is_waiting_for_key_) {
     Event* event = Event::Create(event_type_names::kWaitingforkey);
-    event->SetTarget(html_media_element_);
-    html_media_element_->ScheduleEvent(event);
+    event->SetTarget(GetSupplementable());
+    GetSupplementable()->ScheduleEvent(event);
   }
 
   // 3. Set the media element's waiting for key value to true.
@@ -481,7 +486,7 @@ HTMLMediaElementEncryptedMedia::ContentDecryptionModule() {
 
 void HTMLMediaElementEncryptedMedia::Trace(Visitor* visitor) const {
   visitor->Trace(media_keys_);
-  visitor->Trace(html_media_element_);
+  Supplement<HTMLMediaElement>::Trace(visitor);
 }
 
 }  // namespace blink

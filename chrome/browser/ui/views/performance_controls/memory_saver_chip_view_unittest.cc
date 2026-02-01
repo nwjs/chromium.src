@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/views/performance_controls/memory_saver_chip_view.h"
 
-#include "base/byte_count.h"
+#include "base/byte_size.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
@@ -48,9 +48,9 @@
 #include "ui/views/test/button_test_api.h"
 
 namespace {
-constexpr base::ByteCount kNormalMemorySavings = base::MiB(100);
-constexpr base::ByteCount kHighMemorySavings = base::MiB(300);
-constexpr base::ByteCount kVeryHighMemorySavings = base::GiB(3);
+constexpr base::ByteSize kNormalMemorySavings = base::MiBU(100);
+constexpr base::ByteSize kHighMemorySavings = base::MiBU(300);
+constexpr base::ByteSize kVeryHighMemorySavings = base::GiBU(3);
 }  // namespace
 
 class MemorySaverChipViewTest
@@ -187,7 +187,7 @@ TEST_P(MemorySaverChipViewTest, ShouldCollapseChipAfterNavigatingTabs) {
       browser()->tab_strip_model()->GetWebContentsAt(0);
   content::WebContents* web_contents_1 =
       browser()->tab_strip_model()->GetWebContentsAt(1);
-  EXPECT_EQ(2, tab_strip_model->GetTabCount());
+  EXPECT_EQ(2, tab_strip_model->count());
 
   SetTabDiscardState(0, true);
   EXPECT_TRUE(GetPageActionView()->ShouldShowLabel());

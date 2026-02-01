@@ -36,6 +36,7 @@
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/property_effects.h"
 
 // static
 SelectedKeywordView::KeywordLabelNames
@@ -94,7 +95,7 @@ SelectedKeywordView::SelectedKeywordView(
 SelectedKeywordView::~SelectedKeywordView() = default;
 
 void SelectedKeywordView::SetCustomImage(const gfx::Image& image) {
-  const int icon_size = GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
+  const int icon_size = GetLayoutConstant(LayoutConstant::kLocationBarIconSize);
   using_custom_image_ = !image.IsEmpty();
   if (using_custom_image_) {
     IconLabelBubbleView::SetImageModel(ui::ImageModel::FromImageSkia(

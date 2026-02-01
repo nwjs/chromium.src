@@ -66,21 +66,16 @@ public class WebSigninAccountPickerDelegate implements AccountPickerDelegate {
 
     /** Implements {@link AccountPickerDelegate}. */
     @Override
-    public void onSignoutBeforeSignin() {
+    public void onSignInComplete(
+            CoreAccountInfo accountInfo, AccountPickerDelegate.SigninStateController controller) {
         // Destroy WebSigninBridge in case it is still alive to avoid interference with the new
         // sign-in.
         destroyWebSigninBridge();
-    }
-
-    /** Implements {@link AccountPickerDelegate}. */
-    @Override
-    public void onSignInComplete(
-            CoreAccountInfo accountInfo, AccountPickerDelegate.SigninStateController controller) {
         // Create WebSigninBridge and wait for redirect to the continue url.
         mWebSigninBridge =
-                mWebSigninBridgeFactory.create(
+                mWebSigninBridgeFactory.createWithCoreAccountId(
                         mProfile,
-                        accountInfo,
+                        accountInfo.getId(),
                         createWebSigninBridgeCallback(mCurrentTab, mContinueUrl, controller));
     }
 

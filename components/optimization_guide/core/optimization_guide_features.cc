@@ -9,7 +9,6 @@
 
 #include "base/byte_count.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/containers/enum_set.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -167,7 +166,7 @@ BASE_FEATURE(kOptimizationGuideBypassFormsClassificationAuth,
 BASE_FEATURE(kGetAIPageContentSubframeTimeoutEnabled,
              base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kGetAIPageContentSubframeTimeoutParam{
-    &kGetAIPageContentSubframeTimeoutEnabled, "timeout", base::Seconds(1)};
+    &kGetAIPageContentSubframeTimeoutEnabled, "timeout", base::Seconds(10)};
 
 // Controls whether to enforce a timeout for main frame page content extraction.
 // If enabled, defaults to 10 seconds. If disabled, wait indefinitely for the
@@ -177,7 +176,7 @@ BASE_FEATURE(kGetAIPageContentMainFrameTimeoutEnabled,
 const base::FeatureParam<base::TimeDelta>
     kGetAIPageContentMainFrameTimeoutParam{
         &kGetAIPageContentMainFrameTimeoutEnabled, "timeout",
-        base::Seconds(10)};
+        base::Seconds(30)};
 
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.

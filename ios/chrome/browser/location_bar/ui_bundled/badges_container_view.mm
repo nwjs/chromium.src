@@ -9,6 +9,7 @@
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_metrics.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_placeholder_type.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -34,12 +35,23 @@ const CGFloat kBackgroundHeightMultiplier = 0.72;
 // The horizontal inset for unified badge background leading and trailing edges.
 const CGFloat kBackgroundHorizontalInset = 5.0;
 
+// The width of the separator between the contextual panel entrypoint and the
+// badge view.
+const CGFloat kSeparatorWidth = 2.0;
+
+// The corner radius of the separator.
+const CGFloat kSeparatorCornerRadius = 1.0;
+
+// The vertical padding for the separator.
+const CGFloat kSeparatorVerticalPadding = 12.0;
+
 }  // namespace
 
 @implementation LocationBarBadgesContainerView {
   UIStackView* _containerStackView;
   UIButton* _tapOverlayButton;
   UIView* _badgeBackgroundView;
+  UIView* _separatorView;
   BOOL _disableProactiveOverlay;
 
   /// Whether the contextual panel entrypoint should be visible. The placeholder
@@ -70,6 +82,24 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
 
     [self addSubview:_containerStackView];
     AddSameConstraints(self, _containerStackView);
+
+    if (IsProactiveSuggestionsFrameworkEnabled()) {
+      _separatorView = [[UIView alloc] init];
+      _separatorView.translatesAutoresizingMaskIntoConstraints = NO;
+      _separatorView.isAccessibilityElement = NO;
+      _separatorView.backgroundColor = [UIColor colorNamed:kGrey300Color];
+      _separatorView.layer.cornerRadius = kSeparatorCornerRadius;
+      _separatorView.clipsToBounds = YES;
+      _separatorView.hidden = YES;
+      [_containerStackView addArrangedSubview:_separatorView];
+
+      [NSLayoutConstraint activateConstraints:@[
+        [_separatorView.widthAnchor constraintEqualToConstant:kSeparatorWidth],
+        [_separatorView.heightAnchor
+            constraintEqualToAnchor:_containerStackView.heightAnchor
+                           constant:-(kSeparatorVerticalPadding * 2)],
+      ]];
+    }
   }
 
   return self;
@@ -189,9 +219,6 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
 
 - (void)setContextualPanelEntrypointView:
     (UIView*)contextualPanelEntrypointView {
-  if (IsDiamondPrototypeEnabled()) {
-    return;
-  }
   if (_contextualPanelEntrypointView) {
     return;
   }
@@ -211,9 +238,6 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
 }
 
 - (void)setReaderModeChipView:(UIView*)readerModeChipView {
-  if (IsDiamondPrototypeEnabled()) {
-    return;
-  }
   if (_readerModeChipView) {
     return;
   }
@@ -233,9 +257,6 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
 }
 
 - (void)setPlaceholderView:(UIView*)placeholderView {
-  if (IsDiamondPrototypeEnabled()) {
-    return;
-  }
   if (_placeholderView == placeholderView) {
     return;
   }
@@ -302,7 +323,8 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
   if (IsProactiveSuggestionsFrameworkEnabled()) {
     // When framework enabled, reader mode chip visibility follows desired state
     // directly.
-    readerModeChipShouldBeVisibleFinal = _readerModeChipShouldBeVisible;
+    readerModeChipShouldBeVisibleFinal =
+        _readerModeChipShouldBeVisible && _incognito;
   } else {
     // The Reader mode chip (which wants to be visible when Reader mode is
     // active) should not be visible if the contextual panel is currently
@@ -313,12 +335,21 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
           _contextualPanelCurrentlyAnimating);
   }
 
-  // Other badges can be visible only outside of Reader mode.
-  if (!readerModeChipShouldBeVisibleFinal) {
-    // The badge view used by e.g. Translate, Permissions, etc, is visible if it
-    // wants to be visible and `IsDiamondPrototypeEnabled()` returns false.
-    badgeViewShouldBeVisibleFinal =
-        _badgeViewShouldBeVisible && !IsDiamondPrototypeEnabled();
+  // The badge view used by e.g. Translate, Permissions, etc, is visible if it
+  // wants to be visible.
+  badgeViewShouldBeVisibleFinal = _badgeViewShouldBeVisible;
+
+  if (_readerModeChipShouldBeVisible) {
+    // `_readerModeChipShouldBeVisible` is true when Reader mode is active.
+    // Then the contextual entrypoint should only be visible if PSF is enabled,
+    // and the contextual chip wants to be visible, and the contextual panel
+    // item is NOT the Reader Mode availability contextual chip.
+    contextualPanelEntrypointShouldBeVisibleFinal =
+        IsProactiveSuggestionsFrameworkEnabled() &&
+        _contextualPanelEntrypointShouldBeVisible &&
+        (_contextualPanelItemType != ContextualPanelItemType::ReaderModeItem);
+  } else {
+    // `_readerModeChipShouldBeVisible` is false when Reader mode is inactive.
     // The contextual panel entrypoint can only be visible if it wants to be
     // visible and if one of these conditions is verified:
     // 1. The contextual panel has a loud moment (animating to large entrypoint)
@@ -332,12 +363,14 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
         (_contextualPanelCurrentlyAnimating || badgeViewShouldBeVisibleFinal ||
          _contextualPanelItemType != ContextualPanelItemType::ReaderModeItem ||
          _placeholderType != LocationBarPlaceholderType::kPageActionMenu);
-    // Finally the placeholder is visible if both the badge view and contextual
-    // panel entrypoint are hidden.
-    placeholderViewShouldBeVisibleFinal =
-        !badgeViewShouldBeVisibleFinal &&
-        !contextualPanelEntrypointShouldBeVisibleFinal;
   }
+
+  // Finally the placeholder is visible if the badge view, and contextual panel
+  // entrypoint are hidden, and only outside of Reader mode.
+  placeholderViewShouldBeVisibleFinal =
+      !badgeViewShouldBeVisibleFinal &&
+      !contextualPanelEntrypointShouldBeVisibleFinal &&
+      !_readerModeChipShouldBeVisible;
 
   SetViewHiddenIfNecessary(self.readerModeChipView,
                            !readerModeChipShouldBeVisibleFinal);
@@ -347,39 +380,57 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
   SetViewHiddenIfNecessary(self.contextualPanelEntrypointView,
                            !contextualPanelEntrypointShouldBeVisibleFinal);
 
-  if (!_placeholderView ||
-      !!placeholderViewShouldBeVisibleFinal == !_placeholderView.hidden) {
-    return;
-  }
+  if (_placeholderView &&
+      !!placeholderViewShouldBeVisibleFinal != !_placeholderView.hidden) {
+    _placeholderView.hidden = !placeholderViewShouldBeVisibleFinal;
 
-  SetViewHiddenIfNecessary(_placeholderView,
-                           !placeholderViewShouldBeVisibleFinal);
-
-  // Records why the placeholder view is hidden. These are not mutually
-  // exclusive, price tracking will take precedence over messages.
-  if (!placeholderViewShouldBeVisibleFinal) {
-    if (contextualPanelEntrypointShouldBeVisibleFinal) {
-      if (_contextualPanelItemType) {
-        switch (_contextualPanelItemType.value()) {
-          case ContextualPanelItemType::PriceInsightsItem:
-            RecordLensEntrypointHidden(
-                IOSLocationBarLeadingIconType::kPriceTracking);
-            break;
-          case ContextualPanelItemType::ReaderModeItem:
-            RecordLensEntrypointHidden(
-                IOSLocationBarLeadingIconType::kReaderMode);
-            break;
-          default:
-            break;
+    // Records why the placeholder view is hidden. These are not mutually
+    // exclusive, price tracking will take precedence over messages.
+    if (!placeholderViewShouldBeVisibleFinal) {
+      if (contextualPanelEntrypointShouldBeVisibleFinal) {
+        if (_contextualPanelItemType) {
+          switch (_contextualPanelItemType.value()) {
+            case ContextualPanelItemType::PriceInsightsItem:
+              RecordLensEntrypointHidden(
+                  IOSLocationBarLeadingIconType::kPriceTracking);
+              break;
+            case ContextualPanelItemType::ReaderModeItem:
+              RecordLensEntrypointHidden(
+                  IOSLocationBarLeadingIconType::kReaderMode);
+              break;
+            default:
+              break;
+          }
         }
+      } else if (badgeViewShouldBeVisibleFinal) {
+        RecordLensEntrypointHidden(IOSLocationBarLeadingIconType::kMessage);
+      } else if (readerModeChipShouldBeVisibleFinal) {
+        RecordLensEntrypointHidden(IOSLocationBarLeadingIconType::kReaderMode);
       }
-    } else if (badgeViewShouldBeVisibleFinal) {
-      RecordLensEntrypointHidden(IOSLocationBarLeadingIconType::kMessage);
-    } else if (readerModeChipShouldBeVisibleFinal) {
-      RecordLensEntrypointHidden(IOSLocationBarLeadingIconType::kReaderMode);
     }
   }
+
   if (IsProactiveSuggestionsFrameworkEnabled()) {
+    if (_separatorView) {
+      BOOL separatorShouldBeVisible =
+          contextualPanelEntrypointShouldBeVisibleFinal &&
+          badgeViewShouldBeVisibleFinal;
+      _separatorView.hidden = !separatorShouldBeVisible;
+
+      if (separatorShouldBeVisible) {
+        NSInteger badgeIndex =
+            [_containerStackView.arrangedSubviews indexOfObject:_badgeView];
+        if (badgeIndex != NSNotFound && badgeIndex > 0) {
+          NSInteger separatorIndex = [_containerStackView.arrangedSubviews
+              indexOfObject:_separatorView];
+          if (separatorIndex > badgeIndex) {
+            [_containerStackView removeArrangedSubview:_separatorView];
+            [_containerStackView insertArrangedSubview:_separatorView
+                                               atIndex:badgeIndex];
+          }
+        }
+      }
+    }
     [self updateBackgroundVisibility];
     [self updateTapOverlayButtonVisibility];
   }
@@ -482,9 +533,9 @@ const CGFloat kBackgroundHorizontalInset = 5.0;
 
   // If there are no visible badges, the placeholder badge should be shown and
   // we should use the default badge tap logic instead of the tap overlay.
-  BOOL hasVisibleBadges = ![self hasVisibleBadges];
-  _tapOverlayButton.hidden = hasVisibleBadges;
-  _containerStackView.userInteractionEnabled = hasVisibleBadges;
+  BOOL noVisibleBadges = ![self hasVisibleBadges];
+  _tapOverlayButton.hidden = noVisibleBadges;
+  _containerStackView.userInteractionEnabled = noVisibleBadges;
 }
 
 @end

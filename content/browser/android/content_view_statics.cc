@@ -20,7 +20,7 @@
 
 using base::android::ConvertJavaStringToUTF16;
 using base::android::ConvertUTF16ToJavaString;
-using base::android::JavaParamRef;
+using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
 namespace {
@@ -94,7 +94,7 @@ base::LazyInstance<SuspendedProcessWatcher>::DestructorAtExit
 
 static void JNI_ContentViewStaticsImpl_SetWebKitSharedTimersSuspended(
     JNIEnv* env,
-    jboolean suspend) {
+    bool suspend) {
   if (suspend) {
     g_suspended_processes_watcher.Pointer()->SuspendWebKitSharedTimers();
   } else {

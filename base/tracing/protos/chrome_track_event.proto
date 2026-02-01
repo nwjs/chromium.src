@@ -42,6 +42,7 @@ message BlinkTaskScope {
     TASK_SCOPE_SOFT_NAVIGATION = 9;
     TASK_SCOPE_MISC_EVENT = 10;
     TASK_SCOPE_MICROTASK = 11;
+    TASK_SCOPE_RESOURCE_TIMING = 12;
   }
   optional TaskScopeType type = 1;
   optional int64 scope_task_id = 2;
@@ -890,6 +891,7 @@ message EventLatency {
   //
   // To simplify the documentation below, we use "this frame" to refer to the
   // frame in which the scroll update was presented.
+  // LINT.IfChange
   message ScrollJankV4Result {
     // Next ID: 13
 
@@ -902,7 +904,6 @@ message EventLatency {
 
     // Reason why Chrome's scroll jank v4 metric marked a scroll update as
     // janky. A single scroll update can be janky for more than one reason.
-    // LINT.IfChange(JankReason)
     enum JankReason {
       JANK_REASON_UNSPECIFIED = 0;
 
@@ -921,7 +922,6 @@ message EventLatency {
       // Chrome missed one or more VSyncs in the middle of a fling.
       MISSED_VSYNC_DURING_FLING = 4;
     }
-    // LINT.ThenChange(//cc/metrics/scroll_jank_v4_result.h:JankReason,//tools/metrics/histograms/metadata/event/histograms.xml:ScrollJankReasonV4)
 
     // Number of VSyncs that that Chrome missed before presenting the scroll
     // update for each reason. Essentially a map<JankReason, int32>.
@@ -1109,6 +1109,7 @@ message EventLatency {
     // BeginFrameArgs.
     optional int64 vsync_interval_us = 12;
   }
+  // LINT.ThenChange(//base/tracing/stdlib/chrome/scroll_jank_v4.sql)
 
   // Deprecated in favor of top-level `ChromeTrackEvent.scroll_jank_v4`.
   optional ScrollJankV4Result scroll_jank_v4 = 10 [deprecated = true];
@@ -1357,122 +1358,6 @@ message UkmPageLoadTimingUpdate {
   optional double latest_largest_contentful_paint_ms = 4;
 
   optional double first_contentful_paint_ms = 5;
-}
-
-// A serialisation of v8StackFrame class.
-message V8StackFrame {
-  // Code location (path to the script and line/column number)
-  message ScriptLocation {
-    optional string source_url = 1;
-    optional int64 line_number = 2;
-    optional int64 column_number = 3;
-  }
-
-  // The name of the function that was called
-  optional string function_name = 1;
-
-  // If the function was defined in a script, contains the location within the
-  // script.
-  optional ScriptLocation script_location = 2;
-}
-
-// Serializes the blink::ExecutionContext object.
-message BlinkExecutionContext {
-  // Definition of different context types.
-  enum ContextType {
-    UNKNOWN_CONTEXT = 0;
-    WINDOW = 1;
-    WORKLET = 2;
-    DEDICATED_WORKER = 3;
-    SHARED_WORKER = 4;
-    SERVICE_WORKER = 5;
-  }
-
-  // Definition of world type.
-  enum WorldType {
-    WORLD_UNKNOWN = 0;
-    WORLD_MAIN = 1;
-    WORLD_ISOLATED = 2;
-    WORLD_INSPECTOR_ISOLATED = 3;
-    WORLD_REG_EXP = 4;
-    WORLD_FOR_V8_CONTEXT_SNAPSHOT_NON_MAIN = 5;
-    WORLD_WORKER = 6;
-    WORLD_SHADOW_REALM = 7;
-  }
-
-  optional ContextType type = 1;
-  // Contains url of frame or worker.
-  optional string url = 2;
-  // The origin of the execution context.
-  optional string origin = 3;
-  // The world type of the execution context.
-  optional WorldType world_type = 4;
-}
-
-// Serializes the blink::SourceLocation object.
-message BlinkSourceLocation {
-  optional string function_name = 1;
-  optional int32 script_id = 2;
-  optional string url = 3;
-  optional int32 line_number = 4;
-  optional int32 column_number = 5;
-  optional string stack_trace = 6;
-  repeated V8StackFrame stack_frames = 7;
-}
-
-// Contains the meta information for high entropy events (like api calls)
-// that are to be traced for debugging in the context of identifiability study.
-message BlinkHighEntropyAPI {
-  // Serialization of a parameter passed to a javascript function.
-  // Contains the stringified type of the object and some string representation
-  // of its value.
-  message JSFunctionArgument {
-    // Definition of different types of function parameters.
-    enum ArgumentType {
-      UNKNOWN_TYPE = 0;
-      NULL_TYPE = 1;
-      UNDEFINED = 2;
-      BIGINT = 3;
-      BOOLEAN = 4;
-      FUNCTION = 5;
-      NUMBER = 6;
-      STRING = 7;
-      SYMBOL = 8;
-      OBJECT = 9;
-    }
-    optional ArgumentType type = 1;
-    optional string value = 2;
-  }
-
-  // Describes a Javascript API call.
-  message CalledJsApi {
-    // Contains class and function name of api called
-    // similar to "Navigator.languages.get".
-    optional string identifier = 1;
-    repeated JSFunctionArgument func_arguments = 2;
-
-    // Deprecated in favour of outer source_location. Not filled anymore in
-    // newer versions of chrome.
-    optional BlinkSourceLocation source_location = 3 [deprecated = true];
-  }
-  optional BlinkExecutionContext execution_context = 1;
-  optional CalledJsApi called_api = 2;
-  optional BlinkSourceLocation source_location = 3;
-
-  // Describes lookup of a font.
-  message FontLookup {
-    enum FontLookupType {
-      FONT_LOOKUP_UNKNOWN_TYPE = 0;
-      FONT_LOOKUP_UNIQUE_OR_FAMILY_NAME = 1;
-      FONT_LOOKUP_UNIQUE_NAME_ONLY = 2;
-    }
-    optional FontLookupType type = 1;
-    optional string name = 2;
-    optional uint64 weight = 3;
-    optional uint64 width = 4;
-    optional uint64 slope = 5;
-  }
-  optional FontLookup font_lookup = 4;
 }
 
 // Contains information about a tab switch measurement.
@@ -1919,6 +1804,8 @@ message WebContentInteraction {
   optional int64 total_duration_ms = 2;
 }
 
+// Deprecated in favor of the Perfetto Scroll Jank plugin which has a more
+// in-depth track. See `org.chromium.ChromeScrollJank/scroll_track.ts`
 message ScrollMetrics {
   optional int64 frame_count = 1;
   optional int64 vsync_count = 2;
@@ -2363,6 +2250,7 @@ message WebViewStartup {
     STATIC_SET_RENDERER_LIBRARY_PREFETCH_MODE = 105;
     STATIC_GET_RENDERER_LIBRARY_PREFETCH_MODE = 106;
     GET_DEFAULT_COOKIE_MANAGER = 107;
+    GET_PROFILE_STORE = 108;
     // Remember to update WebViewStartupCallSite in enums.xml when adding new
     // values here.
   }
@@ -2920,6 +2808,8 @@ message ResponseInfo {
 };
 
 message ChromeTrackEvent {
+  reserved 1045;
+
   // Extension range for Chrome: 1000-1999
   // Next ID: 1079
   extend TrackEvent {
@@ -3018,8 +2908,6 @@ message ChromeTrackEvent {
 
     optional UkmPageLoadTimingUpdate ukm_page_load_timing_update = 1044;
 
-    optional BlinkHighEntropyAPI high_entropy_api = 1045;
-
     optional TabSwitchMeasurement tab_switch_measurement = 1046;
 
     optional ScrollDeltas scroll_deltas = 1047;
@@ -3062,7 +2950,7 @@ message ChromeTrackEvent {
     optional AnimationFrameScriptTimingInfo animation_frame_script_timing_info =
         1065;
 
-    optional ScrollMetrics scroll_metrics = 1066;
+    optional ScrollMetrics scroll_metrics = 1066 [deprecated = true];
 
     optional MainFramePipeline main_frame_pipeline = 1067;
 

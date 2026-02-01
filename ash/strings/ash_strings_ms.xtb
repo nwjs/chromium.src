@@ -342,6 +342,7 @@
 <translation id="2201071101391734388">Foto baru-baru ini <ph name="INDEX" /> daripada <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Kuncupkan Google Tasks</translation>
 <translation id="2208323208084708176">Mod desktop bersatu</translation>
+<translation id="2210311543574621570">Anda akan melihat papan keratan apabila anda menekan dan menahan Ctrl + V. Anda boleh mematikan pintasan ini dengan melumpuhkan bendera #clipboard-history-longpress dalam chrome://flags.</translation>
 <translation id="2215920961700443347">Tiada Internet. Sambung kepada Internet dan cuba lagi.</translation>
 <translation id="2222841058024245321">Meja 7</translation>
 <translation id="2223384056430485343">Pada skrin pisah</translation>
@@ -875,6 +876,7 @@ Semua pengguna mesti log keluar untuk meneruskan.</translation>
 <translation id="397105322502079400">Mengira...</translation>
 <translation id="397726367135689299">Pengecasan bateri mungkin tidak boleh dipercayai.</translation>
 <translation id="3977512764614765090">Kuasa bateri pada tahap <ph name="PERCENTAGE" />% dan sedang dicas.</translation>
+<translation id="3978162107953847778">Sisipkan pautan dari tempat seperti sejarah penyemakan imbas dan Google Drive anda. Anda juga boleh menyisipkan emoji, fail imej dan pelbagai lagi. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="3982013579989864579">Tukar output audio?</translation>
 <translation id="3984536049089846927">Halaman seterusnya</translation>
 <translation id="3986082989454912832">Jawab</translation>
@@ -1024,7 +1026,6 @@ Semua pengguna mesti log keluar untuk meneruskan.</translation>
 <translation id="4449692009715125625">{NUM_NOTIFICATIONS,plural, =1{1 pemberitahuan penting}other{# pemberitahuan penting}}</translation>
 <translation id="4450893287417543264">Jangan tunjukkan lagi</translation>
 <translation id="4451374464530248585">Pintasan papan kekunci Alt + Anak Panah ke Bawah telah berubah. Untuk menggunakan kekunci Page Down, tekan kekunci <ph name="LAUNCHER_KEY_NAME" /> + Anak Panah ke Bawah.</translation>
-<translation id="4453876312474547652">Anda akan melihat papan keratan apabila anda menekan dan menahan Ctrl + V. Anda boleh mematikan pintasan ini dengan melumpuhkan bendera #clipboard-history-longpress dalam chrome://flags (os://flags jika anda menggunakan Lacros).</translation>
 <translation id="445765352722456792">Sesuaikan cadangan</translation>
 <translation id="4458688154122353284">Hentikan rakaman skrin</translation>
 <translation id="445923051607553918">Sertai rangkaian Wi-Fi</translation>
@@ -1600,6 +1601,7 @@ Tiada peranti disambungkan.</translation>
 <translation id="6260038345397266744"><ph name="TITLE" />. <ph name="DESCRIPTION" /></translation>
 <translation id="6267036997247669271"><ph name="NAME" />: Mengaktifkan...</translation>
 <translation id="6274202259872570803">Rakaman skrin</translation>
+<translation id="6274422179279280249">Sisipkan pautan, emoji dan pelbagai lagi. Anda juga boleh mendapatkan bantuan menulis menggunakan Google AI. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="6276708887952587684">Lihat sumber halaman</translation>
 <translation id="6285871695023807425">Tambahkan pada Calendar</translation>
 <translation id="6288235558961782912"><ph name="USER_EMAIL_ADDRESS" /> boleh ditambahkan semula kemudian dengan kebenaran ibu bapa.</translation>
@@ -2190,6 +2192,7 @@ Untuk mematikan peranti, tekan dan tahan butang kuasa pada peranti sekali lagi.<
 <translation id="8237964652943995219">Meja seterusnya: <ph name="DESK_NAME" />. Meja <ph name="DESK_INDEX" /> daripada <ph name="DESK_COUNT" />.</translation>
 <translation id="8238817965863339552">Buat jelajah pantas untuk mengetahui cara menavigasi <ph name="PRODUCT_NAME" /> anda. Mulakan penggunaan dengan 5 langkah.</translation>
 <translation id="8239034820133090126">Aktifkan meja di sebelah kanan</translation>
+<translation id="8241650983304689286">Tambahkan tab pada paparan pisah baharu</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, Kekuatan Isyarat <ph name="SIGNAL_STRENGTH" />, Bateri Telefon <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Paparkan semua kandungan Google Drive</translation>
 <translation id="8257510091797044096">Sediakan peranti anda</translation>

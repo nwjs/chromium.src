@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver_set.h"
+#include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
@@ -36,10 +37,11 @@ class ResourceResponse;
 // they are not specified in the json.
 class MODULES_EXPORT ManifestManager
     : public GarbageCollected<ManifestManager>,
+      public Supplement<LocalDOMWindow>,
       public mojom::blink::ManifestManager,
       public ExecutionContextLifecycleObserver {
  public:
-  static const unsigned kSupplementIndex;
+  static const char kSupplementName[];
 
   static ManifestManager* From(LocalDOMWindow&);
 
@@ -130,7 +132,6 @@ class MODULES_EXPORT ManifestManager
 
   friend class ManifestManagerTest;
 
-  Member<LocalDOMWindow> local_dom_window_;
   Member<ManifestFetcher> fetcher_;
   Member<ManifestChangeNotifier> manifest_change_notifier_;
 

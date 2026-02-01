@@ -395,6 +395,7 @@ class CORE_EXPORT SelectorChecker {
   static bool MatchesFocusVisiblePseudoClass(const Element&);
   static bool MatchesSelectorFragmentAnchorPseudoClass(const Element&);
   static bool MatchesActiveViewTransitionPseudoClass(const Element&);
+  static bool MatchesOverscrollTarget(const Element&);
 
  private:
   // Does the work of checking whether the simple selector and element pointed
@@ -450,8 +451,7 @@ class CORE_EXPORT SelectorChecker {
   bool CheckPseudoScope(const SelectorCheckingContext&, MatchResult&) const;
   bool CheckPseudoNot(const SelectorCheckingContext&, MatchResult&) const;
   bool CheckPseudoHas(const SelectorCheckingContext&, MatchResult&) const;
-  bool CheckPseudoRouteMatch(const SelectorCheckingContext&,
-                             MatchResult&) const;
+  bool CheckPseudoLinkTo(const SelectorCheckingContext&, MatchResult&) const;
   bool MatchesAnyInList(const SelectorCheckingContext& context,
                         const CSSSelector* selector_list,
                         MatchResult& result) const;

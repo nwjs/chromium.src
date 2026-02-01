@@ -159,7 +159,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Installer.PowerwashDays" units="powerwashdays"
-    expires_after="2026-03-29">
+    expires_after="2026-05-31">
   <owner>qianwan@google.com</owner>
   <owner>chromeos-data@google.com</owner>
   <summary>
@@ -308,6 +308,32 @@ chromium-metrics-reviews@google.com.
     <variant name="Create"/>
     <variant name="SetInfo"/>
     <variant name="Write"/>
+  </token>
+</histogram>
+
+<histogram name="Setup.Install.WinAppRuntime.WaitForStartInstall.TimingMs"
+    units="ms" expires_after="2026-12-16">
+  <owner>reillyg@chromium.org</owner>
+  <owner>src/services/webnn/OWNERS</owner>
+  <summary>
+    The time taken to wait for the Windows App Runtime installation to start.
+    Recorded once per process.
+  </summary>
+</histogram>
+
+<histogram name="Setup.Install.WinAppRuntime.{Operation}.Result" enum="Hresult"
+    expires_after="2026-12-16">
+  <owner>reillyg@chromium.org</owner>
+  <owner>src/services/webnn/OWNERS</owner>
+  <summary>
+    The HRESULT of a call to {Operation} when trying to trigger the Windows App
+    Runtime installation. Recorded once per process.
+  </summary>
+  <token key="Operation">
+    <variant name="ActivateManager"/>
+    <variant name="ActivateOptions"/>
+    <variant name="StartInstall"/>
+    <variant name="WaitForStartInstall"/>
   </token>
 </histogram>
 

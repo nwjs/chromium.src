@@ -9,22 +9,18 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
+#include "base/scoped_observation.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
-#include "chrome/browser/actor/actor_keyed_service.h"
+#include "build/build_config.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list_observer.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
-#include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
@@ -35,7 +31,19 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/base_window.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/glic/fre/glic_fre_controller.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "ui/views/widget/widget.h"
+#endif
 
 namespace glic {
 
@@ -216,11 +224,15 @@ enum class BrowserActiveState {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicBrowserActiveState)
 
+#if !BUILDFLAG(IS_ANDROID)
 // Computes BrowserActiveState.
-class BrowserActivityObserver : public BrowserListObserver {
+class BrowserActivityObserver : public BrowserCollectionObserver {
  public:
-  BrowserActivityObserver() { BrowserList::AddObserver(this); }
-  ~BrowserActivityObserver() override { BrowserList::RemoveObserver(this); }
+  BrowserActivityObserver() {
+    browser_collection_observer_.Observe(
+        GlobalBrowserCollection::GetInstance());
+  }
+  ~BrowserActivityObserver() override = default;
 
   BrowserActiveState GetBrowserActiveState() const {
     if (active_browser_) {
@@ -256,17 +268,17 @@ class BrowserActivityObserver : public BrowserListObserver {
     return BrowserActiveState::kBrowserInactive;
   }
 
-  // BrowserListObserver impl.
-  void OnBrowserRemoved(Browser* browser) override {
+  // BrowserCollectionObserver impl.
+  void OnBrowserClosed(BrowserWindowInterface* browser) override {
     if (active_browser_ == browser) {
       active_browser_ = nullptr;
     }
   }
-  void OnBrowserSetLastActive(Browser* browser) override {
+  void OnBrowserActivated(BrowserWindowInterface* browser) override {
     active_browser_ = browser;
     last_browser_active_time_ = std::nullopt;
   }
-  void OnBrowserNoLongerActive(Browser* browser) override {
+  void OnBrowserDeactivated(BrowserWindowInterface* browser) override {
     if (active_browser_ == browser) {
       active_browser_ = nullptr;
     }
@@ -277,11 +289,24 @@ class BrowserActivityObserver : public BrowserListObserver {
 
  private:
   // The active browser, or null if none is active.
-  raw_ptr<Browser> active_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> active_browser_ = nullptr;
 
   // If the browser is not active, the time at which it was last active.
   std::optional<base::TimeTicks> last_browser_active_time_;
+
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observer_{this};
 };
+#else  // TODO(b/470059315): Implement this for android.
+
+class BrowserActivityObserver {
+ public:
+  BrowserActiveState GetBrowserActiveState() const {
+    return BrowserActiveState::kBrowserActive;
+  }
+};
+
+#endif
 
 }  // namespace internal
 
@@ -318,6 +343,37 @@ GlicMetrics::GlicMetrics(Profile* profile, GlicEnabling* enabling)
 }
 
 GlicMetrics::~GlicMetrics() = default;
+
+void GlicMetrics::OnTrustFirstOnboardingShown() {
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Shown"));
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Shown.Onboarding"));
+  onboarding_shown_time_ = base::TimeTicks::Now();
+}
+
+void GlicMetrics::OnTrustFirstOnboardingAccept() {
+  OnFreAccepted();
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept"));
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Accept.Onboarding"));
+
+  if (!onboarding_shown_time_.is_null()) {
+    base::UmaHistogramLongTimes(
+        "Glic.Fre.TotalTime.Accepted.Onboarding",
+        base::TimeTicks::Now() - onboarding_shown_time_);
+    onboarding_shown_time_ = base::TimeTicks();
+  }
+}
+
+void GlicMetrics::OnTrustFirstOnboardingDismissed() {
+  if (onboarding_shown_time_.is_null() ||
+      enabling_->HasConsentedForProfile(profile_)) {
+    return;
+  }
+  base::RecordAction(base::UserMetricsAction("Glic.Fre.Dismissed.Onboarding"));
+
+  base::UmaHistogramLongTimes("Glic.Fre.TotalTime.Dismissed.Onboarding",
+                              base::TimeTicks::Now() - onboarding_shown_time_);
+  onboarding_shown_time_ = base::TimeTicks();
+}
 
 void GlicMetrics::OnFreAccepted() {
   // Store the current time in a instance variable.
@@ -537,6 +593,11 @@ void GlicMetrics::OnRecordUseCounter(uint16_t counter) {
 
 void GlicMetrics::OnGlicWindowStartedOpening(bool attached,
                                              mojom::InvocationSource source) {
+  if (GlicEnabling::IsTrustFirstOnboardingEnabled() &&
+      !enabling_->HasConsentedForProfile(profile_)) {
+    OnTrustFirstOnboardingShown();
+  }
+
   base::UmaHistogramEnumeration(
       "Glic.Session.Open.BrowserActiveState",
       browser_activity_observer_->GetBrowserActiveState());
@@ -611,12 +672,14 @@ void GlicMetrics::OnGlicWindowShown(
   base::UmaHistogramEnumeration(
       "Glic.PositionOnDisplay.OnOpen",
       GetDisplayPositionOfPoint(glic_display, glic_bounds.CenterPoint()));
+#if !BUILDFLAG(IS_ANDROID)
   base::UmaHistogramEnumeration(
       "Glic.PositionOnChrome.OnOpen",
       GetChromeRelativePositionOfPoint(browser, glic_bounds.CenterPoint()));
   base::UmaHistogramEnumeration(
       "Glic.PercentOverlapWithBrowser.OnOpen",
       GetPercentOverlapWithBrowser(browser, glic_bounds));
+#endif
 }
 
 void GlicMetrics::OnGlicWindowResize() {
@@ -650,6 +713,7 @@ void GlicMetrics::OnGlicWindowClose(Browser* last_active_browser,
   base::UmaHistogramEnumeration(
       "Glic.PositionOnDisplay.OnClose",
       GetDisplayPositionOfPoint(display, glic_bounds.CenterPoint()));
+#if !BUILDFLAG(IS_ANDROID)
   base::UmaHistogramEnumeration(
       "Glic.PositionOnChrome.OnClose",
       GetChromeRelativePositionOfPoint(last_active_browser,
@@ -657,6 +721,7 @@ void GlicMetrics::OnGlicWindowClose(Browser* last_active_browser,
   base::UmaHistogramEnumeration(
       "Glic.PercentOverlapWithBrowser.OnClose",
       GetPercentOverlapWithBrowser(last_active_browser, glic_bounds));
+#endif
   base::UmaHistogramCounts1000("Glic.Session.ResponseCount",
                                session_responses_);
   if (session_start_time_.is_null()) {
@@ -694,6 +759,12 @@ void GlicMetrics::OnGlicWindowClose(Browser* last_active_browser,
     scroll_attempt_count_ = 0;
   }
 
+  if (!onboarding_shown_time_.is_null() &&
+      !enabling_->HasConsentedForProfile(profile_)) {
+    OnTrustFirstOnboardingDismissed();
+  }
+  onboarding_shown_time_ = base::TimeTicks();
+
   glic_window_size_timer_.Stop();
   profile_->GetPrefs()->SetTime(prefs::kGlicWindowLastDismissedTime,
                                 base::Time::Now());
@@ -723,7 +794,6 @@ void GlicMetrics::OnGlicScrollComplete(bool success) {
 }
 
 void GlicMetrics::LogClosedCaptionsShown() {
-  CHECK(base::FeatureList::IsEnabled(features::kGlicClosedCaptioning));
   bool pref_enabled =
       profile_->GetPrefs()->GetBoolean(prefs::kGlicClosedCaptioningEnabled);
   base::UmaHistogramBoolean("Glic.Response.ClosedCaptionsShown", pref_enabled);
@@ -767,6 +837,7 @@ void GlicMetrics::LogGetContextForActorFromTabError(
 }
 
 void GlicMetrics::OnActivateTabFromInstance(tabs::TabInterface* tab) {
+#if !BUILDFLAG(IS_ANDROID)
   actor::TaskId task_id =
       actor::ActorKeyedService::Get(profile_)->GetTaskFromTab(*tab);
   // Record user action if the tab is associated with an ActorTask.
@@ -774,6 +845,7 @@ void GlicMetrics::OnActivateTabFromInstance(tabs::TabInterface* tab) {
     base::RecordAction(
         base::UserMetricsAction("Glic.Instance.TaskTabForegrounded"));
   }
+#endif
 }
 
 void GlicMetrics::SetControllers(
@@ -950,6 +1022,7 @@ DisplayPosition GlicMetrics::GetDisplayPositionOfPoint(
   return position_map[x_index][y_index];
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 ChromeRelativePosition GlicMetrics::GetChromeRelativePositionOfPoint(
     Browser* browser,
     const gfx::Point& glic_center_point) {
@@ -1039,6 +1112,7 @@ PercentOverlap GlicMetrics::GetPercentOverlapWithBrowser(
       return PercentOverlap::k0;
   }
 }
+#endif
 
 void GlicMetrics::OnAttachedToBrowser(AttachChangeReason reason) {
   base::UmaHistogramEnumeration("Glic.AttachedToBrowser", reason);

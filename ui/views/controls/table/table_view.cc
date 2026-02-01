@@ -54,6 +54,7 @@
 #include "ui/views/controls/table/table_view_observer.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/property_effects.h"
 #include "ui/views/style/typography_provider.h"
 #include "ui/views/view_utils.h"
 
@@ -1575,6 +1576,12 @@ void TableView::SortItemsAndUpdateMapping(bool schedule_paint) {
 
   GetViewAccessibility().SetTableRowCount(static_cast<int32_t>(GetRowCount()));
   UpdateVirtualAccessibilityChildrenBounds();
+
+  // Clear the selection if the active row is out of bounds.
+  if (selection_model_.active().has_value() &&
+      selection_model_.active().value() >= row_count) {
+    selection_model_.Clear();
+  }
 
   if (schedule_paint) {
     SchedulePaint();

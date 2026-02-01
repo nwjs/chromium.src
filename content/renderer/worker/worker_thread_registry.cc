@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
@@ -91,8 +90,9 @@ WorkerThreadRegistry::WorkerThreadRegistry()
 int WorkerThreadRegistry::PostTaskToAllThreads(
     const base::RepeatingClosure& closure) {
   base::AutoLock locker(task_runner_map_lock_);
-  for (const auto& it : task_runner_map_)
+  for (const auto& it : task_runner_map_) {
     it.second->PostTask(FROM_HERE, closure);
+  }
   return static_cast<int>(task_runner_map_.size());
 }
 
@@ -115,8 +115,9 @@ void WorkerThreadRegistry::DidStartCurrentWorkerThread() {
 
 void WorkerThreadRegistry::WillStopCurrentWorkerThread() {
   DCHECK(worker_data);
-  for (auto& observer : worker_data->observers)
+  for (auto& observer : worker_data->observers) {
     observer.WillStopCurrentWorkerThread();
+  }
   {
     base::AutoLock locker(task_runner_map_lock_);
     task_runner_map_.erase(worker_data->thread_id);
@@ -128,7 +129,7 @@ void WorkerThreadRegistry::WillStopCurrentWorkerThread() {
 base::SequencedTaskRunner* WorkerThreadRegistry::GetTaskRunnerFor(
     int worker_id) {
   base::AutoLock locker(task_runner_map_lock_);
-  return base::Contains(task_runner_map_, worker_id)
+  return task_runner_map_.contains(worker_id)
              ? task_runner_map_[worker_id]
              : task_runner_for_dead_worker_.get();
 }
@@ -137,8 +138,9 @@ bool WorkerThreadRegistry::PostTask(int id, base::OnceClosure closure) {
   DCHECK(id > 0);
   base::AutoLock locker(task_runner_map_lock_);
   auto found = task_runner_map_.find(id);
-  if (found == task_runner_map_.end())
+  if (found == task_runner_map_.end()) {
     return false;
+  }
   return found->second->PostTask(FROM_HERE, std::move(closure));
 }
 

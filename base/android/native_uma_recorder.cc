@@ -157,8 +157,8 @@ static jlong JNI_NativeUmaRecorder_RecordBooleanHistogram(
     JNIEnv* env,
     std::string& j_histogram_name,
     jlong j_histogram_hint,
-    jboolean j_sample) {
-  bool sample = static_cast<bool>(j_sample);
+    bool j_sample) {
+  bool sample = j_sample;
   HistogramBase* histogram =
       BooleanHistogram(env, j_histogram_name, j_histogram_hint);
   histogram->AddBoolean(sample);
@@ -310,7 +310,7 @@ static void JNI_NativeUmaRecorder_DestroyHistogramSnapshotForTesting(
 
 static jlong JNI_NativeUmaRecorder_AddActionCallbackForTesting(
     JNIEnv* env,
-    const JavaParamRef<jobject>& callback) {
+    const JavaRef<jobject>& callback) {
   // Create a wrapper for the ActionCallback, so it can life on the heap until
   // RemoveActionCallbackForTesting() is called.
   auto* wrapper = new ActionCallbackWrapper{base::BindRepeating(

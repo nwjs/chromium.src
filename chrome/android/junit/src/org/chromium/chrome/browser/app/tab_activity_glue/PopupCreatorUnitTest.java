@@ -56,6 +56,7 @@ import org.chromium.ui.insets.InsetObserver;
 
 /** Unit test for {@link PopupCreator}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
 public class PopupCreatorUnitTest {
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -93,6 +94,7 @@ public class PopupCreatorUnitTest {
 
         PopupCreator.setReparentingTaskForTesting(mReparentingTask);
         PopupCreator.setInsetsForecastForTesting(Insets.NONE);
+        PopupCreator.initializePopupIntentCreator();
 
         doReturn(DISPLAY_ID).when(mDisplay).getDisplayId();
         doReturn(DENSITY).when(mDisplay).getDipScale();
@@ -342,8 +344,7 @@ public class PopupCreatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
-    public void testRequestedBoundsAreClampedToDisplayBounds_predictionFlagEnabled() {
+    public void testRequestedBoundsAreClampedToDisplayBounds() {
         final Rect displayLocalBounds = new Rect(0, 0, 600, 800);
         doReturn(displayLocalBounds).when(mDisplay).getLocalBounds();
         final WindowFeatures windowFeatures =
@@ -383,8 +384,7 @@ public class PopupCreatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
-    public void testInsetsForecastUsedForNewPopups_flagEnabled() {
+    public void testInsetsForecastUsedForNewPopups() {
         WindowFeatures windowFeatures =
                 new WindowFeatures(100, 200, 300, 400); // left, top, width, height
         final Rect windowBounds = new Rect(100, 200, 400, 600); // left, top, right, bottom
@@ -408,7 +408,6 @@ public class PopupCreatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
     public void testPopupInsetsForecastUseExpectedValues() {
         PopupCreator.setInsetsForecastForTesting(null);
 
@@ -419,7 +418,6 @@ public class PopupCreatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
     public void testPopupInsetsForecastUseExpectedValuesCrossDisplays() {
         PopupCreator.setInsetsForecastForTesting(null);
 
@@ -430,7 +428,6 @@ public class PopupCreatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.ANDROID_WINDOW_POPUP_PREDICT_FINAL_BOUNDS)
     public void testPopupOnExternalDisplay() {
         final WindowFeatures windowFeatures =
                 new WindowFeatures(-390, -1350, 300, 400); // left, top, width, height

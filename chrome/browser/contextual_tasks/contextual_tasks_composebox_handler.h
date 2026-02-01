@@ -67,7 +67,6 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
                    bool ctrl_key,
                    bool meta_key,
                    bool shift_key) override;
-  void ClearFiles() override;
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override;
   void HandleFileUpload(bool is_image) override;
@@ -77,6 +76,8 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
                      AddTabContextCallback callback) override;
+
+  void OnTaskChanged();
 
   // ContextualSearchboxHandler:
   void OnFileUploadStatusChanged(
@@ -88,6 +89,7 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
 
   void CreateAndSendQueryMessage(const std::string& query);
 
+  void ClearFiles() override;
   void HandleLensButtonClick() override;
   void OnLensThumbnailCreated(const std::string& thumbnail_data);
   virtual void CloseLensOverlay(
@@ -105,27 +107,26 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
   virtual contextual_tasks::ContextualTasksService* GetContextualTasksService();
 
  private:
-  void OnFileAddedToSession(searchbox::mojom::SelectedFileInfoPtr file_info,
-                            AddFileContextCallback callback,
-                            const base::UnguessableToken& token);
-
   // Called when the context is retrieved from the context service, for
   // determining which tabs need to be re-uploaded before query submission via
   // CreateAndSendQueryMessage.
   void OnContextRetrieved(
       std::string query,
       tabs::TabHandle active_tab_handle,
+      std::optional<base::Uuid> original_task_id,
       std::unique_ptr<contextual_tasks::ContextualTaskContext> context);
 
-  // Called when a tab context has been re-uploaded, to continue query
-  // submission.
-  void OnTabContextReuploaded(std::string query,
-                              base::RepeatingClosure barrier_closure,
-                              bool success);
+  // Called when a tab context reupload has started or canceled, to continue
+  // query submission.
+  void OnTabContextReuploadStarted(base::RepeatingClosure barrier_closure,
+                                   std::optional<base::Uuid> original_task_id,
+                                   bool upload_started);
 
   // Called when all tabs have been re-uploaded, to continue query
   // submission.
-  void ContinueCreateAndSendQueryMessage(std::string query);
+  void ContinueCreateAndSendQueryMessage(
+      std::string query,
+      std::optional<base::Uuid> original_task_id);
 
   // Returns the tabs that need to be re-uploaded before query submission based
   // on the tabs present in the context.
@@ -142,9 +143,9 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
   // Called when a tab contextualization has been fetched, to re-upload the
   // tab context.
   void OnTabContextualizationFetched(
-      std::string query,
       std::unique_ptr<contextual_tasks::ContextualTaskContext> context,
       base::RepeatingClosure barrier_closure,
+      std::optional<base::Uuid> original_task_id,
       int32_t tab_id,
       std::unique_ptr<lens::ContextualInputData> page_content_data);
 
@@ -163,6 +164,9 @@ class ContextualTasksComposeboxHandler : public ComposeboxHandler,
   bool ShouldUploadTabContext(
       std::optional<int64_t> context_id,
       const lens::ContextualInputData& page_content_data);
+
+  // Returns the context ID for the active tab, if any.
+  std::optional<int64_t> GetActiveTabContextId();
 
   raw_ptr<ContextualTasksUI> web_ui_controller_;
   // The context controller for the current profile. The profile will outlive

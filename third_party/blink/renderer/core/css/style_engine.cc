@@ -33,8 +33,10 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/adapters.h"
+#include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/rand_util.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/cascade_layer_map.h"
 #include "third_party/blink/renderer/core/css/cascade_layered.h"
@@ -49,10 +51,12 @@
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/document_style_environment_variables.h"
+#include "third_party/blink/renderer/core/css/font_face.h"
 #include "third_party/blink/renderer/core/css/font_face_cache.h"
 #include "third_party/blink/renderer/core/css/invalidation/invalidation_set.h"
 #include "third_party/blink/renderer/core/css/media_feature_overrides.h"
 #include "third_party/blink/renderer/core/css/media_values.h"
+#include "third_party/blink/renderer/core/css/mixin_map.h"
 #include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/property_registration.h"
@@ -64,10 +68,12 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_stats.h"
 #include "third_party/blink/renderer/core/css/resolver/style_rule_usage_tracker.h"
 #include "third_party/blink/renderer/core/css/resolver/viewport_style_resolver.h"
+#include "third_party/blink/renderer/core/css/scroll_target_group_scope.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
-#include "third_party/blink/renderer/core/css/style_containment_scope_tree.h"
+#include "third_party/blink/renderer/core/css/style_containment_scope.h"
 #include "third_party/blink/renderer/core/css/style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
+#include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_view_transition.h"
 #include "third_party/blink/renderer/core/css/style_sheet_collection.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
@@ -89,6 +95,7 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
@@ -117,7 +124,6 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
-#include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 #include "third_party/blink/renderer/platform/geometry/physical_size.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -877,8 +883,16 @@ void UpdateLayoutCounters(const LayoutObject& layout_object,
 void UpdateAltCounters(const StyleEngine& style_engine,
                        LayoutObject& layout_object,
                        CountersAttachmentContext& context) {
-  for (ContentData* content = layout_object.StyleRef().GetContentData();
-       content; content = content->Next()) {
+  auto* pseudo_element = DynamicTo<PseudoElement>(layout_object.GetNode());
+  if (!pseudo_element) {
+    return;
+  }
+  ContentData* content =
+      pseudo_element->CreateMutableAltContentDataForCountersIfNeeded();
+  if (!content) {
+    return;
+  }
+  for (; content; content = content->Next()) {
     if (auto* alt_counter_data = DynamicTo<AltCounterContentData>(content)) {
       alt_counter_data->UpdateText(context, style_engine, layout_object);
     }
@@ -967,6 +981,14 @@ StyleContainmentScopeTree& StyleEngine::EnsureStyleContainmentScopeTree() {
         MakeGarbageCollected<StyleContainmentScopeTree>();
   }
   return *style_containment_scope_tree_;
+}
+
+ScrollTargetGroupScopeTree& StyleEngine::EnsureScrollTargetGroupScopeTree() {
+  if (!scroll_target_group_scope_tree_) {
+    scroll_target_group_scope_tree_ =
+        MakeGarbageCollected<ScrollTargetGroupScopeTree>();
+  }
+  return *scroll_target_group_scope_tree_;
 }
 
 void StyleEngine::SetRuleUsageTracker(StyleRuleUsageTracker* tracker) {
@@ -1079,7 +1101,6 @@ void StyleEngine::UpdateGenericFontFamilySettings() {
   if (resolver_) {
     resolver_->InvalidateMatchedPropertiesCache();
   }
-  FontCache::Get().InvalidateShapeCache();
 }
 
 void StyleEngine::RemoveFontFaceRules(
@@ -2150,7 +2171,7 @@ void StyleEngine::ApplyRuleSetInvalidationForElement(
     const TreeScope& tree_scope,
     Element& element,
     SelectorFilter& selector_filter,
-    StyleScopeFrame& style_scope_frame,
+    StyleRecalcContext& style_recalc_context,
     const HeapHashSet<Member<RuleSet>>& rule_sets,
     unsigned changed_rule_flags,
     bool is_shadow_host) {
@@ -2170,9 +2191,6 @@ void StyleEngine::ApplyRuleSetInvalidationForElement(
   EInsideLink inside_link =
       EInsideLink::kNotInsideLink;  // Only used for MatchedProperties, so does
                                     // not matter for us.
-  StyleRecalcContext style_recalc_context =
-      StyleRecalcContext::FromAncestors(element);
-  style_recalc_context.style_scope_frame = &style_scope_frame;
   ElementRuleCollector collector(element_resolve_context, style_recalc_context,
                                  selector_filter, match_result, inside_link);
 
@@ -2480,8 +2498,11 @@ void StyleEngine::ApplyRuleSetInvalidationForTreeScope(
     // in the filter for the host will stay, giving a potential false
     // positive. It would be nice to handle this somehow.
     selector_filter.PopParent(host);
+    StyleRecalcContext style_recalc_context =
+        StyleRecalcContext::FromAncestors(host);
+    style_recalc_context.style_scope_frame = &style_scope_frame;
     ApplyRuleSetInvalidationForElement(tree_scope, host, selector_filter,
-                                       style_scope_frame, rule_sets,
+                                       style_recalc_context, rule_sets,
                                        changed_rule_flags,
                                        /*is_shadow_host=*/true);
     selector_filter.PushParent(host);
@@ -2522,11 +2543,13 @@ void StyleEngine::ApplyRuleSetInvalidationForTreeScope(
   // or StyleScopeFrame here: the caller should already have set up
   // the required state for `node` in both cases.
   for (Element& child : ElementTraversal::ChildrenOf(node)) {
-    ApplyRuleSetInvalidationForSubtree(
-        tree_scope, child, selector_filter,
-        /* parent_style_scope_frame */ style_scope_frame, rule_sets,
-        changed_rule_flags, invalidation_scope, invalidate_slotted,
-        invalidate_part);
+    StyleRecalcContext style_recalc_context =
+        StyleRecalcContext::FromAncestors(child);
+    style_recalc_context.style_scope_frame = &style_scope_frame;
+    ApplyRuleSetInvalidationForSubtree(tree_scope, child, selector_filter,
+                                       style_recalc_context, rule_sets,
+                                       changed_rule_flags, invalidation_scope,
+                                       invalidate_slotted, invalidate_part);
   }
 }
 
@@ -2534,13 +2557,14 @@ void StyleEngine::ApplyRuleSetInvalidationForSubtree(
     TreeScope& tree_scope,
     Element& element,
     SelectorFilter& selector_filter,
-    StyleScopeFrame& parent_style_scope_frame,
+    StyleRecalcContext& parent_style_recalc_context,
     const HeapHashSet<Member<RuleSet>>& rule_sets,
     unsigned changed_rule_flags,
     InvalidationScope invalidation_scope,
     bool invalidate_slotted,
     bool invalidate_part) {
-  StyleScopeFrame style_scope_frame(element, &parent_style_scope_frame);
+  StyleScopeFrame style_scope_frame(
+      element, parent_style_recalc_context.style_scope_frame);
 
   if (invalidate_part && element.hasAttribute(html_names::kPartAttr)) {
     // It's too complicated to try to handle ::part() precisely.
@@ -2550,8 +2574,12 @@ void StyleEngine::ApplyRuleSetInvalidationForSubtree(
                                 StyleChangeReasonForTracing::Create(
                                     style_change_reason::kStyleRuleChange));
   } else {
+    StyleRecalcContext style_recalc_context =
+        StyleRecalcContext::FromParentContext(parent_style_recalc_context,
+                                              element);
+    style_recalc_context.style_scope_frame = &style_scope_frame;
     ApplyRuleSetInvalidationForElement(tree_scope, element, selector_filter,
-                                       style_scope_frame, rule_sets,
+                                       style_recalc_context, rule_sets,
                                        changed_rule_flags,
                                        /*is_shadow_host=*/false);
   }
@@ -2584,12 +2612,16 @@ void StyleEngine::ApplyRuleSetInvalidationForSubtree(
     SelectorFilter::Mark mark = selector_filter.SetMark();
     selector_filter.PushParent(element);
 
+    StyleRecalcContext style_recalc_context =
+        StyleRecalcContext::FromParentContext(parent_style_recalc_context,
+                                              element);
+    style_recalc_context.style_scope_frame = &style_scope_frame;
+
     for (Element& child : ElementTraversal::ChildrenOf(element)) {
-      ApplyRuleSetInvalidationForSubtree(
-          tree_scope, child, selector_filter,
-          /* parent_style_scope_frame */ style_scope_frame, rule_sets,
-          changed_rule_flags, invalidation_scope, invalidate_slotted,
-          invalidate_part);
+      ApplyRuleSetInvalidationForSubtree(tree_scope, child, selector_filter,
+                                         style_recalc_context, rule_sets,
+                                         changed_rule_flags, invalidation_scope,
+                                         invalidate_slotted, invalidate_part);
     }
 
     selector_filter.PopTo(mark);
@@ -3246,8 +3278,10 @@ bool StyleEngine::UpdateRootFontRelativeUnits(
   bool root_font_glyphs_changed =
       !old_root_style ||
       (UsesGlyphRelativeUnits() &&
-       !base::ValuesEquivalent<Font>(old_root_style->GetFont(),
-                                     new_root_style->GetFont()));
+       (base::FeatureList::IsEnabled(blink::features::kCSSFontComparisonFix)
+            ? !base::ValuesEquivalent<Font>(old_root_style->GetFont(),
+                                            new_root_style->GetFont())
+            : old_root_style->GetFont() != new_root_style->GetFont()));
   bool root_line_height_changed =
       !old_root_style ||
       (UsesLineHeightUnits() &&
@@ -3319,7 +3353,10 @@ void StyleEngine::NodeWillBeRemoved(Node& node) {
         }
       }
       if (!style->ScrollTargetGroupNone()) {
-        GetDocument().SetNeedsScrollTargetGroupRelationsUpdate();
+        if (ScrollTargetGroupScopeTree* tree =
+                GetScrollTargetGroupScopeTree()) {
+          tree->RemoveScopeForElement(*element);
+        }
       }
     }
     pending_invalidations_.RescheduleSiblingInvalidationsAsDescendants(
@@ -3715,11 +3752,13 @@ void StyleEngine::PostInterleavedRecalcUpdate(
     const Element& interleaving_root) {
   // Update quotes only if there are any scopes marked dirty.
   if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
-    tree->UpdateQuotes();
+    tree->UpdateItems();
+  }
+  // Update scroll-target-group scopes.
+  if (ScrollTargetGroupScopeTree* tree = GetScrollTargetGroupScopeTree()) {
+    tree->UpdateItems();
   }
   GetDocument().InvalidatePendingSVGResources();
-  GetDocument().UpdateScrollTargetGroupRelations();
-  GetDocument().UpdateScrollTargetGroupToScrollableAreasMap();
 }
 
 void StyleEngine::UpdateStyleAndLayoutTreeForSizeContainer(
@@ -3730,7 +3769,8 @@ void StyleEngine::UpdateStyleAndLayoutTreeForSizeContainer(
   DCHECK(!container.NeedsStyleRecalc());
   DCHECK(!in_container_query_style_recalc_);
 
-  base::AutoReset<bool> cq_recalc(&in_container_query_style_recalc_, true);
+  std::optional<base::AutoReset<bool>> cq_recalc(
+      std::in_place, &in_container_query_style_recalc_, true);
 
   DCHECK(container.GetLayoutObject()) << "Containers must have a LayoutObject";
   const ComputedStyle& style = container.GetLayoutObject()->StyleRef();
@@ -3817,6 +3857,7 @@ void StyleEngine::UpdateStyleAndLayoutTreeForSizeContainer(
     GetStyleResolver().PropagateStyleToViewport();
   }
 
+  cq_recalc.reset();
   PostInterleavedRecalcUpdate(container);
 }
 
@@ -3862,7 +3903,8 @@ bool StyleEngine::UpdateStyleAndLayoutTreeForOutOfFlow(
   const CSSPropertyValueSet* try_tactics_set = try_value_flips_.FlipSet(
       try_tactics, abs_container_writing_direction.GetWritingMode());
 
-  base::AutoReset<bool> pt_recalc(&in_position_try_style_recalc_, true);
+  std::optional<base::AutoReset<bool>> pt_recalc(
+      std::in_place, &in_position_try_style_recalc_, true);
 
   NthIndexCache nth_index_cache(GetDocument());
   UpdateViewportSize();
@@ -3902,6 +3944,7 @@ bool StyleEngine::UpdateStyleAndLayoutTreeForOutOfFlow(
     RebuildLayoutTree(&element);
   }
 
+  pt_recalc.reset();
   PostInterleavedRecalcUpdate(element);
   return true;
 }
@@ -4084,11 +4127,13 @@ void StyleEngine::UpdateStyleAndLayoutTree() {
     }
     // Update quotes only if there are any scopes marked dirty.
     if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
-      tree->UpdateQuotes();
+      tree->UpdateItems();
+    }
+    // Update scroll-target-group scopes.
+    if (ScrollTargetGroupScopeTree* tree = GetScrollTargetGroupScopeTree()) {
+      tree->UpdateItems();
     }
     UpdateCounters();
-    GetDocument().UpdateScrollTargetGroupRelations();
-    GetDocument().UpdateScrollTargetGroupToScrollableAreasMap();
   } else {
     style_recalc_root_.Clear();
   }
@@ -4698,6 +4743,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(style_image_cache_);
   visitor->Trace(fill_or_clip_path_uri_value_cache_);
   visitor->Trace(style_containment_scope_tree_);
+  visitor->Trace(scroll_target_group_scope_tree_);
   visitor->Trace(try_value_flips_);
   visitor->Trace(anchored_element_dirty_set_);
   visitor->Trace(user_rule_set_groups_);
@@ -4901,16 +4947,46 @@ void StyleEngine::RevisitStyleSheetForInspector(
   }
 }
 
+void StyleEngine::NavigationsMayHaveChanged() {
+  DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
+  SetNeedsActiveStyleUpdate(GetDocument());
+
+  // Navigation changes may affect how navigation-param() expressions inside
+  // :link-to() pseudo selectors match. Do a PseudoStateChanged() on each link
+  // in the document, which will mark every element potentially affected by the
+  // navigation for style recalc.
+  //
+  // TODO(crbug.com/436805487): Should come up with something less brutal (spec
+  // changes should be considered, too - this is somewhat unusual).
+  //
+  // A plain lambda won't do because they cannot be invoked recursively. And I
+  // want the code to stay here in this function, at least for now, so here we
+  // go:
+  struct Marker {
+    static void MarkAllLinks(Node& root) {
+      for (Node& node : NodeTraversal::StartsAt(root)) {
+        if (node.IsLink()) {
+          // TODO(crbug.com/436805487): This is in order to implement
+          // :link-to(--route with navigation-param()), but it's a rather heavy
+          // hammer. Maybe there are better ways (spec changes should be
+          // considered, too).
+          To<Element>(node).PseudoStateChanged(CSSSelector::kPseudoLinkTo);
+        }
+        if (ShadowRoot* shadow_root = node.GetShadowRoot()) {
+          MarkAllLinks(*shadow_root);
+        }
+      }
+    }
+  };
+
+  Marker::MarkAllLinks(GetDocument());
+}
+
 double StyleEngine::GetCachedRandomBaseValue(
-    RandomValueSharing random_value_sharing,
-    const Element* element,
-    AtomicString property_name,
-    size_t property_value_index) {
-  if (random_value_sharing.IsFixed()) {
-    return random_value_sharing.GetFixed();
-  }
-  RandomCachingKey* random_caching_key = RandomCachingKey::Create(
-      random_value_sharing, element, property_name, property_value_index);
+    const RandomValueSharing& random_value_sharing,
+    const Element* element) {
+  RandomCachingKey* random_caching_key =
+      RandomCachingKey::Create(random_value_sharing, element);
   auto it = random_base_value_cache_.find(random_caching_key);
   if (it != random_base_value_cache_.end()) {
     return it->value;

@@ -13,10 +13,16 @@
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/common/actor/task_id.h"
+#include "chrome/common/buildflags.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(ENABLE_GLIC)
+#include "base/callback_list.h"
+#include "components/policy/core/browser/url_list/url_blocklist_manager.h"
+#endif
 
 class GURL;
 class Profile;
@@ -33,6 +39,7 @@ namespace actor {
 
 class ActorKeyedService;
 class AggregatedJournal;
+class OriginChecker;
 
 // The central hub for checking various policies that determine whether Actor is
 // enabled for the profile, or is Actor allowed to act on a given tab or URL.
@@ -60,7 +67,7 @@ class ActorPolicyChecker : public signin::IdentityManager::Observer,
   void MayActOnTab(const tabs::TabInterface& tab,
                    AggregatedJournal& journal,
                    TaskId task_id,
-                   const absl::flat_hash_set<url::Origin>& allowed_origins,
+                   const OriginChecker& origin_checker,
                    DecisionCallbackWithReason callback);
   void MayActOnUrl(const GURL& url,
                    bool allow_insecure_http,
@@ -69,34 +76,73 @@ class ActorPolicyChecker : public signin::IdentityManager::Observer,
                    TaskId task_id,
                    DecisionCallbackWithReason callback);
 
-  void SetActOnWebForTesting(bool enabled) {
+  // Set the return value of `CanActOnWeb()` for testing. Use this to bypass
+  // all the checks enforced by this class.
+  void set_act_on_web_for_testing(bool enabled) {
     can_act_on_web_for_testing_ = enabled;
   }
 
-  // Allows the test to by-pass the enterprise account checking completely.
+  // Allows the test to bypass the enterprise account eligibility checking
+  // completely. Does NOT bypass the policy checks for management.
   void set_account_eligible_for_actuation_for_testing(bool enabled) {
     account_eligible_for_actuation_for_testing_ = enabled;
   }
 
-  bool can_act_on_web() const {
-    return can_act_on_web_for_testing_ || can_act_on_web_;
-  }
+#if BUILDFLAG(ENABLE_GLIC)
+  // Allows tests to synchronize on allow/blocklist updates.
+  base::CallbackListSubscription AddUrlListsUpdateObserverForTesting(
+      base::RepeatingClosure callback);
+#endif  // BUILDFLAG(ENABLE_GLIC)
+
+  bool CanActOnWeb() const;
+
+  enum class CannotActReason {
+    kNone,
+    kManagedOrDataProtected,
+    kAccountCapabilityIneligible,
+    // The account is not subscribed to one of the required AI subscription
+    // tiers.
+    kAccountMissingChromeBenefits,
+  };
+
+  // The reason why `CanActOnWeb()` returns false (or `kNone` otherwise).
+  // The `CanActOnWeb()` method should be used for feature logic; this method
+  // is intended for presenting additional information (to the user,  or for
+  // debugging) where useful.
+  CannotActReason CannotActOnWebReason() const;
+
+  EnterprisePolicyBlockReason EvaluateEnterprisePolicyForUrl(
+      const GURL& url) const;
 
  private:
   void OnPrefOrAccountChanged();
 
-  bool ComputeActOnWebCapability();
+  enum class CanActOutcome {
+    kYes,
+    kNo,
+    kByAllowlistOnly,
+  };
+  friend std::ostream& operator<<(std::ostream& os, CanActOutcome value);
+
+  std::pair<CanActOutcome, CannotActReason> ComputeActOnWebCapability();
 
   // Owns `this`.
   base::raw_ref<ActorKeyedService> service_;
 
   PrefChangeRegistrar pref_change_registrar_;
 
-  bool can_act_on_web_ = true;
+  CanActOutcome can_act_on_web_ = CanActOutcome::kYes;
+  CannotActReason cannot_act_on_web_reason_;
 
   bool can_act_on_web_for_testing_ = false;
 
   bool account_eligible_for_actuation_for_testing_ = false;
+
+#if BUILDFLAG(ENABLE_GLIC)
+  // Stores enterprise allowlist/blocklist policies for specific URLs.
+  policy::URLBlocklistManager url_blocklist_manager_;
+  base::CallbackListSubscription url_blocklist_subscription_;
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
   base::SafeRef<AggregatedJournal> journal_;
 

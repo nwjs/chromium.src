@@ -51,6 +51,7 @@ source_set("browser_tests") {
       "cr_components/cr_components_browsertest.cc",
       "css/css_browsertest.cc",
       "data_sharing/data_sharing_browsertest.cc",
+      "device_log/device_log_ui_browsertest.cc",
       "downloads/downloads_browsertest.cc",
       "engagement/site_engagement_browsertest.cc",
       "feedback/feedback_browsertest.cc",
@@ -206,6 +207,7 @@ source_set("browser_tests") {
       "app_home/app_home_browsertest.cc",
       "app_settings/app_settings_browsertest.cc",
       "on_device_translation_internals/on_device_translation_internals_browsertest.cc",
+      "updater/updater_browsertest.cc",
       "whats_new/whats_new_browsertest.cc",
     ]
 
@@ -555,6 +557,7 @@ generate_grd("build_grd") {
       "cr_components/theme_color_picker:build_grdp",
       "css:build_grdp",
       "data_sharing:build_grdp",
+      "device_log:build_grdp",
       "discards:build_grdp",
       "downloads:build_grdp",
       "engagement:build_grdp",
@@ -610,6 +613,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/cr_components/theme_color_picker/resources.grdp",
       "$target_gen_dir/css/resources.grdp",
       "$target_gen_dir/data_sharing/resources.grdp",
+      "$target_gen_dir/device_log/resources.grdp",
       "$target_gen_dir/discards/resources.grdp",
       "$target_gen_dir/downloads/resources.grdp",
       "$target_gen_dir/engagement/resources.grdp",
@@ -694,9 +698,11 @@ generate_grd("build_grd") {
       "app_home:build_grdp",
       "app_settings:build_grdp",
       "on_device_translation_internals:build_grdp",
+      "updater:build_grdp",
       "whats_new:build_grdp",
     ]
     grdp_files += [
+      "$target_gen_dir/updater/resources.grdp",
       "$target_gen_dir/app_settings/resources.grdp",
       "$target_gen_dir/app_home/resources.grdp",
       "$target_gen_dir/on_device_translation_internals/resources.grdp",

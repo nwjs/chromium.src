@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/functional/callback_forward.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
@@ -75,6 +76,11 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   enum class State { kUninitialized, kInitializing, kInitialized };
 
   static std::unique_ptr<ViewAccessibility> Create(View* view);
+
+  // Returns whether the Views-sourced accessibility tree is enabled. This
+  // encodes platform policy: returns false on ChromeOS (which never uses the
+  // ViewsAX tree) and defers to the feature flag on other platforms.
+  static bool IsViewsAccessibilityTreeEnabled();
 
   ViewAccessibility(const ViewAccessibility&) = delete;
   ViewAccessibility& operator=(const ViewAccessibility&) = delete;

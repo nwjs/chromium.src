@@ -40,6 +40,7 @@
 #include "ui/views/background.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/property_effects.h"
 #include "ui/views/selection_controller.h"
 #include "ui/views/style/typography_provider.h"
 
@@ -1421,8 +1422,9 @@ gfx::Size Label::GetBoundedTextSize(const SizeBounds& available_size) const {
     size = full_text_->GetStringSize();
 
     if (base_line_height > 0) {
-      size.set_height(base::checked_cast<int>(GetRequiredLines()) *
-                      base_line_height);
+      const int min_total_height =
+          base::checked_cast<int>(GetRequiredLines()) * base_line_height;
+      size.set_height(std::max(size.height(), min_total_height));
     }
   }
 

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "base/functional/bind.h"
 
 #include <functional>
@@ -17,6 +12,7 @@
 
 #include "base/allocator/partition_alloc_features.h"
 #include "base/allocator/partition_alloc_support.h"
+#include "base/compiler_specific.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -53,14 +49,14 @@ class NoRef {
   // Particularly important in this test to ensure no copies are made.
   NoRef& operator=(const NoRef&) = delete;
 
-  MOCK_METHOD0(VoidMethod0, void());
-  MOCK_CONST_METHOD0(VoidConstMethod0, void());
+  MOCK_METHOD(void, VoidMethod0, ());
+  MOCK_METHOD(void, VoidConstMethod0, (), (const));
 
-  MOCK_METHOD0(IntMethod0, int());
-  MOCK_CONST_METHOD0(IntConstMethod0, int());
+  MOCK_METHOD(int, IntMethod0, ());
+  MOCK_METHOD(int, IntConstMethod0, (), (const));
 
-  MOCK_METHOD1(VoidMethodWithIntArg, void(int));
-  MOCK_METHOD0(UniquePtrMethod0, std::unique_ptr<int>());
+  MOCK_METHOD(void, VoidMethodWithIntArg, (int));
+  MOCK_METHOD(std::unique_ptr<int>, UniquePtrMethod0, ());
 };
 
 class HasRef : public NoRef {
@@ -70,9 +66,9 @@ class HasRef : public NoRef {
   // Particularly important in this test to ensure no copies are made.
   HasRef& operator=(const HasRef&) = delete;
 
-  MOCK_CONST_METHOD0(AddRef, void());
-  MOCK_CONST_METHOD0(Release, bool());
-  MOCK_CONST_METHOD0(HasAtLeastOneRef, bool());
+  MOCK_METHOD(void, AddRef, (), (const));
+  MOCK_METHOD(bool, Release, (), (const));
+  MOCK_METHOD(bool, HasAtLeastOneRef, (), (const));
 };
 
 class HasRefPrivateDtor : public HasRef {
@@ -274,7 +270,7 @@ int Identity(int n) {
 }
 
 int ArrayGet(const int array[], int n) {
-  return array[n];
+  return UNSAFE_TODO(array[n]);
 }
 
 int Sum(int a, int b, int c, int d, int e, int f) {

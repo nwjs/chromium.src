@@ -281,11 +281,42 @@ public class PermissionUtil {
                 .resolvePermissionRequest(webContents, contentSettingsType, contentSetting);
     }
 
+    /**
+     * Dismisses a permission request.
+     *
+     * This method is called when the user clicks on the "Subscribe" button in the notifications
+     * permission row in PageInfo but did not grant the Android OS level permission prompt. Despite
+     * the user granted the site-level permission, we still need to dismiss the permission request
+     * as Chrome doesn't have the Android OS level permission and hence the permission request is no
+     * longer valid.
+     */
+    public static void dismissPermissionRequest(
+            WebContents webContents, @ContentSettingsType.EnumType int contentSettingsType) {
+        PermissionUtilJni.get().dismissPermissionRequest(webContents, contentSettingsType);
+    }
+
     @NativeMethods
     public interface Natives {
         void resolvePermissionRequest(
                 WebContents webContents,
                 @ContentSettingsType.EnumType int contentSettingsType,
                 @ContentSetting int contentSetting);
+
+        void dismissPermissionRequest(
+                WebContents webContents, @ContentSettingsType.EnumType int contentSettingsType);
+
+        void notifyQuietIconDismissed(WebContents webContents);
+    }
+
+    /**
+     * Notifies the native side that the quiet permission icon has been dismissed (e.g. by timeout).
+     *
+     * <p>TODO(crbug.com/463333225): Clean this provisional function name up if Clapper is launched
+     * or removed.
+     *
+     * @param webContents The {@link WebContents} associated with the dismissed icon.
+     */
+    public static void notifyQuietIconDismissed(WebContents webContents) {
+        PermissionUtilJni.get().notifyQuietIconDismissed(webContents);
     }
 }

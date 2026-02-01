@@ -12,6 +12,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
@@ -106,7 +107,9 @@ CorpMessagingPlayground::CorpMessagingPlayground(const std::string& username) {
   client_ = std::make_unique<CorpMessagingClient>(
       username, key_pair_->GetPublicKey(),
       url_loader_factory_owner_->GetURLLoaderFactory(),
-      CreateClientCertStoreInstance());
+      CreateClientCertStoreInstance(),
+      base::BindRepeating(&CorpMessagingPlayground::OnSignalingAddressChanged,
+                          weak_factory_.GetWeakPtr()));
   core_ = std::make_unique<Core>(base::BindPostTask(
       base::SingleThreadTaskRunner::GetCurrentDefault(),
       base::BindRepeating(&CorpMessagingPlayground::OnCharacterInput,
@@ -147,10 +150,21 @@ void CorpMessagingPlayground::OnStreamClosed(const HttpStatus& status) {
   run_loop_->Quit();
 }
 
+void CorpMessagingPlayground::OnSignalingAddressChanged(
+    const SignalingAddress& local_address) {
+  LOG(INFO) << "Local signaling address is: " << local_address.id();
+}
+
 void CorpMessagingPlayground::OnPeerMessageReceived(
-    const internal::PeerMessageStruct& message) {
+    const SignalingAddress& sender_address,
+    const SignalingMessage& message) {
+  const auto* peer_message = std::get_if<internal::PeerMessageStruct>(&message);
+  if (!peer_message) {
+    LOG(WARNING) << "Received message with unsupported payload type.";
+    return;
+  }
   const auto* system_test =
-      std::get_if<internal::SystemTestStruct>(&message.payload);
+      std::get_if<internal::SystemTestStruct>(&peer_message->payload);
   if (!system_test) {
     LOG(WARNING) << "Received message with unsupported payload type.";
     return;
@@ -182,9 +196,12 @@ void CorpMessagingPlayground::OnPeerMessageReceived(
                      response_message.test_message = std::move(ping_pong);
 
                      last_ping_sent_time_ = base::Time::Now();
-                     client_->SendTestMessage(messaging_authz_token_,
-                                              std::move(response_message),
-                                              base::DoNothing());
+                     internal::PeerMessageStruct peer_message;
+                     peer_message.payload = std::move(response_message);
+                     client_->SendMessage(
+                         SignalingAddress(messaging_authz_token_),
+                         SignalingMessage{std::move(peer_message)},
+                         base::DoNothing());
                    } else if (message.type == PingPongStruct::Type::PING) {
                      // Send PONG.
                      internal::PingPongStruct ping_pong;
@@ -196,9 +213,12 @@ void CorpMessagingPlayground::OnPeerMessageReceived(
                      internal::SystemTestStruct response_message;
                      response_message.test_message = std::move(ping_pong);
 
-                     client_->SendTestMessage(messaging_authz_token_,
-                                              std::move(response_message),
-                                              base::DoNothing());
+                     internal::PeerMessageStruct peer_message;
+                     peer_message.payload = std::move(response_message);
+                     client_->SendMessage(
+                         SignalingAddress(messaging_authz_token_),
+                         SignalingMessage{std::move(peer_message)},
+                         base::DoNothing());
                    } else {
                      NOTREACHED();
                    }
@@ -322,12 +342,22 @@ void CorpMessagingPlayground::SendMessage(int count) {
       burst.payload = "Burst message #" + base::NumberToString(i + 1) + " of " +
                       base::NumberToString(count);
       message.test_message = std::move(burst);
-      client_->SendTestMessage(messaging_authz_token_, std::move(message),
-                               base::DoNothing());
+      internal::PeerMessageStruct peer_message;
+      peer_message.payload = std::move(message);
+      client_->SendMessage(SignalingAddress(messaging_authz_token_),
+                           SignalingMessage{std::move(peer_message)},
+                           base::DoNothing());
     }
     return;
   }
-  client_->SendMessage(messaging_authz_token_, "Hello from the playground!",
+  internal::PeerMessageStruct peer_message;
+  internal::SystemTestStruct system_test_struct;
+  internal::SimpleStruct simple_struct;
+  simple_struct.payload = "Hello from the playground!";
+  system_test_struct.test_message = std::move(simple_struct);
+  peer_message.payload = std::move(system_test_struct);
+  client_->SendMessage(SignalingAddress(messaging_authz_token_),
+                       SignalingMessage{std::move(peer_message)},
                        base::DoNothing());
 }
 
@@ -348,8 +378,11 @@ void CorpMessagingPlayground::StartPingPongRally() {
   ping_pong.current_count = 1;
   ping_pong.exchange_count = 10;
   message.test_message = std::move(ping_pong);
-  client_->SendTestMessage(messaging_authz_token_, std::move(message),
-                           base::DoNothing());
+  internal::PeerMessageStruct peer_message;
+  peer_message.payload = std::move(message);
+  client_->SendMessage(SignalingAddress(messaging_authz_token_),
+                       SignalingMessage{std::move(peer_message)},
+                       base::DoNothing());
 }
 
 void CorpMessagingPlayground::SendLargeMessage() {
@@ -367,7 +400,15 @@ void CorpMessagingPlayground::SendLargeMessage() {
   }
   payload += kSquirrelMsgEnd;
 
-  client_->SendMessage(messaging_authz_token_, payload, base::DoNothing());
+  internal::PeerMessageStruct peer_message;
+  internal::SystemTestStruct system_test_struct;
+  internal::SimpleStruct simple_struct;
+  simple_struct.payload = payload;
+  system_test_struct.test_message = std::move(simple_struct);
+  peer_message.payload = std::move(system_test_struct);
+  client_->SendMessage(SignalingAddress(messaging_authz_token_),
+                       SignalingMessage{std::move(peer_message)},
+                       base::DoNothing());
 }
 
 }  // namespace remoting

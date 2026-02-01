@@ -8,10 +8,10 @@
 #include <optional>
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/time/time.h"
@@ -32,6 +32,7 @@
 #include "components/optimization_guide/core/model_execution/response_parser.h"
 #include "components/optimization_guide/core/model_execution/safety_checker.h"
 #include "components/optimization_guide/core/model_execution/substitution.h"
+#include "components/optimization_guide/core/optimization_guide_common.mojom.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -39,7 +40,7 @@
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/optimization_guide/proto/string_value.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
-#include "components/optimization_guide/public/mojom/model_broker.mojom-data-view.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 
@@ -47,8 +48,6 @@ namespace optimization_guide {
 namespace {
 
 using google::protobuf::RepeatedPtrField;
-using ModelExecutionError =
-    OptimizationGuideModelExecutionError::ModelExecutionError;
 
 void LogSessionCreation(OptimizationGuideLogger* logger,
                         mojom::OnDeviceFeature feature) {
@@ -112,11 +111,7 @@ SessionImpl::AddContextResult SessionImpl::AddContextImpl(
     SetInputCallback callback) {
   if (callback) {
     callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-        std::move(callback),
-        base::unexpected(
-            OptimizationGuideModelExecutionError::FromModelExecutionError(
-                OptimizationGuideModelExecutionError::ModelExecutionError::
-                    kCancelled)));
+        std::move(callback), base::unexpected(OnDeviceError::kCancelled));
   }
   context_ = std::move(request);
   context_start_time_ = base::TimeTicks::Now();
@@ -189,10 +184,7 @@ void SessionImpl::ExecuteModelWithResponseConstraint(
   if (!ShouldUseOnDeviceModel()) {
     DestroyOnDeviceState();
     std::move(callback).Run(OptimizationGuideModelStreamingExecutionResult(
-        base::unexpected(
-            OptimizationGuideModelExecutionError::FromModelExecutionError(
-                OptimizationGuideModelExecutionError::ModelExecutionError::
-                    kGenericFailure)),
+        base::unexpected(OnDeviceError::kGenericFailure),
         /*provided_by_on_device=*/true));
     return;
   }

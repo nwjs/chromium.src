@@ -29,6 +29,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Token;
@@ -42,7 +43,6 @@ import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.R;
@@ -57,7 +57,6 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 /** Unit tests for {@link TabSwitcherActionMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
-@DisableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
 public class TabSwitcherActionMenuCoordinatorUnitTest {
     private static final int PADDING_PX = 10;
 
@@ -70,7 +69,6 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
     @Mock private Profile mProfile;
     @Mock private ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     @Mock private ObservableSupplier<Tab> mCurrentTabSupplier;
-    @Mock private TabGroupModelFilterProvider mTabGroupModelFilterProvider;
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private TabModel mIncognitoTabModel;
     @Mock private TabModel mNormalTabModel;
@@ -95,10 +93,7 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         when(mTabModelSelectorSupplier.get()).thenReturn(mTabModelSelector);
         when(mTabModelSelector.getModel(true)).thenReturn(mIncognitoTabModel);
         when(mTabModelSelector.getModel(false)).thenReturn(mNormalTabModel);
-        when(mTabModelSelector.getTabGroupModelFilterProvider())
-                .thenReturn(mTabGroupModelFilterProvider);
-        when(mTabGroupModelFilterProvider.getCurrentTabGroupModelFilter())
-                .thenReturn(mTabGroupModelFilter);
+        when(mTabModelSelector.getCurrentTabGroupModelFilter()).thenReturn(mTabGroupModelFilter);
         when(mCurrentTabSupplier.get()).thenReturn(mTab);
         when(mTabModelSelector.getCurrentTabSupplier()).thenReturn(mCurrentTabSupplier);
 
@@ -108,6 +103,8 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         when(mAnchorView.getResources()).thenReturn(mResources);
         when(mAnchorView.getRootView()).thenReturn(mRootView);
         when(mAnchorView.getContext()).thenReturn(mContext);
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
+        when(mTabGroupModelFilter.isTabModelRestored()).thenReturn(true);
 
         mCoordinator = new TabSwitcherActionMenuCoordinator(mProfile, mTabModelSelectorSupplier);
     }
@@ -154,25 +151,28 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         when(mTabGroupModelFilter.getTabGroupCount()).thenReturn(0);
 
         ModelList items = mCoordinator.buildMenuItems();
-        assertEquals(4, items.size());
+        assertEquals(5, items.size());
 
         // Close, Divider, New Tab, New Incognito
         assertEquals(R.id.close_tab, getMenuItemId(items, 0));
         assertEquals(TabSwitcherActionMenuCoordinator.MenuItemType.DIVIDER, items.get(1).type);
         assertEquals(R.id.new_tab_menu_id, getMenuItemId(items, 2));
         assertEquals(R.id.new_incognito_tab_menu_id, getMenuItemId(items, 3));
+        assertEquals(R.id.add_tab_to_new_group_menu_id, getMenuItemId(items, 4));
     }
 
     @Test
+    @Config(qualifiers = "sw600dp")
     @DisableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testBuildMenuItems_NormalMode_NoIncognitoTabs_NoGroups_incognitoWindowEnabled() {
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         when(mTabModelSelector.isIncognitoBrandedModelSelected()).thenReturn(false);
         when(mIncognitoTabModel.getCount()).thenReturn(0);
         when(mTabGroupModelFilter.getTabGroupCount()).thenReturn(0);
 
         ModelList items = mCoordinator.buildMenuItems();
-        assertEquals(5, items.size());
+        assertEquals(6, items.size());
 
         // Close, Divider, New Tab, New Window, New Incognito Window
         assertEquals(R.id.close_tab, getMenuItemId(items, 0));
@@ -180,6 +180,7 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         assertEquals(R.id.new_tab_menu_id, getMenuItemId(items, 2));
         assertEquals(R.id.new_window_menu_id, getMenuItemId(items, 3));
         assertEquals(R.id.new_incognito_window_menu_id, getMenuItemId(items, 4));
+        assertEquals(R.id.add_tab_to_new_group_menu_id, getMenuItemId(items, 5));
     }
 
     @Test
@@ -193,13 +194,14 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         when(mTabGroupModelFilter.getTabGroupCount()).thenReturn(0);
 
         ModelList items = mCoordinator.buildMenuItems();
-        assertEquals(4, items.size());
+        assertEquals(5, items.size());
 
         // Close, Divider, New Tab, New Incognito
         assertEquals(R.id.close_tab, getMenuItemId(items, 0));
         assertEquals(TabSwitcherActionMenuCoordinator.MenuItemType.DIVIDER, items.get(1).type);
         assertEquals(R.id.new_tab_menu_id, getMenuItemId(items, 2));
         assertEquals(R.id.new_incognito_tab_menu_id, getMenuItemId(items, 3));
+        assertEquals(R.id.add_tab_to_new_group_menu_id, getMenuItemId(items, 4));
     }
 
     @Test
@@ -212,12 +214,13 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         ModelList items = mCoordinator.buildMenuItems();
 
         // Close Tab, Divider, New Tab, New Incognito Tab, Switch to Incognito
-        assertEquals(5, items.size());
+        assertEquals(6, items.size());
         assertEquals(R.id.close_tab, getMenuItemId(items, 0));
         assertEquals(TabSwitcherActionMenuCoordinator.MenuItemType.DIVIDER, items.get(1).type);
         assertEquals(R.id.new_tab_menu_id, getMenuItemId(items, 2));
         assertEquals(R.id.new_incognito_tab_menu_id, getMenuItemId(items, 3));
-        assertEquals(R.id.switch_to_incognito_menu_id, getMenuItemId(items, 4));
+        assertEquals(R.id.add_tab_to_new_group_menu_id, getMenuItemId(items, 4));
+        assertEquals(R.id.switch_to_incognito_menu_id, getMenuItemId(items, 5));
     }
 
     @Test
@@ -230,20 +233,18 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
         ModelList items = mCoordinator.buildMenuItems();
 
         // Close Tab, Close All Incognito, Divider, New Tab, New Incognito, Switch Out Of Incognito
-        assertEquals(6, items.size());
+        assertEquals(7, items.size());
         assertEquals(R.id.close_tab, getMenuItemId(items, 0));
         assertEquals(R.id.close_all_incognito_tabs_menu_id, getMenuItemId(items, 1));
         assertEquals(TabSwitcherActionMenuCoordinator.MenuItemType.DIVIDER, items.get(2).type);
         assertEquals(R.id.new_tab_menu_id, getMenuItemId(items, 3));
         assertEquals(R.id.new_incognito_tab_menu_id, getMenuItemId(items, 4));
-        assertEquals(R.id.switch_out_of_incognito_menu_id, getMenuItemId(items, 5));
+        assertEquals(R.id.add_tab_to_new_group_menu_id, getMenuItemId(items, 5));
+        assertEquals(R.id.switch_out_of_incognito_menu_id, getMenuItemId(items, 6));
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.TAB_MODEL_INIT_FIXES
-    })
+    @EnableFeatures({ChromeFeatureList.TAB_MODEL_INIT_FIXES})
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testBuildMenuItems_NormalMode_TabGroupsExist() {
         when(mTabModelSelector.isIncognitoBrandedModelSelected()).thenReturn(false);
@@ -260,10 +261,7 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.TAB_MODEL_INIT_FIXES
-    })
+    @EnableFeatures({ChromeFeatureList.TAB_MODEL_INIT_FIXES})
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testBuildMenuItems_NormalMode_NoTabGroups() {
         when(mTabModelSelector.isIncognitoBrandedModelSelected()).thenReturn(false);
@@ -280,7 +278,6 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
     @DisableFeatures({
         ChromeFeatureList.TAB_MODEL_INIT_FIXES,
         ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
@@ -303,10 +300,7 @@ public class TabSwitcherActionMenuCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID,
-        ChromeFeatureList.TAB_MODEL_INIT_FIXES
-    })
+    @EnableFeatures({ChromeFeatureList.TAB_MODEL_INIT_FIXES})
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testBuildMenuItems_NormalMode_BeforeTabModelInit() {
         when(mTabModelSelector.isIncognitoBrandedModelSelected()).thenReturn(false);

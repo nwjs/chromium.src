@@ -9,15 +9,19 @@
 
 #include "base/containers/contains.h"
 #include "base/containers/map_util.h"
+#include "base/feature_list.h"
 #include "base/types/optional_ref.h"
 #include "base/types/optional_util.h"
 #include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/features.h"
+#include "content/browser/permissions/permission_util.h"
 #include "content/public/browser/permission_result.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "url/gurl.h"
 
 namespace content {
+
 using PermissionStatus = blink::mojom::PermissionStatus;
 
 PermissionOverrides::PermissionKey::PermissionKey(
@@ -27,8 +31,12 @@ PermissionOverrides::PermissionKey::PermissionKey(
     : scope_(MakeScopeData(requesting_origin, embedding_origin, type)),
       type_(type) {}
 
-PermissionOverrides::PermissionKey::PermissionKey(blink::PermissionType type)
-    : PermissionKey(std::nullopt, std::nullopt, type) {}
+// static
+PermissionOverrides::PermissionKey
+PermissionOverrides::PermissionKey::WildcardOrigins(
+    blink::PermissionType type) {
+  return PermissionKey(std::nullopt, std::nullopt, type);
+}
 
 PermissionOverrides::PermissionKey::PermissionScope
 PermissionOverrides::PermissionKey::MakeScopeData(
@@ -62,7 +70,6 @@ PermissionOverrides::PermissionKey::MakeScopeData(
   }
 }
 
-PermissionOverrides::PermissionKey::PermissionKey() = default;
 PermissionOverrides::PermissionKey::~PermissionKey() = default;
 PermissionOverrides::PermissionKey::PermissionKey(const PermissionKey&) =
     default;
@@ -84,6 +91,10 @@ void PermissionOverrides::Set(
     base::optional_ref<const url::Origin> embedding_origin,
     blink::PermissionType permission,
     const blink::mojom::PermissionStatus& status) {
+  // TODO(crbug.com/466992247): Add support for overriding
+  // GEOLOCATION_APPROXIMATE.
+  CHECK_NE(permission, blink::PermissionType::GEOLOCATION_APPROXIMATE);
+
   overrides_[PermissionKey(requesting_origin, embedding_origin, permission)] =
       status;
 
@@ -101,7 +112,7 @@ void PermissionOverrides::Set(
   }
 }
 
-std::optional<PermissionResult> PermissionOverrides::Get(
+std::optional<blink::mojom::PermissionStatus> PermissionOverrides::GetStatus(
     const url::Origin& requesting_origin,
     const url::Origin& embedding_origin,
     blink::PermissionType permission) const {
@@ -109,7 +120,8 @@ std::optional<PermissionResult> PermissionOverrides::Get(
       overrides_,
       PermissionKey(requesting_origin, embedding_origin, permission));
   if (!status) {
-    status = base::FindOrNull(overrides_, PermissionKey(permission));
+    status = base::FindOrNull(overrides_,
+                              PermissionKey::WildcardOrigins(permission));
   }
 
   if (!status) {
@@ -125,7 +137,35 @@ std::optional<PermissionResult> PermissionOverrides::Get(
     adjusted_status = PermissionStatus::ASK;
   }
 
-  return PermissionResult(adjusted_status, PermissionStatusSource::UNSPECIFIED);
+  return adjusted_status;
+}
+
+std::optional<PermissionResult> PermissionOverrides::Get(
+    const url::Origin& requesting_origin,
+    const url::Origin& embedding_origin,
+    blink::PermissionType permission) const {
+  if (permission == blink::PermissionType::GEOLOCATION_APPROXIMATE) {
+    // TODO(crbug.com/466992247): For now, PermissionOverrides only supports
+    // overriding both GEOLOCATION and GEOLOCATION_APPROXIMATE at once.
+    permission = blink::PermissionType::GEOLOCATION;
+  }
+
+  std::optional<blink::mojom::PermissionStatus> status =
+      GetStatus(requesting_origin, embedding_origin, permission);
+  if (!status) {
+    return std::nullopt;
+  }
+  if (base::FeatureList::IsEnabled(
+          content_settings::features::kApproximateGeolocationPermission) &&
+      permission == blink::PermissionType::GEOLOCATION) {
+    return PermissionResult(
+        *status, PermissionStatusSource::UNSPECIFIED,
+        GeolocationSetting{
+            .approximate = PermissionUtil::ToPermissionOption(*status),
+            .precise = PermissionUtil::ToPermissionOption(*status)});
+  } else {
+    return PermissionResult(*status, PermissionStatusSource::UNSPECIFIED);
+  }
 }
 
 std::vector<ContentSettingPatternSource>
@@ -170,9 +210,13 @@ void PermissionOverrides::GrantPermissions(
     base::optional_ref<const url::Origin> embedding_origin,
     const std::vector<blink::PermissionType>& permissions) {
   for (auto type : blink::GetAllPermissionTypes()) {
-    Set(requesting_origin, embedding_origin, type,
-        base::Contains(permissions, type) ? PermissionStatus::GRANTED
-                                          : PermissionStatus::DENIED);
+    // TODO(crbug.com/466992247): Add support for overriding
+    // GEOLOCATION_APPROXIMATE.
+    if (type != blink::PermissionType::GEOLOCATION_APPROXIMATE) {
+      Set(requesting_origin, embedding_origin, type,
+          base::Contains(permissions, type) ? PermissionStatus::GRANTED
+                                            : PermissionStatus::DENIED);
+    }
   }
 }
 

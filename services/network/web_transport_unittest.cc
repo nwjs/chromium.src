@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/rand_util.h"
@@ -540,8 +539,12 @@ class LNAPermissionURLLoaderNetworkObserver
     : public TestURLLoaderNetworkObserver {
  public:
   void OnLocalNetworkAccessPermissionRequired(
+      mojom::TransportType type,
+      network::mojom::IPAddressSpace ip_address_space,
       OnLocalNetworkAccessPermissionRequiredCallback callback) override {
-    std::move(callback).Run(lna_permission_granted);
+    std::move(callback).Run(lna_permission_granted
+                                ? mojom::LocalNetworkAccessResult::kGranted
+                                : mojom::LocalNetworkAccessResult::kDenied);
   }
 
   bool lna_permission_granted = false;
@@ -660,7 +663,7 @@ TEST_F(WebTransportTest, SendDatagram) {
     sent_data.insert(std::move(data));
   }
 
-  EXPECT_TRUE(base::Contains(sent_data, client.received_datagrams()[0]));
+  EXPECT_TRUE(sent_data.contains(client.received_datagrams()[0]));
 }
 
 TEST_F(WebTransportTest, SendToolargeDatagram) {

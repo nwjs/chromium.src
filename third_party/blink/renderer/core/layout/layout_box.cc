@@ -82,6 +82,7 @@
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
+#include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -236,8 +237,7 @@ LayoutUnit TextAreaIntrinsicBlockSize(const HTMLTextAreaElement& textarea,
   const auto* inner_editor = textarea.InnerEditorElement();
   const auto* reference_box =
       inner_editor ? inner_editor->GetLayoutBox() : nullptr;
-  if (RuntimeEnabledFeatures::TextareaMultipleIfcsEnabled() && reference_box &&
-      reference_box->FirstChildBox()) {
+  if (reference_box && reference_box->FirstChildBox()) {
     reference_box = reference_box->FirstChildBox();
   }
   const LayoutUnit line_height =
@@ -496,6 +496,10 @@ PaintLayerType LayoutBox::LayerTypeRequired() const {
 
   if (HasNonVisibleOverflow() && !IsLayoutReplaced()) {
     return kOverflowClipPaintLayer;
+  }
+
+  if (Style()->IsInternalOverscrollAreaAuto()) {
+    return kForcedPaintLayer;
   }
 
   return kNoPaintLayer;
@@ -1600,15 +1604,15 @@ PhysicalBoxStrut LayoutBox::ComputeScrollbarsInternal(
   return scrollbars;
 }
 
-void LayoutBox::Autoscroll(const PhysicalOffset& position_in_root_frame) {
+bool LayoutBox::Autoscroll(const PhysicalOffset& position_in_root_frame) {
   NOT_DESTROYED();
   LocalFrame* frame = GetFrame();
   if (!frame)
-    return;
+    return false;
 
   LocalFrameView* frame_view = frame->View();
   if (!frame_view)
-    return;
+    return false;
 
   PhysicalOffset absolute_position =
       frame_view->ConvertFromRootFrame(position_in_root_frame);
@@ -1616,11 +1620,11 @@ void LayoutBox::Autoscroll(const PhysicalOffset& position_in_root_frame) {
       scroll_into_view_util::CreateScrollIntoViewParams(
           ScrollAlignment::ToEdgeIfNeeded(), ScrollAlignment::ToEdgeIfNeeded(),
           mojom::blink::ScrollType::kUser);
-  scroll_into_view_util::ScrollRectToVisible(
+  return scroll_into_view_util::ScrollRectToVisible(
       *this,
       PhysicalRect(absolute_position,
                    PhysicalSize(LayoutUnit(1), LayoutUnit(1))),
-      std::move(params));
+      std::move(params), nullptr, false, true);
 }
 
 // If specified point is outside the border-belt-excluded box (the border box
@@ -1808,32 +1812,29 @@ bool LayoutBox::MapVisualRectToContainer(
   }
 
   // Otherwise, do the following:
-  // 1. Expand for pixel snapping.
-  // 2. Generate transformation matrix combining, in this order
+  // 1. Generate transformation matrix combining, in this order
   //    a) transform,
   //    b) container offset,
   //    c) container scroll offset,
   //    d) perspective applied by container.
-  // 3. Apply transform Transform+flattening.
-  // 4. Apply container clip.
+  // 2. Apply transform + flattening.
+  // 3. Apply container clip.
 
-  // 1. Expand for pixel snapping.
-  // Use EnclosingBoundingBox because we cannot properly compute pixel
-  // snapping for painted elements within the transform since we don't know
-  // the desired subpixel accumulation at this point, and the transform may
-  // include a scale. This only makes sense for non-preserve3D.
-  //
-  // TODO(dbaron): Does the flattening here need to be done for the
-  // early return case above as well?
-  // (Why is this flattening needed in addition to the flattening done by
-  // using TransformState::kAccumulateTransform?)
-  if (!StyleRef().Preserves3D()) {
-    transform_state.Flatten();
-    transform_state.SetQuad(gfx::QuadF(gfx::RectF(
-        gfx::ToEnclosingRect(transform_state.LastPlanarQuad().BoundingBox()))));
+  // This step is now deprecated by default because it inflated rotated and
+  // skewed elements with each step up the ancestor chain.
+  if (!RuntimeEnabledFeatures::VisualRectMappingFixForExpansionEnabled()) {
+    // Use EnclosingBoundingBox because we cannot properly compute pixel
+    // snapping for painted elements within the transform since we don't know
+    // the desired subpixel accumulation at this point, and the transform may
+    // include a scale. This only makes sense for non-preserve3D.
+    if (!StyleRef().Preserves3D()) {
+      transform_state.Flatten();
+      transform_state.SetQuad(gfx::QuadF(gfx::RectF(gfx::ToEnclosingRect(
+          transform_state.LastPlanarQuad().BoundingBox()))));
+    }
   }
 
-  // 2. Generate transformation matrix.
+  // 1. Generate transformation matrix.
   // a) Transform.
   gfx::Transform transform;
   if (Layer() && Layer()->Transform())
@@ -1878,12 +1879,12 @@ bool LayoutBox::MapVisualRectToContainer(
     transform = perspective_matrix * transform;
   }
 
-  // 3. Apply transform and flatten.
+  // 2. Apply transform and flatten.
   transform_state.ApplyTransform(transform, accumulation);
   if (!container_preserve_3d)
     transform_state.Flatten();
 
-  // 4. Apply container clip.
+  // 3. Apply container clip.
   if (container_object->IsBox() && container_object != ancestor &&
       container_object->HasClipRelatedProperty()) {
     return To<LayoutBox>(container_object)
@@ -1922,16 +1923,18 @@ bool LayoutBox::ApplyBoxClips(
     TransformState::TransformAccumulation accumulation,
     VisualRectFlags visual_rect_flags) const {
   NOT_DESTROYED();
-  // This won't work fully correctly for fixed-position elements, who should
-  // receive CSS clip but for whom the current object is not in the containing
-  // block chain.
-  PhysicalRect clip_rect = ClippingRect(PhysicalOffset());
-
+  if (visual_rect_flags & VisualRectFlags::kSkipAncestorAndViewportClips) {
+    return true;
+  }
   transform_state.Flatten();
   PhysicalRect rect = PhysicalRect::EnclosingRect(
       transform_state.LastPlanarQuad().BoundingBox());
 
   bool does_intersect;
+  // This won't work fully correctly for fixed-position elements, who should
+  // receive CSS clip but for whom the current object is not in the containing
+  // block chain.
+  PhysicalRect clip_rect = ClippingRect(PhysicalOffset());
   if (visual_rect_flags & kEdgeInclusive) {
     does_intersect = rect.InclusiveIntersect(clip_rect);
   } else {
@@ -2258,10 +2261,10 @@ void LayoutBox::ImageChanged(WrappedImagePtr image,
       if (layer->GetImage() && image == layer->GetImage()->Data()) {
         SetShouldDoFullPaintInvalidationWithoutLayoutChange(
             PaintInvalidationReason::kImage);
-        if (layer->GetImage()->IsMaskSource() && IsSVGChild()) {
+        if (layer->GetImage()->IsMaskSource()) {
           // Since an invalid <mask> reference does not yield a paint property
-          // on SVG content (see CSSMaskPainter), we need to update paint
-          // properties when such a reference changes.
+          // (see CSSMaskPainter), we need to update paint properties when such
+          // a reference changes.
           SetNeedsPaintPropertyUpdate();
         }
         break;
@@ -2488,6 +2491,11 @@ PhysicalRect LayoutBox::OverflowClipRect(
   }
 
   return clip_rect;
+}
+
+PhysicalRect LayoutBox::OverflowClipRectForScrollNode(
+    const PhysicalOffset& location) const {
+  return OverflowClipRect(location);
 }
 
 bool LayoutBox::HasControlClip() const {

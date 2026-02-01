@@ -23,7 +23,14 @@ class VIEWS_EXAMPLES_EXPORT AnimationExample : public ExampleBase {
   void CreateExampleView(View* container) override;
 
  private:
-  std::unique_ptr<AnimationAbortHandle> abort_handle_;
+  void StartAnimations();
+  void AbortAnimations();
+  void UpdateButtonsState(bool animation_running);
+
+  raw_ptr<View> squares_container_ = nullptr;
+  raw_ptr<View> start_button_ = nullptr;
+  raw_ptr<View> abort_button_ = nullptr;
+  std::unique_ptr<AnimationAbortHandle> animation_abort_handle_;
 };
 
 }  // namespace views::examples

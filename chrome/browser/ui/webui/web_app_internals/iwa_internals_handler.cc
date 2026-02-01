@@ -10,6 +10,7 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/types/expected_macros.h"
 #include "base/types/optional_util.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_discovery_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest.h"
@@ -34,7 +36,6 @@
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/webapps/browser/uninstall_result_code.h"
-#include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_frame_host.h"
@@ -129,7 +130,7 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
       std::optional<IwaVersion> pinned_version,
       bool allow_downgrades,
       Handler::UpdateManifestInstalledIsolatedWebAppCallback callback) {
-    if (base::Contains(update_requests_, app_id)) {
+    if (update_requests_.contains(app_id)) {
       std::move(callback).Run(
           "Update check skipped: please wait for the pending update request to "
           "resolve first.");
@@ -586,8 +587,10 @@ void IwaInternalsHandler::ApplyDevModeUpdate(
 void IwaInternalsHandler::RotateKey(
     const std::string& web_bundle_id,
     const std::optional<std::vector<uint8_t>>& public_key) {
-  IwaKeyDistributionInfoProvider::GetInstance().RotateKeyForDevMode(
-      base::PassKey<IwaInternalsHandler>(), web_bundle_id, public_key);
+  IwaKeyDistributionInfoProvider::GetInstance(
+      base::PassKey<IwaInternalsHandler>())
+      .RotateKeyForDevMode(base::PassKey<IwaInternalsHandler>(), web_bundle_id,
+                           public_key);
 }
 
 void IwaInternalsHandler::UpdateManifestInstalledIsolatedWebApp(
@@ -681,8 +684,7 @@ void IwaInternalsHandler::SetAllowDowngradesForIsolatedWebApp(
   }
 
   // Removes `app_id` for which downgrades were turned off.
-  if (base::Contains(app_ids_allowing_downgrades_, app_id) &&
-      !allow_downgrades) {
+  if (app_ids_allowing_downgrades_.contains(app_id) && !allow_downgrades) {
     app_ids_allowing_downgrades_.erase(app_id);
     return;
   }

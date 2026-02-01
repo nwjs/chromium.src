@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "base/debug/crash_logging.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -32,7 +33,6 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
-#include "services/network/public/mojom/service_worker_router_info.mojom-shared.h"
 #include "services/network/public/mojom/service_worker_router_info.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
@@ -80,6 +80,10 @@ network::mojom::URLResponseHeadPtr RewriteResponseHead(
   return response_head;
 }
 
+// A feature flag to enable the speculative fix for crbug.com/463388771.
+BASE_FEATURE(kCancelPendingCallbacksBeforeFetchRestart,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // A wrapper URLLoaderClient that invokes the given RewriteHeaderCallback
 // whenever a response or redirect is received.
 class HeaderRewritingURLLoaderClient : public network::mojom::URLLoaderClient {
@@ -87,12 +91,15 @@ class HeaderRewritingURLLoaderClient : public network::mojom::URLLoaderClient {
   using RewriteHeaderCallback =
       base::RepeatingCallback<network::mojom::URLResponseHeadPtr(
           network::mojom::URLResponseHeadPtr)>;
+  using ValidateResponseCallback = base::RepeatingCallback<void()>;
 
   HeaderRewritingURLLoaderClient(
       mojo::Remote<network::mojom::URLLoaderClient> url_loader_client,
-      RewriteHeaderCallback rewrite_header_callback)
+      RewriteHeaderCallback rewrite_header_callback,
+      ValidateResponseCallback validate_response_callback)
       : url_loader_client_(std::move(url_loader_client)),
-        rewrite_header_callback_(rewrite_header_callback) {}
+        rewrite_header_callback_(rewrite_header_callback),
+        validate_response_callback_(validate_response_callback) {}
   ~HeaderRewritingURLLoaderClient() override {}
 
  private:
@@ -107,6 +114,7 @@ class HeaderRewritingURLLoaderClient : public network::mojom::URLLoaderClient {
       mojo::ScopedDataPipeConsumerHandle body,
       std::optional<mojo_base::BigBuffer> cached_metadata) override {
     DCHECK(url_loader_client_.is_bound());
+    validate_response_callback_.Run();
     url_loader_client_->OnReceiveResponse(
         rewrite_header_callback_.Run(std::move(response_head)), std::move(body),
         std::move(cached_metadata));
@@ -142,6 +150,7 @@ class HeaderRewritingURLLoaderClient : public network::mojom::URLLoaderClient {
 
   mojo::Remote<network::mojom::URLLoaderClient> url_loader_client_;
   RewriteHeaderCallback rewrite_header_callback_;
+  ValidateResponseCallback validate_response_callback_;
 };
 
 void RestoreRequestBody(network::ResourceRequestBody* body,
@@ -605,6 +614,11 @@ void ServiceWorkerSubresourceLoader::OnConnectionClosed() {
     }
   }
   fetch_request_restarted_ = true;
+  if (base::FeatureList::IsEnabled(kCancelPendingCallbacksBeforeFetchRestart)) {
+    // Invalidate weak pointers to cancel any pending callbacks from the
+    // previous fetch event dispatch.
+    weak_factory_.InvalidateWeakPtrs();
+  }
   task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ServiceWorkerSubresourceLoader::DispatchFetchEvent,
@@ -779,7 +793,10 @@ void ServiceWorkerSubresourceLoader::OnFallback(
           response_head_->load_timing.service_worker_start_time,
           response_head_->load_timing.service_worker_ready_time,
           response_head_->load_timing.service_worker_router_evaluation_start,
-          router_info));
+          router_info),
+      base::BindRepeating(
+          &ServiceWorkerSubresourceLoader::ValidateResponseSentToClient,
+          weak_factory_.GetWeakPtr()));
   mojo::MakeSelfOwnedReceiver(std::move(client_impl),
                               client.InitWithNewPipeAndPassReceiver());
 
@@ -984,6 +1001,7 @@ void ServiceWorkerSubresourceLoader::CommitResponseBody(
           response_head_->load_timing.service_worker_router_evaluation_start;
     }
   }
+  ValidateResponseSentToClient();
   // TODO(kinuko): Fill the ssl_info.
   url_loader_client_->OnReceiveResponse(response_head.Clone(),
                                         std::move(response_body),
@@ -1524,6 +1542,15 @@ void ServiceWorkerSubresourceLoader::DidCacheStorageMatch(
   response_head_->service_worker_router_info->actual_source_type =
       network::mojom::ServiceWorkerRouterSourceType::kCache;
   OnResponse(std::move(response), std::move(timing));
+}
+
+void ServiceWorkerSubresourceLoader::ValidateResponseSentToClient() {
+  SCOPED_CRASH_KEY_BOOL("crbug463388771", "fetch_restarted",
+                        fetch_request_restarted_);
+  SCOPED_CRASH_KEY_STRING1024("crbug463388771", "response_url",
+                              resource_request_.url.spec());
+  CHECK(!response_sent_to_client_);
+  response_sent_to_client_ = true;
 }
 
 }  // namespace content

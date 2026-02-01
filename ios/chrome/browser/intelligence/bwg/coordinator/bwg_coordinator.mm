@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_mediator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_mediator_delegate.h"
-#import "ios/chrome/browser/intelligence/bwg/metrics/bwg_metrics.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
@@ -29,10 +29,10 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
@@ -61,7 +61,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   id<BWGCommands> _BWGCommandsHandler;
 
   // Returns the `_entryPoint` the coordinator was intialized from.
-  bwg::EntryPoint _entryPoint;
+  gemini::EntryPoint _entryPoint;
 
   // Handler for sending IPH commands.
   id<HelpCommands> _helpCommandsHandler;
@@ -75,7 +75,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser
-                            fromEntryPoint:(bwg::EntryPoint)entryPoint {
+                            fromEntryPoint:(gemini::EntryPoint)entryPoint {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _entryPoint = entryPoint;
@@ -119,7 +119,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 #pragma mark - BWGMediatorDelegate
 
 - (BOOL)maybePresentBWGFRE {
-  if (_entryPoint != bwg::EntryPoint::Promo) {
+  if (_entryPoint != gemini::EntryPoint::Promo) {
     _tracker->NotifyEvent(
         feature_engagement::events::kIOSGeminiFlowStartedNonPromo);
   }
@@ -135,7 +135,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
   if (showPromo) {
     if (IsGeminiNavigationPromoEnabled() &&
-        _entryPoint == bwg::EntryPoint::Promo) {
+        _entryPoint == gemini::EntryPoint::Promo) {
       _tracker->NotifyEvent(
           feature_engagement::events::kIOSFullscreenPromosGroupTrigger);
       _tracker->NotifyEvent(
@@ -189,7 +189,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 }
 
 - (void)dismissBWGFlow {
-  [_BWGCommandsHandler dismissBWGFlowWithCompletion:nil];
+  [_BWGCommandsHandler dismissGeminiFlowWithCompletion:nil];
 }
 
 #pragma mark - UISheetPresentationControllerDelegate
@@ -197,7 +197,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 // Handles the dismissal of the UI.
 - (void)presentationControllerDidDismiss:
     (UIPresentationController*)presentationController {
-  [_BWGCommandsHandler dismissBWGFlowWithCompletion:nil];
+  [_BWGCommandsHandler dismissGeminiFlowWithCompletion:nil];
 }
 
 #pragma mark - Private
@@ -212,9 +212,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
   BOOL willShowFRE = [self shouldShowBWGConsent];
   // Record entry point with FRE context.
-  RecordBWGEntryPointClick(_entryPoint, willShowFRE);
+  RecordGeminiEntryPointClick(_entryPoint, willShowFRE);
 
-  if (_entryPoint == bwg::EntryPoint::AIHub) {
+  if (_entryPoint == gemini::EntryPoint::AIHub) {
     _tracker->NotifyEvent(
         feature_engagement::events::kIOSPageActionMenuIPHUsed);
   }
@@ -223,16 +223,16 @@ const CGFloat kPromoMaxImpressionCount = 3;
   _BWGCommandsHandler = HandlerForProtocol(dispatcher, BWGCommands);
   _helpCommandsHandler = HandlerForProtocol(dispatcher, HelpCommands);
 
-  // TODO(crbug.com/455906590): Pipe the image to the Gemini overlay.
   _mediator = [[BWGMediator alloc]
       initWithPrefService:_prefService
              webStateList:self.browser->GetWebStateList()
        baseViewController:self.baseViewController
+               entryPoint:_entryPoint
                BWGService:BwgServiceFactory::GetForProfile(self.profile)
           BWGBrowserAgent:BwgBrowserAgent::FromBrowser(self.browser)
                   tracker:_tracker];
-  _mediator.applicationHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ApplicationCommands);
+  _mediator.sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
 
   _mediator.delegate = self;
 
@@ -281,7 +281,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 // Attemps to present the entry point IPH the user hasn't used the AI Hub entry
 // point yet.
 - (void)presentPageActionMenuIPH {
-  if (_entryPoint != bwg::EntryPoint::AIHub) {
+  if (_entryPoint != gemini::EntryPoint::AIHub) {
     [_helpCommandsHandler
         presentInProductHelpWithType:InProductHelpType::kPageActionMenu];
   }
@@ -320,7 +320,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   for (base::WeakPtr<Browser> browser : otherBrowsers) {
     id<BWGCommands> BWGCommandsHandler =
         HandlerForProtocol(browser->GetCommandDispatcher(), BWGCommands);
-    [BWGCommandsHandler dismissBWGFlowWithCompletion:^() {
+    [BWGCommandsHandler dismissGeminiFlowWithCompletion:^() {
       barrier.Run();
     }];
   }
@@ -341,8 +341,8 @@ const CGFloat kPromoMaxImpressionCount = 3;
   BOOL wouldTriggerIPH =
       _tracker->WouldTriggerHelpUI(feature_engagement::kIPHIOSPageActionMenu);
 
-  return _entryPoint != bwg::EntryPoint::AIHub && [self shouldShowBWGPromo] &&
-         wouldTriggerIPH;
+  return _entryPoint != gemini::EntryPoint::AIHub &&
+         [self shouldShowBWGPromo] && wouldTriggerIPH;
 }
 
 @end

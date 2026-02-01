@@ -38,7 +38,6 @@
 #import "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #import "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller.h"
 #import "components/autofill/core/browser/ui/payments/autofill_progress_dialog_controller_impl.h"
-#import "components/autofill/core/browser/ui/payments/bnpl_tos_controller.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller_impl.h"
@@ -425,18 +424,10 @@ IOSChromePaymentsAutofillClient::GetCardUnmaskPromptModel() {
 VirtualCardEnrollmentManager*
 IOSChromePaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   if (!virtual_card_enrollment_manager_) {
-    PaymentsNetworkInterfaceVariation payments_network_interface;
-    if (base::FeatureList::IsEnabled(
-            features::
-                kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment)) {
-      payments_network_interface = GetMultipleRequestPaymentsNetworkInterface();
-    } else {
-      payments_network_interface = GetPaymentsNetworkInterface();
-    }
     virtual_card_enrollment_manager_ =
         std::make_unique<VirtualCardEnrollmentManager>(
             &client_->GetPersonalDataManager().payments_data_manager(),
-            payments_network_interface, &client_.get());
+            GetMultipleRequestPaymentsNetworkInterface(), &client_.get());
   }
   return virtual_card_enrollment_manager_.get();
 }
@@ -540,7 +531,13 @@ bool IOSChromePaymentsAutofillClient::ShowTouchToFillIban(
   return false;
 }
 
-bool IOSChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+bool IOSChromePaymentsAutofillClient::ShowTouchToFillAffiliatedLoyaltyCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
+  return false;
+}
+
+bool IOSChromePaymentsAutofillClient::ShowTouchToFillForAllLoyaltyCards(
     base::WeakPtr<TouchToFillDelegate> delegate,
     std::vector<LoyaltyCard> loyalty_cards_to_suggest) {
   return false;
@@ -610,8 +607,8 @@ void IOSChromePaymentsAutofillClient::ShowCreditCardUploadSaveAndFillDialog(
     const LegalMessageLines& legal_message_lines,
     CardSaveAndFillDialogCallback callback) {}
 
-void IOSChromePaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog() {
-}
+void IOSChromePaymentsAutofillClient::ShowCreditCardSaveAndFillPendingDialog(
+    CardSaveAndFillDialogCallback callback) {}
 
 void IOSChromePaymentsAutofillClient::HideCreditCardSaveAndFillDialog() {}
 

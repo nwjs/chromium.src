@@ -21,6 +21,10 @@
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "ui/events/blink/blink_features.h"
 
+namespace base {
+class SequencedTaskRunner;
+} // namespace base
+
 namespace content {
 class InputRouterImplTestBase;
 } // namespace content
@@ -276,6 +280,9 @@ class COMPONENT_EXPORT(INPUT) PassthroughTouchEventQueue {
 
   // Event is saved to compare pointer positions for new touchmove events.
   std::unique_ptr<blink::WebTouchEvent> last_sent_touchevent_;
+  // Whether any touchmove event in the current sequence has moved beyond the
+  // slop region.
+  bool any_touchmove_moved_beyond_slop_region_ = false;
 
   // Stores outstanding touches that have been sent to the renderer but have
   // not yet been ack'd by the renderer. The set is explicitly ordered based

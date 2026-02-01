@@ -23,6 +23,7 @@
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/model/app_installed_by.h"
+#include "chrome/browser/web_applications/model/display_override.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-forward.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -127,7 +128,7 @@ class WebApp {
         ResolvePlatformSpecificUserDisplayMode(sync_proto()));
   }
 
-  const std::vector<DisplayMode>& display_mode_override() const {
+  const std::vector<DisplayOverride>& display_mode_override() const {
     return display_mode_override_;
   }
 
@@ -169,6 +170,8 @@ class WebApp {
   // - Partially installed no integration: The app is considered installed, but
   // does not have any OS integration with the operating system (no shortcuts,
   // etc). This is used for preinstalled apps on non-CrOS device.
+  // - Suggested from migration: The app is not fully installed on this device,
+  // and is pending migration from another app.
   proto::InstallState install_state() const { return install_state_; }
 
   // Sync-initiated installation produces a stub app awaiting for full
@@ -460,7 +463,8 @@ class WebApp {
   void SetDisplayMode(DisplayMode display_mode);
   // Sets the UserDisplayMode for the current platform (CrOS or default).
   void SetUserDisplayMode(mojom::UserDisplayMode user_display_mode);
-  void SetDisplayModeOverride(std::vector<DisplayMode> display_mode_override);
+  void SetDisplayModeOverride(
+      std::vector<DisplayOverride> display_mode_override);
   void SetBorderlessUrlPatterns(
       std::vector<blink::SafeUrlPattern> borderless_url_patterns);
   void SetWebAppChromeOsData(std::optional<WebAppChromeOsData> chromeos_data);
@@ -561,6 +565,25 @@ class WebApp {
 
   void SetStoredTrustedIconSizes(IconPurpose purpose, SortedSizesPx sizes);
 
+  const std::vector<proto::WebAppMigrationSource>&
+  unvalidated_migration_sources() const {
+    return unvalidated_migration_sources_;
+  }
+  const std::vector<proto::WebAppMigrationSource>& validated_migration_sources()
+      const {
+    return validated_migration_sources_;
+  }
+  const std::vector<proto::PendingMigrationInfo>& pending_migration_info()
+      const {
+    return pending_migration_info_;
+  }
+
+  void SetUnvalidatedMigrationSources(
+      std::vector<proto::WebAppMigrationSource> sources);
+  void SetValidatedMigrationSources(
+      std::vector<proto::WebAppMigrationSource> sources);
+  void SetPendingMigrationInfo(std::vector<proto::PendingMigrationInfo> info);
+
   void SetInstalledBy(InstalledByPassKey,
                       std::deque<AppInstalledBy> installed_by);
 
@@ -581,6 +604,7 @@ class WebApp {
   friend std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app);
   friend std::ostream& operator<<(std::ostream&, const WebApp&);
 
+  // LINT.IfChange(MemberVariables)
   webapps::AppId app_id_;
 
   // This set always contains at least one source.
@@ -596,7 +620,7 @@ class WebApp {
   std::optional<SkColor> background_color_;
   std::optional<SkColor> dark_mode_background_color_;
   DisplayMode display_mode_ = DisplayMode::kUndefined;
-  std::vector<DisplayMode> display_mode_override_;
+  std::vector<DisplayOverride> display_mode_override_;
   std::vector<blink::SafeUrlPattern> borderless_url_patterns_;
   std::optional<WebAppChromeOsData> chromeos_data_;
   proto::InstallState install_state_ =
@@ -692,6 +716,11 @@ class WebApp {
   SortedSizesPx stored_trusted_icon_sizes_maskable_;
 
   std::deque<AppInstalledBy> installed_by_;
+
+  std::vector<proto::WebAppMigrationSource> unvalidated_migration_sources_;
+  std::vector<proto::WebAppMigrationSource> validated_migration_sources_;
+  std::vector<proto::PendingMigrationInfo> pending_migration_info_;
+  // LINT.ThenChange(//chrome/browser/web_applications/proto/web_app.proto)
 
   // New fields must be added to:
   //  - |operator==|

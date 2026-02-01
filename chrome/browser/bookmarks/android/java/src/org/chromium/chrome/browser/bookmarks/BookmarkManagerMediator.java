@@ -5,6 +5,8 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeBookmarksUrl;
+import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNonNativeBookmarksUrl;
 import static org.chromium.components.browser_ui.widget.ListItemBuilder.buildSimpleMenuItem;
 
 import android.app.Activity;
@@ -22,8 +24,8 @@ import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -60,7 +62,6 @@ import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceSubscription;
 import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.commerce.core.SubscriptionsObserver;
-import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.PowerBookmarkType;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -370,7 +371,7 @@ class BookmarkManagerMediator
     private final DragReorderableRecyclerViewAdapter mDragReorderableRecyclerViewAdapter;
     // Whether we're showing in a dialog UI which is only true for phones.
     private final boolean mIsDialogUi;
-    private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier;
+    private final SettableNonNullObservableSupplier<Boolean> mBackPressStateSupplier;
     private final Profile mProfile;
     private final @Nullable BookmarkPromoHeader mPromoHeaderManager;
     private final BookmarkUndoController mBookmarkUndoController;
@@ -418,7 +419,7 @@ class BookmarkManagerMediator
             RecyclerView recyclerView,
             DragReorderableRecyclerViewAdapter dragReorderableRecyclerViewAdapter,
             boolean isDialogUi,
-            ObservableSupplierImpl<Boolean> backPressStateSupplier,
+            SettableNonNullObservableSupplier<Boolean> backPressStateSupplier,
             Profile profile,
             BookmarkUndoController bookmarkUndoController,
             ModelList modelList,
@@ -965,9 +966,9 @@ class BookmarkManagerMediator
             // If a loading state is replaced by another loading state, do not notify this change.
             if (mNativePage != null) {
                 boolean replaceLastUrl =
-                        TextUtils.equals(mNativePage.getUrl(), UrlConstants.BOOKMARKS_URL)
+                        TextUtils.equals(mNativePage.getUrl(), getOriginalNonNativeBookmarksUrl())
                                 || TextUtils.equals(
-                                        mNativePage.getUrl(), UrlConstants.BOOKMARKS_NATIVE_URL);
+                                        mNativePage.getUrl(), getOriginalNativeBookmarksUrl());
                 mNativePage.onStateChange(state.mUrl, replaceLastUrl);
             }
         } else if (state.mUiMode == BookmarkUiMode.SEARCHING) {
@@ -1458,9 +1459,18 @@ class BookmarkManagerMediator
         BookmarkItem bookmarkItem = assumeNonNull(bookmarkListEntry.getBookmarkItem());
         BookmarkId bookmarkId = bookmarkItem.getId();
 
+        // The property model for an individual bookmark item (row).
         PropertyModel propertyModel =
                 mImprovedBookmarkRowCoordinator.createBasePropertyModel(bookmarkId);
         propertyModel.set(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY, bookmarkListEntry);
+
+        if (ChromeFeatureList.sAndroidBookmarkBarFastFollow.isEnabled()) {
+            // Include #isReorderable because Mobile bookmarks, Bookmarks bar, and Reading list
+            // should not be draggable.
+            boolean isDragEnabled =
+                    mDragStateDelegate.getDragEnabled() && isReorderable(bookmarkListEntry);
+            propertyModel.set(ImprovedBookmarkRowProperties.IS_DRAG_ENABLED, isDragEnabled);
+        }
 
         // Menu
         propertyModel.set(

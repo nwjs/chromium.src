@@ -13,6 +13,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
+#include "media/base/media_switches.h"
+#include "media/base/video_encoder.h"
 #include "media/gpu/windows/d3d12_video_helpers.h"
 #include "media/gpu/windows/format_utils.h"
 #include "third_party/libaom/source/libaom/av1/ratectrl_rtc.h"
@@ -69,16 +71,6 @@ constexpr std::array<int16_t, 256> kAcQuantizerLookup = {
     1369, 1396, 1423, 1451, 1479, 1508, 1537, 1567, 1597, 1628, 1660, 1692,
     1725, 1759, 1793, 1828,
 };
-
-uint8_t AV1QPtoQindex(uint8_t avenc_qp) {
-  uint8_t q_index = avenc_qp * 4;
-  if (q_index == 248) {
-    q_index = 249;
-  } else if (q_index == 252) {
-    q_index = 255;
-  }
-  return q_index;
-}
 
 AV1BitstreamBuilder::SequenceHeader FillAV1BuilderSequenceHeader(
     uint8_t num_temporal_layers,
@@ -173,6 +165,9 @@ AV1BitstreamBuilder::FrameHeader FillAV1BuilderFrameHeader(
   frame_header.allow_intrabc = picture_ctrl.allow_intrabc;
   frame_header.interpolation_filter =
       static_cast<libgav1::InterpolationFilter>(pic_params.InterpolationFilter);
+  frame_header.reference_select =
+      pic_params.CompoundPredictionType ==
+      D3D12_VIDEO_ENCODER_AV1_COMP_PREDICTION_TYPE_COMPOUND_REFERENCE;
 
   // When loop restoration is enabled, updates frame header with loop
   // restoration parameters submitted to driver.
@@ -627,8 +622,9 @@ D3D12VideoEncodeAV1Delegate::GetSupportedProfiles(
 }
 
 D3D12VideoEncodeAV1Delegate::D3D12VideoEncodeAV1Delegate(
-    Microsoft::WRL::ComPtr<ID3D12VideoDevice3> video_device)
-    : D3D12VideoEncodeDelegate(std::move(video_device)) {
+    Microsoft::WRL::ComPtr<ID3D12VideoDevice3> video_device,
+    const gpu::GpuDriverBugWorkarounds& gpu_workarounds)
+    : D3D12VideoEncodeDelegate(std::move(video_device), gpu_workarounds) {
   input_arguments_.SequenceControlDesc.CodecGopSequence = {
       .DataSize = sizeof(gop_sequence_),
       .pAV1SequenceStructure = &gop_sequence_};
@@ -660,9 +656,16 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::InitializeVideoEncoder(
            VideoCodec::kAV1);
   CHECK(!config.HasSpatialLayer());
 
-  // For L1T3, we need two reference frames (for T0 and T1 frames).
-  // For L1T1  and L1T2, one reference frame is sufficient.
-  max_num_ref_frames_ = GetNumTemporalLayers() == 3 ? 2 : 1;
+  if (svc_layers_) {
+    metadata_.svc_generic.emplace();
+    // For L1T3, we need two reference frames (for T0 and T1 frames).
+    // For L1T1  and L1T2, one reference frame is sufficient.
+    max_num_ref_frames_ = GetNumTemporalLayers() == 3 ? 2 : 1;
+  } else {
+    max_num_ref_frames_ = gpu_workarounds_.disable_d3d12_av1_multi_ref_encoding
+                              ? 1
+                              : 7 /*REFS_PER_FRAME*/;
+  }
 
   D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC codec{
       .Codec = D3D12_VIDEO_ENCODER_CODEC_AV1};
@@ -804,9 +807,6 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::InitializeVideoEncoder(
     return {EncoderStatus::Codes::kEncoderInitializationError,
             "Failed to initialize DPB."};
   }
-  if (svc_layers_) {
-    metadata_.svc_generic.emplace();
-  }
   sequence_header_ =
       FillAV1BuilderSequenceHeader(GetNumTemporalLayers(), profile, input_size_,
                                    tier_level, enabled_features_);
@@ -889,45 +889,25 @@ void D3D12VideoEncodeAV1Delegate::FillPictureControlParams(
   picture_params_.TemporalLayerIndexPlus1 = 0;
   picture_params_.SpatialLayerIndexPlus1 = 0;
 
+  if (svc_layers_) {
+    HandleSVCReference(request_keyframe);
+  } else {
+    HandleManualReferences(options, request_keyframe);
+  }
+
+  // As the requirements of DPB Management expectation
+  // (https://microsoft.github.io/DirectX-Specs/d3d/D3D12_Video_Encoding_AV1.html#:~:text=DPB%20Management%20expectations)
+  // , when encoding a key frame: all array entries in
+  // ReferenceFramesReconPictureDescriptors should be set to invalid index,
+  // RefreshFrameFlags must be 0xFF, and PrimaryRefFrame must be 7
+  // (PRIMARY_REF_NONE).
   if (request_keyframe) {
-    // When encoding a key frame, as API requirements, all array entries in
-    // ReferenceFramesReconPictureDescriptors should be set to invalid index.
     reference_descriptors_.fill({.ReconstructedPictureResourceIndex = 0xFF});
     picture_params_.PrimaryRefFrame = kPrimaryRefNone;
+    picture_params_.RefreshFrameFlags = 0xFF;
   }
   std::copy(reference_descriptors_.begin(), reference_descriptors_.end(),
             picture_params_.ReferenceFramesReconPictureDescriptors);
-
-  if (svc_layers_) {
-    CHECK(metadata_.svc_generic.has_value());
-    // If keyframe is requested, then reset |svc_layers_|.
-    if (request_keyframe) {
-      svc_layers_->Reset();
-    }
-    SVCLayers::PictureParam svc_layer_params{};
-    svc_layers_->GetPictureParamAndMetadata(svc_layer_params,
-                                            &metadata_.svc_generic.value());
-    picture_params_.RefreshFrameFlags = svc_layer_params.refresh_frame_flags;
-    if (!request_keyframe) {
-      CHECK_EQ(svc_layer_params.reference_frame_indices.size(), 1ull);
-      std::ranges::fill(picture_params_.ReferenceIndices,
-                        svc_layer_params.reference_frame_indices[0]);
-      picture_params_.PrimaryRefFrame =
-          svc_layer_params.reference_frame_indices[0];
-    }
-  } else {
-    // TODO(https://crbug.com/40275246): Support manual reference control
-    // indicated in 'EncodeOptions'.
-
-    // If there is no outside reference control, we use the last frame as the
-    // reference frame for inter frames.
-    picture_params_.PrimaryRefFrame = request_keyframe ? kPrimaryRefNone : 0;
-    std::ranges::fill(picture_params_.ReferenceIndices, 0);
-
-    // Refresh frame flags for last frame.
-    picture_params_.RefreshFrameFlags =
-        request_keyframe ? 0xFF : 1 << (libgav1::kReferenceFrameLast - 1);
-  }
 
   std::optional<int> qindex;
   if (software_brc_) {
@@ -939,12 +919,18 @@ void D3D12VideoEncodeAV1Delegate::FillPictureControlParams(
     software_brc_->ComputeQP(frame_params);
     qindex = software_brc_->GetQP();
   } else if (options.quantizer.has_value()) {
-    qindex = AV1QPtoQindex(
-        std::clamp(static_cast<uint8_t>(options.quantizer.value()),
-                   kAV1MinQuantizer, kAV1MaxQuantizer));
+    int q_val = options.quantizer.value();
+    if (base::FeatureList::IsEnabled(kStandardizeVP9AndAV1Quantizer)) {
+      qindex = q_val;
+    } else {
+      qindex = QuantizerToQIndex(
+          VideoCodec::kAV1, std::clamp(static_cast<uint8_t>(q_val),
+                                       kAV1MinQuantizer, kAV1MaxQuantizer));
+    }
   }
-  const int base_q_idx =
-      std::clamp(qindex.value_or(AV1QPtoQindex(kAV1MaxQuantizer)), 0, 255);
+  const int base_q_idx = std::clamp(
+      qindex.value_or(QuantizerToQIndex(VideoCodec::kAV1, kAV1MaxQuantizer)), 0,
+      255);
   picture_params_.Quantization.BaseQIndex = base_q_idx;
   DVLOG(4) << base::StringPrintf(
       "Encoding picture: %d, is_keyframe = %d, QP = %d", picture_id_,
@@ -1042,7 +1028,6 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::EncodeImpl(
       used_as_ref
           ? D3D12_VIDEO_ENCODER_PICTURE_CONTROL_FLAG_USED_AS_REFERENCE_PICTURE
           : D3D12_VIDEO_ENCODER_PICTURE_CONTROL_FLAG_NONE;
-  auto reconstructed_buffer = dpb_.GetCurrentFrame();
   D3D12_VIDEO_ENCODE_REFERENCE_FRAMES reference_frames{};
   if (!IsKeyFrame()) {
     reference_frames = dpb_.ToD3D12VideoEncodeReferenceFrames();
@@ -1050,12 +1035,9 @@ EncoderStatus D3D12VideoEncodeAV1Delegate::EncodeImpl(
   input_arguments_.PictureControlDesc.ReferenceFrames = reference_frames;
   input_arguments_.pInputFrame = input_frame;
   input_arguments_.InputFrameSubresource = input_frame_subresource;
-  D3D12_VIDEO_ENCODER_RECONSTRUCTED_PICTURE reconstructed_picture = {
-      .pReconstructedPicture =
-          used_as_ref ? reconstructed_buffer.resource_ : nullptr,
-      .ReconstructedPictureSubresource =
-          used_as_ref ? reconstructed_buffer.subresource_ : 0,
-  };
+  D3D12_VIDEO_ENCODER_RECONSTRUCTED_PICTURE reconstructed_picture =
+      used_as_ref ? dpb_.GetCurrentFrame()
+                  : D3D12_VIDEO_ENCODER_RECONSTRUCTED_PICTURE{};
 
   if (EncoderStatus result = video_encoder_wrapper_->Encode(
           input_arguments_, reconstructed_picture);
@@ -1445,6 +1427,56 @@ bool D3D12VideoEncodeAV1Delegate::UpdateFrameHeaderPostEncode(
   }
 
   return true;
+}
+
+void D3D12VideoEncodeAV1Delegate::HandleSVCReference(bool request_keyframe) {
+  CHECK(metadata_.svc_generic.has_value());
+  // If keyframe is requested, then reset |svc_layers_.|
+  if (request_keyframe) {
+    svc_layers_->Reset();
+  }
+  SVCLayers::PictureParam svc_layer_params{};
+  svc_layers_->GetPictureParamAndMetadata(svc_layer_params,
+                                          &metadata_.svc_generic.value());
+  picture_params_.RefreshFrameFlags = svc_layer_params.refresh_frame_flags;
+  if (!request_keyframe) {
+    CHECK_EQ(svc_layer_params.reference_frame_indices.size(), 1ull);
+    std::ranges::fill(picture_params_.ReferenceIndices,
+                      svc_layer_params.reference_frame_indices[0]);
+    picture_params_.PrimaryRefFrame =
+        svc_layer_params.reference_frame_indices[0];
+  }
+}
+
+void D3D12VideoEncodeAV1Delegate::HandleManualReferences(
+    const VideoEncoder::EncodeOptions& options,
+    bool request_keyframe) {
+  if (request_keyframe) {
+    return;
+  }
+  CHECK_GE(options.reference_buffers.size(), 1ull);
+  picture_params_.RefreshFrameFlags =
+      options.update_buffer ? (1u << options.update_buffer.value()) : 0u;
+
+  // Set primary reference frame to the first reference buffer index.
+  picture_params_.PrimaryRefFrame = options.reference_buffers[0];
+
+  // The AV1 D3D12 API requires ReferenceIndices[7] to always contain values
+  // in [0..7], each pointing to a DPB slot. There is no invalid value.
+  // Therefore, when less than 7 reference buffers are provided, we pad the
+  // remaining ReferenceIndices[] with `options.reference_buffers[0]`（The API
+  // allows values in ReferenceIndices[] to be repeated), this ensures all
+  // indices will point to a valid DPB slot.
+  for (size_t i = 0; i < 7ull; i++) {
+    base::span(picture_params_.ReferenceIndices)[i] =
+        options.reference_buffers.size() > i ? options.reference_buffers[i]
+                                             : options.reference_buffers[0];
+  }
+
+  picture_params_.CompoundPredictionType =
+      options.reference_buffers.size() > 1ull
+          ? D3D12_VIDEO_ENCODER_AV1_COMP_PREDICTION_TYPE_COMPOUND_REFERENCE
+          : D3D12_VIDEO_ENCODER_AV1_COMP_PREDICTION_TYPE_SINGLE_REFERENCE;
 }
 
 }  // namespace media

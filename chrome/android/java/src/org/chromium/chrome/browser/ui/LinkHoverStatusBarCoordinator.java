@@ -21,7 +21,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CancelableRunnable;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
@@ -32,6 +32,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
@@ -51,7 +52,7 @@ public class LinkHoverStatusBarCoordinator extends EmptyTabObserver
     private final int mInitialMaxWidth;
     private final int mMargin;
     private final int mMousePadding;
-    private final ObservableSupplier<@Nullable Tab> mTabProvider;
+    private final NullableObservableSupplier<Tab> mTabProvider;
     private final Callback<@Nullable Tab> mTabSupplierObserver;
 
     private GURL mCurrentUrl = GURL.emptyGURL();
@@ -71,14 +72,12 @@ public class LinkHoverStatusBarCoordinator extends EmptyTabObserver
      * @param statusBarStub The {@link ViewStub} for the status bar.
      */
     public LinkHoverStatusBarCoordinator(
-            Context context,
-            ObservableSupplier<@Nullable Tab> tabProvider,
-            ViewStub statusBarStub) {
+            Context context, NullableObservableSupplier<Tab> tabProvider, ViewStub statusBarStub) {
         mContext = context;
         mCurrentTabObserver = new CurrentTabObserver(tabProvider, this);
         mTabProvider = tabProvider;
         mTabSupplierObserver = (tab) -> updateHoverListener();
-        mTabProvider.addObserver(mTabSupplierObserver);
+        tabProvider.addObserver(mTabSupplierObserver);
 
         mLinkHoverStatusBar = (TextView) statusBarStub.inflate();
         mBackgroundDrawable =
@@ -135,7 +134,7 @@ public class LinkHoverStatusBarCoordinator extends EmptyTabObserver
             mExpandStatusBarCancelableRunnable = null;
         }
 
-        if (!url.isEmpty()) {
+        if (!url.isEmpty() && DeviceInput.supportsPrecisionPointer()) {
             mLinkHoverStatusBar.setText(mCurrentUrl.getSpec());
             boolean isIncognito = tab.isIncognitoBranded();
             boolean isNightMode = ColorUtils.inNightMode(mContext);

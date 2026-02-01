@@ -33,8 +33,9 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
 /** Unit test for {@link EdgeToEdgeSystemBarColorHelper}. */
@@ -52,9 +53,8 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
     @Mock private SystemBarColorHelper mDelegateColorHelper;
 
     private EdgeToEdgeSystemBarColorHelper mEdgeToEdgeColorHelper;
-    private WindowSystemBarColorHelper mWindowHelper;
-    private final ObservableSupplierImpl<Boolean> mShouldContentFitsWindowInsetsSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNonNullObservableSupplier<Boolean>
+            mShouldContentFitsWindowInsetsSupplier = ObservableSuppliers.createNonNull(false);
     private final OneshotSupplierImpl<SystemBarColorHelper> mDelegateHelperSupplier =
             new OneshotSupplierImpl<>();
 
@@ -101,7 +101,6 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
 
     @Test
     public void initWhenEdgeToEdge_WithoutDelegateHelper_WindowTransparent() {
-        mShouldContentFitsWindowInsetsSupplier.set(false);
         initEdgeToEdgeColorHelper();
 
         mEdgeToEdgeColorHelper.setNavigationBarColor(Color.RED);
@@ -114,7 +113,6 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
 
     @Test
     public void initWhenEdgeToEdge_WithDelegateHelper_UseDelegateHelper() {
-        mShouldContentFitsWindowInsetsSupplier.set(false);
         mDelegateHelperSupplier.set(mDelegateColorHelper);
         initEdgeToEdgeColorHelper();
 
@@ -147,6 +145,7 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
 
     @Test
     public void switchIntoEdgeToEdge() {
+        mShouldContentFitsWindowInsetsSupplier.set(true);
         mDelegateHelperSupplier.set(mDelegateColorHelper);
         initEdgeToEdgeColorHelper();
         mEdgeToEdgeColorHelper.setNavigationBarColor(Color.RED);
@@ -179,7 +178,6 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
 
     @Test
     public void switchOutFromEdgeToEdge() {
-        mShouldContentFitsWindowInsetsSupplier.set(false);
         mDelegateHelperSupplier.set(mDelegateColorHelper);
         initEdgeToEdgeColorHelper();
         mEdgeToEdgeColorHelper.setNavigationBarColor(Color.RED);
@@ -212,7 +210,6 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
     @Test
     public void delegateDoNotColorStatusBar() {
         doReturn(false).when(mDelegateColorHelper).canSetStatusBarColor();
-        mShouldContentFitsWindowInsetsSupplier.set(false);
         mDelegateHelperSupplier.set(mDelegateColorHelper);
         initEdgeToEdgeColorHelper();
 
@@ -239,6 +236,35 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
         verify(mWindowInsetsController, never()).setSystemBarsAppearance(anyInt(), anyInt());
     }
 
+    @Test
+    public void testSetStatusBarColor_forceLightIconColor() {
+        initEdgeToEdgeColorHelper();
+
+        // When status bar color is white, icons color will be dark.
+        mEdgeToEdgeColorHelper.setStatusBarColor(Color.WHITE);
+        verify(mWindowInsetsController)
+                .setSystemBarsAppearance(
+                        APPEARANCE_LIGHT_STATUS_BARS, APPEARANCE_LIGHT_STATUS_BARS);
+
+        // Verifies that status bar icon color is reverted to the default, white or light grey.
+        mEdgeToEdgeColorHelper.setStatusBarColor(Color.WHITE, /* forceLightIconColor= */ true);
+        verify(mWindowInsetsController).setSystemBarsAppearance(0, APPEARANCE_LIGHT_STATUS_BARS);
+    }
+
+    @Test
+    public void testSetStatusBarColor_skipWithSameParameters() {
+        initEdgeToEdgeColorHelper();
+
+        mEdgeToEdgeColorHelper.setStatusBarColor(Color.WHITE, /* forceLightIconColor= */ true);
+        verify(mWindowInsetsController).setSystemBarsAppearance(0, APPEARANCE_LIGHT_STATUS_BARS);
+
+        clearInvocations(mWindowInsetsController);
+        // Verifies that WindowInsetsController won't set system bar appearance again if the same
+        // parameters are passed from setStatusBarColor().
+        mEdgeToEdgeColorHelper.setStatusBarColor(Color.WHITE, /* forceLightIconColor= */ true);
+        verify(mWindowInsetsController, never()).setSystemBarsAppearance(anyInt(), anyInt());
+    }
+
     private void initEdgeToEdgeColorHelper() {
         mEdgeToEdgeColorHelper =
                 new EdgeToEdgeSystemBarColorHelper(
@@ -246,7 +272,6 @@ public class EdgeToEdgeSystemBarColorHelperUnitTest {
                         mShouldContentFitsWindowInsetsSupplier,
                         mDelegateHelperSupplier,
                         /* canColorStatusBarColor= */ true);
-        mWindowHelper = mEdgeToEdgeColorHelper.getWindowHelperForTesting();
         clearInvocations(mDecorView);
     }
 

@@ -13,7 +13,6 @@
 #include "services/webnn/ort/ort_session_options.h"
 #include "services/webnn/ort/scoped_ort_types.h"
 #include "services/webnn/public/cpp/execution_providers_info.h"
-#include "services/webnn/public/mojom/webnn_device.mojom.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom-forward.h"
 
 namespace webnn::ort {
@@ -22,17 +21,15 @@ class Environment;
 
 // `DeviceAllocator` wraps a device allocator created from a trivial session.
 // The allocator can create device tensors for a specific EP used by the
-// session. Currently, the device allocator is only used for OpenVINO EP.
+// session.
 class DeviceAllocator final : public base::RefCounted<DeviceAllocator> {
  public:
   // Returns a device allocator for a specific EP if it can be created
-  // successfully; otherwise, returns nullptr. Currently, using device allocator
-  // to create device tensors is only supported for OpenVINO EP.
+  // successfully; otherwise, returns nullptr.
   // TODO(crbug.com/445971854): Use device allocator to create tensors for
   // other EPs.
   static scoped_refptr<DeviceAllocator> Create(
-      mojom::Device device_type,
-      const OrtSessionOptions* session_options,
+      scoped_refptr<SessionOptions> session_options,
       scoped_refptr<Environment> env);
 
   DeviceAllocator(base::PassKey<DeviceAllocator>,

@@ -14,7 +14,6 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -64,12 +63,12 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator_collection.h"
 #include "ui/compositor/overscroll/scroll_input_handler.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/display/display_switches.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/icc_profile.h"
 #include "ui/gfx/presentation_feedback.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
 
@@ -192,7 +191,10 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   // Using CoreAnimation to composite requires using GpuMemoryBuffers, which
   // require zero copy.
   settings.use_gpu_memory_buffer_resources = settings.use_zero_copy;
-  settings.enable_elastic_overscroll = true;
+  settings.enable_elastic_overscroll_on_root = true;
+  settings.enable_elastic_overscroll_for_subscroll =
+      base::FeatureList::IsEnabled(
+          features::kOverscrollEffectOnNonRootScrollers);
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -280,8 +282,17 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   }
 
   if (command_line->HasSwitch(switches::kUISlowAnimations)) {
-    slow_animations_ = std::make_unique<ScopedAnimationDurationScaleMode>(
-        ScopedAnimationDurationScaleMode::SLOW_DURATION);
+    slow_animations_ = std::make_unique<gfx::ScopedAnimationDurationScaleMode>(
+        gfx::ScopedAnimationDurationScaleMode::SLOW_DURATION);
+  } else if (command_line->HasSwitch(switches::kAnimationDurationScale)) {
+    double animation_duration_scale = 1.0f;
+    if (!base::StringToDouble(command_line->GetSwitchValueASCII(
+                                  switches::kAnimationDurationScale),
+                              &animation_duration_scale)) {
+      animation_duration_scale = 1.0f;
+    }
+    slow_animations_ = std::make_unique<gfx::ScopedAnimationDurationScaleMode>(
+        animation_duration_scale);
   }
 
   settings.disable_frame_rate_limit =
@@ -937,7 +948,7 @@ Compositor::TrackerState::~TrackerState() = default;
 void Compositor::StartMetricsTracker(
     TrackerId tracker_id,
     CompositorMetricsTrackerHost::ReportCallback callback) {
-  DCHECK(!base::Contains(compositor_metrics_tracker_map_, tracker_id));
+  DCHECK(!compositor_metrics_tracker_map_.contains(tracker_id));
 
   auto& tracker_state = compositor_metrics_tracker_map_[tracker_id];
   tracker_state.report_callback = std::move(callback);

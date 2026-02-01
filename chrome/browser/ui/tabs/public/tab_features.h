@@ -71,6 +71,10 @@ namespace contextual_cueing {
 class ContextualCueingHelper;
 }  // namespace contextual_cueing
 
+namespace contextual_tasks {
+class ContextualTasksTabVisitTracker;
+}  // namespace contextual_tasks
+
 namespace customize_chrome {
 class SidePanelController;
 }  // namespace customize_chrome
@@ -193,6 +197,11 @@ class TabFeatures {
     return commerce_ui_tab_helper_.get();
   }
 
+  contextual_tasks::ContextualTasksTabVisitTracker*
+  contextual_tasks_tab_visit_tracker() {
+    return contextual_tasks_tab_visit_tracker_.get();
+  }
+
   privacy_sandbox::PrivacySandboxTabObserver* privacy_sandbox_tab_observer() {
     return privacy_sandbox_tab_observer_.get();
   }
@@ -269,8 +278,6 @@ class TabFeatures {
     return memory_saver_chip_helper_.get();
   }
 
-  TabUIHelper* tab_ui_helper() { return tab_ui_helper_.get(); }
-
   TabUIHelper* SetTabUIHelperForTesting(
       std::unique_ptr<TabUIHelper> tab_ui_helper);
 
@@ -278,6 +285,9 @@ class TabFeatures {
   SetTabContextualizationControllerForTesting(
       std::unique_ptr<lens::TabContextualizationController>
           tab_contextualization_controller);
+
+  TabAlertController* SetTabAlertControllerForTesting(
+      std::unique_ptr<TabAlertController> tab_alert_controller);
 
   TabCreationMetricsController* tab_creation_metrics_controller() {
     return tab_creation_metrics_controller_.get();
@@ -293,12 +303,6 @@ class TabFeatures {
   AskBeforeHttpDialogController* ask_before_http_dialog_controller() {
     return ask_before_http_dialog_controller_.get();
   }
-
-#if BUILDFLAG(ENABLE_GLIC)
-  glic::GlicSidePanelCoordinator* glic_side_panel_coordinator() {
-    return glic_side_panel_coordinator_.get();
-  }
-#endif  // BUILDFLAG(ENABLE_GLIC)
 
   BookmarkBarPreloadPipelineManager* bookmarkbar_preload_pipeline_manager() {
     return bookmarkbar_preload_pipeline_manager_.get();
@@ -505,6 +509,10 @@ class TabFeatures {
     BUILDFLAG(IS_CHROMEOS)
   std::unique_ptr<wallet::ChromeWalletablePassClient> walletable_pass_client_;
 #endif
+
+  std::unique_ptr<contextual_tasks::ContextualTasksTabVisitTracker>
+      contextual_tasks_tab_visit_tracker_;
+
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};
 };

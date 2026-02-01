@@ -78,7 +78,7 @@
 #include "third_party/skia/include/core/SkShader.h"
 #include "third_party/skia/include/core/SkString.h"
 #include "third_party/skia/include/effects/SkColorMatrix.h"
-#include "third_party/skia/include/effects/SkGradientShader.h"
+#include "third_party/skia/include/effects/SkGradient.h"
 #include "third_party/skia/include/effects/SkImageFilters.h"
 #include "third_party/skia/include/effects/SkOverdrawColorFilter.h"
 #include "third_party/skia/include/effects/SkRuntimeEffect.h"
@@ -121,12 +121,6 @@ namespace {
 // TODO(crbug.com/347909405): Remove this
 BASE_FEATURE(kDumpWithoutCrashingOnMissingRenderPassBacking,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_WIN)
-// Use BufferQueue for the primary plane instead of a DXGI swap chain or DComp
-// surface.
-BASE_FEATURE(kBufferQueue, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 // Smallest unit that impacts anti-aliasing output. We use this to determine
 // when an exterior edge (with AA) has been clipped (no AA). The specific value
@@ -683,8 +677,6 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
     image_context->set_alpha_type(alpha_type);
   }
 
-  // We need the original TransferableResource.color_space for YUV => RGB
-  // conversion.
   skia_renderer->skia_output_surface_->MakePromiseSkImage(image_context,
                                                           force_rgbx);
   paint_op_buffer_ = image_context->paint_op_buffer();
@@ -993,10 +985,8 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
 
   // It's possible to use BufferQueue with DComp textures, so we can optionally
   // enable it behind a feature flag.
-  const bool want_buffer_queue =
-      output_surface_->capabilities().dc_support_level >=
-          OutputSurface::DCSupportLevel::kDCompDynamicTexture &&
-      base::FeatureList::IsEnabled(kBufferQueue);
+  const bool want_buffer_queue = IsBufferQueueSupportedAndEnabled(
+      output_surface_->capabilities().dc_support_level);
 #else
   const bool want_buffer_queue = true;
 #endif
@@ -1552,7 +1542,10 @@ void SkiaRenderer::PrepareCanvas(
   }
 }
 
-#define MaskColor(a) SkColorSetARGB(a, a, a, a);
+static inline SkColor4f MaskColor(unsigned alpha) {
+    const float a = alpha / 255.f;
+    return {a, a, a, a};
+}
 
 void SkiaRenderer::PrepareGradient(
     const std::optional<gfx::MaskFilterInfo>& mask_filter_info) {
@@ -1602,7 +1595,7 @@ void SkiaRenderer::PrepareGradient(
   }
 
   std::array<SkScalar, gfx::LinearGradient::kMaxStepSize> positions;
-  std::array<SkColor, gfx::LinearGradient::kMaxStepSize> gradient_colors;
+  std::array<SkColor4f, gfx::LinearGradient::kMaxStepSize> gradient_colors;
 
   size_t i = 0;
   for (; i < gradient_mask->step_count(); ++i) {
@@ -1611,9 +1604,8 @@ void SkiaRenderer::PrepareGradient(
   }
 
   SkPoint::Offset(start_end, /*count=*/2, rect.x(), rect.y());
-  sk_sp<SkShader> gradient = SkGradientShader::MakeLinear(
-      start_end, gradient_colors.data(), positions.data(), /*count=*/i,
-      SkTileMode::kClamp);
+  sk_sp<SkShader> gradient = SkShaders::LinearGradient(
+      start_end, {{{gradient_colors.data(), i}, {positions.data(), i}, SkTileMode::kClamp}, {}});
   current_canvas_->clipShader(std::move(gradient));
 }
 
@@ -2618,7 +2610,7 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
       return true;
     }
     if (gfx::HdrMetadataAgtm::IsEnabled() &&
-        src_hdr_metadata.agtm.has_value()) {
+        src_hdr_metadata.getSerializedAgtm()) {
       return true;
     }
     return false;
@@ -4258,11 +4250,8 @@ void SkiaRenderer::EnsureMinNumberOfBuffers(int n) {
   buffer_queue_->EnsureMinNumberOfBuffers(n);
 }
 
+#if BUILDFLAG(IS_OZONE)
 gpu::Mailbox SkiaRenderer::GetPrimaryPlaneOverlayTestingMailbox() {
-#if BUILDFLAG(IS_WIN)
-  // Windows dcomp uses a swap chain for primary plane instead of BufferQueue.
-  return gpu::Mailbox();
-#else
   // For the purpose of testing the overlay configuration, the mailbox for ANY
   // buffer from BufferQueue is good enough because they're all created with
   // identical properties.
@@ -4272,10 +4261,7 @@ gpu::Mailbox SkiaRenderer::GetPrimaryPlaneOverlayTestingMailbox() {
   // previous frame's mailbox.)
   CHECK(buffer_queue_);
   return buffer_queue_->GetLastSwappedBuffer();
-#endif
 }
-
-#if BUILDFLAG(IS_OZONE)
 
 DBG_FLAG_FBOOL("delegated.overlay.background_candidate.colored",
                toggle_background_overlay_color)  // False by default.
