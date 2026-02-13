@@ -6,20 +6,21 @@
 
 #include <map>
 #include <set>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_search/contextual_search_types.h"
+#include "components/contextual_search/pref_names.h"
 #include "components/lens/contextual_input.h"
+#include "components/prefs/pref_service.h"
 #include "third_party/omnibox_proto/aim_input_types.pb.h"
 #include "third_party/omnibox_proto/searchbox_config_constraints.pb.h"
 
 namespace contextual_search {
 
 using omnibox::SearchboxConfig;
-
-InputState::InputState() = default;
-InputState::~InputState() = default;
 
 namespace {
 
@@ -109,6 +110,15 @@ InputStateModel::InputStateModel(
     }
   }
 
+  // TODO(crbug.com/479254789): Once `INPUT_TYPE_BROWSER_TAB` is available from
+  // server, remove this check.
+  if (std::find(state_.allowed_input_types.begin(),
+                state_.allowed_input_types.end(),
+                omnibox::INPUT_TYPE_BROWSER_TAB) ==
+      state_.allowed_input_types.end()) {
+    state_.allowed_input_types.push_back(omnibox::INPUT_TYPE_BROWSER_TAB);
+  }
+
   state_.active_tool = mutable_config.has_initial_tool_mode()
                            ? mutable_config.initial_tool_mode()
                            : omnibox::ToolMode::TOOL_MODE_UNSPECIFIED;
@@ -119,7 +129,24 @@ InputStateModel::InputStateModel(
   updateDisabledState();
 }
 
+InputStateModel::InputStateModel(
+    const InputStateModel& new_input_state_model,
+    contextual_search::ContextualSearchSessionHandle& new_session_handle)
+    : session_handle_(new_session_handle) {
+  state_ = new_input_state_model.state_;
+  rule_set_ = new_input_state_model.rule_set_;
+}
+
 InputStateModel::~InputStateModel() = default;
+
+void InputStateModel::Initialize() {
+  notifySubscribers();
+}
+
+void InputStateModel::SetPrefService(const PrefService* pref_service) {
+  pref_service_ = pref_service;
+  updateDisabledState();
+}
 
 base::CallbackListSubscription InputStateModel::subscribe(Subscriber callback) {
   return subscribers_.Add(std::move(callback));
@@ -196,11 +223,17 @@ std::vector<omnibox::InputType> GetCurrentInputTypes(
 
 void InputStateModel::setActiveTool(ToolMode tool) {
   updateSelectedState(tool, state_.active_model);
-  notifySubscribers();
 }
 
 void InputStateModel::setActiveModel(ModelMode model) {
   updateSelectedState(state_.active_tool, model);
+}
+
+void InputStateModel::OnContextChanged() {
+  // Update the disabled state based on the new inputs uploaded.
+  updateDisabledState();
+
+  // Notify subscribers once `state_` is updated.
   notifySubscribers();
 }
 
@@ -211,6 +244,27 @@ void InputStateModel::updateSelectedState(ToolMode tool, ModelMode model) {
   // Update the disabled state based on the active model, tool, and current
   // input types.
   updateDisabledState();
+
+  // Notify subscribers once `state_` is updated.
+  notifySubscribers();
+}
+
+// Helper to check if search content sharing is enabled based on the
+// user preference.
+bool InputStateModel::IsSearchContentSharingEnabled() const {
+  if (!pref_service_) {
+    // Default behavior: if no `PrefService` default to allowed.
+    return true;
+  }
+
+  // Read the pref value.
+  int value = pref_service_->GetInteger(
+      contextual_search::kSearchContentSharingSettings);
+
+  // Comparison logic: must cast the enum class to an int for comparison.
+  return value ==
+         static_cast<int>(
+             contextual_search::SearchContentSharingSettingsValue::kEnabled);
 }
 
 void InputStateModel::UpdateDisabledTools() {
@@ -279,11 +333,20 @@ void InputStateModel::UpdateDisabledModels() {
 
 void InputStateModel::UpdateDisabledInputTypes() {
   // Disable an input type if:
+  // - Enterprise policy disallows content sharing.
   // - Input type limit is reached.
   // - Total input limit is reached.
   // - Incompatible with the active model.
   // - Incompatible with the active tool.
   state_.disabled_input_types.clear();
+
+  if (!IsSearchContentSharingEnabled()) {
+    std::erase_if(state_.allowed_input_types, [](auto input_type) {
+      return input_type == omnibox::InputType::INPUT_TYPE_LENS_IMAGE ||
+             input_type == omnibox::InputType::INPUT_TYPE_LENS_FILE ||
+             input_type == omnibox::InputType::INPUT_TYPE_BROWSER_TAB;
+    });
+  }
 
   std::map<omnibox::InputType, int> limits = GetInputTypeLimits();
   std::map<omnibox::InputType, int> current_input_counts;
@@ -337,6 +400,36 @@ std::map<omnibox::InputType, int> InputStateModel::GetInputTypeLimits() {
     }
   }
   return limits;
+}
+
+std::map<std::string, std::string> InputStateModel::GetAdditionalQueryParams() {
+  std::map<std::string, std::string> additional_params;
+  switch (state_.active_tool) {
+    case omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH:
+      additional_params["dr"] = "1";
+      break;
+    case omnibox::ToolMode::TOOL_MODE_CANVAS:
+      additional_params["rc"] = "1";
+      break;
+    case omnibox::ToolMode::TOOL_MODE_IMAGE_GEN:
+    case omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD:
+      additional_params["imgn"] = "1";
+      break;
+    default:
+      break;
+  }
+
+  switch (state_.active_model) {
+    case omnibox::ModelMode::MODEL_MODE_GEMINI_PRO:
+      additional_params["m"] = "1";
+      break;
+    case omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_AUTOROUTE:
+      additional_params["m"] = "2";
+      break;
+    default:
+      break;
+  }
+  return additional_params;
 }
 
 }  // namespace contextual_search

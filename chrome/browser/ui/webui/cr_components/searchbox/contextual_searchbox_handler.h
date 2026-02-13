@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "base/callback_list.h"
 #include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -30,6 +31,8 @@
 #include "components/omnibox/composebox/composebox_query.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "third_party/omnibox_proto/aim_models.pb.h"
+#include "third_party/omnibox_proto/aim_tools.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
@@ -118,6 +121,7 @@ class ContextualSearchboxHandler
                    bool shift_key) override;
   void GetRecentTabs(GetRecentTabsCallback callback) override;
   void GetTabPreview(int32_t tab_id, GetTabPreviewCallback callback) override;
+  void GetInputState(GetInputStateCallback callback) override;
 
   // Called from browser code (e.g., Views-based file selector) to add file
   // context.
@@ -152,10 +156,15 @@ class ContextualSearchboxHandler
     return context_input_data_;
   }
 
+  // SearchboxHandler:
+  omnibox::InputState GetInputState() const override;
+
   std::vector<base::UnguessableToken> GetUploadedContextTokens();
 
   // Resets `input_state_model_`.
   void ResetInputStateModel();
+  void SetActiveToolMode(omnibox::ToolMode tool) override;
+  void SetActiveModelMode(omnibox::ModelMode model) override;
 
  protected:
   void ComputeAndOpenQueryUrl(
@@ -203,6 +212,8 @@ class ContextualSearchboxHandler
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
 
+  std::unique_ptr<contextual_search::InputStateModel> input_state_model_;
+
  private:
   // Helper to get the correct number of tab suggestions. Virtual so it
   // can be overridden for specific implementations.
@@ -240,11 +251,15 @@ class ContextualSearchboxHandler
       context_controller_;
 
   std::optional<lens::ContextualInputData> context_input_data_;
+  // Callback for `InputStateModel` changes.
+  void OnInputStateChanged(const contextual_search::InputState& state);
+
+  std::unique_ptr<contextual_search::InputState> input_state_;
+
+  base::CallbackListSubscription input_state_subscription_;
 
   // Callback to get the contextual session handle from WebUI controller.
   GetSessionHandleCallback get_session_callback_;
-
-  std::unique_ptr<contextual_search::InputStateModel> input_state_model_;
 
   base::WeakPtrFactory<ContextualSearchboxHandler> weak_ptr_factory_{this};
 };

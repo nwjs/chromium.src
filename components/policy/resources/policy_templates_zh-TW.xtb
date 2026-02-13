@@ -728,7 +728,7 @@ Attribution Reporting API 已淘汰，因此這項政策也已在 <ph name="PROD
 <translation id="1557113199339446336">如果將這項政策設為 True，已註冊的裝置會回報與擴展式偵測及回應 (XDR) 事件相關的資訊。
 
       如果將這項政策設為 False 或不設定，已註冊的裝置就不會回報擴展式偵測及回應 (XDR) 事件。</translation>
-<translation id="1559343998807576489">智慧鏡頭重疊功能設定</translation>
+<translation id="1559343998807576489">智慧鏡頭疊加功能設定</translation>
 <translation id="1560279917909364275">將允許在 <ph name="PRODUCT_OS_NAME" /> 螢幕鎖定畫面上使用的筆記應用程式加入許可清單</translation>
 <translation id="1561424797596341174">針對遠端存取主機的偵錯版本覆寫政策</translation>
 <translation id="1561967320164410511">用於個人認證的 U2F 和擴充功能</translation>
@@ -5431,6 +5431,11 @@ ServiceWorkerAutoPreload 功能會在開始執行 ServiceWorker 啟動程序時�
 網址模式不得與 <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" /> 政策衝突。如果網址同時符合兩項政策，系統不會優先採用任何一項政策。
 
 如要進一步瞭解有效的網址模式，請參閱 https://chromeenterprise.google/policies/url-patterns。<ph name="WILDCARD_VALUE" /> 不是這項政策許可的值。</translation>
+<translation id="4885338965457068455">內含規則運算式，可判斷哪些 Google 帳戶有資格透過 <ph name="PRODUCT_NAME" /> PDF 檢視器將 PDF 檔案儲存至 Google 雲端硬碟。
+
+      如果使用者嘗試使用不符合這個模式的帳戶，將 PDF 檔案上傳至 Google 雲端硬碟，系統就會顯示錯誤訊息。
+
+      如果不設定這項政策或將設定保留空白，使用者就能使用任何 Google 帳戶將 PDF 檔案儲存至 Google 雲端硬碟。</translation>
 <translation id="4886138258823889910">在 Windows 上啟用瀏覽器的 <ph name="UIA_NAME" />無障礙架構供應器</translation>
 <translation id="4889589161838982604">控管 <ph name="DBSC_FEATURE_NAME" /> 功能的狀態。
 
@@ -10344,6 +10349,7 @@ Gemini 啟動功能僅支援部分國家/地區和語言。設定這項政策無
 <translation id="8062485064082966327">使用去識別化的 Google 服務，針對無標籤圖片提供自動產生的說明</translation>
 <translation id="8066428282805800713">傳送 ChromeOS Flex 上的其他硬體資料</translation>
 <translation id="8071371098891664137">如果在 <ph name="PRINTERS_BULK_ACCESS_MODE_POLICY_NAME" /> 中選擇了 <ph name="PRINTERS_BLOCKLIST" />，系統會根據 <ph name="PRINTERS_BULK_BLOCKLIST_POLICY_NAME" /> 的設定指定使用者不能操作的印表機。除了這項政策所列 ID 的印表機外，其他印表機皆可供使用。印表機 ID 必須與 <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" /> 政策指定檔案的 <ph name="ID_FIELD" /> 或 <ph name="GUID_FIELD" /> 欄位值相符。</translation>
+<translation id="8076539570602616846">限制符合資格的 Google 帳戶，禁止透過 <ph name="PRODUCT_NAME" /> PDF 檢視器將 PDF 檔案儲存至 Google 雲端硬碟</translation>
 <translation id="8078297389450285582">如果將這項政策設為啟用或不設定，系統會開啟智慧調光模式，並可延後螢幕調暗時間。一旦延後螢幕調暗時間，螢幕關閉、螢幕鎖定和閒置狀態的延遲時間也會隨之調整，以維持與原先設定相同的間隔時間。
 
       如果將這項政策設為停用，智慧調光模式並不會影響螢幕調暗設定。</translation>

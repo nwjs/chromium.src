@@ -39,15 +39,15 @@ export function getHtml(this: SearchboxElement) {
         @on-file-validation-error="${this.onFileValidationError_}"
         @set-deep-search-mode="${this.setDeepSearchMode_}"
         @set-create-image-mode="${this.setCreateImageMode_}"
-        @open-voice-search="${this.onVoiceSearchClick_}"
+        @set-canvas-mode="${this.setCanvasMode_}"
+        @model-click="${this.onModelClick_}"
         @get-tab-preview="${this.getTabPreview_}"
         @context-menu-container-click="${this.onContextMenuContainerClick_}"
         @context-menu-closed="${this.onContextMenuClosed_}"
         ?show-dropdown="${this.dropdownIsVisible}"
         ?show-recent-tab-chip="${this.computeShowRecentTabChip_()}"
-        ?show-voice-search="${this.shouldShowVoiceSearch_}"
-        ?show-canvas="${this.showCanvas}"
-        ?show-model-picker="${this.showModelPicker}"
+        .inputState="${this.inputState_}"
+        ?show-model-picker="${this.showModelPicker_}"
         searchbox-layout-mode="${this.searchboxLayoutMode}"
         context-menu-glif-animation-state="${this.contextMenuGlifAnimationState}">
       ${!compactLayout ? dropdown : nothing}
@@ -133,7 +133,9 @@ export function getHtml(this: SearchboxElement) {
   ${this.ntpRealboxNextEnabled ?
     html`
       <ntp-error-scrim id="errorScrim"
-          ?compact-mode="${this.searchboxLayoutMode === 'Compact'}">
+          ?compact-mode="${this.searchboxLayoutMode === 'Compact'}"
+          .errorMessage="${this.errorMessage_}"
+          @dismiss-error-scrim="${this.onErrorScrimDismissed_}">
       </ntp-error-scrim>
       <search-animated-glow animation-state="${this.animationState}" part="animated-glow">
       </search-animated-glow>

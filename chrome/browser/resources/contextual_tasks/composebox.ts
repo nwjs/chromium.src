@@ -11,8 +11,9 @@ import {GlowAnimationState} from '//resources/cr_components/search/constants.js'
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PageCallbackRouter as SearchboxPageCallbackRouter, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './composebox.css.js';
 import {getHtml} from './composebox.html.js';
@@ -91,7 +92,6 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
       loadTimeData.getBoolean('showOnboardingTooltip');
   private eventTracker_: EventTracker = new EventTracker();
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
-  private searchboxHandler_: SearchboxPageHandlerRemote;
   private searchboxListenerIds_: number[] = [];
   private onboardingTooltipIsVisible_: boolean = false;
   private numberOfTimesTooltipShown_: number = 0;
@@ -111,17 +111,10 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
     super();
     this.searchboxCallbackRouter_ =
         ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
-    this.searchboxHandler_ = ComposeboxProxyImpl.getInstance().searchboxHandler;
   }
 
   override connectedCallback() {
     super.connectedCallback();
-
-    this.searchboxListenerIds_.push(
-        this.searchboxCallbackRouter_.onTabStripChanged.addListener(
-            this.refreshTabSuggestions_.bind(this)));
-
-    this.refreshTabSuggestions_();
 
     const composebox = this.$.composebox;
     if (composebox) {
@@ -189,13 +182,18 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
       });
       this.resizeObserver_.observe(composebox);
     }
+  }
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
     // Get zero state autocomplete matches. If `composeboxShowZps` is true
     // then an autocomplete request will already be being made by
     // cr-composebox and therefore this isn't needed here. We currently
     // aren't showing ZPS in all cases (i.e. for context) which is why
     // this is currently needed.
-    if (this.isZeroState && !this.composeboxShowZps) {
-      composebox.queryAutocomplete(/*clearMatches=*/ false);
+    if (changedProperties.has('isZeroState') && this.isZeroState &&
+        !this.composeboxShowZps) {
+      this.$.composebox.queryAutocomplete(/*clearMatches=*/ false);
     }
   }
 
@@ -279,12 +277,6 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
 
   override render() {
     return getHtml.bind(this)();
-  }
-
-  protected async refreshTabSuggestions_() {
-    const {tabs} = await this.searchboxHandler_.getRecentTabs();
-    this.tabSuggestions_ = [...tabs];
-    this.updateTooltipVisibility_();
   }
 
   clearInputAndFocus(querySubmitted: boolean = false): void {

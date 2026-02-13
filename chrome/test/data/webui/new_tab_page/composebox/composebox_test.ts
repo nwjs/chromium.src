@@ -6,10 +6,11 @@ import type {SelectedFileInfo} from '//resources/mojo/components/omnibox/browser
 import {ComposeboxElement, ComposeboxProxyImpl} from 'chrome://new-tab-page/lazy_load.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
-import {FileUploadErrorType, FileUploadStatus} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {FileUploadErrorType, FileUploadStatus, ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
@@ -58,6 +59,18 @@ suite('NewTabPageComposeboxTest', () => {
         SearchboxPageHandlerRemote,
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
     searchboxHandler.setResultFor('getRecentTabs', Promise.resolve({tabs: []}));
+    searchboxHandler.setResultFor('getInputState', Promise.resolve({
+      state: {
+        allowedModels: [],
+        allowedTools: [],
+        allowedInputTypes: [],
+        activeModel: 0,
+        activeTool: 0,
+        disabledModels: [],
+        disabledTools: [],
+        disabledInputTypes: [],
+      },
+    }));
     searchboxCallbackRouterRemote =
         ComposeboxProxyImpl.getInstance()
             .searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
@@ -107,66 +120,6 @@ suite('NewTabPageComposeboxTest', () => {
       value: composeboxElement.$.context.$.imageInput,
     });
     return mockFileChange;
-  }
-
-  function createAutocompleteMatch(): AutocompleteMatch {
-    return {
-      isHidden: false,
-      a11yLabel: '',
-      actions: [],
-      allowedToBeDefaultMatch: false,
-      isSearchType: false,
-      isEnterpriseSearchAggregatorPeopleType: false,
-      swapContentsAndDescription: false,
-      supportsDeletion: false,
-      suggestionGroupId: -1,  // Indicates a missing suggestion group Id.
-      contents: '',
-      contentsClass: [{offset: 0, style: 0}],
-      description: '',
-      descriptionClass: [{offset: 0, style: 0}],
-      destinationUrl: {url: ''},
-      inlineAutocompletion: '',
-      fillIntoEdit: '',
-      iconPath: '',
-      iconUrl: {url: ''},
-      imageDominantColor: '',
-      imageUrl: '',
-      isNoncannedAimSuggestion: false,
-      removeButtonA11yLabel: '',
-      type: '',
-      isRichSuggestion: false,
-      isWeatherAnswerSuggestion: null,
-      answer: null,
-      tailSuggestCommonPrefix: null,
-      hasInstantKeyword: false,
-      keywordChipHint: '',
-      keywordChipA11y: '',
-    };
-  }
-
-  function createAutocompleteResult(
-      modifiers: Partial<AutocompleteResult> = {}): AutocompleteResult {
-    const base: AutocompleteResult = {
-      input: '',
-      matches: [],
-      suggestionGroupsMap: {},
-      smartComposeInlineHint: null,
-    };
-
-    return Object.assign(base, modifiers);
-  }
-
-  function createSearchMatch(modifiers: Partial<AutocompleteMatch> = {}):
-      AutocompleteMatch {
-    return Object.assign(
-        createAutocompleteMatch(), {
-          isSearchType: true,
-          contents: 'hello world',
-          destinationUrl: {url: 'https://www.google.com/search?q=hello+world'},
-          fillIntoEdit: 'hello world',
-          type: 'search-suggest',
-        },
-        modifiers);
   }
 
   async function areMatchesShowing(): Promise<boolean> {
@@ -874,12 +827,14 @@ suite('NewTabPageComposeboxTest', () => {
         assertFalse(composeboxElement.$.context['inputsDisabled_']);
 
         // Enter create image mode. `inputsDisabled` should be true.
-        composeboxElement.$.context['inCreateImageMode_'] = true;
+        composeboxElement.$.context['activeTool_'] =
+            ComposeboxToolMode.kImageGen;
         await composeboxElement.$.context.updateComplete;
         assertTrue(composeboxElement.$.context['inputsDisabled_']);
 
         // Exit create image mode. `inputsDisabled` should be false.
-        composeboxElement.$.context['inCreateImageMode_'] = false;
+        composeboxElement.$.context['activeTool_'] =
+            ComposeboxToolMode.kUnspecified;
         await composeboxElement.$.context.updateComplete;
         assertFalse(composeboxElement.$.context['inputsDisabled_']);
       });
@@ -909,11 +864,11 @@ suite('NewTabPageComposeboxTest', () => {
     await microtasksFinished();
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({matches}));
+        createAutocompleteResultForTesting({matches}));
     await microtasksFinished();
     assertTrue(await areMatchesShowing());
 
@@ -968,9 +923,10 @@ suite('NewTabPageComposeboxTest', () => {
     // Arrange.
     composeboxElement.$.input.value = 'test';
     composeboxElement.$.input.dispatchEvent(new Event('input'));
-    const matches = [createSearchMatch({allowedToBeDefaultMatch: true})];
+    const matches =
+        [createSearchMatchForTesting({allowedToBeDefaultMatch: true})];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'test',
           matches,
         }));
@@ -1044,9 +1000,10 @@ suite('NewTabPageComposeboxTest', () => {
     // Arrange.
     composeboxElement.$.input.value = 'test';
     composeboxElement.$.input.dispatchEvent(new Event('input'));
-    const matches = [createSearchMatch({allowedToBeDefaultMatch: true})];
+    const matches =
+        [createSearchMatchForTesting({allowedToBeDefaultMatch: true})];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'test',
           matches: matches,
         }));
@@ -1123,11 +1080,11 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(composeboxDropdown.hidden);
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
     await microtasksFinished();
@@ -1153,11 +1110,11 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(!!composeboxDropdown);
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
     await microtasksFinished();
@@ -1195,11 +1152,11 @@ suite('NewTabPageComposeboxTest', () => {
 
     // Add matches and verify dropdown shows.
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
     await microtasksFinished();
@@ -1230,14 +1187,14 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(!!composeboxDropdown);
 
     const matches = [
-      createSearchMatch(
+      createSearchMatchForTesting(
           {fillIntoEdit: 'hello world 1', allowedToBeDefaultMatch: true}),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
-      createSearchMatch({fillIntoEdit: 'hello world 3'}),
-      createSearchMatch({fillIntoEdit: 'hello world 4'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 3'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 4'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
           input: 'Test',
         }));
@@ -1310,11 +1267,11 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(!!composeboxDropdown);
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
     await microtasksFinished();
@@ -1347,14 +1304,14 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(!!composeboxDropdown);
 
     const matches = [
-      createSearchMatch(
+      createSearchMatchForTesting(
           {fillIntoEdit: 'hello world 1', allowedToBeDefaultMatch: true}),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
-      createSearchMatch({fillIntoEdit: 'hello world 3'}),
-      createSearchMatch({fillIntoEdit: 'hello world 4'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 3'}),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 4'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
           input: 'Test',
         }));
@@ -1389,10 +1346,10 @@ suite('NewTabPageComposeboxTest', () => {
         assertTrue(!!composeboxDropdown);
 
         const matches = [
-          createSearchMatch(),
+          createSearchMatchForTesting(),
         ];
         searchboxCallbackRouterRemote.autocompleteResultChanged(
-            createAutocompleteResult({
+            createAutocompleteResultForTesting({
               matches: matches,
               input: 'Test',
             }));
@@ -1457,11 +1414,11 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.dispatchEvent(new Event('input'));
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
 
@@ -1532,12 +1489,12 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.dispatchEvent(new InputEvent('input'));
 
     let matches = [
-      createSearchMatch({
+      createSearchMatchForTesting({
         supportsDeletion: true,
       }),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: composeboxElement.$.input.value.trimStart(),
           matches,
         }));
@@ -1559,14 +1516,14 @@ suite('NewTabPageComposeboxTest', () => {
     searchboxHandler.reset();
 
     matches = [
-      createSearchMatch({supportsDeletion: true}),
-      createSearchMatch({
+      createSearchMatchForTesting({supportsDeletion: true}),
+      createSearchMatchForTesting({
         supportsDeletion: true,
         fillIntoEdit: 'hello world 2',
       }),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: '',
           matches: matches,
         }));
@@ -1610,12 +1567,12 @@ suite('NewTabPageComposeboxTest', () => {
     assertEquals(0, keydownArgs[0]);
     assertEquals(1, searchboxHandler.getCallCount('deleteAutocompleteMatch'));
 
-    matches = [createSearchMatch({
+    matches = [createSearchMatchForTesting({
       supportsDeletion: true,
       fillIntoEdit: 'hello world 2',
     })];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: '',
           matches: matches,
         }));
@@ -1634,7 +1591,7 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.dispatchEvent(new Event('input'));
 
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'smart ',
           matches: [],
           smartComposeInlineHint: 'compose',
@@ -1658,7 +1615,7 @@ suite('NewTabPageComposeboxTest', () => {
     assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 2);
 
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'smart ',
           matches: [],
           smartComposeInlineHint: 'compose',
@@ -1687,15 +1644,15 @@ suite('NewTabPageComposeboxTest', () => {
     await microtasksFinished();
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
 
     // Add typed input
     composeboxElement.$.input.value = 'awesome';
     composeboxElement.$.input.dispatchEvent(new Event('input'));
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'awesome',
           matches: matches,
           smartComposeInlineHint: 'compose',
@@ -1754,9 +1711,9 @@ suite('NewTabPageComposeboxTest', () => {
     // Autocomplete queried once when composebox is created.
     assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
 
-    const matches = [createSearchMatch()];
+    const matches = [createSearchMatchForTesting()];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: '',
           matches,
         }));
@@ -1791,11 +1748,11 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.dispatchEvent(new Event('input'));
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           matches: matches,
         }));
     assertTrue(await areMatchesShowing());
@@ -1812,7 +1769,7 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.value = 'awesome';
     composeboxElement.$.input.dispatchEvent(new Event('input'));
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'awesome',
           matches: matches,
         }));
@@ -1833,11 +1790,11 @@ suite('NewTabPageComposeboxTest', () => {
     await microtasksFinished();
 
     const matches = [
-      createSearchMatch(),
-      createSearchMatch({fillIntoEdit: 'hello world 2'}),
+      createSearchMatchForTesting(),
+      createSearchMatchForTesting({fillIntoEdit: 'hello world 2'}),
     ];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: '',
           matches,
           suggestionGroupsMap: {},
@@ -2455,9 +2412,10 @@ suite('NewTabPageComposeboxTest', () => {
         'Collapsible should be expanded before submit');
 
     // Mock an autocomplete result to allow submission.
-    const matches = [createSearchMatch({allowedToBeDefaultMatch: true})];
+    const matches =
+        [createSearchMatchForTesting({allowedToBeDefaultMatch: true})];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResult({
+        createAutocompleteResultForTesting({
           input: 'some text',
           matches,
         }));
@@ -2661,6 +2619,56 @@ suite('NewTabPageComposeboxTest', () => {
       assertEquals((composeboxElement as any).lastQueriedInput_, 'hello world');
       // Autocomplete should be queried again.
       assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+    });
+
+    test('tab changes calls getRecentTabs', async () => {
+      createComposeboxElement();
+      loadTimeData.overrideValues({
+        realboxLayoutMode: 'TallTopContext',
+        composeboxShowRecentTabChip: true,
+      });
+      const sampleTabs = [
+        {
+          tabId: 1,
+          title: 'Sample Tab 1',
+          url: {url: 'https://example.com/1'},
+          showInRecentTabChip: true,
+          lastActive: {internalValue: BigInt(1)},
+        },
+        {
+          tabId: 2,
+          title: 'Sample Tab 2',
+          url: {url: 'https://example.com/2'},
+          showInRecentTabChip: true,
+          lastActive: {internalValue: BigInt(2)},
+        },
+      ];
+
+      searchboxHandler.setResultFor(
+          'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
+      const contextElement =
+          composeboxElement.shadowRoot.querySelector<HTMLElement>(
+              'contextual-entrypoint-and-carousel');
+      assertTrue(!!contextElement);
+
+      const entrypointElement =
+          contextElement.shadowRoot?.querySelector<HTMLElement>(
+              '#contextEntrypoint');
+      assertTrue(!!entrypointElement);
+      const entrypointButton =
+          entrypointElement.shadowRoot?.querySelector<HTMLElement>(
+              '#entrypoint');
+      assertTrue(!!entrypointButton);
+      entrypointButton.click();
+      await microtasksFinished();
+
+      // There is an initial call to `getRecentTabs` on entrypoint click.
+      assertEquals(searchboxHandler.getCallCount('getRecentTabs'), 1);
+
+      // Assert another call to `getRecentTabs` is made on tab changes.
+      searchboxCallbackRouterRemote.onTabStripChanged();
+      await searchboxCallbackRouterRemote.$.flushForTesting();
+      assertEquals(searchboxHandler.getCallCount('getRecentTabs'), 2);
     });
   });
 });

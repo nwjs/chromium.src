@@ -133,6 +133,10 @@ class TestContextualTasksComposeboxHandler
                std::unique_ptr<lens::ContextualInputData> data,
                RecontextualizeTabCallback callback),
               (override));
+  MOCK_METHOD(std::optional<base::UnguessableToken>,
+              GetLensOverlayToken,
+              (),
+              (override));
 
  protected:
   contextual_tasks::ContextualTasksService* GetContextualTasksService()
@@ -213,7 +217,8 @@ class ContextualTasksComposeboxHandlerTest
         service_->GetSession(contextual_session_handle->session_id(),
                              /*invocation_source=*/std::nullopt);
     ContextualSearchWebContentsHelper::GetOrCreateForWebContents(web_contents())
-        ->SetTaskSession(std::nullopt, std::move(contextual_session_handle));
+        ->SetTaskSession(std::nullopt, std::move(contextual_session_handle),
+                         /*input_state_model=*/nullptr);
 
     mock_ui_ =
         std::make_unique<testing::NiceMock<MockContextualTasksUI>>(&web_ui_);
@@ -321,6 +326,53 @@ TEST_F(ContextualTasksComposeboxHandlerTest, CreateAndSendQueryMessage) {
                           contextual_search::ContextualSearchContextController::
                               CreateClientToAimRequestInfo> info) {
         EXPECT_EQ(info->query_text, kQuery);
+        return lens::ClientToAimMessage();
+      });
+  EXPECT_CALL(*mock_ui_, PostMessageToWebview(testing::_));
+
+  handler_->CreateAndSendQueryMessage(kQuery);
+}
+
+TEST_F(ContextualTasksComposeboxHandlerTest,
+       CreateAndSendQueryMessage_WithOverlayToken) {
+  std::string kQuery = "direct query";
+  base::UnguessableToken overlay_token = base::UnguessableToken::Create();
+
+  EXPECT_CALL(*mock_ui_, GetTaskId())
+      .WillRepeatedly(testing::ReturnRefOfCopy(std::optional<base::Uuid>()));
+  EXPECT_CALL(*handler_, GetLensOverlayToken())
+      .WillOnce(testing::Return(overlay_token));
+
+  EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
+      .WillOnce([&kQuery, &overlay_token](
+                    std::unique_ptr<
+                        contextual_search::ContextualSearchContextController::
+                            CreateClientToAimRequestInfo> info) {
+        EXPECT_EQ(info->query_text, kQuery);
+        EXPECT_THAT(info->file_tokens, testing::Contains(overlay_token));
+        EXPECT_TRUE(info->force_include_latest_interaction_request_data);
+        return lens::ClientToAimMessage();
+      });
+  EXPECT_CALL(*mock_ui_, PostMessageToWebview(testing::_));
+
+  handler_->CreateAndSendQueryMessage(kQuery);
+}
+
+TEST_F(ContextualTasksComposeboxHandlerTest,
+       CreateAndSendQueryMessage_NoOverlayToken) {
+  std::string kQuery = "direct query";
+
+  EXPECT_CALL(*mock_ui_, GetTaskId())
+      .WillRepeatedly(testing::ReturnRefOfCopy(std::optional<base::Uuid>()));
+  EXPECT_CALL(*handler_, GetLensOverlayToken())
+      .WillOnce(testing::Return(std::nullopt));
+
+  EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
+      .WillOnce([&kQuery](std::unique_ptr<
+                          contextual_search::ContextualSearchContextController::
+                              CreateClientToAimRequestInfo> info) {
+        EXPECT_EQ(info->query_text, kQuery);
+        EXPECT_FALSE(info->force_include_latest_interaction_request_data);
         return lens::ClientToAimMessage();
       });
   EXPECT_CALL(*mock_ui_, PostMessageToWebview(testing::_));

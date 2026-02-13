@@ -1845,7 +1845,6 @@ BASE_FEATURE(kWebAppMigratePreinstalledChat, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebium, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables logging InitialWebUI-related metrics. The metrics are not necessary
 // comes from WebUI but can also come from the C++ version of them.
 // Defaults to enabled to also collect metrics for the C++ group.
@@ -1855,6 +1854,34 @@ BASE_FEATURE(kInitialWebUIMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome will be loaded as the content.
 // crbug.com/444358999
 BASE_FEATURE(kWebUIReloadButton, base::FEATURE_DISABLED_BY_DEFAULT);
+// The following feature params control the crash recovery behavior of the Web
+// UI reload button. If the renderer crashes, we will try to recover it by
+// reloading the contents until the number of crashes reaches
+// `kWebUIReloadButtonMaxCrashRecoveryTimes`. If the maximum number of crash
+// counts is reached, no recovery will be attempted. The counter will reset if
+// there is no crash within `WebUIReloadButtonCrashRecoverResetInterval`.
+const base::FeatureParam<int> kWebUIReloadButtonMaxCrashRecoveryTimes{
+    &kWebUIReloadButton, "WebUIReloadButtonMaxCrashRecoveryTimes", 3};
+const base::FeatureParam<base::TimeDelta>
+    kWebUIReloadButtonCrashRecoverResetInterval{
+        &kWebUIReloadButton, "WebUIReloadButtonCrashRecoverResetInterval",
+        base::Seconds(10)};
+// When enabled, initial WebUI renderers that become unresponsive will be
+// restarted without showing the hung renderer dialog.
+// `WebUIReloadButtonRestartUnresponsiveRenderersTimeout` controls the timeout
+// for unresponsive renderers.
+// See crbug.com/475397687.
+const base::FeatureParam<bool> kWebUIReloadButtonRestartUnresponsive{
+    &kWebUIReloadButton, "WebUIReloadButtonRestartUnresponsive", false};
+// When this is enabled, the `BrowserView` will not show until the reload button
+// has finished loading.
+const base::FeatureParam<bool> kWebUIReloadButtonDeferBrowserViewShow{
+    &kWebUIReloadButton, "WebUIReloadButtonDeferBrowserViewShow", true};
+const base::FeatureParam<base::TimeDelta>
+    kWebUIReloadButtonRestartUnresponsiveRenderersTimeout{
+        &kWebUIReloadButton,
+        "WebUIReloadButtonRestartUnresponsiveRenderersTimeout",
+        base::Seconds(15)};
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables the User-Agent override fix for SearchPrefetch. This will work only

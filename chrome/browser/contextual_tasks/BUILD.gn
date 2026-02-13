@@ -8,14 +8,17 @@ import("//third_party/protobuf/proto_library.gni")
 # This target is only for public headers for classes used outside this directory (i.e. services and factories).
 source_set("contextual_tasks") {
   sources = [
+    "active_task_context_provider.h",
+    "active_task_context_provider_impl.h",
     "ai_mode_context_library_converter.h",
     "contextual_tasks_service_factory.h",
+    "contextual_tasks_ui_interface.h",
+    "contextual_tasks_utils.h",
+    "task_info_delegate.h",
   ]
 
   if (!is_android) {
     sources += [
-      "active_task_context_provider.h",
-      "active_task_context_provider_impl.h",
       "contextual_tasks_context_service.h",
       "contextual_tasks_context_service_factory.h",
       "contextual_tasks_tab_visit_tracker.cc",
@@ -25,6 +28,7 @@ source_set("contextual_tasks") {
 
   deps = [
     "//base",
+    "//chrome/browser/ui/browser_window",
     "//components/tabs:public",
   ]
 
@@ -63,6 +67,7 @@ source_set("impl") {
       "contextual_tasks_context_service_factory.cc",
       "contextual_tasks_context_signal_utils.cc",
       "contextual_tasks_context_signal_utils.h",
+      "contextual_tasks_utils.cc",
       "tab_strip_context_decorator.cc",
       "tab_strip_context_decorator.h",
     ]
@@ -125,13 +130,13 @@ if (!is_android) {
       "contextual_tasks_ui_service.h",
       "contextual_tasks_ui_service_factory.h",
       "entry_point_eligibility_manager.h",
-      "task_info_delegate.h",
     ]
 
     public_deps = [
       ":contextual_tasks",
       ":mojo_bindings",
       "//base",
+      "//chrome/browser/autocomplete:aim_eligibility_service",
       "//chrome/browser/contextual_search",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:glic",
@@ -192,6 +197,8 @@ if (!is_android) {
       "//components/lens",
       "//components/omnibox/browser:mojo_bindings",
       "//google_apis",
+      "//services/network/public/cpp",
+      "//services/network/public/mojom",
       "//third_party/lens_server_proto:lens_overlay_proto",
       "//third_party/protobuf:protobuf_lite",
       "//url",
@@ -207,6 +214,7 @@ if (!is_android) {
     webui_module_path = "/"
     public_deps = [
       "//mojo/public/mojom/base",
+      "//ui/base/mojom",
       "//ui/webui/resources/cr_components/composebox:mojo_bindings",
       "//url/mojom:url_mojom_gurl",
     ]
@@ -311,15 +319,18 @@ source_set("unit_tests") {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/tabs:tab_list_bridge",
       "//chrome/browser/ui/tabs:tab_list_interface",
       "//chrome/browser/ui/tabs:test_support",
       "//chrome/browser/ui/webui:webui_util",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//components/contextual_search:public",
       "//components/contextual_search:test_support",
+      "//components/omnibox/browser:test_support",
       "//components/passage_embeddings",
       "//components/tabs:test_support",
       "//components/variations:test_support",
+      "//services/network/public/cpp",
     ]
   }
 }

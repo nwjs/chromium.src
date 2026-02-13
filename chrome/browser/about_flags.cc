@@ -1669,23 +1669,11 @@ const FeatureEntry::FeatureParam
         {"ShowRecentTabChip", "true"},
         {"ShowContextMenuTabPreviews", "true"},
 };
-const FeatureEntry::FeatureParam kShowToolsAndModels[] = {
-    {"ShowContextMenu", "true"},
-    {"ShowToolsAndModels", "true"},
-    {"ShowComposeboxZps", "true"},
-    {"ShowComposeboxTypedSuggest", "true"},
-};
-const FeatureEntry::FeatureParam kShowCanvasAndModelPicker[] = {
-    {"ShowContextMenu", "true"},   {"ShowToolsAndModels", "true"},
-    {"ShowCanvas", "true"},        {"ShowModelPicker", "true"},
-    {"ShowComposeboxZps", "true"}, {"ShowComposeboxTypedSuggest", "true"},
-};
 const FeatureEntry::FeatureParam kComposeboxNext[] = {
     {"ShowContextMenu", "true"},
     {"ShowContextMenuTabPreviews", "true"},
     {"ShowComposeboxZps", "true"},
     {"ShowComposeboxTypedSuggest", "true"},
-    {"ShowToolsAndModels", "true"},
     {"ShowRecentTabChip", "true"},
     {"CloseComposeboxByEscape", "false"},
     {"CloseComposeboxByClickOutside", "false"},
@@ -1697,40 +1685,35 @@ const FeatureEntry::FeatureParam kComposeboxNextSingleContext[] = {
     {"ShowContextMenuTabPreviews", "true"},
     {"ShowComposeboxZps", "true"},
     {"ShowComposeboxTypedSuggest", "true"},
-    {"ShowToolsAndModels", "true"},
     {"ShowRecentTabChip", "true"},
     {"CloseComposeboxByEscape", "false"},
     {"CloseComposeboxByClickOutside", "false"},
 };
 const FeatureEntry::FeatureParam kComposeboxNextSingleContextForRealboxNext[] =
     {
-        {"MaxNumFiles", "1"},           {"ShowContextMenu", "true"},
-        {"ShowComposeboxZps", "true"},  {"ShowComposeboxTypedSuggest", "true"},
-        {"ShowToolsAndModels", "true"}, {"ShowRecentTabChip", "true"},
-        {"ShowSubmit", "true"},
+        {"NtpComposeboxMaxNumFiles", "1"},
+        {"NtpComposeboxShowContextMenu", "true"},
+        {"NtpComposeboxShowComposeboxZps", "true"},
+        {"NtpComposeboxShowComposeboxTypedSuggest", "true"},
+        {"NtpComposeboxShowRecentTabChip", "true"},
 };
 const FeatureEntry::FeatureParam kComposeboxNextForRealboxNext[] = {
-    {"ShowContextMenu", "true"},
-    {"ShowComposeboxZps", "true"},
-    {"ShowComposeboxTypedSuggest", "true"},
-    {"ShowToolsAndModels", "true"},
-    {"ShowRecentTabChip", "true"},
-    {"ContextMenuEnableMultiTabSelection", "true"},
-    {"ShowSubmit", "true"},
+    {"NtpComposeboxShowContextMenu", "true"},
+    {"NtpComposeboxShowComposeboxZps", "true"},
+    {"NtpComposeboxShowComposeboxTypedSuggest", "true"},
+    {"NtpComposeboxShowRecentTabChip", "true"},
+    {"NtpComposeboxContextMenuEnableMultiTabSelection", "true"},
     {"EnableEphemeralContextMenuDescription", "true"},
 };
-const FeatureEntry::FeatureParam kComposeboxNextWithCanvasAndModelPicker[] = {
-    {"ShowContextMenu", "true"},
-    {"ShowComposeboxZps", "true"},
-    {"ShowComposeboxTypedSuggest", "true"},
-    {"ShowToolsAndModels", "true"},
-    {"ShowRecentTabChip", "true"},
-    {"ContextMenuEnableMultiTabSelection", "true"},
-    {"ShowSubmit", "true"},
+const FeatureEntry::FeatureParam kComposeboxNextWithModelPicker[] = {
+    {"NtpComposeboxShowContextMenu", "true"},
+    {"NtpComposeboxShowComposeboxZps", "true"},
+    {"NtpComposeboxShowComposeboxTypedSuggest", "true"},
+    {"NtpComposeboxShowRecentTabChip", "true"},
+    {"NtpComposeboxContextMenuEnableMultiTabSelection", "true"},
     {"EnableEphemeralContextMenuDescription", "true"},
     {"EnableThreadsRail", "true"},
-    {"ShowCanvas", "true"},
-    {"ShowModelPicker", "true"},
+    {"NtpComposeboxShowModelPicker", "true"},
 };
 
 const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
@@ -1746,10 +1729,6 @@ const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
      kComposeboxShowContextMenuAndSuggestMultiFileAndTabPreviews,
      std::size(kComposeboxShowContextMenuAndSuggestMultiFileAndTabPreviews),
      nullptr},
-    {"- Show Contextual Input Menu and Suggest with Tools and Models",
-     kShowToolsAndModels, std::size(kShowToolsAndModels), nullptr},
-    {"- Show Contextual Input Menu with Canvas and Model Picker",
-     kShowCanvasAndModelPicker, std::size(kShowCanvasAndModelPicker), nullptr},
     {"- Next Experience", kComposeboxNext, std::size(kComposeboxNext), nullptr},
     {"- Next Experience Single Context", kComposeboxNextSingleContext,
      std::size(kComposeboxNextSingleContext), nullptr},
@@ -1758,24 +1737,10 @@ const FeatureEntry::FeatureVariation kNtpComposeboxVariations[] = {
     {"- Next Experience Single Context for Realbox Next",
      kComposeboxNextSingleContextForRealboxNext,
      std::size(kComposeboxNextSingleContextForRealboxNext), nullptr},
-    {"- Next Experience with Canvas and Model Picker",
-     kComposeboxNextWithCanvasAndModelPicker,
-     std::size(kComposeboxNextWithCanvasAndModelPicker), nullptr},
+    {"- Next Experience with Model Picker", kComposeboxNextWithModelPicker,
+     std::size(kComposeboxNextWithModelPicker), nullptr},
 };
 
-const FeatureEntry::FeatureParam kShowNextRealboxTallBottomContext[] = {
-    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallBottomContext},
-};
-const FeatureEntry::FeatureParam
-    kShowNextRealboxTallBottomContextCyclingPlaceholders[] = {
-        {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallBottomContext},
-        {"CyclingPlaceholders", "true"},
-};
-const FeatureEntry::FeatureParam kShowNextRealboxTallBottomContextMultiLine[] =
-    {
-        {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallBottomContext},
-        {"MultiLineEnabled", "true"},
-};
 const FeatureEntry::FeatureParam kShowNextRealboxTallTopContext[] = {
     {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallTopContext},
 };
@@ -1783,10 +1748,6 @@ const FeatureEntry::FeatureParam
     kShowNextRealboxTallTopContextCyclingPlaceholders[] = {
         {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallTopContext},
         {"CyclingPlaceholders", "true"},
-};
-const FeatureEntry::FeatureParam kShowNextRealboxTallTopContextMultiLine[] = {
-    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeTallTopContext},
-    {"MultiLineEnabled", "true"},
 };
 const FeatureEntry::FeatureParam kShowNextRealboxCompact[] = {
     {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeCompact},
@@ -1796,38 +1757,19 @@ const FeatureEntry::FeatureParam kShowNextRealboxCompactCyclingPlaceholders[] =
         {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeCompact},
         {"CyclingPlaceholders", "true"},
 };
-const FeatureEntry::FeatureParam kShowNextRealboxCompactMultiLine[] = {
-    {"RealboxLayoutMode", ntp_realbox::kRealboxLayoutModeCompact},
-    {"MultiLineEnabled", "true"},
-};
 
 const FeatureEntry::FeatureVariation kNtpRealboxNextVariations[] = {
-    {"- Show Next Realbox with Bottom Context Button (TallBottomContext)",
-     kShowNextRealboxTallBottomContext,
-     std::size(kShowNextRealboxTallBottomContext), nullptr},
     {"- Show Next Realbox with Top Context Button (TallTopContext)",
      kShowNextRealboxTallTopContext, std::size(kShowNextRealboxTallTopContext),
      nullptr},
     {"- Show Next Realbox (Compact)", kShowNextRealboxCompact,
      std::size(kShowNextRealboxCompact), nullptr},
-    {"- Show Next Realbox: Bottom Context, Cycling placeholders",
-     kShowNextRealboxTallBottomContextCyclingPlaceholders,
-     std::size(kShowNextRealboxTallBottomContextCyclingPlaceholders), nullptr},
     {"- Show Next Realbox: Top Context, Cycling placeholders",
      kShowNextRealboxTallTopContextCyclingPlaceholders,
      std::size(kShowNextRealboxTallTopContextCyclingPlaceholders), nullptr},
     {"- Show Next Realbox: Compact, Cycling placeholders",
      kShowNextRealboxCompactCyclingPlaceholders,
      std::size(kShowNextRealboxCompactCyclingPlaceholders), nullptr},
-    {"- Show Next Realbox: Bottom Context, Multiline",
-     kShowNextRealboxTallBottomContextMultiLine,
-     std::size(kShowNextRealboxTallBottomContextMultiLine), nullptr},
-    {"- Show Next Realbox: Top Context, Multiline",
-     kShowNextRealboxTallTopContextMultiLine,
-     std::size(kShowNextRealboxTallTopContextMultiLine), nullptr},
-    {"- Show Next Realbox: Compact, Multiline",
-     kShowNextRealboxCompactMultiLine,
-     std::size(kShowNextRealboxCompactMultiLine), nullptr},
 };
 
 const FeatureEntry::FeatureParam kNtpNextShowStaticText[] = {
@@ -1860,6 +1802,22 @@ const FeatureEntry::FeatureParam
         {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
 };
 
+const FeatureEntry::FeatureParam
+    kNtpNextShowChipsUIWithNtpActionClientWithNoRecentTabInSteadyState[] = {
+        {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+        {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+        {"kNtpNextShowStaticRecentTabChipParam", "false"},
+};
+
+const FeatureEntry::FeatureParam
+    kNtpNextShowSimplificationUIWithNtpActionClientWithNoRecentTabInSteadyState
+        [] = {
+            {"NtpNextShowSimplificationUIParam", "true"},
+            {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+            {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+            {"kNtpNextShowStaticRecentTabChipParam", "false"},
+};
+
 const FeatureEntry::FeatureParam kNtpNextShowSimplificationUIWithDismissal[] = {
     {"NtpNextShowSimplificationUIParam", "true"},
     {"NtpNextShowDeepDiveSuggestionsParam", "true"},
@@ -1876,12 +1834,24 @@ const FeatureEntry::FeatureVariation kNtpNextVariations[] = {
      std::size(kNtpNextShowSimplificationUI), nullptr},
     {"- Show Row UI With Deep Dive", kNtpNextShowSimplificationUIWithDeepDive,
      std::size(kNtpNextShowSimplificationUIWithDeepDive), nullptr},
-    {"- Show Chips UI with a New Suggestions Client.",
+    {"- Show Chips UI with a New Suggestions Client",
      kNtpNextShowChipsUIWithChromeNtpActionClient,
      std::size(kNtpNextShowChipsUIWithChromeNtpActionClient), nullptr},
-    {"- Show Row UI with a New Suggestions Client.",
+    {"- Show Row UI with a New Suggestions Client",
      kNtpNextShowSimplificationUIWithChromeNtpActionClient,
      std::size(kNtpNextShowSimplificationUIWithChromeNtpActionClient), nullptr},
+    {"- Show Chips UI with a New Client and No Recent Tab Chip in the Steady "
+     "State",
+     kNtpNextShowChipsUIWithNtpActionClientWithNoRecentTabInSteadyState,
+     std::size(
+         kNtpNextShowChipsUIWithNtpActionClientWithNoRecentTabInSteadyState),
+     nullptr},
+    {"- Show Row UI with a New Client and  No Recent Tab Chip in the Steady "
+     "State",
+     kNtpNextShowSimplificationUIWithNtpActionClientWithNoRecentTabInSteadyState,
+     std::size(
+         kNtpNextShowSimplificationUIWithNtpActionClientWithNoRecentTabInSteadyState),
+     nullptr},
     {"- Show Dismissal UI", kNtpNextShowSimplificationUIWithDismissal,
      std::size(kNtpNextShowSimplificationUIWithDismissal), nullptr},
 };
@@ -5169,19 +5139,31 @@ const FeatureEntry::FeatureParam kContextualTaskEphemeralButton[] = {
     {"ContextualTasksEntryPoint", "toolbar-revisit"}};
 const FeatureEntry::FeatureParam kContextualTaskPageAction[] = {
     {"ContextualTasksEntryPoint", "page-action-revisit"}};
+const FeatureEntry::FeatureParam kContextualTaskDisableSidePanel[] = {
+    {"ContextualTasksEntryPoint", "toolbar-revisit"},
+    {"ContextualTasksOpenSidePanelOnLinkClicked", "false"}};
+const FeatureEntry::FeatureParam kContextualTaskDisableLens[] = {
+    {"ContextualTasksEntryPoint", "toolbar-revisit"},
+    {"ContextualTasksEnableLensInContextualTasks", "false"}};
 
 const FeatureEntry::FeatureVariation kContextualTaskEntryPointVariations[] = {
+    {"Arm 1: Full bundle with ephemeral toolbar button",
+     kContextualTaskEphemeralButton, std::size(kContextualTaskEphemeralButton),
+     nullptr},
+    {"Arm 2: Full bundle, without AIM link clicks opening side panel",
+     kContextualTaskDisableSidePanel,
+     std::size(kContextualTaskDisableSidePanel), nullptr},
+    {"Arm 3: Full bundle, without Lens migration", kContextualTaskDisableLens,
+     std::size(kContextualTaskDisableLens), nullptr},
     {"permanent toolbar button", kContextualTaskPermanentButton,
      std::size(kContextualTaskPermanentButton), nullptr},
-    {"ephemeral toolbar button", kContextualTaskEphemeralButton,
-     std::size(kContextualTaskEphemeralButton), nullptr},
     {"page action chip", kContextualTaskPageAction,
      std::size(kContextualTaskPageAction), nullptr}};
 
 const FeatureEntry::FeatureParam kTaskScopedSidePanel[] = {
-    {"TaskScopedSidePanel", "true"}};
+    {"ContextualTasksTaskScopedSidePanel", "true"}};
 const FeatureEntry::FeatureParam kTabScopedSidePanel[] = {
-    {"TaskScopedSidePanel", "false"}};
+    {"ContextualTasksTaskScopedSidePanel", "false"}};
 
 const FeatureEntry::FeatureVariation kContextualTaskContextVariations[] = {
     {" - Task scoped side panel", kTaskScopedSidePanel,

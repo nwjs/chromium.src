@@ -37,57 +37,59 @@ namespace {
 
 constexpr char kMyActivityUrl[] = "https://myactivity.google.com/myactivity";
 
-void OpenUrlInNewTab(content::WebUI* web_ui, const GURL& url) {
-  NavigateParams params(Profile::FromWebUI(web_ui), url,
-                        ui::PAGE_TRANSITION_LINK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+void OpenUrlWithDisposition(Profile* profile,
+                            const GURL& url,
+                            WindowOpenDisposition disposition) {
+  NavigateParams params(profile, url, ui::PAGE_TRANSITION_LINK);
+  params.disposition = disposition;
   Navigate(&params);
 }
 
-void PopulateContextualResources(
-    contextual_tasks::ContextualTaskContext* context,
-    std::vector<contextual_tasks::mojom::TabPtr>& tabs,
-    std::vector<contextual_tasks::mojom::UploadedFilePtr>& files,
-    std::vector<contextual_tasks::mojom::ImagePtr>& images) {
+std::vector<contextual_tasks::mojom::ContextInfoPtr>
+PopulateContextualResources(contextual_tasks::ContextualTaskContext* context) {
   if (!context) {
-    return;
+    return {};
   }
-
+  std::vector<contextual_tasks::mojom::ContextInfoPtr> context_items;
   for (const auto& attachment : context->GetUrlAttachments()) {
     switch (attachment.GetResourceType()) {
       case contextual_tasks::ResourceType::kWebpage: {
-        auto tab = contextual_tasks::mojom::Tab::New();
-        tab->tab_id = attachment.GetTabSessionId().id();
-        tab->title = base::UTF16ToUTF8(attachment.GetTitle());
-        tab->url = attachment.GetURL();
-        tabs.push_back(std::move(tab));
+        auto tab_context = contextual_tasks::mojom::TabContext::New();
+        tab_context->title = base::UTF16ToUTF8(attachment.GetTitle());
+        tab_context->url = attachment.GetURL();
+        tab_context->tab_id = attachment.GetTabSessionId().id();
+        context_items.push_back(contextual_tasks::mojom::ContextInfo::NewTab(
+            std::move(tab_context)));
         break;
       }
       case contextual_tasks::ResourceType::kPdf: {
-        auto file = contextual_tasks::mojom::UploadedFile::New();
-        file->name = base::UTF16ToUTF8(attachment.GetTitle());
-        file->url = attachment.GetURL();
-        files.push_back(std::move(file));
+        auto file_context = contextual_tasks::mojom::FileContext::New();
+        file_context->title = base::UTF16ToUTF8(attachment.GetTitle());
+        file_context->url = attachment.GetURL();
+        context_items.push_back(contextual_tasks::mojom::ContextInfo::NewFile(
+            std::move(file_context)));
         break;
       }
       case contextual_tasks::ResourceType::kImage: {
-        auto image = contextual_tasks::mojom::Image::New();
-        image->title = base::UTF16ToUTF8(attachment.GetTitle());
-        image->url = attachment.GetURL();
-        images.push_back(std::move(image));
+        auto image_context = contextual_tasks::mojom::ImageContext::New();
+        image_context->title = base::UTF16ToUTF8(attachment.GetTitle());
+        image_context->url = attachment.GetURL();
+        context_items.push_back(contextual_tasks::mojom::ContextInfo::NewImage(
+            std::move(image_context)));
         break;
       }
       case contextual_tasks::ResourceType::kUnknown:
         break;
     }
   }
+  return context_items;
 }
 
 }  // namespace
 
 ContextualTasksPageHandler::ContextualTasksPageHandler(
     mojo::PendingReceiver<contextual_tasks::mojom::PageHandler> receiver,
-    ContextualTasksUI* web_ui_controller,
+    contextual_tasks::ContextualTasksUIInterface* web_ui_controller,
     contextual_tasks::ContextualTasksUiService* ui_service,
     contextual_tasks::ContextualTasksService* contextual_tasks_service)
     : receiver_(this, std::move(receiver)),
@@ -139,6 +141,11 @@ void ContextualTasksPageHandler::IsZeroState(const GURL& url,
   std::move(callback).Run(ContextualTasksUI::IsZeroState(url, ui_service_));
 }
 
+void ContextualTasksPageHandler::IsAiPage(const GURL& url,
+                                          IsAiPageCallback callback) {
+  std::move(callback).Run(ui_service_->IsAiUrl(url));
+}
+
 void ContextualTasksPageHandler::CloseSidePanel() {
   web_ui_controller_->CloseSidePanel();
 }
@@ -155,18 +162,26 @@ void ContextualTasksPageHandler::IsShownInTab(IsShownInTabCallback callback) {
 }
 
 void ContextualTasksPageHandler::OpenMyActivityUi() {
-  OpenUrlInNewTab(web_ui_controller_->web_ui(), GURL(kMyActivityUrl));
+  OpenUrlWithDisposition(web_ui_controller_->GetProfile(), GURL(kMyActivityUrl),
+                         WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }
 
 void ContextualTasksPageHandler::OpenHelpUi() {
-  OpenUrlInNewTab(web_ui_controller_->web_ui(),
-                  GURL(contextual_tasks::GetContextualTasksHelpUrl()));
+  OpenUrlWithDisposition(web_ui_controller_->GetProfile(),
+                         GURL(contextual_tasks::GetContextualTasksHelpUrl()),
+                         WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }
 
 void ContextualTasksPageHandler::OpenOnboardingHelpUi() {
-  OpenUrlInNewTab(
-      web_ui_controller_->web_ui(),
-      GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()));
+  OpenUrlWithDisposition(
+      web_ui_controller_->GetProfile(),
+      GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB);
+}
+
+void ContextualTasksPageHandler::OpenUrl(const GURL& url,
+                                         WindowOpenDisposition disposition) {
+  OpenUrlWithDisposition(web_ui_controller_->GetProfile(), url, disposition);
 }
 
 void ContextualTasksPageHandler::MoveTaskUiToNewTab() {
@@ -187,7 +202,7 @@ void ContextualTasksPageHandler::OnTabClickedFromSourcesMenu(int32_t tab_id,
     ui_service_->OnTabClickedFromSourcesMenu(
         tab_id, url,
         webui::GetBrowserWindowInterface(
-            web_ui_controller_->web_ui()->GetWebContents()));
+            web_ui_controller_->GetWebUIWebContents()));
   }
 }
 
@@ -195,7 +210,7 @@ void ContextualTasksPageHandler::OnFileClickedFromSourcesMenu(const GURL& url) {
   if (ui_service_) {
     ui_service_->OnFileClickedFromSourcesMenu(
         url, webui::GetBrowserWindowInterface(
-                 web_ui_controller_->web_ui()->GetWebContents()));
+                 web_ui_controller_->GetWebUIWebContents()));
   }
 }
 
@@ -204,7 +219,7 @@ void ContextualTasksPageHandler::OnImageClickedFromSourcesMenu(
   if (ui_service_) {
     ui_service_->OnImageClickedFromSourcesMenu(
         url, webui::GetBrowserWindowInterface(
-                 web_ui_controller_->web_ui()->GetWebContents()));
+                 web_ui_controller_->GetWebUIWebContents()));
   }
 }
 
@@ -216,19 +231,25 @@ void ContextualTasksPageHandler::OnWebviewMessage(
   }
 
   if (aim_to_client_message.has_handshake_response()) {
-    web_ui_controller_->page()->OnHandshakeComplete();
+    web_ui_controller_->GetPageRemote()->OnHandshakeComplete();
     web_ui_controller_->OnSidePanelStateChanged();
   } else if (aim_to_client_message.has_hide_input()) {
-    web_ui_controller_->page()->HideInput();
+    web_ui_controller_->GetPageRemote()->HideInput();
   } else if (aim_to_client_message.has_restore_input()) {
-    web_ui_controller_->page()->RestoreInput();
+    web_ui_controller_->GetPageRemote()->RestoreInput();
   } else if (aim_to_client_message.has_enter_basic_mode()) {
-    web_ui_controller_->page()->HideInput();
+    web_ui_controller_->GetPageRemote()->HideInput();
   } else if (aim_to_client_message.has_exit_basic_mode()) {
-    web_ui_controller_->page()->RestoreInput();
+    web_ui_controller_->GetPageRemote()->RestoreInput();
   } else if (aim_to_client_message.has_update_thread_context_library()) {
     OnReceivedUpdatedThreadContextLibrary(
         aim_to_client_message.update_thread_context_library());
+  } else if (aim_to_client_message.has_notify_zero_state_rendered() &&
+             base::FeatureList::IsEnabled(
+                 contextual_tasks::kEnableNotifyZeroStateRenderedCapability)) {
+    web_ui_controller_->OnZeroStateChange(
+        aim_to_client_message.notify_zero_state_rendered()
+            .is_zero_state_rendered());
   }
 }
 
@@ -260,11 +281,7 @@ void ContextualTasksPageHandler::GetCommonSearchParams(
 }
 
 void ContextualTasksPageHandler::OnboardingTooltipDismissed() {
-  if (!web_ui_controller_->web_ui()) {
-    return;
-  }
-
-  Profile* profile = Profile::FromWebUI(web_ui_controller_->web_ui());
+  Profile* profile = web_ui_controller_->GetProfile();
   if (!profile) {
     return;
   }
@@ -283,8 +300,8 @@ void ContextualTasksPageHandler::OnboardingTooltipDismissed() {
 
 void ContextualTasksPageHandler::PostMessageToWebview(
     const lens::ClientToAimMessage& message) {
-  DCHECK(web_ui_controller_->page());
-  if (!web_ui_controller_->page()) {
+  DCHECK(web_ui_controller_->GetPageRemote());
+  if (!web_ui_controller_->GetPageRemote()) {
     return;
   }
 
@@ -299,13 +316,13 @@ void ContextualTasksPageHandler::PostMessageToWebview(
     return;
   }
 
-  web_ui_controller_->page()->PostMessageToWebview(serialized_message);
+  web_ui_controller_->GetPageRemote()->PostMessageToWebview(serialized_message);
 }
 
 void ContextualTasksPageHandler::OnTaskUpdated(
     const contextual_tasks::ContextualTask& task,
     contextual_tasks::ContextualTasksService::TriggerSource source) {
-  if (!web_ui_controller_->page()) {
+  if (!web_ui_controller_->GetPageRemote()) {
     return;
   }
 
@@ -321,7 +338,7 @@ void ContextualTasksPageHandler::UpdateContextForTask(
     const base::Uuid& task_id) {
   if (!base::FeatureList::IsEnabled(
           contextual_tasks::kContextualTasksContextLibrary)) {
-    web_ui_controller_->page()->OnContextUpdated({}, {}, {});
+    web_ui_controller_->GetPageRemote()->OnContextUpdated({});
     return;
   }
   contextual_tasks_service_->GetContextForTask(
@@ -330,13 +347,11 @@ void ContextualTasksPageHandler::UpdateContextForTask(
       base::BindOnce(
           [](base::WeakPtr<ContextualTasksPageHandler> self,
              std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
-            if (self && self->web_ui_controller_->page()) {
-              std::vector<contextual_tasks::mojom::TabPtr> tabs;
-              std::vector<contextual_tasks::mojom::UploadedFilePtr> files;
-              std::vector<contextual_tasks::mojom::ImagePtr> images;
-              PopulateContextualResources(context.get(), tabs, files, images);
-              self->web_ui_controller_->page()->OnContextUpdated(
-                  std::move(tabs), std::move(files), std::move(images));
+            if (self && self->web_ui_controller_->GetPageRemote()) {
+              std::vector<contextual_tasks::mojom::ContextInfoPtr>
+                  context_items = PopulateContextualResources(context.get());
+              self->web_ui_controller_->GetPageRemote()->OnContextUpdated(
+                  std::move(context_items));
             }
           },
           weak_ptr_factory_.GetWeakPtr()));

@@ -6,8 +6,11 @@
 #define CHROME_BROWSER_UI_VIEWS_TOOLBAR_WEBUI_TOOLBAR_WEB_VIEW_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/views/toolbar/webui_reload_control.h"
+#include "chrome/common/webui_url_constants.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -41,22 +44,43 @@ class WebUIToolbarWebView : public views::View,
   // content::WebContentsDelegate:
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) override;
+  void RendererUnresponsive(
+      content::WebContents* source,
+      content::RenderWidgetHost* render_widget_host,
+      base::RepeatingClosure hang_monitor_restarter) override;
 
   // content::WebContentsObserver:
   void DidFinishLoad(content::RenderFrameHost* render_frame_host,
                      const GURL& validated_url) override;
+  void DidFirstVisuallyNonEmptyPaint() override;
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override;
+
+  void SetDidFirstNonEmptyPaintCallbackForTesting(base::OnceClosure callback);
+  views::WebView* GetWebViewForTesting() { return web_view_; }
 
  private:
   friend WebUIReloadControl;
 
-  chrome::BrowserCommandController* controller() { return controller_; }
-  WebUIToolbarUI* webui_toolbar_ui() { return webui_toolbar_ui_; }
+  void InitializeWebView();
 
-  raw_ptr<WebUIToolbarUI> webui_toolbar_ui_ = nullptr;
+  // Reloads the WebUI toolbar. Used for recovering from crashes or
+  // unresponsiveness.
+  void ReloadWebContents();
+
+  chrome::BrowserCommandController* controller() { return controller_; }
+  WebUIToolbarUI* GetWebUIToolbarUI();
+
   raw_ptr<views::WebView> web_view_ = nullptr;
   const raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<chrome::BrowserCommandController> controller_;
   WebUIReloadControl reload_control_;
+  base::OnceClosure did_first_non_empty_paint_callback_;
+  bool has_finished_first_non_empty_paint_ = false;
+  uint32_t crash_count_ = 0;
+  base::TimeTicks last_crash_time_;
+
+  base::WeakPtrFactory<WebUIToolbarWebView> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_WEBUI_TOOLBAR_WEB_VIEW_H_

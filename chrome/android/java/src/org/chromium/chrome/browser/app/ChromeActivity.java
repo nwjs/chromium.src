@@ -477,7 +477,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         // lifetime.
         mLegacyTabStartupMetricsTracker =
                 new LegacyTabStartupMetricsTracker(mActivityId, mTabModelSelectorSupplier);
-        mStartupMetricsTracker = new StartupMetricsTracker(mTabModelSelectorSupplier);
+        mStartupMetricsTracker =
+                new StartupMetricsTracker(
+                        mTabModelSelectorSupplier, this::wasPersistentStateRestored);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             mStartupMetricsTracker.registerApplicationStartInfoListener();
         }

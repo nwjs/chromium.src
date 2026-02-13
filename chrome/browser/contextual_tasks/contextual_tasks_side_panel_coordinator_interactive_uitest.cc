@@ -4,6 +4,7 @@
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "base/time/time.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
@@ -368,8 +369,16 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
       }));
 }
 
+// TODO(crbug.com/478095504): Flakily fails on ASan/LSan
+#if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER)
+#define MAYBE_SidePanelOpenByTransferWebContentsFromTab \
+  DISABLED_SidePanelOpenByTransferWebContentsFromTab
+#else
+#define MAYBE_SidePanelOpenByTransferWebContentsFromTab \
+  SidePanelOpenByTransferWebContentsFromTab
+#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
-                       SidePanelOpenByTransferWebContentsFromTab) {
+                       MAYBE_SidePanelOpenByTransferWebContentsFromTab) {
   SetUpTasks();
   // Add tab4 with contextual task side panel tab.
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
@@ -692,6 +701,43 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
+                       CleanUpExpiredSidePanelCache) {
+  SetUpTasks();
+  ContextualTasksSidePanelCoordinator* coordinator =
+      ContextualTasksSidePanelCoordinator::From(browser());
+  RunTestSequence(
+      Do([&]() {
+        // Open side panel.
+        coordinator->Show();
+      }),
+      WaitForShow(kContextualTasksSidePanelWebViewElementId), Do([&]() {
+        // Switch to tab 1 ->task 2.
+        browser()->tab_strip_model()->ActivateTabAt(1);
+        content::WebContents* web_contents =
+            coordinator->GetActiveWebContents();
+        EXPECT_NE(nullptr, coordinator->GetActiveWebContents());
+        // Switch to tab 0 -> task 1.
+        browser()->tab_strip_model()->ActivateTabAt(0);
+        EXPECT_NE(nullptr, coordinator->GetActiveWebContents());
+        // Update timestamp of task 2 side panel WebContents to simulate
+        // expiration.
+        coordinator->GetWebContentsCacheItemForWebContents(web_contents)
+            ->last_active_time_ticks =
+            base::TimeTicks::Now() -
+            base::Minutes(ContextualTasksInactiveSidePanelKeepInCacheMinutes() +
+                          100);
+        // Switch to tab 2 -> task 1. This should trigger logic to clean up the
+        // side panel WebContents of task 2.
+        browser()->tab_strip_model()->ActivateTabAt(2);
+        EXPECT_NE(nullptr, coordinator->GetActiveWebContents());
+        // Switch to tab 1, verify the side panel WebContents is no longer
+        // there.
+        browser()->tab_strip_model()->ActivateTabAt(1);
+        EXPECT_EQ(nullptr, coordinator->GetActiveWebContents());
+      }));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
                        OpenNewTabWithoutLinkClick_DoesNotInheritsOpenerTask) {
   SetUpTasks();
   // Set tab1 as active tab and create a new tab. The opener of tab4 is set to
@@ -791,7 +837,7 @@ class TabScopedContextualTasksSidePanelCoordinatorInteractiveUiTest
  public:
   TabScopedContextualTasksSidePanelCoordinatorInteractiveUiTest() {
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        kContextualTasks, {{"TaskScopedSidePanel", "false"}});
+        kContextualTasks, {{"ContextualTasksTaskScopedSidePanel", "false"}});
   }
   ~TabScopedContextualTasksSidePanelCoordinatorInteractiveUiTest() override =
       default;

@@ -39,6 +39,10 @@ BASE_DECLARE_FEATURE(kContextualTasksForceCountryCodeUS);
 BASE_DECLARE_FEATURE(
     kContextualTasksRemoveTasksWithoutThreadsOrTabAssociations);
 
+// Enables use of silk api to notify zero state rendered instead of the url
+// param.
+BASE_DECLARE_FEATURE(kEnableNotifyZeroStateRenderedCapability);
+
 // Enum denoting which entry point can show when enabled.
 enum class EntryPointOption {
   kNoEntryPoint,
@@ -110,6 +114,10 @@ extern int GetContextualTasksOnboardingTooltipDismissedCap();
 // The delay in milliseconds before the onboarding tooltip is considered shown.
 extern int GetContextualTasksOnboardingTooltipImpressionDelay();
 
+// The number of seconds inactive side panel WebContents should keep in cache.
+// Expired side panel WebContents will be destroyed.
+extern int ContextualTasksInactiveSidePanelKeepInCacheMinutes();
+
 // Returns if voice search is allowed in expanded composebox.
 extern bool GetIsExpandedComposeboxVoiceSearchEnabled();
 
@@ -121,6 +129,9 @@ extern bool GetAutoSubmitVoiceSearchQuery();
 
 // Returns if the protected page error is enabled.
 extern bool GetIsProtectedPageErrorEnabled();
+
+// Returns if the ghost loader is enabled.
+extern bool GetIsGhostLoaderEnabled();
 
 // Returns the base URL for the AI page.
 extern std::string GetContextualTasksAiPageUrl();

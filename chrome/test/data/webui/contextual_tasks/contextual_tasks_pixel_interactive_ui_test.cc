@@ -21,7 +21,10 @@ class FakeContextualTasksUiService
     : public contextual_tasks::ContextualTasksUiService {
  public:
   explicit FakeContextualTasksUiService(Profile* profile)
-      : contextual_tasks::ContextualTasksUiService(profile, nullptr, nullptr) {}
+      : contextual_tasks::ContextualTasksUiService(profile,
+                                                   nullptr,
+                                                   nullptr,
+                                                   nullptr) {}
   GURL GetDefaultAiPageUrl() override { return GURL(url::kAboutBlankURL); }
 
   static std::unique_ptr<KeyedService> BuildFakeService(
@@ -67,6 +70,12 @@ class ContextualTasksPixelTestBase : public WebUIComposeBoxPixelTest {
   }
 
  protected:
+  auto HideCaret(const ui::ElementIdentifier& web_contents_id,
+                 const DeepQuery& query) {
+    return ExecuteJsAt(web_contents_id, query,
+                       R"((el) => { el.style.caretColor = 'transparent'; })");
+  }
+
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_environment_adaptor_;
@@ -167,8 +176,7 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksComposeBoxPixelTest, Screenshots) {
                       url::kAboutBlankURL),
 
       // Disable the blinking caret to reduce flakiness.
-      ExecuteJsAt(kActiveTab, kComposeBoxInput,
-                  R"((el) => {el.style.caretColor = 'transparent'})"),
+      HideCaret(kActiveTab, kComposeBoxInput),
 
       // Focus the composebox if specified.
       If([]() { return GetParam().focused; },
@@ -199,6 +207,7 @@ struct AppPixelTestParams {
   bool is_side_panel = false;
   bool is_zero_state = false;
   bool is_ai_page = false;
+  bool is_ghost_loader = false;
 
   std::string ToString() const {
     std::string name;
@@ -209,6 +218,9 @@ struct AppPixelTestParams {
     }
     if (is_ai_page) {
       name += "_AiPage";
+    }
+    if (is_ghost_loader) {
+      name += "_GhostLoader";
     }
     return name;
   }
@@ -231,6 +243,10 @@ INSTANTIATE_TEST_SUITE_P(
         {.dark_mode = false, .is_side_panel = false, .is_zero_state = false},
         {.dark_mode = false, .is_side_panel = true, .is_zero_state = false},
         {.dark_mode = false, .is_side_panel = false, .is_zero_state = true},
+        {.dark_mode = false,
+         .is_side_panel = true,
+         .is_zero_state = false,
+         .is_ghost_loader = true},
         // Dark mode
         {.dark_mode = true, .is_side_panel = false, .is_zero_state = false},
         {.dark_mode = true, .is_side_panel = true, .is_zero_state = false},
@@ -239,6 +255,10 @@ INSTANTIATE_TEST_SUITE_P(
          .is_side_panel = false,
          .is_zero_state = false,
          .is_ai_page = true},
+        {.dark_mode = true,
+         .is_side_panel = true,
+         .is_zero_state = false,
+         .is_ghost_loader = true},
     }),
     [](const testing::TestParamInfo<AppPixelTestParams>& info) {
       return info.param.ToString();
@@ -248,6 +268,10 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksAppPixelTest, Screenshots) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   const DeepQuery kApp = {"contextual-tasks-app"};
   const DeepQuery kAiPageWebView = {"contextual-tasks-app", "webview"};
+  const DeepQuery kComposeBoxInput = {"contextual-tasks-app",
+                                      "contextual-tasks-composebox",
+                                      "#composebox", "textarea"};
+  const DeepQuery kGhostLoader = {"contextual-tasks-app", "ghost-loader"};
 
   RunTestSequence(
       SetupWebUIEnvironment(kActiveTab,
@@ -264,16 +288,24 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksAppPixelTest, Screenshots) {
                              "  el.isShownInTab_ = %s; "
                              "  el.isZeroState_ = %s; "
                              "  el.isAiPage_ = %s; "
+                             "  el.isGhostLoaderVisible_ = %s; "
                              "  el.requestUpdate(); "
                              "}",
                              GetParam().is_side_panel ? "false" : "true",
                              GetParam().is_zero_state ? "true" : "false",
-                             GetParam().is_ai_page ? "true" : "false")),
+                             GetParam().is_ai_page ? "true" : "false",
+                             GetParam().is_ghost_loader ? "true" : "false")),
       WaitForWebContentsPainted(kActiveTab),
       // Give the webview a green border to make it obvious where its bounds
       // are.
       ExecuteJsAt(kActiveTab, kAiPageWebView,
                   "(el) => { el.style.border = '1px solid green'; }"),
+      // Disable the blinking caret to reduce flakiness.
+      HideCaret(kActiveTab, kComposeBoxInput),
+      // Modify ghost loader animation to avoid flakiness.
+      ExecuteJsAt(
+          kActiveTab, kGhostLoader,
+          "(el) => { el.style.setProperty('--animation-delay', '120s'); }"),
       WaitForWebContentsPainted(kActiveTab),
       SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
                               "Screenshots not captured on this platform."),

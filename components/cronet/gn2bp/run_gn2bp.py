@@ -14,14 +14,16 @@ and pass Cronet tests in Android infra. The CL will not be submitted.
 """
 
 import argparse
+
 import contextlib
 import hashlib
 import multiprocessing.dummy
 import json
 import os
 import pathlib
+import re
 import string
-import subprocess
+import base64
 import sys
 import tempfile
 import textwrap
@@ -35,6 +37,7 @@ REPOSITORY_ROOT = os.path.abspath(
 sys.path.insert(0, REPOSITORY_ROOT)
 import build.android.gyp.util.build_utils as build_utils  # pylint: disable=wrong-import-position
 import components.cronet.tools.utils as cronet_utils  # pylint: disable=wrong-import-position
+import components.cronet.tools.breakages_constants as breakages_constants  # pylint: disable=wrong-import-position
 
 _BORINGSSL_PATH = os.path.join(REPOSITORY_ROOT, 'third_party', 'boringssl')
 _BORINGSSL_SCRIPT = os.path.join('src', 'util', 'generate_build_files.py')
@@ -52,7 +55,10 @@ _GN2BP_SCRIPT_PATH = os.path.join(REPOSITORY_ROOT,
 _JAVA_HOME = os.path.join(REPOSITORY_ROOT, 'third_party', 'jdk', 'current')
 _JAVA_PATH = os.path.join(_JAVA_HOME, 'bin', 'java')
 _OUT_DIR = os.path.join(REPOSITORY_ROOT, 'out')
-
+_BREAKAGES_FILE_URL = "https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/cronet/android/breakages.json?format=TEXT"
+# The changeID of all commits submitted between NOW and last _MONTHS_OF_CHANGELIST
+# months will be collected and checked against the breakages.json
+_MONTHS_OF_CHANGELIST = 6
 
 class _OptionalExit(contextlib.AbstractContextManager):
   """A context manager wrapper that optionally skips the exit phase of its
@@ -158,16 +164,19 @@ def _gen_extras_bp(import_channel: str):
           GN2BP_MODULE_PREFIX=f'{import_channel}_cronet_'))
 
 
-def _gen_androidtest_xml():
+def _gen_androidtest_xml(import_channel: str):
   """Generate AndroidTest.xml, required to run test in Android."""
+  module_prefix = f'{import_channel}_cronet_'
   androidtest_xml_template_path = os.path.join(REPOSITORY_ROOT, 'components',
                                                'cronet', 'gn2bp', 'templates',
                                                'AndroidTest.xml.template')
   androidtest_xml_template_contents = cronet_utils.read_file(
       androidtest_xml_template_path)
   androidtest_xml_path = os.path.join(REPOSITORY_ROOT, 'AndroidTest.xml')
-  cronet_utils.write_file(androidtest_xml_path,
-                          androidtest_xml_template_contents)
+  cronet_utils.write_file(
+      androidtest_xml_path,
+      string.Template(androidtest_xml_template_contents).substitute(
+          GN2BP_MODULE_PREFIX=module_prefix))
 
 def _gen_boringssl(import_channel: str):
   """Generate boringssl Android build files."""
@@ -398,6 +407,72 @@ def _get_chromium_last_change() -> str:
   raise ValueError(f'Could not find LASTCHANGE in {lastchange_path}')
 
 
+def _fetch_breakages() -> list[dict[str, str]]:
+  print(f"Fetching breakages.json from {_BREAKAGES_FILE_URL}")
+  with urllib.request.urlopen(_BREAKAGES_FILE_URL) as url:
+    return json.loads(base64.b64decode(url.read().decode()))["breakages"]
+  raise ValueError("Failed to fetch breakages")
+
+
+def _get_change_ids_from_head(months: int) -> dict[str, int]:
+  """Returns a dictionary of Change-ID to index for commits since the last {months}."""
+  # Run git log with the specific trailer format
+  cmd = [
+      'git', 'log', f'--since={months} months ago',
+      '--format=%(trailers:key=Change-Id,valueonly)'
+  ]
+  output = cronet_utils.run_and_get_stdout(cmd)
+  change_ids = [line.strip() for line in output.splitlines() if line.strip()]
+  change_ids_dictionary = {}
+  for i, change_id in enumerate(change_ids):
+    change_ids_dictionary[change_id] = i
+  return change_ids_dictionary
+
+
+def validate_release(breakages: list[dict[str, any]],
+                     changelist: dict[str, int]) -> None:
+  print("Validating the current release against breakages.json")
+  for breakage in breakages:
+    bad_change_id = breakage.get(breakages_constants.BAD_CHANGE_ID_TXT)
+
+    good_change_ids = breakage.get(breakages_constants.GOOD_CHANGE_IDS_TXT, [])
+    if not isinstance(good_change_ids, list):
+      raise ValueError(
+          f'The type of `{breakages_constants.GOOD_CHANGE_IDS_TXT}` must be a list. {breakage=}'
+      )
+
+    if not good_change_ids:
+      raise RuntimeError(
+          f'Stopping the import: there is a breakage that has not been fixed yet. {breakage=}'
+      )
+
+    if bad_change_id not in changelist:
+      continue
+
+    good_change_ids_in_history = [
+        good_change_id for good_change_id in good_change_ids
+        if good_change_id in changelist
+    ]
+    if not good_change_ids_in_history:
+      raise RuntimeError(
+          f'Stopping the import: the current checkout includes a breaking change, but not its fix. {breakage=}'
+      )
+
+    if len(good_change_ids_in_history) >= 2:
+      raise RuntimeError(
+          'Stopping the import: there might be a problem with the local checkout, multiple '
+          'good change IDs, for the same breakage, have been found in the history. Multiple '
+          'good change IDs are only necessary when a fix has to be cherry-picked into a release '
+          'branch, where it might end up with a different change ID than the original fix. '
+          f'{breakage=}')
+    good_change_id_index = changelist[good_change_ids_in_history[0]]
+    if good_change_id_index >= changelist[bad_change_id]:
+      raise RuntimeError(
+          f'Stopping the import: there might be a problem with the local checkout, '
+          f'the local history shows a bad change ID that is more recent than its fix. '
+          f'{breakage=}')
+
+
 def _pick_target_channel_for_bot_environment():
   """Picks the most appropriate channel depending on whether the current chromium
   checkout is a release branch or not."""
@@ -482,6 +557,12 @@ def main():
       help=
       'Whether the script should wait for presubmit verified after uploading a CL to Android',
       action='store_true')
+  parser.add_argument(
+      '--skip-release-validation',
+      help=
+      'Validates the current Git history against the remote breakages.json file to ensure no known breakages are present.',
+      default=False,
+      action='store_true')
   args = parser.parse_args()
 
   if _is_bot_environment():
@@ -491,14 +572,25 @@ def main():
     args.channel = _pick_target_channel_for_bot_environment()
     print(f'Automatic selection logic has chosen `{args.channel}` track')
 
-    # When importing to the 'stable' channel from a CI environment, we must verify that
-    # the current Chromium checkout is on a stable release branch. This safeguards
-    # against mistakenly importing non-release branches, particularly when the
-    # channel is dynamically determined.
-    # On a trybot, it's fine to not verify the latest release as the trybot
-    # does not have permission to auto-submit unlike CI bots.
-    if args.channel == 'stable' and not _is_trybot():
-      _verify_latest_stable_or_exit(args.stamp)
+  # Don't validate releases for trybots. Otherwise, in certain scenarios, this could prevent
+  # landing fixes. For example, whenever a breakage entry does not have a good change ID.
+  # In this case, validate_release will always fail in CQ: breakages.json is always fetched
+  # from HEAD, making validate_release believe that no fix has landed yet (and also preventing
+  # said fix from landing).
+  if not _is_trybot() and not args.skip_release_validation:
+    validate_release(_fetch_breakages(),
+                     _get_change_ids_from_head(_MONTHS_OF_CHANGELIST))
+  else:
+    print("Skipping release validation")
+
+  # When importing to the 'stable' channel from a CI environment, we must verify that
+  # the current Chromium checkout is on a stable release branch. This safeguards
+  # against mistakenly importing non-release branches, particularly when the
+  # channel is dynamically determined.
+  # On a trybot, it's fine to not verify the latest release as the trybot
+  # does not have permission to auto-submit unlike CI bots.
+  if args.channel == 'stable' and _is_bot_environment() and not _is_trybot():
+    _verify_latest_stable_or_exit(args.stamp)
 
   if args.channel not in ['tot', 'stable']:
     raise ValueError('Invalid {args.channel=}')
@@ -538,7 +630,7 @@ def main():
                channel=args.channel)
     _gen_boringssl(args.channel)
     _gen_extras_bp(args.channel)
-    _gen_androidtest_xml()
+    _gen_androidtest_xml(args.channel)
 
     if not args.skip_copybara:
       _run_copybara_to_aosp(

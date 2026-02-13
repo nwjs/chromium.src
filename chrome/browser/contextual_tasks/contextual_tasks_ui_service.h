@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_UI_SERVICE_H_
 #define CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_UI_SERVICE_H_
 
-#include <list>
 #include <map>
 #include <vector>
 
@@ -19,8 +18,8 @@
 #include "net/base/backoff_entry.h"
 #include "url/gurl.h"
 
+class AimEligibilityService;
 class BrowserWindowInterface;
-class ContextualTasksUI;
 class GoogleServiceAuthError;
 class Profile;
 class TabStripModel;
@@ -46,6 +45,7 @@ class TabInterface;
 
 namespace contextual_tasks {
 class ContextualTasksService;
+class ContextualTasksUIInterface;
 
 // A service used to coordinate all of the side panel instances showing an AI
 // thread. Events like tab switching and Intercepted navigations from both the
@@ -55,7 +55,8 @@ class ContextualTasksUiService : public KeyedService {
   ContextualTasksUiService(
       Profile* profile,
       contextual_tasks::ContextualTasksService* contextual_tasks_service,
-      signin::IdentityManager* identity_manager);
+      signin::IdentityManager* identity_manager,
+      AimEligibilityService* aim_eligibility_service);
   ContextualTasksUiService(const ContextualTasksUiService&) = delete;
   ContextualTasksUiService operator=(const ContextualTasksUiService&) = delete;
   ~ContextualTasksUiService() override;
@@ -91,7 +92,7 @@ class ContextualTasksUiService : public KeyedService {
   // a tab).
   virtual void OnSearchResultsNavigationInSidePanel(
       content::OpenURLParams url_params,
-      ContextualTasksUI* webui_controller);
+      ContextualTasksUIInterface* web_ui_interface);
 
   // A notification that a navigation is occurring. This method gives the
   // service the opportunity to prevent the navigation from happening in
@@ -248,9 +249,12 @@ class ContextualTasksUiService : public KeyedService {
 
   const raw_ptr<Profile> profile_;
 
-  raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
+  const raw_ptr<contextual_tasks::ContextualTasksService>
+      contextual_tasks_service_;
 
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  const raw_ptr<signin::IdentityManager> identity_manager_;
+
+  const raw_ptr<AimEligibilityService> aim_eligibility_service_;
 
   // The access token fetcher for the current request.
   std::unique_ptr<signin::AccessTokenFetcher> access_token_fetcher_;

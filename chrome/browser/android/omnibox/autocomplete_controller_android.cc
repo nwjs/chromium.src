@@ -191,7 +191,9 @@ void AutocompleteControllerAndroid::Start(
     if (AreLensSuggestInputsReady(*inputs)) {
       input_.set_lens_overlay_suggest_inputs(std::move(inputs));
     }
-    input_.set_aim_tool_mode(tool_mode);
+    omnibox::InputState input_state;
+    input_state.active_tool = tool_mode;
+    input_.set_input_state(input_state);
   }
   autocomplete_controller_->Start(input_);
 }
@@ -211,18 +213,6 @@ void AutocompleteControllerAndroid::StartPrefetch(
     auto_complete_text = omnibox::IsNTPPage(page_classification)
                              ? u""
                              : ConvertJavaStringToUTF16(env, j_current_url);
-  }
-
-  // If the Prewarm feature is enabled, we trigger them from the omnibox focus,
-  // so we check them here.
-  if (features::kPrewarmZeroSuggestTrigger.Get()) {
-    if (auto* web_contents =
-            content::WebContents::FromJavaWebContents(j_web_contents)) {
-      auto* prerender_manager =
-          PrerenderManager::GetOrCreateForWebContents(web_contents);
-      CHECK(prerender_manager);
-      prerender_manager->MaybeStartPrewarmSearchResult();
-    }
   }
 
   AutocompleteInput input(auto_complete_text, page_classification,
@@ -322,7 +312,9 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
         tool_mode != omnibox::TOOL_MODE_IMAGE_GEN_UPLOAD) {
       input_.set_lens_overlay_suggest_inputs(std::move(inputs));
     }
-    input_.set_aim_tool_mode(tool_mode);
+    omnibox::InputState input_state;
+    input_state.active_tool = tool_mode;
+    input_.set_input_state(input_state);
   }
 
   autocomplete_controller_->Start(input_);
@@ -336,6 +328,18 @@ void AutocompleteControllerAndroid::Stop(JNIEnv* env, bool clear_results) {
 
 void AutocompleteControllerAndroid::ResetSession(JNIEnv* env) {
   autocomplete_controller_->ResetSession();
+}
+
+void AutocompleteControllerAndroid::StartPrewarm(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_web_contents) {
+  if (auto* web_contents =
+          content::WebContents::FromJavaWebContents(j_web_contents)) {
+    auto* prerender_manager =
+        PrerenderManager::GetOrCreateForWebContents(web_contents);
+    CHECK(prerender_manager);
+    prerender_manager->MaybeStartPrewarmSearchResult();
+  }
 }
 
 void AutocompleteControllerAndroid::OnSuggestionSelected(

@@ -11,6 +11,7 @@
 #import "base/functional/bind.h"
 #import "base/location.h"
 #import "base/memory/weak_ptr.h"
+#import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/bind_post_task.h"
 #import "base/task/sequenced_task_runner.h"
@@ -65,13 +66,15 @@ const CGFloat kCarouselHeight = 44.0f;
 /// The height of the AIM mode button.
 const CGFloat kAIMButtonHeight = 36.0f;
 /// The width of the AIM mode button.
-const CGFloat kAIMButtonDisabledWidth = 108.0f;
-const CGFloat kAIMButtonEnabledWidth = 122.0f;
+const CGFloat kAIMButtonBaseWidth = 108.0f;
+const CGFloat kXButtonWidthInButton = 14.0;
+const NSDirectionalEdgeInsets kModeIndicatorButtonInsets = {5, 8, 5, 8};
+const NSDirectionalEdgeInsets kImageGenerationButtonInsets = {5, 8, 5, 28};
 /// The spacing for the horizontal buttons stack view.
 const CGFloat kButtonsCompactSpacing = 4.0f;
 const CGFloat kButtonsStackViewSpacing = 6.0f;
 /// The spacing between the Lens and Voice buttons.
-const CGFloat kShortcutsSpacing = 16.0f;
+const CGFloat kShortcutsSpacing = 10.0f;
 /// The spacing for the main vertical input plate stack view.
 const CGFloat kInputPlateStackViewSpacing = 6.0f;
 /// The default vertical padding for the input plate. When the text view is the
@@ -83,13 +86,14 @@ const CGFloat kInputPlateStackViewExpandedWithAttachmentsTopPadding = 10.0f;
 /// The bottom padding with the expanded input plate when AIM is available.
 const CGFloat kInputPlateStackViewExpandedBottomPadding = 10.0f;
 /// The horizontal padding for the input plate stack view.
-const NSDirectionalEdgeInsets kInputPlateStackViewPadding = {.leading = 4.0f,
+const NSDirectionalEdgeInsets kInputPlateStackViewPadding = {.leading = 0.0f,
                                                              .trailing = 2.0f};
 /// The side padding for the input plate stack view content (e.g. omnibox,
 /// toolbar).
 const NSDirectionalEdgeInsets kInputPlatePadding = {.leading = 8.0,
                                                     .trailing = 5.0};
-
+/// The spacing added after the Lens and Voice buttons in compact mode.
+const CGFloat kShortcutsTrailingPaddingCompact = 3.0f;
 /// The padding of the toolbar and carousel elements.
 ///
 /// Note: While padding is offset to visually align the clear button's visual
@@ -187,7 +191,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   UIView* _inputPlateInternalContainerView;
   /// The button to toggle AI mode.
   UIButton* _aimButton;
-  UIImageView* _aimButtonXIndicator;
+  UIView* _aimButtonXIndicator;
   /// The button to toggle Image Generation mode.
   UIButton* _imageGenerationButton;
   /// The glow effect around the input plate container.
@@ -472,6 +476,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self animateButton:_sendButton hidden:!(controls & kSend)];
   [self animateButton:_imageGenerationButton hidden:!(controls & kCreateImage)];
   [self animateLeadingImageHidden:!(controls & kLeadingImage)];
+
+  [self updateInputPlateStackViewPadding];
 }
 
 - (void)animateReveal:(void (^)(void))animations {
@@ -945,38 +951,34 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   }
 
   UIButtonConfiguration* config = _aimButton.configuration;
-
-  if (self.AIModeEnabled) {
-    config.contentInsets = NSDirectionalEdgeInsetsMake(5, 8, 5, 22);
-    config.background.backgroundColor =
-        [_theme aimButtonBackgroundColorWithAIMEnabled:YES];
-    config.baseForegroundColor = [_theme aimButtonTextColorWithAIMEnabled:YES];
-    _aimButton.layer.borderWidth = 0;
-    _aimButton.accessibilityLabel = l10n_util::GetNSString(
-        IDS_IOS_COMPOSEBOX_AIM_BUTTON_DISABLE_ACTION_ACCESSIBILITY_LABEL);
-    self.aimButtonWidthConstraint.constant = kAIMButtonEnabledWidth;
-  } else {
-    config.contentInsets = NSDirectionalEdgeInsetsMake(5, 8, 5, 8);
-    config.background.backgroundColor =
-        [_theme aimButtonBackgroundColorWithAIMEnabled:NO];
-    config.baseForegroundColor = [_theme aimButtonTextColorWithAIMEnabled:NO];
-    _aimButton.layer.borderWidth = 1;
-    _aimButton.layer.borderColor =
-        [_theme aimButtonBorderColorWithAIMEnabled:NO].CGColor;
-    _aimButton.accessibilityLabel = l10n_util::GetNSString(
-        IDS_IOS_COMPOSEBOX_AIM_BUTTON_ENABLE_ACTION_ACCESSIBILITY_LABEL);
-    self.aimButtonWidthConstraint.constant = kAIMButtonDisabledWidth;
+  NSDirectionalEdgeInsets insets = kModeIndicatorButtonInsets;
+  self.aimButtonWidthConstraint.constant = kAIMButtonBaseWidth;
+  if (_AIModeEnabled) {
+    insets.trailing += kXButtonWidthInButton;
+    self.aimButtonWidthConstraint.constant += kXButtonWidthInButton;
   }
+  config.contentInsets = insets;
+  config.background.backgroundColor =
+      [_theme aimButtonBackgroundColorWithAIMEnabled:_AIModeEnabled];
+  config.baseForegroundColor =
+      [_theme aimButtonTextColorWithAIMEnabled:_AIModeEnabled];
+  _aimButton.layer.borderWidth = _AIModeEnabled ? 0 : 1;
+  _aimButton.layer.borderColor =
+      [_theme aimButtonBorderColorWithAIMEnabled:_AIModeEnabled].CGColor;
+  _aimButton.accessibilityLabel = l10n_util::GetNSString(
+      _AIModeEnabled
+          ? IDS_IOS_COMPOSEBOX_AIM_BUTTON_DISABLE_ACTION_ACCESSIBILITY_LABEL
+          : IDS_IOS_COMPOSEBOX_AIM_BUTTON_ENABLE_ACTION_ACCESSIBILITY_LABEL);
 
   _aimButton.configuration = config;
 
   // Setup the X mark only after the config was aplied, otherwise the
   // constraints applied relative to the title label will be wrong for iOS 18.
-  if (self.AIModeEnabled) {
-    [self setupXMarkInAIMButton];
-  } else {
-    [_aimButtonXIndicator removeFromSuperview];
-    _aimButtonXIndicator = nil;
+  [_aimButtonXIndicator removeFromSuperview];
+  _aimButtonXIndicator = nil;
+
+  if (_AIModeEnabled) {
+    _aimButtonXIndicator = [self setupXMarkInButton:_aimButton];
   }
 }
 
@@ -996,29 +998,29 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   }
 }
 
-/// Adds and constraints the 'X' mark indicator to the AI Mode button.
-- (void)setupXMarkInAIMButton {
-  [_aimButtonXIndicator removeFromSuperview];
-
-  _aimButtonXIndicator = [[UIImageView alloc] init];
-  _aimButtonXIndicator.translatesAutoresizingMaskIntoConstraints = NO;
+/// Adds and constraints the 'X' mark indicator to the given button.
+- (UIView*)setupXMarkInButton:(UIButton*)button {
+  UIImageView* xMarkImageView = [[UIImageView alloc] init];
+  xMarkImageView.translatesAutoresizingMaskIntoConstraints = NO;
   UIImageConfiguration* configuration = [UIImageSymbolConfiguration
       configurationWithPointSize:kCloseIndicatorSize
                           weight:UIImageSymbolWeightBold
                            scale:UIImageSymbolScaleMedium];
-  _aimButtonXIndicator.image =
+  xMarkImageView.image =
       DefaultSymbolWithConfiguration(kXMarkSymbol, configuration);
   // The parent button view is the relevant element.
-  _aimButtonXIndicator.isAccessibilityElement = NO;
-  [_aimButton addSubview:_aimButtonXIndicator];
+  xMarkImageView.isAccessibilityElement = NO;
+  [button addSubview:xMarkImageView];
 
   [NSLayoutConstraint activateConstraints:@[
-    [_aimButton.titleLabel.trailingAnchor
-        constraintEqualToAnchor:_aimButtonXIndicator.leadingAnchor
+    [button.titleLabel.trailingAnchor
+        constraintEqualToAnchor:xMarkImageView.leadingAnchor
                        constant:-kCloseModeButtonMargin],
-    [_aimButton.titleLabel.centerYAnchor
-        constraintEqualToAnchor:_aimButtonXIndicator.centerYAnchor],
+    [button.titleLabel.centerYAnchor
+        constraintEqualToAnchor:xMarkImageView.centerYAnchor],
   ]];
+
+  return xMarkImageView;
 }
 
 /// Creates an extended touch target button with the given `image`.
@@ -1059,35 +1061,24 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [button addTarget:self
                 action:@selector(aimButtonTapped)
       forControlEvents:UIControlEventTouchUpInside];
-
-  UIButtonConfiguration* config =
-      [UIButtonConfiguration plainButtonConfiguration];
-
-  config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-  config.image = CustomSymbolWithPointSize(kMagnifyingglassSparkSymbol,
-                                           kAIMButtonSymbolPointSize);
-
-  // Font setup
-  UIFont* font = [UIFont systemFontOfSize:kAIMButtonFontSize
-                                   weight:UIFontWeightMedium];
-  NSDictionary* attributes = @{NSFontAttributeName : font};
-  NSAttributedString* attributedTitle = [[NSAttributedString alloc]
-      initWithString:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_AIM_ACTION)
-          attributes:attributes];
-  config.attributedTitle = attributedTitle;
-  config.imagePadding = 5;
   button.layer.borderWidth = 0;
   button.accessibilityTraits = UIAccessibilityTraitButton;
   button.accessibilityIdentifier = kComposeboxAIMButtonAccessibilityIdentifier;
 
-  button.configuration = config;
+  UIImage* icon = CustomSymbolWithPointSize(kMagnifyingglassSparkSymbol,
+                                            kAIMButtonSymbolPointSize);
+
+  button.configuration = [self
+      modeIndicatorButtonConfigWithTitle:l10n_util::GetNSString(
+                                             IDS_IOS_COMPOSEBOX_AIM_ACTION)
+                                   image:icon];
 
   return button;
 }
 
 - (void)setupAIMButtonSizeConstraints {
-  self.aimButtonWidthConstraint = [_aimButton.widthAnchor
-      constraintEqualToConstant:kAIMButtonDisabledWidth];
+  self.aimButtonWidthConstraint =
+      [_aimButton.widthAnchor constraintEqualToConstant:kAIMButtonBaseWidth];
 
   [NSLayoutConstraint activateConstraints:@[
     [_aimButton.heightAnchor constraintEqualToConstant:kAIMButtonHeight],
@@ -1557,13 +1548,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     [_inputPlateStackView setCustomSpacing:kShortcutsSpacing
                                  afterView:_micButton];
     _bottomPaddingConstraint.constant = -kInputPlateStackViewVerticalPadding;
-    _inputPlateStackView.layoutMarginsRelativeArrangement = YES;
-    // Ensure we do not lose the margins on the sides when in compact mode.
-    _inputPlateStackView.layoutMargins = UIEdgeInsetsMake(
-        0, kInputPlatePadding.leading, 0, kInputPlatePadding.trailing);
-    // Margins are applied on the input plate, remove the margins on the
-    // omnibox.
-    _omniboxContainer.directionalLayoutMargins = NSDirectionalEdgeInsetsZero;
   } else {
     _toolbarView = [self createToolbarView];
     [_inputPlateStackView insertArrangedSubview:_carouselContainer atIndex:0];
@@ -1575,10 +1559,36 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     _inputPlateContainerView.layer.cornerRadius = kInputPlateCornerRadius;
     _inputPlateInternalContainerView.layer.cornerRadius =
         kInputPlateCornerRadius;
+  }
+
+  [self updateInputPlateStackViewPadding];
+  [self updateInputPlateStackViewTopConstraint];
+}
+
+// Updates the side paddings of the input plate stack view.
+- (void)updateInputPlateStackViewPadding {
+  if (self.compact) {
+    CGFloat trailingPadding = kInputPlatePadding.trailing;
+    ComposeboxInputPlateControls shortcuts =
+        ComposeboxInputPlateControls::kLens |
+        ComposeboxInputPlateControls::kVoice;
+    BOOL shortcutsVisible =
+        (_visibleControls & shortcuts) != ComposeboxInputPlateControls::kNone;
+    if (shortcutsVisible) {
+      trailingPadding += kShortcutsTrailingPaddingCompact;
+    }
+
+    _inputPlateStackView.layoutMarginsRelativeArrangement = YES;
+    // Ensure we do not lose the margins on the sides when in compact mode.
+    _inputPlateStackView.layoutMargins =
+        UIEdgeInsetsMake(0, kInputPlatePadding.leading, 0, trailingPadding);
+    // Margins are applied on the input plate, remove the margins on the
+    // omnibox.
+    _omniboxContainer.directionalLayoutMargins = NSDirectionalEdgeInsetsZero;
+  } else {
     _inputPlateStackView.layoutMarginsRelativeArrangement = NO;
     _omniboxContainer.directionalLayoutMargins = kInputPlatePadding;
   }
-  [self updateInputPlateStackViewTopConstraint];
 }
 
 /// Animates the transition of the input plate stack view between compact and
@@ -1622,6 +1632,22 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   return image;
 }
 
+// Returns a base configuration for a mode indicator button.
+- (UIButtonConfiguration*)modeIndicatorButtonConfigWithTitle:(NSString*)title
+                                                       image:(UIImage*)image {
+  UIButtonConfiguration* config =
+      [UIButtonConfiguration plainButtonConfiguration];
+  config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+  config.imagePadding = 5;
+  config.image = image;
+  UIFont* font = [UIFont systemFontOfSize:kAIMButtonFontSize
+                                   weight:UIFontWeightMedium];
+  NSDictionary* attributes = @{NSFontAttributeName : font};
+  config.attributedTitle =
+      [[NSAttributedString alloc] initWithString:title attributes:attributes];
+  return config;
+}
+
 - (UIButton*)createImageGenerationButton {
   UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
   button.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1630,51 +1656,20 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [button addTarget:self
                 action:@selector(imageGenerationButtonTapped)
       forControlEvents:UIControlEventTouchUpInside];
-
-  UIButtonConfiguration* config =
-      [UIButtonConfiguration plainButtonConfiguration];
-
-  config.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-  config.image = [self bananaIcon];
-
-  UIFont* font = [UIFont systemFontOfSize:kAIMButtonFontSize
-                                   weight:UIFontWeightMedium];
-  NSDictionary* attributes = @{NSFontAttributeName : font};
-  NSAttributedString* attributedTitle = [[NSAttributedString alloc]
-      initWithString:l10n_util::GetNSString(
-                         IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION)
-          attributes:attributes];
-  config.attributedTitle = attributedTitle;
-
-  config.imagePadding = 5;
   button.layer.borderWidth = 0;
 
-  config.contentInsets = NSDirectionalEdgeInsetsMake(5, 8, 5, 28);
+  UIButtonConfiguration* config =
+      [self modeIndicatorButtonConfigWithTitle:
+                l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION)
+                                         image:[self bananaIcon]];
+  config.contentInsets = kImageGenerationButtonInsets;
   config.background.backgroundColor =
       [_theme imageGenerationButtonBackgroundColor];
   config.baseForegroundColor = [_theme imageGenerationButtonTextColor];
   button.tintColor = [_theme imageGenerationButtonTextColor];
 
   button.configuration = config;
-
-  UIImageView* xMarkImageView = [[UIImageView alloc] init];
-  xMarkImageView.translatesAutoresizingMaskIntoConstraints = NO;
-
-  UIImageConfiguration* configuration = [UIImageSymbolConfiguration
-      configurationWithPointSize:kCloseIndicatorSize
-                          weight:UIImageSymbolWeightBold
-                           scale:UIImageSymbolScaleMedium];
-  xMarkImageView.image =
-      DefaultSymbolWithConfiguration(kXMarkSymbol, configuration);
-  [button addSubview:xMarkImageView];
-
-  [NSLayoutConstraint activateConstraints:@[
-    [button.titleLabel.trailingAnchor
-        constraintEqualToAnchor:xMarkImageView.leadingAnchor
-                       constant:-kCloseModeButtonMargin],
-    [button.titleLabel.centerYAnchor
-        constraintEqualToAnchor:xMarkImageView.centerYAnchor],
-  ]];
+  [self setupXMarkInButton:button];
 
   return button;
 }
@@ -1772,23 +1767,38 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
 /// Performs a drop action for a given drop session.
 - (void)performDrop:(id<UIDropSession>)session {
+  base::RecordAction(
+      base::UserMetricsAction("IOS.Omnibox.MobileFusebox.Action.DragAndDrop"));
   // Drop each eligible dragged item into the Composebox.
   for (UIDragItem* item in session.items) {
     if ([self willAllowPDFDrop:session] &&
         [item.itemProvider
             hasItemConformingToTypeIdentifier:UTTypePDF.identifier]) {
+      [self.delegate composeboxViewController:self
+                    didAttemptDragAndDropType:ComposeboxDragAndDropType::kPDF];
       [self performDropForPDF:item.itemProvider];
     } else if ([self willAllowImageDrop:session] &&
                [item.itemProvider
                    hasItemConformingToTypeIdentifier:UTTypeImage.identifier]) {
+      [self.delegate
+           composeboxViewController:self
+          didAttemptDragAndDropType:ComposeboxDragAndDropType::kImage];
       [self performDropForImage:item.itemProvider];
     } else if ([self willAllowTabDrop:session] &&
                [item.localObject isKindOfClass:[TabInfo class]]) {
+      [self.delegate composeboxViewController:self
+                    didAttemptDragAndDropType:ComposeboxDragAndDropType::kTab];
       [self performDropForTab:item.localObject];
     } else if ([self willAllowTextDrop:session] &&
                [item.itemProvider
                    hasItemConformingToTypeIdentifier:UTTypeText.identifier]) {
+      [self.delegate composeboxViewController:self
+                    didAttemptDragAndDropType:ComposeboxDragAndDropType::kText];
       [self performDropForText:item.itemProvider];
+    } else {
+      [self.delegate
+           composeboxViewController:self
+          didAttemptDragAndDropType:ComposeboxDragAndDropType::kUnknown];
     }
   }
   // Drop complete.

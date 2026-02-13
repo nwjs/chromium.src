@@ -93,7 +93,6 @@ class ComposeboxHandlerTest : public ContextualSearchboxHandlerTestHarness {
     auto query_controller_config_params = std::make_unique<
         contextual_search::ContextualSearchContextController::ConfigParams>();
     query_controller_config_params->send_lns_surface = false;
-    query_controller_config_params->enable_multi_context_input_flow = false;
     query_controller_config_params->enable_viewport_images = true;
     auto query_controller_ptr = std::make_unique<MockQueryController>(
         /*identity_manager=*/nullptr, url_loader_factory(),
@@ -221,10 +220,6 @@ TEST_F(ComposeboxHandlerTest, SetDeepSearchMode) {
       "ContextualSearch.Tools.DeepSearch.NewTabPage",
       contextual_search::AimToolState::kEnabled, 1);
   SubmitQueryAndWaitForNavigation();
-  GURL query_url_dr =
-      web_contents()->GetController().GetLastCommittedEntry()->GetURL();
-  EXPECT_TRUE(net::GetValueForKeyInQuery(query_url_dr, "dr", &dr_param));
-  EXPECT_EQ("1", dr_param);
 
   // Submitting after disabling deep search.
   handler().SetDeepSearchMode(false);
@@ -237,10 +232,6 @@ TEST_F(ComposeboxHandlerTest, SetDeepSearchMode) {
       "ContextualSearch.Tools.DeepSearch.NewTabPage",
       contextual_search::AimToolState::kDisabled, 1);
   SubmitQueryAndWaitForNavigation();
-  GURL query_url_disabled_dr =
-      web_contents()->GetController().GetLastCommittedEntry()->GetURL();
-  EXPECT_FALSE(
-      net::GetValueForKeyInQuery(query_url_disabled_dr, "dr", &dr_param));
 }
 
 TEST_F(ComposeboxHandlerTest, SetCreateImageMode) {
@@ -269,12 +260,6 @@ TEST_F(ComposeboxHandlerTest, SetCreateImageMode) {
       "ContextualSearch.Tools.CreateImages.NewTabPage",
       contextual_search::AimToolState::kEnabled, 1);
   SubmitQueryAndWaitForNavigation();
-  GURL query_url_create_image =
-      web_contents()->GetController().GetLastCommittedEntry()->GetURL();
-  std::string imgn_param;
-  EXPECT_TRUE(
-      net::GetValueForKeyInQuery(query_url_create_image, "imgn", &imgn_param));
-  EXPECT_EQ("1", imgn_param);
 
   // Submitting with create image mode disabled.
   handler().SetCreateImageMode(false, /*image_present= */ false);
@@ -287,10 +272,6 @@ TEST_F(ComposeboxHandlerTest, SetCreateImageMode) {
       "ContextualSearch.Tools.CreateImages.NewTabPage",
       contextual_search::AimToolState::kDisabled, 1);
   SubmitQueryAndWaitForNavigation();
-  GURL query_url_disabled_create_image =
-      web_contents()->GetController().GetLastCommittedEntry()->GetURL();
-  EXPECT_FALSE(net::GetValueForKeyInQuery(query_url_disabled_create_image,
-                                          "imgn", &imgn_param));
 }
 
 TEST_F(ComposeboxHandlerTest, DeleteFileAndSubmitQuery) {

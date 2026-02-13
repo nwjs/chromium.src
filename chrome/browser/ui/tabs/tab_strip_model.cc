@@ -740,6 +740,7 @@ void TabStripModel::UpdateSelectionModelForCollectionDetach(
     int detach_start_index,
     std::optional<int> next_selected_index,
     bool active_tab_removed) {
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
   const bool closed_all_tabs = (count() == 0);
 
   if (closed_all_tabs) {
@@ -850,6 +851,7 @@ gfx::Range TabStripModel::InsertDetachedCollectionImpl(
 
   // Add the collection.
   std::move(execute_insert_detached_tabs_operation).Run();
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 
   int collection_insertion_index =
       GetIndexOfTab(collection->GetTabAtIndexRecursive(0));
@@ -897,6 +899,7 @@ void TabStripModel::InsertDetachedTabGroupImpl(
                             base::PassKey<TabStripModel>());
   contents_data_->InsertTabCollectionAt(std::move(group_collection), index,
                                         false, std::nullopt);
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 }
 
 std::unique_ptr<DetachedTab> TabStripModel::DetachTabImpl(
@@ -4238,6 +4241,7 @@ split_tabs::SplitTabId TabStripModel::AddToSplitImpl(
                                IsTabPinned(pivot_index));
 
   contents_data_->CreateSplit(split_id, tabs, visual_data);
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 
   std::vector<std::pair<tabs::TabInterface*, int>> tabs_with_indices;
   for (tabs::TabInterface* tab : tabs) {
@@ -4281,6 +4285,7 @@ void TabStripModel::RemoveSplitImpl(
       GetTabsAndIndicesInSplit(split_id);
 
   contents_data_->Unsplit(split_id);
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 
   tabs::TabStripModelSelectionState old_selection_model = selection_model_;
 
@@ -4437,6 +4442,7 @@ void TabStripModel::AddToNewGroupImpl(
   group_model_->AddTabGroup(group_collection->GetTabGroup(),
                             base::PassKey<TabStripModel>());
   contents_data_->CreateTabGroup(std::move(group_collection));
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 
   // Find a destination for the first tab that's not pinned or inside another
   // group. We will stack the rest of the tabs up to its right.
@@ -4639,6 +4645,7 @@ std::unique_ptr<tabs::TabModel> TabStripModel::RemoveTabFromIndexImpl(
       base::WrapUnique(static_cast<tabs::TabModel*>(
           contents_data_->RemoveTabAtIndexRecursive(index).release()));
   selection_model_.RemoveTabFromSelection(tab_to_remove);
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
 
   if (empty()) {
     selection_model_.Clear();
@@ -4820,6 +4827,8 @@ void TabStripModel::TabGroupStateChanged(
                                    base::PassKey<TabStripModel>());
       CompleteModelUpdateTransaction();
       contents_data_->CloseDetachedTabGroup(initial_group.value());
+      selection_model_.InvalidateListSelectionModel(
+          base::PassKey<TabStripModel>());
     }
   }
 
@@ -4874,6 +4883,7 @@ void TabStripModel::CompleteModelUpdateTransaction() {
   CHECK(active_tab);
 
   // Check if the selected tab indices are valid.
+  selection_model_.InvalidateListSelectionModel(base::PassKey<TabStripModel>());
   const ui::ListSelectionModel::SelectedIndices selected_indices =
       selection_model_.GetListSelectionModel().selected_indices();
 

@@ -14,7 +14,7 @@ import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action
 import {getFaviconForPageURL} from 'chrome://resources/js/icon.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import type {Image, Tab, UploadedFile} from './contextual_tasks.mojom-webui.js';
+import type {ContextInfo} from './contextual_tasks.mojom-webui.js';
 import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
 import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
 import {getCss} from './sources_menu.css.js';
@@ -41,14 +41,10 @@ export class SourcesMenuElement extends CrLitElement {
 
   static override get properties() {
     return {
-      attachedTabs: {type: Array},
-      attachedFiles: {type: Array},
-      attachedImages: {type: Array},
+      contextInfos: {type: Array},
     };
   }
-  accessor attachedTabs: Tab[] = [];
-  accessor attachedFiles: UploadedFile[] = [];
-  accessor attachedImages: Image[] = [];
+  accessor contextInfos: ContextInfo[] = [];
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
 
   showAt(target: HTMLElement) {
@@ -67,7 +63,7 @@ export class SourcesMenuElement extends CrLitElement {
 
     const currentTarget = e.currentTarget as HTMLElement;
     const index = Number(currentTarget.dataset['index']);
-    const tab = this.attachedTabs[index];
+    const tab = this.contextInfos[index]?.tab;
     assert(tab);
 
     chrome.metricsPrivate.recordUserAction(
@@ -82,7 +78,7 @@ export class SourcesMenuElement extends CrLitElement {
 
     const currentTarget = e.currentTarget as HTMLElement;
     const index = Number(currentTarget.dataset['index']);
-    const file = this.attachedFiles[index];
+    const file = this.contextInfos[index]?.file;
     assert(file);
     this.browserProxy_.handler.onFileClickedFromSourcesMenu(file.url);
   }
@@ -90,13 +86,13 @@ export class SourcesMenuElement extends CrLitElement {
   protected onImageClick_(e: Event) {
     this.close();
     const index = Number((e.currentTarget as HTMLElement).dataset['index']);
-    const image = this.attachedImages[index];
+    const image = this.contextInfos[index]?.image;
     assert(image);
     this.browserProxy_.handler.onImageClickedFromSourcesMenu(image.url);
   }
 
-  protected faviconUrl_(tab: Tab): string {
-    return getFaviconForPageURL(tab.url.url, false);
+  protected faviconUrl_(url: string): string {
+    return getFaviconForPageURL(url, false);
   }
 
   protected getHostname_(url: string): string {
@@ -105,24 +101,6 @@ export class SourcesMenuElement extends CrLitElement {
     } catch (e) {
       return url;
     }
-  }
-
-  // Divider before the images section.
-  // Not shown if no images or images is first section.
-  protected shouldShowDividerBeforeImagesSection_(): boolean {
-    const hasElementsAbove = this.attachedTabs.length > 0;
-    const hasElementsBelow = this.attachedImages.length > 0;
-    return hasElementsAbove && hasElementsBelow;
-  }
-
-  // Divider before the files section.
-  // Shown if files is second section after images/tabs.
-  // Not shown if no files or files is first section
-  protected shouldShowFileDividerBeforeTabsSection_(): boolean {
-    const hasElementsAbove =
-        this.attachedTabs.length > 0 || this.attachedImages.length > 0;
-    const hasElementsBelow = this.attachedFiles.length > 0;
-    return hasElementsAbove && hasElementsBelow;
   }
 }
 

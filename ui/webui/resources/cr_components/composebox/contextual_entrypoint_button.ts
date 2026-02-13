@@ -15,12 +15,14 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
+import {recordBoolean} from './common.js';
 import {GlifAnimationState} from './context_menu_entrypoint.js';
+import type {ContextualActionMenuElement} from './contextual_action_menu.js';
 import {getCss} from './contextual_entrypoint_button.css.js';
 import {getHtml} from './contextual_entrypoint_button.html.js';
-import type {ContextualActionMenuElement} from './contextual_action_menu.js';
 
 export interface ContextualEntrypointButtonElement {
   $: {
@@ -49,7 +51,6 @@ export class ContextualEntrypointButtonElement extends
       // =========================================================================
       // Public properties
       // =========================================================================
-      inputsDisabled: {type: Boolean},
       fileNum: {type: Number},
       showContextMenuDescription: {type: Boolean},
       hasImageFiles: {
@@ -59,6 +60,7 @@ export class ContextualEntrypointButtonElement extends
       disabledTabIds: {type: Object},
       tabSuggestions: {type: Array},
       showMenuOnClick: {type: Boolean},
+      inputState: {type: Object},
       glifAnimationState: {type: String, reflect: true},
 
       // =========================================================================
@@ -71,13 +73,13 @@ export class ContextualEntrypointButtonElement extends
     };
   }
 
-  accessor inputsDisabled: boolean = false;
   accessor fileNum: number = 0;
   accessor showContextMenuDescription: boolean = false;
   accessor hasImageFiles: boolean = false;
   accessor disabledTabIds: Map<number, UnguessableToken> = new Map();
   accessor tabSuggestions: TabInfo[] = [];
   accessor showMenuOnClick: boolean = true;
+  accessor inputState: InputState|null = null;
   accessor glifAnimationState: GlifAnimationState =
       GlifAnimationState.INELIGIBLE;
 
@@ -104,7 +106,7 @@ export class ContextualEntrypointButtonElement extends
 
     const metricName =
         'ContextualSearch.ContextMenuEntry.Clicked.' + this.metricsSource_;
-    chrome.metricsPrivate.recordBoolean(metricName, true);
+    recordBoolean(metricName, true);
     const entrypoint =
         this.shadowRoot.querySelector<HTMLElement>('#entrypoint');
     assert(entrypoint);

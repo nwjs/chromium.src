@@ -37,7 +37,6 @@
 #include "chrome/grit/side_panel_customize_chrome_resources_map.h"
 #include "chrome/grit/side_panel_shared_resources.h"
 #include "chrome/grit/side_panel_shared_resources_map.h"
-#include "components/contextual_search/contextual_search_service.h"
 #include "components/ntp_tiles/features.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/search/ntp_features.h"
@@ -142,7 +141,7 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"newTabPageManagedByA11yLabel",
        IDS_NTP_CUSTOMIZE_CHROME_MANAGED_NEW_TAB_PAGE_ACCESSIBILITY},
       // Tools strings.
-      {"showChipsToggleTitle", IDS_NTP_CUSTOMIZE_SHOW_CHIPS_LABEL},
+      {"showChipsToggleTitle", IDS_NTP_CUSTOMIZE_SHOW_SUGGESTIONS_CHIPS_LABEL},
       // Shortcut strings.
       {"topSites", IDS_NTP_CUSTOMIZE_MOST_VISITED_LABEL},
       {"myShortcuts", IDS_NTP_CUSTOMIZE_MY_SHORTCUTS_LABEL},
@@ -308,8 +307,6 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       AimEligibilityServiceFactory::GetForProfile(profile_);
   bool action_chips_eligible =
       aim_eligibility_service && aim_eligibility_service->IsAimEligible() &&
-      contextual_search::ContextualSearchService::IsContextSharingEnabled(
-          profile_->GetPrefs()) &&
       (ntp_features::kNtpNextShowSimplificationUIParam.Get()
            ? (aim_eligibility_service->IsDeepSearchEligible() ||
               aim_eligibility_service->IsCreateImagesEligible())

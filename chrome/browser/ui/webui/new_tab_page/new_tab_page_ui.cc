@@ -123,6 +123,7 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "skia/ext/skia_utils_base.h"
+#include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -170,6 +171,12 @@ namespace {
 
 constexpr char kPrevNavigationTimePrefName[] = "NewTabPage.PrevNavigationTime";
 constexpr int kContextMenuDescriptionClickThreshold = 2;
+// The value for the "udm" (Unified Drilldown Mode) query parameter.
+// value "50" triggers AI mode as opposed to traditional search.
+constexpr char kAIMDisplayMode[] = "50";
+// The value for the "atvm" (AIM Threads Visibility Mode) query parameter.
+// value "3" corresponds to Threads Visibility Mode "Always Open".
+constexpr char kAIMThreadsVisibilityMode[] = "3";
 
 bool HasCredentials(Profile* profile) {
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
@@ -195,8 +202,12 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddString("googleBaseUrl", google_base_url.spec());
 
   GURL threads_url = google_base_url.Resolve("/search");
-  threads_url = net::AppendQueryParameter(threads_url, "udm", "50");
-  threads_url = net::AppendQueryParameter(threads_url, "atvm", "3");
+  threads_url = net::AppendQueryParameter(threads_url, "udm", kAIMDisplayMode);
+  threads_url = net::AppendQueryParameter(
+      threads_url, "aep",
+      base::NumberToString(omnibox::DESKTOP_CHROME_NTP_THREADS_ENTRY_POINT));
+  threads_url =
+      net::AppendQueryParameter(threads_url, "atvm", kAIMThreadsVisibilityMode);
   source->AddString("threadsUrl", threads_url.spec());
 
   source->AddInteger(
@@ -274,9 +285,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddBoolean("searchboxCyclingPlaceholders",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
                          ntp_realbox::kCyclingPlaceholders.Get());
-  source->AddBoolean("expandedSearchboxShowVoiceSearch",
-                     ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
-                         ntp_realbox::kShowVoiceSearchInExpandedRealbox.Get());
   source->AddBoolean("multiLineEnabled",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
                          ntp_realbox::kMultiLineEnabled.Get());
@@ -704,8 +712,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       ntp_composebox::kAddTabUploadDelayOnRecentTabChipClick.Get());
   source->AddBoolean("enableThreadsRail",
                      ntp_composebox::kEnableThreadsRail.Get());
-  source->AddBoolean("showModelPicker", ntp_composebox::kShowModelPicker.Get());
-  source->AddBoolean("showCanvas", ntp_composebox::kShowCanvas.Get());
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   source->AddBoolean("enableThreadsRailLogo",
@@ -717,8 +723,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   // Action Chips LoadTimeData
   bool action_chips_eligible =
       aim_eligibility_service && aim_eligibility_service->IsAimEligible() &&
-      contextual_search::ContextualSearchService::IsContextSharingEnabled(
-          profile->GetPrefs()) &&
       (ntp_features::kNtpNextShowSimplificationUIParam.Get()
            ? (aim_eligibility_service->IsDeepSearchEligible() ||
               aim_eligibility_service->IsCreateImagesEligible())

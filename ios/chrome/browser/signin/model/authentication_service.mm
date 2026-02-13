@@ -33,6 +33,7 @@
 #import "components/sync/service/sync_user_settings.h"
 #import "google_apis/gaia/gaia_auth_util.h"
 #import "google_apis/gaia/gaia_id.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/bookmarks/model/bookmarks_utils.h"
 #import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -77,6 +78,18 @@ CoreAccountId SystemIdentityToAccountID(
   return identity_manager->PickAccountIdForAccount(identity.gaiaId, email);
 }
 
+// Same as signin::MultiProfileSignOutForProfile, but does nothing if the
+// profile is deallocated.
+void MultiProfileSignOutForProfile(
+    base::WeakPtr<ProfileIOS> profile,
+    signin_metrics::ProfileSignout signout_source,
+    base::OnceClosure signout_completion_closure) {
+  if (profile) {
+    signin::MultiProfileSignOutForProfile(
+        profile.get(), signout_source, std::move(signout_completion_closure));
+  }
+}
+
 }  // namespace
 
 AuthenticationService::AuthenticationService(
@@ -84,7 +97,20 @@ AuthenticationService::AuthenticationService(
     ChromeAccountManagerService* account_manager_service,
     signin::IdentityManager* identity_manager,
     syncer::SyncService* sync_service)
-    : pref_service_(pref_service),
+    : AuthenticationService(nullptr,
+                            pref_service,
+                            account_manager_service,
+                            identity_manager,
+                            sync_service) {}
+
+AuthenticationService::AuthenticationService(
+    ProfileIOS* profile,
+    PrefService* pref_service,
+    ChromeAccountManagerService* account_manager_service,
+    signin::IdentityManager* identity_manager,
+    syncer::SyncService* sync_service)
+    : profile_(profile),
+      pref_service_(pref_service),
       account_manager_service_(account_manager_service),
       identity_manager_(identity_manager),
       sync_service_(sync_service),
@@ -768,12 +794,24 @@ void AuthenticationService::HandleForgottenIdentity(
   }
 
   // Sign the user out.
-  SignOut(signout_source, nil);
+  base::OnceClosure closure =
+      base::BindOnce(&AuthenticationService::HandleForgottenIdentityCallback,
+                     weak_pointer_factory_.GetWeakPtr(), account_info);
+  base::OnceClosure signout =
+      base::BindOnce(&MultiProfileSignOutForProfile, profile_->AsWeakPtr(),
+                     signout_source, std::move(closure));
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, std::move(signout));
+}
 
+void AuthenticationService::HandleForgottenIdentityCallback(
+    const CoreAccountInfo account_info) {
   // Should prompt the user if the identity was not removed by the user.
   bool should_prompt = !GetApplicationContext()
                             ->GetSystemIdentityManager()
                             ->IdentityRemovedByUser(account_info.gaia);
+  const bool account_filtered_out =
+      account_manager_service_->IsEmailRestricted(account_info.email);
   if (should_prompt && account_filtered_out) {
     FirePrimaryAccountRestricted();
   } else if (should_prompt &&

@@ -116,6 +116,11 @@ std::string GetEncodedHandshakeMessage() {
           contextual_tasks::kContextualTasksContextLibrary)) {
     ping->add_capabilities(lens::FeatureCapability::THREAD_CONTEXT_LIBRARY);
   }
+  if (base::FeatureList::IsEnabled(
+          contextual_tasks::kEnableNotifyZeroStateRenderedCapability)) {
+    ping->add_capabilities(lens::FeatureCapability::NOTIFY_ZERO_STATE_RENDERED);
+  }
+
   const size_t size = message.ByteSizeLong();
   std::vector<uint8_t> serialized_message(size);
   message.SerializeToArray(&serialized_message[0], size);
@@ -201,11 +206,6 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       {"myActivity", IDS_CONTEXTUAL_TASKS_MENU_MY_ACTIVITY},
       {"help", IDS_CONTEXTUAL_TASKS_MENU_HELP},
       {"sourcesMenuTitle", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TITLE},
-      {"sourcesMenuTabsHeader", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TABS_HEADER},
-      {"sourcesMenuFilesHeader",
-       IDS_CONTEXTUAL_TASKS_SOURCES_MENU_FILES_HEADER},
-      {"sourcesMenuImagesHeader",
-       IDS_CONTEXTUAL_TASKS_SOURCES_MENU_IMAGES_HEADER},
       {"title", IDS_CONTEXTUAL_TASKS_AI_MODE_TITLE},
       /* composeDeepSearchPlaceholder and
        * composeCreateImagePlaceholder are defined by searchbox_handler.cc.
@@ -312,6 +312,8 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   source->AddBoolean("clearAllInputsWhenSubmittingQuery", true);
   source->AddBoolean("autoSubmitVoiceSearchQuery",
                      contextual_tasks::GetAutoSubmitVoiceSearchQuery());
+  source->AddBoolean("enableGhostLoader",
+                     contextual_tasks::GetIsGhostLoaderEnabled());
 
   source->AddString(
       "composeboxSource",
@@ -463,6 +465,10 @@ BrowserWindowInterface* ContextualTasksUI::GetBrowser() {
   return FromWebContents(web_ui()->GetWebContents());
 }
 
+Profile* ContextualTasksUI::GetProfile() {
+  return Profile::FromWebUI(web_ui());
+}
+
 content::WebContents* ContextualTasksUI::GetWebUIWebContents() {
   return web_ui()->GetWebContents();
 }
@@ -551,7 +557,8 @@ ContextualTasksUI::GetOrCreateContextualSessionHandle() {
       // of this call, or move this call to a different location.
       session_handle->CheckSearchContentSharingSettings(
           Profile::FromWebUI(web_ui())->GetPrefs());
-      helper->SetTaskSession(std::nullopt, std::move(session_handle));
+      helper->SetTaskSession(std::nullopt, std::move(session_handle),
+                             /*input_state_model=*/nullptr);
       return helper->session_handle();
     }
   }
@@ -784,6 +791,11 @@ void ContextualTasksUI::PushTaskDetailsToPage() {
                         thread_id_.value_or(""), thread_turn_id_.value_or(""));
 }
 
+mojo::Remote<contextual_tasks::mojom::Page>&
+ContextualTasksUI::GetPageRemote() {
+  return page_;
+}
+
 contextual_tasks::ContextualTasksSidePanelCoordinator*
 ContextualTasksUI::GetSidePanelCoordinator() {
   if (!web_ui()->GetWebContents()) {
@@ -802,7 +814,7 @@ ContextualTasksUI::FrameNavObserver::FrameNavObserver(
     content::WebContents* web_contents,
     contextual_tasks::ContextualTasksUiService* ui_service,
     contextual_tasks::ContextualTasksService* contextual_tasks_service,
-    TaskInfoDelegate* task_info_delegate)
+    contextual_tasks::TaskInfoDelegate* task_info_delegate)
     : content::WebContentsObserver(web_contents),
       ui_service_(ui_service),
       contextual_tasks_service_(contextual_tasks_service),
@@ -831,7 +843,11 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
   // Set whether this navigation is to a zero state so the UI can adjust
   // accordingly.
   const bool is_zero_state = ContextualTasksUI::IsZeroState(url, ui_service_);
-  task_info_delegate_->OnZeroStateChange(is_zero_state);
+
+  if (!base::FeatureList::IsEnabled(
+          contextual_tasks::kEnableNotifyZeroStateRenderedCapability)) {
+    task_info_delegate_->OnZeroStateChange(is_zero_state);
+  }
 
   bool is_url_changed = false;
   if (url != last_committed_url_) {
@@ -847,7 +863,10 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     return;
   }
 
-  if (is_zero_state) {
+  if (is_zero_state &&
+      (!base::FeatureList::IsEnabled(
+           contextual_tasks::kEnableNotifyZeroStateRenderedCapability) ||
+       navigation_handle->IsSameDocument())) {
     // Create a new task for zero state, since there's no thread to associate
     // this with yet.
     contextual_tasks::ContextualTask task =

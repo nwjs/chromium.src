@@ -257,6 +257,8 @@ GlicButton::GlicButton(TabStripController* tab_strip_controller,
                           gfx::VectorIcon::EmptyIcon(),
                           /*show_close_button=*/true),
       menu_model_(CreateMenuModel()),
+      browser_window_interface_(
+          tab_strip_controller->GetBrowserWindowInterface()),
       profile_(
           tab_strip_controller->GetBrowserWindowInterface()
               ? tab_strip_controller->GetBrowserWindowInterface()->GetProfile()
@@ -533,6 +535,19 @@ void GlicButton::AddedToWidget() {
   normal_width_ = PreferredSize().width();
   start_width_ = normal_width_;
   end_width_ = normal_width_;
+
+  if (browser_window_interface_ != nullptr) {
+    window_did_become_active_subscription_ =
+        browser_window_interface_->RegisterDidBecomeActive(
+            base::BindRepeating(&GlicButton::OnBrowserWindowDidBecomeActive,
+                                base::Unretained(this)));
+    window_did_become_inactive_subscription_ =
+        browser_window_interface_->RegisterDidBecomeInactive(
+            base::BindRepeating(&GlicButton::OnBrowserWindowDidBecomeInactive,
+                                base::Unretained(this)));
+
+    UpdateInkdropHoverColor(browser_window_interface_->IsActive());
+  }
 }
 
 void GlicButton::SetDropToAttachIndicator(bool indicate) {
@@ -705,6 +720,7 @@ bool GlicButton::IsHighlightVisible() const {
 
 void GlicButton::ShowNudge() {
   WidthState old_width_state = width_state_;
+  collapsed_before_nudge_shown_ = width_state_ == WidthState::kCollapsed;
   // Don't restart the animation if already nudging.
   if (width_state_ == WidthState::kNudge) {
     return;
@@ -743,10 +759,17 @@ void GlicButton::ShowNudge() {
 
 void GlicButton::HideNudge() {
   WidthState old_width_state = width_state_;
-  // Only animate if transitioning from kNudge to kNormal.
+  // Only animate if transitioning from kNudge to kNormal or kCollapsed.
   if (width_state_ != WidthState::kNudge) {
     return;
   }
+  // If the label was previously collapsed, return to the collapsed state.
+  if (base::FeatureList::IsEnabled(features::kGlicActorUiGlobalTaskIndicator) &&
+      collapsed_before_nudge_shown_) {
+    Collapse();
+    return;
+  }
+  // If the button wasn't collapsed, it must be transitioning back to kNormal.
   SetWidthState(WidthState::kNormal);
 
   if (!EntrypointVariationsEnabled()) {
@@ -821,6 +844,12 @@ int GlicButton::CalculateExpandedWidth() {
     // If transitioning from empty label to nudge label, make sure the label
     // margin is included.
     new_width += kLabelRightMargin;
+  }
+  if (base::FeatureList::IsEnabled(features::kGlicActorUiGlobalTaskIndicator) &&
+      last_width_state_ == WidthState::kCollapsed) {
+    // Add extra margin if the label was previously collapsed, as the old_width
+    // is smaller.
+    new_width += kCloseButtonMargin;
   }
   return new_width;
 }
@@ -901,7 +930,10 @@ bool GlicButton::IsAnimatingTextVisibility() const {
 }
 
 bool GlicButton::IsHidingNudge() const {
-  return width_state_ == WidthState::kNormal &&
+  return (width_state_ == WidthState::kNormal ||
+          (base::FeatureList::IsEnabled(
+               features::kGlicActorUiGlobalTaskIndicator) &&
+           width_state_ == WidthState::kCollapsed)) &&
          last_width_state_ == WidthState::kNudge;
 }
 
@@ -930,6 +962,29 @@ void GlicButton::SetSplitButtonCornerStyling() {
 void GlicButton::ResetSplitButtonCornerStyling() {
   SetLeftRightCornerRadii(TabStripNudgeButton::GetCornerRadius(),
                           TabStripNudgeButton::GetCornerRadius());
+}
+
+void GlicButton::RemovedFromWidget() {
+  window_did_become_active_subscription_ = {};
+  window_did_become_inactive_subscription_ = {};
+  TabStripNudgeButton::RemovedFromWidget();
+}
+
+void GlicButton::OnBrowserWindowDidBecomeActive(BrowserWindowInterface* bwi) {
+  UpdateInkdropHoverColor(true);
+}
+
+void GlicButton::OnBrowserWindowDidBecomeInactive(BrowserWindowInterface* bwi) {
+  UpdateInkdropHoverColor(false);
+}
+
+void GlicButton::UpdateInkdropHoverColor(bool is_frame_active) {
+  if (base::FeatureList::IsEnabled(features::kGlicActorUiGlobalTaskIndicator)) {
+    SetInkdropHoverColorId(is_frame_active
+                               ? kColorTabBackgroundInactiveHoverFrameActive
+                               : kColorTabBackgroundInactiveHoverFrameInactive);
+    UpdateColors();
+  }
 }
 
 BEGIN_METADATA(GlicButton)
