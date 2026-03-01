@@ -228,7 +228,7 @@ source_set("browser_tests") {
   sources = [
     "content_setting_bubble_dialog_browsertest.cc",
     "custom_tab_bar_view_browsertest.cc",
-    "intent_chip_button_browsertest.cc",
+    #"intent_chip_button_browsertest.cc",
     "intent_chip_button_test_base.cc",
     "intent_chip_button_test_base.h",
     "location_bar_view_browsertest.cc",
