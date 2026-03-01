@@ -20,6 +20,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.components.tabs.DetachReason;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
@@ -49,6 +50,7 @@ public interface Tab extends TabLifecycle {
     }
 
     /** Tracks the media indicator state of the tab. */
+    // LINT.IfChange(AndroidTabMediaState)
     @IntDef({
         MediaState.NONE,
         MediaState.MUTED,
@@ -56,6 +58,7 @@ public interface Tab extends TabLifecycle {
         MediaState.RECORDING,
         MediaState.SHARING,
         MediaState.MAX_VALUE,
+        MediaState.COUNT,
     })
     @Target(ElementType.TYPE_USE)
     @Retention(RetentionPolicy.SOURCE)
@@ -66,7 +69,10 @@ public interface Tab extends TabLifecycle {
         int RECORDING = 3;
         int SHARING = 4;
         int MAX_VALUE = SHARING;
+        int COUNT = MAX_VALUE + 1;
     }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:AndroidTabMediaState)
 
     /** The result of the loadUrl. */
     class LoadUrlResult {
@@ -516,7 +522,8 @@ public interface Tab extends TabLifecycle {
             SelectionStateSupplier selectionStateSupplier);
 
     /** Called when the tab is removed from a tab model. */
-    void onRemovedFromTabModel(LookAheadObservableSupplier<Tab> currentTabSupplier);
+    void onRemovedFromTabModel(
+            LookAheadObservableSupplier<Tab> currentTabSupplier, @DetachReason int detachReason);
 
     /** Returns whether the tab is multi-selected. */
     boolean isMultiSelected();

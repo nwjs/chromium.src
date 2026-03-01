@@ -13,7 +13,6 @@
 #include "base/timer/elapsed_timer.h"
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/actor/actor_policy_checker.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -65,18 +64,8 @@ class ActorPageStabilityTestBase : public PageStabilityTest {
 
   void SetUpOnMainThread() override {
     PageStabilityTest::SetUpOnMainThread();
-
-    auto execution_engine =
-        std::make_unique<ExecutionEngine>(browser()->profile());
-    auto event_dispatcher = ui::NewUiEventDispatcher(
-        actor_keyed_service()->GetActorUiStateManager());
-    auto actor_task = std::make_unique<ActorTask>(
-        GetProfile(), std::move(execution_engine), std::move(event_dispatcher));
     task_id_ = ActorKeyedService::Get(browser()->profile())
-                   ->AddActiveTask(std::move(actor_task));
-    ActorKeyedService::Get(browser()->profile())
-        ->GetPolicyChecker()
-        .set_act_on_web_for_testing(true);
+                   ->CreateTask(NoEnterprisePolicyChecker());
   }
 
   void TearDownOnMainThread() override {

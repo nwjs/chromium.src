@@ -73,7 +73,8 @@ std::unique_ptr<webapps::WebappIcon> MakeWebAppIcon(
 }  // anonymous namespace
 
 // static JNI method.
-static jint JNI_WebApkUpdateManager_GetWebApkTargetShellVersion(JNIEnv* env) {
+static int32_t JNI_WebApkUpdateManager_GetWebApkTargetShellVersion(
+    JNIEnv* env) {
   return base::GetFieldTrialParamByFeatureAsInt(
       kWebApkShellUpdate, kWebApkTargetShellVersion.name,
       kWebApkTargetShellVersion.default_value);
@@ -98,12 +99,12 @@ static void JNI_WebApkUpdateManager_StoreWebApkUpdateRequestToFile(
     bool java_is_splash_icon_maskable,
     std::vector<std::string>& java_icon_urls,
     std::vector<std::string>& java_icon_hashes,
-    jint java_display_mode,
-    jint java_orientation,
-    jlong java_theme_color,
-    jlong java_background_color,
-    jlong java_dark_theme_color,
-    jlong java_dark_background_color,
+    int32_t java_display_mode,
+    int32_t java_orientation,
+    int64_t java_theme_color,
+    int64_t java_background_color,
+    int64_t java_dark_theme_color,
+    int64_t java_dark_background_color,
     std::string& java_share_target_action,
     std::u16string& java_share_target_param_title,
     std::u16string& java_share_target_param_text,
@@ -115,7 +116,7 @@ static void JNI_WebApkUpdateManager_StoreWebApkUpdateRequestToFile(
     const JavaRef<jobjectArray>& java_shortcut_icon_data,
     std::string& java_web_manifest_url,
     std::string& webapk_package,
-    jint java_webapk_version,
+    int32_t java_webapk_version,
     bool java_is_manifest_stale,
     bool java_is_app_identity_update_supported,
     const JavaRef<jintArray>& java_update_reasons,

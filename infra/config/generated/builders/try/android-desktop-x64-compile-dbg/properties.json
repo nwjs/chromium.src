@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "android-desktop-x64-compile-dbg",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.android.desktop",
@@ -42,7 +42,7 @@
         {
           "bucket": "ci",
           "builder": "android-desktop-x64-compile-dbg",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         }
       ],
       "targets_spec_directory": "infra/config/generated/builders/try/android-desktop-x64-compile-dbg/targets"
@@ -55,6 +55,7 @@
     "enable_cloud_monitoring": true,
     "enable_cloud_trace": true,
     "experiments": [],
+    "keep_going": 3,
     "profile_mode": "cloud",
     "project": "rbe-chromium-untrusted",
     "remote_jobs": 150

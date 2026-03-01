@@ -132,7 +132,7 @@ bool TrackerImplAndroid::HasEverTriggered(
   return tracker_->HasEverTriggered(*features_[feature], j_from_window);
 }
 
-jint TrackerImplAndroid::GetTriggerState(
+int32_t TrackerImplAndroid::GetTriggerState(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& jfeature) {
   std::string feature = base::android::ConvertJavaStringToUTF8(env, jfeature);
@@ -153,7 +153,7 @@ void TrackerImplAndroid::Dismissed(
 void TrackerImplAndroid::DismissedWithSnooze(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& jfeature,
-    const jint snooze_action) {
+    const int32_t snooze_action) {
   std::string feature = base::android::ConvertJavaStringToUTF8(env, jfeature);
   DCHECK(features_.find(feature) != features_.end());
 
@@ -196,16 +196,12 @@ TrackerImplAndroid::GetPendingPriorityNotification(JNIEnv* env) {
 }
 
 void TrackerImplAndroid::RegisterPriorityNotificationHandler(
-    JNIEnv* env,
-    const base::android::JavaRef<jstring>& jfeature,
-    const base::android::JavaRef<jobject>& jrunnable) {
-  std::string feature = base::android::ConvertJavaStringToUTF8(env, jfeature);
+    const std::string& feature,
+    base::OnceClosure&& runnable) {
   DCHECK(features_.find(feature) != features_.end());
 
-  return tracker_->RegisterPriorityNotificationHandler(
-      *features_[feature],
-      base::BindOnce(&base::android::RunRunnableAndroid,
-                     base::android::ScopedJavaGlobalRef<jobject>(jrunnable)));
+  return tracker_->RegisterPriorityNotificationHandler(*features_[feature],
+                                                       std::move(runnable));
 }
 
 void TrackerImplAndroid::UnregisterPriorityNotificationHandler(
@@ -222,11 +218,8 @@ bool TrackerImplAndroid::IsInitialized(JNIEnv* env) {
 }
 
 void TrackerImplAndroid::AddOnInitializedCallback(
-    JNIEnv* env,
-    const base::android::JavaRef<jobject>& j_callback_obj) {
-  tracker_->AddOnInitializedCallback(base::BindOnce(
-      &base::android::RunBooleanCallbackAndroid,
-      base::android::ScopedJavaGlobalRef<jobject>(j_callback_obj)));
+    base::OnceCallback<void(bool)> callback) {
+  tracker_->AddOnInitializedCallback(std::move(callback));
 }
 
 DisplayLockHandleAndroid::DisplayLockHandleAndroid(

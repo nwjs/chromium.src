@@ -6,13 +6,15 @@
 
 #import "base/check_op.h"
 #import "base/memory/ptr_util.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_callback_manager.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presentation_context.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter_observer.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_request_support.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/web/common/features.h"
 
 #pragma mark - Factory method
 
@@ -46,13 +48,22 @@ OverlayPresenterImpl* OverlayPresenterImpl::Container::PresenterForModality(
 
 OverlayPresenterImpl::OverlayPresenterImpl(Browser* browser,
                                            OverlayModality modality)
-    : modality_(modality), web_state_list_(browser->GetWebStateList()) {
-  StartObserving(browser, Policy::kAccordingToFeature);
+    : modality_(modality),
+      web_state_list_(browser->GetWebStateList()),
+      profile_state_(browser->GetSceneState().profileState) {
+  if (profile_state_) {
+    profile_state_observer_bridge_ =
+        [[ProfileStateObserverBridge alloc] initWithObserver:this];
+    [profile_state_ addObserver:profile_state_observer_bridge_];
+  }
+  StartObserving(browser);
   DCHECK(web_state_list_);
   SetActiveWebState(web_state_list_->GetActiveWebState());
 }
 
 OverlayPresenterImpl::~OverlayPresenterImpl() {
+  [profile_state_observer_bridge_ resetObserver];
+
   // Notify all observers that the current OverlayPresenter will be destroyed.
   for (auto& observer : observers_) {
     observer.OverlayPresenterDestroyed(this);
@@ -116,6 +127,21 @@ bool OverlayPresenterImpl::IsShowingOverlayUI() const {
   return presenting_;
 }
 
+#pragma mark - ProfileStateObserver
+
+void OverlayPresenterImpl::OnProfileStateDidTransitionToInitStage(
+    ProfileState* profile_state,
+    ProfileInitStage next_init_stage,
+    ProfileInitStage from_init_stage) {
+  if (next_init_stage < ProfileInitStage::kNormalUI) {
+    return;
+  }
+  if (!presenting_) {
+    PresentOverlayForActiveRequest();
+    return;
+  }
+}
+
 #pragma mark - Private
 
 #pragma mark Accessors
@@ -174,14 +200,10 @@ void OverlayPresenterImpl::SetActiveWebState(web::WebState* web_state) {
 
 OverlayRequestQueueImpl* OverlayPresenterImpl::GetQueueForWebState(
     web::WebState* web_state) const {
-  if (!web_state) {
+  if (!web_state || !web_state->IsRealized()) {
     return nullptr;
   }
-  if (web::features::CreateTabHelperOnlyForRealizedWebStates()) {
-    if (!web_state->IsRealized()) {
-      return nullptr;
-    }
-  }
+
   OverlayRequestQueueImpl::Container::CreateForWebState(web_state);
   return OverlayRequestQueueImpl::Container::FromWebState(web_state)
       ->QueueForModality(modality_);
@@ -204,6 +226,12 @@ OverlayRequest* OverlayPresenterImpl::GetActiveRequest() const {
 #pragma mark UI Presentation and Dismissal helpers
 
 void OverlayPresenterImpl::PresentOverlayForActiveRequest() {
+  // Don't show an infobar if the profile isn't in its normal state.
+  if (profile_state_ &&
+      profile_state_.initStage < ProfileInitStage::kNormalUI) {
+    return;
+  }
+
   // Overlays cannot be shown without a presentation context or if the
   // presentation context is already showing overlay UI.
   if (!presentation_context_ || presentation_context_->IsShowingOverlayUI()) {

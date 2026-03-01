@@ -27,6 +27,7 @@ extern NSString* const kGoogleShieldSymbol;
 extern NSString* const kGoogleMapsSymbol;
 extern NSString* const kGooglePaySymbol;
 extern NSString* const kGooglePhotosSymbol;
+extern NSString* const kGoogleWalletSymbol;
 extern NSString* const kMulticolorChromeballSymbol;
 extern NSString* const kPageInsightsSymbol;
 #else
@@ -83,6 +84,7 @@ extern NSString* const kIncognitoCircleFillSymbol;
 extern NSString* const kPlusCircleFillSymbol;
 extern NSString* const kPDFFillSymbol;
 extern NSString* const kLineThreeSparkSymbol;
+extern NSString* const kDocumentBadgeSpark;
 
 // Use custom symbol for camera because the default video icon in iOS should
 // always represent “Apple Facetime”.
@@ -274,6 +276,7 @@ extern NSString* const kFolderBadgePlusSymbol;
 extern NSString* const kCartSymbol;
 extern NSString* const kArrowUTurnForwardSymbol;
 extern NSString* const kArrowUTurnForwardCircleFillSymbol;
+extern NSString* const kArrowUTurnBackwardSymbol;
 extern NSString* const kIPhoneAndArrowForwardSymbol;
 extern NSString* const kPersonPlusSymbol;
 extern NSString* const kArrowUpTrashSymbol;
@@ -295,6 +298,8 @@ extern NSString* const kWaveformSymbol;
 extern NSString* const kRightArrowCircleFillSymbol;
 extern NSString* const kArrowDownToLineSymbol;
 extern NSString* const kPhotoOnRectangleAngled;
+extern NSString* const kSparklesSymbol;
+extern NSString* const kSparkles2Symbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

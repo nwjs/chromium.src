@@ -18,6 +18,7 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/lens_server_proto/modality_chip_props.pb.h"
 
 namespace contextual_search {
 
@@ -166,6 +167,7 @@ TEST_F(ContextualSearchServiceTest, PendingContextTokens) {
   auto session_handle = service_->CreateSessionForTesting(
       std::move(mock_controller), std::move(metrics_recorder));
   session_handle->CheckSearchContentSharingSettings(&pref_service_);
+  session_handle->NotifySessionStarted();
 
   // Add some dummy tokens.
   base::UnguessableToken token1 = base::UnguessableToken::Create();
@@ -249,6 +251,7 @@ TEST_F(ContextualSearchServiceTest, FileInfoTest) {
   auto session_handle = service_->CreateSessionForTesting(
       std::move(mock_controller), std::move(metrics_recorder));
   session_handle->CheckSearchContentSharingSettings(&pref_service_);
+  session_handle->NotifySessionStarted();
 
   // Create tokens and FileInfo objects.
   base::UnguessableToken token1 = base::UnguessableToken::Create();
@@ -362,6 +365,39 @@ TEST_F(ContextualSearchServiceTest, FileInfoTest) {
   EXPECT_EQ(uploaded_infos[0].file_token, token3);
 }
 
+TEST_F(ContextualSearchServiceTest, StartModalityChipUploadFlow) {
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto metrics_recorder = std::make_unique<ContextualSearchMetricsRecorder>(
+      ContextualSearchSource::kUnknown);
+
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto session_handle = service_->CreateSessionForTesting(
+      std::move(mock_controller), std::move(metrics_recorder));
+  session_handle->CheckSearchContentSharingSettings(&pref_service_);
+
+  base::UnguessableToken file_token = session_handle->CreateContextToken();
+
+  auto modality_chip_props = std::make_unique<lens::ModalityChipProps>();
+  modality_chip_props->set_id("test_chip_id");
+
+  // Expect StartFileUploadFlow to be called with the modality chip props.
+  EXPECT_CALL(*mock_controller_ptr,
+              StartFileUploadFlow(file_token, testing::NotNull(), _))
+      .WillOnce(
+          testing::WithArgs<1>([&](std::unique_ptr<lens::ContextualInputData>
+                                       contextual_input_data) {
+            EXPECT_TRUE(contextual_input_data->modality_chip_props.has_value());
+            EXPECT_EQ(contextual_input_data->modality_chip_props->id(),
+                      "test_chip_id");
+          }));
+
+  session_handle->StartModalityChipUploadFlow(file_token,
+                                              std::move(modality_chip_props));
+}
+
 TEST_F(ContextualSearchServiceTest, NullController) {
   // Create a session.
   auto config_params =
@@ -371,6 +407,7 @@ TEST_F(ContextualSearchServiceTest, NullController) {
       /*invocation_source=*/std::nullopt);
   ASSERT_THAT(session_handle, NotNull());
   session_handle->CheckSearchContentSharingSettings(&pref_service_);
+  session_handle->NotifySessionStarted();
 
   // Add some dummy tokens.
   session_handle->GetUploadedContextTokensForTesting().push_back(

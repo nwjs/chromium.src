@@ -4,10 +4,10 @@
 
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -606,7 +606,7 @@ void CustomizeChromePageHandler::SetModuleDisabled(const std::string& module_id,
                                                    bool disabled) {
   DisableModuleAutoRemoval(profile_, module_id);
   ScopedListPrefUpdate update(profile_->GetPrefs(), prefs::kNtpDisabledModules);
-  base::Value::List& list = update.Get();
+  base::ListValue& list = update.Get();
   if (disabled) {
     if (!list.contains(module_id)) {
       list.Append(module_id);
@@ -641,9 +641,9 @@ void CustomizeChromePageHandler::UpdateModulesSettings() {
           l10n_util::GetStringUTF8(description_message_id.value());
     }
     module_settings->enabled =
-        !base::Contains(disabled_module_ids, module_settings->id);
+        !std::ranges::contains(disabled_module_ids, module_settings->id);
     module_settings->visible =
-        !base::Contains(hidden_module_ids, module_settings->id);
+        !std::ranges::contains(hidden_module_ids, module_settings->id);
     modules_settings.push_back(std::move(module_settings));
   }
   page_->SetModulesSettings(

@@ -16,7 +16,7 @@
   display: flex;
   font-size: 13px;
   gap: 2px;
-  height: 36px;
+  height: var(--cr-composebox-tool-chip-height, 36px);
   justify-content: center;
   padding-bottom: 6px;
   padding-inline: 8px 12px;
@@ -38,10 +38,6 @@
   position: absolute;
   transition: opacity 150ms;
   width: 16px;
-}
-
-#toolEnabledButton .tool-icon {
-  padding-top: 3px;
 }
 
 #toolEnabledButton .close-icon {

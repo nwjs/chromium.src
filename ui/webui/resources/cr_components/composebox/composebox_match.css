@@ -10,6 +10,7 @@
  * #css_wrapper_metadata_end */
 
 :host {
+  --tab-select-color_: rgba(23, 112, 216, 1);
   --input-inline-spacing: 12px;
   outline: none;
   height: var(--cr-composebox-match-height, 44px);
@@ -37,7 +38,13 @@
 }
 
 :host(:is(:focus-visible, [selected])) .container {
-  background-color: var(--color-searchbox-results-background-selected, var(--color-searchbox-results-background-hovered));
+  background-color: var(--color-searchbox-results-background-selected,
+      var(--color-searchbox-results-background-hovered));
+
+  /* Optional match border if '--match-border-size' is set
+   * via ::part. Otherwise, keep it as 0px. */
+  border: var(--match-border-size, 0) solid
+      var(--color-searchbox-results-icon-focused-outline);
 }
 
 @media (forced-colors: active) {
@@ -81,31 +88,35 @@
   align-content: center;
   color: var(--color-composebox-font-light);
   font-size: var(--cr-composebox-match-text-container-font-size, 16px);
+  flex-grow: 1;
   overflow: hidden;
-  padding-inline: var(--input-inline-spacing) 64px;
+  padding-inline: var(--cr-searchbox-match-text-padding-inline-start, 12px) 4px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 :host(:is(:focus-visible, [selected])) #textContainer {
-  color: var(--color-searchbox-results-foreground-selected, var(--color-composebox-font-light));
+  color: var(--color-searchbox-results-foreground-selected,
+      var(--color-composebox-font-light));
+}
+
+.container:hover:has(#remove:not([hidden])) #textContainer {
+  padding-inline-end: var(--cr-composebox-match-text-padding-inline-end, 4px);
 }
 
 #remove {
   --cr-icon-button-fill-color:
       var(--color-searchbox-results-icon-selected);
-  --cr-icon-button-icon-size: 16px;
+  --cr-icon-button-icon-size:
+      var(--cr-composebox-dropdown-match-icon-size, 16px);
   --cr-icon-button-hover-background-color:
       var(--color-searchbox-results-button-hover);
+  --cr-icon-button-margin-end:
+      var(--cr-composebox-dropdown-match-margin-end, 4px);
+  --cr-icon-button-margin-start:
+      var(--cr-composebox-dropdown-match-margin-start, 0);
   display: none;
-  position: absolute;
   top: var(--cr-composebox-match-remove-button-top, 6px);
-  right: 12px;
-}
-
-:host-context([dir='rtl']) #remove {
-  left: 12px;
-  right: unset;
 }
 
 .container:hover #remove:not([hidden]),
@@ -113,30 +124,42 @@
   display: inline-flex;
 }
 
-:host-context([in-deep-search-mode_]) #textContainer {
+:host([tool-mode='1']) #textContainer {
   overflow: hidden;
   white-space: normal;
   line-height: 24px;
 }
 
-:host-context([in-deep-search-mode_]) #focusIndicator {
+:host([tool-mode='1']) #focusIndicator {
   top: 0;
   bottom: 0;
   height: auto;
 }
 
-:host-context([in-deep-search-mode_]) {
+:host([tool-mode='1']) {
   height: auto;
   min-height: var(--cr-composebox-match-height, 44px);
 }
 
-:host-context([in-deep-search-mode_]) .container {
+:host([tool-mode='1']) .container {
   height: auto;
   min-height: 24px;
   padding-block: 10px;
-}
-
-:host-context([in-deep-search-mode_]) .container {
   border-start-end-radius: 24px;
   border-end-end-radius: 24px;
+}
+
+/* For co-browsing. Must be defined here since cannot be injected via ::part. */
+@keyframes loading-bar-color-change {
+  0% {
+    background-color: var(--color-composebox-loading-start);
+  }
+
+  50% {
+    background-color: var(--color-composebox-loading-end);
+  }
+
+  100% {
+    background-color: var(--color-composebox-loading-start);
+  }
 }

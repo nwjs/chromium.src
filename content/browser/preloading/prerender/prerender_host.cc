@@ -4,6 +4,7 @@
 
 #include "content/browser/preloading/prerender/prerender_host.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 
@@ -47,6 +48,7 @@
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/mojom/supports_loading_mode.mojom.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/common/client_hints/enabled_client_hints.h"
 #include "third_party/blink/public/common/navigation/preloading_headers.h"
 #include "url/origin.h"
@@ -411,7 +413,7 @@ bool PrerenderHost::AreHttpRequestHeadersCompatible(
   // WebView.
   // TODO(crbug.com/40244149): Expand this to other platforms and non-x-headers.
   if (allow_x_header_mismatch) {
-    std::set<std::string> headers_to_be_removed;
+    absl::flat_hash_set<std::string> headers_to_be_removed;
     for (net::HttpRequestHeaders::Iterator it(prerender_headers);
          it.GetNext();) {
       if (it.name().starts_with("X-") || it.name().starts_with("x-")) {
@@ -635,6 +637,8 @@ bool PrerenderHost::StartPrerendering() {
       web_contents_->GetDelegate()->ShouldOverrideUserAgentForPreloading(
           attributes_.prerendering_url);
 
+  load_url_params.is_form_submission = attributes_.form_submission;
+
   // TODO(https://crbug.com/1406149, https://crbug.com/1378921): Set
   // `override_user_agent` for Android. This field is determined on the Java
   // side based on the URL and we should mimic Java code and set it to the
@@ -743,7 +747,7 @@ void PrerenderHost::ReadyToCommitNavigation(
         base::FeatureList::IsEnabled(
             blink::features::kPrerender2CrossOriginIframes);
     if (is_prerender_2_cross_origin_iframes_enabled &&
-        base::Contains(
+        std::ranges::contains(
             parsed_headers->supports_loading_mode,
             network::mojom::LoadingMode::kPrerenderCrossOriginFrames)) {
       allow_cross_origin_subframe_navigation_ = true;
@@ -840,8 +844,6 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
   FrameTree& target_frame_tree = web_contents_->GetPrimaryFrameTree();
 
   // There should be no ongoing main-frame navigation during activation.
-  // TODO(crbug.com/40174232): Make sure sub-frame navigations are
-  // fine.
   CHECK(!GetFrameTree()->root()->HasNavigation());
 
   // Before the root's current_frame_host is cleared, collect the subframes of
@@ -1068,6 +1070,15 @@ bool PrerenderHost::AreInitialPrerenderNavigationParamsCompatibleWithNavigation(
     return false;
   }
 
+  // Compare CommitNavigationParams.
+  result = AreCommitNavigationParamsCompatibleWithNavigation(
+      navigation_request.commit_params());
+  if (result != ActivationNavigationParamsMatch::kOk) {
+    RecordPrerenderActivationNavigationParamsMatch(result,
+                                                   GetHistogramSuffix());
+    return false;
+  }
+
   RecordPrerenderActivationNavigationParamsMatch(
       ActivationNavigationParamsMatch::kOk, GetHistogramSuffix());
   return true;
@@ -1142,8 +1153,6 @@ PrerenderHost::AreBeginNavigationParamsCompatibleWithNavigation(
     return ActivationNavigationParamsMatch::kMixedContentContextType;
   }
 
-  // Initial prerender navigation cannot be a form submission.
-  CHECK(!begin_params_->is_form_submission);
   if (potential_activation.is_form_submission !=
       begin_params_->is_form_submission) {
     return ActivationNavigationParamsMatch::kIsFormSubmission;
@@ -1175,6 +1184,7 @@ PrerenderHost::AreBeginNavigationParamsCompatibleWithNavigation(
   switch (potential_activation.request_context_type) {
     case blink::mojom::RequestContextType::HYPERLINK:
     case blink::mojom::RequestContextType::LOCATION:
+    case blink::mojom::RequestContextType::FORM:
       break;
     default:
       return ActivationNavigationParamsMatch::kRequestContextType;
@@ -1320,6 +1330,31 @@ PrerenderHost::AreCommonNavigationParamsCompatibleWithNavigation(
   return ActivationNavigationParamsMatch::kOk;
 }
 
+// Kill switch.
+BASE_FEATURE(kPrerenderActivationCheckForCommitNavigationParams,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+PrerenderHost::ActivationNavigationParamsMatch
+PrerenderHost::AreCommitNavigationParamsCompatibleWithNavigation(
+    const blink::mojom::CommitNavigationParams& potential_activation) {
+  if (!base::FeatureList::IsEnabled(
+          kPrerenderActivationCheckForCommitNavigationParams)) {
+    return ActivationNavigationParamsMatch::kOk;
+  }
+
+  // A mitigation for DCHECK failures happening on Android Desktop. Tentatively
+  // allowing parameter discrepancies at this point for prerender triggered by
+  // speculation rules to narrow the mitigation scope. See crbug.com/40252581
+  // and crbug.com/461578988 for details.
+  if (!IsSpeculationRuleType(trigger_type()) &&
+      (potential_activation.is_overriding_user_agent !=
+       commit_params_is_overriding_user_agent_)) {
+    return ActivationNavigationParamsMatch::kIsOverridingUserAgent;
+  }
+
+  return ActivationNavigationParamsMatch::kOk;
+}
+
 RenderFrameHostImpl* PrerenderHost::GetPrerenderedMainFrameHost() {
   CHECK(GetFrameTree());
   CHECK(GetFrameTree()->root()->current_frame_host());
@@ -1356,10 +1391,6 @@ void PrerenderHost::RecordFailedFinalStatusImpl(
 void PrerenderHost::RecordActivation(NavigationRequest& navigation_request) {
   CHECK(!final_status_);
   final_status_ = PrerenderFinalStatus::kActivated;
-
-  // TODO(crbug.com/40215894): Replace
-  // `navigation_request.GetNextPageUkmSourceId()` with prerendered page's UKM
-  // source ID.
   ReportSuccessActivation(attributes_,
                           navigation_request.GetNextPageUkmSourceId());
 }
@@ -1389,6 +1420,8 @@ void PrerenderHost::SetInitialNavigation(NavigationRequest* navigation) {
   initial_navigation_id_ = navigation->GetNavigationId();
   begin_params_ = navigation->begin_params().Clone();
   common_params_ = navigation->common_params().Clone();
+  commit_params_is_overriding_user_agent_ =
+      navigation->commit_params().is_overriding_user_agent;
 
   // The prerendered page should be checked by the main world CSP. See also
   // relevant comments in AreCommonNavigationParamsCompatibleWithNavigation().

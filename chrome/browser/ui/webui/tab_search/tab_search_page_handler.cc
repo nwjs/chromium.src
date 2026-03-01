@@ -54,6 +54,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/user_education/tutorial_identifiers.h"
@@ -69,6 +70,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "components/user_education/common/tutorial/tutorial_identifier.h"
 #include "components/user_education/common/tutorial/tutorial_service.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
@@ -282,6 +284,9 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
 
   ++num_tabs_closed_;
 
+  Profile::FromWebUI(web_ui_)->GetPrefs()->SetBoolean(
+      tab_search_prefs::kTabSearchUsed, true);
+
   // CloseTab() can target the WebContents hosting Tab Search if the Tab Search
   // WebUI is open in a chrome browser tab rather than its bubble. In this case
   // CloseWebContentsAt() closes the WebContents hosting this
@@ -308,6 +313,8 @@ void TabSearchPageHandler::CloseWebUiTab() {
   // CloseWebContentsAt(). See (https://crbug.com/1175507).
   TabStripModel* const tab_strip_model = browser_->tab_strip_model();
   CHECK(tab_strip_model);
+  Profile::FromWebUI(web_ui_)->GetPrefs()->SetBoolean(
+      tab_search_prefs::kTabSearchUsed, true);
   const int index =
       tab_strip_model->GetIndexOfWebContents(web_ui_->GetWebContents());
   tab_strip_model->CloseWebContentsAt(
@@ -358,7 +365,7 @@ void TabSearchPageHandler::AcceptTabOrganization(
     return;
   }
 
-  std::unordered_set<int> tabs_tab_ids;
+  absl::flat_hash_set<int> tabs_tab_ids;
   for (tab_search::mojom::TabPtr& tab : tabs) {
     tabs_tab_ids.emplace(tab->tab_id);
   }
@@ -727,7 +734,7 @@ void TabSearchPageHandler::GetTabOrganizationSession(
     session = organization_service_->CreateSessionForBrowser(browser_);
   }
 
-  if (!base::Contains(listened_sessions_, session)) {
+  if (!std::ranges::contains(listened_sessions_, session)) {
     session->AddObserver(this);
     listened_sessions_.emplace_back(session);
   }
@@ -783,6 +790,9 @@ void TabSearchPageHandler::SwitchToTab(
 
   called_switch_to_tab_ = true;
 
+  Profile::FromWebUI(web_ui_)->GetPrefs()->SetBoolean(
+      tab_search_prefs::kTabSearchUsed, true);
+
   details->tab->GetBrowserWindowInterface()->GetTabStripModel()->ActivateTabAt(
       details->GetIndex());
   // Tab search shows tabs from other windows in the profile. So if a user
@@ -806,6 +816,10 @@ void TabSearchPageHandler::OpenRecentlyClosedEntry(int32_t session_id) {
   if (!tab_restore_service) {
     return;
   }
+
+  Profile::FromWebUI(web_ui_)->GetPrefs()->SetBoolean(
+      tab_search_prefs::kTabSearchUsed, true);
+
   tab_restore_service->RestoreEntryById(
       BrowserLiveTabContext::FindContextForWebContents(
           browser_->tab_strip_model()->GetActiveWebContents()),
@@ -826,7 +840,7 @@ void TabSearchPageHandler::RequestTabOrganization() {
     session = organization_service_->ResetSessionForBrowser(browser_);
   }
 
-  if (!base::Contains(listened_sessions_, session)) {
+  if (!std::ranges::contains(listened_sessions_, session)) {
     session->AddObserver(this);
     listened_sessions_.emplace_back(session);
   }
@@ -905,7 +919,7 @@ void TabSearchPageHandler::RestartSession() {
   // Don't notify observers to avoid a repaint
   TabOrganizationSession* session =
       organization_service_->ResetSessionForBrowser(browser_, base_session_tab);
-  if (!base::Contains(listened_sessions_, session)) {
+  if (!std::ranges::contains(listened_sessions_, session)) {
     session->AddObserver(this);
     listened_sessions_.emplace_back(session);
   }
@@ -971,7 +985,7 @@ void TabSearchPageHandler::TriggerFeedback(int32_t session_id) {
           optimization_guide::proto::LogAiDataRequest::kTabOrganization)) {
     return;
   }
-  base::Value::Dict feedback_metadata;
+  base::DictValue feedback_metadata;
   feedback_metadata.Set("log_id", feedback_id);
   chrome::ShowFeedbackPage(
       browser_, feedback::kFeedbackSourceAI,
@@ -980,7 +994,7 @@ void TabSearchPageHandler::TriggerFeedback(int32_t session_id) {
       l10n_util::GetStringUTF8(IDS_TAB_ORGANIZATION_FEEDBACK_PLACEHOLDER),
       /*category_tag=*/"tab_organization",
       /*extra_diagnostics=*/std::string(),
-      /*autofill_metadata=*/base::Value::Dict(), std::move(feedback_metadata));
+      /*autofill_metadata=*/base::DictValue(), std::move(feedback_metadata));
 }
 
 void TabSearchPageHandler::TriggerSignIn() {
@@ -1421,8 +1435,8 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
   tab_data->pinned = tab->IsPinned();
   tab_data->split = tab->IsSplit();
 
-  TabRendererData tab_renderer_data =
-      TabRendererData::FromTabInModel(tab_strip_model, index);
+  const TabRendererData tab_renderer_data =
+      TabRendererData::FromTabInterface(tab);
   tab_data->title = base::UTF16ToUTF8(tab_renderer_data.title);
   const auto& last_committed_url = tab_renderer_data.last_committed_url;
   // A visible URL is used when the a new tab is still loading.
@@ -1524,7 +1538,10 @@ void TabSearchPageHandler::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
+  const auto* preload_state =
+      WebUIContentsPreloadState::FromWebContents(web_ui_->GetWebContents());
   if (!IsWebContentsVisible() ||
+      (preload_state && preload_state->pending_request) ||
       browser_tab_strip_tracker_.is_processing_initial_browsers()) {
     return;
   }
@@ -1755,7 +1772,7 @@ TabSearchPageHandler::GetMojoForTabOrganizationSession(
 
 void TabSearchPageHandler::OnTabOrganizationSessionUpdated(
     const TabOrganizationSession* session) {
-  if (restarting_ || !base::Contains(listened_sessions_, session)) {
+  if (restarting_ || !std::ranges::contains(listened_sessions_, session)) {
     return;
   }
 

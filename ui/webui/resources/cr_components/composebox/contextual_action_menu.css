@@ -46,6 +46,7 @@
 }
 
 #tabHeader,
+#toolHeader,
 #modelHeader {
   color: var(--cr-primary-text-color);
   font-size: 11px;
@@ -64,6 +65,7 @@
   color: var(--cr-primary-text-color);
   cursor: pointer;
   display: flex;
+  font-family: var(--cr-composebox-context-menu-font-family, inherit);
   font-size: 13px;
   font-weight: 400;
   gap: 8px;
@@ -81,6 +83,16 @@
 
 .dropdown-item:hover {
   background-color: var(--cr-hover-background-color);
+}
+
+.dropdown-item:focus {
+  background-color: var(--cr-hover-background-color);
+  outline: none;
+}
+
+.dropdown-item:focus-visible {
+  outline: 2px solid var(--cr-focus-outline-color);
+  outline-offset: -2px;
 }
 
 .dropdown-item[disabled] {
@@ -127,4 +139,9 @@
 #multi-tab-check {
   --iron-icon-fill-color: white;
   background-color: var(--color-composebox-tab-selector-button-selected);
+}
+
+#model-check {
+  --iron-icon-height: 16px;
+  --iron-icon-width: 16px;
 }

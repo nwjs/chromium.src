@@ -73,9 +73,9 @@ Color CSSColorMixValue::Mix(const Color& color1,
 }
 
 bool CSSColorMixValue::Equals(const CSSColorMixValue& other) const {
-  return color1_ == other.color1_ && color2_ == other.color2_ &&
-         percentage1_ == other.percentage1_ &&
-         percentage2_ == other.percentage2_ &&
+  return *color1_ == *other.color1_ && *color2_ == *other.color2_ &&
+         base::ValuesEquivalent(percentage1_, other.percentage1_) &&
+         base::ValuesEquivalent(percentage2_, other.percentage2_) &&
          color_interpolation_space_ == other.color_interpolation_space_ &&
          hue_interpolation_method_ == other.hue_interpolation_method_;
 }
@@ -154,39 +154,11 @@ String CSSColorMixValue::CustomCSSText() const {
   return result.ReleaseString();
 }
 
-const CSSValue*
-CSSColorMixValue::CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-    const CSSPropertyName& property_name,
-    wtf_size_t& property_value_index) const {
-  const CSSValue* color1 =
-      color1_ ? color1_->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                    property_name, property_value_index)
-              : nullptr;
-  const CSSValue* color2 =
-      color2_ ? color2_->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                    property_name, property_value_index)
-              : nullptr;
-  const CSSPrimitiveValue* percentage1 =
-      percentage1_
-          ? To<CSSPrimitiveValue>(
-                percentage1_
-                    ->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                        property_name, property_value_index))
-          : nullptr;
-  const CSSPrimitiveValue* percentage2 =
-      percentage2_
-          ? To<CSSPrimitiveValue>(
-                percentage2_
-                    ->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                        property_name, property_value_index))
-          : nullptr;
-  if (color1 != color1_ || color2 != color2_ || percentage1 != percentage1_ ||
-      percentage2 != percentage2_) {
-    return MakeGarbageCollected<CSSColorMixValue>(
-        color1, color2, percentage1, percentage2, color_interpolation_space_,
-        hue_interpolation_method_);
-  }
-  return this;
+bool CSSColorMixValue::HasRandomFunctions() const {
+  return (color1_ && color1_->HasRandomFunctions()) ||
+         (color2_ && color2_->HasRandomFunctions()) ||
+         (percentage1_ && percentage1_->HasRandomFunctions()) ||
+         (percentage2_ && percentage2_->HasRandomFunctions());
 }
 
 void CSSColorMixValue::TraceAfterDispatch(blink::Visitor* visitor) const {

@@ -66,7 +66,7 @@ class ExtensionFunctionDispatcher {
 
   void DispatchSync(mojom::RequestParamsPtr params,
                     bool* success,
-                    base::Value::List* response,
+                    base::ListValue* response,
                     std::string* error,
                     content::RenderFrameHost* render_frame_host,
                     int render_process_id);
@@ -132,7 +132,7 @@ class ExtensionFunctionDispatcher {
       ExtensionFunction::ResponseCallback callback,
       bool sync = false,
       bool* success = nullptr,
-      base::Value::List* response = nullptr,
+      base::ListValue* response = nullptr,
       std::string* error = nullptr
                                     );
 

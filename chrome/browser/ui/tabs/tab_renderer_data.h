@@ -14,7 +14,6 @@
 #include "ui/base/models/image_model.h"
 #include "url/gurl.h"
 
-class TabStripModel;
 class TabResourceUsage;
 class ThumbnailImage;
 
@@ -24,11 +23,12 @@ class CollaborationMessagingTabData;
 
 namespace tabs {
 enum class TabAlert;
+class TabInterface;
 }  // namespace tabs
 
 // Wraps the state needed by the renderers.
 struct TabRendererData {
-  static TabRendererData FromTabInModel(const TabStripModel* model, int index);
+  static TabRendererData FromTabInterface(tabs::TabInterface* tab);
 
   TabRendererData();
   TabRendererData(const TabRendererData& other);
@@ -68,6 +68,7 @@ struct TabRendererData {
   // Contains information about how much resource a tab is using
   scoped_refptr<const TabResourceUsage> tab_resource_usage;
   bool is_monochrome_favicon = false;
+  bool needs_attention = false;
 };
 
 #endif  // CHROME_BROWSER_UI_TABS_TAB_RENDERER_DATA_H_

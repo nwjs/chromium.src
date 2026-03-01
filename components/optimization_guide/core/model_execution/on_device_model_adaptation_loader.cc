@@ -22,6 +22,7 @@
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
 #include "components/optimization_guide/proto/models.pb.h"
@@ -93,8 +94,9 @@ bool ArePerformanceHintsCompatible(
     return true;
   }
   // Check if the adaptation model supports any of the base model's hints.
-  return base::Contains(adaptation_metadata.supported_performance_hints(),
-                        base_spec.selected_performance_hint);
+  return std::ranges::contains(
+      adaptation_metadata.supported_performance_hints(),
+      base_spec.selected_performance_hint);
 }
 
 std::optional<OnDeviceModelAdaptationAvailability>
@@ -234,8 +236,12 @@ void OnDeviceModelAdaptationLoader::MaybeRegisterModelDownload(
     return;
   }
 
+  bool is_background_download_enabled_for_feature =
+      features::IsOnDeviceModelBackgroundDownloadEnabledForFeature(feature_);
+
   if (!switches::GetOnDeviceModelExecutionOverride() &&
-      !was_feature_recently_used) {
+      !was_feature_recently_used &&
+      !is_background_download_enabled_for_feature) {
     RecordAdaptationModelAvailability(
         feature_, OnDeviceModelAdaptationAvailability::kFeatureNotRecentlyUsed);
     return;

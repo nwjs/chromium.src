@@ -259,9 +259,6 @@ bool DeserializeWindowType(int type_int,
     case sessions::SessionWindow::TYPE_APP:
     case sessions::SessionWindow::TYPE_DEVTOOLS:
     case sessions::SessionWindow::TYPE_APP_POPUP:
-#if BUILDFLAG(IS_CHROMEOS)
-    case sessions::SessionWindow::TYPE_CUSTOM_TAB:
-#endif
       *type = static_cast<sessions::SessionWindow::WindowType>(type_int);
       return true;
   }
@@ -302,8 +299,7 @@ std::unique_ptr<sessions::tab_restore::Window> CreateWindowEntryFromCommand(
   auto type = sessions::SessionWindow::TYPE_NORMAL;
 
   if (command->id() == kCommandWindow) {
-    base::Pickle pickle = command->PayloadAsPickle();
-    base::PickleIterator it(pickle);
+    base::PickleIterator it = command->PayloadAsPickle();
     WindowCommandFields parsed_fields;
 
     // The first version of the pickle contains all of the following fields, so
@@ -429,8 +425,7 @@ std::unique_ptr<sessions::tab_restore::Group> CreateGroupEntryFromCommand(
     const SessionCommand* command,
     SessionID* session_id,
     int32_t* num_tabs) {
-  base::Pickle pickle = command->PayloadAsPickle();
-  base::PickleIterator it(pickle);
+  base::PickleIterator it = command->PayloadAsPickle();
   GroupCommandFields parsed_fields;
 
   // The first version of the pickle contains all of the following fields, so
@@ -896,9 +891,9 @@ void TabRestoreServiceImpl::PersistenceDelegate::ScheduleCommandsForTab(
 
   if (tab.pinned) {
     PinnedStatePayload payload = true;
-    std::unique_ptr<SessionCommand> command(
-        new SessionCommand(kCommandPinnedState, sizeof(payload)));
-    UNSAFE_TODO(memcpy(command->contents(), &payload, sizeof(payload)));
+    auto command =
+        std::make_unique<SessionCommand>(kCommandPinnedState, sizeof(payload));
+    command->contents().copy_from(base::byte_span_from_ref(payload));
     command_storage_manager_->ScheduleCommand(std::move(command));
   }
 
@@ -1032,9 +1027,9 @@ std::unique_ptr<SessionCommand> TabRestoreServiceImpl::PersistenceDelegate::
   payload.id = tab_id.id();
   payload.index = index;
   payload.timestamp = timestamp.ToDeltaSinceWindowsEpoch().InMicroseconds();
-  std::unique_ptr<SessionCommand> command(
-      new SessionCommand(kCommandSelectedNavigationInTab, sizeof(payload)));
-  UNSAFE_TODO(memcpy(command->contents(), &payload, sizeof(payload)));
+  auto command = std::make_unique<SessionCommand>(
+      kCommandSelectedNavigationInTab, sizeof(payload));
+  command->contents().copy_from(base::byte_span_from_ref(payload));
   return command;
 }
 
@@ -1043,9 +1038,9 @@ std::unique_ptr<SessionCommand>
 TabRestoreServiceImpl::PersistenceDelegate::CreateRestoredEntryCommand(
     SessionID entry_id) {
   RestoredEntryPayload payload = entry_id.id();
-  std::unique_ptr<SessionCommand> command(
-      new SessionCommand(kCommandRestoredEntry, sizeof(payload)));
-  UNSAFE_TODO(memcpy(command->contents(), &payload, sizeof(payload)));
+  auto command =
+      std::make_unique<SessionCommand>(kCommandRestoredEntry, sizeof(payload));
+  command->contents().copy_from(base::byte_span_from_ref(payload));
   return command;
 }
 
@@ -1266,8 +1261,7 @@ void TabRestoreServiceImpl::PersistenceDelegate::CreateEntriesFromCommands(
           // Should be in a tab when we get this.
           return;
         }
-        base::Pickle pickle = command.PayloadAsPickle();
-        base::PickleIterator iter(pickle);
+        base::PickleIterator iter = command.PayloadAsPickle();
         std::optional<base::Token> group_token = ReadTokenFromPickle(&iter);
         std::u16string title;
         uint32_t color_int;
@@ -1624,6 +1618,10 @@ std::vector<LiveTab*> TabRestoreServiceImpl::RestoreMostRecentEntry(
 
 void TabRestoreServiceImpl::RemoveEntryById(SessionID id) {
   helper_.RemoveEntryById(id);
+}
+
+void TabRestoreServiceImpl::RemoveLeastRecentlyUsedEntries(int num_to_remove) {
+  helper_.RemoveLeastRecentlyUsedEntries(num_to_remove);
 }
 
 std::vector<LiveTab*> TabRestoreServiceImpl::RestoreEntryById(

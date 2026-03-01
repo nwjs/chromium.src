@@ -29,7 +29,7 @@ enum class TimelineTriggerState {
 
 // This class encapsulates a single instance of the configuration that a
 // TimelineTrigger needs to function, i.e. an AnimationTimeline, the boundaries
-// of an entry range and the boundaries of an exit range.
+// of an activation range and the boundaries of an exit range.
 // Currently, we only support one such configuration per TimelineTrigger.
 // However, TimelineTrigger will support having multiple such configurations in
 // the future: crbug.com/473568234.
@@ -41,10 +41,10 @@ class CORE_EXPORT TimelineTriggerRange : public ScriptWrappable {
   using State = TimelineTriggerState;
 
   TimelineTriggerRange(AnimationTimeline* timeline,
-                       Boundary* range_start,
-                       Boundary* range_end,
-                       Boundary* exit_range_start,
-                       Boundary* exit_range_end);
+                       Boundary* activation_range_start,
+                       Boundary* activation_range_end,
+                       Boundary* active_range_start,
+                       Boundary* active_range_end);
 
   static TimelineTriggerRange* Create(ExecutionContext* execution_context,
                                       const TimelineTriggerOptions* options,
@@ -52,10 +52,10 @@ class CORE_EXPORT TimelineTriggerRange : public ScriptWrappable {
 
   // IDL interface
   AnimationTimeline* timeline();
-  const Boundary* rangeStart(ExecutionContext* execution_context);
-  const Boundary* rangeEnd(ExecutionContext* execution_context);
-  const Boundary* exitRangeStart(ExecutionContext* execution_context);
-  const Boundary* exitRangeEnd(ExecutionContext* execution_context);
+  const Boundary* activationRangeStart(ExecutionContext* execution_context);
+  const Boundary* activationRangeEnd(ExecutionContext* execution_context);
+  const Boundary* activeRangeStart(ExecutionContext* execution_context);
+  const Boundary* activeRangeEnd(ExecutionContext* execution_context);
 
   AnimationTimeline* GetTimelineInternal() { return timeline_.Get(); }
 
@@ -63,13 +63,13 @@ class CORE_EXPORT TimelineTriggerRange : public ScriptWrappable {
   // boundaries of the trigger (default) range and the exit range;
   struct TriggerBoundaries {
     // The start offset of the trigger/default range.
-    double start = 0.;
+    double activation_start = 0.;
     // The end offset of the trigger/default range.
-    double end = 0.;
+    double activation_end = 0.;
     // The start offset of the exit range.
-    double exit_start = 0.;
+    double active_start = 0.;
     // The end offset of the exit range.
-    double exit_end = 0.;
+    double active_end = 0.;
     double current_offset = 0.;
   };
 
@@ -86,14 +86,14 @@ class CORE_EXPORT TimelineTriggerRange : public ScriptWrappable {
 
   std::optional<State> UpdateState();
   std::optional<State> ComputeState();
-  void SetRangeBoundariesForTest(Boundary* start,
-                                 Boundary* exit,
-                                 Boundary* exit_start,
-                                 Boundary* exit_end) {
-    range_start_ = start;
-    range_end_ = exit;
-    exit_range_start_ = exit_start;
-    exit_range_end_ = exit_end;
+  void SetRangeBoundariesForTest(Boundary* activation_start,
+                                 Boundary* activation_end,
+                                 Boundary* active_start,
+                                 Boundary* active_end) {
+    activation_range_start_ = activation_start;
+    activation_range_end_ = activation_end;
+    active_range_start_ = active_start;
+    active_range_end_ = active_end;
   }
 
   void Trace(Visitor* visitor) const override;
@@ -101,10 +101,10 @@ class CORE_EXPORT TimelineTriggerRange : public ScriptWrappable {
  private:
   Member<AnimationTimeline> timeline_;
   // The range boundaries at which the trigger takes action, in CSS pixels.
-  Member<const Boundary> range_start_;
-  Member<const Boundary> range_end_;
-  Member<const Boundary> exit_range_start_;
-  Member<const Boundary> exit_range_end_;
+  Member<const Boundary> activation_range_start_;
+  Member<const Boundary> activation_range_end_;
+  Member<const Boundary> active_range_start_;
+  Member<const Boundary> active_range_end_;
 
   // TODO(crbug.com/473568234): While we only support a single
   // TimelineTriggerRange per TimelineTrigger we can simply have the

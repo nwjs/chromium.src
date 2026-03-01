@@ -35,6 +35,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/views/tabs/tab_strip_combo_button.cc:AccidentalClickType) -->
 
+<!-- LINT.IfChange(AndroidTabMediaState) -->
+
+<enum name="AndroidTabMediaState">
+  <int value="0" label="None"/>
+  <int value="1" label="Muted"/>
+  <int value="2" label="Audible"/>
+  <int value="3" label="Recording"/>
+  <int value="4" label="Sharing"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/tab/java/src/org/chromium/chrome/browser/tab/Tab.java:AndroidTabMediaState) -->
+
 <!-- LINT.IfChange(AnimationFreezeCheckerState) -->
 
 <enum name="AnimationFreezeCheckerState">
@@ -98,6 +110,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Success"/>
   <int value="1" label="NoContents"/>
   <int value="2" label="DiscardTabFailure"/>
+  <int value="3" label="NoLifecycleUnit"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/performance_manager/mechanisms/page_discarder.cc:DiscardPageOnUIThreadOutcome) -->
@@ -177,6 +190,7 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Group shared from UI"/>
   <int value="9" label="Group un-shared from UI"/>
   <int value="10" label="Open from toast action"/>
+  <int value="11" label="Opened from projects panel"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/saved_tab_groups/public/types.h:OpeningSource) -->
@@ -345,6 +359,17 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Activate a tab"/>
   <int value="1" label="Activate the context menu of a tab"/>
 </enum>
+
+<!-- LINT.IfChange(TabDragDestination) -->
+
+<enum name="TabDragDestination">
+  <int value="0" label="Same window"/>
+  <int value="1" label="New window"/>
+  <int value="2" label="Existing window"/>
+  <int value="3" label="Abandoned"/>
+</enum>
+
+<!-- LINT.ThenChange(chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h:TabDragDestination) -->
 
 <!-- LINT.IfChange(TabGroupingTransitionType) -->
 

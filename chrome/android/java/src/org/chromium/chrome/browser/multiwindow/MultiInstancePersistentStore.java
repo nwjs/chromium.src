@@ -10,9 +10,9 @@ import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SupportedProfileType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.tabmodel.SupportedProfileType;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -74,6 +74,7 @@ class MultiInstancePersistentStore {
         removeTabCount(instanceId);
         removeIncognitoSelected(instanceId);
         removeLastAccessedTime(instanceId);
+        removeClosureTime(instanceId);
         removeProfileType(instanceId);
         removeMarkedForDeletion(instanceId);
     }
@@ -84,6 +85,14 @@ class MultiInstancePersistentStore {
 
     static void writeLastAccessedTime(int instanceId) {
         getManager().writeLong(lastAccessedTimeKey(instanceId), TimeUtils.currentTimeMillis());
+    }
+
+    static long readClosureTime(int instanceId) {
+        return getManager().readLong(closureTimeKey(instanceId));
+    }
+
+    static void writeClosureTime(int instanceId) {
+        getManager().writeLong(closureTimeKey(instanceId), TimeUtils.currentTimeMillis());
     }
 
     static Map<String, Integer> readTaskMap() {
@@ -181,6 +190,10 @@ class MultiInstancePersistentStore {
         getManager().removeKey(lastAccessedTimeKey(instanceId));
     }
 
+    private static void removeClosureTime(int instanceId) {
+        getManager().removeKey(closureTimeKey(instanceId));
+    }
+
     private static void removeTabCount(int instanceId) {
         getManager().removeKey(normalTabCountKey(instanceId));
         getManager().removeKey(incognitoTabCountKey(instanceId));
@@ -213,6 +226,11 @@ class MultiInstancePersistentStore {
 
     private static String lastAccessedTimeKey(int instanceId) {
         return ChromePreferenceKeys.MULTI_INSTANCE_LAST_ACCESSED_TIME.createKey(
+                String.valueOf(instanceId));
+    }
+
+    private static String closureTimeKey(int instanceId) {
+        return ChromePreferenceKeys.MULTI_INSTANCE_CLOSURE_TIME.createKey(
                 String.valueOf(instanceId));
     }
 

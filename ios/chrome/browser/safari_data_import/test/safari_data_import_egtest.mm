@@ -55,7 +55,6 @@ NSString* const kInvalidPasswordUsername = @"Superman";
 /// the Safari import feature by default. No other behavior is overridden.
 - (AppLaunchConfiguration)appConfigurationNoOverrideBehavior {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  config.features_enabled.push_back(kImportPasswordsFromSafari);
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   return config;
 }
@@ -115,6 +114,7 @@ NSString* const kInvalidPasswordUsername = @"Superman";
     /// Show the First Run UI at startup.
     firstRunConfig.additional_args.push_back("-FirstRunForceEnabled");
     firstRunConfig.additional_args.push_back("true");
+    firstRunConfig.features_disabled.push_back(kBestOfAppFRE);
     firstRunConfig.relaunch_policy = ForceRelaunchByCleanShutdown;
     [[AppLaunchManager sharedManager]
         ensureAppLaunchedWithConfiguration:firstRunConfig];

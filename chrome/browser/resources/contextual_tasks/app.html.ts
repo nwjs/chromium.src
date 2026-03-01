@@ -21,23 +21,37 @@ export function getHtml(this: ContextualTasksAppElement) {
       </top-toolbar>
     </div>
   `}
-  <webview id="threadFrame"></webview>
+  <webview id="threadFrame" allowtransparency="on"
+      partition="persist:contextual-tasks"
+      aria-hidden="${this.isZeroState_ && !this.isShownInTab_}"
+      style="${this.getThreadFrameStyles()}">
+  </webview>
   <ghost-loader id="ghostLoader"></ghost-loader>
-  <div class="flex-center">
+  ${this.isErrorDialogVisible_ ?
+    html`<contextual-tasks-error-dialog></contextual-tasks-error-dialog>` : ''}
+  <div id="flexCenterContainer">
     <div id="composeboxHeaderWrapper"
-        ?hidden="${this.isInBasicMode_}">
+        ?hidden="${this.isInBasicMode_ && !this.enableBasicModeZOrder_}">
       <h1 class="thread-header" id="composeboxHeader">
-          ${this.friendlyZeroStateTitle}
+          ${this.friendlyZeroStateGaiaName_
+            ? html`<span>${this.friendlyZeroStateTitleBeforeName_}</span><span class="name-shimmer">
+              ${this.friendlyZeroStateGaiaName_}</span><span>${this.friendlyZeroStateTitleAfterName_}</span>`
+            : html`<span>${this.friendlyZeroStateTitle}</span>`
+          }
           ${this.friendlyZeroStateSubtitle.length > 0 ?
               html`<br>
               ${this.friendlyZeroStateSubtitle}` : ''}
       </h1>
     </div>
     <contextual-tasks-composebox id="composebox"
-          ?hidden="${this.isInBasicMode_}"
+          ?hidden="${this.isInBasicMode_ && !this.enableBasicModeZOrder_}"
           .isZeroState="${this.isZeroState_}"
+          .forcedComposeboxBounds="${this.forcedComposeboxBounds_}"
           .isSidePanel="${!this.isShownInTab_}"
-          .isLensOverlayShowing="${this.isLensOverlayShowing_}">
+          .isLensOverlayShowing="${this.isLensOverlayShowing_}"
+          .enableNativeZeroStateSuggestions=
+              "${this.enableNativeZeroStateSuggestions_}"
+          .inputEnabled="${!this.isInputLocked_}">
     </contextual-tasks-composebox>
   </div>
   <error-page id="errorPage"></error-page>

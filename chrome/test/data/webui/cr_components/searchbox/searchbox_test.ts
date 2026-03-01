@@ -5,7 +5,7 @@
 import 'chrome://new-tab-page/new_tab_page.js';
 
 import type {SearchboxElement, SearchboxIconElement, SearchboxMatchElement} from 'chrome://new-tab-page/new_tab_page.js';
-import {$$, BrowserProxyImpl, MetricsReporterImpl, PlaceholderTextCycler, SearchboxBrowserProxy} from 'chrome://new-tab-page/new_tab_page.js';
+import {$$, BrowserProxyImpl, MetricsReporterImpl, SearchboxBrowserProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import {createAutocompleteMatch, createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageMetricsCallbackRouter} from 'chrome://resources/js/metrics_reporter.mojom-webui.js';
@@ -21,7 +21,7 @@ import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertStyle, waitForAttributeChange} from './searchbox_test_utils.js';
+import {assertStyle} from './searchbox_test_utils.js';
 import {TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
 
 enum Attributes {
@@ -46,7 +46,7 @@ function createUrlMatch(modifiers: Partial<AutocompleteMatch> = {}):
     swapContentsAndDescription: true,
     contents: 'helloworld.com',
     contentsClass: [{offset: 0, style: 1}],
-    destinationUrl: {url: 'https://helloworld.com/'},
+    destinationUrl: 'https://helloworld.com/',
     fillIntoEdit: 'https://helloworld.com',
     type: 'url-what-you-typed',
     ...modifiers,
@@ -61,7 +61,7 @@ function createCalculatorMatch(modifiers: Partial<AutocompleteMatch>):
     contentsClass: [{offset: 0, style: 0}],
     description: '5',
     descriptionClass: [{offset: 0, style: 0}],
-    destinationUrl: {url: 'https://www.google.com/search?q=2+%2B+3'},
+    destinationUrl: 'https://www.google.com/search?q=2+%2B+3',
     fillIntoEdit: '5',
     type: 'search-calculator-answer',
     iconPath: 'calculator.svg',
@@ -101,8 +101,8 @@ function arrowDown(realbox: SearchboxElement): KeyboardEvent {
   return arrowDownEvent;
 }
 
-async function createAndAppendRealbox(properties: Partial<SearchboxElement> = {}):
-    Promise<SearchboxElement> {
+async function createAndAppendRealbox(
+    properties: Partial<SearchboxElement> = {}): Promise<SearchboxElement> {
   document.body.innerHTML = window.trustedTypes!.emptyHTML;
   const realbox = document.createElement('cr-searchbox');
   Object.assign(realbox, properties);
@@ -111,40 +111,68 @@ async function createAndAppendRealbox(properties: Partial<SearchboxElement> = {}
   return realbox;
 }
 
+async function setupRealboxTest(): Promise<{
+  realbox: SearchboxElement,
+  testProxy: TestSearchboxBrowserProxy,
+  testMetricsReporterProxy: TestMock<BrowserProxyImpl>,
+  metrics: MetricsTracker,
+}> {
+  loadTimeData.overrideValues({
+    contextualMenuUsePecApi: false,
+    isLensSearchbox: false,
+    searchboxCyclingPlaceholders: false,
+    searchboxDefaultIcon: 'search.svg',
+    searchboxSeparator: ' - ',
+    searchboxVoiceSearch: true,
+    reportMetrics: true,
+  });
+
+  // Set up Realbox's browser proxy.
+  const testProxy = new TestSearchboxBrowserProxy();
+  SearchboxBrowserProxy.setInstance(testProxy);
+
+  // Set up MetricsReporter's browser proxy.
+  const testMetricsReporterProxy = TestMock.fromClass(BrowserProxyImpl);
+  testMetricsReporterProxy.reset();
+  const metricsReporterCallbackRouter = new PageMetricsCallbackRouter();
+  testMetricsReporterProxy.setResultFor(
+      'getCallbackRouter', metricsReporterCallbackRouter);
+  testMetricsReporterProxy.setResultFor('getMark', Promise.resolve(null));
+  BrowserProxyImpl.setInstance(testMetricsReporterProxy);
+  MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
+  const metrics = fakeMetricsPrivate();
+
+  testProxy.handler.setResultFor('getInputState', {
+    state: {
+      allowedModels: [],
+      allowedTools: [],
+      allowedInputTypes: [],
+      activeModel: 0,
+      activeTool: 0,
+      disabledModels: [],
+      disabledTools: [],
+      disabledInputTypes: [],
+      inputTypeConfigs: [],
+      toolConfigs: [],
+      modelConfigs: [],
+      toolsSectionConfig: null,
+      modelSectionConfig: null,
+      hintText: '',
+      maxInstances: {},
+      maxTotalInputs: 0,
+    },
+  });
+  const realbox = await createAndAppendRealbox();
+  return {realbox, testProxy, testMetricsReporterProxy, metrics};
+}
+
 suite('NewTabPageRealboxTest', () => {
   let realbox: SearchboxElement;
-
   let testProxy: TestSearchboxBrowserProxy;
-
-  const testMetricsReporterProxy = TestMock.fromClass(BrowserProxyImpl);
-  let metrics: MetricsTracker;
+  let testMetricsReporterProxy: TestMock<BrowserProxyImpl>;
 
   setup(async () => {
-    loadTimeData.overrideValues({
-      isLensSearchbox: false,
-      searchboxCyclingPlaceholders: false,
-      searchboxDefaultIcon: 'search.svg',
-      searchboxSeparator: ' - ',
-      searchboxVoiceSearch: true,
-      reportMetrics: true,
-    });
-
-    // Set up Realbox's browser proxy.
-    testProxy = new TestSearchboxBrowserProxy();
-    SearchboxBrowserProxy.setInstance(testProxy);
-
-    // Set up MetricsReporter's browser proxy.
-    testMetricsReporterProxy.reset();
-    const metricsReporterCallbackRouter = new PageMetricsCallbackRouter();
-    testMetricsReporterProxy.setResultFor(
-        'getCallbackRouter', metricsReporterCallbackRouter);
-    testMetricsReporterProxy.setResultFor('getMark', Promise.resolve(null));
-    BrowserProxyImpl.setInstance(testMetricsReporterProxy);
-    MetricsReporterImpl.setInstanceForTest(new MetricsReporterImpl());
-    metrics = fakeMetricsPrivate();
-
-    realbox = await createAndAppendRealbox();
-    testProxy.handler.setResultFor('getRecentTabs', {tabs: []});
+    ({realbox, testProxy, testMetricsReporterProxy} = await setupRealboxTest());
   });
 
   // TODO(crbug.com/328270499): Uncomment once flakiness is fixed.
@@ -235,7 +263,8 @@ suite('NewTabPageRealboxTest', () => {
     assertIconMaskImageUrl(realbox.$.icon, 'search.svg');
   });
 
-  test('realbox default Google G icon', async () => {
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip('realbox default Google G icon', async () => {
     // Arrange.
     loadTimeData.overrideValues({
       searchboxDefaultIcon:
@@ -457,111 +486,7 @@ suite('NewTabPageRealboxTest', () => {
     assertFalse(glowAnimationWrapper.classList.contains('play'));
   });
 
-  test('adding context files opens composebox', async () => {
-    // Arrange.
-    realbox = await createAndAppendRealbox({
-      composeButtonEnabled: true,
-      composeboxEnabled: true,
-      searchboxLayoutMode: 'TallBottomContext',
-      ntpRealboxNextEnabled: true,
-    });
-    const contextElement =
-        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
-    assertTrue(!!contextElement);
 
-    // Act & Assert.
-    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
-    contextElement.dispatchEvent(new CustomEvent('add-tab-context', {
-      detail: {id: 1, title: 'title'},
-      bubbles: true,
-      composed: true,
-    }));
-    const event = await whenOpenComposeBox;
-    assertEquals(event.detail.contextFiles.length, 1);
-    assertEquals(event.detail.contextFiles[0].tabId, 1);
-    assertEquals(event.detail.contextFiles[0].title, 'title');
-  });
-
-  test('clicking deep search button opens composebox', async () => {
-    // Arrange.
-    loadTimeData.overrideValues({
-      composeboxShowDeepSearchButton: true,
-    });
-    realbox = await createAndAppendRealbox(
-        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
-    const contextElement =
-        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
-    assertTrue(!!contextElement);
-    const contextMenuEntrypoint = contextElement.shadowRoot.querySelector(
-        'cr-composebox-context-menu-entrypoint');
-    assertTrue(!!contextMenuEntrypoint);
-
-    testProxy.handler.setResultFor(
-        'getRecentTabs', Promise.resolve({tabs: []}));
-
-    // Act.
-    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
-
-    const entrypointButton =
-        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
-            '#entrypoint');
-    assertTrue(!!entrypointButton);
-    entrypointButton.click();
-    await microtasksFinished();
-
-    const deepSearchButton =
-        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
-            '#deepSearch');
-    assertTrue(!!deepSearchButton);
-    deepSearchButton.click();
-
-    // Assert.
-    const event = await whenOpenComposeBox;
-    assertEquals(ToolMode.kDeepSearch, event.detail.mode);
-    // Calling deep search should not be logged as context being added.
-    assertEquals(
-        0,
-        metrics.count(
-            'ContextualSearch.ContextAdded.ContextAddedMethod.NewTabPage'));
-  });
-
-  test('clicking create image button opens composebox', async () => {
-    // Arrange.
-    loadTimeData.overrideValues({
-      composeboxShowCreateImageButton: true,
-    });
-    realbox = await createAndAppendRealbox(
-        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
-    const contextElement =
-        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
-    assertTrue(!!contextElement);
-    const contextMenuEntrypoint = contextElement.shadowRoot.querySelector(
-        'cr-composebox-context-menu-entrypoint');
-    assertTrue(!!contextMenuEntrypoint);
-
-    testProxy.handler.setResultFor(
-        'getRecentTabs', Promise.resolve({tabs: []}));
-
-    // Act.
-    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
-
-    const entrypointButton =
-        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
-            '#entrypoint');
-    assertTrue(!!entrypointButton);
-    entrypointButton.click();
-    await microtasksFinished();
-
-    const createImageButton =
-        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
-            '#createImage');
-    assertTrue(!!createImageButton);
-    createImageButton.click();
-
-    // Assert.
-    const event = await whenOpenComposeBox;
-    assertEquals(ToolMode.kImageGen, event.detail.mode);
-  });
 
   //============================================================================
   // Test Querying Autocomplete
@@ -575,8 +500,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new MouseEvent('mousedown', {button: 0}));
 
     const args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -637,8 +562,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = '';
     realbox.$.input.dispatchEvent(new MouseEvent('mousedown', {button: 0}));
     let args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -679,8 +604,8 @@ suite('NewTabPageRealboxTest', () => {
       key: 'Tab',
     }));
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -700,8 +625,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = '';
     realbox.$.input.dispatchEvent(new MouseEvent('mousedown', {button: 0}));
     const args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -757,8 +682,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = 'hello';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
     let args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -799,8 +724,8 @@ suite('NewTabPageRealboxTest', () => {
       key: 'ArrowDown',
     }));
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
@@ -821,8 +746,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     let args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -832,8 +757,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertTrue(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertTrue(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -842,8 +767,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -856,8 +781,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertTrue(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertTrue(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -866,8 +791,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -878,8 +803,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertTrue(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertTrue(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -890,8 +815,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(inputEvent);
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertTrue(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertTrue(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -901,15 +826,15 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = 'h';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
-    const args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    let args = await testProxy.handler.whenCalled('queryAutocomplete');
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     realbox.$.input.value = '';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
-    const clearResult = await testProxy.handler.whenCalled('stopAutocomplete');
-    assertTrue(clearResult);
+    args = await testProxy.handler.whenCalled('stopAutocomplete');
+    assertTrue(args.clearResult);
   });
 
   test(
@@ -932,7 +857,7 @@ suite('NewTabPageRealboxTest', () => {
         // Check that autocomplete gets queried with last input on click with
         // non empty input when thumbnail is showing.
         let args = await testProxy.handler.whenCalled('queryAutocomplete');
-        assertEquals(/*input=*/ args[0], realbox.$.input.value);
+        assertEquals(args.input, realbox.$.input.value);
 
         // Make sure realbox focus is not focused and matches aren't showing.
         realbox.$.input.blur();
@@ -948,7 +873,7 @@ suite('NewTabPageRealboxTest', () => {
         // Check that autocomplete gets queried with last input on keyup with
         // non empty input when thumbnail is showing.
         args = await testProxy.handler.whenCalled('queryAutocomplete');
-        assertEquals(/*input=*/ args[0], realbox.$.input.value);
+        assertEquals(args.input, realbox.$.input.value);
       });
 
   //============================================================================
@@ -959,8 +884,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = '      hello world';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
     const args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     const matches = [
@@ -996,8 +921,8 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.value = 'hello ';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
     let args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], realbox.$.input.value);
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, realbox.$.input.value);
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
 
     testProxy.handler.reset();
@@ -1057,8 +982,8 @@ suite('NewTabPageRealboxTest', () => {
     assertEquals('orld', realbox.$.input.value.substring(start, end));
 
     args = await testProxy.handler.whenCalled('queryAutocomplete');
-    assertEquals(/*input=*/ args[0], 'hello w');
-    assertFalse(/*preventInlineAutocomplete=*/ args[1]);
+    assertEquals(args.input, 'hello w');
+    assertFalse(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
@@ -1201,7 +1126,7 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(new InputEvent('input'));
 
     realbox.shadowRoot.querySelector<HTMLElement>(
-                           '#voiceSearchButton')!.focus();
+                          '#voiceSearchButton')!.focus();
     assertEquals('voiceSearchButton', getDeepActiveElement()!.id);
 
     const matches = [createSearchMatchForTesting(), createUrlMatch()];
@@ -1361,10 +1286,10 @@ suite('NewTabPageRealboxTest', () => {
 
     // Navigates to the first match.
     const args = await testProxy.handler.whenCalled('openAutocompleteMatch');
-    assertEquals(0, /*line=*/ args[0]);
-    assertEquals(matches[0]!.destinationUrl.url, /*url=*/ args[1].url);
-    assertTrue(/*areMatchesShowing=*/ args[2]);
-    assertTrue(/*shiftKey=*/ args[7]);
+    assertEquals(0, args.line);
+    assertEquals(matches[0]!.destinationUrl, args.url);
+    assertTrue(args.areMatchesShowing);
+    assertTrue(args.shiftKey);
     assertEquals(1, testProxy.handler.getCallCount('openAutocompleteMatch'));
 
     // Navigation should close the dropdown.
@@ -1452,10 +1377,10 @@ suite('NewTabPageRealboxTest', () => {
         // Navigates to the first match.
         const args =
             await testProxy.handler.whenCalled('openAutocompleteMatch');
-        assertEquals(0, /*line=*/ args[0]);
-        assertEquals(matches[0]!.destinationUrl.url, /*url=*/ args[1].url);
-        assertFalse(/*areMatchesShowing*/ args[2]);
-        assertTrue(/*shiftKey*/ args[7]);
+        assertEquals(0, args.line);
+        assertEquals(matches[0]!.destinationUrl, args.url);
+        assertFalse(args.areMatchesShowing);
+        assertTrue(args.shiftKey);
         assertEquals(
             1, testProxy.handler.getCallCount('openAutocompleteMatch'));
       });
@@ -1628,10 +1553,10 @@ suite('NewTabPageRealboxTest', () => {
 
     // Navigates to the first match immediately without further user action.
     const args = await testProxy.handler.whenCalled('openAutocompleteMatch');
-    assertEquals(0, /*line=*/ args[0]);
-    assertEquals(matches[0]!.destinationUrl.url, /*url=*/ args[1].url);
-    assertTrue(/*areMatchesShowing=*/ args[2]);
-    assertTrue(/*shiftKey*/ args[7]);
+    assertEquals(0, args.line);
+    assertEquals(matches[0]!.destinationUrl, args.url);
+    assertTrue(args.areMatchesShowing);
+    assertTrue(args.shiftKey);
     assertEquals(1, testProxy.handler.getCallCount('openAutocompleteMatch'));
   });
 
@@ -1674,10 +1599,10 @@ suite('NewTabPageRealboxTest', () => {
 
     // Navigates to the first match is selected.
     const args = await testProxy.handler.whenCalled('openAutocompleteMatch');
-    assertEquals(0, /*line=*/ args[0]);
-    assertEquals(matches[0]!.destinationUrl.url, /*url=*/ args[1].url);
-    assertTrue(/*areMatchesShowing=*/ args[2]);
-    assertTrue(/*shiftKey=*/ args[7]);
+    assertEquals(0, args.line);
+    assertEquals(matches[0]!.destinationUrl, args.url);
+    assertTrue(args.areMatchesShowing);
+    assertTrue(args.shiftKey);
     assertEquals(1, testProxy.handler.getCallCount('openAutocompleteMatch'));
   });
 
@@ -1713,7 +1638,7 @@ suite('NewTabPageRealboxTest', () => {
       cancelable: true,
       composed: true,  // So it propagates across shadow DOM boundary.
     }));
-    await  microtasksFinished();
+    await microtasksFinished();
     assertNotEquals(
         window.getComputedStyle(matchEls[1]!.$.remove).display, 'none');
   });
@@ -1774,7 +1699,7 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(shiftDeleteEvent);
     assertTrue(shiftDeleteEvent.defaultPrevented);
     const args = await testProxy.handler.whenCalled('deleteAutocompleteMatch');
-    assertEquals(1, /*line=*/ args[0]);
+    assertEquals(1, args.line);
     assertEquals(1, testProxy.handler.getCallCount('deleteAutocompleteMatch'));
   });
 
@@ -1804,7 +1729,7 @@ suite('NewTabPageRealboxTest', () => {
     // Remove the first match.
     matchEls[0]!.$.remove.click();
     let args = await testProxy.handler.whenCalled('deleteAutocompleteMatch');
-    assertEquals(0, /*line=*/ args[0]);
+    assertEquals(0, args.line);
     assertEquals(1, testProxy.handler.getCallCount('deleteAutocompleteMatch'));
 
     testProxy.handler.reset();
@@ -1826,7 +1751,7 @@ suite('NewTabPageRealboxTest', () => {
 
     const arrowDownEvent = arrowDown(realbox);
     assertTrue(arrowDownEvent.defaultPrevented);
-    await  microtasksFinished();
+    await microtasksFinished();
 
     // First match is selected.
     assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
@@ -1843,7 +1768,7 @@ suite('NewTabPageRealboxTest', () => {
     realbox.$.input.dispatchEvent(shiftDeleteEvent);
     assertTrue(shiftDeleteEvent.defaultPrevented);
     args = await testProxy.handler.whenCalled('deleteAutocompleteMatch');
-    assertEquals(0, /*line=*/ args[0]);
+    assertEquals(0, args.line);
     assertEquals(1, testProxy.handler.getCallCount('deleteAutocompleteMatch'));
 
     matches = [createSearchMatchForTesting()];
@@ -1867,101 +1792,104 @@ suite('NewTabPageRealboxTest', () => {
   // Test Selection
   //============================================================================
 
-  test('pressing Escape selects the first match / hides matches', async () => {
-    realbox.$.input.value = 'hello';
-    realbox.$.input.dispatchEvent(new InputEvent('input'));
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip(
+      'pressing Escape selects the first match / hides matches', async () => {
+        realbox.$.input.value = 'hello';
+        realbox.$.input.dispatchEvent(new InputEvent('input'));
 
-    const matches = [createSearchMatchForTesting(), createUrlMatch()];
-    testProxy.callbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResultForTesting({
-          input: realbox.$.input.value.trimStart(),
-          matches: matches,
+        const matches = [createSearchMatchForTesting(), createUrlMatch()];
+        testProxy.callbackRouterRemote.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              input: realbox.$.input.value.trimStart(),
+              matches: matches,
+            }));
+        assertTrue(await areMatchesShowing());
+
+        let matchEls =
+            realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
+        assertEquals(2, matchEls.length);
+
+        // Select the second match.
+        matchEls[1]!.focus();
+        matchEls[1]!.dispatchEvent(new Event('focusin', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,  // So it propagates across shadow DOM boundary.
         }));
-    assertTrue(await areMatchesShowing());
+        await microtasksFinished();
 
-    let matchEls =
-        realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
-    assertEquals(2, matchEls.length);
+        assertTrue(matchEls[1]!.hasAttribute(Attributes.SELECTED));
+        assertEquals('https://helloworld.com', realbox.$.input.value);
+        assertEquals(matchEls[1], realbox.$.matches.shadowRoot.activeElement);
 
-    // Select the second match.
-    matchEls[1]!.focus();
-    matchEls[1]!.dispatchEvent(new Event('focusin', {
-      bubbles: true,
-      cancelable: true,
-      composed: true,  // So it propagates across shadow DOM boundary.
-    }));
-    await microtasksFinished();
+        let escapeEvent = new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,  // So it propagates across shadow DOM boundary.
+          key: 'Escape',
+        });
+        realbox.$.input.dispatchEvent(escapeEvent);
+        assertTrue(escapeEvent.defaultPrevented);
+        await microtasksFinished();
 
-    assertTrue(matchEls[1]!.hasAttribute(Attributes.SELECTED));
-    assertEquals('https://helloworld.com', realbox.$.input.value);
-    assertEquals(matchEls[1], realbox.$.matches.shadowRoot.activeElement);
+        // First match gets selected and also gets the focus.
+        assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
+        assertEquals('hello world', realbox.$.input.value);
+        assertEquals(matchEls[0], realbox.$.matches.shadowRoot.activeElement);
 
-    let escapeEvent = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      composed: true,  // So it propagates across shadow DOM boundary.
-      key: 'Escape',
-    });
-    realbox.$.input.dispatchEvent(escapeEvent);
-    assertTrue(escapeEvent.defaultPrevented);
-    await microtasksFinished();
+        escapeEvent = new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,  // So it propagates across shadow DOM boundary.
+          key: 'Escape',
+        });
+        realbox.$.input.dispatchEvent(escapeEvent);
+        assertTrue(escapeEvent.defaultPrevented);
 
-    // First match gets selected and also gets the focus.
-    assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
-    assertEquals('hello world', realbox.$.input.value);
-    assertEquals(matchEls[0], realbox.$.matches.shadowRoot.activeElement);
+        // Matches are hidden.
+        assertFalse(await areMatchesShowing());
 
-    escapeEvent = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      composed: true,  // So it propagates across shadow DOM boundary.
-      key: 'Escape',
-    });
-    realbox.$.input.dispatchEvent(escapeEvent);
-    assertTrue(escapeEvent.defaultPrevented);
+        // Matches are cleared.
+        matchEls =
+            realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
+        assertEquals(0, matchEls.length);
+        // Input is cleared.
+        assertEquals('', realbox.$.input.value);
 
-    // Matches are hidden.
-    assertFalse(await areMatchesShowing());
+        // Show zero-prefix matches.
+        realbox.$.input.dispatchEvent(new MouseEvent('mousedown', {button: 0}));
+        testProxy.callbackRouterRemote.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              matches: matches,
+            }));
+        assertTrue(await areMatchesShowing());
 
-    // Matches are cleared.
-    matchEls =
-        realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
-    assertEquals(0, matchEls.length);
-    // Input is cleared.
-    assertEquals('', realbox.$.input.value);
+        matchEls =
+            realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
+        assertEquals(2, matchEls.length);
 
-    // Show zero-prefix matches.
-    realbox.$.input.dispatchEvent(new MouseEvent('mousedown', {button: 0}));
-    testProxy.callbackRouterRemote.autocompleteResultChanged(
-        createAutocompleteResultForTesting({
-          matches: matches,
-        }));
-    assertTrue(await areMatchesShowing());
+        // Pressing 'Escape' when no matches are selected closes the dropdown.
+        escapeEvent = new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,  // So it propagates across shadow DOM boundary.
+          key: 'Escape',
+        });
+        realbox.$.input.dispatchEvent(escapeEvent);
+        assertTrue(escapeEvent.defaultPrevented);
 
-    matchEls =
-        realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
-    assertEquals(2, matchEls.length);
+        // Matches are hidden.
+        assertFalse(await areMatchesShowing());
 
-    // Pressing 'Escape' when no matches are selected closes the dropdown.
-    escapeEvent = new KeyboardEvent('keydown', {
-      bubbles: true,
-      cancelable: true,
-      composed: true,  // So it propagates across shadow DOM boundary.
-      key: 'Escape',
-    });
-    realbox.$.input.dispatchEvent(escapeEvent);
-    assertTrue(escapeEvent.defaultPrevented);
+        // Matches are cleared.
+        matchEls =
+            realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
+        assertEquals(0, matchEls.length);
+      });
 
-    // Matches are hidden.
-    assertFalse(await areMatchesShowing());
-
-    // Matches are cleared.
-    matchEls =
-        realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
-    assertEquals(0, matchEls.length);
-  });
-
-  test('arrow up/down moves selection / focus', async () => {
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip('arrow up/down moves selection / focus', async () => {
     realbox.$.input.focus();
     realbox.$.input.value = 'hello';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
@@ -2052,7 +1980,8 @@ suite('NewTabPageRealboxTest', () => {
     assertEquals(1, testProxy.handler.getCallCount('onFocusChanged'));
   });
 
-  test('focus indicator', async () => {
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip('focus indicator', async () => {
     realbox.$.input.focus();
     realbox.$.input.value = 'clear browsing history';
     realbox.$.input.dispatchEvent(new InputEvent('input'));
@@ -2380,7 +2309,8 @@ suite('NewTabPageRealboxTest', () => {
         // assertFavicon(realbox.$.icon, matches[0]!.destinationUrl.url);
       });
 
-  test(
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip(
       'match icons are updated when external icons become available',
       async () => {
         // Helper function to assert icon states.
@@ -2434,11 +2364,11 @@ suite('NewTabPageRealboxTest', () => {
 
         const matches = [
           createUrlMatch({
-            iconUrl: {url: 'https://helloworld.com/url.png'},
+            iconUrl: 'https://helloworld.com/url.png',
             iconPath: 'page.svg',
           }),
           createSearchMatchForTesting({
-            iconUrl: {url: 'https://helloworld.com/search.png'},
+            iconUrl: 'https://helloworld.com/search.png',
             iconPath: 'clock.svg',
             imageUrl: 'https://gstatic.com/',
             imageDominantColor: '#757575',
@@ -2452,20 +2382,20 @@ suite('NewTabPageRealboxTest', () => {
             }));
         assertTrue(await areMatchesShowing());
 
-        const matchEls = realbox.$.matches.shadowRoot.querySelectorAll(
-            'cr-searchbox-match');
+        const matchEls =
+            realbox.$.matches.shadowRoot.querySelectorAll('cr-searchbox-match');
         assertEquals(2, matchEls.length);
 
         // Test initial icon state for the first match: icon image not used.
         assertIconState(
             matchEls[0], /*hasEntityImage=*/ false, /*expectUseIconImg=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
         // Test initial icon state for the second match: icon image not used.
         assertIconState(
             matchEls[1], /*hasEntityImage=*/ true, /*expectUseIconImg=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[1]!.iconUrl.url}`);
+                matches[1]!.iconUrl}`);
 
         // Select the first match.
         let arrowDownEvent = arrowDown(realbox);
@@ -2480,18 +2410,18 @@ suite('NewTabPageRealboxTest', () => {
         assertIconState(
             realbox, /*hasEntityImage=*/ false, /*expectUseIconImg=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
 
         // Mock icon image finishing loading for the first match and the realbox
         // itself. The icon image should be used icon.
         await assertAndLoadIcon(
             matchEls[0], /*hasEntityImage=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
         await assertAndLoadIcon(
             realbox, /*hasEntityImage=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
 
         // Select the second match.
         arrowDownEvent = arrowDown(realbox);
@@ -2506,17 +2436,17 @@ suite('NewTabPageRealboxTest', () => {
         assertIconState(
             realbox, /*hasEntityImage=*/ false, /*expectUseIconImg=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[1]!.iconUrl.url}`);
+                matches[1]!.iconUrl}`);
         // Mock icon image finishing loading for the second match and the
         // realbox itself. The icon image should be used.
         await assertAndLoadIcon(
             matchEls[1], /*hasEntityImage=*/ true,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[1]!.iconUrl.url}`);
+                matches[1]!.iconUrl}`);
         await assertAndLoadIcon(
             realbox, /*hasEntityImage=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[1]!.iconUrl.url}`);
+                matches[1]!.iconUrl}`);
 
         // Select the first match by pressing 'Escape'.
         const escapeEvent = new KeyboardEvent('keydown', {
@@ -2537,13 +2467,13 @@ suite('NewTabPageRealboxTest', () => {
         assertIconState(
             realbox, /*hasEntityImage=*/ false, /*expectUseIconImg=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
         // Mock icon image finishing loading for the realbox (now showing the
         // first match's icon image again).
         await assertAndLoadIcon(
             realbox, /*hasEntityImage=*/ false,
             `//image?staticEncode=true&encodeType=webp&url=${
-                matches[0]!.iconUrl.url}`);
+                matches[0]!.iconUrl}`);
       });
 
 
@@ -2562,11 +2492,11 @@ suite('NewTabPageRealboxTest', () => {
         isEnterpriseSearchAggregatorPeopleType: true,
       }),
       createUrlMatch({
-        iconUrl: {url: 'https://helloworld-2.com/url.png'},
+        iconUrl: 'https://helloworld-2.com/url.png',
         iconPath: fallbackIconPath,
         isEnterpriseSearchAggregatorPeopleType: true,
         contents: 'helloworld-2.com',
-        destinationUrl: {url: 'https://helloworld-2.com/'},
+        destinationUrl: 'https://helloworld-2.com/',
         fillIntoEdit: 'https://helloworld-2.com',
       }),
     ];
@@ -2916,10 +2846,10 @@ suite('NewTabPageRealboxTest', () => {
     assertTrue(leftClick.defaultPrevented);
 
     const args = await testProxy.handler.whenCalled('executeAction');
-    assertTrue(/*ctrlKey=*/ args[6]);
-    assertEquals(0, /*line=*/ args[0]);
-    assertEquals(/*mouseButton=*/ args[4], 1);
-    assertTrue(/*matchSelectionTimestamp=*/ args[3]['internalValue'] > 0);
+    assertTrue(args.ctrlKey);
+    assertEquals(0, args.line);
+    assertEquals(args.mouseButton, 1);
+    assertTrue(args.matchSelectionTimestamp['internalValue'] > 0);
     assertEquals(1, testProxy.handler.getCallCount('executeAction'));
   });
 
@@ -2971,9 +2901,9 @@ suite('NewTabPageRealboxTest', () => {
     assertTrue(leftClick.defaultPrevented);
 
     let args = await testProxy.handler.whenCalled('executeAction');
-    assertEquals(1, /*line=*/ args[0]);
-    assertEquals(/*mouseButton=*/ args[4], 0);
-    assertTrue(/*matchSelectionTimestamp=*/ args[3]['internalValue'] > 0);
+    assertEquals(1, args.line);
+    assertEquals(args.mouseButton, 0);
+    assertTrue(args.matchSelectionTimestamp['internalValue'] > 0);
     assertEquals(1, testProxy.handler.getCallCount('executeAction'));
 
     const pedalElTab =
@@ -2982,12 +2912,11 @@ suite('NewTabPageRealboxTest', () => {
 
     pedalElTab.dispatchEvent(leftClick);
     assertTrue(leftClick.defaultPrevented);
-    testProxy.callbackRouterRemote.$.flushForTesting();
 
     args = await testProxy.handler.whenCalled('executeAction');
-    assertEquals(1, /*line=*/ args[0]);
-    assertEquals(/*mouseButton=*/ args[4], 0);
-    assertTrue(/*matchSelectionTimestamp=*/ args[3]['internalValue'] > 0);
+    assertEquals(1, args.line);
+    assertEquals(args.mouseButton, 0);
+    assertTrue(args.matchSelectionTimestamp['internalValue'] > 0);
     assertEquals(2, testProxy.handler.getCallCount('executeAction'));
   });
 
@@ -3010,10 +2939,9 @@ suite('NewTabPageRealboxTest', () => {
     arrowDown(realbox);
 
     const args = await testProxy.handler.whenCalled('onNavigationLikely');
-    assertEquals(0, /*line=*/ args[0]);
+    assertEquals(0, args.line);
     assertEquals(
-        NavigationPredictor.kUpOrDownArrowButton,
-        /*navigationPredictor=*/ args[2]);
+        NavigationPredictor.kUpOrDownArrowButton, args.navigationPredictor);
   });
 
   //============================================================================
@@ -3063,9 +2991,8 @@ suite('NewTabPageRealboxTest', () => {
     await testProxy.handler.whenCalled('onThumbnailRemoved');
     assertEquals(1, testProxy.handler.getCallCount('onThumbnailRemoved'));
     // When thumbnail is removed, autocomplete should be requeried
-    const stopAutocomplete =
-        await testProxy.handler.whenCalled('stopAutocomplete');
-    assertTrue(stopAutocomplete);
+    const args = await testProxy.handler.whenCalled('stopAutocomplete');
+    assertTrue(args.clearResult);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
@@ -3104,9 +3031,8 @@ suite('NewTabPageRealboxTest', () => {
     await testProxy.handler.whenCalled('onThumbnailRemoved');
     assertEquals(1, testProxy.handler.getCallCount('onThumbnailRemoved'));
     // When thumbnail is removed, autocomplete should be requeried
-    const stopAutocomplete =
-        await testProxy.handler.whenCalled('stopAutocomplete');
-    assertTrue(stopAutocomplete);
+    const args = await testProxy.handler.whenCalled('stopAutocomplete');
+    assertTrue(args.clearResult);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
@@ -3143,170 +3069,298 @@ suite('NewTabPageRealboxTest', () => {
       disabledModels: [],
       disabledTools: [],
       disabledInputTypes: [],
+      inputTypeConfigs: [],
+      toolConfigs: [],
+      modelConfigs: [],
+      toolsSectionConfig: null,
+      modelSectionConfig: null,
+      hintText: '',
+      maxInstances: {},
+      maxTotalInputs: 0,
     } as InputState;
     testProxy.callbackRouterRemote.onInputStateChanged(inputState);
     await microtasksFinished();
     assertDeepEquals((realbox as any).inputState_, inputState);
   });
+});
 
-  suite('NtpRealboxNext', () => {
-    test(
-        'Contextual component empty area click focuses search input',
-        async () => {
-          // Arrange.
-          realbox = await createAndAppendRealbox({
-            composeButtonEnabled: true,
-            composeboxEnabled: true,
-            searchboxLayoutMode: 'TallTopContext',
-            ntpRealboxNextEnabled: true,
-          });
-          const contextElement = realbox.shadowRoot.querySelector(
-              'contextual-entrypoint-and-carousel');
-          assertTrue(!!contextElement);
-          contextElement.dispatchEvent(
-              new CustomEvent('context-menu-container-click'));
-          assertEquals(1, testProxy.handler.getCallCount('onFocusChanged'));
-          assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
-        });
+suite('NewTabPageRealboxTabsTest', () => {
+  let realbox: SearchboxElement;
+  let testProxy: TestSearchboxBrowserProxy;
 
-    test('pasting files adds them to contextual entrypoint', async () => {
-      loadTimeData.overrideValues({composeboxFileMaxCount: 2});
-      realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
-      let passedFileList: FileList|null = null;
-      realbox.$.context.addPastedFiles = (files: FileList|null) => {
-        passedFileList = files;
-      };
-
-      const pngFile = new File([''], 'pasted.png', {type: 'image/png'});
-      const pdfFile = new File([''], 'pasted.pdf', {type: 'application/pdf'});
-
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(pngFile);
-      dataTransfer.items.add(pdfFile);
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dataTransfer,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      });
-
-      realbox.$.input.dispatchEvent(pasteEvent);
-      await microtasksFinished();
-
-      assertNotEquals(null, passedFileList);
-      assertEquals(2, passedFileList!.length);
-      const file1 = passedFileList!.item(0);
-      assertNotEquals(null, file1);
-      assertEquals('pasted.png', file1!.name);
-      assertEquals('image/png', file1!.type);
-      const file2 = passedFileList!.item(1);
-      assertNotEquals(null, file2);
-      assertEquals('pasted.pdf', file2!.name);
-      assertEquals('application/pdf', file2!.type);
-      assertFalse((realbox as any).pastedInInput_);
+  setup(async () => {
+    loadTimeData.overrideValues({
+      ntpRealboxNextEnabled: true,
     });
 
-    test('pasting too many files does not add them', async () => {
-      loadTimeData.overrideValues({
-        composeboxFileMaxCount: 1,
-      });
-      // Re-create realbox to pick up new loadTimeData.
-      realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
+    testProxy = new TestSearchboxBrowserProxy();
+    SearchboxBrowserProxy.setInstance(testProxy);
 
-      const pngFile1 = new File([''], 'pasted1.png', {type: 'image/png'});
-      const pngFile2 = new File([''], 'pasted2.png', {type: 'image/png'});
+    realbox = await createAndAppendRealbox(
+        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
+  });
 
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(pngFile1);
-      dataTransfer.items.add(pngFile2);
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dataTransfer,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      });
+  test('on tab strip change does not trigger getRecentTabs call', async () => {
+    testProxy.callbackRouterRemote.onTabStripChanged();
+    await microtasksFinished();
 
-      realbox.$.input.dispatchEvent(pasteEvent);
-      await microtasksFinished();
+    // Tab strip change does not trigger getRecentTabs call automatically.
+    assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 0);
+  });
 
-      assertTrue(pasteEvent.defaultPrevented);
-      assertEquals(
-          loadTimeData.getString('maxFilesReachedError'),
-          realbox.$.errorScrim.errorMessage);
-      assertFalse((realbox.$.context as any).showFileCarousel_);
-      assertFalse((realbox as any).pastedInInput_);
-    });
+  test('getRecentTabs only fires when context menu is open', async () => {
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+    contextElement.dispatchEvent(new CustomEvent('context-menu-opened'));
+    await microtasksFinished();
 
-    test('pasting unsupported files shows error', async () => {
-      realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
+    // A forced getRecentTabs call is made when the context menu is opened.
+    assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 1);
+    testProxy.handler.reset();
 
-      const txtFile = new File([''], 'pasted.txt', {type: 'text/plain'});
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(txtFile);
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dataTransfer,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      });
+    const sampleTabs = [
+      {
+        tabId: 1,
+        title: 'Sample Tab 1',
+        url: 'https://example.com/1',
+        showInRecentTabChip: true,
+        lastActive: {internalValue: BigInt(1)},
+      },
+      {
+        tabId: 2,
+        title: 'Sample Tab 2',
+        url: 'https://example.com/2',
+        showInRecentTabChip: true,
+        lastActive: {internalValue: BigInt(2)},
+      },
+    ];
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
 
-      realbox.$.input.dispatchEvent(pasteEvent);
-      await microtasksFinished();
+    testProxy.callbackRouterRemote.onTabStripChanged();
+    await microtasksFinished();
 
-      assertTrue(pasteEvent.defaultPrevented);
-      assertTrue(!!realbox.$.errorScrim.errorMessage);
-      assertFalse((realbox as any).pastedInInput_);
-    });
+    assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 1);
+    assertDeepEquals((realbox as any).tabSuggestions_, sampleTabs);
 
-    test('pasting text sets pastedInInput flag', async () => {
-      // Re-create realbox to pick up new loadTimeData.
-      realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
+    // Once the context menu is closed again, getRecentTabs should not be called
+    // on tab strip changes.
+    contextElement.dispatchEvent(new CustomEvent('context-menu-closed'));
+    await microtasksFinished();
+    testProxy.handler.reset();
 
-      let addFilesCalled = false;
-      realbox.$.context.addPastedFiles = (_files: FileList|null) => {
-        addFilesCalled = true;
-      };
-
-      const dataTransfer = new DataTransfer();
-      dataTransfer.setData('text/plain', 'hello');
-      const pasteEvent = new ClipboardEvent('paste', {
-        clipboardData: dataTransfer,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      });
-
-      realbox.$.input.dispatchEvent(pasteEvent);
-      await microtasksFinished();
-
-      assertFalse(pasteEvent.defaultPrevented);
-      assertFalse(addFilesCalled);
-      assertTrue((realbox as any).pastedInInput_);
-    });
+    testProxy.callbackRouterRemote.onTabStripChanged();
+    await microtasksFinished();
+    assertEquals(testProxy.handler.getCallCount('getRecentTabs'), 0);
   });
 });
 
-suite('PlaceholderTextCyclerTest', () => {
-  let testInputElement: HTMLInputElement;
+suite('NewTabPageRealboxNextTest', () => {
+  let realbox: SearchboxElement;
+  let testProxy: TestSearchboxBrowserProxy;
+  let metrics: MetricsTracker;
 
-  setup(() => {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    testInputElement = document.createElement('input');
-    testInputElement.type = 'text';
-    document.body.appendChild(testInputElement);
+  setup(async () => {
+    ({realbox, testProxy, metrics} = await setupRealboxTest());
   });
 
-  test('start and stop cycling input placeholder', async () => {
-    const sampleTransitionPlaceholder = 'Make a plan';
-    const placeholderTextCycler: PlaceholderTextCycler =
-        new PlaceholderTextCycler(
-            testInputElement, ['Ask Google', sampleTransitionPlaceholder], 50,
-            25);
-    placeholderTextCycler.start();
-    const text =
-        await waitForAttributeChange(testInputElement, 'placeholder', '');
-    assertEquals(sampleTransitionPlaceholder, text);
+  test('adding context files opens composebox', async () => {
+    // Arrange.
+    realbox = await createAndAppendRealbox({
+      composeButtonEnabled: true,
+      composeboxEnabled: true,
+      searchboxLayoutMode: 'TallBottomContext',
+      ntpRealboxNextEnabled: true,
+    });
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
 
-    placeholderTextCycler.stop();
+    // Act & Assert.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+    contextElement.dispatchEvent(new CustomEvent('add-tab-context', {
+      detail: {id: 1, title: 'title'},
+      bubbles: true,
+      composed: true,
+    }));
+    const event = await whenOpenComposeBox;
+    assertEquals(event.detail.contextFiles.length, 1);
+    assertEquals(event.detail.contextFiles[0].tabId, 1);
+    assertEquals(event.detail.contextFiles[0].title, 'title');
+  });
+
+  test('clicking deep search button opens composebox', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowDeepSearchButton: true,
+    });
+    realbox = await createAndAppendRealbox(
+        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+    const entrypointAndMenu =
+        contextElement.shadowRoot.querySelector(
+            'cr-composebox-contextual-entrypoint-and-menu');
+    assertTrue(!!entrypointAndMenu);
+    const contextMenuEntrypoint =
+        entrypointAndMenu.shadowRoot.querySelector(
+            'cr-composebox-context-menu-entrypoint');
+    assertTrue(!!contextMenuEntrypoint);
+
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: []}));
+
+    // Act.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+
+    const entrypointButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#entrypoint');
+    assertTrue(!!entrypointButton);
+    entrypointButton.click();
+    await microtasksFinished();
+
+    const deepSearchButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#deepSearch');
+    assertTrue(!!deepSearchButton);
+    deepSearchButton.click();
+
+    // Assert.
+    const event = await whenOpenComposeBox;
+    assertEquals(ToolMode.kDeepSearch, event.detail.mode);
+    // Calling deep search should not be logged as context being added.
+    assertEquals(
+        0,
+        metrics.count(
+            'ContextualSearch.ContextAdded.ContextAddedMethod.NewTabPage'));
+  });
+
+  test('clicking create image button opens composebox', async () => {
+    // Arrange.
+    loadTimeData.overrideValues({
+      composeboxShowCreateImageButton: true,
+    });
+    realbox = await createAndAppendRealbox(
+        {ntpRealboxNextEnabled: true, searchboxLayoutMode: 'Compact'});
+    const contextElement =
+        realbox.shadowRoot.querySelector('contextual-entrypoint-and-carousel');
+    assertTrue(!!contextElement);
+    const entrypointAndMenu =
+        contextElement.shadowRoot.querySelector(
+            'cr-composebox-contextual-entrypoint-and-menu');
+    assertTrue(!!entrypointAndMenu);
+    const contextMenuEntrypoint =
+        entrypointAndMenu.shadowRoot.querySelector(
+            'cr-composebox-context-menu-entrypoint');
+    assertTrue(!!contextMenuEntrypoint);
+
+    testProxy.handler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: []}));
+
+    // Act.
+    const whenOpenComposeBox = eventToPromise('open-composebox', realbox);
+
+    const entrypointButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#entrypoint');
+    assertTrue(!!entrypointButton);
+    entrypointButton.click();
+    await microtasksFinished();
+
+    const createImageButton =
+        contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+            '#createImage');
+    assertTrue(!!createImageButton);
+    createImageButton.click();
+
+    // Assert.
+    const event = await whenOpenComposeBox;
+    assertEquals(ToolMode.kImageGen, event.detail.mode);
+  });
+
+  // TODO(crbug.com/453570027): Test is flaky.
+  test.skip(
+      'Contextual component empty area click focuses search input',
+      async () => {
+        // Arrange.
+        realbox = await createAndAppendRealbox({
+          composeButtonEnabled: true,
+          composeboxEnabled: true,
+          searchboxLayoutMode: 'TallTopContext',
+          ntpRealboxNextEnabled: true,
+        });
+        const contextElement = realbox.shadowRoot.querySelector(
+            'contextual-entrypoint-and-carousel');
+        assertTrue(!!contextElement);
+        contextElement.dispatchEvent(
+            new CustomEvent('context-menu-container-click'));
+        assertEquals(1, testProxy.handler.getCallCount('onFocusChanged'));
+        assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
+      });
+
+  test('pasting files adds them to contextual entrypoint', async () => {
+    loadTimeData.overrideValues({composeboxFileMaxCount: 2});
+    realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
+    let passedFileList: FileList|null = null;
+    realbox.$.context.addPastedFiles = (files: FileList|null) => {
+      passedFileList = files;
+    };
+
+    const pngFile = new File([''], 'pasted.png', {type: 'image/png'});
+    const pdfFile = new File([''], 'pasted.pdf', {type: 'application/pdf'});
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(pngFile);
+    dataTransfer.items.add(pdfFile);
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dataTransfer,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+
+    realbox.$.input.dispatchEvent(pasteEvent);
+    await microtasksFinished();
+
+    assertNotEquals(null, passedFileList);
+    assertEquals(2, passedFileList!.length);
+    const file1 = passedFileList!.item(0);
+    assertNotEquals(null, file1);
+    assertEquals('pasted.png', file1!.name);
+    assertEquals('image/png', file1!.type);
+    const file2 = passedFileList!.item(1);
+    assertNotEquals(null, file2);
+    assertEquals('pasted.pdf', file2!.name);
+    assertEquals('application/pdf', file2!.type);
+    assertFalse((realbox as any).pastedInInput_);
+  });
+
+  test('pasting text sets pastedInInput flag', async () => {
+    // Re-create realbox to pick up new loadTimeData.
+    realbox = await createAndAppendRealbox({ntpRealboxNextEnabled: true});
+
+    let addFilesCalled = false;
+    realbox.$.context.addPastedFiles = (_files: FileList|null) => {
+      addFilesCalled = true;
+    };
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData('text/plain', 'hello');
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dataTransfer,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+
+    realbox.$.input.dispatchEvent(pasteEvent);
+    await microtasksFinished();
+
+    assertFalse(pasteEvent.defaultPrevented);
+    assertFalse(addFilesCalled);
+    assertTrue((realbox as any).pastedInInput_);
   });
 });

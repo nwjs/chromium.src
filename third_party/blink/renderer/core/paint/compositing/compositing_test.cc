@@ -34,8 +34,10 @@
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
+#include "third_party/blink/renderer/platform/graphics/compositor_element_id.h"
 #include "third_party/blink/renderer/platform/testing/find_cc_layer.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
@@ -1161,6 +1163,13 @@ class CompositingSimTest : public PaintTestConfigurations, public SimTest {
 
   PaintArtifactCompositor* paint_artifact_compositor() {
     return MainFrame().GetFrameView()->GetPaintArtifactCompositor();
+  }
+
+  size_t GetPictureLayerTotalOpCount(const cc::Layer* layer) const {
+    return static_cast<const cc::PictureLayer*>(layer)
+        ->GetRecordingSourceForTesting()
+        .display_list()
+        ->TotalOpCount();
   }
 
  private:
@@ -3847,6 +3856,84 @@ TEST_P(CompositingSimTest, ScrollbarLayerWithDecompositedTransform) {
   EXPECT_EQ(gfx::Vector2dF(285, 100),
             scrollbar_layer->offset_to_transform_parent());
   EXPECT_FALSE(scrollbar_layer->subtree_property_changed());
+}
+
+TEST_P(CompositingSimTest, CanvasDrawElementLayers) {
+  ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
+
+  InitializeWithHTML(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      div { width: 100px; height: 100px; }
+    </style>
+    <canvas id="canvas" width="200" height="200" layoutsubtree>
+      <div id="child_a">
+        <div id="grandchild_a">a1</div>
+        <div id="grandchild_a_wct" style="will-change: transform;">a2</div>
+        <div id="grandchild_a_bdf" style="backdrop-filter: blur(10px);">a3</div>
+      </div>
+      <div id="child_b" style="background: blue;"></div>
+      <div id="child_c">c</div>
+    </canvas>
+  )HTML");
+  Compositor().BeginFrame();
+
+  // All direct children of canvas get a layer
+  auto* child_a_layer = CcLayerByDOMElementId("child_a");
+  EXPECT_TRUE(child_a_layer);
+  auto* child_b_layer = CcLayerByDOMElementId("child_b");
+  EXPECT_TRUE(child_b_layer);
+  auto* child_c_layer = CcLayerByDOMElementId("child_c");
+  EXPECT_TRUE(child_c_layer);
+
+  // Composited content under canvas, other than direct children, is disabled.
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a"));
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_wct"));
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_bdf"));
+
+  // The canvas subtree layers should have display items.
+  EXPECT_GT(GetPictureLayerTotalOpCount(child_a_layer), 0u);
+  EXPECT_GT(GetPictureLayerTotalOpCount(child_b_layer), 0u);
+  EXPECT_GT(GetPictureLayerTotalOpCount(child_c_layer), 0u);
+
+  // Ensure canvas_child_id is set correctly.
+  auto* child_a = GetElementById("child_a");
+  auto child_a_id = CompositorElementIdFromDOMNodeId(child_a->GetDomNodeId());
+  EXPECT_EQ(child_a_layer->canvas_child_id(), child_a_id);
+  auto* child_b = GetElementById("child_b");
+  auto child_b_id = CompositorElementIdFromDOMNodeId(child_b->GetDomNodeId());
+  EXPECT_EQ(child_b_layer->canvas_child_id(), child_b_id);
+  auto* child_c = GetElementById("child_c");
+  auto child_c_id = CompositorElementIdFromDOMNodeId(child_c->GetDomNodeId());
+  EXPECT_EQ(child_c_layer->canvas_child_id(), child_c_id);
+
+  // Move #child_a out of the canvas and ensure the layers update.
+  GetDocument().body()->appendChild(child_a);
+  Compositor().BeginFrame();
+  EXPECT_FALSE(CcLayerByDOMElementId("child_a"));
+  EXPECT_TRUE(CcLayerByDOMElementId("grandchild_a_wct"));
+  EXPECT_TRUE(CcLayerByDOMElementId("grandchild_a_bdf"));
+
+  // Move #child_a back in the canvas and ensure the layers update.
+  auto* canvas_element = GetElementById("canvas");
+  canvas_element->appendChild(child_a);
+  Compositor().BeginFrame();
+  child_a_layer = CcLayerByDOMElementId("child_a");
+  EXPECT_TRUE(child_a_layer);
+  EXPECT_GT(GetPictureLayerTotalOpCount(child_a_layer), 0u);
+  EXPECT_EQ(child_a_layer->canvas_child_id(), child_a_id);
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_wct"));
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_bdf"));
+
+  // Removing layoutsubtree from canvas should remove the corresponding layers.
+  canvas_element->removeAttribute(html_names::kLayoutsubtreeAttr);
+  Compositor().BeginFrame();
+  EXPECT_FALSE(CcLayerByDOMElementId("child_a"));
+  EXPECT_FALSE(CcLayerByDOMElementId("child_b"));
+  EXPECT_FALSE(CcLayerByDOMElementId("child_c"));
+  // Non-direct children should still not get layers.
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_wct"));
+  EXPECT_FALSE(CcLayerByDOMElementId("grandchild_a_bdf"));
 }
 
 }  // namespace blink

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_EXTENSIONS_API_AUTOFILL_PRIVATE_AUTOFILL_PRIVATE_API_H_
 #define CHROME_BROWSER_EXTENSIONS_API_AUTOFILL_PRIVATE_AUTOFILL_PRIVATE_API_H_
 
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/prefs/pref_service.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/browser/extension_function_histogram_value.h"
@@ -14,6 +15,10 @@ class AddressDataManager;
 class ContentAutofillClient;
 class PaymentsDataManager;
 }  // namespace autofill
+
+namespace device_reauth {
+class DeviceAuthenticator;
+}  // namespace device_reauth
 
 namespace extensions {
 
@@ -499,7 +504,7 @@ class AutofillPrivateLoadEntityInstancesFunction
 class AutofillPrivateGetEntityInstanceByGuidFunction
     : public AutofillPrivateExtensionFunction {
  public:
-  AutofillPrivateGetEntityInstanceByGuidFunction() = default;
+  AutofillPrivateGetEntityInstanceByGuidFunction();
   AutofillPrivateGetEntityInstanceByGuidFunction(
       const AutofillPrivateGetEntityInstanceByGuidFunction&) = delete;
   AutofillPrivateGetEntityInstanceByGuidFunction& operator=(
@@ -508,10 +513,16 @@ class AutofillPrivateGetEntityInstanceByGuidFunction
                              AUTOFILLPRIVATE_GETENTITYINSTANCEBYGUID)
 
  protected:
-  ~AutofillPrivateGetEntityInstanceByGuidFunction() override = default;
+  ~AutofillPrivateGetEntityInstanceByGuidFunction() override;
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;
+
+ private:
+  void OnReauthCompleted(const autofill::EntityInstance& entity_instance,
+                         bool auth_succeeded);
+
+  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator_;
 };
 
 class AutofillPrivateGetWritableEntityTypesFunction
@@ -549,6 +560,28 @@ class AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction
  protected:
   ~AutofillPrivateGetAllAttributeTypesForEntityTypeNameFunction() override =
       default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction() = default;
+  AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction(
+      const AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction&) =
+      delete;
+  AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction& operator=(
+      const AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction&) =
+      delete;
+  DECLARE_EXTENSION_FUNCTION(
+      "autofillPrivate.getRequiredAttributeTypesForEntityTypeName",
+      AUTOFILLPRIVATE_GETREQUIREDATTRIBUTETYPESFORENTITYTYPENAME)
+
+ protected:
+  ~AutofillPrivateGetRequiredAttributeTypesForEntityTypeNameFunction()
+      override = default;
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;
@@ -632,6 +665,56 @@ class AutofillPrivateSetWalletablePassDetectionOptInStatusFunction
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;
+};
+
+class AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction();
+  AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction(
+      const AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction&) =
+      delete;
+  AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction& operator=(
+      const AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction&) =
+      delete;
+  DECLARE_EXTENSION_FUNCTION(
+      "autofillPrivate.authenticateUserBeforeViewingEntityData",
+      AUTOFILLPRIVATE_AUTHENTICATEUSERBEFOREVIEWINGENTITYDATA)
+
+ protected:
+  ~AutofillPrivateAuthenticateUserBeforeViewingEntityDataFunction() override;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+
+ private:
+  void OnReauthCompleted(bool auth_succeeded);
+
+  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator_;
+};
+
+class AutofillPrivateToggleAutofillAiReauthRequirementFunction
+    : public AutofillPrivateExtensionFunction {
+ public:
+  AutofillPrivateToggleAutofillAiReauthRequirementFunction();
+  AutofillPrivateToggleAutofillAiReauthRequirementFunction(
+      const AutofillPrivateToggleAutofillAiReauthRequirementFunction&) = delete;
+  AutofillPrivateToggleAutofillAiReauthRequirementFunction& operator=(
+      const AutofillPrivateToggleAutofillAiReauthRequirementFunction&) = delete;
+  DECLARE_EXTENSION_FUNCTION(
+      "autofillPrivate.toggleAutofillAiReauthRequirement",
+      AUTOFILLPRIVATE_TOGGLEAUTOFILLAIREAUTHREQUIREMENT)
+
+ protected:
+  ~AutofillPrivateToggleAutofillAiReauthRequirementFunction() override;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+
+ private:
+  void OnReauthCompleted(bool auth_succeeded);
+
+  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator_;
 };
 
 }  // namespace extensions

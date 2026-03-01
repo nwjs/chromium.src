@@ -63,8 +63,6 @@ class LocalStorageLevelDB : public DomStorageDatabase {
   using PassKey = base::PassKey<DomStorageDatabaseFactory>;
 
  public:
-  static const int kStaleBucketCutoffInDays = 400;
-
   // Use `DomStorageDatabaseFactory::Open()` to construct a
   // base::SequenceBound<DomStorageDatabase>.
   explicit LocalStorageLevelDB(PassKey);
@@ -77,7 +75,6 @@ class LocalStorageLevelDB : public DomStorageDatabase {
   // in-memory database, provide an empty `directory`.
   DbStatus Open(PassKey,
                 const base::FilePath& directory,
-                const std::string& name,
                 const std::optional<base::trace_event::MemoryAllocatorDumpGuid>&
                     memory_dump_id);
 

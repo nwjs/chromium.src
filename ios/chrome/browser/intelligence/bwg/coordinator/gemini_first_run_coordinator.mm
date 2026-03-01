@@ -4,10 +4,6 @@
 
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_coordinator.h"
 
-#import "base/barrier_closure.h"
-#import "base/functional/bind.h"
-#import "base/memory/weak_ptr.h"
-#import "base/metrics/histogram_functions.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/prefs/pref_service.h"
@@ -16,18 +12,14 @@
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_mediator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_mediator_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/bwg_fre_wrapper_view_controller.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
-#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/model/browser/browser_list.h"
-#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -84,12 +76,56 @@
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  __weak GeminiFirstRunCoordinator* weakSelf = self;
-  // TODO(crbug.com/468383064): Move this logic to BwgBrowserAgent to ensure
-  // cross-window dismissal handles all flows, not just FRE.
-  [self dismissGeminiFromOtherWindowsWithCompletion:^() {
-    [weakSelf startCoordinator];
-  }];
+  _prefService = self.profile->GetPrefs();
+  CHECK(_prefService);
+
+  _tracker = feature_engagement::TrackerFactory::GetForProfile(self.profile);
+  CHECK(_tracker);
+
+  if (_entryPoint == gemini::EntryPoint::AIHub) {
+    _tracker->NotifyEvent(
+        feature_engagement::events::kIOSPageActionMenuIPHUsed);
+  }
+
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+  _geminiCommandsHandler = HandlerForProtocol(dispatcher, BWGCommands);
+  _helpCommandsHandler = HandlerForProtocol(dispatcher, HelpCommands);
+
+  _mediator = [[GeminiFirstRunMediator alloc]
+      initWithPrefService:_prefService
+             webStateList:self.browser->GetWebStateList()
+       baseViewController:self.baseViewController
+               BWGService:BwgServiceFactory::GetForProfile(self.profile)
+       geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(self.browser)
+                  tracker:_tracker
+               entryPoint:_entryPoint
+        completionHandler:_completion];
+  _mediator.sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+
+  _mediator.delegate = self;
+
+  [self prepareAIHubIPH];
+
+  _viewController = [[BWGFREWrapperViewController alloc]
+         initWithPromo:_mediator.shouldShowPromo
+      isAccountManaged:[self isManagedAccount]];
+  _viewController.sheetPresentationController.delegate = self;
+  _viewController.mutator = _mediator;
+
+  BwgTabHelper* BWGTabHelper = [self activeWebStateGeminiTabHelper];
+  [self.baseViewController presentViewController:_viewController
+                                        animated:YES
+                                      completion:^{
+                                        // Record FRE was shown.
+                                        RecordFREShown();
+                                      }];
+
+  if (BWGTabHelper) {
+    BWGTabHelper->SetBwgUiShowing(true);
+  }
+
+  [super start];
 }
 
 - (void)stop {
@@ -138,65 +174,6 @@
 
 #pragma mark - Private
 
-// Starts the Gemini FRE coordinator.
-- (void)startCoordinator {
-  _prefService = self.profile->GetPrefs();
-  CHECK(_prefService);
-
-  _tracker = feature_engagement::TrackerFactory::GetForProfile(self.profile);
-  CHECK(_tracker);
-
-  if (_entryPoint == gemini::EntryPoint::AIHub) {
-    _tracker->NotifyEvent(
-        feature_engagement::events::kIOSPageActionMenuIPHUsed);
-  }
-
-  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
-  _geminiCommandsHandler = HandlerForProtocol(dispatcher, BWGCommands);
-  _helpCommandsHandler = HandlerForProtocol(dispatcher, HelpCommands);
-
-  _mediator = [[GeminiFirstRunMediator alloc]
-      initWithPrefService:_prefService
-             webStateList:self.browser->GetWebStateList()
-       baseViewController:self.baseViewController
-               BWGService:BwgServiceFactory::GetForProfile(self.profile)
-          BwgBrowserAgent:BwgBrowserAgent::FromBrowser(self.browser)
-                  tracker:_tracker
-               entryPoint:_entryPoint
-        completionHandler:_completion];
-  _mediator.sceneHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
-
-  _mediator.delegate = self;
-
-  [self prepareAIHubIPH];
-
-  _viewController = [[BWGFREWrapperViewController alloc]
-         initWithPromo:_mediator.shouldShowPromo
-      isAccountManaged:[self isManagedAccount]];
-  _viewController.sheetPresentationController.delegate = self;
-  _viewController.mutator = _mediator;
-
-  // TODO(crbug.com/468386318): Remove animation background logic since it won't
-  // be needed for the FRE.
-  BwgTabHelper* BWGTabHelper = [self activeWebStateGeminiTabHelper];
-  BOOL shouldAnimatePresentation =
-      BWGTabHelper ? !BWGTabHelper->GetIsBwgSessionActiveInBackground() : YES;
-
-  [self.baseViewController presentViewController:_viewController
-                                        animated:shouldAnimatePresentation
-                                      completion:^{
-                                        // Record FRE was shown.
-                                        RecordFREShown();
-                                      }];
-
-  if (BWGTabHelper) {
-    BWGTabHelper->SetBwgUiShowing(true);
-  }
-
-  [super start];
-}
-
 // Dismisses presented view.
 - (void)dismissPresentedViewWithCompletion:(void (^)())completion {
   if (self.baseViewController.presentedViewController) {
@@ -229,46 +206,6 @@
   if (_entryPoint != gemini::EntryPoint::AIHub) {
     [_helpCommandsHandler
         presentInProductHelpWithType:InProductHelpType::kPageActionMenu];
-  }
-}
-
-// Dismisses Gemini from all other windows and executes the completion block.
-- (void)dismissGeminiFromOtherWindowsWithCompletion:
-    (ProceduralBlock)completion {
-  base::OnceCallback closure = base::BindOnce(completion);
-
-  // Collect all browsers (excluding the current one) for all profiles.
-  std::vector<base::WeakPtr<Browser>> otherBrowsers;
-  for (ProfileIOS* profile :
-       GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    const std::set<Browser*>& browserList =
-        BrowserListFactory::GetForProfile(profile)->BrowsersOfType(
-            BrowserList::BrowserType::kRegular);
-    for (Browser* browser : browserList) {
-      if (browser == self.browser) {
-        continue;
-      }
-      otherBrowsers.push_back(browser->AsWeakPtr());
-    }
-  }
-
-  if (otherBrowsers.empty()) {
-    std::move(closure).Run();
-    return;
-  }
-
-  // Gate the completion behind this barrier closure which executes it when all
-  // other browsers have dismissed their Gemini sessions.
-  base::RepeatingClosure barrier =
-      base::BarrierClosure(otherBrowsers.size(), std::move(closure));
-
-  // Dismiss Gemini in all the other browsers for all profiles.
-  for (base::WeakPtr<Browser> browser : otherBrowsers) {
-    id<BWGCommands> geminiCommandsHandler =
-        HandlerForProtocol(browser->GetCommandDispatcher(), BWGCommands);
-    [geminiCommandsHandler dismissGeminiFlowWithCompletion:^() {
-      barrier.Run();
-    }];
   }
 }
 

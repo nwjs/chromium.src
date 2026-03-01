@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 
@@ -26,13 +27,12 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig.DisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 
 /** Unit tests for helper functions in {@link NewTabPage} and {@link NewTabPageLayout} classes. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -45,7 +45,10 @@ public class NewTabPageUtilUnitTest {
 
     @Before
     public void setUp() {
-        mContext = ApplicationProvider.getApplicationContext();
+        mContext =
+                new ContextThemeWrapper(
+                        ApplicationProvider.getApplicationContext(),
+                        R.style.Theme_BrowserUI_DayNight);
         mView = new View(mContext);
         mView.setLayoutParams(new MarginLayoutParams(100, 100));
     }
@@ -61,56 +64,25 @@ public class NewTabPageUtilUnitTest {
         assertFalse(
                 "It isn't a narrow window on tablet when displayStyleWide =="
                         + " HorizontalDisplayStyle.WIDE.",
-                NewTabPageLayout.isInNarrowWindowOnTablet(true, uiConfig));
+                NtpCustomizationUtils.isInNarrowWindowOnTablet(true, uiConfig));
 
         UiConfig.DisplayStyle displayStyleRegular =
                 new DisplayStyle(HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR);
         when(uiConfig.getCurrentDisplayStyle()).thenReturn(displayStyleRegular);
         assertFalse(
                 "It isn't a narrow window on tablet when |isTablet| is false.",
-                NewTabPageLayout.isInNarrowWindowOnTablet(false, uiConfig));
+                NtpCustomizationUtils.isInNarrowWindowOnTablet(false, uiConfig));
 
-        assertTrue(NewTabPageLayout.isInNarrowWindowOnTablet(true, uiConfig));
+        assertTrue(NtpCustomizationUtils.isInNarrowWindowOnTablet(true, uiConfig));
     }
 
     @Test
-    @Features.DisableFeatures({OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE_V2})
-    public void testIsInSingleUrlBarMode() {
-        // Verifies isInSingleUrlBarMode() returns false on tablets.
-        assertFalse(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ true, /* searchProviderHasLogo= */ false));
-        assertFalse(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ true, /* searchProviderHasLogo= */ true));
-        // Verifies isInSingleUrlBarMode() depends on searchProviderHasLogo.
-        assertFalse(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ false, /* searchProviderHasLogo= */ false));
-        assertTrue(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ false, /* searchProviderHasLogo= */ true));
-    }
-
-    @Test
-    @Features.EnableFeatures({OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE_V2})
     public void testIsInSingleUrlBarMode_OmniboxMobileParityUpdateV2Enabled() {
         // Verifies isInSingleUrlBarMode() returns false on tablets.
-        assertFalse(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ true, /* searchProviderHasLogo= */ false));
-        assertFalse(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ true, /* searchProviderHasLogo= */ true));
+        assertFalse(NewTabPage.isInSingleUrlBarMode(/* isTablet= */ true));
 
-        // Verifies that isInSingleUrlBarMode() return true without depending on
-        // searchProviderHasLogo.
-        assertTrue(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ false, /* searchProviderHasLogo= */ false));
-        assertTrue(
-                NewTabPage.isInSingleUrlBarMode(
-                        /* isTablet= */ false, /* searchProviderHasLogo= */ true));
+        // Verifies that isInSingleUrlBarMode() return true on phones.
+        assertTrue(NewTabPage.isInSingleUrlBarMode(/* isTablet= */ false));
     }
 
     @Test

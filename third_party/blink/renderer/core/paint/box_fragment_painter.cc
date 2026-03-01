@@ -395,13 +395,15 @@ bool ShouldDelegatePaintingToViewTransition(const PhysicalBoxFragment& fragment,
   }
 }
 
-// Paints a highlight overlay for elements identified as ads. This supports the
-// "Highlight ads" feature in DevTools.
-void PaintAdHighlightIfNeeded(const PaintInfo& paint_info,
-                              const PhysicalOffset& paint_offset,
-                              const PhysicalBoxFragment& fragment,
-                              const DisplayItemClient& display_item_client,
-                              PaintPhase phase) {
+}  // anonymous namespace
+
+// static
+void BoxFragmentPainter::PaintAdHighlightIfNeeded(
+    const PaintInfo& paint_info,
+    const PhysicalOffset& paint_offset,
+    const PhysicalBoxFragment& fragment,
+    const DisplayItemClient& display_item_client,
+    PaintPhase phase) {
   // The highlight is an overlay, so it should only be painted during the
   // foreground phase, after all element content is drawn.
   if (phase != PaintPhase::kForeground) {
@@ -509,8 +511,6 @@ void PaintAdHighlightIfNeeded(const PaintInfo& paint_info,
   }
 }
 
-}  // anonymous namespace
-
 PhysicalRect BoxFragmentPainter::InkOverflowIncludingFilters() const {
   if (box_item_)
     return box_item_->SelfInkOverflowRect();
@@ -552,17 +552,6 @@ void BoxFragmentPainter::PaintFragment(const PhysicalBoxFragment& fragment,
   } else {
     layout_object->Paint(modified_paint_info);
   }
-
-  PhysicalOffset paint_offset;
-  if (const FragmentData* fragment_data = fragment.GetFragmentData()) {
-    paint_offset = fragment_data->PaintOffset();
-  }
-
-  // Paint the ad highlight last. For this monolithic path (e.g., <img>,
-  // <iframe>), the paint_offset is provided by FragmentData and represents the
-  // fragment's position in the paint layer.
-  PaintAdHighlightIfNeeded(modified_paint_info, paint_offset, fragment,
-                           *layout_object, paint_info.phase);
 }
 
 void BoxFragmentPainter::Paint(const PaintInfo& paint_info) {
@@ -570,6 +559,13 @@ void BoxFragmentPainter::Paint(const PaintInfo& paint_info) {
     return;
   }
   auto* layout_object = box_fragment_.GetLayoutObject();
+
+  if (layout_object && layout_object->NeedsLayout() &&
+      !layout_object->ChildLayoutBlockedByDisplayLock()) {
+    // TODO(crbug.com/478682594): Remove when done investigating.
+    layout_object->DumpForBug478682594();
+  }
+
   if (GetPhysicalFragment().IsPaintedAtomically() &&
       !box_fragment_.HasSelfPaintingLayer() &&
       paint_info.phase != PaintPhase::kOverlayOverflowControls) {
@@ -1327,11 +1323,8 @@ void BoxFragmentPainter::PaintBoxDecorationBackground(
         visual_rect, paint_rect, *background_client);
 
     Element* element = DynamicTo<Element>(layout_object.GetNode());
-    if (element && element->GetRegionCaptureCropId()) {
-      paint_info.context.GetPaintController().RecordRegionCaptureData(
-          *background_client, *(element->GetRegionCaptureCropId()),
-          ToPixelSnappedRect(paint_rect));
-    }
+    RecordRegionCaptureAndTrackedElementData(element, paint_info, paint_rect,
+                                             *background_client);
   }
 
   if (!suppress_box_decoration_background && box_fragment_.GetGapGeometry() &&
@@ -1529,11 +1522,11 @@ void BoxFragmentPainter::PaintGapDecorations(
   DrawingRecorder recorder(final_paint_info->context, *background_client,
                            DisplayItem::kColumnRules, visual_rect);
 
-  EGapRuleOverlap paint_order = box_fragment_.Style().GapRuleOverlap();
-  // `gap-rule-overlap` dictates whether to paint the columns over the
+  ERuleOverlap paint_order = box_fragment_.Style().RuleOverlap();
+  // `rule-overlap` dictates whether to paint the columns over the
   // rows, or the rows over the columns. The default is to paint the rows over
   // the columns.
-  if (paint_order == EGapRuleOverlap::kColumnOverRow) {
+  if (paint_order == ERuleOverlap::kColumnOverRow) {
     if (RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
       GapDecorationsPainter(box_fragment_)
           .Paint(kForRows, *final_paint_info, paint_rect, *gap_geometry);
@@ -1620,7 +1613,10 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundWithRectImpl(
       BoxPainterBase::PaintInsetBoxShadowWithInnerRect(paint_info, inner_rect,
                                                        style);
     } else {
+      std::optional<BorderShapeReferenceRects> border_shape_rects =
+          ComputeBorderShapeReferenceRects(paint_rect, style, layout_object);
       PaintInsetBoxShadowWithBorderRect(paint_info, paint_rect, style,
+                                        border_shape_rects,
                                         box_fragment_.SidesToInclude());
     }
   }
@@ -1946,11 +1942,8 @@ inline void BoxFragmentPainter::PaintLineBox(
                                                   line_fragment_id);
 
   Element* element = DynamicTo<Element>(line_box_fragment.GetNode());
-  if (element && element->GetRegionCaptureCropId()) {
-    paint_info.context.GetPaintController().RecordRegionCaptureData(
-        display_item_client, *(element->GetRegionCaptureCropId()),
-        ToPixelSnappedRect(border_box));
-  }
+  RecordRegionCaptureAndTrackedElementData(element, paint_info, border_box,
+                                           display_item_client);
 
   // Paint the background of the `::first-line` line box.
   if (LineBoxFragmentPainter::NeedsPaint(line_box_fragment)) {
@@ -2322,7 +2315,13 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
             physical_offset, kExcludeOverlayScrollbarSizeForHitTesting))) {
       skip_children = true;
     }
-    if (!skip_children && style.HasBorderRadius()) {
+    // Also check border-radius and border-shape clipping.
+    if (!skip_children && style.HasBorderShape()) {
+      PhysicalRect rect(physical_offset, size);
+      const Path outer_path = ComputeBorderShapeOuterPath(
+          style, rect, box_fragment_.GetLayoutObject());
+      skip_children = !hit_test.location.Intersects(outer_path);
+    } else if (!skip_children && style.HasBorderRadius()) {
       PhysicalRect bounds_rect(physical_offset, size);
       skip_children = !hit_test.location.Intersects(
           ContouredBorderGeometry::PixelSnappedContouredInnerBorder(
@@ -2346,9 +2345,18 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
     }
   }
 
-  if (style.HasBorderRadius() &&
-      HitTestClippedOutByBorder(hit_test.location, physical_offset))
+  // Check border-shape and border-radius clipping.
+  if (style.HasBorderShape()) {
+    PhysicalRect rect(physical_offset, size);
+    const Path outer_path = ComputeBorderShapeOuterPath(
+        style, rect, box_fragment_.GetLayoutObject());
+    if (!hit_test.location.Intersects(outer_path)) {
+      return false;
+    }
+  } else if (style.HasBorderRadius() &&
+             HitTestClippedOutByBorder(hit_test.location, physical_offset)) {
     return false;
+  }
 
   bool pointer_events_bounding_box = false;
   bool hit_test_self = fragment.IsInSelfHitTestingPhase(hit_test.phase);
@@ -3013,6 +3021,25 @@ gfx::Rect BoxFragmentPainter::VisualRect(const PhysicalOffset& paint_offset) {
   PhysicalRect ink_overflow = box_item_->InkOverflowRect();
   ink_overflow.Move(paint_offset);
   return ToEnclosingRect(ink_overflow);
+}
+
+void BoxFragmentPainter::RecordRegionCaptureAndTrackedElementData(
+    Element* element,
+    const PaintInfo& paint_info,
+    const PhysicalRect& paint_rect,
+    const DisplayItemClient& display_item_client) {
+  if (element && element->GetRegionCaptureCropId()) {
+    paint_info.context.GetPaintController().RecordRegionCaptureData(
+        display_item_client, *(element->GetRegionCaptureCropId()),
+        ToPixelSnappedRect(paint_rect));
+  }
+
+  if (element && element->GetTrackedElementRect()) {
+    const auto* tracked_element_rect = element->GetTrackedElementRect();
+    paint_info.context.GetPaintController().RecordTrackedElementData(
+        display_item_client, *tracked_element_rect,
+        ToPixelSnappedRect(paint_rect));
+  }
 }
 
 }  // namespace blink

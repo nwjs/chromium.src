@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "base/atomic_sequence_num.h"
-#include "base/containers/contains.h"
 #include "base/format_macros.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
@@ -405,8 +404,7 @@ bool ResourcePool::PrepareForExport(
   DCHECK(backing);
   viz::TransferableResource transferable;
   if (!backing->shared_image()) {
-    // This can happen if we failed to allocate a GpuMemoryBuffer. Avoid
-    // sending an invalid resource to the parent in that case, and avoid
+    // Avoid sending an invalid resource to the parent, and avoid
     // caching/reusing the resource.
     resource->set_resource_id(viz::kInvalidResourceId);
     resource->mark_avoid_reuse();
@@ -459,12 +457,12 @@ void ResourcePool::ReleaseResource(InUsePoolResource in_use_resource) {
 
     // Maybe this is a double free - see if the resource exists in our busy
     // list.
-    CHECK(!base::Contains(busy_resources_, pool_resource->unique_id(),
-                          &PoolResource::unique_id));
+    CHECK(!std::ranges::contains(busy_resources_, pool_resource->unique_id(),
+                                 &PoolResource::unique_id));
 
     // Also check if the resource exists in our unused resources list.
-    CHECK(!base::Contains(unused_resources_, pool_resource->unique_id(),
-                          &PoolResource::unique_id));
+    CHECK(!std::ranges::contains(unused_resources_, pool_resource->unique_id(),
+                                 &PoolResource::unique_id));
 
     // Resource doesn't exist in any of our lists. NOTREACHED().
     NOTREACHED();

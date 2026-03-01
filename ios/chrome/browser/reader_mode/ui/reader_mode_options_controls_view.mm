@@ -8,6 +8,7 @@
 
 #import "base/task/sequenced_task_runner.h"
 #import "base/time/time.h"
+#import "components/dom_distiller/core/dom_distiller_features.h"
 #import "components/dom_distiller/core/mojom/distilled_page_prefs.mojom.h"
 #import "ios/chrome/browser/reader_mode/ui/constants.h"
 #import "ios/chrome/browser/reader_mode/ui/reader_mode_options_mutator.h"
@@ -83,19 +84,25 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(2);
       [self createFontFamilyMenuWithSelectedFamily:fontFamily];
 }
 
-- (void)setSelectedTheme:(dom_distiller::mojom::Theme)theme {
-  _lightThemeButton.configuration =
-      [self createLightThemeButtonConfigurationSelected:
-                theme == dom_distiller::mojom::Theme::kLight];
-  _lightThemeButton.selected = theme == dom_distiller::mojom::Theme::kLight;
-  _sepiaThemeButton.configuration =
-      [self createSepiaThemeButtonConfigurationSelected:
-                theme == dom_distiller::mojom::Theme::kSepia];
-  _sepiaThemeButton.selected = theme == dom_distiller::mojom::Theme::kSepia;
+- (void)setSelectedTheme:(dom_distiller::mojom::Theme)theme
+              fromSource:(dom_distiller::ThemeSettingsUpdateSource)source {
+  BOOL systemSelected =
+      source == dom_distiller::ThemeSettingsUpdateSource::kSystem;
+  _lightThemeButton.configuration = [self
+      createLightThemeButtonConfigurationSelected:
+          theme == dom_distiller::mojom::Theme::kLight && !systemSelected];
+  _lightThemeButton.selected =
+      theme == dom_distiller::mojom::Theme::kLight && !systemSelected;
+  _sepiaThemeButton.configuration = [self
+      createSepiaThemeButtonConfigurationSelected:
+          theme == dom_distiller::mojom::Theme::kSepia && !systemSelected];
+  _sepiaThemeButton.selected =
+      theme == dom_distiller::mojom::Theme::kSepia && !systemSelected;
   _darkThemeButton.configuration =
       [self createDarkThemeButtonConfigurationSelected:
-                theme == dom_distiller::mojom::Theme::kDark];
-  _darkThemeButton.selected = theme == dom_distiller::mojom::Theme::kDark;
+                theme == dom_distiller::mojom::Theme::kDark && !systemSelected];
+  _darkThemeButton.selected =
+      theme == dom_distiller::mojom::Theme::kDark && !systemSelected;
 }
 
 - (void)setDecreaseFontSizeButtonEnabled:(BOOL)enabled {
@@ -277,13 +284,17 @@ constexpr base::TimeDelta kA11yAnnouncementQueueDelay = base::Seconds(2);
       break;
   }
 
-  // TODO(crbug.com/441657426): Add lexendAction to supported list
+  NSArray* fontList;
+  if (base::FeatureList::IsEnabled(dom_distiller::kReaderModeSupportNewFonts)) {
+    fontList = @[ lexendAction, monospaceAction, sansSerifAction, serifAction ];
+  } else {
+    fontList = @[ monospaceAction, sansSerifAction, serifAction ];
+  }
+
   return [UIMenu
       menuWithTitle:l10n_util::GetNSString(
                         IDS_IOS_READER_MODE_OPTIONS_FONT_FAMILY_MENU_TITLE)
-           children:@[
-             monospaceAction, sansSerifAction, serifAction
-           ]];
+           children:fontList];
 }
 
 // Returns the action to select the Sans-serif font family.

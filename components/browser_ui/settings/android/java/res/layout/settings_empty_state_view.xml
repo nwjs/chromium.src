@@ -5,12 +5,13 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
 
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:ignore="UselessParent">
+    android:paddingBottom="@dimen/settings_empty_view_bottom_padding"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:id="@+id/empty_state_content"
@@ -18,6 +19,7 @@ found in the LICENSE file.
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
         android:layout_gravity="center_horizontal"
+        android:clipChildren="false"
         android:orientation="vertical">
         <ImageView
             android:id="@+id/empty_state_icon"
@@ -35,15 +37,14 @@ found in the LICENSE file.
             android:textAlignment="center"
             android:textAppearance="@style/TextAppearance.Headline2Thick.Secondary"
             app:leading="@dimen/headline2_size_leading"/>
-        <org.chromium.ui.widget.TextViewWithLeading
+        <org.chromium.ui.widget.ButtonCompat
             android:id="@+id/empty_state_text_description"
+            style="@style/TextButton"
             android:maxWidth="@dimen/empty_state_text_width"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:paddingTop="@dimen/empty_state_subheading_padding_top"
-            android:textAlignment="center"
-            android:textAppearance="@style/TextAppearance.TextMedium.Secondary"
-            app:leading="@dimen/text_size_medium_leading"/>
+            android:textAlignment="center"/>
     </LinearLayout>
-</FrameLayout>
+</ScrollView>

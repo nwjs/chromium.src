@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <optional>
 
 #include "base/functional/bind.h"
@@ -42,6 +43,7 @@
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_install_element.h"
 #include "third_party/blink/renderer/core/html/html_permission_element_strings_map.h"
 #include "third_party/blink/renderer/core/html/html_permission_element_utils.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
@@ -362,6 +364,8 @@ HTMLPermissionElement::HTMLPermissionElement(
         RuntimeEnabledFeatures::GeolocationElementEnabled(
             document.GetExecutionContext()) ||
         RuntimeEnabledFeatures::UserMediaElementEnabled(
+            document.GetExecutionContext()) ||
+        RuntimeEnabledFeatures::InstallElementEnabled(
             document.GetExecutionContext()));
   SetHasCustomStyleCallbacks();
   EnsureUserAgentShadowRoot();
@@ -628,8 +632,23 @@ void HTMLPermissionElement::UpdateAppearance() {
       GetLocale().QueryString(translated_message_id));
 }
 
-void HTMLPermissionElement::UpdateIcon(PermissionName permnission) {
-  permission_internal_icon_->SetIcon(permnission, is_precise_location_);
+void HTMLPermissionElement::UpdateIcon(PermissionName permission) {
+  PermissionIconType icon_type;
+  switch (permission) {
+    case PermissionName::GEOLOCATION:
+      icon_type = is_precise_location_ ? PermissionIconType::kLocationPrecise
+                                       : PermissionIconType::kLocation;
+      break;
+    case PermissionName::VIDEO_CAPTURE:
+      icon_type = PermissionIconType::kCamera;
+      break;
+    case PermissionName::AUDIO_CAPTURE:
+      icon_type = PermissionIconType::kMicrophone;
+      break;
+    default:
+      return;
+  }
+  permission_internal_icon_->SetIcon(icon_type);
 }
 
 void HTMLPermissionElement::UpdatePermissionStatusAndAppearance() {
@@ -836,7 +855,7 @@ void HTMLPermissionElement::LangAttributeChanged() {
   HTMLElement::LangAttributeChanged();
 }
 
-void HTMLPermissionElement::AttributeChanged(
+void HTMLPermissionElement::ParseAttribute(
     const AttributeModificationParams& params) {
   if (params.name == html_names::kTypeAttr) {
     setType(params.new_value);
@@ -848,7 +867,7 @@ void HTMLPermissionElement::AttributeChanged(
     SetPreciseLocation(params.new_value != nullptr);
   }
 
-  HTMLElement::AttributeChanged(params);
+  HTMLElement::ParseAttribute(params);
 }
 
 void HTMLPermissionElement::DidAddUserAgentShadowRoot(ShadowRoot& root) {
@@ -1531,8 +1550,8 @@ bool HTMLPermissionElement::IsStyleValid() {
     return false;
   }
 
-  if (base::Contains(kInvalidDisplayStyles,
-                     style->GetDisplayStyle().Display()) ||
+  if (std::ranges::contains(kInvalidDisplayStyles,
+                            style->GetDisplayStyle().Display()) ||
       style->IsDisplayTableType()) {
     AuditsIssue::ReportPermissionElementIssue(
         GetExecutionContext(), GetDomNodeId(),

@@ -93,6 +93,7 @@ struct SharedImageMetadata {
 
 class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageExportResult {
  public:
+  SharedImageExportResult() = default;
   ~SharedImageExportResult() = default;
 
   // Used in FrameSinkResourceManager to facilitate creating a dummy
@@ -115,18 +116,18 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageExportResult {
     return IsEqualForTesting(other_result.sync_token_);
   }
 
+  bool HasData() const { return sync_token_.HasData(); }
+
+  std::string ToDebugString() const { return sync_token_.ToDebugString(); }
+
  private:
   friend class ClientSharedImage;
-
-  // Allows ReturnedResource to be default constructed.
-  friend struct viz::ReturnedResource;
 
   // Allows ReturnedResourceViz to convert SyncToken to SharedImageExportResult.
   friend struct viz::ReturnedResourceViz;
   friend struct mojo::StructTraits<gpu::mojom::SharedImageExportResultDataView,
                                    SharedImageExportResult>;
 
-  SharedImageExportResult() = default;
   explicit SharedImageExportResult(const SyncToken& sync_token);
 
   SyncToken sync_token_;
@@ -381,16 +382,12 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
   friend class SharedImageTexture;
   ~ClientSharedImage();
 
-  // static
   std::unique_ptr<MappableBuffer> CreateMappableBufferFromHandle(
       gfx::GpuMemoryBufferHandle handle,
       const gfx::Size& size,
       viz::SharedImageFormat format,
       gfx::BufferUsage usage,
       gpu::SharedImageUsageSet si_usage,
-      MappableBuffer::CopyNativeBufferToShMemCallback
-          copy_native_buffer_to_shmem_callback =
-              MappableBuffer::CopyNativeBufferToShMemCallback(),
       scoped_refptr<base::UnsafeSharedMemoryPool> pool = nullptr);
 
   // This constructor is used only when importing an owned ClientSharedImage,
@@ -442,6 +439,11 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT ClientSharedImage
       gfx::GpuMemoryBufferHandle buffer_handle,
       base::UnsafeSharedMemoryRegion memory_region,
       base::OnceCallback<void(bool)> callback);
+
+  void RunOnTaskRunner(MappableBuffer::CopyNativeBufferToShMemCallback callback,
+                       gfx::GpuMemoryBufferHandle buffer_handle,
+                       base::UnsafeSharedMemoryRegion memory_region,
+                       base::OnceCallback<void(bool)> result_cb);
 
   // This pair of functions are used by SharedImageTexture to notify
   // ClientSharedImage of the beginning and the end of a scoped access.

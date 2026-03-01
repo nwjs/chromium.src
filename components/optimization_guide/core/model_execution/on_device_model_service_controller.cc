@@ -4,12 +4,12 @@
 
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -137,7 +137,8 @@ OnDeviceModelServiceController::OnDeviceModelServiceController(
     base::WeakPtr<OnDeviceModelComponentStateManager>
         on_device_component_state_manager,
     UsageTracker& usage_tracker,
-    base::SafeRef<on_device_model::ServiceClient> service_client)
+    base::SafeRef<on_device_model::ServiceClient> service_client,
+    AddDownloadProgressObserverCallback add_download_progress_observer_callback)
     : access_controller_(std::move(access_controller)),
       usage_tracker_(usage_tracker),
       service_client_(std::move(service_client)),
@@ -146,7 +147,8 @@ OnDeviceModelServiceController::OnDeviceModelServiceController(
           *usage_tracker_,
           base::BindRepeating(
               &PerformanceClassifier::EnsurePerformanceClassAvailable,
-              performance_classifier)) {
+              performance_classifier),
+          std::move(add_download_progress_observer_callback)) {
   base_model_controller_.emplace(weak_ptr_factory_.GetSafeRef(), nullptr);
   service_client_->set_on_disconnect_fn(base::BindRepeating(
       &OnDeviceModelServiceController::OnServiceDisconnected,
@@ -321,7 +323,11 @@ OnDeviceModelServiceController::GetSolution(mojom::OnDeviceFeature feature) {
   // Checks usage for feature before checking (eligible) model status, so that
   // kPendingUsage is returned if the feature is not requested but the model was
   // available for a different feature.
-  if (!usage_tracker_->WasOnDeviceEligibleFeatureRecentlyUsed(feature)) {
+  bool is_background_download_enabled_for_feature =
+      features::IsOnDeviceModelBackgroundDownloadEnabledForFeature(feature);
+
+  if (!usage_tracker_->WasOnDeviceEligibleFeatureRecentlyUsed(feature) &&
+      !is_background_download_enabled_for_feature) {
     return base::unexpected(
         OnDeviceModelEligibilityReason::kNoOnDeviceFeatureUsed);
   }
@@ -416,7 +422,7 @@ void OnDeviceModelServiceController::BaseModelController::RequireAdaptationRank(
     // Older configs may not specify rank, and should be covered by defaults.
     return;
   }
-  if (base::Contains(supported_adaptation_ranks_, required_rank)) {
+  if (std::ranges::contains(supported_adaptation_ranks_, required_rank)) {
     return;
   }
   // Add the rank and reset all remotes to force a reload.
@@ -639,6 +645,11 @@ OnDeviceModelServiceController::Solution::MakeConfig() const {
   config->text_safety_config =
       mojo_base::ProtoWrapper(safety_checker_->safety_cfg().proto());
   return config;
+}
+
+const OnDeviceModelFeatureAdapter*
+OnDeviceModelServiceController::Solution::GetAdapter() const {
+  return adapter_.get();
 }
 
 void OnDeviceModelServiceController::Solution::CreateSession(

@@ -116,7 +116,7 @@ const CGFloat kSeparatorVerticalPadding = 12.0;
     return accessibleElements;
   }
 
-  if (IsContextualPanelEnabled() && self.contextualPanelEntrypointView) {
+  if (self.contextualPanelEntrypointView) {
     [accessibleElements addObject:self.contextualPanelEntrypointView];
   }
 

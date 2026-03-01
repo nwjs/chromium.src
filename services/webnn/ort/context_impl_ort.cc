@@ -450,62 +450,52 @@ ContextImplOrt::CreateTensorFromSharedImageImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
     WebNNTensorImpl::RepresentationPtr representation) {
-  // Shared image representation must be retrieved on the main thread. If WebNN
-  // runs on its own thread, a task is posted to the main thread and waits to
-  // retrieve the backend representation. Otherwise, if WebNN is already running
-  // on the main thread, it directly gets the backend representation.
   ComPtr<ID3D12Resource> d3d12_buffer;
-  WebNNTensorImpl::RunOrPostTaskAndWaitOnSequence(
-      main_task_runner(),
-      base::BindOnce(
-          [](gpu::WebNNTensorRepresentation* representation,
-             ComPtr<ID3D12Resource>* out_buffer) {
-            *out_buffer = representation->GetD3D12Buffer();
-          },
-          // Safe to use base::Unretained because we must run or wait for the
-          // post task to complete and `representation` cannot destruct while
-          // the task is running.
-          base::Unretained(representation.get()), &d3d12_buffer));
+  // Shared image is thread-safe, directly get the backend representation.
+  if (representation->is_thread_safe()) {
+    d3d12_buffer = representation->GetD3D12Buffer();
+  } else {
+    // Shared image representation must be retrieved on the main thread. If
+    // WebNN runs on its own thread, a task is posted to the main thread and
+    // waits to retrieve the backend representation. Otherwise, if WebNN is
+    // already running on the main thread, it directly gets the backend
+    // representation.
+    WebNNTensorImpl::RunOrPostTaskAndWaitOnSequence(
+        main_task_runner(),
+        base::BindOnce(
+            [](gpu::WebNNTensorRepresentation* representation,
+               ComPtr<ID3D12Resource>* out_buffer) {
+              *out_buffer = representation->GetD3D12Buffer();
+            },
+            // Safe to use base::Unretained because we must run or wait for the
+            // post task to complete and `representation` cannot destruct while
+            // the task is running.
+            base::Unretained(representation.get()), &d3d12_buffer));
+  }
 
   CHECK(d3d12_buffer)
       << "[WebNN] Failed to get D3D12 buffer from shared image.";
 
-  // Validate D3D12 buffer size matches TensorInfo.
-  if (d3d12_buffer->GetDesc().Width !=
-      static_cast<uint64_t>(tensor_info->descriptor.PackedByteLength())) {
+  // Validate the shared image matches TensorInfo.
+  // Note: Shared image size is guaranteed to be at-least the required size for
+  // the D3D buffer (may be larger due to alignment requirements).
+  const size_t buffer_size =
+      base::checked_cast<size_t>(representation->size().width());
+  if (buffer_size < tensor_info->descriptor.PackedByteLength()) {
     return base::unexpected(mojom::Error::New(mojom::Error::Code::kUnknownError,
                                               "Failed to create tensor."));
   }
 
-  D3D12_HEAP_PROPERTIES heap_properties = {};
-  HRESULT hr = d3d12_buffer->GetHeapProperties(&heap_properties, nullptr);
-  CHECK_EQ(hr, S_OK) << "[WebNN] Failed to get D3D12 buffer heap properties.";
-  ComPtr<ID3D12Device> device;
-  hr = d3d12_buffer->GetDevice(IID_PPV_ARGS(&device));
-  CHECK_EQ(hr, S_OK) << "[WebNN] Failed to get D3D12 device from buffer.";
-
-  if (heap_properties.Type != D3D12_HEAP_TYPE_CUSTOM) {
-    heap_properties = device->GetCustomHeapProperties(0, heap_properties.Type);
-  }
-
-  if (heap_properties.CPUPageProperty !=
-          D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE &&
-      heap_properties.CPUPageProperty != D3D12_CPU_PAGE_PROPERTY_WRITE_BACK) {
+  // CreateTensorWithDataAsOrtValue only allows CPU memory.
+  void* mapped_ptr = nullptr;
+  HRESULT hr = d3d12_buffer->Map(0, nullptr, &mapped_ptr);
+  if (FAILED(hr)) {
+    LOG(ERROR) << "[WebNN] Failed to map D3D12 buffer: "
+               << logging::SystemErrorCodeToString(hr);
     return base::unexpected(
         mojom::Error::New(mojom::Error::Code::kNotSupportedError,
                           "WebGPU interop is not supported."));
   }
-
-  void* mapped_ptr = nullptr;
-  hr = d3d12_buffer->Map(0, nullptr, &mapped_ptr);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "[WebNN] Failed to map D3D12 buffer: "
-               << logging::SystemErrorCodeToString(hr);
-    return base::unexpected(mojom::Error::New(mojom::Error::Code::kUnknownError,
-                                              "Failed to create tensor."));
-  }
-  size_t size = d3d12_buffer->GetDesc().Width;
-  CHECK(base::IsValueInRangeForNumericType<int>(size));
 
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
 
@@ -521,14 +511,13 @@ ContextImplOrt::CreateTensorFromSharedImageImpl(
 
   ScopedOrtValue tensor;
   CHECK_STATUS(ort_api->CreateTensorWithDataAsOrtValue(
-      memory_info.get(), mapped_ptr, size, ort_shape.data(), ort_shape.size(),
-      ort_data_type, ScopedOrtValue::Receiver(tensor).get()));
+      memory_info.get(), mapped_ptr, buffer_size, ort_shape.data(),
+      ort_shape.size(), ort_data_type, ScopedOrtValue::Receiver(tensor).get()));
   CHECK(tensor.get());
 
   return base::MakeRefCounted<TensorImplOrt>(
       std::move(receiver), AsWeakPtr(), std::move(tensor_info),
-      std::move(representation), size, std::move(tensor),
-      std::move(d3d12_buffer));
+      std::move(representation), buffer_size, std::move(tensor));
 }
 
 }  // namespace webnn::ort

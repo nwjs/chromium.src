@@ -7,6 +7,8 @@
 #include "base/base64.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/memory/raw_ptr.h"
+#include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/bind.h"
@@ -18,9 +20,10 @@
 #include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
+#include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
-#include "chrome/browser/actor/browser_action_util.h"
+#include "chrome/browser/actor/aggregated_journal.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
@@ -28,6 +31,7 @@
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/render_frame_host.h"
@@ -39,7 +43,7 @@ template <>
 struct TypeConverter<base::Value, glic::mojom::GetTabContextOptions> {
   static base::Value Convert(const glic::mojom::GetTabContextOptions in) {
     base::Value raw_out(base::Value::Type::DICT);
-    base::Value::Dict& out = raw_out.GetDict();
+    base::DictValue& out = raw_out.GetDict();
     out.Set("includeInnerText", in.include_inner_text);
     out.Set("innerTextBytesLimit", static_cast<int>(in.inner_text_bytes_limit));
     out.Set("includeViewportScreenshot", in.include_viewport_screenshot);
@@ -65,6 +69,52 @@ using ::optimization_guide::proto::ClickAction;
 using ::optimization_guide::proto::TabObservation;
 using ::page_content_annotations::FetchPageContextResult;
 using ::testing::Property;
+
+// Helper class to observe journal entries and wait for a specific condition.
+class JournalObserver : public actor::AggregatedJournal::Observer {
+ public:
+  using Predicate =
+      base::RepeatingCallback<bool(const actor::mojom::JournalEntry&)>;
+
+  explicit JournalObserver(actor::AggregatedJournal* journal)
+      : journal_(journal) {
+    journal_->AddObserver(this);
+  }
+
+  ~JournalObserver() override { journal_->RemoveObserver(this); }
+
+  void WillAddJournalEntry(
+      const actor::AggregatedJournal::Entry& entry) override {
+    if (wait_predicate_ && wait_predicate_.Run(*entry.data)) {
+      if (run_loop_) {
+        run_loop_->Quit();
+      }
+    }
+  }
+
+  // Waits until a journal entry matching the predicate is observed.
+  // NOTE: Only entries added after this method is called will be considered.
+  void WaitUntil(Predicate predicate) {
+    wait_predicate_ = std::move(predicate);
+    run_loop_ = std::make_unique<base::RunLoop>();
+    run_loop_->Run();
+  }
+
+ private:
+  raw_ptr<actor::AggregatedJournal> journal_;
+  Predicate wait_predicate_;
+  std::unique_ptr<base::RunLoop> run_loop_;
+};
+
+bool JournalEntryHasError(const actor::mojom::JournalEntry& entry,
+                          const std::string& error_message) {
+  for (const auto& detail : entry.details) {
+    if (detail->key == "error" && detail->value == error_message) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Helper to mock the result returned on a TabObservation built using
 // actor::BuildActionsResultWithObservations. While live, use the provided
@@ -112,6 +162,14 @@ Actions MakeWaitForTaskId(std::optional<base::TimeDelta> duration,
   return action;
 }
 
+Actions MakeNavigateForTaskId(tabs::TabHandle tab_handle,
+                              std::string_view target_url_spec,
+                              TaskId task_id) {
+  Actions action = MakeNavigate(tab_handle, target_url_spec);
+  action.set_task_id(task_id.value());
+  return action;
+}
+
 // Helper class that utilizes content::DOMMessageQueue to capture the result of
 // an asynchronous PerformActions call. It listens for messages sent via
 // domAutomationController and filters by request ID to ensure the correct
@@ -135,7 +193,7 @@ class AsyncActionWaiter {
                                 json_value.error().message);
       }
 
-      const base::Value::Dict* dict = json_value->GetIfDict();
+      const base::DictValue* dict = json_value->GetIfDict();
       if (!dict) {
         return base::unexpected("Expected a JSON object from JS.");
       }
@@ -172,9 +230,13 @@ class ActorFunctionalBrowserTest : public glic::test::InteractiveGlicTest {
   static constexpr base::TimeDelta kLongWaitTime = base::Minutes(2);
 
   ActorFunctionalBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kGlicMultiInstance,
-                              actor::kActorBindCreatedTabToTask},
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{features::kGlicMultiInstance, {}},
+                              {actor::kActorBindCreatedTabToTask, {}},
+                              {features::kGlicActor,
+                               {{features::kGlicActorPolicyControlExemption
+                                     .name,
+                                 "true"}}}},
         /*disabled_features=*/{});
   }
   ~ActorFunctionalBrowserTest() override = default;
@@ -182,7 +244,6 @@ class ActorFunctionalBrowserTest : public glic::test::InteractiveGlicTest {
  protected:
   void SetUpOnMainThread() override {
     glic::test::InteractiveGlicTest::SetUpOnMainThread();
-    actor_keyed_service()->GetPolicyChecker().set_act_on_web_for_testing(true);
     // TODO(crbug.com/461825458): Add support for kAttached window mode in test.
     RunTestSequence(OpenGlic());
   }
@@ -218,16 +279,6 @@ class ActorFunctionalBrowserTest : public glic::test::InteractiveGlicTest {
     ActorTask* task = actor_keyed_service()->GetTask(task_id);
     CHECK_NE(task, nullptr) << "ActorTask " << task_id << " not found.";
     return task->GetState();
-  }
-
-  // Waits for the relevant ActorTask to reach the expected state or times out.
-  void RunUntilActorTaskStateIs(TaskId task_id,
-                                ActorTask::State expected_state) {
-    // TODO(crbug.com/473858969): Replace with a helper class.
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return GetActorTaskState(task_id) == expected_state;
-    })) << "Timed out waiting for ActorTask "
-        << task_id << " to reach state " << ToString(expected_state);
   }
 
   // Common helper to run EvalJs in the Glic frame.
@@ -399,6 +450,35 @@ class ActorFunctionalBrowserTest : public glic::test::InteractiveGlicTest {
     return base::ok(static_cast<mojom::ActionResultCode>(action_result_int));
   }
 
+  // Helper to call the InterruptActorTask TS API.
+  void InterruptActorTask(TaskId task_id) {
+    std::string script = "window.client.browser.interruptActorTask($1);";
+    EXPECT_OK(EvalJsInGlic(content::JsReplace(script, task_id.value())));
+  }
+
+  // Helper to call the UninterruptActorTask TS API.
+  void UninterruptActorTask(TaskId task_id) {
+    std::string script = "window.client.browser.uninterruptActorTask($1);";
+    EXPECT_OK(EvalJsInGlic(content::JsReplace(script, task_id.value())));
+  }
+
+  // Waits until the task reaches the `expected_state`.
+  void WaitForTaskState(TaskId task_id, ActorTask::State expected_state) {
+    if (actor_keyed_service()->GetTask(task_id)->GetState() == expected_state) {
+      return;
+    }
+    base::RunLoop run_loop;
+    base::CallbackListSubscription subscription =
+        actor_keyed_service()->AddTaskStateChangedCallback(
+            base::BindLambdaForTesting(
+                [&](TaskId task_id_param, ActorTask::State state) {
+                  if (task_id_param == task_id && state == expected_state) {
+                    run_loop.Quit();
+                  }
+                }));
+    run_loop.Run();
+  }
+
   // Helper to call the CreateActorTab TS API.
   // Returns the TabId of the newly created tab, or base::unexpected on failure.
   base::expected<tabs::TabHandle, std::string> CreateActorTab(
@@ -461,8 +541,8 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
   // Construct the Actions proto.
   const GURL target_url =
       embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions action = MakeNavigate(active_tab()->GetHandle(), target_url.spec());
-  action.set_task_id(task_id.value());
+  Actions action = MakeNavigateForTaskId(active_tab()->GetHandle(),
+                                         target_url.spec(), task_id);
 
   EXPECT_THAT(PerformActions(action),
               ValueIs(HasResultCode(mojom::ActionResultCode::kOk)));
@@ -517,12 +597,12 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseAndResumeCreatedTask) {
   PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
                  active_tab()->GetHandle());
   // Wait for the task to pause.
-  RunUntilActorTaskStateIs(task_id, ActorTask::State::kPausedByUser);
+  WaitForTaskState(task_id, ActorTask::State::kPausedByUser);
 
   const GURL target_url =
       embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions action = MakeNavigate(active_tab()->GetHandle(), target_url.spec());
-  action.set_task_id(task_id.value());
+  Actions action = MakeNavigateForTaskId(active_tab()->GetHandle(),
+                                         target_url.spec(), task_id);
 
   // Performing an action on a paused task should fail.
   EXPECT_THAT(PerformActions(action),
@@ -549,10 +629,17 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseAndResumeInvalidTask) {
   TaskId invalid_task_id = TaskId(12345);
   ASSERT_EQ(actor_keyed_service()->GetTask(invalid_task_id), nullptr);
 
-  // Pausing an invalid task should be a no-op.
+  JournalObserver observer(&actor_keyed_service()->GetJournal());
+  // Pausing an invalid task should be a no-op and log an error.
   PauseActorTask(invalid_task_id,
                  glic::mojom::ActorTaskPauseReason::kPausedByUser,
                  active_tab()->GetHandle());
+  observer.WaitUntil(
+      base::BindRepeating([](const actor::mojom::JournalEntry& entry) {
+        return entry.event == "Failed to pause task" &&
+               JournalEntryHasError(entry, "No such task");
+      }));
+
   EXPECT_THAT(
       ResumeActorTask(invalid_task_id,
                       glic::mojom::GetTabContextOptions().To<base::Value>()),
@@ -571,9 +658,16 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseAndResumeInactiveTask) {
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
       << "Task " << task_id << " did not reach kFinished state.";
 
-  // Pausing an inactive task should be a no-op.
+  JournalObserver observer(&actor_keyed_service()->GetJournal());
+  // Pausing an inactive task should be a no-op and log an error.
   PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
                  active_tab()->GetHandle());
+  observer.WaitUntil(
+      base::BindRepeating([](const actor::mojom::JournalEntry& entry) {
+        return entry.event == "Failed to pause task" &&
+               JournalEntryHasError(entry, "No such task");
+      }));
+
   // Resuming a completed task should fail as it doesn't exist anymore.
   EXPECT_THAT(
       ResumeActorTask(task_id,
@@ -584,8 +678,10 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseAndResumeInactiveTask) {
 IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
                        PerformConcurrentAsyncWaitActions) {
   // Manually create tasks via ActorKeyedService.
-  TaskId task_id_1 = actor_keyed_service()->CreateTask();
-  TaskId task_id_2 = actor_keyed_service()->CreateTask();
+  TaskId task_id_1 =
+      actor_keyed_service()->CreateTask(NoEnterprisePolicyChecker());
+  TaskId task_id_2 =
+      actor_keyed_service()->CreateTask(NoEnterprisePolicyChecker());
 
   // Create tabs for each task using CreateActorTab API to ensure a
   // TabObservation is included in its result.
@@ -636,14 +732,15 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseActiveTask) {
   optimization_guide::proto::Actions wait_action =
       MakeWaitForTaskId(kLongWaitTime, active_tab()->GetHandle(), task_id);
 
-  std::unique_ptr<AsyncActionWaiter> waiter = PerformActionsAsync(wait_action);
+  std::unique_ptr<AsyncActionWaiter> action_waiter =
+      PerformActionsAsync(wait_action);
   PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
                  active_tab()->GetHandle());
 
   // Verify the WaitAction was ended and the task was paused.
-  EXPECT_THAT(waiter->Wait(),
+  EXPECT_THAT(action_waiter->Wait(),
               ValueIs(HasResultCode(mojom::ActionResultCode::kTaskPaused)));
-  RunUntilActorTaskStateIs(task_id, ActorTask::State::kPausedByUser);
+  WaitForTaskState(task_id, ActorTask::State::kPausedByUser);
 
   EXPECT_THAT(
       ResumeActorTask(task_id,
@@ -654,10 +751,175 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, PauseActiveTask) {
   // Verify new Actions can be performed after the task is resumed.
   const GURL target_url =
       embedded_test_server()->GetURL("/actor/blank.html?target");
-  optimization_guide::proto::Actions nav_action =
-      MakeNavigate(active_tab()->GetHandle(), target_url.spec());
-  nav_action.set_task_id(task_id.value());
+  optimization_guide::proto::Actions nav_action = MakeNavigateForTaskId(
+      active_tab()->GetHandle(), target_url.spec(), task_id);
 
+  EXPECT_THAT(PerformActions(nav_action),
+              base::test::ValueIs(HasResultCode(mojom::ActionResultCode::kOk)));
+  EXPECT_EQ(target_url, web_contents()->GetURL());
+
+  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
+  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
+                       StopActiveTaskWithModelError) {
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
+  EXPECT_NE(task_id, TaskId());
+
+  TestFuture<ActorTask::State> task_completion_state;
+  base::CallbackListSubscription subscription =
+      CreateTaskCompletionSubscription(task_id, task_completion_state);
+
+  optimization_guide::proto::Actions wait_action =
+      MakeWaitForTaskId(kLongWaitTime, active_tab()->GetHandle(), task_id);
+  std::unique_ptr<AsyncActionWaiter> action_waiter =
+      PerformActionsAsync(wait_action);
+
+  // Wait for the task to start acting before stopping.
+  WaitForTaskState(task_id, ActorTask::State::kActing);
+
+  // Verify the action is ended with the appropriate code after task is stopped.
+  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kModelError);
+  EXPECT_THAT(action_waiter->Wait(),
+              ValueIs(HasResultCode(mojom::ActionResultCode::kTaskWentAway)));
+
+  EXPECT_EQ(ActorTask::State::kFailed, task_completion_state.Get())
+      << "Task " << task_id << " did not reach kFailed state.";
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, CloseTabWhileActing) {
+  base::HistogramTester histogram_tester;
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
+  EXPECT_NE(task_id, TaskId());
+
+  TestFuture<ActorTask::State> task_completion_state;
+  base::CallbackListSubscription subscription =
+      CreateTaskCompletionSubscription(task_id, task_completion_state);
+
+  optimization_guide::proto::Actions wait_action =
+      MakeWaitForTaskId(kLongWaitTime, active_tab()->GetHandle(), task_id);
+  std::unique_ptr<AsyncActionWaiter> action_waiter =
+      PerformActionsAsync(wait_action);
+
+  // Wait for the task to start acting before closing the tab.
+  WaitForTaskState(task_id, ActorTask::State::kActing);
+
+  // Add a new background tab to prevent the browser from closing.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(url::kAboutBlankURL),
+      WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  // Close the active web contents.
+  browser()->tab_strip_model()->CloseWebContentsAt(
+      browser()->tab_strip_model()->GetIndexOfWebContents(web_contents()),
+      TabCloseTypes::CLOSE_NONE);
+
+  // After an acting tab is closed, the task should be cancelled and the
+  // corresponding action have a result code of kTaskWentAway.
+  // NOTE: We cannot use `action_waiter->Wait()` to check the result code
+  // because the test client is destroyed when all task tabs are closed.
+  EXPECT_EQ(ActorTask::State::kCancelled, task_completion_state.Get());
+  histogram_tester.ExpectUniqueSample("Actor.ExecutionEngine.Action.ResultCode",
+                                      mojom::ActionResultCode::kTaskWentAway,
+                                      1);
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
+                       InterruptAndUninterruptInvalidTask) {
+  JournalObserver observer(&actor_keyed_service()->GetJournal());
+  TaskId invalid_task_id = TaskId(12345);
+  ASSERT_EQ(actor_keyed_service()->GetTask(invalid_task_id), nullptr);
+
+  // Interrupting an invalid task should be a no-op and log an error.
+  InterruptActorTask(invalid_task_id);
+  observer.WaitUntil(
+      base::BindRepeating([](const actor::mojom::JournalEntry& entry) {
+        return entry.event == "Failed to interrupt task" &&
+               JournalEntryHasError(entry, "No such task");
+      }));
+
+  // Uninterrupting an invalid task should be a no-op and log an error.
+  UninterruptActorTask(invalid_task_id);
+  observer.WaitUntil(
+      base::BindRepeating([](const actor::mojom::JournalEntry& entry) {
+        return entry.event == "Failed to uninterrupt task" &&
+               JournalEntryHasError(entry, "No such task");
+      }));
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
+                       InterruptAndUninterruptTaskWithCompletedActions) {
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
+  EXPECT_NE(task_id, TaskId());
+
+  TestFuture<ActorTask::State> task_completion_state;
+  base::CallbackListSubscription subscription =
+      CreateTaskCompletionSubscription(task_id, task_completion_state);
+
+  const GURL target_url =
+      embedded_test_server()->GetURL("/actor/blank.html?target");
+  Actions action = MakeNavigateForTaskId(active_tab()->GetHandle(),
+                                         target_url.spec(), task_id);
+
+  EXPECT_THAT(PerformActions(action),
+              ValueIs(HasResultCode(mojom::ActionResultCode::kOk)));
+  EXPECT_EQ(target_url, web_contents()->GetURL());
+
+  InterruptActorTask(task_id);
+  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
+
+  // Ensure uninterrupting a task with no pending actions sets the state
+  // to kReflecting
+  UninterruptActorTask(task_id);
+  WaitForTaskState(task_id, ActorTask::State::kReflecting);
+
+  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
+  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
+                       InterruptAndUninterruptActiveTaskAndPerformActions) {
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
+  EXPECT_NE(task_id, TaskId());
+
+  TestFuture<ActorTask::State> task_completion_state;
+  base::CallbackListSubscription subscription =
+      CreateTaskCompletionSubscription(task_id, task_completion_state);
+
+  // Use a long wait to ensure we can interrupt before it completes.
+  optimization_guide::proto::Actions wait_action =
+      MakeWaitForTaskId(kLongWaitTime, active_tab()->GetHandle(), task_id);
+  std::unique_ptr<AsyncActionWaiter> action_waiter =
+      PerformActionsAsync(wait_action);
+
+  // Wait for the task to start acting before interrupting.
+  WaitForTaskState(task_id, ActorTask::State::kActing);
+
+  InterruptActorTask(task_id);
+  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
+
+  // Ensure uninterrupting a task with previously pending actions sets the state
+  // to kActing
+  UninterruptActorTask(task_id);
+  WaitForTaskState(task_id, ActorTask::State::kActing);
+
+  // Since the ongoing long wait action must be completed before sending another
+  // async action, we need to use the CancelActions API to cancel all the
+  // ongoing actions on the task.
+  EXPECT_THAT(CancelActions(task_id),
+              base::test::ValueIs(glic::mojom::CancelActionsResult::kSuccess));
+  EXPECT_THAT(
+      action_waiter->Wait(),
+      ValueIs(HasResultCode(mojom::ActionResultCode::kActionsCancelled)));
+
+  // Ensure the task can still perform actions after being uninterrupted.
+  const GURL target_url =
+      embedded_test_server()->GetURL("/actor/blank.html?target");
+  optimization_guide::proto::Actions nav_action = MakeNavigateForTaskId(
+      active_tab()->GetHandle(), target_url.spec(), task_id);
   EXPECT_THAT(PerformActions(nav_action),
               base::test::ValueIs(HasResultCode(mojom::ActionResultCode::kOk)));
   EXPECT_EQ(target_url, web_contents()->GetURL());
@@ -769,9 +1031,8 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest, CancelActions) {
   const GURL target_url = embedded_test_server()->GetURL("/title1.html");
   content::TestNavigationManager navigation_manager(web_contents(), target_url);
 
-  optimization_guide::proto::Actions action =
-      MakeNavigate(active_tab()->GetHandle(), target_url.spec());
-  action.set_task_id(task_id.value());
+  optimization_guide::proto::Actions action = MakeNavigateForTaskId(
+      active_tab()->GetHandle(), target_url.spec(), task_id);
   std::unique_ptr<AsyncActionWaiter> waiter = PerformActionsAsync(action);
 
   // WaitForRequestStart() also pauses the navigation.
@@ -799,6 +1060,45 @@ IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
               base::test::ValueIs(glic::mojom::CancelActionsResult::kSuccess));
   EXPECT_EQ(actor_keyed_service()->GetTask(task_id)->GetState(),
             ActorTask::State::kCreated);
+}
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTest,
+                       LogsActorTaskCreatedOnCreateTask) {
+  base::HistogramTester histogram_tester;
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
+  EXPECT_NE(task_id, TaskId());
+
+  constexpr std::string_view kActorTaskCreatedHistogram = "Actor.Task.Created";
+  histogram_tester.ExpectUniqueSample(kActorTaskCreatedHistogram, true, 1);
+}
+
+class ActorFunctionalBrowserTestWithoutPolicyExemption
+    : public ActorFunctionalBrowserTest {
+ public:
+  ActorFunctionalBrowserTestWithoutPolicyExemption() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{features::kGlicActor,
+                               {{features::kGlicActorPolicyControlExemption
+                                     .name,
+                                 "false"}}}},
+        /*disabled_features=*/{});
+  }
+  ~ActorFunctionalBrowserTestWithoutPolicyExemption() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ActorFunctionalBrowserTestWithoutPolicyExemption,
+                       LogsActorTaskFailedOnCreateTask) {
+  base::HistogramTester histogram_tester;
+
+  base::expected<TaskId, std::string> result = CreateTask();
+  EXPECT_FALSE(result.has_value());
+
+  constexpr std::string_view kActorTaskCreatedHistogram = "Actor.Task.Created";
+  histogram_tester.ExpectUniqueSample(kActorTaskCreatedHistogram, false, 1);
 }
 
 class ActorPageContextMetricsTest : public ActorFunctionalBrowserTest {

@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/feature_list_buildflags.h"
@@ -68,7 +67,7 @@ const struct {
 
 // Adds a |StringValue| to |list| for each platform where |bitmask| indicates
 // whether the entry is available on that platform.
-void AddOsStrings(unsigned bitmask, base::Value::List* list) {
+void AddOsStrings(unsigned bitmask, base::ListValue* list) {
   for (const auto& entry : kBitsToOs) {
     if (bitmask & entry.bit) {
       list->Append(entry.name);
@@ -103,8 +102,9 @@ bool IsDefaultValue(const FeatureEntry& entry,
   NOTREACHED();
 }
 
-// Returns the Value::List representing the choice data in the specified entry.
-base::Value::List CreateOptionsData(
+// Returns the base::ListValue representing the choice data in the specified
+// entry.
+base::ListValue CreateOptionsData(
     const FeatureEntry& entry,
     const std::set<std::string>& enabled_entries) {
   DCHECK(entry.type == FeatureEntry::MULTI_VALUE ||
@@ -116,9 +116,9 @@ base::Value::List CreateOptionsData(
          entry.type == FeatureEntry::PLATFORM_FEATURE_NAME_WITH_PARAMS_VALUE
 #endif  // BUILDFLAG(IS_CHROMEOS)
   );
-  base::Value::List result;
+  base::ListValue result;
   for (int i = 0; i < entry.NumOptions(); ++i) {
-    base::Value::Dict dict;
+    base::DictValue dict;
     const std::string name = entry.NameForOption(i);
     dict.Set("internal_name", name);
     dict.Set("description", entry.DescriptionForOption(i));
@@ -630,14 +630,12 @@ std::vector<std::string> FlagsState::RegisterEnabledFeatureVariationParameters(
 
           // The selected variation is non-default, collect its params & id.
 
-          for (int i = 0; i < variation->num_params; ++i) {
+          for (const auto& param : variation->params) {
             auto insert_result = params_by_trial_name[trial_name].insert(
-                std::make_pair(UNSAFE_TODO(variation->params[i]).param_name,
-                               UNSAFE_TODO(variation->params[i]).param_value));
+                std::make_pair(param.param_name, param.param_value));
             DCHECK(insert_result.second)
                 << "Multiple values for the same parameter '"
-                << UNSAFE_TODO(variation->params[i]).param_name
-                << "' are specified in chrome://flags!";
+                << param.param_name << "' are specified in chrome://flags!";
           }
           if (variation->variation_id) {
             variation_ids.push_back(variation->variation_id);
@@ -672,8 +670,8 @@ std::vector<std::string> FlagsState::RegisterEnabledFeatureVariationParameters(
 void FlagsState::GetFlagFeatureEntries(
     FlagsStorage* flags_storage,
     FlagAccess access,
-    base::Value::List& supported_entries,
-    base::Value::List& unsupported_entries,
+    base::ListValue& supported_entries,
+    base::ListValue& unsupported_entries,
     base::RepeatingCallback<bool(const FeatureEntry&)> skip_feature_entry) {
   DCHECK(flags_storage);
   std::set<std::string> enabled_entries;
@@ -686,12 +684,12 @@ void FlagsState::GetFlagFeatureEntries(
       continue;
     }
 
-    base::Value::Dict data;
+    base::DictValue data;
     data.Set("internal_name", entry.internal_name);
     data.Set("name", entry.visible_name);
     data.Set("description", entry.visible_description);
 
-    base::Value::List supported_platforms;
+    base::ListValue supported_platforms;
     AddOsStrings(entry.supported_platforms, &supported_platforms);
     data.Set("supported_platforms", std::move(supported_platforms));
     // True if the switch is not currently passed.
@@ -699,7 +697,7 @@ void FlagsState::GetFlagFeatureEntries(
     data.Set("is_default", is_default_value);
 
     if (!entry.links.empty()) {
-      base::Value::List links;
+      base::ListValue links;
       for (auto* link : entry.links) {
         links.Append(link);
       }
@@ -891,11 +889,11 @@ void FlagsState::MergeFeatureCommandLineSwitch(
   std::vector<std::string_view> features =
       base::FeatureList::SplitFeatureListString(original_switch_value);
   // Only add features that don't already exist in the lists.
-  // Note: The base::Contains() call results in O(n^2) performance, but in
-  // practice n should be very small.
+  // Note: The std::ranges::contains() call results in O(n^2) performance, but
+  // in practice n should be very small.
   for (const auto& entry : feature_switches) {
     if (entry.second == feature_state &&
-        !base::Contains(features, entry.first)) {
+        !std::ranges::contains(features, entry.first)) {
       features.push_back(entry.first);
       appended_switches_[switch_name].insert(entry.first);
     }
@@ -1067,11 +1065,11 @@ void FlagsState::GenerateFlagsToSwitchesMapping(
             std::string variation_id;
             if (variation) {
               feature_name.append(":");
-              for (int i = 0; i < variation->num_params; ++i) {
-                std::string param_name = variations::EscapeValue(
-                    UNSAFE_TODO(variation->params[i]).param_name);
-                std::string param_value = variations::EscapeValue(
-                    UNSAFE_TODO(variation->params[i]).param_value);
+              for (const auto& param : variation->params) {
+                std::string param_name =
+                    variations::EscapeValue(param.param_name);
+                std::string param_value =
+                    variations::EscapeValue(param.param_value);
                 params_value.push_back(
                     param_name.append("/").append(param_value));
               }
@@ -1171,9 +1169,7 @@ void FlagsState::SetFlags(
           // feature_name is mapped to an empty map in feature_params.
           continue;
         }
-        for (int i = 0; i < feature_variations->num_params; i++) {
-          FeatureEntry::FeatureParam feature_param =
-              UNSAFE_TODO(feature_variations->params[i]);
+        for (const auto& feature_param : feature_variations->params) {
           std::string param_name = std::string(feature_param.param_name);
           std::string param_value = std::string(feature_param.param_value);
           cur_feature_params[param_name] = param_value;

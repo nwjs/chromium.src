@@ -4,7 +4,8 @@
 
 #include "services/viz/public/cpp/compositing/compositor_frame_metadata_mojom_traits.h"
 
-#include "base/containers/contains.h"
+#include <algorithm>
+
 #include "build/build_config.h"
 #include "services/viz/public/cpp/compositing/begin_frame_args_mojom_traits.h"
 #include "services/viz/public/cpp/compositing/compositor_frame_transition_directive_mojom_traits.h"
@@ -60,11 +61,9 @@ bool StructTraits<viz::mojom::CompositorFrameMetadataDataView,
   out->send_frame_token_to_embedder = data.send_frame_token_to_embedder();
   out->min_page_scale_factor = data.min_page_scale_factor();
   out->is_mobile_optimized = data.is_mobile_optimized();
+  out->prefer_efficient_scheduling = data.prefer_efficient_scheduling();
   out->is_software = data.is_software();
-  if (data.top_controls_visible_height_set()) {
-    out->top_controls_visible_height.emplace(
-        data.top_controls_visible_height());
-  }
+  out->top_controls_visible_height = data.top_controls_visible_height();
 
   if (!data.ReadScreenshotDestination(&out->screenshot_destination)) {
     return false;
@@ -88,7 +87,7 @@ bool StructTraits<viz::mojom::CompositorFrameMetadataDataView,
 
   // Verify that OffsetTagDefinition providers are referenced surfaces.
   for (auto& tag_def : out->offset_tag_definitions) {
-    if (!base::Contains(out->referenced_surfaces, tag_def.provider)) {
+    if (!std::ranges::contains(out->referenced_surfaces, tag_def.provider)) {
       return false;
     }
   }

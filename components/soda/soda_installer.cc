@@ -4,10 +4,10 @@
 
 #include "components/soda/soda_installer.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/observer_list.h"
 #include "base/strings/string_split.h"
@@ -240,7 +240,7 @@ bool SodaInstaller::IsAnyLanguagePackInstalledForTesting() const {
 void SodaInstaller::RegisterRegisteredLanguagePackPref(
     PrefRegistrySimple* registry) {
   // TODO: Default to one of the user's languages.
-  base::Value::List default_languages;
+  base::ListValue default_languages;
   default_languages.Append(base::Value(kUsEnglishLocale));
   registry->RegisterListPref(prefs::kSodaRegisteredLanguagePacks,
                              std::move(default_languages));
@@ -295,7 +295,7 @@ void SodaInstaller::UnregisterLanguages(PrefService* global_prefs) {
 }
 
 bool SodaInstaller::IsLanguageEnabled(std::string_view language) {
-  return base::Contains(GetLiveCaptionEnabledLanguages(), language);
+  return std::ranges::contains(GetLiveCaptionEnabledLanguages(), language);
 }
 
 bool SodaInstaller::IsSodaLanguageDownloading(

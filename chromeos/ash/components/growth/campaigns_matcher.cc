@@ -4,6 +4,7 @@
 
 #include "chromeos/ash/components/growth/campaigns_matcher.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -13,7 +14,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/features.h"
 #include "base/logging.h"
@@ -66,7 +66,7 @@ base::Time GetDeviceCurrentTimeForScheduling() {
   return base::Time::Now();
 }
 
-bool MatchPref(const base::Value::List* criterias,
+bool MatchPref(const base::ListValue* criterias,
                std::string_view pref_path,
                const PrefService* pref_service) {
   if (!pref_service) {
@@ -85,7 +85,7 @@ bool MatchPref(const base::Value::List* criterias,
 
   // String list targeting.
   if (criterias) {
-    return Contains(*criterias, value);
+    return std::ranges::contains(*criterias, value);
   }
 
   return false;
@@ -130,7 +130,7 @@ bool MatchSchedulings(const std::vector<std::unique_ptr<TimeWindowTargeting>>&
   return false;
 }
 
-bool MatchExperimentTags(const base::Value::List* experiment_tags,
+bool MatchExperimentTags(const base::ListValue* experiment_tags,
                          std::optional<const base::Feature*> feature) {
   if (!ash::features::IsGrowthCampaignsExperimentTagTargetingEnabled()) {
     // Campaign not match if experiment tag targeting is not enabled.
@@ -176,10 +176,10 @@ bool MatchExperimentTags(const base::Value::List* experiment_tags,
 }
 
 // Match if the target values and the user pref has any overlap entries.
-bool HasOverlapEntries(const base::Value::List& pref_values,
-                       const base::Value::List& target_values) {
+bool HasOverlapEntries(const base::ListValue& pref_values,
+                       const base::ListValue& target_values) {
   for (auto& value : target_values) {
-    if (base::Contains(pref_values, value)) {
+    if (std::ranges::contains(pref_values, value)) {
       return true;
     }
   }
@@ -187,7 +187,7 @@ bool HasOverlapEntries(const base::Value::List& pref_values,
 }
 
 // Match if the values in the List and Vector has any overlap entries.
-bool HasOverlapEntries(const base::Value::List& list_values,
+bool HasOverlapEntries(const base::ListValue& list_values,
                        const std::vector<std::string>& vector_values) {
   for (const auto& value : vector_values) {
     if (list_values.contains(value)) {
@@ -200,7 +200,7 @@ bool HasOverlapEntries(const base::Value::List& list_values,
 // Match if any value in the target is found in user pref.
 bool MatchUserPref(const PrefService& pref_service,
                    const std::string* pref_name,
-                   const base::Value::List* target_values) {
+                   const base::ListValue* target_values) {
   if (!pref_name || pref_name->empty()) {
     growth::RecordCampaignsManagerError(
         growth::CampaignsManagerError::kTargetingUserPrefParsingFail);
@@ -239,7 +239,7 @@ bool MatchUserPref(const PrefService& pref_service,
 
   // If the user pref is not a list, match if any entry in target values is the
   // pref value.
-  return base::Contains(*target_values, *pref_value);
+  return std::ranges::contains(*target_values, *pref_value);
 }
 
 // TODO: b/354060160 - Add more data type to pref targeting.
@@ -250,7 +250,7 @@ bool MatchUserPref(const PrefService& pref_service,
 //   ],
 // conditions_met = A1 || A2 || B1
 bool MatchUserPrefCriteria(const PrefService& pref_service,
-                           const base::Value::List& criteria) {
+                           const base::ListValue& criteria) {
   for (auto& criterion : criteria) {
     if (!criterion.is_dict()) {
       growth::RecordCampaignsManagerError(
@@ -279,7 +279,7 @@ bool MatchUserPrefCriteria(const PrefService& pref_service,
 // ]
 // conditions_met = (A1 || A2 || B1) && C1;
 bool MatchUserPrefs(const PrefService* pref_service,
-                    const base::Value::List* user_pref_targetings) {
+                    const base::ListValue* user_pref_targetings) {
   if (!user_pref_targetings || user_pref_targetings->empty()) {
     return true;
   }
@@ -481,13 +481,12 @@ bool CampaignsMatcher::MatchDemoModeTier(
   return true;
 }
 
-bool CampaignsMatcher::MatchRetailers(
-    const base::Value::List* retailers) const {
+bool CampaignsMatcher::MatchRetailers(const base::ListValue* retailers) const {
   if (!retailers) {
     return true;
   }
 
-  base::Value::List canonicalized_retailers;
+  base::ListValue canonicalized_retailers;
   for (auto& retailer : *retailers) {
     if (retailer.is_string()) {
       canonicalized_retailers.Append(
@@ -739,7 +738,7 @@ bool CampaignsMatcher::MatchTriggerTargeting(
       return true;
     }
 
-    const base::Value::List* trigger_events = trigger->GetTriggerEvents();
+    const base::ListValue* trigger_events = trigger->GetTriggerEvents();
     if (!trigger_events) {
       // If the trigger type is `kEvent`, but the `trigger_events` is not valid,
       // does not match.
@@ -889,7 +888,7 @@ bool CampaignsMatcher::MatchEvents(std::unique_ptr<EventsTargeting> config,
       CreateBasicConditionParams();
   // Here is to handle custom events targeting conditions.
   // The outer loop is AND logic and the inner loop is OR logic.
-  const base::Value::List* conditions = config->GetEventsConditions();
+  const base::ListValue* conditions = config->GetEventsConditions();
   if (!conditions) {
     // Campaign is matched if there is no custom events targeting conditions.
     return true;

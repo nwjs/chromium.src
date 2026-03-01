@@ -25,7 +25,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
-#include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
+#include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
@@ -250,12 +250,12 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
     return action_item;
   }
 
-  ExtensionsToolbarContainer* GetExtensionsToolbarContainer() const {
+  ExtensionsToolbarDesktop* GetExtensionsToolbarDesktop() const {
     return browser()->GetBrowserView().toolbar()->extensions_container();
   }
 
   void WaitForSidePanelToolbarCloseButtonVisibility(bool visible) {
-    auto* container = GetExtensionsToolbarContainer();
+    auto* container = GetExtensionsToolbarDesktop();
     auto* button = container->GetCloseSidePanelButtonForTesting();
     if (visible == false && !container->GetVisible()) {
       return;
@@ -287,7 +287,7 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
   extensions::ExtensionContextMenuModel* GetContextMenuForExtension(
       const ExtensionId& extension_id) {
     return static_cast<extensions::ExtensionContextMenuModel*>(
-        GetExtensionsToolbarContainer()
+        GetExtensionsToolbarDesktop()
             ->GetToolbarViewModel()
             ->GetActionForId(extension_id)
             ->GetContextMenu(extensions::ExtensionContextMenuModel::
@@ -1091,8 +1091,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
 
   // Open a new browser window.
   Browser* second_browser = CreateBrowser(browser()->profile());
-  TabStripModel* target_tab_strip =
-      ExtensionTabUtil::GetEditableTabStripModel(second_browser);
+  TabStripModel* target_tab_strip = second_browser->tab_strip_model();
 
   // Detach the second tab from `browser()` and add it to the new browser.
   std::unique_ptr<tabs::TabModel> detached_tab =
@@ -1251,7 +1250,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // The key for the extension should be registered, but the side panel isn't
   // shown yet and the close side panel button is not visible.
   EXPECT_FALSE(side_panel_ui->IsSidePanelShowing(extension_entry->type()));
-  EXPECT_FALSE(GetExtensionsToolbarContainer()
+  EXPECT_FALSE(GetExtensionsToolbarDesktop()
                    ->GetCloseSidePanelButtonForTesting()
                    ->GetVisible());
 
@@ -1262,7 +1261,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // visible.
   ASSERT_TRUE(default_path_listener.WaitUntilSatisfied());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
-  EXPECT_TRUE(GetExtensionsToolbarContainer()
+  EXPECT_TRUE(GetExtensionsToolbarDesktop()
                   ->GetCloseSidePanelButtonForTesting()
                   ->GetVisible());
 
@@ -1398,7 +1397,7 @@ class ExtensionOpenSidePanelBrowserTest : public ExtensionSidePanelBrowserTest {
     auto function = base::MakeRefCounted<SidePanelOpenFunction>();
     function->set_extension(&extension);
 
-    base::Value::Dict options;
+    base::DictValue options;
     if (tab_id) {
       options.Set("tabId", *tab_id);
     }
@@ -1406,7 +1405,7 @@ class ExtensionOpenSidePanelBrowserTest : public ExtensionSidePanelBrowserTest {
       options.Set("windowId", *window_id);
     }
     std::string args_str =
-        base::WriteJson(base::Value::List().Append(std::move(options)))
+        base::WriteJson(base::ListValue().Append(std::move(options)))
             .value_or("");
     function->set_user_gesture(true);
     EXPECT_TRUE(api_test_utils::RunFunction(function.get(), args_str, profile))
@@ -1924,6 +1923,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Open a second browser window.
   Browser* second_browser = CreateBrowser(browser()->profile());
   ASSERT_TRUE(second_browser);
+  ui_test_utils::BrowserDidBecomeActiveWaiter(second_browser).Wait();
 
   SidePanelUI* const first_side_panel_ui =
       browser()->GetFeatures().side_panel_ui();
@@ -2193,7 +2193,7 @@ class ExtensionCloseSidePanelBrowserTest
     auto function = base::MakeRefCounted<SidePanelCloseFunction>();
     function->set_extension(&extension);
 
-    base::Value::Dict options;
+    base::DictValue options;
     if (tab_id) {
       options.Set("tabId", *tab_id);
     }
@@ -2202,7 +2202,7 @@ class ExtensionCloseSidePanelBrowserTest
     }
 
     std::string args_str =
-        base::WriteJson(base::Value::List().Append(std::move(options)))
+        base::WriteJson(base::ListValue().Append(std::move(options)))
             .value_or("");
     EXPECT_TRUE(
         api_test_utils::RunFunction(function.get(), args_str, profile()))
@@ -2480,7 +2480,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
       opened_listener.message(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   ASSERT_TRUE(value);
   ASSERT_TRUE(value->is_dict());
-  const base::Value::Dict& open_info = value->GetDict();
+  const base::DictValue& open_info = value->GetDict();
 
   // Verify that the `tabId` from the event payload matches where the panel was
   // opened.
@@ -2727,13 +2727,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
 
   // Move the first tab (at index 0) to a new window. This action correctly
   // simulates the user dragging the tab out.
+  ui_test_utils::BrowserCreatedObserver observer;
   chrome::MoveTabsToNewWindow(browser(), {0});
 
   // Get the new browser window.
-  BrowserWindowInterface* const new_browser =
-      GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+  Browser* new_browser = observer.Wait();
   ASSERT_TRUE(new_browser);
-  EXPECT_NE(browser()->window(), new_browser->GetWindow());
+  EXPECT_NE(browser()->window(), new_browser->window());
 
   // Get the session IDs for the new window and its active tab.
   const int new_window_id = new_browser->GetSessionID().id();

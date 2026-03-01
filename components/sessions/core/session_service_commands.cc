@@ -22,9 +22,9 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "components/sessions/core/base_session_service_commands.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_color.h"
-#include "components/tabs/public/split_tab_id.h"
-#include "components/tabs/public/split_tab_visual_data.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 
 namespace {
@@ -749,8 +749,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSetTabGroupMetadata2: {
-        base::Pickle pickle = command->PayloadAsPickle();
-        base::PickleIterator iter(pickle);
+        base::PickleIterator iter = command->PayloadAsPickle();
 
         std::optional<base::Token> group_token = ReadTokenFromPickle(&iter);
         if (!group_token.has_value())
@@ -799,8 +798,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSetSplitTabData: {
-        base::Pickle pickle = command->PayloadAsPickle();
-        base::PickleIterator iter(pickle);
+        base::PickleIterator iter = command->PayloadAsPickle();
         std::optional<base::Token> split_token = ReadTokenFromPickle(&iter);
         if (!split_token.has_value()) {
           return;
@@ -894,8 +892,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSessionStorageAssociated: {
-        base::Pickle command_pickle = command->PayloadAsPickle();
-        base::PickleIterator iter(command_pickle);
+        base::PickleIterator iter = command->PayloadAsPickle();
         SessionID::id_type command_tab_id;
         std::string session_storage_persistent_id;
         if (!iter.ReadInt(&command_tab_id) ||
@@ -931,8 +928,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSetWindowWorkspace2: {
-        base::Pickle pickle = command->PayloadAsPickle();
-        base::PickleIterator it(pickle);
+        base::PickleIterator it = command->PayloadAsPickle();
         SessionID::id_type window_id = -1;
         std::string workspace;
          if (!it.ReadInt(&window_id) || !it.ReadString(&workspace)) {
@@ -956,8 +952,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSetTabGuid: {
-        base::Pickle pickle = command->PayloadAsPickle();
-        base::PickleIterator it(pickle);
+        base::PickleIterator it = command->PayloadAsPickle();
         SessionID::id_type tab_id = -1;
         std::string guid;
         if (!it.ReadInt(&tab_id) || !it.ReadString(&guid) ||
@@ -970,8 +965,7 @@ void CreateTabsAndWindows(
       }
 
       case kCommandSetTabData: {
-        base::Pickle pickle = command->PayloadAsPickle();
-        base::PickleIterator it(pickle);
+        base::PickleIterator it = command->PayloadAsPickle();
         SessionID::id_type tab_id = -1;
         int size = 0;
         if (!it.ReadInt(&tab_id) || !it.ReadInt(&size)) {
@@ -1053,7 +1047,12 @@ std::unique_ptr<SessionCommand> CreateSessionCommandForPayload(
     SessionCommand::id_type id,
     const Payload& payload) {
   auto command = std::make_unique<SessionCommand>(id, sizeof(payload));
-  UNSAFE_TODO(memcpy(command->contents(), &payload, sizeof(payload)));
+  // TODO(crbug.com/435317390): Rewrite to use spans. The main obstruction is
+  // that some payloads have non-unique object representations due to having
+  // padding. Options include allowlisting the affected payloads via
+  // `base::kCanSafelyConvertToByteSpan` or adding (unused, but initialized)
+  // members that take up the padding.
+  UNSAFE_TODO(memcpy(command->contents().data(), &payload, sizeof(payload)));
   return command;
 }
 
@@ -1356,8 +1355,7 @@ bool ReplacePendingCommand(CommandStorageManager* command_storage_manager,
     SessionCommand* existing_command = i->get();
     if ((*command)->id() == kCommandUpdateTabNavigation &&
         existing_command->id() == kCommandUpdateTabNavigation) {
-      base::Pickle command_pickle = (*command)->PayloadAsPickle();
-      base::PickleIterator iterator(command_pickle);
+      base::PickleIterator iterator = (*command)->PayloadAsPickle();
       SessionID::id_type command_tab_id;
       int command_nav_index;
       if (!iterator.ReadInt(&command_tab_id) ||
@@ -1370,8 +1368,7 @@ bool ReplacePendingCommand(CommandStorageManager* command_storage_manager,
         // Creating a pickle like this means the Pickle references the data from
         // the command. Make sure we delete the pickle before the command, else
         // the pickle references deleted memory.
-        base::Pickle existing_pickle = existing_command->PayloadAsPickle();
-        iterator = base::PickleIterator(existing_pickle);
+        iterator = existing_command->PayloadAsPickle();
         if (!iterator.ReadInt(&existing_tab_id) ||
             !iterator.ReadInt(&existing_nav_index)) {
           return false;

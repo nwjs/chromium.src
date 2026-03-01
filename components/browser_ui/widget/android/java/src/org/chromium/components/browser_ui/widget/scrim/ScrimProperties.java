@@ -4,12 +4,9 @@
 
 package org.chromium.components.browser_ui.widget.scrim;
 
-import android.graphics.Color;
 import android.view.GestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
-
-import androidx.annotation.ColorInt;
 
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
@@ -25,12 +22,6 @@ import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
 /** The properties that can be used to describe the behavior of the scrim widget. */
 @NullMarked
 public class ScrimProperties {
-    /**
-     * An invalid color that can be specified for {@link #BACKGROUND_COLOR}. This will trigger the
-     * use of the default color set when the {@link ScrimManager} was constructed.
-     */
-    public static final @ColorInt int INVALID_COLOR = Color.TRANSPARENT;
-
     /**
      * The top margin of the scrim. This can be used to shrink the scrim to show items at the top of
      * the screen.
@@ -73,9 +64,11 @@ public class ScrimProperties {
     /* package */ static final WritableFloatPropertyKey ALPHA = new WritableFloatPropertyKey();
 
     /**
-     * The background color for the scrim. If not set a default color will be set as the background.
+     * A @ColorInt for the background color for the scrim. If not set or null then a default color
+     * for the scrim will be used instead.
      */
-    public static final WritableIntPropertyKey BACKGROUND_COLOR = new WritableIntPropertyKey();
+    public static final WritableObjectPropertyKey<Integer> BACKGROUND_COLOR =
+            new WritableObjectPropertyKey<>();
 
     /**
      * A filter for touch event that happen on this view.

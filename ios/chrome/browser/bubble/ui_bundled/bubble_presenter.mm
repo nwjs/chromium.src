@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/animated_scoped_fullscreen_disabler.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter_observer_bridge.h"
@@ -127,6 +128,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
   BubbleViewControllerPresenter* _pageActionMenuBubblePresenter;
   BubbleViewControllerPresenter* _readerModeOptionsBubblePresenter;
   BubbleViewControllerPresenter* _geminiImageRemixBubblePresenter;
+  BubbleViewControllerPresenter* _pinSiteToMostVisitedTilesBubblePresenter;
 
   // List of existing gestural IPH views.
   GestureInProductHelpView* _pullToRefreshGestureIPH;
@@ -201,6 +203,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
   [_pageActionMenuBubblePresenter dismissAnimated:NO];
   [_readerModeOptionsBubblePresenter dismissAnimated:NO];
   [_geminiImageRemixBubblePresenter dismissAnimated:NO];
+  [_pinSiteToMostVisitedTilesBubblePresenter dismissAnimated:NO];
   [self hideAllGestureInProductHelpViewsForReason:IPHDismissalReasonType::
                                                       kUnknown];
 }
@@ -293,6 +296,9 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
 }
 
 - (void)presentHomeBackgroundCustomizationTipBubble {
+  // Scroll the NTP to top to show the IPH on the home customization button.
+  [self.delegate scrollNTPToTopForBubblePresenter:self];
+
   NSString* text = l10n_util::GetNSStringWithFixup(
       IDS_IOS_HOME_BACKGROUND_CUSTOMIZATION_IPH);
 
@@ -566,6 +572,27 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
                                       identityDiscAnchor.y + anchorYOffset)];
   if (presenter) {
     _switchAccountWithNTPIdentityDiscBubblePresenter = presenter;
+  }
+}
+
+- (void)presentPinSiteToMostVisitedTilesBubble {
+  if (![self canPresentBubble]) {
+    return;
+  }
+  NSString* text = l10n_util::GetNSString(
+      IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_IN_PRODUCT_HELP);
+  BubbleViewControllerPresenter* presenter = [self
+      presentBubbleForFeature:feature_engagement::
+                                  kIPHiOSPinMostVisitedSiteFeature
+                    direction:BubbleArrowDirectionUp
+                    alignment:BubbleAlignmentTopOrLeading
+                         text:text
+        voiceOverAnnouncement:text
+                  anchorPoint:
+                      [self anchorPointToGuide:kNTPFirstMostVisitedTileGuide
+                                     direction:BubbleArrowDirectionUp]];
+  if (presenter) {
+    _pinSiteToMostVisitedTilesBubblePresenter = presenter;
   }
 }
 
@@ -1132,11 +1159,16 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
 }
 
 - (BOOL)isTabScrolledToTop {
+  web::WebState* currentWebState = _webStateList->GetActiveWebState();
+  if (!currentWebState) {
+    return NO;
+  }
+
   // If NTP exists, check if it is scrolled to top.
   if ([self.delegate isNTPActiveForBubblePresenter:self]) {
-    return [self.delegate isNTPScrolledToTopForBubblePresenter:self];
+    return NewTabPageTabHelper::FromWebState(currentWebState)
+        ->IsScrolledToTop();
   }
-  web::WebState* currentWebState = _webStateList->GetActiveWebState();
   CRWWebViewScrollViewProxy* scrollProxy =
       currentWebState->GetWebViewProxy().scrollViewProxy;
   CGPoint scrollOffset = scrollProxy.contentOffset;
@@ -1182,8 +1214,6 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
   bubbleViewControllerPresenter.ignoreWebContentAreaInteractions =
       [self shouldIgnoreWebContentAreaInteractionsForFeature:feature];
 
-  BOOL shouldDisablePanRecognizer =
-      base::FeatureList::IsEnabled(kLensOverlayDisableIPHPanGesture);
   BOOL isLensOverlayIPH =
       (feature.name ==
            feature_engagement::kIPHiOSLensOverlayEscapeHatchTipFeature.name ||
@@ -1194,8 +1224,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
   BOOL isGeminiImageRemixIPH =
       feature.name == feature_engagement::kIPHiOSGeminiImageRemixFeature.name;
   bubbleViewControllerPresenter.forceDisablePanGestureRecognizer =
-      (shouldDisablePanRecognizer && isLensOverlayIPH) || isPageActionMenuIPH ||
-      isGeminiImageRemixIPH;
+      isLensOverlayIPH || isPageActionMenuIPH || isGeminiImageRemixIPH;
 
   return bubbleViewControllerPresenter;
 }

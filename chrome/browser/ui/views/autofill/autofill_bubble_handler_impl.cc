@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/autofill/address_sign_in_promo_view.h"
 #include "chrome/browser/ui/views/autofill/autofill_ai/autofill_ai_import_data_bubble_view.h"
+#include "chrome/browser/ui/views/autofill/autofill_ai/autofill_ai_local_save_notification_view.h"
 #include "chrome/browser/ui/views/autofill/payments/filled_card_information_bubble_views.h"
 #include "chrome/browser/ui/views/autofill/payments/filled_card_information_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/manage_saved_iban_bubble_view.h"
@@ -214,6 +215,16 @@ AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowSaveAutofillAiDataBubble(
       web_contents, controller);
 }
 
+AutofillBubbleBase*
+AutofillBubbleHandlerImpl::ShowAutofillAiLocalSaveNotification(
+    content::WebContents* web_contents,
+    AutofillAiImportDataController* controller) {
+  return ShowBubble<AutofillAiLocalSaveNotificationView>(
+      toolbar_button_provider_, kActionShowAddressesBubbleOrPage,
+      PageActionIconType::kAutofillAddress, /*is_user_gesture=*/false,
+      web_contents, controller);
+}
+
 AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowUpdateAddressProfileBubble(
     content::WebContents* web_contents,
     std::unique_ptr<UpdateAddressBubbleController> controller,
@@ -290,14 +301,13 @@ AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowMandatoryReauthBubble(
   IconLabelBubbleView* icon_view = toolbar_button_provider_->GetPageActionView(
       kActionAutofillMandatoryReauth);
 
-  views::View* anchor_view =
-      toolbar_button_provider_->GetAnchorView(kActionAutofillMandatoryReauth);
+  auto anchor =
+      toolbar_button_provider_->GetBubbleAnchor(kActionAutofillMandatoryReauth);
 
   switch (bubble_type) {
     case MandatoryReauthBubbleType::kOptIn: {
       MandatoryReauthOptInBubbleView* bubble =
-          new MandatoryReauthOptInBubbleView(anchor_view, web_contents,
-                                             controller);
+          new MandatoryReauthOptInBubbleView(anchor, web_contents, controller);
       bubble->SetHighlightedButton(icon_view);
       views::BubbleDialogDelegateView::CreateBubble(bubble);
       bubble->Show(is_user_gesture ? LocationBarBubbleDelegateView::USER_GESTURE
@@ -306,7 +316,7 @@ AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowMandatoryReauthBubble(
     }
     case MandatoryReauthBubbleType::kConfirmation: {
       MandatoryReauthConfirmationBubbleView* bubble =
-          new MandatoryReauthConfirmationBubbleView(anchor_view, web_contents,
+          new MandatoryReauthConfirmationBubbleView(anchor, web_contents,
                                                     controller);
       bubble->SetHighlightedButton(icon_view);
       views::BubbleDialogDelegateView::CreateBubble(bubble);

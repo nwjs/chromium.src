@@ -63,7 +63,8 @@ class ScopedPixelUnpackBufferOverride {
 
 bool IsWebGLDrawBuffersSupported(bool webglCompatibilityContext,
                                  GLenum depth_texture_internal_format,
-                                 GLenum depth_stencil_texture_internal_format) {
+                                 GLenum depth_stencil_texture_internal_format,
+                                 GLuint complete_fbo_for_workarounds) {
   // This is called after we make sure GL_EXT_draw_buffers is supported.
   GLint max_draw_buffers = 0;
   GLint max_color_attachments = 0;
@@ -80,6 +81,9 @@ bool IsWebGLDrawBuffersSupported(bool webglCompatibilityContext,
 
   GLuint fbo;
   glGenFramebuffersEXT(1, &fbo);
+  if (complete_fbo_for_workarounds) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER, complete_fbo_for_workarounds);
+  }
   glBindFramebufferEXT(GL_FRAMEBUFFER, fbo);
 
   GLuint depth_stencil_texture = 0;
@@ -156,6 +160,9 @@ bool IsWebGLDrawBuffersSupported(bool webglCompatibilityContext,
     }
   }
 
+  if (complete_fbo_for_workarounds) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER, complete_fbo_for_workarounds);
+  }
   glBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
   glDeleteFramebuffersEXT(1, &fbo);
 
@@ -177,7 +184,18 @@ size_t GetNumAttachments(GLenum attachment) {
 
 }  // anonymous namespace.
 
-FeatureInfo::FeatureFlags::FeatureFlags() = default;
+FeatureInfo::FeatureFlags::FeatureFlags() {
+  mappable_formats = base::MakeFlatSet<viz::SharedImageFormat>(std::vector({
+      viz::SinglePlaneFormat::kBGR_565,
+      viz::SinglePlaneFormat::kRGBA_4444,
+      viz::SinglePlaneFormat::kRGBA_8888,
+      viz::SinglePlaneFormat::kRGBX_8888,
+      viz::MultiPlaneFormat::kYV12,
+      viz::MultiPlaneFormat::kNV12,
+  }));
+}
+
+FeatureInfo::FeatureFlags::~FeatureFlags() = default;
 
 FeatureInfo::FeatureInfo() {
   InitializeBasicState(base::CommandLine::InitializedForCurrentProcess()
@@ -235,6 +253,15 @@ void FeatureInfo::InitializeBasicState(const base::CommandLine* command_line) {
 void FeatureInfo::Initialize(ContextType context_type,
                              bool is_passthrough_cmd_decoder,
                              const DisallowedFeatures& disallowed_features) {
+  InitializeWithCompleteFramebufferForWorkarounds(
+      context_type, is_passthrough_cmd_decoder, disallowed_features, 0);
+}
+
+void FeatureInfo::InitializeWithCompleteFramebufferForWorkarounds(
+    ContextType context_type,
+    bool is_passthrough_cmd_decoder,
+    const DisallowedFeatures& disallowed_features,
+    unsigned complete_fbo_for_workarounds) {
   if (initialized_) {
     DCHECK_EQ(context_type, context_type_);
     DCHECK_EQ(is_passthrough_cmd_decoder, is_passthrough_cmd_decoder_);
@@ -245,14 +272,14 @@ void FeatureInfo::Initialize(ContextType context_type,
   disallowed_features_ = disallowed_features;
   context_type_ = context_type;
   is_passthrough_cmd_decoder_ = is_passthrough_cmd_decoder;
-  InitializeFeatures();
+  InitializeFeatures(complete_fbo_for_workarounds);
   initialized_ = true;
 }
 
 void FeatureInfo::ForceReinitialize() {
   CHECK(initialized_);
   CHECK(is_passthrough_cmd_decoder_);
-  InitializeFeatures();
+  InitializeFeatures(0);
 }
 
 void FeatureInfo::InitializeForTesting(
@@ -274,7 +301,7 @@ void FeatureInfo::InitializeForTesting(ContextType context_type) {
              DisallowedFeatures());
 }
 
-bool IsGL_REDSupportedOnFBOs() {
+bool IsGL_REDSupportedOnFBOs(uint32_t complete_fbo_for_workarounds) {
 #if BUILDFLAG(IS_MAC)
   // The glTexImage2D call below can hang on Mac so skip this since it's only
   // really needed to workaround a Mesa issue. See https://crbug.com/1158744.
@@ -308,6 +335,9 @@ bool IsGL_REDSupportedOnFBOs() {
                GL_UNSIGNED_BYTE, nullptr);
   GLuint textureFBOID = 0;
   glGenFramebuffersEXT(1, &textureFBOID);
+  if (complete_fbo_for_workarounds) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER, complete_fbo_for_workarounds);
+  }
   glBindFramebufferEXT(GL_FRAMEBUFFER, textureFBOID);
   glFramebufferTexture2DEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                             textureId, 0);
@@ -316,6 +346,9 @@ bool IsGL_REDSupportedOnFBOs() {
   glDeleteFramebuffersEXT(1, &textureFBOID);
   glDeleteTextures(1, &textureId);
 
+  if (complete_fbo_for_workarounds) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER, complete_fbo_for_workarounds);
+  }
   glBindFramebufferEXT(GL_FRAMEBUFFER, static_cast<GLuint>(fb_binding));
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(tex_binding));
 
@@ -441,7 +474,7 @@ void FeatureInfo::EnableOESTextureHalfFloatLinear() {
   // IOSurfaces.
   if (workarounds_.disable_half_float_for_gmb)
     return;
-  feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::RGBA_F16);
+  feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kRGBA_F16);
 }
 
 void FeatureInfo::EnableANGLEInstancedArrayIfPossible(
@@ -473,7 +506,7 @@ void FeatureInfo::EnableWEBGLMultiDrawIfPossible(
   }
 }
 
-void FeatureInfo::InitializeFeatures() {
+void FeatureInfo::InitializeFeatures(uint32_t complete_fbo_for_workarounds) {
   // Figure out what extensions to turn on.
   std::string extensions_string(gl::GetGLExtensionsFromCurrentContext());
   gfx::ExtensionSet extensions(gfx::MakeExtensionSet(extensions_string));
@@ -920,7 +953,6 @@ void FeatureInfo::InitializeFeatures() {
         enable_texture_storage = false;
         break;
       case CONTEXT_TYPE_OPENGLES3:
-      case CONTEXT_TYPE_OPENGLES31_FOR_TESTING:
         enable_texture_format_bgra8888 = false;
         break;
       case CONTEXT_TYPE_WEBGL1:
@@ -946,8 +978,8 @@ void FeatureInfo::InitializeFeatures() {
         GL_BGRA8_EXT);
     validators_.texture_sized_texture_filterable_internal_format.AddValue(
         GL_BGRA8_EXT);
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::BGRA_8888);
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::BGRX_8888);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kBGRA_8888);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kBGRX_8888);
   }
 
 #if BUILDFLAG(IS_MAC)
@@ -958,10 +990,9 @@ void FeatureInfo::InitializeFeatures() {
   // alpha is false, so disable that case for now so that we go through
   // emulation.
   if (gl_version_info_->is_angle_swiftshader) {
-    feature_flags_.gpu_memory_buffer_formats.Remove(
-        gfx::BufferFormat::RGBX_8888);
-    feature_flags_.gpu_memory_buffer_formats.Remove(
-        gfx::BufferFormat::BGRX_8888);
+    feature_flags_.disable_mac_swangle_rgbx = true;
+    feature_flags_.mappable_formats.erase(viz::SinglePlaneFormat::kBGRX_8888);
+    feature_flags_.mappable_formats.erase(viz::SinglePlaneFormat::kRGBX_8888);
   }
 #endif
 
@@ -1184,8 +1215,7 @@ void FeatureInfo::InitializeFeatures() {
 
   if (feature_flags_.chromium_image_ycbcr_420v) {
     AddExtensionString("GL_CHROMIUM_ycbcr_420v_image");
-    feature_flags_.gpu_memory_buffer_formats.Put(
-        gfx::BufferFormat::YUV_420_BIPLANAR);
+    feature_flags_.mappable_formats.insert(viz::MultiPlaneFormat::kNV12);
   }
 
 #if BUILDFLAG(IS_APPLE)
@@ -1208,23 +1238,22 @@ void FeatureInfo::InitializeFeatures() {
     validators_.pixel_type.AddValue(GL_UNSIGNED_INT_2_10_10_10_REV);
   }
   if (feature_flags_.chromium_image_ar30) {
-    feature_flags_.gpu_memory_buffer_formats.Put(
-        gfx::BufferFormat::BGRA_1010102);
+    feature_flags_.mappable_formats.insert(
+        viz::SinglePlaneFormat::kBGRA_1010102);
   }
   if (feature_flags_.chromium_image_ab30) {
-    feature_flags_.gpu_memory_buffer_formats.Put(
-        gfx::BufferFormat::RGBA_1010102);
+    feature_flags_.mappable_formats.insert(
+        viz::SinglePlaneFormat::kRGBA_1010102);
   }
 
   if (feature_flags_.chromium_image_ycbcr_p010) {
     AddExtensionString("GL_CHROMIUM_ycbcr_p010_image");
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::P010);
+    feature_flags_.mappable_formats.insert(viz::MultiPlaneFormat::kP010);
   }
 
 #if BUILDFLAG(IS_MAC)
-  feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::RGBA_F16);
-  feature_flags_.gpu_memory_buffer_formats.Put(
-      gfx::BufferFormat::YUVA_420_TRIPLANAR);
+  feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kRGBA_F16);
+  feature_flags_.mappable_formats.insert(viz::MultiPlaneFormat::kNV12A);
 #endif  // BUILDFLAG(IS_MAC)
 
   // TODO(gman): Add support for these extensions.
@@ -1261,9 +1290,9 @@ void FeatureInfo::InitializeFeatures() {
        can_emulate_es2_draw_buffers_on_es3_nv) &&
       (context_type_ == CONTEXT_TYPE_OPENGLES2 ||
        (context_type_ == CONTEXT_TYPE_WEBGL1 &&
-        IsWebGLDrawBuffersSupported(is_webgl_compatibility_context,
-                                    depth_texture_format,
-                                    depth_stencil_texture_format)));
+        IsWebGLDrawBuffersSupported(
+            is_webgl_compatibility_context, depth_texture_format,
+            depth_stencil_texture_format, complete_fbo_for_workarounds)));
   if (have_es2_draw_buffers) {
     AddExtensionString("GL_EXT_draw_buffers");
     feature_flags_.ext_draw_buffers = true;
@@ -1384,7 +1413,7 @@ void FeatureInfo::InitializeFeatures() {
 
   if ((gl_version_info_->is_es3 ||
        gfx::HasExtension(extensions, "GL_EXT_texture_rg")) &&
-      IsGL_REDSupportedOnFBOs()) {
+      IsGL_REDSupportedOnFBOs(complete_fbo_for_workarounds)) {
     feature_flags_.ext_texture_rg = true;
     AddExtensionString("GL_EXT_texture_rg");
 
@@ -1408,8 +1437,8 @@ void FeatureInfo::InitializeFeatures() {
     validators_.texture_internal_format_storage.AddValue(GL_R8_EXT);
     validators_.texture_internal_format_storage.AddValue(GL_RG8_EXT);
 
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::R_8);
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::RG_88);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kR_8);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kRG_88);
   }
 
   const bool is_texture_norm16_supported_for_webgl2_or_es3 =
@@ -1466,10 +1495,10 @@ void FeatureInfo::InitializeFeatures() {
     validators_.texture_sized_color_renderable_internal_format.AddValue(
         GL_RGBA16_EXT);
 
-    // TODO(shrekshao): gpu_memory_buffer_formats is not used by WebGL
+    // TODO(shrekshao): mappable_formats is not used by WebGL
     // So didn't expose all buffer formats here.
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::R_16);
-    feature_flags_.gpu_memory_buffer_formats.Put(gfx::BufferFormat::RG_1616);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kR_16);
+    feature_flags_.mappable_formats.insert(viz::SinglePlaneFormat::kRG_1616);
   }
 
   if (enable_es3 && gfx::HasExtension(extensions, "GL_EXT_window_rectangles")) {
@@ -2080,10 +2109,6 @@ bool FeatureInfo::IsWebGL2OrES3Context() const {
 
 bool FeatureInfo::IsWebGL2OrES3OrHigherContext() const {
   return IsWebGL2OrES3OrHigherContextType(context_type_);
-}
-
-bool FeatureInfo::IsES31ForTestingContext() const {
-  return IsES31ForTestingContextType(context_type_);
 }
 
 void FeatureInfo::AddExtensionString(std::string_view extension) {

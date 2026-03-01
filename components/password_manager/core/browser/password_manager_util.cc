@@ -11,7 +11,6 @@
 #include <tuple>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -27,6 +26,7 @@
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/password_generation_util.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_bubble_experiment.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
@@ -97,23 +97,6 @@ bool ManualPasswordGenerationEnabled(
 
   LogPasswordGenerationEvent(
       autofill::password_generation::PASSWORD_GENERATION_CONTEXT_MENU_SHOWN);
-  return true;
-}
-
-bool ShowAllSavedPasswordsContextMenuEnabled(
-    password_manager::PasswordManagerDriver* driver) {
-  password_manager::PasswordManagerInterface* password_manager =
-      driver ? driver->GetPasswordManager() : nullptr;
-  if (!password_manager) {
-    return false;
-  }
-
-  password_manager::PasswordManagerClient* client =
-      password_manager->GetClient();
-  if (!client || !client->IsFillingEnabled(driver->GetLastCommittedURL())) {
-    return false;
-  }
-
   return true;
 }
 
@@ -206,8 +189,9 @@ std::vector<PasswordForm> FindBestMatches(base::span<PasswordForm> matches) {
     } else {
       // Insert another credential only if the store is different as well as the
       // password value.
-      if (base::Contains(it->second, match.in_store,
-                         [](const auto& form) { return form.in_store; })) {
+      if (std::ranges::contains(
+              it->second, match.in_store,
+              [](const auto& form) { return form.in_store; })) {
         continue;
       };
       // If 2 credential have the same password and the same username, update
@@ -443,7 +427,7 @@ bool IsUppercaseLetter(char16_t c) {
 bool IsSpecialSymbol(char16_t c) {
   // The static assert is intended to ensure that the underlying type of
   // `kSpecialSymbols` does not become a char. If that happened, the call to
-  // `base::Contains` would lead to (silent) overflow.
+  // `std::ranges::contains` would lead to (silent) overflow.
   static_assert(sizeof(decltype(kSpecialSymbols)::value_type) == sizeof(c));
   return kSpecialSymbols.contains(c);
 }
@@ -469,5 +453,18 @@ std::u16string GetHumanReadableRealm(const std::string& signon_realm) {
   }
   return base::UTF8ToUTF16(signon_realm);
 }
+
+#if !BUILDFLAG(IS_IOS)
+bool ShouldUploadActorLoginMqls() {
+  return base::FeatureList::IsEnabled(
+             password_manager::features::kActorLoginQualityLogs) &&
+         // Disable MQLS upload if FedCM support is enabled while prototyping to
+         // not upload wrong logs.
+         // TODO(crbug.com/480920277): Remove this check once the prototyping is
+         // complete.
+         !base::FeatureList::IsEnabled(
+             password_manager::features::kActorLoginFederatedLoginSupport);
+}
+#endif  // !BUILDFLAG(IS_IOS)
 
 }  // namespace password_manager_util

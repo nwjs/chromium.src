@@ -22,7 +22,10 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/tab_group_attention_indicator.h"
+#include "chrome/browser/ui/tabs/tab_group_features.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/tabs/tab_group_editor_bubble_tracker.h"
 #include "chrome/browser/ui/views/tabs/tab_group_editor_bubble_view.h"
@@ -42,6 +45,7 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -124,7 +128,9 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
       group_title_(u""),
       color_(tab_slot_controller_->GetPaintedGroupColor(
           tab_slot_controller_->GetGroupColorId(group))),
-      is_collapsed_(tab_slot_controller_->IsGroupCollapsed(group)) {
+      is_collapsed_(tab_slot_controller_->IsGroupCollapsed(group)),
+      editor_bubble_tracker_(tabs::VerticalTabStripStateController::From(
+          tab_slot_controller_->GetBrowserWindowInterface())) {
   editor_bubble_opened_subscription_ =
       editor_bubble_tracker_.RegisterOnBubbleOpened(
           base::BindRepeating(&TabSlotController::NotifyTabstripBubbleOpened,
@@ -133,6 +139,12 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
       editor_bubble_tracker_.RegisterOnBubbleClosed(
           base::BindRepeating(&TabSlotController::NotifyTabstripBubbleClosed,
                               base::Unretained(tab_slot_controller_)));
+
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group);
+  if (tab_group) {
+    attention_indicator_observation_.Observe(
+        tab_group->GetTabGroupFeatures()->attention_indicator());
+  }
 }
 
 TabGroupHeader::~TabGroupHeader() = default;
@@ -493,8 +505,7 @@ void TabGroupHeader::UpdateAccessibleName() {
 
   if (SupportsDataSharing() && should_show_header_icon_) {
     shared_state = l10n_util::GetStringUTF16(IDS_SAVED_GROUP_AX_LABEL_SHARED);
-
-    if (needs_attention_) {
+    if (ShouldShowAttentionIndicator()) {
       group_status += u", " + l10n_util::GetStringUTF16(
                                   DATA_SHARING_GROUP_LABEL_NEW_ACTIVITY);
     }
@@ -581,7 +592,7 @@ void TabGroupHeader::UpdateAttentionIndicatorView() {
     return;
   }
 
-  const bool should_show_attention_indicator = GetShowingAttentionIndicator();
+  const bool should_show_attention_indicator = ShouldShowAttentionIndicator();
   attention_indicator_->SetVisible(should_show_attention_indicator);
   if (should_show_attention_indicator) {
     attention_indicator_->SetImage(ui::ImageModel::FromVectorIcon(
@@ -603,7 +614,7 @@ void TabGroupHeader::CreateHeaderWithoutTitle() {
   const int sync_icon_width = group_style_->GetSyncIconWidth();
 
   if (should_show_header_icon_) {
-    const bool should_show_attention_indicator = GetShowingAttentionIndicator();
+    const bool should_show_attention_indicator = ShouldShowAttentionIndicator();
     if (should_show_attention_indicator) {
       const gfx::Insets title_chip_insets =
           group_style_->GetInsetsForHeaderChip();
@@ -653,7 +664,7 @@ void TabGroupHeader::CreateHeaderWithTitle() {
   // Only show attention indicator if header icon will show and
   // attention indicator is enabled.
   const bool should_show_attention_indicator =
-      should_show_header_icon_ && GetShowingAttentionIndicator();
+      should_show_header_icon_ && ShouldShowAttentionIndicator();
   const int attention_indicator_width =
       should_show_attention_indicator
           ? group_style_->GetAttentionIndicatorWidth() +
@@ -698,8 +709,13 @@ void TabGroupHeader::CreateHeaderWithTitle() {
   const int title_chip_vertical_inset = 0;
   if (!should_show_header_icon_) {
     sync_icon_->SetBounds(0, 0, 0, 0);
-    title_->SetBounds(title_chip_insets.left(), title_chip_vertical_inset,
-                      text_width, text_height);
+    // If the title and its insets are narrower than the minimum width of the
+    // chip, divide the whitespace remainder between the start and end of the
+    // chip so the title appears centered.
+    const int text_offset = std::max(
+        0, (title_chip_width - text_width - title_chip_insets.width()) / 2);
+    title_->SetBounds(title_chip_insets.left() + text_offset,
+                      title_chip_vertical_inset, text_width, text_height);
     attention_indicator_->SetBounds(0, 0, 0, 0);
   } else {
     sync_icon_->SetBounds(start_of_sync_icon, title_chip_vertical_inset,
@@ -717,21 +733,20 @@ void TabGroupHeader::CreateHeaderWithTitle() {
   }
 }
 
-bool TabGroupHeader::GetShowingAttentionIndicator() {
-  // Attention should only be shown if the group is collapsed.
-  return is_collapsed_ && needs_attention_;
+void TabGroupHeader::OnAttentionStateChanged() {
+  VisualsChanged();
 }
 
-void TabGroupHeader::SetTabGroupNeedsAttention(bool needs_attention) {
-  const bool supports_attention_indicator = SupportsDataSharing();
-  if (!supports_attention_indicator) {
-    return;
+bool TabGroupHeader::ShouldShowAttentionIndicator() const {
+  // Attention should only be shown if the group is collapsed.
+  TabGroup* tab_group = tab_slot_controller_->GetTabGroup(group().value());
+  if (!tab_group || tab_group->IsEmpty()) {
+    return false;
   }
 
-  if (needs_attention_ != needs_attention) {
-    needs_attention_ = needs_attention;
-    VisualsChanged();
-  }
+  return is_collapsed_ && tab_group->GetTabGroupFeatures()
+                              ->attention_indicator()
+                              ->GetHasAttention();
 }
 
 BEGIN_METADATA(TabGroupHeader)

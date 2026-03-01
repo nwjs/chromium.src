@@ -172,9 +172,7 @@ static const base::TimeDelta kDelayUntilReadyToRemoveLoadingIndicatorsMs =
   [self loadModel];
 
   // TableView configuration
-  self.tableView.estimatedRowHeight = 56;
   self.tableView.rowHeight = UITableViewAutomaticDimension;
-  self.tableView.estimatedSectionHeaderHeight = 56;
   self.tableView.sectionFooterHeight = 0.0;
   self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
   self.tableView.allowsMultipleSelectionDuringEditing = YES;
@@ -472,7 +470,11 @@ static const base::TimeDelta kDelayUntilReadyToRemoveLoadingIndicatorsMs =
         [self.tableViewModel itemAtIndexPath:indexPath]);
     BrowsingHistoryService::HistoryEntry entry;
     entry.url = object.URL;
-    entry.all_timestamps.insert(object.timestamp);
+    // Since the similar visits grouping logic does not exist on iOS, we only
+    // need to pass the timestamp for the current URL. See b/460405414 for more
+    // details.
+    // TODO(b/483287809): Enable similar visits grouping for iOS.
+    entry.all_timestamps[object.URL].insert(object.timestamp);
     entries.push_back(entry);
   }
   self.historyService->RemoveVisits(entries);
@@ -584,14 +586,15 @@ static const base::TimeDelta kDelayUntilReadyToRemoveLoadingIndicatorsMs =
     HistoryEntryItem* URLItem =
         base::apple::ObjCCastStrict<HistoryEntryItem>(item);
     if (!URLItem.faviconAttributes) {
+      __weak __typeof(self) weakSelf = self;
       CrURL* crurl = [[CrURL alloc] initWithGURL:URLItem.URL];
       [self.imageDataSource
           faviconForPageURL:crurl
                  completion:^(FaviconAttributes* attributes, bool cached) {
-                   URLItem.faviconAttributes = attributes;
-                   if (!cached && attributes.faviconImage) {
-                     [tableView reconfigureRowsAtIndexPaths:@[ indexPath ]];
-                   }
+                   [weakSelf didFetchFaviconAttributes:attributes
+                                                cached:cached
+                                                  item:URLItem
+                                             indexPath:indexPath];
                  }];
     }
   }
@@ -656,6 +659,32 @@ static const base::TimeDelta kDelayUntilReadyToRemoveLoadingIndicatorsMs =
 }
 
 #pragma mark - Private methods
+
+// Called when a favicon is fetched.
+- (void)didFetchFaviconAttributes:(FaviconAttributes*)attributes
+                           cached:(bool)cached
+                             item:(HistoryEntryItem*)item
+                        indexPath:(NSIndexPath*)indexPath {
+  item.faviconAttributes = attributes;
+  if (!cached && attributes.faviconImage) {
+    // Since the favicon fetch is asynchronous, `self.tableViewModel` may have
+    // updated. Ensure `indexPath` is still valid for this item before updating.
+    if (![self.tableViewModel hasItemAtIndexPath:indexPath] ||
+        [self.tableViewModel itemAtIndexPath:indexPath] != item) {
+      return;
+    }
+    LegacyTableViewCell* cell =
+        base::apple::ObjCCastStrict<LegacyTableViewCell>(
+            [self.tableView cellForRowAtIndexPath:indexPath]);
+    if (!cell) {
+      return;
+    }
+    // Even if Apple documentation hints toward reconfiguring the row instead
+    // of just updating the cell, it creates a visible jank. Use the item
+    // configuration method instead. See crbug.com/479692041 for more info.
+    [item configureCell:cell withStyler:self.styler];
+  }
+}
 
 // Opens URL in a new non-incognito tab and dismisses the history view.
 - (void)openURLInNewTab:(const GURL&)URL {

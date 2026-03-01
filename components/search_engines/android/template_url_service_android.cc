@@ -34,6 +34,7 @@
 #include "components/search_provider_logos/switches.h"
 #include "net/base/url_util.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "third_party/omnibox_proto/model_mode.pb.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
@@ -146,7 +147,7 @@ void TemplateUrlServiceAndroid::Load(JNIEnv* env) {
 void TemplateUrlServiceAndroid::SetUserSelectedDefaultSearchProvider(
     JNIEnv* env,
     const JavaRef<jstring>& jkeyword,
-    jint choice_made_location) {
+    int32_t choice_made_location) {
   std::u16string keyword(
       base::android::ConvertJavaStringToUTF16(env, jkeyword));
   TemplateURL* template_url =
@@ -385,6 +386,17 @@ int TemplateUrlServiceAndroid::GetSearchEngineTypeFromTemplateUrl(
   return template_url->GetEngineType(search_terms_data);
 }
 
+std::u16string TemplateUrlServiceAndroid::GetFullNameFromTemplateUrl(
+    JNIEnv* env,
+    const std::u16string& keyword) {
+  TemplateURL* template_url =
+      template_url_service_->GetTemplateURLForKeyword(keyword);
+  if (!template_url) {
+    return u"";
+  }
+  return template_url->GetFullName();
+}
+
 bool TemplateUrlServiceAndroid::SetPlayAPISearchEngine(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& jname,
@@ -436,7 +448,7 @@ base::android::ScopedJavaLocalRef<jstring>
 TemplateUrlServiceAndroid::AddSearchEngineForTesting(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& jkeyword,
-    jint age_in_days) {
+    int32_t age_in_days) {
   TemplateURLData data;
   std::u16string keyword =
       base::android::ConvertJavaStringToUTF16(env, jkeyword);
@@ -481,7 +493,8 @@ TemplateUrlServiceAndroid::FilterUserSelectableTemplateUrls(
 
     // Do not include starter pack engines (@aimode, @tabs, ...) as these are
     // not actual search engines.
-    if (template_url->starter_pack_id() != 0) {
+    if (template_url->starter_pack_id() !=
+        template_url_starter_pack_data::StarterPackId::kNone) {
       continue;
     }
 

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <tuple>
@@ -3063,7 +3064,6 @@ IN_PROC_BROWSER_TEST_F(
       web_contents_impl()->GetPrerenderHostRegistry();
   registry->SetTaskRunnerForTesting(task_runner);
 
-  // Navigate to an initial page which has a link to `prerender_url`.
   ASSERT_TRUE(NavigateToURL(shell(), initial_url));
   web_contents()->WasHidden();
 
@@ -6351,13 +6351,14 @@ class TestPrerenderCancellerSubframeNavigationThrottle
     FrameTreeNode* frame_tree_node = navigation_request_->frame_tree_node();
     if (frame_tree_node->frame_tree().is_prerendering() &&
         !frame_tree_node->IsMainFrame()) {
+      PrerenderHost& prerender_host =
+          PrerenderHost::GetFromFrameTreeNode(*frame_tree_node);
       PrerenderHostRegistry* prerender_host_registry =
-          frame_tree_node->current_frame_host()
+          prerender_host.GetPrerenderedMainFrameHost()
               ->delegate()
               ->GetPrerenderHostRegistry();
-      prerender_host_registry->CancelHost(
-          frame_tree_node->frame_tree().root()->frame_tree_node_id(),
-          PrerenderFinalStatus::kMaxValue);
+      prerender_host_registry->CancelHost(prerender_host.prerender_host_id(),
+                                          PrerenderFinalStatus::kMaxValue);
     }
     return PROCEED;
   }
@@ -7593,7 +7594,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   // Wait for the completion of `accessOriginPrivateFileSystem`.
   EXPECT_EQ(true, EvalJs(prerender_render_frame_host, "result;"));
   // Check the event sequence seen in the prerendered page.
-  base::Value::List results_list =
+  base::ListValue results_list =
       EvalJs(prerender_render_frame_host, "eventsSeen").TakeValue().TakeList();
   std::vector<std::string> eventsSeen;
   for (auto& result : results_list) {
@@ -8782,7 +8783,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MultipleNewTabPrerendering) {
     PrerenderHostId host_id = prerender_helper()->AddPrerender(
         prerendering_url, /*eagerness=*/std::nullopt, "_blank");
 
-    EXPECT_FALSE(base::Contains(prerender_host_ids, host_id));
+    EXPECT_FALSE(std::ranges::contains(prerender_host_ids, host_id));
     prerender_host_ids.push_back(host_id);
 
     // Make sure that prerendering in a new tab creates new WebContentsImpl, not
@@ -8792,8 +8793,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, MultipleNewTabPrerendering) {
     ASSERT_TRUE(prerender_web_contents);
     EXPECT_NE(prerender_web_contents, web_contents_impl());
     ExpectWebContentsIsForNewTabPrerendering(*prerender_web_contents);
-    EXPECT_FALSE(
-        base::Contains(prerender_web_contents_list, prerender_web_contents));
+    EXPECT_FALSE(std::ranges::contains(prerender_web_contents_list,
+                                       prerender_web_contents));
     prerender_web_contents_list.push_back(prerender_web_contents);
   }
 
@@ -16346,6 +16347,156 @@ IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptOriginTrialBrowserTest, Basic) {
   // Navigate to an initial page.
   ASSERT_TRUE(NavigateToURL(shell(), url));
   RunBasicFunctionalityCheck();
+}
+
+class PrerenderFormSubmissionOriginTrialBrowserTest
+    : public PrerenderBrowserTest {
+ public:
+  PrerenderFormSubmissionOriginTrialBrowserTest() = default;
+
+  // `first_attempt_form_field` and `second_attempt_form_field` specify the
+  // corresponding prerendering attempts are form navigations or not. The latter
+  // can be `std::nullopt`, being `std::nullopt` won't start a prerender
+  // attempt. The parameter `navigate_as_form_submission` specifies the type of
+  // the actual navigation being form navigation or not, and `should_activate`
+  // specifies whether the prerender activation is expected to be successful or
+  // not.
+  void RunFormSubmissionHintTest(bool first_attempt_form_field,
+                                 std::optional<bool> second_attempt_form_field,
+                                 bool navigate_as_form_submission,
+                                 bool should_activate) {
+    // The URL that was used to register the Origin Trial token.
+    static constexpr char kOriginUrl[] = "https://127.0.0.1:45356";
+
+    const GURL initiator_url(base::StrCat(
+        {kOriginUrl, "/form_submission_origin_trial_initiator.html"}));
+    // The suffix `?` is for form submission navigations, which has `?` mark
+    // regardless of having any parameter or not.
+    const GURL prerender_url(base::StrCat({kOriginUrl, "/empty.html?"}));
+
+    // The EmbeddedTestServer must run on a specific port because the origin
+    // trial token hard-coded in form_submission_origin_trial_initiator.html is
+    // bound to a specific origin. While EmbeddedTestServer allows us to specify
+    // a port, doing so introduces test flakiness due to TCP port reuse
+    // restrictions. To avoid this, we use URLLoaderInterceptor to serve the
+    // file, making the actual port irrelevant.
+    URLLoaderInterceptor prerender_loader(base::BindLambdaForTesting(
+        [&](URLLoaderInterceptor::RequestParams* params) {
+          if (params->url_request.url != initiator_url &&
+              params->url_request.url != prerender_url) {
+            return false;
+          }
+
+          const std::string headers =
+              "HTTP/1.1 200 OK\n"
+              "Content-type: text/html\n";
+          URLLoaderInterceptor::WriteResponse(
+              base::StrCat({"content/test/data/prerender",
+                            params->url_request.url.path()}),
+              params->client.get(), &headers, std::optional<net::SSLInfo>(),
+              params->url_request.url);
+
+          return true;
+        }));
+
+    // Navigate to an initial page which has a link to `prerender_url`.
+    ASSERT_TRUE(NavigateToURL(shell(), initiator_url));
+
+    // Start prerendering `prerender_url` with `form_submission` =
+    // `first_attempt_form_field`.
+    prerender_helper()->AddPrerender(prerender_url, /*eagerness=*/std::nullopt,
+                                     /*no_vary_search_hint=*/std::nullopt,
+                                     /*target_hint=*/std::string(),
+                                     /*ruleset_tag=*/std::nullopt,
+                                     /*world_id=*/ISOLATED_WORLD_ID_GLOBAL,
+                                     first_attempt_form_field);
+
+    if (second_attempt_form_field.has_value()) {
+      // Start prerendering `prerender_url` with `form_submission` =
+      // `second_attempt_form_field`.
+      prerender_helper()->AddPrerender(prerender_url,
+                                       /*eagerness=*/std::nullopt,
+                                       /*no_vary_search_hint=*/std::nullopt,
+                                       /*target_hint=*/std::string(),
+                                       /*ruleset_tag=*/std::nullopt,
+                                       /*world_id=*/ISOLATED_WORLD_ID_GLOBAL,
+                                       second_attempt_form_field.value());
+    }
+
+    // Start to navigate to prerender_url.
+    test::PrerenderTestHelper::NavigatePrimaryPage(
+        *web_contents_impl(), prerender_url,
+        navigate_as_form_submission ? ui::PAGE_TRANSITION_FORM_SUBMIT
+                                    : ui::PAGE_TRANSITION_LINK);
+    if (should_activate) {
+      // Ensure the state has been propagated to renderer processes.
+      ASSERT_EQ(false, EvalJs(web_contents(), "document.prerendering"));
+
+      // The prerender host should be consumed.
+      EXPECT_FALSE(HasHostForUrl(prerender_url));
+      ExpectFinalStatusForSpeculationRule(PrerenderFinalStatus::kActivated);
+      ASSERT_EQ(web_contents()->GetLastCommittedURL(), prerender_url);
+    } else {
+      // The prerender host should be destroyed for parameter mismatch.
+      EXPECT_FALSE(HasHostForUrl(prerender_url));
+      ExpectFinalStatusForSpeculationRule(
+          PrerenderFinalStatus::kActivationNavigationParameterMismatch);
+      ASSERT_EQ(web_contents()->GetLastCommittedURL(), prerender_url);
+    }
+
+    // If a second prerender attempt is tried, it is expected to be treated as
+    // duplicated, so no final status for the attempt.
+    histogram_tester().ExpectTotalCount(
+        "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule", 1);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
+                       FormSubmissionHint_ActivationSuccessful) {
+  RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
+                            /*second_attempt_form_field=*/std::nullopt,
+                            /*navigate_as_form_submission=*/true,
+                            /*should_activate=*/true);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PrerenderFormSubmissionOriginTrialBrowserTest,
+    FormSubmissionHint_FirstWin_TrueThenFalse_ActivationSuccesful) {
+  RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
+                            /*second_attempt_form_field=*/false,
+                            /*navigate_as_form_submission=*/true,
+                            /*should_activate=*/true);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PrerenderFormSubmissionOriginTrialBrowserTest,
+    FormSubmissionHint_FirstWin_FalseThenTrue_ActivationSuccesful) {
+  RunFormSubmissionHintTest(/*first_attempt_form_field=*/false,
+                            /*second_attempt_form_field=*/true,
+                            /*navigate_as_form_submission=*/false,
+                            /*should_activate=*/true);
+}
+
+// Verifies that the second prerender will be treated as duplicated and
+// the non-form submission navigation cannot activate form submission prerender.
+IN_PROC_BROWSER_TEST_F(
+    PrerenderFormSubmissionOriginTrialBrowserTest,
+    FormSubmissionHint_FirstWin_TrueThenFalse_FailWithMismatch) {
+  RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
+                            /*second_attempt_form_field=*/false,
+                            /*navigate_as_form_submission=*/false,
+                            /*should_activate=*/false);
+}
+
+// Verifies that the second prerender will be treated as duplicated and
+// the form submission navigation cannot activate non-form submission prerender.
+IN_PROC_BROWSER_TEST_F(
+    PrerenderFormSubmissionOriginTrialBrowserTest,
+    FormSubmissionHint_FirstWin_FalseThenTrue_FailWithMismatch) {
+  RunFormSubmissionHintTest(/*first_attempt_form_field=*/false,
+                            /*second_attempt_form_field=*/true,
+                            /*navigate_as_form_submission=*/true,
+                            /*should_activate=*/false);
 }
 
 }  // namespace content

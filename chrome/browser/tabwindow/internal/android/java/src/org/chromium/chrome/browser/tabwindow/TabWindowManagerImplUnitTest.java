@@ -61,6 +61,7 @@ import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManagerFactory;
 import org.chromium.chrome.browser.tabmodel.MismatchedIndicesHandler;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
+import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -138,7 +139,9 @@ public class TabWindowManagerImplUnitTest {
 
                     @Override
                     public Pair<TabModelSelector, Destroyable> buildHeadlessSelector(
-                            @WindowId int windowId, Profile profile) {
+                            @WindowId int windowId,
+                            Profile profile,
+                            PersistentStoreMigrationManager migrationManager) {
                         return Pair.create(
                                 new MockTabModelSelector(
                                         mProfile,
@@ -762,17 +765,7 @@ public class TabWindowManagerImplUnitTest {
             destroyActivity(activityController1);
         }
 
-        String umaPreExistingActivityDestroyed =
-                "Android.MultiWindowMode.AssertIndicesMatch.PreExistingActivityDestroyed";
-        String umaTimeToPreExistingActivityDestruction =
-                "Android.MultiWindowMode.MismatchedIndices.TimeToPreExistingActivityDestruction";
-        try (var ignored =
-                HistogramWatcher.newBuilder()
-                        .expectAnyRecord(umaPreExistingActivityDestroyed)
-                        .expectAnyRecord(umaTimeToPreExistingActivityDestruction)
-                        .build()) {
-            destroyActivity(activityController0);
-        }
+        destroyActivity(activityController0);
     }
 
     @Test
@@ -1072,7 +1065,7 @@ public class TabWindowManagerImplUnitTest {
                         /* incognitoTabCount= */ 0,
                         /* isIncognitoSelected= */ false,
                         /* lastAccessedTime= */ 0,
-                        /* markedForDeletion= */ false));
+                        /* closureTime= */ 0));
         instanceInfoList.add(
                 new InstanceInfo(
                         /* instanceId= */ 1,
@@ -1085,7 +1078,7 @@ public class TabWindowManagerImplUnitTest {
                         /* incognitoTabCount= */ 0,
                         /* isIncognitoSelected= */ false,
                         /* lastAccessedTime= */ 0,
-                        /* markedForDeletion= */ false));
+                        /* closureTime= */ 0));
         instanceInfoList.add(
                 new InstanceInfo(
                         /* instanceId= */ 2,
@@ -1098,7 +1091,7 @@ public class TabWindowManagerImplUnitTest {
                         /* incognitoTabCount= */ 0,
                         /* isIncognitoSelected= */ false,
                         /* lastAccessedTime= */ 0,
-                        /* markedForDeletion= */ false));
+                        /* closureTime= */ 0));
         when(mMultiInstanceManager.getInstanceInfo(PersistedInstanceType.ANY))
                 .thenReturn(instanceInfoList);
 
@@ -1158,14 +1151,14 @@ public class TabWindowManagerImplUnitTest {
                         /* incognitoTabCount= */ 0,
                         /* isIncognitoSelected= */ false,
                         /* lastAccessedTime= */ 0,
-                        /* markedForDeletion= */ false));
+                        /* closureTime= */ 0));
         when(mMultiInstanceManager.getInstanceInfo(PersistedInstanceType.ANY))
                 .thenReturn(instanceInfoList);
 
         // The default mock TabModelSelectorFactory is hard to verify
         // broadcastSessionRestoreComplete with. So this test creates just enough to verify it
         // grabs a random selector and broadcasts.
-        when(mTabModelSelectorFactory.buildHeadlessSelector(anyInt(), any()))
+        when(mTabModelSelectorFactory.buildHeadlessSelector(anyInt(), any(), any()))
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getModel(anyBoolean())).thenReturn(mTabModel);
@@ -1215,7 +1208,7 @@ public class TabWindowManagerImplUnitTest {
 
     @Test
     public void testFindWindowIdForTabGroup_found() {
-        when(mTabModelSelectorFactory.buildHeadlessSelector(anyInt(), any()))
+        when(mTabModelSelectorFactory.buildHeadlessSelector(anyInt(), any(), any()))
                 .thenReturn(new Pair<>(mTabModelSelector, mDestroyable));
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
         when(mTabModelSelector.getTabGroupModelFilter(anyBoolean()))

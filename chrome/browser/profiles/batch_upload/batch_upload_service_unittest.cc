@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/feature_list.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
@@ -19,6 +20,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/data_type.h"
+#include "components/sync/base/features.h"
 #include "components/sync/service/local_data_description.h"
 #include "components/sync/test/mock_sync_service.h"
 #include "components/sync/test/test_sync_service.h"
@@ -143,6 +145,10 @@ TEST_F(BatchUploadServiceTest, SignedPending) {
 }
 
 TEST_F(BatchUploadServiceTest, Syncing) {
+  if (base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos)) {
+    GTEST_SKIP() << "Sync is deprecated";
+  }
   SigninWithFullInfo();
   signin::SetPrimaryAccount(&identity_manager(), "email",
                             signin::ConsentLevel::kSync);
@@ -517,11 +523,11 @@ TEST_P(BatchUploadServiceWithAvatarPromoEntryPointTest,
   SigninWithFullInfo();
 
   // Simulate the promo being shown twice.
-  signin::SyncPromoIdentityPillManager pill_manager(&identity_manager(),
-                                                    &pref_service());
+  signin::AvatarButtonPromoManager avatar_promo_manager(&identity_manager(),
+                                                        &pref_service());
   const int avatar_promo_shown_count = 2;
   for (int i = 0; i < avatar_promo_shown_count; ++i) {
-    pill_manager.RecordPromoShown(GetParam().promo_type);
+    avatar_promo_manager.RecordPromoShown(GetParam().promo_type);
   }
 
   BatchUploadService& service = CreateService();

@@ -31,16 +31,12 @@ constexpr int kUnreachablePort = 12345;
 
 }  // namespace
 
-class ProxyOverrideRulesBrowserTest : public MixinBasedPlatformBrowserTest {
+class ProxyOverrideRulesTestBase : public MixinBasedPlatformBrowserTest {
  public:
-  ProxyOverrideRulesBrowserTest() {
+  explicit ProxyOverrideRulesTestBase(const ManagementContext& context) {
     scoped_feature_list_.InitAndEnableFeature(kEnableProxyOverrideRules);
     management_context_mixin_ =
-        ManagementContextMixin::Create(&mixin_host_, this,
-                                       ManagementContext{
-                                           .is_cloud_user_managed = true,
-                                           .affiliated = true,
-                                       });
+        ManagementContextMixin::Create(&mixin_host_, this, context);
   }
 
   void SetUpOnMainThread() override {
@@ -59,50 +55,74 @@ class ProxyOverrideRulesBrowserTest : public MixinBasedPlatformBrowserTest {
     ASSERT_TRUE(embedded_test_server()->Start());
   }
 
-  void SetPolicy(base::Value::List rules) {
+  void SetUserProxyOverrideRules(base::ListValue rules) {
     base::flat_map<std::string, std::optional<base::Value>> policies;
     policies.emplace(policy::key::kProxyOverrideRules,
                      base::Value(std::move(rules)));
     management_context_mixin_->SetCloudUserPolicies(std::move(policies));
   }
 
-  base::Value::Dict CreateProxyRule(
+  base::DictValue CreateProxyRule(
       const std::string& host,
       const std::string& proxy,
-      std::optional<base::Value::List> conditions = std::nullopt) {
-    base::Value::Dict rule;
+      std::optional<base::ListValue> conditions = std::nullopt) {
+    base::DictValue rule;
     rule.Set(proxy_config::kKeyDestinationMatchers,
-             base::Value::List().Append(host));
-    rule.Set(proxy_config::kKeyProxyList, base::Value::List().Append(proxy));
+             base::ListValue().Append(host));
+    rule.Set(proxy_config::kKeyProxyList, base::ListValue().Append(proxy));
     if (conditions) {
       rule.Set(proxy_config::kKeyConditions, std::move(*conditions));
     }
     return rule;
   }
 
-  base::Value::Dict CreateDnsCondition(const std::string& host,
-                                       const std::string& result) {
-    base::Value::Dict dns_probe;
+  base::DictValue CreateDnsCondition(const std::string& host,
+                                     const std::string& result) {
+    base::DictValue dns_probe;
     dns_probe.Set(proxy_config::kKeyHost, host);
     dns_probe.Set(proxy_config::kKeyResult, result);
-    base::Value::Dict condition;
+    base::DictValue condition;
     condition.Set(proxy_config::kKeyDnsProbe, std::move(dns_probe));
     return condition;
   }
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  void SetEnableForAllUsers(bool enable) {
+    base::flat_map<std::string, std::optional<base::Value>> policies;
+    policies.emplace(policy::key::kEnableProxyOverrideRulesForAllUsers,
+                     base::Value(enable ? 1 : 0));
+    management_context_mixin_->SetCloudMachinePolicies(std::move(policies));
+  }
+#endif
+
+ protected:
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<ManagementContextMixin> management_context_mixin_;
+};
+
+class ProxyOverrideRulesBrowserTest : public ProxyOverrideRulesTestBase {
+ public:
+  ProxyOverrideRulesBrowserTest()
+      : ProxyOverrideRulesTestBase(ManagementContext{
+            .is_cloud_user_managed = true,
+// This is required to be able to set the machine policy.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+            .is_cloud_machine_managed = true,
+#endif
+            .affiliated = true,
+        }) {
+  }
 };
 
 // Verifies that a simple rule matching the destination URL correctly routes
 // traffic to the configured proxy (Synchronous path).
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesRule) {
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule(
       kDestinationHost,
       "PROXY " + embedded_test_server()->host_port_pair().ToString()));
 
-  SetPolicy(std::move(rules));
+  SetUserProxyOverrideRules(std::move(rules));
 
   // Use a port that is not open on the destination. If the proxy is used, the
   // request will go to the embedded_test_server (which ignores the port in the
@@ -118,13 +138,13 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesRule) {
 // any rules matching the destination URL, the system falls back to DIRECT
 // (which fails in this test setup because the targeted port is closed).
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, NoRulesMatch) {
-  base::Value::List rules;
+  base::ListValue rules;
   // Rule matches a different host.
   rules.Append(CreateProxyRule(
       "other.com",
       "PROXY " + embedded_test_server()->host_port_pair().ToString()));
 
-  SetPolicy(std::move(rules));
+  SetUserProxyOverrideRules(std::move(rules));
 
   // Navigation should fail because the rule doesn't match, so it falls back to
   // DIRECT, which fails because the destination port is closed.
@@ -139,12 +159,12 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, NoRulesMatch) {
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest,
                        PrecedenceOverProxySettings) {
   // Configure ProxySettings to use an invalid proxy.
-  base::Value::Dict proxy_settings;
+  base::DictValue proxy_settings;
   proxy_settings.Set(policy::key::kProxyMode, "fixed_servers");
   proxy_settings.Set(policy::key::kProxyServer, "invalid.com:12345");
 
   // Configure ProxyOverrideRules to use the valid proxy for kDestinationHost.
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule(
       kDestinationHost,
       "PROXY " + embedded_test_server()->host_port_pair().ToString()));
@@ -168,17 +188,17 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest,
 // traffic to the proxy (Asynchronous path).
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest,
                        AppliesRuleWithDnsCondition) {
-  base::Value::List conditions;
+  base::ListValue conditions;
   conditions.Append(
       CreateDnsCondition(kResolvableHost, proxy_config::kResultResolved));
 
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule(
       kDestinationHost,
       "PROXY " + embedded_test_server()->host_port_pair().ToString(),
       std::move(conditions)));
 
-  SetPolicy(std::move(rules));
+  SetUserProxyOverrideRules(std::move(rules));
 
   GURL destination_url = GURL(base::StringPrintf(
       "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
@@ -190,11 +210,11 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest,
 // the list is applied even if subsequent rules also match.
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriority) {
   // Rule 1: Matches destination and DNS condition (Resolved). Valid Proxy.
-  base::Value::List conditions;
+  base::ListValue conditions;
   conditions.Append(
       CreateDnsCondition(kResolvableHost, proxy_config::kResultResolved));
 
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule(
       kDestinationHost,
       "PROXY " + embedded_test_server()->host_port_pair().ToString(),
@@ -203,7 +223,7 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriority) {
   // Rule 2: Matches destination. Invalid Proxy.
   rules.Append(CreateProxyRule(kDestinationHost, "PROXY invalid.com:12345"));
 
-  SetPolicy(std::move(rules));
+  SetUserProxyOverrideRules(std::move(rules));
 
   // Should succeed if Rule 1 is chosen.
   GURL destination_url = GURL(base::StringPrintf(
@@ -217,11 +237,11 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriority) {
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriorityFallback) {
   // Rule 1: Matches destination but DNS condition fails (Unresolvable). Invalid
   // Proxy.
-  base::Value::List conditions;
+  base::ListValue conditions;
   conditions.Append(
       CreateDnsCondition(kUnresolvableHost, proxy_config::kResultResolved));
 
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule(kDestinationHost, "PROXY invalid.com:12345",
                                std::move(conditions)));
 
@@ -230,7 +250,7 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriorityFallback) {
       kDestinationHost,
       "PROXY " + embedded_test_server()->host_port_pair().ToString()));
 
-  SetPolicy(std::move(rules));
+  SetUserProxyOverrideRules(std::move(rules));
 
   // Should succeed if Rule 2 is chosen (Rule 1 skipped).
   GURL destination_url = GURL(base::StringPrintf(
@@ -244,14 +264,14 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliesPriorityFallback) {
 // policy.
 IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, FallbackToProxySettings) {
   // Configure ProxySettings to use the valid proxy.
-  base::Value::Dict proxy_settings;
+  base::DictValue proxy_settings;
   proxy_settings.Set(policy::key::kProxyMode, "fixed_servers");
   proxy_settings.Set(policy::key::kProxyServer,
                      embedded_test_server()->host_port_pair().ToString());
 
   // Configure ProxyOverrideRules with a rule that does NOT match
   // kDestinationHost.
-  base::Value::List rules;
+  base::ListValue rules;
   rules.Append(CreateProxyRule("other.com", "PROXY invalid.com:12345"));
 
   // Apply both policies.
@@ -269,5 +289,136 @@ IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, FallbackToProxySettings) {
   EXPECT_TRUE(chrome_test_utils::NavigateToURL(
       chrome_test_utils::GetActiveWebContents(this), destination_url));
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+class ProxyOverrideRulesUnaffiliatedBrowserTest
+    : public ProxyOverrideRulesTestBase {
+ public:
+  ProxyOverrideRulesUnaffiliatedBrowserTest()
+      : ProxyOverrideRulesTestBase(ManagementContext{
+            .is_cloud_user_managed = true,
+            .is_cloud_machine_managed = true,
+            .affiliated = false,
+        }) {}
+};
+
+// Verifies that ProxyOverrideRules are ignored for unaffiliated users when
+// EnableProxyOverrideRulesForAllUsers is not set (default 0).
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesUnaffiliatedBrowserTest,
+                       IgnoredByDefault) {
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_FALSE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+
+// Verifies that ProxyOverrideRules are ignored for unaffiliated users when
+// EnableProxyOverrideRulesForAllUsers is explicitly disabled.
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesUnaffiliatedBrowserTest,
+                       IgnoredWhenDisabled) {
+  SetEnableForAllUsers(false);
+
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_FALSE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+
+// Verifies that ProxyOverrideRules are applied for unaffiliated users when
+// EnableProxyOverrideRulesForAllUsers is enabled.
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesUnaffiliatedBrowserTest,
+                       AppliedWhenEnabled) {
+  SetEnableForAllUsers(true);
+
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_TRUE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+
+// Verifies that ProxyOverrideRules are applied for affiliated users even when
+// EnableProxyOverrideRulesForAllUsers is disabled.
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliedWhenDisabled) {
+  SetEnableForAllUsers(false);
+
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_TRUE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+
+// Verifies that ProxyOverrideRules are applied for affiliated users when
+// EnableProxyOverrideRulesForAllUsers is enabled.
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesBrowserTest, AppliedWhenEnabled) {
+  SetEnableForAllUsers(true);
+
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_TRUE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+
+class ProxyOverrideRulesUnmanagedDeviceBrowserTest
+    : public ProxyOverrideRulesTestBase {
+ public:
+  ProxyOverrideRulesUnmanagedDeviceBrowserTest()
+      : ProxyOverrideRulesTestBase(ManagementContext{
+            .is_cloud_user_managed = true,
+            .is_cloud_machine_managed = false,
+        }) {}
+};
+
+// Verifies that ProxyOverrideRules are applied when the device is unmanaged,
+// even if EnableProxyOverrideRulesForAllUsers is not set.
+IN_PROC_BROWSER_TEST_F(ProxyOverrideRulesUnmanagedDeviceBrowserTest,
+                       WorksOnUnmanagedDevice) {
+  base::ListValue rules;
+  rules.Append(CreateProxyRule(
+      kDestinationHost,
+      "PROXY " + embedded_test_server()->host_port_pair().ToString()));
+
+  SetUserProxyOverrideRules(std::move(rules));
+
+  GURL destination_url = GURL(base::StringPrintf(
+      "http://%s:%d/simple.html", kDestinationHost, kUnreachablePort));
+  EXPECT_TRUE(chrome_test_utils::NavigateToURL(
+      chrome_test_utils::GetActiveWebContents(this), destination_url));
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 }  // namespace enterprise::test

@@ -6,6 +6,7 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_cssstylevalue_string.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_cssstylevalue_undefined.h"
 #include "third_party/blink/renderer/core/css/cssom/css_keyword_value.h"
 #include "third_party/blink/renderer/core/css/cssom/cssom_keywords.h"
 #include "third_party/blink/renderer/core/css/cssom/inline_style_property_map.h"
@@ -40,9 +41,11 @@ TEST_F(StylePropertyMapTest, SetRevertWithFeatureEnabled) {
            exception_state);
 
   CSSStyleValue* top =
-      map->get(GetDocument().GetExecutionContext(), "top", exception_state);
+      map->get(GetDocument().GetExecutionContext(), "top", exception_state)
+          ->GetAsCSSStyleValue();
   CSSStyleValue* left =
-      map->get(GetDocument().GetExecutionContext(), "left", exception_state);
+      map->get(GetDocument().GetExecutionContext(), "left", exception_state)
+          ->GetAsCSSStyleValue();
 
   ASSERT_TRUE(DynamicTo<CSSKeywordValue>(top));
   EXPECT_EQ(CSSValueID::kRevert,
@@ -69,7 +72,8 @@ TEST_F(StylePropertyMapTest, SetOverflowClipString) {
            exception_state);
 
   CSSStyleValue* overflow = map->get(GetDocument().GetExecutionContext(),
-                                     "overflow-x", exception_state);
+                                     "overflow-x", exception_state)
+                                ->GetAsCSSStyleValue();
   ASSERT_TRUE(DynamicTo<CSSKeywordValue>(overflow));
   EXPECT_EQ(CSSValueID::kClip,
             DynamicTo<CSSKeywordValue>(overflow)->KeywordValueID());
@@ -91,7 +95,8 @@ TEST_F(StylePropertyMapTest, SetOverflowClipStyleValue) {
            exception_state);
 
   CSSStyleValue* overflow = map->get(GetDocument().GetExecutionContext(),
-                                     "overflow-x", exception_state);
+                                     "overflow-x", exception_state)
+                                ->GetAsCSSStyleValue();
   ASSERT_TRUE(DynamicTo<CSSKeywordValue>(overflow));
   EXPECT_EQ(CSSValueID::kClip,
             DynamicTo<CSSKeywordValue>(overflow)->KeywordValueID());
@@ -118,11 +123,19 @@ TEST_F(StylePropertyMapTest, CSSKeywordValuesTest) {
     for (CSSPropertyID property_id : CSSPropertyIDList()) {
       switch (property_id) {
         // TODO(crbug.com/460361858): These properties need to support the
-        // listed keywords in css_properties.json5 as CSSIdentifierValue
-        // internally, or remove such keywords from the list of keywords.
+        // listed 'keywords' in css_properties.json5 as CSSIdentifierValue
+        // internally, or add a separate 'typedom_keywords' to list the set of
+        // keywords which can be reified as and set via CSSKeywordValue.
         //
-        // The presence of the properties below means there are existing CSS
-        // Typed OM crash bugs for these properties.
+        // If the property definition in css_properties.json5 contains the
+        // 'separator' field (CSSProperty::IsRepeated()), a CSSKeywordValue will
+        // be converted into a CSSValueList wrapping a CSSIdentifierValue
+        // instead.
+        //
+        // To have a more property-specific handling of CSSKeywordValue requires
+        // special handling in StyleValueToCSSValue() (style_property_map.cc).
+        //
+        // The properties skipped below have existing CSS Typed OM crash bugs.
         //
         // *** DO NOT ADD ADDITIONAL PROPERTIES BELOW ***
         case CSSPropertyID::kAnimationDirection:
@@ -133,19 +146,13 @@ TEST_F(StylePropertyMapTest, CSSKeywordValuesTest) {
         case CSSPropertyID::kAnimationTimeline:
         case CSSPropertyID::kAnimationTimingFunction:
         case CSSPropertyID::kBackgroundImage:
-        case CSSPropertyID::kClipPath:
         case CSSPropertyID::kContain:
         case CSSPropertyID::kContainerType:
         case CSSPropertyID::kFontSizeAdjust:
         case CSSPropertyID::kFontVariantEastAsian:
         case CSSPropertyID::kFontVariantLigatures:
         case CSSPropertyID::kFontVariantNumeric:
-        case CSSPropertyID::kGridAutoColumns:
-        case CSSPropertyID::kGridAutoRows:
-        case CSSPropertyID::kGridLanesDirection:
         case CSSPropertyID::kOffsetRotate:
-        case CSSPropertyID::kPositionArea:
-        case CSSPropertyID::kPositionTryFallbacks:
         case CSSPropertyID::kScrollSnapType:
         case CSSPropertyID::kScrollbarGutter:
           // scrollbar-gutter:both-edges DCHECK fails for other reasons. Needs

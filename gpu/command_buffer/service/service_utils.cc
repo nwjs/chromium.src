@@ -137,6 +137,7 @@ gl::GLContextAttribs GenerateGLContextAttribsForDecoder(
   attribs.gpu_preference = gpu_preference;
   if (context_group->use_passthrough_cmd_decoder()) {
     attribs.webgl_compatibility_context = IsWebGLContextType(context_type);
+    attribs.hardened_context = !attribs.webgl_compatibility_context;
 
     // Always use the global texture and semaphore share group for the
     // passthrough command decoder
@@ -151,10 +152,13 @@ gl::GLContextAttribs GenerateGLContextAttribsForDecoder(
     if (IsWebGL2OrES3ContextType(context_type)) {
       attribs.client_major_es_version = 3;
       attribs.client_minor_es_version = 0;
+      attribs.allow_es_version_fallback =
+          !features::ShouldFallbackToSWIfGLES3NotSupported();
     } else {
       DCHECK(IsWebGL1OrES2ContextType(context_type));
       attribs.client_major_es_version = 2;
       attribs.client_minor_es_version = 0;
+      attribs.allow_es_version_fallback = false;
     }
   } else {
     attribs.client_major_es_version = 3;

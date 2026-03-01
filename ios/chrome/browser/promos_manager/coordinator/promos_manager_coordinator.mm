@@ -38,6 +38,7 @@
 #import "ios/chrome/browser/docking_promo/coordinator/docking_promo_display_handler.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/public/features.h"
+#import "ios/chrome/browser/ntp/coordinator/home_background_customization_promo_display_handler.h"
 #import "ios/chrome/browser/post_restore_signin/ui_bundled/post_restore_signin_provider.h"
 #import "ios/chrome/browser/promos_manager/coordinator/bannered_promo_view_provider.h"
 #import "ios/chrome/browser/promos_manager/coordinator/promos_manager_coordinator+Testing.h"
@@ -45,7 +46,6 @@
 #import "ios/chrome/browser/promos_manager/coordinator/standard_promo_alert_provider.h"
 #import "ios/chrome/browser/promos_manager/coordinator/standard_promo_display_handler.h"
 #import "ios/chrome/browser/promos_manager/coordinator/standard_promo_view_provider.h"
-#import "ios/chrome/browser/promos_manager/model/features.h"
 #import "ios/chrome/browser/promos_manager/model/promo_config.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
@@ -57,7 +57,6 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/credential_provider_promo_commands.h"
-#import "ios/chrome/browser/shared/public/commands/docking_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -107,9 +106,6 @@
 
   // The handler for the CredentialProviderPromoCommands.
   id<CredentialProviderPromoCommands> _credentialProviderPromoCommandHandler;
-
-  // The handler for the DockingPromoCommands.
-  id<DockingPromoCommands> _dockingPromoCommandHandler;
 }
 
 // A mediator that observes when it's a good time to display a promo.
@@ -137,9 +133,7 @@
                                    browser:(Browser*)browser
                               sceneHandler:(id<SceneCommands>)sceneHandler
             credentialProviderPromoHandler:(id<CredentialProviderPromoCommands>)
-                                               credentialProviderPromoHandler
-                       dockingPromoHandler:
-                           (id<DockingPromoCommands>)dockingPromoHandler {
+                                               credentialProviderPromoHandler {
   DCHECK(ShouldPromoManagerDisplayPromos());
   if ((self = [super initWithBaseViewController:viewController
                                         browser:browser])) {
@@ -147,7 +141,6 @@
     CHECK(browser, base::NotFatalUntil::M140);
     _sceneHandler = sceneHandler;
     _credentialProviderPromoCommandHandler = credentialProviderPromoHandler;
-    _dockingPromoCommandHandler = dockingPromoHandler;
 
     [self registerPromos];
 
@@ -163,7 +156,8 @@
           PromosManagerFactory::GetForProfile(browser->GetProfile());
       _mediator = [[PromosManagerMediator alloc]
           initWithPromosManager:promosManager
-                   promoConfigs:[self promoConfigs]];
+                   promoConfigs:[self promoConfigs]
+                   webStateList:browser->GetWebStateList()];
     }
   }
 
@@ -229,7 +223,7 @@
   if (_currentPromoData.has_value() && !_currentPromoData.value().was_forced) {
     PromoConfigsSet configs = [self promoConfigs];
     auto it = configs.find(_currentPromoData.value().promo);
-    if (it == configs.end() || !it->feature_engagement_feature) {
+    if (it == configs.end()) {
       return;
     }
 
@@ -588,14 +582,10 @@
           initWithHandler:_credentialProviderPromoCommandHandler];
 
   // Docking promo handler.
-  _displayHandlerPromos[promos_manager::Promo::DockingPromo] =
-      [[DockingPromoDisplayHandler alloc]
-                   initWithHandler:_dockingPromoCommandHandler
-          showRemindMeLaterVersion:NO];
-  _displayHandlerPromos[promos_manager::Promo::DockingPromoRemindMeLater] =
-      [[DockingPromoDisplayHandler alloc]
-                   initWithHandler:_dockingPromoCommandHandler
-          showRemindMeLaterVersion:YES];
+  if (IsDockingPromoV2Enabled()) {
+    _displayHandlerPromos[promos_manager::Promo::DockingPromo] =
+        [[DockingPromoDisplayHandler alloc] init];
+  }
 
   // Default browser promo handler.
   _displayHandlerPromos[promos_manager::Promo::DefaultBrowser] =
@@ -626,6 +616,9 @@
             initWithSceneCommandsHandler:_sceneHandler
                   promosManagerUIHandler:self];
   }
+
+  _displayHandlerPromos[promos_manager::Promo::HomeBackgroundCustomization] =
+      [[HomeBackgroundCustomizationPromoDisplayHandler alloc] init];
 }
 
 - (void)registerStandardPromoViewProviderPromos {

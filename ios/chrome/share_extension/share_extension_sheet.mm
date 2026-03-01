@@ -39,9 +39,6 @@ CGFloat const kTextStackSpacing = 30.0;
 // The horizontal spacing between image preview and the URL stack.
 CGFloat const kInnerViewSpacing = 30;
 
-// Custom radius for the half sheet presentation.
-CGFloat const kHalfSheetCornerRadius = 20;
-
 // The coefficient to multiply the title view font with to get the logo size.
 constexpr CGFloat kLogoTitleFontMultiplier = 1.25;
 
@@ -50,11 +47,11 @@ CGFloat const kTitleViewSpacing = 3.0;
 
 // Constants for the content configuration.
 CGFloat const kContentStackSpacing = 16.0;
-CGFloat const kAccountRowHeight = 57.0;
+CGFloat const kAccountRowHeight = 58.0;
 CGFloat const kContentCornerRadius = 25.0;
 CGFloat const kAccountCellCornerRadius = 10.0;
 CGFloat const kAvatarImageDimension = 30.0;
-CGFloat const kUpdatedMainViewCornerRadius = 32.0;
+CGFloat const kUpdatedMainViewCornerRadius = 28.0;
 
 // The reuse identifier for the account cell.
 NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
@@ -71,7 +68,7 @@ NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
   NSString* _secondaryString;
   NSString* _appName;
   SharedItemType _sharedItemType;
-  NSArray<AccountInfo*>* _accounts;
+  NSArray<ShareExtensionAccountInfo*>* _accounts;
   UITableView* _accountTableView;
   NSLayoutConstraint* _tableViewHeightConstraint;
 }
@@ -98,7 +95,6 @@ NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
   [super viewDidLoad];
 
   [self setupContent];
-  [self setUpBottomSheetPresentationController];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -125,7 +121,7 @@ NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
   }
 }
 
-- (void)setAccounts:(NSArray<AccountInfo*>*)accounts {
+- (void)setAccounts:(NSArray<ShareExtensionAccountInfo*>*)accounts {
   _accounts = [accounts copy];
 }
 
@@ -167,7 +163,7 @@ NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
 #pragma mark - AccountPickerDelegate
 
 - (void)didSelectAccountInTable:(AccountPickerTable*)table
-                selectedAccount:(AccountInfo*)selectedAccount {
+                selectedAccount:(ShareExtensionAccountInfo*)selectedAccount {
   _selectedAccountInfo = selectedAccount;
   [_accountTableView reloadData];
 }
@@ -314,16 +310,6 @@ NSString* const kAccountCellIdentifier = @"kAccountCellIdentifier";
   cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   return cell;
-}
-
-// Configures the bottom sheet's presentation controller appearance.
-- (void)setUpBottomSheetPresentationController {
-  self.modalPresentationStyle = UIModalPresentationFormSheet;
-  UISheetPresentationController* presentationController =
-      self.sheetPresentationController;
-  presentationController.prefersEdgeAttachedInCompactHeight = YES;
-  presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
-  presentationController.preferredCornerRadius = kHalfSheetCornerRadius;
 }
 
 // Configures and returns the title view for the sheet, including the logo and

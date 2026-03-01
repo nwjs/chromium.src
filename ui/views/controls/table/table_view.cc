@@ -13,7 +13,6 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/i18n/rtl.h"
@@ -496,13 +495,13 @@ void TableView::SetSortDescriptors(const SortDescriptors& sort_descriptors) {
 }
 
 bool TableView::IsColumnVisible(int id) const {
-  return base::Contains(visible_columns_, id, [](const VisibleColumn& column) {
-    return column.column.id;
-  });
+  return std::ranges::contains(
+      visible_columns_, id,
+      [](const VisibleColumn& column) { return column.column.id; });
 }
 
 bool TableView::HasColumn(int id) const {
-  return base::Contains(columns_, id, &ui::TableColumn::id);
+  return std::ranges::contains(columns_, id, &ui::TableColumn::id);
 }
 
 bool TableView::GetHasFocusIndicator() const {
@@ -2546,14 +2545,14 @@ void TableView::UpdateAccessibilityFocus(
         !active_visible_column_index_.has_value()) {
       if (ax_header_row) {
         ax_header_row->NotifyEvent(ax::mojom::Event::kSelection, true);
-        GetViewAccessibility().OverrideFocus(ax_header_row);
+        GetViewAccessibility().SetActiveDescendant(*ax_header_row);
       }
     } else {
       AXVirtualView* ax_header_cell = GetVirtualAccessibilityCellImpl(
           ax_header_row, active_visible_column_index_.value());
       if (ax_header_cell) {
         ax_header_cell->NotifyEvent(ax::mojom::Event::kSelection, true);
-        GetViewAccessibility().OverrideFocus(ax_header_cell);
+        GetViewAccessibility().SetActiveDescendant(*ax_header_cell);
       }
     }
     return;
@@ -2561,7 +2560,7 @@ void TableView::UpdateAccessibilityFocus(
 
   if (!selection_model_.active().has_value() ||
       !active_visible_column_index_.has_value()) {
-    GetViewAccessibility().OverrideFocus(nullptr);
+    GetViewAccessibility().ClearActiveDescendant();
     return;
   }
 
@@ -2570,14 +2569,14 @@ void TableView::UpdateAccessibilityFocus(
   if constexpr (!PlatformStyle::kTableViewSupportsKeyboardNavigationByCell) {
     if (ax_row) {
       ax_row->NotifyEvent(ax::mojom::Event::kSelection, true);
-      GetViewAccessibility().OverrideFocus(ax_row);
+      GetViewAccessibility().SetActiveDescendant(*ax_row);
     }
   } else {
     AXVirtualView* ax_cell = GetVirtualAccessibilityCellImpl(
         ax_row, active_visible_column_index_.value());
     if (ax_cell) {
       ax_cell->NotifyEvent(ax::mojom::Event::kSelection, true);
-      GetViewAccessibility().OverrideFocus(ax_cell);
+      GetViewAccessibility().SetActiveDescendant(*ax_cell);
     }
   }
 }

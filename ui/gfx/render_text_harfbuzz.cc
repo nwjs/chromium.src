@@ -4,12 +4,12 @@
 
 #include "ui/gfx/render_text_harfbuzz.h"
 
+#include <algorithm>
 #include <limits>
 #include <set>
 #include <string_view>
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/containers/lru_cache.h"
 #include "base/containers/span.h"
 #include "base/debug/alias.h"
@@ -177,10 +177,11 @@ void ScriptSetIntersect(UChar32 codepoint, std::vector<UScriptCode>& result) {
     return;
   }
 
-  CHECK(!base::Contains(extensions, USCRIPT_INHERITED));
+  CHECK(!std::ranges::contains(extensions, USCRIPT_INHERITED));
 
-  std::erase_if(
-      result, [&](auto script) { return !base::Contains(extensions, script); });
+  std::erase_if(result, [&](auto script) {
+    return !std::ranges::contains(extensions, script);
+  });
 }
 
 struct GraphemeProperties {
@@ -1799,15 +1800,6 @@ void RenderTextHarfBuzz::DrawVisualText(internal::SkiaTextRenderer* renderer,
       // Don't draw the newline glyph (crbug.com/680430).
       if (IsNewlineSegment(display_text, segment))
         continue;
-
-      const size_t crash_report_size = 256;
-      DEBUG_ALIAS_FOR_U16CSTR(alias_display_text, display_text.data(),
-                              crash_report_size);
-      DEBUG_ALIAS_FOR_U16CSTR(alias_text, text().data(), crash_report_size);
-      const size_t run_list_size = run_list->runs().size();
-      base::debug::Alias(&run_list_size);
-      const size_t segment_run_size = segment.run;
-      base::debug::Alias(&segment_run_size);
 
       const internal::TextRunHarfBuzz& run = *run_list->runs()[segment.run];
       renderer->SetFillStyle(run.font_params.fill_style);

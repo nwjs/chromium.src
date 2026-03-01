@@ -41,6 +41,14 @@ class ManagePasswordsPageActionController;
 class BookmarkBarPreloadPipelineManager;
 class NewTabPagePreloadPipelineManager;
 
+namespace skills {
+class SkillsUiTabControllerInterface;
+}  // namespace skills
+
+namespace back_to_opener {
+class BackToOpenerController;
+}  // namespace back_to_opener
+
 namespace autofill {
 class BubbleManager;
 }  // namespace autofill
@@ -62,6 +70,10 @@ class DiscountsPageActionViewController;
 namespace enterprise_data_protection {
 class DataProtectionNavigationController;
 }  // namespace enterprise_data_protection
+
+namespace enterprise_reporting {
+class SaasUsageNavigationObserver;
+}  // namespace enterprise_reporting
 
 namespace content {
 class WebContents;
@@ -107,6 +119,12 @@ namespace privacy_sandbox {
 class PrivacySandboxTabObserver;
 }  // namespace privacy_sandbox
 
+#if BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
+namespace skills {
+class SkillsUpdateObserver;
+}  // namespace skills
+#endif  // BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
+
 namespace sync_sessions {
 class SyncSessionsRouterTabHelper;
 }  // namespace sync_sessions
@@ -143,15 +161,19 @@ class ProtocolHandlerPickerCoordinator;
 
 namespace tabs {
 
-class TabAlertController;
-class TabInterface;
-class TabDialogManager;
-
+class ContextHighlightTabFeature;
 class InactiveWindowMouseEventController;
+class TabAlertController;
 class TabCreationMetricsController;
+class TabDialogManager;
+class TabInterface;
 
 // This class owns the core controllers for features that are scoped to a given
 // tab. It can be subclassed by tests to perform dependency injection.
+//
+// Do not add more public accessors. Instead use the UnownedUserData design
+// pattern, see ui/base/unowned_user_data/README.md.
+// TODO(crbug.com/481268779a): Remove existing public accessors.
 class TabFeatures {
  public:
   TabFeatures();
@@ -302,6 +324,10 @@ class TabFeatures {
 
   AskBeforeHttpDialogController* ask_before_http_dialog_controller() {
     return ask_before_http_dialog_controller_.get();
+  }
+
+  back_to_opener::BackToOpenerController* back_to_opener_controller() {
+    return back_to_opener_controller_.get();
   }
 
   BookmarkBarPreloadPipelineManager* bookmarkbar_preload_pipeline_manager() {
@@ -476,6 +502,8 @@ class TabFeatures {
 
   std::unique_ptr<TabAlertController> tab_alert_controller_;
 
+  std::unique_ptr<ContextHighlightTabFeature> context_highlight_tab_feature_;
+
   std::unique_ptr<TabUIHelper> tab_ui_helper_;
 
   std::unique_ptr<QwacWebContentsObserver> qwac_web_contents_observer_;
@@ -505,6 +533,12 @@ class TabFeatures {
   std::unique_ptr<NewTabPagePreloadPipelineManager>
       new_tab_page_preload_pipeline_manager_;
 
+  std::unique_ptr<back_to_opener::BackToOpenerController>
+      back_to_opener_controller_;
+
+  std::unique_ptr<skills::SkillsUiTabControllerInterface>
+      skills_ui_tab_controller_;
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
   std::unique_ptr<wallet::ChromeWalletablePassClient> walletable_pass_client_;
@@ -512,6 +546,15 @@ class TabFeatures {
 
   std::unique_ptr<contextual_tasks::ContextualTasksTabVisitTracker>
       contextual_tasks_tab_visit_tracker_;
+
+#if BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<skills::SkillsUpdateObserver> skills_update_observer_;
+#endif  // BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  std::unique_ptr<enterprise_reporting::SaasUsageNavigationObserver>
+      saas_usage_navigation_observer_;
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};

@@ -9,10 +9,11 @@
 #include <linux-dmabuf-unstable-v1-server-protocol.h>
 #include <sys/stat.h>
 
+#include <algorithm>
+
 #include "ash/constants/ash_features.h"
 #include "ash/shell.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "components/exo/buffer.h"
@@ -22,6 +23,7 @@
 #include "components/exo/surface.h"
 #include "components/exo/wayland/server_util.h"
 #include "components/viz/common/gpu/context_provider.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "ui/aura/env.h"
 #include "ui/compositor/compositor.h"
 #include "ui/display/manager/display_manager.h"
@@ -155,8 +157,8 @@ class WaylandDmabufFeedback {
           scanout_modifier_entries.emplace(it->first, it->second);
         } else {
           for (const auto& [table_index, modifier] : modifier_entries) {
-            if (base::Contains(display_formats_and_modifiers.at(format),
-                               modifier)) {
+            if (std::ranges::contains(display_formats_and_modifiers.at(format),
+                                      modifier)) {
               scanout_modifier_entries.emplace(table_index, modifier);
             }
           }
@@ -338,14 +340,6 @@ WaylandDmabufFeedbackManager::WaylandDmabufFeedbackManager(Display* display)
 
   size_t format_table_index = 0;
   for (const auto& [drm_format, modifiers] : caps.drm_formats_and_modifiers) {
-    if (!ui::IsValidBufferFormat(drm_format))
-      continue;
-
-    if (!caps.gpu_memory_buffer_formats.Has(
-            ui::GetBufferFormatFromFourCCFormat(drm_format))) {
-      continue;
-    }
-
     base::flat_map<size_t, uint64_t> modifier_entries;
     modifier_entries.emplace(format_table_index++, DRM_FORMAT_MOD_INVALID);
 
@@ -358,25 +352,6 @@ WaylandDmabufFeedbackManager::WaylandDmabufFeedbackManager(Display* display)
     }
 
     drm_formats_and_modifiers_.emplace(drm_format, modifier_entries);
-  }
-  if (drm_formats_and_modifiers_.empty()) {
-    // Fallback path, to be removed ASAP. We should not advertise the protocol
-    // at all.
-    gfx::GpuMemoryBufferFormatSet format_set = caps.gpu_memory_buffer_formats;
-    for (int i = 0; i <= static_cast<int>(gfx::BufferFormat::LAST); i++) {
-      gfx::BufferFormat buffer_format = static_cast<gfx::BufferFormat>(i);
-      if (format_set.Has(buffer_format)) {
-        int drm_format = ui::GetFourCCFormatFromBufferFormat(buffer_format);
-        if (ui::IsValidBufferFormat(drm_format)) {
-          base::flat_map<size_t, uint64_t> modifier_entries;
-          modifier_entries.emplace(format_table_index++,
-                                   DRM_FORMAT_MOD_INVALID);
-          drm_formats_and_modifiers_.emplace(drm_format, modifier_entries);
-        }
-      }
-    }
-    version_ = ZWP_LINUX_BUFFER_PARAMS_V1_CREATE_IMMED_SINCE_VERSION;
-    return;
   }
 
   if (!caps.drm_device_id) {

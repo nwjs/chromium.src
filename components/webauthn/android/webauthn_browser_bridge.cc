@@ -113,13 +113,13 @@ void OnNonCredentialReturn(const base::android::JavaRef<jobject>& jcallback,
 
 void OnHybridAssertionInvoked(
     const base::android::JavaRef<jobject>& jcallback) {
-  base::android::RunRunnableAndroid(jcallback);
+  jni_zero::RunRunnable(jcallback);
 }
 
-static jlong JNI_WebauthnBrowserBridge_CreateNativeWebauthnBrowserBridge(
+static int64_t JNI_WebauthnBrowserBridge_CreateNativeWebauthnBrowserBridge(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& jbridge) {
-  return reinterpret_cast<jlong>(new WebauthnBrowserBridge(env, jbridge));
+  return reinterpret_cast<int64_t>(new WebauthnBrowserBridge(env, jbridge));
 }
 
 WebauthnBrowserBridge::WebauthnBrowserBridge(
@@ -133,7 +133,7 @@ void WebauthnBrowserBridge::OnCredentialsDetailsListReceived(
     JNIEnv* env,
     const base::android::JavaRef<jobjectArray>& credentials,
     const base::android::JavaRef<jobject>& jframe_host,
-    jint mediation_type,
+    int32_t mediation_type,
     const base::android::JavaRef<jobject>& jcredential_callback,
     const base::android::JavaRef<jobject>& jhybrid_callback,
     const base::android::JavaRef<jobject>& jnon_credential_callback) const {

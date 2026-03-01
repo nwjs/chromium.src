@@ -58,21 +58,7 @@ public class ActivityTabProvider implements Destroyable, Supplier<@Nullable Tab>
         }
 
         @Override
-        protected void onObservingDifferentTab(@Nullable Tab tab) {
-            onObservingDifferentTab(tab, false);
-        }
-
-        /**
-         * A notification that the observer has switched to observing a different tab. This can be
-         * called a first time with the {@code hint} parameter set to true, indicating that a new
-         * tab is going to be selected.
-         *
-         * @param tab The tab that the observer is now observing. This can be null.
-         * @param hint Whether the change event is a hint that a tab change is likely. If true, the
-         *     provided tab may still be frozen and is not yet selected.
-         * @deprecated - hint is unused, override this method without the hint parameter.
-         */
-        protected void onObservingDifferentTab(@Nullable Tab tab, boolean hint) {}
+        protected void onObservingDifferentTab(@Nullable Tab tab) {}
     }
 
     /** A handle to the {@link LayoutStateProvider} to get the active layout. */
@@ -113,15 +99,11 @@ public class ActivityTabProvider implements Destroyable, Supplier<@Nullable Tab>
                     }
 
                     @Override
-                    @SuppressWarnings("NullAway") // https://github.com/uber/NullAway/issues/1209
                     public void onStartedHiding(@LayoutType int layout) {
                         if (mTabModelSelector == null) return;
 
                         if (LayoutType.TAB_SWITCHER == layout) {
-                            // TODO(https://github.com/uber/NullAway/issues/1209): Remove
-                            // assumeNonNull().
-                            Tab tab = assumeNonNull(mTabModelSelector.getCurrentTab());
-                            mObservableSupplier.set(tab);
+                            mObservableSupplier.set(mTabModelSelector.getCurrentTab());
                         }
                     }
                 };
@@ -134,7 +116,7 @@ public class ActivityTabProvider implements Destroyable, Supplier<@Nullable Tab>
     }
 
     @Override
-    public Tab get() {
+    public @Nullable Tab get() {
         return mObservableSupplier.get();
     }
 

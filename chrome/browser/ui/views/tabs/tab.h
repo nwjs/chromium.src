@@ -13,7 +13,8 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
-#include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
+#include "chrome/browser/ui/views/tabs/hover_card_anchor_target.h"
+#include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/common/buildflags.h"
@@ -64,6 +65,7 @@ class Tab : public gfx::AnimationDelegate,
             public views::MaskedTargeterDelegate,
             public views::ViewObserver,
             public TabSlotView,
+            public HoverCardAnchorTarget,
             public AlertIndicatorButton::Delegate {
   METADATA_HEADER(Tab, TabSlotView)
 
@@ -129,8 +131,11 @@ class Tab : public gfx::AnimationDelegate,
   // Returns the color for the tab's group, if any.
   std::optional<SkColor> GetGroupColor() const;
 
-  // Returns true if this tab is the active tab.
-  bool IsActive() const;
+  // HoverCardAnchorTarget:
+  bool IsActive() const override;
+  bool IsValid() const override;
+  const TabRendererData& data() const override;
+  views::BubbleBorder::Arrow GetAnchorPosition() const override;
 
   // Notifies the AlertIndicatorButton that the active state of this tab has
   // changed.
@@ -157,16 +162,11 @@ class Tab : public gfx::AnimationDelegate,
   // Sets the data this tabs displays. Should only be called after Tab is added
   // to widget hierarchy.
   void SetData(TabRendererData data);
-  const TabRendererData& data() const { return data_; }
 
   // Redraws the loading animation if one is visible. Otherwise, no-op. The
   // `elapsed_time` parameter is shared between tabs and used to keep the
   // throbbers in sync.
   void StepLoadingAnimation(const base::TimeDelta& elapsed_time);
-
-  // Sets the visibility of the indicator shown when the tab needs to indicate
-  // to the user that it needs their attention.
-  void SetTabNeedsAttention(bool attention);
 
   void CreateFreezingVote(content::WebContents* contents);
   void ReleaseFreezingVote();
@@ -207,8 +207,6 @@ class Tab : public gfx::AnimationDelegate,
     return alert_indicator_button_;
   }
 
-  void SetShouldShowDiscardIndicator(bool enabled);
-
   void UpdateInsets();
 
 #if BUILDFLAG(ENABLE_GLIC)
@@ -233,9 +231,6 @@ class Tab : public gfx::AnimationDelegate,
   FRIEND_TEST_ALL_PREFIXES(TabContentsTest,
                            AccessibleNameChangesWithCollaborationMessages);
 
-  bool ShouldUpdateAccessibleName(TabRendererData& old_data,
-                                  TabRendererData& new_data);
-
   // Invoked from Layout to adjust the position of the favicon or alert
   // indicator for pinned tabs. The visual_width parameter is how wide the
   // icon looks (rather than how wide the bounds are).
@@ -249,9 +244,9 @@ class Tab : public gfx::AnimationDelegate,
   // pinned tab.
   bool ShouldRenderAsNormalTab() const;
 
-  // Updates the blocked attention state of the `icon_`. This only updates
-  // state; it is the responsibility of the caller to request a paint.
-  void UpdateTabIconNeedsAttentionBlocked();
+  // Updates the attention state of the `icon_`. This only updates state; it is
+  // the responsibility of the caller to request a paint.
+  void UpdateTabIconAttention();
 
   // Returns the width of the largest part of the tab that is available for the
   // user to click to select/activate the tab.

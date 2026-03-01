@@ -494,6 +494,13 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Dismiss via No Thanks"/>
 </enum>
 
+<enum name="IOSDockingPromoEligibility">
+  <int value="0" label="Ineligible"/>
+  <int value="1" label="Low Engagement User"/>
+  <int value="2" label="No Recent Icon Launches"/>
+  <int value="3" label="Low Engagement User with No Recent Icon Launches"/>
+</enum>
+
 <enum name="IOSEditMenuActions">
   <int value="0" label="Invalid"/>
   <int value="1" label="NativeCut"/>
@@ -721,6 +728,43 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiAspectRatioBucket) -->
 
+<!-- LINT.IfChange(IOSGeminiCameraFlowOSCameraAuthorizationResult) -->
+
+<enum name="IOSGeminiCameraFlowOSCameraAuthorizationResult">
+  <summary>
+    Enum describing the result of an OS camera authorization request.
+  </summary>
+  <int value="0" label="Granted"/>
+  <int value="1" label="Denied"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiCameraFlowOSCameraAuthorizationResult) -->
+
+<!-- LINT.IfChange(IOSGeminiCameraPermissionAlertResult) -->
+
+<enum name="IOSGeminiCameraPermissionAlertResult">
+  <summary>
+    Enum describing the result of the Gemini camera permission alert.
+  </summary>
+  <int value="0" label="Allow"/>
+  <int value="1" label="Don't Allow"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiCameraPermissionAlertResult) -->
+
+<!-- LINT.IfChange(IOSGeminiCameraPickerResult) -->
+
+<enum name="IOSGeminiCameraPickerResult">
+  <summary>
+    Enum describing the result of the camera picker in the Gemini camera flow.
+  </summary>
+  <int value="0" label="Cancelled"/>
+  <int value="1" label="Finished without image"/>
+  <int value="2" label="Finished with image"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiCameraPickerResult) -->
+
 <!-- LINT.IfChange(IOSGeminiEntryPoint) -->
 
 <enum name="IOSGeminiEntryPoint">
@@ -743,7 +787,10 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Thumbs Down"/>
 </enum>
 
-<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFeedback) -->
+<!-- LINT.ThenChange(
+    /ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFeedback,
+    /ios/chrome/browser/intelligence/bwg/model/gemini_session_delegate.h:GeminiFeedbackType
+) -->
 
 <!-- LINT.IfChange(IOSGeminiFirstPromptSubmissionMethod) -->
 
@@ -780,6 +827,27 @@ chromium-metrics-reviews@google.com.
     /ios/chrome/browser/intelligence/bwg/model/gemini_session_delegate.h:BWGInputType
 ) -->
 
+<!-- LINT.IfChange(IOSGeminiFloatyUpdateSource) -->
+
+<enum name="IOSGeminiFloatyUpdateSource">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="View Transition"/>
+  <int value="2" label="Web Navigation"/>
+  <int value="3" label="Tab Grid"/>
+  <int value="4" label="Non-Web Context Menu (e.g. Toolbar long press)"/>
+  <int value="5" label="Web Context Menu"/>
+  <int value="6" label="Forced From Scrolling"/>
+  <int value="7" label="Overlay (e.g. Lens Overlay)"/>
+  <int value="8" label="Ineligible Site"/>
+  <int value="9" label="Forced From Query Response"/>
+  <int value="10" label="Snackbar"/>
+  <int value="11" label="Website Alert"/>
+  <int value="12" label="Bottom Banner (e.g. Download Banner)"/>
+  <int value="13" label="Keyboard"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h:FloatyUpdateSource) -->
+
 <!-- LINT.IfChange(IOSGeminiFREAction) -->
 
 <enum name="IOSGeminiFREAction">
@@ -789,6 +857,72 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFREAction) -->
+
+<!-- LINT.IfChange(IOSGeminiGoToOSSettingsAlertResult) -->
+
+<enum name="IOSGeminiGoToOSSettingsAlertResult">
+  <summary>
+    Enum describing the result of the alert directing users to OS camera
+    settings in the Gemini camera flow, shown when OS camera permissions are not
+    authorized.
+  </summary>
+  <int value="0" label="Go to Settings"/>
+  <int value="1" label="No thanks"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiGoToOSSettingsAlertResult) -->
+
+<!-- LINT.IfChange(IOSGeminiImageActionButtonType) -->
+
+<enum name="IOSGeminiImageActionButtonType">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Copy"/>
+  <int value="2" label="Download"/>
+  <int value="3" label="Share"/>
+</enum>
+
+<!-- LINT.ThenChange(ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h:ImageActionButtonType) -->
+
+<!-- LINT.IfChange(IOSGeminiInputPlateAttachmentOption) -->
+
+<enum name="IOSGeminiInputPlateAttachmentOption">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Camera"/>
+  <int value="2" label="Gallery"/>
+  <int value="3" label="Create Image Deselected"/>
+  <int value="4" label="Create Image Selected"/>
+</enum>
+
+<!-- LINT.ThenChange(ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h:InputPlateAttachmentOption) -->
+
+<!-- LINT.IfChange(IOSGeminiOSCameraAuthorizationInitialStatus) -->
+
+<enum name="IOSGeminiOSCameraAuthorizationInitialStatus">
+  <summary>
+    Enum describing the initial OS camera authorization status when the Gemini
+    camera flow begins.
+  </summary>
+  <int value="0" label="Not Determined"/>
+  <int value="1" label="Restricted"/>
+  <int value="2" label="Denied"/>
+  <int value="3" label="Authorized"/>
+  <int value="4" label="Source Type Unavailable"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiOSCameraAuthorizationInitialStatus) -->
+
+<!-- LINT.IfChange(IOSGeminiSessionCancellationReason) -->
+
+<enum name="IOSGeminiSessionCancellationReason">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Stop Button Tapped"/>
+  <int value="2" label="Outside Tapped"/>
+  <int value="3" label="Close Button Tapped Expanded State"/>
+  <int value="4" label="Close Button Tapped Collapsed State"/>
+  <int value="5" label="Close Button Tapped Loading State"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiSessionCancellationReason) -->
 
 <!-- LINT.IfChange(IOSGeminiSettingsItem) -->
 
@@ -800,6 +934,21 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/settings/ui_bundled/bwg/utils/gemini_settings_metrics.h:IOSGeminiSettingsItem) -->
+
+<!-- LINT.IfChange(IOSGeminiViewStateTransition) -->
+
+<enum name="IOSGeminiViewStateTransition">
+  <summary>
+    Enum describing the transition between different Gemini view states.
+  </summary>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="CollapsedToExpanded"/>
+  <int value="2" label="ExpandedToCollapsed"/>
+  <int value="3" label="HiddenToCollapsed"/>
+  <int value="4" label="HiddenToExpanded"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiViewStateTransition) -->
 
 <enum name="IOSHomeActionType">
   <int value="0" label="Most Visited Tiles"/>
@@ -955,6 +1104,18 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="User disabled detection"/>
   <int value="6" label="User opened settings from disable confirmation"/>
 </enum>
+
+<!-- LINT.IfChange(IOSMostVisitedPinSiteFormUserAction) -->
+
+<enum name="IOSMostVisitedPinSiteFormUserAction">
+  <int value="0" label="User dismisses form"/>
+  <int value="1" label="User succesfully applies changes on the form"/>
+  <int value="2" label="User dismisses form after failing to apply"/>
+  <int value="3"
+      label="User tries and succeeds to apply changes after failure"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/content_suggestions/most_visited_tiles/public/metrics.h:MostVisitedPinSiteFormUserAction) -->
 
 <enum name="IOSMultiWindowConfiguration">
   <int value="0" label="Unspecified"/>
@@ -1464,6 +1625,8 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Notifications"/>
   <int value="7" label="Obsolete in M138 - Docking"/>
   <int value="8" label="Obsolete in M138 - Address Bar"/>
+  <int value="9" label="Safari import"/>
+  <int value="10" label="Background customization"/>
 </enum>
 
 <enum name="IOSShareExtensionReceivedEntrySource">
@@ -1779,17 +1942,14 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/ios/chrome/browser/push_notification/model/constants.h:NotificationType) -->
 
-<enum name="OmniboxDeviceSwitcherResult">
-  <int value="1" label="Unavailable"/>
-  <int value="2" label="Top omnibox by default"/>
-  <int value="3" label="Bottom omnibox by default"/>
-  <int value="4" label="Not a new user (user is new for 30 days after FRE)"/>
-</enum>
+<!-- LINT.IfChange(OmniboxPositionType) -->
 
 <enum name="OmniboxPositionType">
   <int value="0" label="Top"/>
   <int value="1" label="Bottom"/>
 </enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.mm:OmniboxPositionType) -->
 
 <enum name="PageLoadedSnapshotResult">
   <int value="0" label="Snapshot not attempted, page load failed">
@@ -2013,6 +2173,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Font scale"/>
   <int value="1" label="Font family"/>
   <int value="2" label="Theme"/>
+  <int value="3" label="Enable/Disable Links"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/reader_mode/model/constants.h:ReaderModeCustomizationType) -->
@@ -2110,6 +2271,23 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/reader_mode/model/constants.h:ReaderModeTheme) -->
+
+<!-- LINT.IfChange(ReaderModeTranslationPageEventState) -->
+
+<enum name="ReaderModeTranslationPageEventState">
+  <int value="0" label="Source untranslated, Reading Mode untranslated"/>
+  <int value="1" label="Source untranslated, Reading Mode translated"/>
+  <int value="2" label="Source manually translated, Reading Mode translated"/>
+  <int value="3"
+      label="Source manually translated, Reading Mode translated new language"/>
+  <int value="4" label="Source manually translated, Reading Mode untranslated"/>
+  <int value="5" label="Source auto-translated, Reading Mode translated"/>
+  <int value="6"
+      label="Source auto-translated, Reading Mode translated new language"/>
+  <int value="7" label="Source auto-translated, Reading Mode untranslated"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/reader_mode/model/constants.h:ReaderModeTranslationPageEventState) -->
 
 <!-- LINT.IfChange(SafariDataImportEntryPointAction) -->
 
@@ -2236,6 +2414,9 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="SceneActivation">
     Triggered by a scene becoming foreground active.
   </int>
+  <int value="3" label="ServiceStatusChange">
+    Triggered by the CrossDevicePrefTracker becoming available.
+  </int>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/synced_set_up/public/synced_set_up_metrics.h:SyncedSetUpTriggerSource) -->
@@ -2327,6 +2508,7 @@ chromium-metrics-reviews@google.com.
   <int value="28" label="Passkeys"/>
   <int value="29" label="Choose From Drive"/>
   <int value="30" label="Save To Drive"/>
+  <int value="31" label="Bling Enterprise Profiles"/>
 </enum>
 
 <enum name="WindowActivityOrigin">

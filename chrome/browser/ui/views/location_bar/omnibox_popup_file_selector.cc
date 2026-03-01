@@ -111,9 +111,12 @@ void OmniboxPopupFileSelector::OnFileDataReady(
   } else if (file_data->mime_type.find("image") != std::string::npos) {
     mime_type = lens::MimeType::kImage;
   } else {
-    NOTREACHED();
+    UpdateSearchboxContextData(lens::MimeType::kUnknown, "", file_data->name,
+                               file_data->mime_type,
+                               base::ok(base::UnguessableToken::Create()));
+    edit_model_->OpenAiMode(false, /*via_context_menu=*/true);
+    return;
   }
-
 
   base::span<const uint8_t> file_data_span =
       base::as_bytes(base::span(file_data->bytes));
@@ -138,9 +141,10 @@ void OmniboxPopupFileSelector::OnFileDataReady(
       // See: https://en.cppreference.com/w/cpp/language/eval_order and
       // http://crbug.com/472510275.
       std::string mime_type_copy = file_data->mime_type;
+      std::string file_name_copy = file_data->name;
       omnibox_popup_ui->composebox_handler()->AddFileContextFromBrowser(
-          std::move(mime_type_copy), std::move(file_data_buffer),
-          std::move(image_encoding_options_),
+          std::move(file_name_copy), std::move(mime_type_copy),
+          std::move(file_data_buffer), std::move(image_encoding_options_),
           base::BindOnce(&OmniboxPopupFileSelector::UpdateSearchboxContextData,
                          weak_factory_.GetWeakPtr(), mime_type,
                          std::move(image_data_url), std::move(file_data->name),
@@ -165,9 +169,13 @@ void OmniboxPopupFileSelector::UpdateSearchboxContextData(
     std::string image_data_url,
     std::string file_name,
     std::string mime_string,
-    const base::UnguessableToken& file_token) {
+    base::expected<base::UnguessableToken,
+                   contextual_search::FileUploadErrorType> result) {
+  if (!result.has_value()) {
+    return;
+  }
   auto file_attachment = searchbox::mojom::FileAttachment::New();
-  file_attachment->uuid = file_token;
+  file_attachment->uuid = result.value();
   file_attachment->name = file_name;
   file_attachment->mime_type = mime_string;
 

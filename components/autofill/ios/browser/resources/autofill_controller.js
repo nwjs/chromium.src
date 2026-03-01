@@ -5,7 +5,7 @@
 import * as fill_constants from '//components/autofill/ios/form_util/resources/fill_constants.js';
 import * as inferenceUtil from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
 import * as fillUtil from '//components/autofill/ios/form_util/resources/fill_util.js';
-import {fieldWasEditedByUser, unownedFormElementsAndFieldSetsToFormData, webFormElementToFormData} from '//components/autofill/ios/form_util/resources/fill_web_form.js';
+import {fieldWasEditedByUser, unownedFormElementsAndFieldSetsToFormData, wasEditedByUser, webFormElementToFormData} from '//components/autofill/ios/form_util/resources/fill_web_form.js';
 import {getFormControlElements, getFormElementFromIdentifier, getFormElementFromRendererId, getIframeElements} from '//components/autofill/ios/form_util/resources/form_utils.js';
 import {getElementByUniqueID} from '//components/autofill/ios/form_util/resources/renderer_id.js';
 import {CrWebApi, gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
@@ -74,6 +74,13 @@ const FORM_FILLED_COMMAND = 'formFilled';
  */
 const autofillFormFeaturesApi =
     gCrWeb.getRegisteredApi('autofill_form_features');
+
+/**
+ * Returns true if the undo autofill feature is enabled.
+ */
+function isAutofillUndoEnabled() {
+  return window.gCrWebPlaceholderAutofillUndo;
+}
 
 /**
  * Determines whether the form is interesting enough to send to the browser for
@@ -153,7 +160,7 @@ function extractUnownedFields(restrictUnownedFieldsToFormlessCheckout) {
       getUnownedIframes() :
       [];
   if (numEditableUnownedElements > 0 || iframeElements.length > 0) {
-    const unownedForm = new __gCrWeb['common'].JSONSafeObject();
+    const unownedForm = new fillUtil.AutofillFormData();
     const hasUnownedForm = unownedFormElementsAndFieldSetsToFormData(
         window, fieldsets, unownedControlElements, iframeElements,
         restrictUnownedFieldsToFormlessCheckout, unownedForm);
@@ -176,7 +183,7 @@ function extractUnownedFields(restrictUnownedFieldsToFormlessCheckout) {
  */
 function extractForms(restrictUnownedFieldsToFormlessCheckout) {
   const forms = extractNewForms(restrictUnownedFieldsToFormlessCheckout);
-  return __gCrWeb.stringify(forms);
+  return fillUtil.stringify(forms);
 }
 
 /**
@@ -286,16 +293,23 @@ function fillForm(data, forceFillFieldID) {
 
     modifiedForms.add(fieldData.hostFormId);
 
-    (function(_element, _value, _section, _delay) {
+    (function(_element, _value, _section, _isAutofilled, _delay) {
       window.setTimeout(function() {
         fillUtil.setInputElementValue(_value, _element, function() {
-          _element.setAttribute('chrome-autofilled', '');
-          _element.isAutofilled = true;
-          _element.autofillSection = _section;
-          _element.addEventListener('input', controlElementInputListener_);
+          if (_isAutofilled) {
+            _element.setAttribute('chrome-autofilled', '');
+            _element.isAutofilled = true;
+            _element.autofillSection = _section;
+            _element.addEventListener('input', controlElementInputListener_);
+          } else {
+            _element.removeAttribute('chrome-autofilled');
+            _element.isAutofilled = false;
+            _element.removeEventListener('input', controlElementInputListener_);
+          }
         });
       }, _delay);
-    })(element, fieldData.value, fieldData.section, delay);
+    })(element, fieldData.value, fieldData.section, fieldData.isAutofilled,
+       delay);
     delay += delayBetweenFieldFillingMs;
     filledElements[fillUtil.getUniqueID(element)] = fieldData.value;
   }
@@ -305,7 +319,7 @@ function fillForm(data, forceFillFieldID) {
   // time of the last fill plus `delayBetweenFieldFillingMs`.
   const reportFormFill = function(_form, _delay) {
     window.setTimeout(() => {
-      let formData = new __gCrWeb['common'].JSONSafeObject();
+      let formData = new fillUtil.AutofillFormData();
       if (_form) {
         if (!webFormElementToFormData(window, _form, null, formData)) {
           formData = null;
@@ -348,7 +362,7 @@ function fillForm(data, forceFillFieldID) {
     }
   }
 
-  return __gCrWeb.stringify(filledElements);
+  return fillUtil.stringify(filledElements);
 }
 
 /**
@@ -418,7 +432,7 @@ function clearAutofilledFields(formUniqueID, fieldUniqueID) {
       clearedElements.push(fillUtil.getUniqueID(element));
     }
   }
-  return __gCrWeb.stringify(clearedElements);
+  return fillUtil.stringify(clearedElements);
 }
 
 /**
@@ -473,7 +487,7 @@ function extractNewForms(restrictUnownedFieldsToFormlessCheckout) {
       continue;
     }
 
-    const form = new __gCrWeb['common'].JSONSafeObject();
+    const form = new fillUtil.AutofillFormData();
     if (!webFormElementToFormData(
             window, formElement, null, form, /*field=*/ undefined,
             canExtractChildFrames())) {
@@ -561,7 +575,12 @@ function fillFormField(data, field) {
     }
 
     filled = fillUtil.setInputElementValue(sanitizedValue, field);
-    field.isAutofilled = true;
+    // If kAutofillUndoIos is enabled, avoid showing the Clear/Undo button.
+    if (isAutofillUndoEnabled()) {
+      wasEditedByUser.set(field, true);
+    } else {
+      field.isAutofilled = true;
+    }
   } else if (inferenceUtil.isSelectElement(field)) {
     filled = fillUtil.setInputElementValue(data['value'], field);
   } else if (inferenceUtil.isCheckableElement(field)) {
@@ -657,7 +676,7 @@ function sanitizedFieldIsEmpty(value) {
   return trim(value.replace(/[-_()/|]/g, '')) === '';
 }
 
-const autofillAPI = new CrWebApi();
+const autofillAPI = new CrWebApi('autofill');
 
 autofillAPI.addFunction('clearAutofilledFields', clearAutofilledFields);
 autofillAPI.addFunction(
@@ -671,4 +690,4 @@ autofillAPI.addFunction('fillPredictionData', fillPredictionData);
 autofillAPI.addFunction('fillSpecificFormField', fillSpecificFormField);
 autofillAPI.addFunction('sanitizedFieldIsEmpty', sanitizedFieldIsEmpty);
 
-gCrWeb.registerApi('autofill', autofillAPI);
+gCrWeb.registerApi(autofillAPI);

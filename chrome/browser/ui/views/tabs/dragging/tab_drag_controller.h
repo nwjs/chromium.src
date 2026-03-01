@@ -127,8 +127,7 @@ class TabDragController : public views::WidgetObserver,
   // Initializes TabDragController to drag the views in `dragging_views`
   // originating from `source_context`. `source_view` is the view that
   // initiated the drag and is either a Tab or a TabGroupHeader contained in
-  // `dragging_views`. `offset_from_first_dragged_view` is the distance of the
-  // mouse pointer from the origin of the first view in `dragging_views` and
+  // `dragging_views`.
   // `offset_from_source_view` the offset from `source_view`.
   // `initial_selection_model` is the selection model before the drag started
   // and is only non-empty if the original selection isn't the same as the
@@ -137,7 +136,6 @@ class TabDragController : public views::WidgetObserver,
   [[nodiscard]] Liveness Init(TabDragContext* source_context,
                               TabSlotView* source_view,
                               const std::vector<TabSlotView*>& dragging_views,
-                              const gfx::Point& offset_from_first_dragged_view,
                               const gfx::Point& offset_from_source_view,
                               ui::ListSelectionModel initial_selection_model,
                               ui::mojom::DragEventSource event_source);
@@ -176,8 +174,8 @@ class TabDragController : public views::WidgetObserver,
   // Returns the tab group being dragged, if any. Will only return a value if
   // the user is dragging a tab group header, not an individual tab or tabs
   // from a group.
-  const std::optional<tab_groups::TabGroupId> group() const {
-    return drag_data_.group();
+  const std::optional<tab_groups::TabGroupId> group_header_id() const {
+    return drag_data_.group_header_id();
   }
 
   bool IsMovingLastTab() const { return is_moving_last_tab_; }
@@ -217,6 +215,12 @@ class TabDragController : public views::WidgetObserver,
   //   this means that this method has no effect after entering the
   //   kDraggingUsingSystemDnD state for the first time.
   void SetDragLoopDoneCallbackForTesting(base::OnceClosure callback);
+
+  // TabDragTarget::DragController
+  std::unique_ptr<tabs::TabModel> DetachTabAtForInsertion(
+      int drag_idx) override;
+  const DragSessionData& GetSessionData() const override;
+  const TabDragContext* GetAttachedContext() const override;
 
  private:
   friend class TabDragControllerTest;
@@ -279,16 +283,22 @@ class TabDragController : public views::WidgetObserver,
   // in an attempt to detach a tab.
   enum class DetachBehavior { kDetachable, kNotDetachable };
 
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(TabDraggingDestination)
+  enum TabDraggingDestination {
+    kSameWindow = 0,
+    kNewWindow = 1,
+    kExistingWindow = 2,
+    kAbandoned = 3,
+    kMaxValue = kAbandoned
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:TabDraggingDestination)
+
   // Overridden from views::WidgetObserver:
   void OnWidgetBoundsChanged(views::Widget* widget,
                              const gfx::Rect& new_bounds) override;
   void OnWidgetDestroyed(views::Widget* widget) override;
-
-  // TabDragTarget::DragController
-  std::unique_ptr<tabs::TabModel> DetachTabAtForInsertion(
-      int drag_idx) override;
-  const DragSessionData& GetSessionData() const override;
-  const TabDragContext* GetAttachedContext() const override;
 
   // Forget the source tabstrip. It doesn't exist any more, so it doesn't
   // make sense to insert dragged tabs back into it if the drag is reverted.
@@ -546,10 +556,13 @@ class TabDragController : public views::WidgetObserver,
 #endif  // defined(USE_AURA)
 
   // Updates the current drag target, and fires relevant handler events.
-  void UpdateDragTarget(TabDragTarget* new_target);
+  void UpdateDragTarget(TabDragTarget* new_target,
+                        const gfx::Point& point_in_screen);
   void ResetDragTarget();
 
   static void SetTabDragPointResolver(TabDragPointResolver& resolver);
+
+  const char* GetTabStripMode() const;
 
   DragState current_state_ = DragState::kNotStarted;
 
@@ -574,11 +587,6 @@ class TabDragController : public views::WidgetObserver,
   // operation. This is used to calculate minimum elasticity before a
   // DraggedTabView is constructed.
   gfx::Point start_point_in_screen_;
-
-  // Ratio of the x and y coordinates of the `source_view_offset` to the
-  // width and height of the source view.
-  float offset_to_width_ratio_ = 0;
-  float offset_to_height_ratio_ = 0;
 
   // Used to track the view that had focus in the window containing
   // `source_view_`. This is saved so that focus can be restored properly when
@@ -691,6 +699,9 @@ class TabDragController : public views::WidgetObserver,
   // or not they destroy `this` might depend on platform behavior or other
   // external factors. Destruction while this is true will DCHECK.
   bool expect_stay_alive_ = false;
+
+  // Duration of drag operation, used in metrics.
+  std::optional<base::TimeTicks> drag_start_time_;
 
   // The current candidate that may handle a tab drop.
   raw_ptr<TabDragTarget> current_drag_target_;

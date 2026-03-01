@@ -4,11 +4,29 @@
 
 #include "services/network/enterprise/encryption/encrypted_cache_file.h"
 
+#include <algorithm>
 #include <utility>
+
+#include "base/check_op.h"
+#include "base/metrics/histogram_functions.h"
+#include "crypto/process_bound_string.h"
 
 namespace network::enterprise_encryption {
 
 namespace {
+
+void RecordOpenResult(EncryptionError error) {
+  base::UmaHistogramEnumeration("Enterprise.EncryptedCache.Open.Result", error);
+}
+
+void RecordReadResult(EncryptionError error) {
+  base::UmaHistogramEnumeration("Enterprise.EncryptedCache.Read.Result", error);
+}
+
+void RecordWriteResult(EncryptionError error) {
+  base::UmaHistogramEnumeration("Enterprise.EncryptedCache.Write.Result",
+                                error);
+}
 
 int64_t GetPhysicalOffset(uint32_t chunk_index) {
   return kHeaderSize + static_cast<int64_t>(chunk_index) * kEncryptedChunkSize;
@@ -28,18 +46,8 @@ int64_t GetLogicalChunkStart(uint32_t chunk_index) {
 
 EncryptedCacheFile::EncryptedCacheFile(
     std::unique_ptr<disk_cache::CacheFile> file,
-    base::span<const uint8_t, kKeySize> key)
-    : file_(std::move(file)) {
-  base::span(key_).copy_from(key);
-}
-
-EncryptedCacheFile::EncryptedCacheFile(
-    std::unique_ptr<disk_cache::CacheFile> file)
-    : file_(std::move(file)) {
-  // TODO(crbug.com/474061119): Temporary placeholder key until master key
-  // generation is fully implemented.
-  key_.fill(0xFE);
-}
+    const crypto::ProcessBoundString& primary_key)
+    : file_(std::move(file)), key_(primary_key) {}
 
 EncryptedCacheFile::~EncryptedCacheFile() = default;
 
@@ -70,7 +78,7 @@ std::optional<size_t> EncryptedCacheFile::Read(int64_t offset,
        ++chunk_index) {
     auto result = ReadAndDecryptChunk(chunk_index);
     if (!result.has_value()) {
-      // TODO(crbug.com/474585860): Log errors in UMA.
+      RecordReadResult(EncryptionError::kDecryptionFailed);
       return std::nullopt;
     }
     const std::vector<uint8_t>& plaintext = result.value();
@@ -97,6 +105,7 @@ std::optional<size_t> EncryptedCacheFile::Read(int64_t offset,
       break;
     }
   }
+  RecordReadResult(EncryptionError::kSuccess);
   return bytes_read;
 }
 
@@ -125,10 +134,22 @@ std::optional<size_t> EncryptedCacheFile::Write(
     old_last_chunk_index = GetChunkIndex(current_logical_length - 1);
   }
 
+  // Handle separate writes (gaps) correctly by filling them with encrypted
+  // zeros.
+  if (offset > current_logical_length) {
+    if (!SetLength(offset)) {
+      return std::nullopt;
+    }
+    // Update length after extension.
+    current_logical_length = offset;
+    old_last_chunk_index = 0;
+    if (current_logical_length > 0) {
+      old_last_chunk_index = GetChunkIndex(current_logical_length - 1);
+    }
+  }
+
   // If write starts after the old last chunk, we need to pad/re-encrypt the old
   // last chunk to the full chunk size.
-  // TODO(crbug.com/460509865): Handle separate writes (gaps) correctly. For
-  // now, callers should ensure sequential writes or use `SetLength` to extend.
   if (current_logical_length > 0 && start_chunk_index > old_last_chunk_index) {
     if (!EnsurePreviousChunkNotLast(new_logical_length)) {
       return std::nullopt;
@@ -168,11 +189,16 @@ std::optional<size_t> EncryptedCacheFile::Write(
     bytes_written += chunk_write_size;
   }
 
+  RecordWriteResult(EncryptionError::kSuccess);
   return bytes_written;
 }
 
 bool EncryptedCacheFile::GetInfo(base::File::Info* file_info) {
-  return file_->GetInfo(file_info);
+  if (!file_->GetInfo(file_info)) {
+    return false;
+  }
+  file_info->size = GetLength();
+  return true;
 }
 
 int64_t EncryptedCacheFile::GetLength() {
@@ -205,9 +231,78 @@ int64_t EncryptedCacheFile::GetLength() {
 }
 
 bool EncryptedCacheFile::SetLength(int64_t length) {
-  // TODO(crbug.com/460509865): Implement set length for both truncation and
-  // extension cases.
-  return file_->SetLength(length);
+  if (length < 0) {
+    return false;
+  }
+  if (!EnsureInitialized()) {
+    return false;
+  }
+
+  int64_t current_len = GetLength();
+
+  if (length == current_len) {
+    return true;
+  }
+
+  if (length == 0) {
+    // No chunks to re-encrypt, just truncate to header size.
+    return file_->SetLength(kHeaderSize);
+  }
+
+  // Truncation case.
+  if (length < current_len) {
+    uint32_t new_last_chunk_index = GetChunkIndex(length - 1);
+    size_t len_in_chunk = length - GetLogicalChunkStart(new_last_chunk_index);
+
+    // Read existing data from this chunk to preserve it, and resize it to the
+    // new length.
+    auto result = ReadAndDecryptChunk(new_last_chunk_index);
+    if (!result.has_value()) {
+      return false;
+    }
+    std::vector<uint8_t> plaintext = std::move(result.value());
+    plaintext.resize(len_in_chunk, 0);
+
+    // To avoid partial-update overhead in `WriteChunk`, we inline the
+    // encryption here.
+    std::vector<uint8_t> ciphertext = encryptor_->EncryptChunk(
+        plaintext, new_last_chunk_index, /*is_last_chunk=*/true);
+    int64_t offset = GetPhysicalOffset(new_last_chunk_index);
+    if (!file_->WriteAndCheck(offset, ciphertext)) {
+      return false;
+    }
+    int64_t new_phys_len = offset + plaintext.size() + kAuthTagSize;
+    return file_->SetLength(new_phys_len);
+  }
+
+  // Extension case.
+  // 32KB buffer size used to batch writes of encrypted zeros. This is for
+  // optimization purposes only, to minimize allocation sizes for large
+  // extensions.
+  const int64_t kMaxPaddingChunkSize = 32 * 1024;
+
+  // Create a buffer of zeros. We can't rely on the OS to pad with zeros because
+  // they are not valid ciphertext in our scheme. To maintain integrity, we need
+  // to encrypt the zeros.
+  std::vector<uint8_t> zeros(
+      std::min(length - current_len, kMaxPaddingChunkSize), 0);
+
+  while (current_len < length) {
+    size_t write_size =
+        std::min(length - current_len, static_cast<int64_t>(zeros.size()));
+    if (write_size != zeros.size()) {
+      zeros.resize(write_size);
+    }
+
+    auto val = Write(current_len, base::span(zeros));
+    if (!val.has_value()) {
+      return false;
+    }
+
+    current_len += write_size;
+  }
+
+  return true;
 }
 
 bool EncryptedCacheFile::ReadAndCheck(int64_t offset,
@@ -234,9 +329,9 @@ bool EncryptedCacheFile::EnsureInitialized() {
 
   if (file_length == 0) {
     // New file: Create and write header.
-    auto result = CreateHeader(key_);
+    auto result = CreateHeader(base::as_byte_span(key_.secure_value()));
     if (!result.has_value()) {
-      // TODO(crbug.com/474585860): Log errors in UMA.
+      RecordOpenResult(EncryptionError::kInvalidKey);
       return false;
     }
     auto& [header, context] = result.value();
@@ -247,6 +342,7 @@ bool EncryptedCacheFile::EnsureInitialized() {
   } else {
     // Existing file: Read and parse header.
     if (file_length < static_cast<int64_t>(kHeaderSize)) {
+      RecordOpenResult(EncryptionError::kInvalidHeader);
       return false;
     }
 
@@ -255,15 +351,17 @@ bool EncryptedCacheFile::EnsureInitialized() {
       return false;
     }
 
-    auto context_or_error = ParseHeader(header_bytes, key_);
+    auto context_or_error =
+        ParseHeader(header_bytes, base::as_byte_span(key_.secure_value()));
     if (!context_or_error.has_value()) {
-      // TODO(crbug.com/474585860): Log errors in UMA.
+      RecordOpenResult(context_or_error.error());
       return false;
     }
     encryptor_ =
         std::make_unique<ChunkedEncryptor>(std::move(context_or_error.value()));
   }
 
+  RecordOpenResult(EncryptionError::kSuccess);
   initialized_ = true;
   return true;
 }
@@ -364,7 +462,7 @@ bool EncryptedCacheFile::EnsurePreviousChunkNotLast(
       new_last_chunk_index > old_last_chunk_index) {
     auto result = ReadAndDecryptChunk(old_last_chunk_index);
     if (!result.has_value()) {
-      // TODO(crbug.com/474585860): Log errors in UMA.
+      RecordReadResult(EncryptionError::kDecryptionFailed);
       return false;
     }
     std::vector<uint8_t> data = std::move(result.value());

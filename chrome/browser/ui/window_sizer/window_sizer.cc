@@ -84,9 +84,9 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
 
     if (browser_->is_type_popup() && browser_->windows_key().empty())
       return false;
-    const base::Value::Dict* pref =
-        chrome::GetWindowPlacementDictionaryReadOnly(
-            chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
+
+    const base::DictValue* pref = chrome::GetWindowPlacementDictionaryReadOnly(
+        chrome::GetWindowName(browser_), browser_->profile()->GetPrefs());
 
     std::optional<gfx::Rect> pref_bounds = RectFromPrefixedPref(pref, "");
     std::optional<gfx::Rect> pref_area =
@@ -188,7 +188,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
 
  private:
   static std::optional<gfx::Rect> RectFromPrefixedPref(
-      const base::Value::Dict* pref,
+      const base::DictValue* pref,
       const std::string& prefix) {
     if (!pref) {
       return std::nullopt;

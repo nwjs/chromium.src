@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -248,7 +249,7 @@ BookmarkManagerPrivateEventRouter::~BookmarkManagerPrivateEventRouter() {
 void BookmarkManagerPrivateEventRouter::DispatchEvent(
     events::HistogramValue histogram_value,
     const std::string& event_name,
-    base::Value::List event_args) {
+    base::ListValue event_args) {
   EventRouter::Get(browser_context_)
       ->BroadcastEvent(std::make_unique<Event>(histogram_value, event_name,
                                                std::move(event_args)));
@@ -315,7 +316,7 @@ BookmarkManagerPrivateDragEventRouter::
 void BookmarkManagerPrivateDragEventRouter::DispatchEvent(
     events::HistogramValue histogram_value,
     const std::string& event_name,
-    base::Value::List args) {
+    base::ListValue args) {
   EventRouter* event_router = EventRouter::Get(profile_);
   if (!event_router)
     return;
@@ -759,7 +760,7 @@ BookmarkManagerPrivateOpenInNewWindowFunction::RunOnReady() {
   std::vector<UrlAndId> url_and_ids;
   urls.reserve(nodes.size());
   for (const bookmarks::BookmarkNode* node : nodes) {
-    if (!base::Contains(urls, node->url())) {
+    if (!std::ranges::contains(urls, node->url())) {
       continue;  // The URL was filtered out; ignore this node.
     }
     UrlAndId url_and_id;

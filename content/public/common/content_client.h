@@ -87,7 +87,7 @@ class CONTENT_EXPORT ContentClient {
   ContentClient();
   virtual ~ContentClient();
 
-  virtual void LoadNWAppAsExtension(base::Value::Dict* manifest,
+  virtual void LoadNWAppAsExtension(base::DictValue* manifest,
                                     const base::FilePath& path,
                                     std::string* error) {}
   ContentBrowserClient* browser() { return browser_; }

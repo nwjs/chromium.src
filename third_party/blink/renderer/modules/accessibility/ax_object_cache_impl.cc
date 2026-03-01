@@ -35,7 +35,6 @@
 
 #include "base/auto_reset.h"
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
@@ -2901,7 +2900,7 @@ void AXObjectCacheImpl::NodeIsAttached(Node* node) {
       return;
     }
     if ((IsA<HTMLTableElement>(node) || IsA<HTMLSelectElement>(node) ||
-         node->GetLayoutObject()->IsAtomicInlineLevel()) &&
+         node->GetLayoutObject()->IsAtomicInline()) &&
         !node->IsFinishedParsingChildren() &&
         !node_to_parse_before_more_tree_updates_) {
       // * Tables must be fully parsed before building, because many of the

@@ -142,11 +142,11 @@ RootCompositorFrameSinkImpl::Create(
   output_surface->SetNeedsSwapSizeNotifications(
       params->send_swap_size_notifications);
 
-#if BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE_X11)
+#if BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
   // For X11, we need notify client about swap completion after resizing, so the
   // client can use it for synchronize with X11 WM.
   output_surface->SetNeedsSwapSizeNotifications(true);
-#endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE_X11)
+#endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
 
   // Create some sort of a BeginFrameSource, depending on the platform and
   // |params|.
@@ -472,14 +472,27 @@ void RootCompositorFrameSinkImpl::UpdateRefreshRate(float refresh_rate) {
 }
 
 void RootCompositorFrameSinkImpl::SetAdaptiveRefreshRateInfo(
-    bool has_support,
-    float suggested_high,
-    float device_scale_factor) {
+    mojom::AdaptiveRefreshRateInfoPtr info) {
   supports_adaptive_refresh_rate_ =
-      has_support && base::FeatureList::IsEnabled(
-                         features::kUseFrameIntervalDeciderAdaptiveFrameRate);
-  suggested_frame_interval_high_ = base::Hertz(suggested_high);
-  device_scale_factor_ = device_scale_factor;
+      info->has_support &&
+      base::FeatureList::IsEnabled(
+          features::kUseFrameIntervalDeciderAdaptiveFrameRate);
+  suggested_frame_interval_high_ = base::Hertz(info->suggested_high);
+  device_scale_factor_ = info->device_scale_factor;
+  adaptive_refresh_rate_velocity_points_.clear();
+  if (!info->velocity_mapping.empty()) {
+    adaptive_refresh_rate_velocity_points_.reserve(
+        info->velocity_mapping.size());
+    for (auto& point : info->velocity_mapping) {
+      adaptive_refresh_rate_velocity_points_.push_back(*point);
+    }
+  } else {
+    // The hard-coded values are copied from AOSP
+    // View.convertVelocityToFrameRate.
+    adaptive_refresh_rate_velocity_points_.emplace_back(120, 300);
+    adaptive_refresh_rate_velocity_points_.emplace_back(80, 125);
+    adaptive_refresh_rate_velocity_points_.emplace_back(60, 0);
+  }
   UpdateFrameIntervalDeciderSettings();
 }
 
@@ -664,8 +677,10 @@ void RootCompositorFrameSinkImpl::UpdateFrameIntervalDeciderSettings() {
 #if BUILDFLAG(IS_ANDROID)
   if (supports_adaptive_refresh_rate_) {
     matchers.push_back(std::make_unique<UserInputBoostMatcher>());
-    matchers.push_back(
-        std::make_unique<SlowScrollThrottleMatcher>(device_scale_factor_));
+    if (!adaptive_refresh_rate_velocity_points_.empty()) {
+      matchers.push_back(std::make_unique<SlowScrollThrottleMatcher>(
+          device_scale_factor_, adaptive_refresh_rate_velocity_points_));
+    }
   } else {
     matchers.push_back(std::make_unique<InputBoostMatcher>());
   }
@@ -908,13 +923,13 @@ void RootCompositorFrameSinkImpl::DisplayDidCompleteSwapWithSize(
   if (display_client_ && enable_swap_completion_callback_) {
     display_client_->DidCompleteSwapWithSize(pixel_size);
   }
-#elif BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE_X11)
+#elif BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
   if (display_client_ && pixel_size != last_swap_pixel_size_) {
     last_swap_pixel_size_ = pixel_size;
     display_client_->DidCompleteSwapWithNewSize(last_swap_pixel_size_);
   }
 #else  // !BUILDFLAG(IS_ANDROID) && !(BUILDFLAG(IS_LINUX) &&
-       // BUILDFLAG(IS_OZONE_X11))
+       // BUILDFLAG(SUPPORTS_OZONE_X11))
   NOTREACHED();
 #endif
 }

@@ -51,19 +51,25 @@ class JsCommunication
                                 int32_t world_id) override;
   void OnDestruct() override;
 
-  void RunScriptsAtDocumentStart();
+  void RunScripts(mojom::DocumentInjectionTime injection_time);
 
   mojom::JsToBrowserMessaging* GetJsToJavaMessage(
-      const std::u16string& js_object_name);
+      const std::u16string& js_object_name,
+      int32_t world_id);
 
  private:
   class JsObjectInfo;
   struct JavaScriptExecutable;
 
+  static void RunScriptsInternal(
+      base::WeakPtr<JsCommunication> js_communication,
+      mojom::DocumentInjectionTime injection_time);
+
   void BindPendingReceiver(
       mojo::PendingAssociatedReceiver<mojom::JsCommunication> pending_receiver);
 
-  using JsObjectMap = std::map<std::u16string, std::unique_ptr<JsObjectInfo>>;
+  using JsObjectMap = std::map<std::pair<std::u16string, int32_t>,
+                               std::unique_ptr<JsObjectInfo>>;
   JsObjectMap js_objects_;
 
   // In some cases DidClearWindowObject will be called twice in a row, we need
@@ -78,6 +84,7 @@ class JsCommunication
   mojo::AssociatedRemote<mojom::JsObjectsClient> client_remote_;
 
   base::WeakPtrFactory<JsCommunication> weak_ptr_factory_for_bindings_{this};
+  base::WeakPtrFactory<JsCommunication> weak_ptr_factory_{this};
 };
 
 }  // namespace js_injection

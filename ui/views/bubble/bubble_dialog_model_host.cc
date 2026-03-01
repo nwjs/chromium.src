@@ -310,7 +310,8 @@ class BubbleDialogModelHostContentsView final : public DialogModelSectionHost {
   // OnFieldAdded etc. has moved into this class.
   BubbleDialogModelHostContentsView(
       ui::DialogModelSection* contents,
-      ui::ElementIdentifier initially_focused_field_id)
+      ui::ElementIdentifier initially_focused_field_id,
+      ui::ElementIdentifier dialog_id)
       : contents_(contents),
         initially_focused_field_id_(initially_focused_field_id),
         on_field_added_subscription_(
@@ -323,6 +324,9 @@ class BubbleDialogModelHostContentsView final : public DialogModelSectionHost {
                 base::Unretained(this)))) {
     // Note that between-child spacing is manually handled using kMarginsKey.
     SetOrientation(views::BoxLayout::Orientation::kVertical);
+    if (dialog_id) {
+      SetProperty(kElementIdentifierKey, dialog_id);
+    }
 
     // Add all fields from the model.
     for (const auto& field : contents_->fields()) {
@@ -800,7 +804,7 @@ std::unique_ptr<DialogModelSectionHost> DialogModelSectionHost::Create(
     ui::DialogModelSection* section,
     ui::ElementIdentifier initially_focused_field_id) {
   return std::make_unique<BubbleDialogModelHostContentsView>(
-      section, initially_focused_field_id);
+      section, initially_focused_field_id, ui::ElementIdentifier());
 }
 
 BEGIN_METADATA(DialogModelSectionHost)
@@ -821,12 +825,12 @@ void BubbleDialogModelHost::ThemeChangedObserver::OnViewThemeChanged(
 
 BubbleDialogModelHost::BubbleDialogModelHost(
     std::unique_ptr<ui::DialogModel> model,
-    View* anchor_view,
+    views::BubbleAnchor anchor,
     BubbleBorder::Arrow arrow,
     bool autosize)
     : BubbleDialogModelHost(base::PassKey<BubbleDialogModelHost>(),
                             std::move(model),
-                            anchor_view,
+                            anchor,
                             arrow,
                             ui::mojom::ModalType::kNone,
                             autosize) {}
@@ -834,11 +838,11 @@ BubbleDialogModelHost::BubbleDialogModelHost(
 BubbleDialogModelHost::BubbleDialogModelHost(
     base::PassKey<BubbleDialogModelHost>,
     std::unique_ptr<ui::DialogModel> model,
-    View* anchor_view,
+    views::BubbleAnchor anchor,
     BubbleBorder::Arrow arrow,
     ui::mojom::ModalType modal_type,
     bool autosize)
-    : BubbleDialogDelegate(anchor_view,
+    : BubbleDialogDelegate(anchor,
                            arrow,
                            views::BubbleBorder::DIALOG_SHADOW,
                            autosize),
@@ -976,8 +980,9 @@ BubbleDialogModelHost::BubbleDialogModelHost(
   // menus). This is probably too wide for the TabGroupEditorBubbleView which is
   // currently being converted.
   set_fixed_width(LayoutProvider::Get()->GetDistanceMetric(
-      anchor_view ? DISTANCE_BUBBLE_PREFERRED_WIDTH
-                  : DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));
+      !std::holds_alternative<std::nullptr_t>(anchor)
+          ? DISTANCE_BUBBLE_PREFERRED_WIDTH
+          : DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));
 
   if (model_->footnote_label()) {
     SetFootnoteView(BubbleDialogModelHostContentsView::CreateViewForLabel(
@@ -1089,7 +1094,8 @@ BubbleDialogModelHostContentsView* BubbleDialogModelHost::InitContentsView(
   auto contents_view_unique =
       std::make_unique<BubbleDialogModelHostContentsView>(
           contents,
-          model_->initially_focused_field(DialogModelHost::GetPassKey()));
+          model_->initially_focused_field(DialogModelHost::GetPassKey()),
+          model_->element_identifier(DialogModelHost::GetPassKey()));
 
   BubbleDialogModelHostContentsView* const contents_view =
       contents_view_unique.get();

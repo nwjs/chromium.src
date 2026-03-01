@@ -185,9 +185,9 @@ rust_static_library("font_format_check") {
   sources = [ crate_root ]
   cxx_bindings = [ crate_root ]
   deps = [
-    "//third_party/rust/font_types/v0_10:lib",
-    "//third_party/rust/read_fonts/v0_36:lib",
-    "//third_party/rust/skrifa/v0_39:lib",
+    "//third_party/rust/font_types/v0_11:lib",
+    "//third_party/rust/read_fonts/v0_37:lib",
+    "//third_party/rust/skrifa/v0_40:lib",
   ]
 }
 
@@ -893,7 +893,8 @@ component("platform") {
     "graphics/canvas_deferred_paint_record.h",
     "graphics/canvas_hibernation_handler.cc",
     "graphics/canvas_hibernation_handler.h",
-    "graphics/canvas_high_entropy_op_type.h",
+    "graphics/canvas_non2d_snapshot_provider_bitmap.cc",
+    "graphics/canvas_non2d_snapshot_provider_bitmap.h",
     "graphics/canvas_resource.cc",
     "graphics/canvas_resource.h",
     "graphics/canvas_resource_dispatcher.cc",
@@ -901,8 +902,6 @@ component("platform") {
     "graphics/canvas_resource_provider.cc",
     "graphics/canvas_resource_provider.h",
     "graphics/canvas_snapshot_provider.h",
-    "graphics/canvas_snapshot_provider_external_bitmap.cc",
-    "graphics/canvas_snapshot_provider_external_bitmap.h",
     "graphics/color.cc",
     "graphics/color.h",
     "graphics/color_behavior.h",
@@ -1085,6 +1084,7 @@ component("platform") {
     "graphics/image_decoding_store.h",
     "graphics/image_frame_generator.cc",
     "graphics/image_frame_generator.h",
+    "graphics/image_node_animation_info.h",
     "graphics/image_observer.cc",
     "graphics/image_observer.h",
     "graphics/image_orientation.cc",
@@ -1189,6 +1189,8 @@ component("platform") {
     "graphics/paint/scrollbar_display_item.cc",
     "graphics/paint/scrollbar_display_item.h",
     "graphics/paint/subsequence_recorder.h",
+    "graphics/paint/tracked_element_data.cc",
+    "graphics/paint/tracked_element_data.h",
     "graphics/paint/transform_paint_property_node.cc",
     "graphics/paint/transform_paint_property_node.h",
     "graphics/paint_generated_image.cc",
@@ -1548,6 +1550,7 @@ component("platform") {
     "theme/web_theme_engine_helper.h",
     "timer.cc",
     "timer.h",
+    "tracked_element_id.h",
     "transforms/affine_transform.cc",
     "transforms/affine_transform.h",
     "transforms/interpolated_transform_operation.cc",
@@ -1992,7 +1995,7 @@ static_library("test_support") {
     "graphics/paint/paint_controller_test.h",
     "graphics/test/fake_gles2_interface.h",
     "graphics/test/fake_web_graphics_context_3d_provider.h",
-    "graphics/test/gpu_memory_buffer_test_platform.h",
+    "graphics/test/gpu_compositing_test_platform.h",
     "graphics/test/gpu_test_utils.cc",
     "graphics/test/gpu_test_utils.h",
     "graphics/test/mock_compositor_frame_sink.h",
@@ -2407,7 +2410,7 @@ source_set("blink_platform_unittests_sources") {
     "widget/input/main_thread_event_queue_unittest.cc",
     "widget/input/mock_input_handler_proxy.h",
     "widget/input/mock_input_handler_proxy_client.h",
-    "widget/input/prediction/filter_factory_unittests.cc",
+    "widget/input/prediction/filter_factory_unittest.cc",
     "widget/input/scroll_predictor_unittest.cc",
     "widget/input/widget_input_handler_manager_unittest.cc",
   ]
@@ -2716,7 +2719,7 @@ source_set("blink_image_decoder_fuzzer_test_support") {
   ]
   deps = [ ":platform" ]
   if (enable_jxl_decoder) {
-    deps += [ "//third_party/rust/jxl/v0_2/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_3/wrapper:jxl_rs" ]
   }
 }
 
@@ -2839,7 +2842,14 @@ fuzzer_test("blink_avif_decoder_fuzzer") {
     ":platform",
   ]
   seed_corpuses = [ "//third_party/blink/web_tests/images/resources/avif" ]
-  libfuzzer_options = [ "rss_limit_mb=8192" ]
+  libfuzzer_options = [
+    "rss_limit_mb=8192",
+
+    # Large AVIF images can take a while to decode under ASAN (especially when
+    # they are fuzzer generated). The default timeout is 25 seconds.
+    "timeout_per_input=50",
+  ]
+  centipede_options = libfuzzer_options
   additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
 }
 
@@ -2851,7 +2861,7 @@ if (enable_jxl_decoder) {
       ":blink_fuzzer_test_support",
       ":blink_image_decoder_fuzzer_test_support",
       ":platform",
-      "//third_party/rust/jxl/v0_2/wrapper:jxl_rs",
+      "//third_party/rust/jxl/v0_3/wrapper:jxl_rs",
     ]
     seed_corpuses =
         [ "//third_party/blink/web_tests/external/wpt/jpegxl/resources" ]

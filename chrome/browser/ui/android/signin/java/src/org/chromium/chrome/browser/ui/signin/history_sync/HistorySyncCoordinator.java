@@ -100,13 +100,21 @@ public class HistorySyncCoordinator {
         IdentityManager identityManager = signinManager.getIdentityManager();
         MinorModeHelper.resolveMinorMode(
                 identityManager,
-                assumeNonNull(identityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)),
+                assumeNonNull(identityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)).getId(),
                 mMediator::onMinorModeRestrictionStatusUpdated);
     }
 
     public void destroy() {
         setView(null, false);
         mMediator.destroy();
+    }
+
+    /**
+     * Declines the history sync flow and dismisses the UI. Signs out the user if the flow was
+     * configured to do so on decline.
+     */
+    public void declineAndDismiss() {
+        mMediator.declineAndDismiss();
     }
 
     public @Nullable HistorySyncView getView() {

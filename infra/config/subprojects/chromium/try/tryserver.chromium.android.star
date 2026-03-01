@@ -28,6 +28,7 @@ try_.defaults.set(
     },
     orchestrator_cores = 4,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
+    siso_keep_going = siso.KEEP_GOING,
     # crbug.com/372192123 - downloading with "minimum" strategy doesn't work
     # well for Android builds because some steps have additional inputs/outputs
     # they are not configured in the build graph.
@@ -1470,6 +1471,15 @@ try_.builder(
             "third_party/gvr-android-sdk/.+",
         ],
     ),
+)
+
+try_.builder(
+    name = "android-x64-treesinviz-enabled-rel",
+    mirrors = [
+        "ci/android-x64-treesinviz-enabled-rel",
+    ],
+    gn_args = "ci/android-x64-treesinviz-enabled-rel",
+    contact_team_email = "chrome-gpu-team@google.com",
 )
 
 gpu.try_.optional_tests_builder(

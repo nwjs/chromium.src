@@ -42,6 +42,7 @@
 #import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios_util.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
@@ -70,14 +71,6 @@ enum class IOSDeviceRestoreSignedinState : int {
   kMaxValue = kUserSignedInBeforeAndAfterDeviceRestore,
 };
 
-// Returns the account id associated with `identity`.
-CoreAccountId SystemIdentityToAccountID(
-    signin::IdentityManager* identity_manager,
-    id<SystemIdentity> identity) {
-  std::string email = base::SysNSStringToUTF8([identity userEmail]);
-  return identity_manager->PickAccountIdForAccount(identity.gaiaId, email);
-}
-
 // Same as signin::MultiProfileSignOutForProfile, but does nothing if the
 // profile is deallocated.
 void MultiProfileSignOutForProfile(
@@ -93,17 +86,6 @@ void MultiProfileSignOutForProfile(
 }  // namespace
 
 AuthenticationService::AuthenticationService(
-    PrefService* pref_service,
-    ChromeAccountManagerService* account_manager_service,
-    signin::IdentityManager* identity_manager,
-    syncer::SyncService* sync_service)
-    : AuthenticationService(nullptr,
-                            pref_service,
-                            account_manager_service,
-                            identity_manager,
-                            sync_service) {}
-
-AuthenticationService::AuthenticationService(
     ProfileIOS* profile,
     PrefService* pref_service,
     ChromeAccountManagerService* account_manager_service,
@@ -115,6 +97,7 @@ AuthenticationService::AuthenticationService(
       identity_manager_(identity_manager),
       sync_service_(sync_service),
       weak_pointer_factory_(this) {
+  DCHECK(profile_);
   DCHECK(pref_service_);
   DCHECK(identity_manager_);
   DCHECK(sync_service_);
@@ -380,7 +363,7 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
                                    signin_metrics::AccessPoint access_point) {
   CHECK(SigninEnabled()) << "Service status "
                          << static_cast<int>(GetServiceStatus());
-  DCHECK(account_manager_service_->IsValidIdentity(identity));
+  DCHECK(account_manager_service_->IsValidIdentity(identity.gaiaId));
 
   primary_account_was_restricted_ = false;
 
@@ -395,8 +378,7 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
   identity_manager_->GetDeviceAccountsSynchronizer()
       ->ReloadAllAccountsFromSystemWithPrimaryAccount(CoreAccountId());
 
-  const CoreAccountId account_id = identity_manager_->PickAccountIdForAccount(
-      identity.gaiaId, base::SysNSStringToUTF8(identity.userEmail));
+  const CoreAccountId account_id = CoreAccountId::FromGaiaId(identity.gaiaId);
 
   // Ensure that the account the user is trying to sign into has been loaded
   // from the SSO library.
@@ -444,16 +426,10 @@ void AuthenticationService::SignOut(
   if (!profile_manager) {
     CHECK_IS_TEST();
   } else {
-    ProfileAttributesStorageIOS* attributes_storage =
-        profile_manager->GetProfileAttributesStorage();
-    const std::string& profile_name =
-        account_manager_service_->GetProfileName();
-    const bool is_personal_profile =
-        profile_name == attributes_storage->GetPersonalProfileName();
     // Sign-out can only be in personal profile. With managed profile, to
     // sign-out the window is switch to the personal profile, and then the
     // sign-out can be done.
-    CHECK(is_personal_profile, base::NotFatalUntil::M150);
+    CHECK(IsPersonalProfile(), base::NotFatalUntil::M150);
   }
   if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     if (completion) {
@@ -548,9 +524,7 @@ AuthenticationService::PerformProfileInitializationIfNecessary() {
   // When opening a managed profile for the first time, the user needs to be
   // signed in automatically.
 
-  const bool is_personal_profile =
-      profile_name == attributes_storage->GetPersonalProfileName();
-  if (is_personal_profile) {
+  if (IsPersonalProfile()) {
     // Nothing to do if the current profile is the personal profile.
     return was_already_initialized
                ? ProfileInitializationOutcome::
@@ -594,8 +568,7 @@ AuthenticationService::PerformProfileInitializationIfNecessary() {
 
 id<RefreshAccessTokenError> AuthenticationService::GetCachedMDMError(
     id<SystemIdentity> identity) {
-  CoreAccountId account_id =
-      SystemIdentityToAccountID(identity_manager_, identity);
+  const CoreAccountId account_id = CoreAccountId::FromGaiaId(identity.gaiaId);
   auto it = cached_mdm_errors_.find(account_id);
   if (it == cached_mdm_errors_.end()) {
     return nil;
@@ -671,8 +644,7 @@ bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
           identity, ActiveIdentities(), error,
           base::BindOnce(&AuthenticationService::MDMErrorHandled,
                          weak_pointer_factory_.GetWeakPtr(), identity))) {
-    CoreAccountId account_id =
-        SystemIdentityToAccountID(identity_manager_, identity);
+    const CoreAccountId account_id = CoreAccountId::FromGaiaId(identity.gaiaId);
     DUMP_WILL_BE_CHECK(!account_id.empty())
         << "Unexpected identity with empty account id: [gaiaID = "
         << identity.gaiaId.ToNSString()
@@ -700,8 +672,7 @@ void AuthenticationService::MDMErrorHandled(id<SystemIdentity> identity,
 }
 
 void AuthenticationService::OnRefreshTokenUpdated(id<SystemIdentity> identity) {
-  const CoreAccountId account_id = identity_manager_->PickAccountIdForAccount(
-      identity.gaiaId, base::SysNSStringToUTF8(identity.userEmail));
+  const CoreAccountId account_id = CoreAccountId::FromGaiaId(identity.gaiaId);
   if (!identity_manager_->HasAccountWithRefreshToken(account_id)) {
     return;
   }
@@ -884,6 +855,10 @@ void AuthenticationService::ClearAccountSettingsPrefsOfRemovedAccounts() {
   syncer::KeepAccountKeyedPrefValuesOnlyForUsers(
       pref_service_, prefs::kSigninHasAcceptedManagementDialog,
       base::ToVector(available_gaia_ids, &signin::GaiaIdHash::FromGaiaId));
+}
+
+bool AuthenticationService::IsPersonalProfile() {
+  return ::IsPersonalProfile(account_manager_service_->GetProfileName());
 }
 
 NSArray<id<SystemIdentity>>* AuthenticationService::ActiveIdentities() {

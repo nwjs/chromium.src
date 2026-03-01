@@ -162,7 +162,19 @@ BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This feature controls whether Dev Tools supports debugging Device Bound
 // Sessions.
-BASE_FEATURE(kDeviceBoundSessionsDevTools, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDeviceBoundSessionsDevTools, base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// Disables the auto_resize_output_surface feature in the Viz process.
+// This prevents visual artifacts (blue gutters) during window resizing on
+// large form factor devices.
+BASE_FEATURE(kDisableAutoResizeOutputSurface, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+// Enable DocumentIsolationPolicy even if the platform does not support full
+// SiteIsolation.
+BASE_FEATURE(kDocumentIsolationPolicyWithoutSiteIsolation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -547,26 +559,10 @@ BASE_FEATURE(kProcessReuseOnPrerenderCOOPSwap,
 #endif
 );
 
-// Causes the browser to progressively enable accessibility for WebContents as
-// they are unhidden and, optionally, disable accessibility some time after they
-// become hidden.
-BASE_FEATURE(kProgressiveAccessibility, base::FEATURE_ENABLED_BY_DEFAULT);
-
-namespace {
-
-constexpr base::FeatureParam<ProgressiveAccessibilityMode>::Option
-    kProgressiveAccessibilityModeOptions[] = {
-        {ProgressiveAccessibilityMode::kOnlyEnable, "only_enable"},
-        {ProgressiveAccessibilityMode::kDisableOnHide, "disable_on_hide"}};
-
-}  // namespace
-
-BASE_FEATURE_ENUM_PARAM(ProgressiveAccessibilityMode,
-                        kProgressiveAccessibilityModeParam,
-                        &kProgressiveAccessibility,
-                        "progressive_accessibility_mode",
-                        ProgressiveAccessibilityMode::kOnlyEnable,
-                        &kProgressiveAccessibilityModeOptions);
+// Causes the browser to progressively disable accessibility for WebContents
+// some time after they become hidden.
+BASE_FEATURE(kProgressiveAccessibilityPhase2,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Causes hidden tabs with crashed subframes to be marked for reload, meaning
 // that if a user later switches to that tab, the current page will be
@@ -650,6 +646,11 @@ BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2,
 BASE_FEATURE(kServiceWorkerStaticRouterStartServiceWorker,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, suppresses the service worker timeout when a payment handler
+// window is open.
+BASE_FEATURE(kServiceWorkerSuppressTimeoutWhenPaymentWindowOpen,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // (crbug.com/41337436): Enabled feature will have the ServiceWorker Client.url
 // property be the creation URL. This means it does not reflect changes to the
 // URL made by history.pushState() or similar history APIs.
@@ -657,10 +658,6 @@ BASE_FEATURE(kServiceWorkerStaticRouterStartServiceWorker,
 // including changes to history.pushState().
 BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Handles blocking the file picker when a visible but inactive tab in a split
-// triggers it. This serves as a kill switch for crbug.com/444653104.
-BASE_FEATURE(kSideBySideFilePickerCancelling, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.
@@ -676,7 +673,7 @@ BASE_FEATURE(kSkipRedundantNavigationStateNotification,
 // keeps navigation cancellation behavior by reusing the requester
 // NavigationClient.
 BASE_FEATURE(kSkipRendererCancellationThrottle,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, ensure high-rank processes are on the LRU list while app is in
@@ -687,8 +684,16 @@ BASE_FEATURE(kStrictHighRankProcessLRU, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kTextInputClient, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta> kTextInputClientIPCTimeout{
-    &kTextInputClient, "ipc_timeout", base::Milliseconds(1500)};
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kTextInputClientIPCTimeout,
+                   &kTextInputClient,
+                   "ipc_timeout",
+                   base::Milliseconds(1500));
+BASE_FEATURE_PARAM(bool,
+                   kTextInputClientUseNestedLoop,
+                   &kTextInputClient,
+                   "use_nested_loop",
+                   false);
 #endif
 
 // Allows swipe left/right from touchpad change browser navigation. Currently

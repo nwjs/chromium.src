@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/legacy_render_widget_host_win.h"
 
+#include <windows.h>
 #include <objbase.h>
 
 #include <memory>
@@ -16,6 +17,7 @@
 #include "base/location.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/win/win_util.h"
+#include "base/win/wrapped_window_proc.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/browser/renderer_host/direct_manipulation_helper_win.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -26,6 +28,7 @@
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
+#include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/accessibility/platform/browser_accessibility_manager_win.h"
 #include "ui/accessibility/platform/browser_accessibility_win.h"
 #include "ui/accessibility/platform/one_shot_accessibility_tree_search.h"
@@ -38,6 +41,7 @@
 #include "ui/base/win/window_event_target.h"
 #include "ui/display/win/screen_win.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/win/hwnd_util.h"
 
 namespace content {
 
@@ -175,41 +179,21 @@ void LegacyRenderWidgetHostHWND::SetBounds(const gfx::Rect& bounds) {
   }
 }
 
-void LegacyRenderWidgetHostHWND::OnFinalMessage(HWND hwnd) {
-  if (host_) {
-    host_->OnLegacyWindowDestroyed();
-    host_ = nullptr;
-  }
-
-  // Re-enable flicks for just a moment
-  base::win::EnableFlicks(hwnd);
-
-  delete this;
-}
-
 LegacyRenderWidgetHostHWND::LegacyRenderWidgetHostHWND(
     RenderWidgetHostViewAura* host)
     : host_(host) {}
 
 LegacyRenderWidgetHostHWND::~LegacyRenderWidgetHostHWND() {
-  DCHECK(!::IsWindow(hwnd()));
+  // WindowImpl will clean up the hwnd value on WM_NCDESTROY.
+  DCHECK(!hwnd());
 }
 
 bool LegacyRenderWidgetHostHWND::InitOrDeleteSelf(HWND parent) {
-  // Need to use weak_ptr to guard against `this` from being deleted by
-  // Base::Create(), which used to be called in the constructor and caused
-  // heap-use-after-free crash (https://crbug.com/1194694).
-  auto weak_ptr = msg_handler_weak_factory_.GetWeakPtr();
-  RECT rect = {0};
-  Base::Create(parent, rect, L"Chrome Legacy Window",
-               WS_CHILDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-               WS_EX_TRANSPARENT);
-  if (!weak_ptr) {
-    // Base::Create() runs nested windows message loops that could end up
-    // deleting `this`. Therefore, upon returning false here, `this` is already
-    // deleted.
-    return false;
-  }
+  set_window_style(WS_CHILDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
+  set_window_ex_style(WS_EX_TRANSPARENT);
+  set_window_class_name(ui::kLegacyRenderWidgetHostHwnd);
+  set_window_name(L"Chrome Legacy Window");
+  WindowImpl::Init(parent, gfx::Rect());
 
   // We create a system caret regardless of accessibility mode since not all
   // assistive software that makes use of a caret is classified as a screen
@@ -238,6 +222,12 @@ bool LegacyRenderWidgetHostHWND::InitOrDeleteSelf(HWND parent) {
     // ensure it's ready if asked for.
     ax_fragment_root_ = std::make_unique<ui::AXFragmentRootWin>(hwnd(), this);
   }
+
+  // Ensure that the window has a unique ID for accessibility purposes. This is
+  // used by assistive technologies to distinguish this window from others.
+  ::SetWindowLongPtr(
+      hwnd(), GWLP_ID,
+      static_cast<LONG_PTR>(int32_t(ui::AXUniqueId::Create().Get())));
 
   // Continue to send honey pot events until we have kWebContents to
   // ensure screen readers have the opportunity to enable.
@@ -689,6 +679,21 @@ LRESULT LegacyRenderWidgetHostHWND::OnDestroy(UINT message,
     ::UiaReturnRawElementProvider(hwnd(), 0, 0, nullptr);
   }
 
+  // Re-enable (http://crbug.com/506977)
+  base::win::EnableFlicks(hwnd());
+
+  return 0;
+}
+
+LRESULT LegacyRenderWidgetHostHWND::OnNCDestroy(UINT message,
+                                                WPARAM w_param,
+                                                LPARAM l_param) {
+  if (host_) {
+    host_->OnLegacyWindowDestroyed();
+    host_ = nullptr;
+  }
+
+  delete this;
   return 0;
 }
 

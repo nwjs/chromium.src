@@ -10,11 +10,13 @@
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/test/test_sync_service.h"
+#import "components/sync/test/test_sync_user_settings.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/sync_switch_item.h"
@@ -22,6 +24,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_consumer.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_table_view_controller.h"
+#import "ios/chrome/browser/settings/ui_bundled/google_services/sync_error_settings_command_handler.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/features.h"
@@ -87,7 +90,7 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
     AuthenticationService* authentication_service =
         AuthenticationServiceFactory::GetForProfile(profile_.get());
     authentication_service->SignIn(fake_system_identity_,
-                                   signin_metrics::AccessPoint::kUnknown);
+                                   signin_metrics::AccessPoint::kStartPage);
   }
 
   // Creates the mediator for a given sync state.
@@ -109,8 +112,14 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
     mediator_.consumer = consumer_;
   }
 
-  void CreateManageSyncSettingsMediator(
-      BOOL isEEAAccount) {
+  void TearDown() override {
+    [mediator_ disconnect];
+    mediator_ = nullptr;
+    consumer_ = nullptr;
+    PlatformTest::TearDown();
+  }
+
+  void CreateManageSyncSettingsMediator(BOOL isEEAAccount) {
     CreateManageSyncSettingsMediator();
     mediator_.isEEAAccount = isEEAAccount;
   }
@@ -152,6 +161,43 @@ TEST_F(ManageSyncSettingsMediatorTest,
   }
 }
 
+// Tests that Sync types that are not registered in `SyncService` are filtered
+// out of the available toggles.
+TEST_F(ManageSyncSettingsMediatorTest, FilterUnregisteredSyncTypes) {
+  CreateManageSyncSettingsMediator();
+  sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
+
+  // Configure the sync service with one type removed (e.g. Reading List).
+  syncer::UserSelectableTypeSet registered_types =
+      sync_service_->GetUserSettings()->GetRegisteredSelectableTypes();
+  registered_types.Remove(syncer::UserSelectableType::kReadingList);
+  sync_service_->GetUserSettings()->SetRegisteredSelectableTypes(
+      registered_types);
+
+  [mediator_ manageSyncSettingsTableViewControllerLoadModel:mediator_.consumer];
+
+  NSArray* items = [mediator_.consumer.tableViewModel
+      itemsInSectionWithIdentifier:SyncDataTypeSectionIdentifier];
+
+  BOOL has_reading_list = NO;
+  BOOL has_bookmarks = NO;
+
+  for (TableViewItem* item in items) {
+    if (item.type == ReadingListDataTypeItemType) {
+      has_reading_list = YES;
+    }
+    if (item.type == BookmarksDataTypeItemType) {
+      has_bookmarks = YES;
+    }
+  }
+
+  // `kReadingList` was removed from registered types, so it should NOT be
+  // available.
+  EXPECT_FALSE(has_reading_list);
+  // `kBookmarks` remains in registered types, so it SHOULD be available.
+  EXPECT_TRUE(has_bookmarks);
+}
+
 // Tests that the sign out item exists in the ManageAndSignOutSectionIdentifier
 // for a signed in account along with manage accounts items.
 TEST_F(ManageSyncSettingsMediatorTest,
@@ -183,18 +229,7 @@ TEST_F(ManageSyncSettingsMediatorTest,
                   IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_ACCOUNTS_ITEM),
               base::apple::ObjCCastStrict<TableViewTextItem>(items[2]).text);
 
-  // The "Sign out" item only exists in this section if
-  // kSeparateProfilesForManagedAccounts is disabled.
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    ASSERT_EQ([items count], 4u);
-    EXPECT_EQ(SignOutItemType,
-              base::apple::ObjCCastStrict<TableViewItem>(items[2]).type);
-    EXPECT_NSEQ(
-        l10n_util::GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM),
-        base::apple::ObjCCastStrict<TableViewTextItem>(items[2]).text);
-  } else {
-    ASSERT_EQ([items count], 3u);
-  }
+  ASSERT_EQ([items count], 3u);
 }
 
 // Tests the signout section items when manage storage is enabled.
@@ -227,18 +262,7 @@ TEST_F(ManageSyncSettingsMediatorTest,
                   IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_MANAGE_ACCOUNTS_ITEM),
               base::apple::ObjCCastStrict<TableViewTextItem>(items[2]).text);
 
-  // The "Sign out" item only exists in this section if
-  // kSeparateProfilesForManagedAccounts is disabled.
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    ASSERT_EQ([items count], 4u);
-    EXPECT_EQ(SignOutItemType,
-              base::apple::ObjCCastStrict<TableViewItem>(items[3]).type);
-    EXPECT_NSEQ(
-        l10n_util::GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM),
-        base::apple::ObjCCastStrict<TableViewTextItem>(items[3]).text);
-  } else {
-    ASSERT_EQ([items count], 3u);
-  }
+  ASSERT_EQ([items count], 3u);
 }
 
 // Tests that a persistent auth error is displayed as a text button at the top
@@ -299,6 +323,49 @@ TEST_F(ManageSyncSettingsMediatorTest, TestSyncErrorsForSignedInAccount) {
           IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON));
 }
 
+// Tests that a bookmarks limit exceeded error is displayed as a text button at
+// the top of the page for a signed in account and the help article is opened
+// when tapped.
+TEST_F(ManageSyncSettingsMediatorTest,
+       TestBookmarksLimitExceededErrorForSignedInAccount) {
+  CreateManageSyncSettingsMediator();
+  sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
+  sync_service_->SetBookmarksLimitExceeded(true);
+
+  // Loads the account settings page.
+  [mediator_ manageSyncSettingsTableViewControllerLoadModel:mediator_.consumer];
+
+  // Verify the error section exists and contains the correct items.
+  EXPECT_TRUE([mediator_.consumer.tableViewModel
+      hasSectionForSectionIdentifier:SyncSettingsSectionIdentifier::
+                                         SyncErrorsSectionIdentifier]);
+  NSArray* error_items = [mediator_.consumer.tableViewModel
+      itemsInSectionWithIdentifier:SyncSettingsSectionIdentifier::
+                                       SyncErrorsSectionIdentifier];
+
+  ASSERT_EQ(2UL, error_items.count);
+  EXPECT_NSEQ(
+      base::apple::ObjCCastStrict<SettingsImageDetailTextItem>(error_items[0])
+          .detailText,
+      l10n_util::GetNSString(
+          IDS_IOS_SYNC_ERROR_BOOKMARKS_LIMIT_EXCEEDED_MESSAGE));
+  EXPECT_NSEQ(
+      base::apple::ObjCCastStrict<TableViewTextItem>(error_items[1]).text,
+      l10n_util::GetNSString(
+          IDS_IOS_SYNC_ERROR_BOOKMARKS_LIMIT_EXCEEDED_BUTTON));
+
+  // Create mock error command handler.
+  id mockSyncErrorHandler =
+      OCMProtocolMock(@protocol(SyncErrorSettingsCommandHandler));
+  mediator_.syncErrorHandler = mockSyncErrorHandler;
+  OCMExpect([mockSyncErrorHandler openBookmarksLimitExceededHelp]);
+
+  // Simulate tapping the error button (index 1).
+  [mediator_ didSelectItem:error_items[1] cellRect:CGRectZero];
+
+  EXPECT_OCMOCK_VERIFY(mockSyncErrorHandler);
+}
+
 // Tests the account state transition on sign out.
 // This test to ensure the UI does not crash on sign out because of a missing
 // section in that state. Reference bug crbug.com/1456446.
@@ -314,8 +381,7 @@ TEST_F(ManageSyncSettingsMediatorTest, TestAccountStateTransitionOnSignOut) {
       hasSectionForSectionIdentifier:SyncSettingsSectionIdentifier::
                                          ManageAndSignOutSectionIdentifier]);
   // Verify the number of section shown in the kSignedIn state.
-  const int expected_num_sections =
-      AreSeparateProfilesForManagedAccountsEnabled() ? 4 : 3;
+  const int expected_num_sections = 4;
   ASSERT_EQ(expected_num_sections,
             [mediator_.consumer.tableViewModel numberOfSections]);
 
@@ -399,5 +465,19 @@ TEST_F(ManageSyncSettingsMediatorTest,
   // Test item behavior for EEA users.
   [mediator_ didSelectItem:items[1] cellRect:CGRectZero];
 
+  EXPECT_OCMOCK_VERIFY(mockCommandHandler);
+}
+
+// Tests that the mediator informs the command handler when sign-in becomes
+// disabled.
+TEST_F(ManageSyncSettingsMediatorTest, TestSigninDisabled) {
+  CreateManageSyncSettingsMediator();
+  id mockCommandHandler =
+      OCMProtocolMock(@protocol(ManageSyncSettingsCommandHandler));
+  mediator_.commandHandler = mockCommandHandler;
+
+  OCMExpect([mockCommandHandler closeManageSyncSettings]);
+  GetApplicationContext()->GetLocalState()->SetBoolean(
+      prefs::kSigninAllowedOnDevice, false);
   EXPECT_OCMOCK_VERIFY(mockCommandHandler);
 }

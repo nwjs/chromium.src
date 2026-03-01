@@ -28,6 +28,7 @@
 #include "net/device_bound_sessions/challenge_result.h"
 #include "net/device_bound_sessions/jwk_utils.h"
 #include "net/device_bound_sessions/registration_request_param.h"
+#include "net/device_bound_sessions/session_binding_utils.h"
 #include "net/device_bound_sessions/session_display.h"
 #include "net/device_bound_sessions/session_store.h"
 #include "net/url_request/url_request.h"
@@ -56,6 +57,10 @@ constexpr base::TimeDelta kSigningQuotaInterval = base::Minutes(9);
 // collection is started. This is delayed to not slow down the startup of the
 // browser.
 constexpr base::TimeDelta kGarbageCollectionDelay = base::Minutes(2);
+
+// Histogram name for the garbage collection of unexportable keys.
+constexpr std::string_view kGarbageCollectionHistogramPrefix =
+    "Crypto.UnexportableKeys.GarbageCollection.DeviceBoundSessions.";
 
 bool SessionMatchesFilter(
     const SchemefulSite& site,
@@ -462,8 +467,7 @@ void SessionServiceImpl::DoGarbageCollection(
     std::vector<unexportable_keys::UnexportableKeyId> all_key_ids) {
   const size_t key_count = all_key_ids.size();
   base::UmaHistogramCounts100(
-      "Crypto.UnexportableKeys.GarbageCollection.DeviceBoundSessions."
-      "TotalKeyCount",
+      base::StrCat({kGarbageCollectionHistogramPrefix, "TotalKeyCount"}),
       key_count);
 
   absl::flat_hash_set<unexportable_keys::UnexportableKeyId> known_key_ids;
@@ -483,35 +487,22 @@ void SessionServiceImpl::DoGarbageCollection(
   });
 
   base::UmaHistogramCounts100(
-      "Crypto.UnexportableKeys.GarbageCollection.DeviceBoundSessions."
-      "UsedKeyCount",
+      base::StrCat({kGarbageCollectionHistogramPrefix, "UsedKeyCount"}),
       key_count - all_key_ids.size());
 
   base::UmaHistogramCounts100(
-      "Crypto.UnexportableKeys.GarbageCollection.DeviceBoundSessions."
-      "ObsoleteKeyCount",
+      base::StrCat({kGarbageCollectionHistogramPrefix, "ObsoleteKeyCount"}),
       all_key_ids.size());
 
-  const auto barrier_callback =
-      base::BarrierCallback<unexportable_keys::ServiceErrorOr<void>>(
-          all_key_ids.size(),
-          base::BindOnce([](std::vector<unexportable_keys::ServiceErrorOr<void>>
-                                results) {
-            base::UmaHistogramCounts100(
-                "Crypto.UnexportableKeys.GarbageCollection.DeviceBoundSessions."
-                "ObsoleteKeyDeletionCount",
-                std::ranges::count_if(
-                    results, [](auto result) { return result.has_value(); }));
-          }));
-
   // Delete all remaining keys.
-  std::ranges::for_each(
-      all_key_ids, [&](unexportable_keys::UnexportableKeyId unknown_key_id) {
-        key_service_->DeleteKeySlowlyAsync(
-            unknown_key_id,
-            unexportable_keys::BackgroundTaskPriority::kBestEffort,
-            barrier_callback);
-      });
+  key_service_->DeleteKeysSlowlyAsync(
+      all_key_ids, unexportable_keys::BackgroundTaskPriority::kBestEffort,
+      base::BindOnce([](unexportable_keys::ServiceErrorOr<size_t> result) {
+        base::UmaHistogramCounts100(
+            base::StrCat({kGarbageCollectionHistogramPrefix,
+                          "ObsoleteKeyDeletionCount"}),
+            result.value_or(0));
+      }));
 }
 
 void SessionServiceImpl::OnRegistrationComplete(
@@ -574,22 +565,20 @@ std::optional<SessionService::DeferralParams> SessionServiceImpl::ShouldDefer(
     return DeferralParams();
   }
 
-  if (request.device_bound_session_usage() < SessionUsage::kNoUsage) {
-    request.set_device_bound_session_usage(SessionUsage::kNoUsage);
-  }
-
   SchemefulSite site(request.url());
   DebugHeaderBuilder debug_header_builder;
   const base::flat_map<SessionKey, RefreshResult>& previous_deferrals =
       request.device_bound_session_deferrals();
-  for (const auto& [_, session] : GetSessionsForSite(site)) {
+  for (const auto& [session_key, session] : GetSessionsForSite(site)) {
+    MaybeIncreaseSessionUsage(session_key, request,
+                              SessionUsage::kNoSiteMatchNotInScope);
+
     if (!session->IsInScope(request)) {
       continue;
     }
 
-    SessionKey session_key{site, session->id()};
-    base::TimeDelta minimum_lifetime =
-        session->MinimumBoundCookieLifetime(request, first_party_set_metadata);
+    base::TimeDelta minimum_lifetime = session->MinimumBoundCookieLifetime(
+        request, first_party_set_metadata, session_key);
     if (minimum_lifetime.is_zero()) {
       auto previous_deferrals_it = previous_deferrals.find(session_key);
       if (previous_deferrals_it != previous_deferrals.end()) {
@@ -1488,6 +1477,9 @@ void SessionServiceImpl::MaybeStartProactiveRefresh(
     return;
   }
 
+  MaybeIncreaseSessionUsage(session_key, request,
+                            SessionUsage::kInScopeProactiveRefreshNotPossible);
+
   if (deferred_requests_.find(session_key) != deferred_requests_.end()) {
     // It's not a proactive refresh if we're in the middle of a regular refresh.
     LogProactiveRefreshAttempt(
@@ -1537,6 +1529,8 @@ void SessionServiceImpl::MaybeStartProactiveRefresh(
     return;
   }
 
+  MaybeIncreaseSessionUsage(session_key, request,
+                            SessionUsage::kInScopeProactiveRefreshAttempted);
   NotifySessionAccess(per_request_callback, SessionAccess::AccessType::kUpdate,
                       session_key, *session);
   LogProactiveRefreshAttempt(ProactiveRefreshAttempt::kAttempted);

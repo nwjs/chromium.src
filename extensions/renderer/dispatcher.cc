@@ -227,7 +227,7 @@ bool ExtensionAPIEnabledForServiceWorkerScript(const GURL& scope,
 // ScriptContextSet::ForEach.
 void CallModuleMethod(const std::string& module_name,
                       const std::string& method_name,
-                      const base::Value::List* args,
+                      const base::ListValue* args,
                       ScriptContext* context) {
   v8::HandleScope handle_scope(context->isolate());
   v8::Context::Scope context_scope(context->v8_context());
@@ -1056,7 +1056,7 @@ void Dispatcher::RunScriptsAtDocumentIdle(content::RenderFrame* render_frame) {
 void Dispatcher::DispatchEventHelper(
     const mojom::HostID& host_id,
     const std::string& event_name,
-    const base::Value::List& event_args,
+    const base::ListValue& event_args,
     mojom::EventFilteringInfoPtr filtering_info) const {
   script_context_set_->ForEach(
       host_id, nullptr,
@@ -1070,7 +1070,7 @@ void Dispatcher::InvokeModuleSystemMethod(content::RenderFrame* render_frame,
                                           const ExtensionId& extension_id,
                                           const std::string& module_name,
                                           const std::string& function_name,
-                                          const base::Value::List& args) {
+                                          const base::ListValue& args) {
   // need extension id set to empty for remote pages
   if (render_frame && (module_name == "nw.Window" || module_name == "app.window"))
     script_context_set_->ForEach(
@@ -1335,14 +1335,14 @@ void Dispatcher::SuspendExtension(
   // that it still considers the extension idle despite any activity the suspend
   // event creates.
   DispatchEventHelper(GenerateHostIdFromExtensionId(extension_id),
-                      kOnSuspendEvent, base::Value::List(), nullptr);
+                      kOnSuspendEvent, base::ListValue(), nullptr);
   std::move(callback).Run();
 }
 
 void Dispatcher::CancelSuspendExtension(const ExtensionId& extension_id) {
   CHECK(!extension_id.empty());
   DispatchEventHelper(GenerateHostIdFromExtensionId(extension_id),
-                      kOnSuspendCanceledEvent, base::Value::List(), nullptr);
+                      kOnSuspendCanceledEvent, base::ListValue(), nullptr);
 }
 
 void Dispatcher::SetSystemFont(const std::string& font_family,
@@ -1459,7 +1459,7 @@ void Dispatcher::WatchPages(const std::vector<std::string>& css_selectors) {
 }
 
 void Dispatcher::DispatchEvent(mojom::DispatchEventParamsPtr params,
-                               base::Value::List event_args,
+                               base::ListValue event_args,
                                DispatchEventCallback callback) {
   CHECK_EQ(params->worker_thread_id, kMainThreadId);
   CHECK(params->host_id);

@@ -17,7 +17,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -73,7 +73,7 @@ public class IdentityDiscController
                 ButtonDataProvider {
     // Context is used for fetching resources and launching preferences page.
     private final Context mContext;
-    private final ObservableSupplier<Profile> mProfileSupplier;
+    private final MonotonicObservableSupplier<Profile> mProfileSupplier;
     private final Callback<Profile> mProfileSupplierObserver = this::setProfile;
     private @Nullable Profile mProfile;
 
@@ -96,7 +96,8 @@ public class IdentityDiscController
     /**
      * @param context The Context for retrieving resources, launching preference activity, etc.
      */
-    public IdentityDiscController(Context context, ObservableSupplier<Profile> profileSupplier) {
+    public IdentityDiscController(
+            Context context, MonotonicObservableSupplier<Profile> profileSupplier) {
         mContext = context;
         mProfileSupplier = profileSupplier;
         mProfileSupplier.addObserver(mProfileSupplierObserver);
@@ -229,7 +230,7 @@ public class IdentityDiscController
              * We need to call {@link notifyObservers(false)} before calling
              * {@link notifyObservers(true)}. This is because {@link notifyObservers(true)} has been
              * called in {@link setProfile()}, and without calling {@link notifyObservers(false)},
-             * the ObservableSupplierImpl doesn't propagate the call. See https://cubug.com/1137535.
+             * the supplier implementation doesn't propagate the call. See https://cubug.com/1137535.
              */
             notifyObservers(false);
             notifyObservers(true);
@@ -428,7 +429,8 @@ public class IdentityDiscController
                                     HistorySyncConfig.OptInMode.OPTIONAL,
                                     mContext.getString(R.string.history_sync_title),
                                     mContext.getString(R.string.history_sync_subtitle))
-                            .signinSurveyType(SigninSurveyController.SigninSurveyType.NTP_AVATAR)
+                            .signinSurveyType(
+                                    SigninSurveyController.SigninSurveyType.NTP_SIGNIN_BUTTON)
                             .build();
             @Nullable Intent intent =
                     SigninAndHistorySyncActivityLauncherImpl.get()
@@ -444,6 +446,9 @@ public class IdentityDiscController
             SettingsNavigation settingsNavigation =
                     SettingsNavigationFactory.createSettingsNavigation();
             settingsNavigation.startSettings(mContext);
+            SigninSurveyController.registerTrigger(
+                    originalProfile,
+                    SigninSurveyController.SigninSurveyType.NTP_ACCOUNT_AVATAR_TAP);
         }
     }
 

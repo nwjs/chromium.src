@@ -31,8 +31,8 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/omnibox_proto/aim_tools.pb.h"
 #include "third_party/omnibox_proto/page_vertical.pb.h"
+#include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "url/gurl.h"
 #include "url/url_util.h"
 
@@ -175,9 +175,9 @@ std::string GetPendingRequestUrls(network::TestURLLoaderFactory& factory) {
 
 std::string GeneratePendingRequestsDebugMsg(
     network::TestURLLoaderFactory& factory,
-    const std::string& expected_url_spec) {
-  return "Pending requests: " + GetPendingRequestUrls(factory) +
-         "\nExpected: " + expected_url_spec;
+    std::string_view expected_url_spec) {
+  return base::StrCat({"Pending requests: ", GetPendingRequestUrls(factory),
+                       "\nExpected: ", expected_url_spec});
 }
 
 // A fixture to initialize and operate on the execution environment.

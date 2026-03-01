@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
@@ -12,7 +14,7 @@ import androidx.annotation.PluralsRes;
 import androidx.appcompat.widget.TooltipCompat;
 
 import org.chromium.base.TraceEvent;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -33,7 +35,7 @@ import org.chromium.ui.listmenu.ListMenuButton;
 @NullMarked
 public class ToggleTabStackButton extends ListMenuButton implements TabSwitcherDrawable.Observer {
     private TabSwitcherDrawable mTabSwitcherButtonDrawable;
-    private ObservableSupplier<Integer> mTabCountSupplier;
+    private MonotonicObservableSupplier<Integer> mTabCountSupplier;
 
     public ToggleTabStackButton(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -67,7 +69,7 @@ public class ToggleTabStackButton extends ListMenuButton implements TabSwitcherD
      * @param tabCountSupplier A supplier used to observe the number of tabs in the current model.
      */
     @Initializer
-    void setSuppliers(ObservableSupplier<Integer> tabCountSupplier) {
+    void setSuppliers(MonotonicObservableSupplier<Integer> tabCountSupplier) {
         assert mTabCountSupplier == null : "setSuppliers should only be called once.";
 
         mTabCountSupplier = tabCountSupplier;
@@ -102,7 +104,7 @@ public class ToggleTabStackButton extends ListMenuButton implements TabSwitcherD
                             .accessibility_toolbar_btn_tabswitcher_toggle_default_with_notification;
         }
 
-        int tabCount = mTabCountSupplier.get();
+        int tabCount = assertNonNull(mTabCountSupplier.get());
         String drawableText = getResources().getQuantityString(drawableDescRes, tabCount, tabCount);
         setContentDescription(drawableText);
         TooltipCompat.setTooltipText(this, drawableText);

@@ -67,8 +67,6 @@ IdentityManager::IdentityManager(IdentityManager::InitParameters&& parameters)
           std::move(parameters.device_accounts_synchronizer))),
       diagnostics_provider_(std::move(parameters.diagnostics_provider)),
       account_consistency_(parameters.account_consistency),
-      require_sync_consent_for_scope_verification_(
-          parameters.require_sync_consent_for_scope_verification),
       weak_pointer_factory_(this) {
   DCHECK(account_fetcher_service_);
   DCHECK(diagnostics_provider_);
@@ -177,8 +175,7 @@ IdentityManager::CreateAccessTokenFetcherWithDynamicScopesForAccount(
       signin::GetOAuthConsumerForDynamicScopes(oauth_consumer_id, scopes);
   return std::make_unique<AccessTokenFetcher>(
       account_id, oauth_consumer_id, oauth_consumer, token_service_.get(),
-      primary_account_manager_.get(), std::move(callback), mode,
-      require_sync_consent_for_scope_verification_, token_source);
+      primary_account_manager_.get(), std::move(callback), mode, token_source);
 }
 
 std::unique_ptr<AccessTokenFetcher>
@@ -192,8 +189,7 @@ IdentityManager::CreateAccessTokenFetcherForAccount(
       signin_client_->GetOAuthConsumerFromId(oauth_consumer_id);
   return std::make_unique<AccessTokenFetcher>(
       account_id, oauth_consumer_id, oauth_consumer, token_service_.get(),
-      primary_account_manager_.get(), std::move(callback), mode,
-      require_sync_consent_for_scope_verification_, token_source);
+      primary_account_manager_.get(), std::move(callback), mode, token_source);
 }
 
 std::unique_ptr<AccessTokenFetcher>
@@ -208,7 +204,7 @@ IdentityManager::CreateAccessTokenFetcherForAccount(
   return std::make_unique<AccessTokenFetcher>(
       account_id, oauth_consumer_id, oauth_consumer, token_service_.get(),
       primary_account_manager_.get(), url_loader_factory, std::move(callback),
-      mode, require_sync_consent_for_scope_verification_);
+      mode);
 }
 
 void IdentityManager::RemoveAccessTokenFromCache(
@@ -479,17 +475,18 @@ void IdentityManager::RefreshAccountInfoIfStale(JNIEnv* env) {
 }
 
 base::android::ScopedJavaLocalRef<jobject>
-IdentityManager::GetPrimaryAccountInfo(JNIEnv* env, jint consent_level) const {
+IdentityManager::GetPrimaryAccountInfo(JNIEnv* env,
+                                       int32_t consent_level) const {
   CoreAccountInfo account_info =
       GetPrimaryAccountInfo(static_cast<ConsentLevel>(consent_level));
   if (account_info.IsEmpty()) {
     return nullptr;
   }
-  // TODO(https://crbug.com/471185380): After M146 reaches Stable - change the
+  // TODO(https://crbug.com/471185380): After M148 reaches Stable - change the
   // return type for GetPrimaryAccountInfo to AccountInfo.
   CHECK(!account_tracker_service_->GetAccountInfo(account_info.account_id)
              .IsEmpty(),
-        base::NotFatalUntil::M146);
+        base::NotFatalUntil::M148);
   return ConvertToJavaCoreAccountInfo(env, account_info);
 }
 
@@ -515,26 +512,6 @@ IdentityManager::FindExtendedAccountInfoByEmailAddress(
     return nullptr;
   }
   return ConvertToJavaAccountInfo(env, account_info);
-}
-
-base::android::ScopedJavaLocalRef<jobjectArray>
-IdentityManager::GetAccountsWithRefreshTokens(JNIEnv* env) const {
-  std::vector<CoreAccountInfo> accounts = GetAccountsWithRefreshTokens();
-
-  base::android::ScopedJavaLocalRef<jclass> coreaccountinfo_clazz =
-      base::android::GetClass(
-          env, "org/chromium/components/signin/base/CoreAccountInfo");
-  auto array = base::android::ScopedJavaLocalRef<jobjectArray>::Adopt(
-      env, env->NewObjectArray(accounts.size(), coreaccountinfo_clazz.obj(),
-                               nullptr));
-  base::android::CheckException(env);
-
-  for (size_t i = 0; i < accounts.size(); ++i) {
-    base::android::ScopedJavaLocalRef<jobject> item =
-        ConvertToJavaCoreAccountInfo(env, accounts[i]);
-    env->SetObjectArrayElement(array.obj(), i, item.obj());
-  }
-  return array;
 }
 
 bool IdentityManager::IsClearPrimaryAccountAllowed(JNIEnv* env) const {

@@ -4,8 +4,9 @@
 
 #include "components/services/storage/dom_storage/session_storage_namespace_impl.h"
 
+#include <algorithm>
+
 #include "base/barrier_closure.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
@@ -14,10 +15,12 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/task_environment.h"
+#include "base/test/with_feature_override.h"
 #include "base/trace_event/memory_allocator_dump_guid.h"
 #include "base/uuid.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
+#include "components/services/storage/dom_storage/features.h"
 #include "components/services/storage/dom_storage/session_storage_data_map.h"
 #include "components/services/storage/dom_storage/session_storage_metadata.h"
 #include "components/services/storage/dom_storage/test_support/dom_storage_database_testing.h"
@@ -54,11 +57,13 @@ class MockListener : public SessionStorageDataMap::Listener {
 };
 
 class SessionStorageNamespaceImplTest
-    : public testing::Test,
+    : public base::test::WithFeatureOverride,
+      public testing::Test,
       public SessionStorageNamespaceImpl::Delegate {
  public:
   SessionStorageNamespaceImplTest()
-      : test_namespace_id1_(base::Uuid::GenerateRandomV4().AsLowercaseString()),
+      : base::test::WithFeatureOverride(kDomStorageSqlite),
+        test_namespace_id1_(base::Uuid::GenerateRandomV4().AsLowercaseString()),
         test_namespace_id2_(
             base::Uuid::GenerateRandomV4().AsLowercaseString()) {}
   ~SessionStorageNamespaceImplTest() override = default;
@@ -68,7 +73,7 @@ class SessionStorageNamespaceImplTest
     base::RunLoop loop;
     database_ = AsyncDomStorageDatabase::Open(
         StorageType::kSessionStorage,
-        /*directory=*/base::FilePath(), "SessionStorageNamespaceImplTest",
+        /*database_path=*/base::FilePath(),
         /*memory_dump_id=*/std::nullopt,
         base::BindLambdaForTesting([&](DbStatus) { loop.Quit(); }));
     loop.Run();
@@ -160,7 +165,15 @@ class SessionStorageNamespaceImplTest
   std::unique_ptr<AsyncDomStorageDatabase> database_;
 };
 
-TEST_F(SessionStorageNamespaceImplTest, MetadataLoad) {
+INSTANTIATE_TEST_SUITE_P(
+    /*no prefix*/,
+    SessionStorageNamespaceImplTest,
+    testing::Bool(),
+    /*name_generator=*/
+    [](const testing::TestParamInfo<SessionStorageNamespaceImplTest::ParamType>&
+           info) { return info.param ? "SQLite" : "LevelDB"; });
+
+TEST_P(SessionStorageNamespaceImplTest, MetadataLoad) {
   // Exercises creation, population, binding, and getting all data.
   SessionStorageNamespaceImpl* namespace_impl =
       CreateSessionStorageNamespaceImpl(test_namespace_id1_);
@@ -180,7 +193,7 @@ TEST_F(SessionStorageNamespaceImplTest, MetadataLoad) {
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(storage_area_1.get(), &data));
   EXPECT_EQ(1ul, data.size());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
 
@@ -188,7 +201,7 @@ TEST_F(SessionStorageNamespaceImplTest, MetadataLoad) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, MetadataLoadWithMapOperations) {
+TEST_P(SessionStorageNamespaceImplTest, MetadataLoadWithMapOperations) {
   // Exercises creation, population, binding, and a map operation, and then
   // getting all the data.
   SessionStorageNamespaceImpl* namespace_impl =
@@ -217,10 +230,10 @@ TEST_F(SessionStorageNamespaceImplTest, MetadataLoadWithMapOperations) {
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(storage_area_1.get(), &data));
   EXPECT_EQ(2ul, data.size());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key2"),
                                         StdStringToUint8Vector("data2"))));
 
@@ -229,7 +242,7 @@ TEST_F(SessionStorageNamespaceImplTest, MetadataLoadWithMapOperations) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, CloneBeforeBind) {
+TEST_P(SessionStorageNamespaceImplTest, CloneBeforeBind) {
   // Exercises cloning the namespace before we bind to the new cloned namespace.
   SessionStorageNamespaceImpl* namespace_impl1 =
       CreateSessionStorageNamespaceImpl(test_namespace_id1_);
@@ -272,10 +285,10 @@ TEST_F(SessionStorageNamespaceImplTest, CloneBeforeBind) {
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(storage_area_2.get(), &data));
   EXPECT_EQ(2ul, data.size());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key2"),
                                         StdStringToUint8Vector("data2"))));
 
@@ -284,7 +297,7 @@ TEST_F(SessionStorageNamespaceImplTest, CloneBeforeBind) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, CloneAfterBind) {
+TEST_P(SessionStorageNamespaceImplTest, CloneAfterBind) {
   // Exercises cloning the namespace before we bind to the new cloned namespace.
   // Unlike the test above, we create a new area for the test_storage_key2_ in
   // the new namespace.
@@ -338,14 +351,14 @@ TEST_F(SessionStorageNamespaceImplTest, CloneAfterBind) {
   std::vector<blink::mojom::KeyValuePtr> data;
   EXPECT_TRUE(test::GetAllSync(storage_area_n2_o1.get(), &data));
   EXPECT_EQ(1ul, data.size());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
 
   data.clear();
   EXPECT_TRUE(test::GetAllSync(storage_area_n2_o2.get(), &data));
   EXPECT_EQ(1ul, data.size());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key2"),
                                         StdStringToUint8Vector("data2"))));
 
@@ -354,7 +367,7 @@ TEST_F(SessionStorageNamespaceImplTest, CloneAfterBind) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, RemoveStorageKeyData) {
+TEST_P(SessionStorageNamespaceImplTest, RemoveStorageKeyData) {
   SessionStorageNamespaceImpl* namespace_impl =
       CreateSessionStorageNamespaceImpl(test_namespace_id1_);
 
@@ -397,7 +410,7 @@ TEST_F(SessionStorageNamespaceImplTest, RemoveStorageKeyData) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, RemoveStorageKeyDataWithoutBinding) {
+TEST_P(SessionStorageNamespaceImplTest, RemoveStorageKeyDataWithoutBinding) {
   SessionStorageNamespaceImpl* namespace_impl =
       CreateSessionStorageNamespaceImpl(test_namespace_id1_);
 
@@ -417,7 +430,7 @@ TEST_F(SessionStorageNamespaceImplTest, RemoveStorageKeyDataWithoutBinding) {
   namespaces_.clear();
 }
 
-TEST_F(SessionStorageNamespaceImplTest, PurgeUnused) {
+TEST_P(SessionStorageNamespaceImplTest, PurgeUnused) {
   // Verifies that areas are kept alive after the area is unbound, and they
   // are removed when PurgeUnboundWrappers() is called.
   SessionStorageNamespaceImpl* namespace_impl =
@@ -452,7 +465,7 @@ TEST_F(SessionStorageNamespaceImplTest, PurgeUnused) {
 
 }  // namespace
 
-TEST_F(SessionStorageNamespaceImplTest, ReopenClonedAreaAfterPurge) {
+TEST_P(SessionStorageNamespaceImplTest, ReopenClonedAreaAfterPurge) {
   // Verifies that areas are kept alive after the area is unbound, and they
   // are removed when PurgeUnboundWrappers() is called.
   SessionStorageNamespaceImpl* namespace_impl =

@@ -35,7 +35,6 @@ namespace blink {
 class Document;
 class Length;
 class TreeScope;
-class CSSPropertyName;
 
 class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
  public:
@@ -89,6 +88,9 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   }
   bool IsColorValue() const { return class_type_ == kColorClass; }
   bool IsColorMixValue() const { return class_type_ == kColorMixClass; }
+  bool IsContrastColorValue() const {
+    return class_type_ == kContrastColorClass;
+  }
   bool IsCounterValue() const { return class_type_ == kCounterClass; }
   bool IsCounterContentValue() const {
     return class_type_ == kCounterContentClass;
@@ -259,14 +261,8 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   String ClassTypeToString() const;
 #endif
 
-  // Checks if a CSS random() function is present in the value. If so, creates a
-  // deep copy and binds the random value's identifier to the specified property
-  // name and index. This ensures the random() function's internal identifier is
-  // uniquely associated with the provided property name and value index for
-  // caching purposes.
-  const CSSValue* CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-      const CSSPropertyName& property_name,
-      wtf_size_t& property_value_index) const;
+  // Checks if a CSS random() function is present in the value.
+  bool HasRandomFunctions() const;
 
   void TraceAfterDispatch(blink::Visitor* visitor) const {}
   void Trace(Visitor*) const;
@@ -283,6 +279,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kColorClass,
     kUnresolvedColorClass,
     kColorMixClass,
+    kContrastColorClass,
     kCounterClass,
     kCounterContentClass,
     kQuadClass,

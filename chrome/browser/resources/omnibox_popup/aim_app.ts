@@ -124,6 +124,7 @@ export class OmniboxAimAppElement extends CrLitElement {
       // context on close as this indicates that the user is returning to the
       // widget after adding context.
       this.$.composebox.playGlowAnimation();
+      this.$.composebox.setDefaultModel();
     }
     this.$.composebox.addSearchContext(context);
     this.$.composebox.focusInput();
@@ -136,27 +137,28 @@ export class OmniboxAimAppElement extends CrLitElement {
   }
 
   private onPopupHidden_(): Promise<{input: string}> {
-    if (this.$.composebox.isVoiceInput) {
-      this.$.composebox.clearInput();
-    }
     const input = this.$.composebox.getInputText();
     if (!this.preserveContextOnClose_) {
-      this.$.composebox.clearAllInputs(/* querySubmitted= */ false);
+      this.$.composebox.clearAllInputs(
+          /* querySubmitted= */ false,
+          /* shouldBlockAutoSuggestedTabs= */ false);
       this.$.composebox.clearAutocompleteMatches();
       this.$.composebox.resetModes();
+      this.$.composebox.resetToolsAndModels();
     }
     // Transfer input text to the location bar.
     return Promise.resolve({input});
   }
 
   protected onComposeboxSubmit_() {
-    this.$.composebox.clearAllInputs(/* querySubmitted= */ true);
+    this.$.composebox.clearAllInputs(/* querySubmitted= */ true,
+                                     /* shouldBlockAutoSuggestedTabs= */ false);
   }
 
   private onLinkClick_(e: Event) {
     e.preventDefault();
     const href = (e.currentTarget as HTMLAnchorElement).href;
-    this.pageHandler_.navigateCurrentTab({url: href});
+    this.pageHandler_.navigateCurrentTab(href);
   }
 }
 

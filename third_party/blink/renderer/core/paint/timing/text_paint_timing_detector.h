@@ -108,12 +108,11 @@ class CORE_EXPORT TextPaintTimingDetector final
     return recording_largest_text_paint_;
   }
 
-  std::pair<TextRecord*, bool> UpdateMetricsCandidate();
-
   void ReportLargestIgnoredText();
   void Trace(Visitor*) const;
 
  private:
+  void SendRectsToHud();
   friend class LargestContentfulPaintCalculatorTest;
 
   // The state of `LayoutObject`s being tracked in the `recorded_set_`.
@@ -133,13 +132,14 @@ class CORE_EXPORT TextPaintTimingDetector final
 
   inline void QueueToMeasurePaintTime(const LayoutObject& object,
                                       TextRecord* record) {
+    record->SetFrameIndex(frame_index_);
     texts_queued_for_paint_time_.insert(&object, record);
     added_entry_in_latest_frame_ = true;
   }
 
   // LayoutObjects for which text has been aggregated.
-  HeapHashMap<Member<const LayoutObject>, TextPaintStatus> recorded_set_;
-  HeapHashSet<Member<const LayoutObject>> rewalkable_set_;
+  HeapHashMap<WeakMember<const LayoutObject>, TextPaintStatus> recorded_set_;
+  HeapHashSet<WeakMember<const LayoutObject>> rewalkable_set_;
 
   // Text records queued for paint time. Indexed by LayoutObject to make removal
   // easy.
@@ -147,7 +147,7 @@ class CORE_EXPORT TextPaintTimingDetector final
       texts_queued_for_paint_time_;
 
   Member<PaintTimingCallbackManager> callback_manager_;
-  Member<const LocalFrameView> frame_view_;
+  Member<LocalFrameView> frame_view_;
   Member<PaintTimingDetector> paint_timing_detector_;
   // Set lazily because we may not have the correct Window when first
   // initializing this class.

@@ -153,7 +153,7 @@ void GestureListenerManager::SetMultiTouchZoomSupportEnabled(JNIEnv* env,
 
 void GestureListenerManager::SetRootScrollOffsetUpdateFrequency(
     JNIEnv* env,
-    jint frequency) {
+    int32_t frequency) {
   auto new_frequency =
       static_cast<cc::mojom::RootScrollOffsetUpdateFrequency>(frequency);
   root_scroll_offset_update_frequency_ = new_frequency;
@@ -384,7 +384,7 @@ void GestureListenerManager::UnobserveRenderFrames() {
   observed_render_frames_.clear();
 }
 
-static jlong JNI_GestureListenerManagerImpl_Init(
+static int64_t JNI_GestureListenerManagerImpl_Init(
     JNIEnv* env,
     const JavaRef<jobject>& obj,
     const JavaRef<jobject>& jweb_contents) {

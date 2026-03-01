@@ -52,12 +52,11 @@ class UnexportableKeyServiceProxied : public UnexportableKeyService {
       BackgroundTaskPriority priority,
       base::OnceCallback<void(ServiceErrorOr<std::vector<uint8_t>>)> callback)
       override;
-  void DeleteKeySlowlyAsync(
-      UnexportableKeyId key_id,
+  void DeleteKeysSlowlyAsync(
+      base::span<const UnexportableKeyId> key_ids,
       BackgroundTaskPriority priority,
-      base::OnceCallback<void(ServiceErrorOr<void>)> callback) override;
+      base::OnceCallback<void(ServiceErrorOr<size_t>)> callback) override;
   void DeleteAllKeysSlowlyAsync(
-      BackgroundTaskPriority priority,
       base::OnceCallback<void(ServiceErrorOr<size_t>)> callback) override;
   void GetAllSigningKeysForGarbageCollectionSlowlyAsync(
       BackgroundTaskPriority priority,
@@ -103,6 +102,11 @@ class UnexportableKeyServiceProxied : public UnexportableKeyService {
   void OnKeyLoaded(base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)>
                        original_callback,
                    ServiceErrorOr<mojom::NewKeyDataPtr> result);
+
+  void OnGetAllSigningKeysForGarbageCollection(
+      base::OnceCallback<void(ServiceErrorOr<std::vector<UnexportableKeyId>>)>
+          original_callback,
+      ServiceErrorOr<std::vector<mojom::NewKeyDataPtr>> result);
 
   absl::flat_hash_map<UnexportableKeyId, CachedKeyData> key_cache_;
 };

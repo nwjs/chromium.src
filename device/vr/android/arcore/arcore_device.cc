@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <optional>
 
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/no_destructor.h"
 #include "base/task/bind_post_task.h"
@@ -41,7 +40,6 @@ const std::vector<mojom::XRSessionFeature>& GetSupportedFeatures() {
                           mojom::XRSessionFeature::DOM_OVERLAY,
                           mojom::XRSessionFeature::LIGHT_ESTIMATION,
                           mojom::XRSessionFeature::ANCHORS,
-                          mojom::XRSessionFeature::PLANE_DETECTION,
                           mojom::XRSessionFeature::DEPTH,
                           mojom::XRSessionFeature::IMAGE_TRACKING,
                           mojom::XRSessionFeature::HIT_TEST,
@@ -83,6 +81,11 @@ ArCoreDevice::ArCoreDevice(
 
   // Only support camera access if the device supports shared buffers.
   device_features.emplace_back(mojom::XRSessionFeature::CAMERA_ACCESS);
+
+  // Only support plane detection if the appropriate feature flag is enabled.
+  if (base::FeatureList::IsEnabled(features::kWebXRPlaneDetection)) {
+    device_features.emplace_back(mojom::XRSessionFeature::PLANE_DETECTION);
+  }
 
   // Only support WebGPU sessions if the appropriate feature flag is enabled
   // and shared buffers will be used.
@@ -147,10 +150,10 @@ void ArCoreDevice::RequestSession(
   session_state_->request_session_trace_id_ = options->trace_id;
 
   const bool use_dom_overlay =
-      base::Contains(options->required_features,
-                     device::mojom::XRSessionFeature::DOM_OVERLAY) ||
-      base::Contains(options->optional_features,
-                     device::mojom::XRSessionFeature::DOM_OVERLAY);
+      std::ranges::contains(options->required_features,
+                            device::mojom::XRSessionFeature::DOM_OVERLAY) ||
+      std::ranges::contains(options->optional_features,
+                            device::mojom::XRSessionFeature::DOM_OVERLAY);
 
   session_state_->depth_options_ = std::move(options->depth_options);
 

@@ -46,8 +46,8 @@
 #include "net/base/net_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/omnibox_proto/aim_tools.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
+#include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "url/gurl.h"
 
 namespace {
@@ -56,6 +56,8 @@ using ::action_chips::RemoteSuggestionsServiceSimple;
 using ::action_chips::mojom::ActionChip;
 using ::action_chips::mojom::ActionChipPtr;
 using ::action_chips::mojom::ChipType;
+using ::action_chips::mojom::IconType;
+using ::action_chips::mojom::SuggestTemplateInfo;
 using ::action_chips::mojom::TabInfo;
 using ::action_chips::mojom::TabInfoPtr;
 using ::sync_preferences::TestingPrefServiceSyncable;
@@ -74,51 +76,39 @@ using ::testing::Return;
 using ::testing::TypedEq;
 using ::testing::WithArg;
 
-struct SuggestResultFields {
-  std::u16string suggestion;
-  AutocompleteMatchType::Type type =
-      AutocompleteMatchType::Type::SEARCH_SUGGEST;
-  omnibox::SuggestType suggest_type = omnibox::SuggestType::TYPE_QUERY;
+struct CreateSuggestionOptions {
+  std::optional<omnibox::GroupId> group_id;
+  int32_t icon_type = omnibox::SuggestTemplateInfo::ICON_TYPE_UNSPECIFIED;
   std::vector<int> subtypes;
-  bool from_keyword = false;
-  omnibox::NavigationalIntent navigational_intent =
-      omnibox::NavigationalIntent::NAV_INTENT_NONE;
-  int relevance = 100;
-  bool relevance_from_server = true;
-  std::u16string input_text = u"";
+  std::string match_contents;
+  std::string annotation;
+  std::u16string suggestion;
+  omnibox::SuggestType suggest_type = omnibox::SuggestType::TYPE_FUSEBOX_ACTION;
 };
 
-SearchSuggestionParser::SuggestResult MakeResult(
-    const SuggestResultFields& fields,
-    std::optional<omnibox::GroupId> group_id = std::nullopt) {
-  auto result = SearchSuggestionParser::SuggestResult(
-      fields.suggestion, fields.type, fields.suggest_type, fields.subtypes,
-      fields.from_keyword, fields.navigational_intent, fields.relevance,
-      fields.relevance_from_server, fields.input_text);
-  if (group_id.has_value()) {
-    result.set_suggestion_group_id(group_id.value());
-  }
-  return result;
-}
-
 SearchSuggestionParser::SuggestResult CreateSuggestion(
-    std::optional<omnibox::GroupId> group_id,
-    const std::vector<int>& subtypes,
-    std::string_view match_contents,
-    std::string_view annotation,
-    std::u16string_view suggestion = u"") {
+    const CreateSuggestionOptions& options) {
   SearchSuggestionParser::SuggestResult result(
-      std::u16string(suggestion), AutocompleteMatchType::SEARCH_SUGGEST,
-      omnibox::SuggestType::TYPE_FUSEBOX_ACTION, subtypes,
-      base::UTF8ToUTF16(match_contents),
-      /*match_contents_prefix=*/u"", base::UTF8ToUTF16(annotation),
+      options.suggestion, AutocompleteMatchType::SEARCH_SUGGEST,
+      options.suggest_type, options.subtypes,
+      base::UTF8ToUTF16(options.match_contents),
+      /*match_contents_prefix=*/u"", base::UTF8ToUTF16(options.annotation),
       omnibox::EntityInfo::default_instance(), /*deletion_url=*/"",
       /*from_keyword=*/false, omnibox::NavigationalIntent::NAV_INTENT_NONE,
       /*relevance=*/100, /*relevance_from_server=*/true,
       /*should_prefetch=*/false,
       /*should_prerender=*/false, /*input_text=*/u"");
-  if (group_id.has_value()) {
-    result.set_suggestion_group_id(group_id);
+  if (options.group_id.has_value()) {
+    result.set_suggestion_group_id(options.group_id.value());
+
+    omnibox::SuggestTemplateInfo suggest_template_info;
+    suggest_template_info.set_type_icon(
+        static_cast<omnibox::SuggestTemplateInfo::IconType>(options.icon_type));
+    *suggest_template_info.mutable_primary_text()->mutable_text() =
+        options.match_contents;
+    *suggest_template_info.mutable_secondary_text()->mutable_text() =
+        options.annotation;
+    result.SetSuggestTemplateInfo(std::move(suggest_template_info));
   }
   return result;
 }
@@ -165,6 +155,7 @@ TabInfoPtr CreateTabInfo(const tabs::TabInterface* tab) {
 ActionChipPtr CreateStaticRecentTabChip(TabInfoPtr tab) {
   const std::string title = "Ask about previous tab";
   return ActionChip::New(title, tab->title, "", ChipType::kRecentTab,
+                         SuggestTemplateInfo::New(IconType::kFavicon),
                          std::move(tab));
 }
 
@@ -173,7 +164,9 @@ const ActionChipPtr& GetStaticDeepSearchChip() {
       /*title=*/"Deep Search",
       /*subtitle=*/"Dive deep into something new",
       /*suggestion=*/"",
-      /*type=*/ChipType::kDeepSearch, /*tab=*/nullptr));
+      /*type=*/ChipType::kDeepSearch,
+      SuggestTemplateInfo::New(IconType::kGlobeWithSearchLoop),
+      /*tab=*/nullptr));
   return *kInstance;
 }
 
@@ -182,7 +175,8 @@ const ActionChipPtr& GetStaticImageGenerationChip() {
       /*title=*/"Create images",
       /*subtitle=*/"Add an image and reimagine it",
       /*suggestion=*/"",
-      /*type=*/ChipType::kImage, /*tab=*/nullptr));
+      /*type=*/ChipType::kImage, SuggestTemplateInfo::New(IconType::kBanana),
+      /*tab=*/nullptr));
   return *kInstance;
 }
 
@@ -190,6 +184,7 @@ ActionChipPtr CreateStaticDeepDiveChip(TabInfoPtr tab,
                                        std::string_view suggestion) {
   return ActionChip::New(/*title=*/"", std::string(suggestion),
                          std::string(suggestion), ChipType::kDeepDive,
+                         SuggestTemplateInfo::New(IconType::kSubArrowRight),
                          std::move(tab));
 }
 
@@ -575,10 +570,15 @@ TEST_P(ActionChipsGeneratorDeepDiveTest, GenerateChips) {
                  RemoteSuggestionsServiceSimple::ActionChipSuggestionsResult&&)>
                  callback) {
             std::move(callback).Run(SearchSuggestionParser::SuggestResults{
-                MakeResult({.suggestion = u"Test suggestion 1"}),
-                MakeResult({.suggestion = u"Test suggestion 2"},
-                           omnibox::GroupId::GROUP_PERSONALIZED_ZERO_SUGGEST),
-                MakeResult({.suggestion = u"Test suggestion 3"})});
+                CreateSuggestion({.match_contents = "Test suggestion 1",
+                                  .suggestion = u"Test suggestion 1"}),
+                CreateSuggestion(
+                    {.group_id =
+                         omnibox::GroupId::GROUP_PERSONALIZED_ZERO_SUGGEST,
+                     .match_contents = "Test suggestion 2",
+                     .suggestion = u"Test suggestion 2"}),
+                CreateSuggestion({.match_contents = "Test suggestion 3",
+                                  .suggestion = u"Test suggestion 3"})});
             return nullptr;
           }));
 
@@ -718,7 +718,8 @@ TEST(ActionChipGeneratorTest,
                  RemoteSuggestionsServiceSimple::ActionChipSuggestionsResult&&)>
                  callback) {
             std::move(callback).Run(SearchSuggestionParser::SuggestResults{
-                MakeResult({.suggestion = u"Test suggestion 1"})});
+                CreateSuggestion({.match_contents = "Test suggestion 1",
+                                  .suggestion = u"Test suggestion 1"})});
             return nullptr;
           }));
 
@@ -773,15 +774,24 @@ TEST(ActionChipGeneratorTest, DeepDiveWithNewEndpoint) {
                                        ActionChipSuggestionsResult&&)>
                                    callback) {
         std::move(callback).Run(SearchSuggestionParser::SuggestResults{
-            CreateSuggestion(omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
-                             {}, recent_tab_title, recent_tab_subtitle,
-                             recent_tab_suggestion),
-            CreateSuggestion(omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
-                             {}, deep_dive_title_1, deep_dive_subtitle_1,
-                             deep_dive_suggestion_1),
-            CreateSuggestion(omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
-                             {}, deep_dive_title_2, deep_dive_subtitle_2,
-                             deep_dive_suggestion_2)});
+            CreateSuggestion(
+                {.group_id = omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
+                 .icon_type = omnibox::SuggestTemplateInfo::FAVICON,
+                 .match_contents = recent_tab_title,
+                 .annotation = recent_tab_subtitle,
+                 .suggestion = recent_tab_suggestion}),
+            CreateSuggestion(
+                {.group_id = omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
+                 .icon_type = omnibox::SuggestTemplateInfo::SUB_ARROW_RIGHT,
+                 .match_contents = deep_dive_title_1,
+                 .annotation = deep_dive_subtitle_1,
+                 .suggestion = deep_dive_suggestion_1}),
+            CreateSuggestion(
+                {.group_id = omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
+                 .icon_type = omnibox::SuggestTemplateInfo::SUB_ARROW_RIGHT,
+                 .match_contents = deep_dive_title_2,
+                 .annotation = deep_dive_subtitle_2,
+                 .suggestion = deep_dive_suggestion_2})});
         return nullptr;
       }));
 
@@ -801,18 +811,18 @@ TEST(ActionChipGeneratorTest, DeepDiveWithNewEndpoint) {
   run_loop.Run();
 
   TabInfoPtr tab_info = CreateTabInfo(&tab_fixture.mock_tab());
-  ActionChipPtr chip0 =
-      ActionChip::New(recent_tab_title, recent_tab_subtitle,
-                      base::UTF16ToUTF8(recent_tab_suggestion),
-                      ChipType::kRecentTab, tab_info->Clone());
-  ActionChipPtr chip1 =
-      ActionChip::New(deep_dive_title_1, deep_dive_subtitle_1,
-                      base::UTF16ToUTF8(deep_dive_suggestion_1),
-                      ChipType::kDeepDive, tab_info->Clone());
-  ActionChipPtr chip2 =
-      ActionChip::New(deep_dive_title_2, deep_dive_subtitle_2,
-                      base::UTF16ToUTF8(deep_dive_suggestion_2),
-                      ChipType::kDeepDive, tab_info->Clone());
+  ActionChipPtr chip0 = ActionChip::New(
+      recent_tab_title, recent_tab_subtitle,
+      base::UTF16ToUTF8(recent_tab_suggestion), ChipType::kRecentTab,
+      SuggestTemplateInfo::New(IconType::kFavicon), tab_info->Clone());
+  ActionChipPtr chip1 = ActionChip::New(
+      deep_dive_title_1, deep_dive_subtitle_1,
+      base::UTF16ToUTF8(deep_dive_suggestion_1), ChipType::kDeepDive,
+      SuggestTemplateInfo::New(IconType::kSubArrowRight), tab_info->Clone());
+  ActionChipPtr chip2 = ActionChip::New(
+      deep_dive_title_2, deep_dive_subtitle_2,
+      base::UTF16ToUTF8(deep_dive_suggestion_2), ChipType::kDeepDive,
+      SuggestTemplateInfo::New(IconType::kSubArrowRight), tab_info->Clone());
 
   EXPECT_THAT(actual, ElementsAre(Eq(std::cref(chip0)), Eq(std::cref(chip1)),
                                   Eq(std::cref(chip2))));
@@ -851,15 +861,25 @@ TEST(ActionChipGeneratorTest, SteadyStateWithNewEndpoint) {
                   callback) {
             std::move(callback).Run(SearchSuggestionParser::SuggestResults{
                 CreateSuggestion(
-                    omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION, {},
-                    recent_tab_title, recent_tab_subtitle,
-                    recent_tab_suggestion),
-                CreateSuggestion(omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION, {},
-                                 deep_search_title, deep_search_subtitle,
-                                 deep_search_suggestion),
-                CreateSuggestion(omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION, {},
-                                 image_gen_title, image_gen_subtitle,
-                                 image_gen_suggestion)});
+                    {.group_id =
+                         omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION,
+                     .icon_type = omnibox::SuggestTemplateInfo::FAVICON,
+                     .match_contents = recent_tab_title,
+                     .annotation = recent_tab_subtitle,
+                     .suggestion = recent_tab_suggestion}),
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+                     .icon_type =
+                         omnibox::SuggestTemplateInfo::GLOBE_WITH_SEARCH_LOOP,
+                     .match_contents = deep_search_title,
+                     .annotation = deep_search_subtitle,
+                     .suggestion = deep_search_suggestion}),
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION,
+                     .icon_type = omnibox::SuggestTemplateInfo::BANANA,
+                     .match_contents = image_gen_title,
+                     .annotation = image_gen_subtitle,
+                     .suggestion = image_gen_suggestion})});
             return nullptr;
           }));
 
@@ -878,17 +898,18 @@ TEST(ActionChipGeneratorTest, SteadyStateWithNewEndpoint) {
   run_loop.Run();
 
   TabInfoPtr tab_info = CreateTabInfo(&tab_fixture.mock_tab());
-  ActionChipPtr chip0 =
-      ActionChip::New(recent_tab_title, recent_tab_subtitle,
-                      base::UTF16ToUTF8(recent_tab_suggestion),
-                      ChipType::kRecentTab, tab_info->Clone());
-  ActionChipPtr chip1 =
-      ActionChip::New(deep_search_title, deep_search_subtitle,
-                      base::UTF16ToUTF8(deep_search_suggestion),
-                      ChipType::kDeepSearch, nullptr);
-  ActionChipPtr chip2 = ActionChip::New(image_gen_title, image_gen_subtitle,
-                                        base::UTF16ToUTF8(image_gen_suggestion),
-                                        ChipType::kImage, nullptr);
+  ActionChipPtr chip0 = ActionChip::New(
+      recent_tab_title, recent_tab_subtitle,
+      base::UTF16ToUTF8(recent_tab_suggestion), ChipType::kRecentTab,
+      SuggestTemplateInfo::New(IconType::kFavicon), tab_info->Clone());
+  ActionChipPtr chip1 = ActionChip::New(
+      deep_search_title, deep_search_subtitle,
+      base::UTF16ToUTF8(deep_search_suggestion), ChipType::kDeepSearch,
+      SuggestTemplateInfo::New(IconType::kGlobeWithSearchLoop), nullptr);
+  ActionChipPtr chip2 =
+      ActionChip::New(image_gen_title, image_gen_subtitle,
+                      base::UTF16ToUTF8(image_gen_suggestion), ChipType::kImage,
+                      SuggestTemplateInfo::New(IconType::kBanana), nullptr);
 
   EXPECT_THAT(actual, ElementsAre(Eq(std::cref(chip0)), Eq(std::cref(chip1)),
                                   Eq(std::cref(chip2))));
@@ -920,12 +941,19 @@ TEST(ActionChipGeneratorTest, SteadyStateWithNewEndpointAndNoTab) {
                                           ActionChipSuggestionsResult&&)>
                   callback) {
             std::move(callback).Run(SearchSuggestionParser::SuggestResults{
-                CreateSuggestion(omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION, {},
-                                 deep_search_title, deep_search_subtitle,
-                                 base::UTF8ToUTF16(deep_search_suggestion)),
-                CreateSuggestion(omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION, {},
-                                 image_gen_title, image_gen_subtitle,
-                                 base::UTF8ToUTF16(image_gen_suggestion))});
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+                     .icon_type =
+                         omnibox::SuggestTemplateInfo::GLOBE_WITH_SEARCH_LOOP,
+                     .match_contents = deep_search_title,
+                     .annotation = deep_search_subtitle,
+                     .suggestion = base::UTF8ToUTF16(deep_search_suggestion)}),
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION,
+                     .icon_type = omnibox::SuggestTemplateInfo::BANANA,
+                     .match_contents = image_gen_title,
+                     .annotation = image_gen_subtitle,
+                     .suggestion = base::UTF8ToUTF16(image_gen_suggestion)})});
             return nullptr;
           }));
 
@@ -942,12 +970,13 @@ TEST(ActionChipGeneratorTest, SteadyStateWithNewEndpointAndNoTab) {
   generator_fixture.GenerateActionChips(std::nullopt, run_loop, actual);
   run_loop.Run();
 
-  ActionChipPtr chip0 =
-      ActionChip::New(deep_search_title, deep_search_subtitle,
-                      deep_search_suggestion, ChipType::kDeepSearch, nullptr);
-  ActionChipPtr chip1 =
-      ActionChip::New(image_gen_title, image_gen_subtitle, image_gen_suggestion,
-                      ChipType::kImage, nullptr);
+  ActionChipPtr chip0 = ActionChip::New(
+      deep_search_title, deep_search_subtitle, deep_search_suggestion,
+      ChipType::kDeepSearch,
+      SuggestTemplateInfo::New(IconType::kGlobeWithSearchLoop), nullptr);
+  ActionChipPtr chip1 = ActionChip::New(
+      image_gen_title, image_gen_subtitle, image_gen_suggestion,
+      ChipType::kImage, SuggestTemplateInfo::New(IconType::kBanana), nullptr);
 
   std::vector<Matcher<const ActionChipPtr&>> expected;
   expected.push_back(Eq(std::cref(chip0)));
@@ -1032,12 +1061,19 @@ TEST(ActionChipGeneratorTest, NewEndpointOptOutReturnsEndpointChips) {
                                           ActionChipSuggestionsResult&&)>
                   callback) {
             std::move(callback).Run(SearchSuggestionParser::SuggestResults{
-                CreateSuggestion(omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION, {},
-                                 deep_search_title, deep_search_subtitle,
-                                 base::UTF8ToUTF16(deep_search_suggestion)),
-                CreateSuggestion(omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION, {},
-                                 image_gen_title, image_gen_subtitle,
-                                 base::UTF8ToUTF16(image_gen_suggestion))});
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+                     .icon_type =
+                         omnibox::SuggestTemplateInfo::GLOBE_WITH_SEARCH_LOOP,
+                     .match_contents = deep_search_title,
+                     .annotation = deep_search_subtitle,
+                     .suggestion = base::UTF8ToUTF16(deep_search_suggestion)}),
+                CreateSuggestion(
+                    {.group_id = omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION,
+                     .icon_type = omnibox::SuggestTemplateInfo::BANANA,
+                     .match_contents = image_gen_title,
+                     .annotation = image_gen_subtitle,
+                     .suggestion = base::UTF8ToUTF16(image_gen_suggestion)})});
             return nullptr;
           }));
 
@@ -1056,12 +1092,13 @@ TEST(ActionChipGeneratorTest, NewEndpointOptOutReturnsEndpointChips) {
   run_loop.Run();
 
   // Expect endpoint chips.
-  ActionChipPtr chip0 =
-      ActionChip::New(deep_search_title, deep_search_subtitle,
-                      deep_search_suggestion, ChipType::kDeepSearch, nullptr);
-  ActionChipPtr chip1 =
-      ActionChip::New(image_gen_title, image_gen_subtitle, image_gen_suggestion,
-                      ChipType::kImage, nullptr);
+  ActionChipPtr chip0 = ActionChip::New(
+      deep_search_title, deep_search_subtitle, deep_search_suggestion,
+      ChipType::kDeepSearch,
+      SuggestTemplateInfo::New(IconType::kGlobeWithSearchLoop), nullptr);
+  ActionChipPtr chip1 = ActionChip::New(
+      image_gen_title, image_gen_subtitle, image_gen_suggestion,
+      ChipType::kImage, SuggestTemplateInfo::New(IconType::kBanana), nullptr);
   EXPECT_THAT(actual, ElementsAre(Eq(std::cref(chip0)), Eq(std::cref(chip1))));
 }
 
@@ -1251,25 +1288,64 @@ TEST(ActionChipGeneratorTest, NewEndpointFiltersInvalidSuggestions) {
 
   EXPECT_CALL(generator_fixture.mock_service(),
               GetActionChipSuggestions(Eq(page_title), Eq(page_url), _, _, _))
-      .WillOnce(WithArg<4>(
-          [&](base::OnceCallback<void(RemoteSuggestionsServiceSimple::
-                                          ActionChipSuggestionsResult&&)>
-                  callback) {
-            SearchSuggestionParser::SuggestResults results;
+      .WillOnce(WithArg<4>([&](base::OnceCallback<void(
+                                   RemoteSuggestionsServiceSimple::
+                                       ActionChipSuggestionsResult&&)>
+                                   callback) {
+        SearchSuggestionParser::SuggestResults results;
 
-            // Valid suggestion.
-            results.push_back(
-                CreateSuggestion(omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION, {},
-                                 "Valid Title", "Valid Annotation"));
+        // Valid suggestion.
+        results.push_back(CreateSuggestion(
+            {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+             .icon_type = omnibox::SuggestTemplateInfo::GLOBE_WITH_SEARCH_LOOP,
+             .match_contents = "Valid Title",
+             .annotation = "Valid Annotation"}));
 
-            // Invalid suggestion: No Group ID.
-            results.push_back(CreateSuggestion(
-                /*group_id=*/std::nullopt, /*subtypes=*/{}, "Title",
-                "Annotation"));
+        // Invalid suggestion: No Group ID.
+        results.push_back(CreateSuggestion(
+            {.icon_type = omnibox::SuggestTemplateInfo::FAVICON,
+             .match_contents = "Title",
+             .annotation = "Annotation"}));
 
-            std::move(callback).Run(std::move(results));
-            return nullptr;
-          }));
+        // Invalid suggestion: SuggestType != TYPE_FUSEBOX_ACTION.
+        SearchSuggestionParser::SuggestResult no_fusebox_result =
+            CreateSuggestion(
+                {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+                 .match_contents = "Title",
+                 .annotation = "Annotation",
+                 .suggest_type = omnibox::SuggestType::TYPE_QUERY});
+        omnibox::SuggestTemplateInfo valid_icon_info;
+        valid_icon_info.set_type_icon(omnibox::SuggestTemplateInfo::FAVICON);
+        no_fusebox_result.SetSuggestTemplateInfo(valid_icon_info);
+        results.push_back(std::move(no_fusebox_result));
+
+        // Invalid suggestion: Missing SuggestTemplateInfo.
+        SearchSuggestionParser::SuggestResult no_template_info_result =
+            CreateSuggestion(
+                {.icon_type = omnibox::SuggestTemplateInfo::FAVICON,
+                 .match_contents = "Title",
+                 .annotation = "Annotation"});
+        no_template_info_result.set_suggestion_group_id(
+            omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION);
+        results.push_back(std::move(no_template_info_result));
+
+        // Invalid suggestion: Unknown Group ID.
+        results.push_back(CreateSuggestion(
+            {.group_id = omnibox::GROUP_INVALID,
+             .icon_type = omnibox::SuggestTemplateInfo::GLOBE_WITH_SEARCH_LOOP,
+             .match_contents = "Title",
+             .annotation = "Annotation"}));
+
+        // Invalid suggestion: Unspecified IconType.
+        results.push_back(CreateSuggestion(
+            {.group_id = omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION,
+             .icon_type = omnibox::SuggestTemplateInfo::ICON_TYPE_UNSPECIFIED,
+             .match_contents = "Title",
+             .annotation = "Annotation"}));
+
+        std::move(callback).Run(std::move(results));
+        return nullptr;
+      }));
 
   base::test::ScopedFeatureList list;
   list.InitAndEnableFeatureWithParameters(
@@ -1351,7 +1427,9 @@ TEST(ActionChipGeneratorTest,
       ActionChip::New(/*title=*/"Ask about previous tab",
                       /*subtitle=*/"Some Title",
                       /*suggestion=*/"",
-                      /*type=*/ChipType::kRecentTab, /*tab=*/tab_info->Clone());
+                      /*type=*/ChipType::kRecentTab,
+                      SuggestTemplateInfo::New(IconType::kFavicon),
+                      /*tab=*/tab_info->Clone());
 
   EXPECT_THAT(actual,
               ElementsAre(Eq(std::cref(expected_recent_tab_chip)),

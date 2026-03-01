@@ -12,11 +12,11 @@
 #include <vector>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_number_conversions.h"
@@ -39,6 +39,8 @@
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/common/chrome_constants.h"
@@ -59,6 +61,7 @@
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
@@ -71,6 +74,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "net/base/features.h"
 #include "net/base/load_flags.h"
@@ -235,7 +239,7 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextServiceBrowsertest, BrotliEnabled) {
   std::vector<std::string> encodings =
       base::SplitString(*simple_loader_helper.response_body(), ",",
                         base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-  EXPECT_TRUE(base::Contains(encodings, "br"));
+  EXPECT_TRUE(std::ranges::contains(encodings, "br"));
 }
 
 void CheckCacheResetStatus(base::HistogramTester* histograms, bool reset) {
@@ -758,52 +762,6 @@ IN_PROC_BROWSER_TEST_F(ProfileNetworkContextTrustTokensBrowsertest,
   EXPECT_EQ(false, EvalJs(GetActiveWebContents(), command));
 }
 
-class ReportingEndpointsPolicyTest : public policy::PolicyTest {
- public:
-  void SetUpInProcessBrowserTestFixture() override {
-    scoped_feature_list_.InitAndEnableFeature(
-        net::features::kReportingApiEnableEnterpriseCookieIssues);
-    policy::PolicyTest::SetUpInProcessBrowserTestFixture();
-  }
-
-  void UpdateReportingEndpointsPolicy(base::Value::Dict dict) {
-    SetPolicy(&policies_, policy::key::kReportingEndpoints,
-              base::Value(std::move(dict)));
-    UpdateProviderPolicy(policies_);
-  }
-
- private:
-  policy::PolicyMap policies_;
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(ReportingEndpointsPolicyTest,
-                       CheckEnterpriseEndpointsNetworkContextParamsSet) {
-  network::mojom::NetworkContextParams network_context_params;
-  EXPECT_FALSE(
-      network_context_params.enterprise_reporting_endpoints.has_value());
-  UpdateReportingEndpointsPolicy(
-      base::Value::Dict()
-          .Set("endpoint-1", "https://example.com/reports")
-          .Set("endpoint-2", "https://reporting.example/cookie-issues")
-          .Set("endpoint-3", "https://report-collector.example"));
-  ProfileNetworkContextService* profile_network_context_service =
-      ProfileNetworkContextServiceFactory::GetForContext(browser()->profile());
-  base::FilePath empty_relative_partition_path;
-  cert_verifier::mojom::CertVerifierCreationParams
-      cert_verifier_creation_params;
-  profile_network_context_service->ConfigureNetworkContextParams(
-      /*in_memory=*/false, empty_relative_partition_path,
-      &network_context_params, &cert_verifier_creation_params);
-  base::flat_map<std::string, GURL> expected_enterprise_endpoints{
-      {"endpoint-1", GURL("https://example.com/reports")},
-      {"endpoint-2", GURL("https://reporting.example/cookie-issues")},
-      {"endpoint-3", GURL("https://report-collector.example")},
-  };
-  EXPECT_EQ(expected_enterprise_endpoints,
-            network_context_params.enterprise_reporting_endpoints);
-}
-
 // Base class for testing Cache Encryption with policy.
 // Subclasses must implement GetCacheEncryptionPolicyValue().
 class CacheEncryptionPolicyTestBase : public InProcessBrowserTest {
@@ -921,22 +879,84 @@ class CacheEncryptionDisabledByPolicyTest
 
 IN_PROC_BROWSER_TEST_F(CacheEncryptionEnabledByPolicyTest,
                        BackendInitializesWithPolicyEnabled) {
+  // This test verifies that for the initial, default profile, the cache is
+  // initialized correctly on startup.
   VerifyCacheBackendInitialized();
   PrefService* prefs = browser()->profile()->GetPrefs();
   ASSERT_TRUE(prefs);
+  EXPECT_FALSE(
+      prefs->GetString(enterprise_connectors::kEncryptedCachePrimaryKey)
+          .empty());
   EXPECT_TRUE(
       prefs->GetBoolean(enterprise_connectors::kCacheEncryptionEnabledPref));
   EXPECT_TRUE(prefs->IsManagedPreference(
       enterprise_connectors::kCacheEncryptionEnabledPref));
 }
 
+#if !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(CacheEncryptionEnabledByPolicyTest,
+                       InitializesAndSetsKeyOnFirstUse) {
+  // This test creates a new profile to ensure that the cache initialization
+  // happens within the test body, which is required for code coverage.
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  base::FilePath new_profile_path = profile_manager->user_data_dir().Append(
+      FILE_PATH_LITERAL("NewTestProfile"));
+
+  // Create the profile.
+  Profile& new_profile =
+      profiles::testing::CreateProfileSync(profile_manager, new_profile_path);
+
+  PrefService* prefs = new_profile.GetPrefs();
+  ASSERT_TRUE(prefs);
+  // The key should not exist before the cache is initialized.
+  EXPECT_TRUE(prefs->GetString(enterprise_connectors::kEncryptedCachePrimaryKey)
+                  .empty());
+
+  // Create a browser for the new profile and navigate to trigger cache init.
+  Browser* new_browser = CreateBrowser(&new_profile);
+  GURL url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(new_browser, url));
+  content::RunAllTasksUntilIdle();
+  new_profile.GetDefaultStoragePartition()->FlushNetworkInterfaceForTesting();
+  content::RunAllTasksUntilIdle();
+
+  // After initialization, the key should have been created and stored.
+  EXPECT_FALSE(
+      prefs->GetString(enterprise_connectors::kEncryptedCachePrimaryKey)
+          .empty());
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
 IN_PROC_BROWSER_TEST_F(CacheEncryptionDisabledByPolicyTest,
                        BackendInitializesWithPolicyDisabled) {
-  VerifyCacheBackendInitialized();
   PrefService* prefs = browser()->profile()->GetPrefs();
   ASSERT_TRUE(prefs);
+  // The key pref should not exist before the cache is initialized.
+  EXPECT_FALSE(
+      prefs->HasPrefPath(enterprise_connectors::kEncryptedCachePrimaryKey));
+
+  VerifyCacheBackendInitialized();
+
+  // The key pref should still not exist if encryption is disabled.
+  EXPECT_FALSE(
+      prefs->HasPrefPath(enterprise_connectors::kEncryptedCachePrimaryKey));
+
   EXPECT_FALSE(
       prefs->GetBoolean(enterprise_connectors::kCacheEncryptionEnabledPref));
   EXPECT_TRUE(prefs->IsManagedPreference(
       enterprise_connectors::kCacheEncryptionEnabledPref));
+}
+
+IN_PROC_BROWSER_TEST_F(CacheEncryptionDisabledByPolicyTest,
+                       KeyPrefIsNotStoredWhenPolicyIsDisabled) {
+  // The pref should not be stored at all, if the policy is disabled.
+
+  PrefService* prefs = browser()->profile()->GetPrefs();
+  ASSERT_TRUE(prefs);
+  EXPECT_FALSE(
+      prefs->GetBoolean(enterprise_connectors::kCacheEncryptionEnabledPref));
+  EXPECT_TRUE((prefs->IsManagedPreference(
+      enterprise_connectors::kCacheEncryptionEnabledPref)));
+  EXPECT_FALSE(
+      prefs->HasPrefPath(enterprise_connectors::kEncryptedCachePrimaryKey));
 }

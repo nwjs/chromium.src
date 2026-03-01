@@ -34,7 +34,6 @@ mojom("mojom_platform") {
     "ai/ai_rewriter.mojom",
     "ai/ai_summarizer.mojom",
     "ai/ai_writer.mojom",
-    "ai/model_download_progress_observer.mojom",
     "ai/model_streaming_responder.mojom",
     "annotation/annotation.mojom",
     "app_banner/app_banner.mojom",
@@ -164,7 +163,6 @@ mojom("mojom_platform") {
     "mediastream/media_stream.mojom",
     "mime/mime_registry.mojom",
     "navigation/navigation_api_history_entry_arrays.mojom",
-    "navigation/navigation_initiator_activation_and_ad_status.mojom",
     "navigation/navigation_policy.mojom",
     "navigation/prefetched_signed_exchange_info.mojom",
     "navigation/renderer_content_settings.mojom",
@@ -1260,6 +1258,7 @@ mojom("mojom_core") {
     #
     # TODO(crbug.com/1078875): Reorganize how we assign frame/*mojom files to
     # mojom GN targets to match better the core/platform separation in C++.
+    "frame/agent_cluster_key.mojom",
     "frame/back_forward_cache_controller.mojom",
     "frame/blocked_navigation_types.mojom",
     "frame/deferred_fetch_policy.mojom",

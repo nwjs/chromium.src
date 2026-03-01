@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
@@ -35,7 +36,8 @@ import org.robolectric.annotation.LooperMode.Mode;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -54,8 +56,8 @@ public class OmniboxSuggestionsContainerUnitTest {
     private Context mContext;
     private TestOmniboxSuggestionsContainer mContainer;
     private OmniboxAlignment mOmniboxAlignment;
-    private final ObservableSupplierImpl<OmniboxAlignment> mOmniboxAlignmentSupplier =
-            new ObservableSupplierImpl<>();
+    private final SettableNullableObservableSupplier<OmniboxAlignment> mOmniboxAlignmentSupplier =
+            ObservableSuppliers.createNullable();
     private boolean mIsTablet;
     private boolean mAttachedToWindow;
     private boolean mShouldPassThroughUnhandledTouchEvents;
@@ -336,5 +338,19 @@ public class OmniboxSuggestionsContainerUnitTest {
 
         mContainer.onToEdgeChange(0);
         assertEquals(0, mContainer.getPaddingTop());
+    }
+
+    @Test
+    public void setShouldClipToOutline_clipsOutlineWhenSet() {
+        mContainer.setShouldClipToOutline(true);
+        assertTrue(mContainer.getClipToOutline());
+        assertNotNull(mContainer.getOutlineProvider());
+    }
+
+    @Test
+    public void setShouldClipToOutline_doesNotClipOutlineWhenUnset() {
+        mContainer.setShouldClipToOutline(false);
+        assertFalse(mContainer.getClipToOutline());
+        assertNull(mContainer.getOutlineProvider());
     }
 }

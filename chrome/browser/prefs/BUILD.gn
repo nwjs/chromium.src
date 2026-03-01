@@ -62,6 +62,7 @@ source_set("impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser:flags",
     "//chrome/browser/autocomplete:aim_eligibility_service",
+    "//chrome/browser/contextual_cueing",
     "//chrome/browser/devtools",
     "//chrome/browser/gcm",
     "//chrome/browser/media/prefs",
@@ -146,6 +147,7 @@ source_set("impl") {
     "//components/subresource_filter/content/browser",
     "//components/subresource_filter/core/common",
     "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/browser:device_parental_controls",
     "//components/sync_preferences",
     "//components/sync_preferences/cross_device_pref_tracker/prefs",
     "//components/sync_sessions",
@@ -308,7 +310,6 @@ source_set("impl") {
   } else {
     deps += [
       "//chrome/browser/actor/ui",
-      "//chrome/browser/contextual_cueing",
       "//chrome/browser/device_identity",
       "//chrome/browser/promos:utils",
       "//chrome/browser/screen_ai:prefs",
@@ -322,6 +323,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/organization",
+      "//chrome/browser/ui/tabs/projects:impl",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/views/side_panel",
       "//chrome/browser/user_education",
@@ -370,11 +372,11 @@ source_set("impl") {
     deps += [ "//chrome/browser/web_applications" ]
   }
 
-  if (enable_glic || enable_glic_android) {
-    deps += [ "//chrome/browser/glic" ]
-    if (!is_android) {
-      deps += [ "//chrome/browser/background/glic" ]
-    }
+  if (enable_glic) {
+    deps += [
+      "//chrome/browser/background/glic",
+      "//chrome/browser/glic",
+    ]
   }
 
   if (!is_android && !is_chromeos) {

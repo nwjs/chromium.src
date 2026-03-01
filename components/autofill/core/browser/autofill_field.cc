@@ -204,15 +204,6 @@ bool PreferHeuristicOverServer(FieldType heuristic_type,
     return true;
   }
 
-  // AutofillAI predictions overrule local heuristics unless
-  // kAutofillAiPreferModelResponseOverHeuristics is disabled.
-  if (heuristic_type != UNKNOWN_TYPE &&
-      GroupTypeOfFieldType(server_type) == FieldTypeGroup::kAutofillAi &&
-      !base::FeatureList::IsEnabled(
-          features::kAutofillAiPreferModelResponseOverHeuristics)) {
-    return true;
-  }
-
   // Sometimes the server and heuristics disagree on whether a name field
   // should be associated with an address or a credit card. There was a
   // decision to prefer the heuristics in these cases, but it looks like
@@ -796,9 +787,36 @@ bool AutofillField::HasExpirationDateType() const {
   return Type().GetTypes().contains_any(kExpirationDateTypes);
 }
 
-bool AutofillField::ShouldSuppressSuggestionsAndFillingByDefault() const {
-  return html_type_ == HtmlFieldType::kUnrecognized &&
-         !server_type_prediction_is_override() && !IsCreditCardPrediction();
+bool AutofillField::ShouldSuppressSuggestionsAndFillingByDefault(
+    AutocompleteUnrecognizedBehavior ac_unrecognized_behavior) const {
+  // This is an exception - a field was autofilled and then JS on site changed
+  // autocomplete attribute's value to unrecognized. This is done in order to
+  // preserve the ability to swap an autofilled value for a different one.
+  // See crbug.com/469057923 for details.
+  if (is_autofilled() &&
+      base::FeatureList::IsEnabled(
+          features::kShowSugesstionsOnAlreadyAutofilledUnrecognized)) {
+    return false;
+  }
+
+  // The field will not be suppressed (i.e., it will be filled/suggested) if one
+  // of the following is true:
+  // 1. The autocomplete attribute is valid type (that can be seen in the HTML
+  //    spec).
+  // 2. The field's type comes from a server override.
+  // 3. The field type is credit-card-related.
+  if (html_type_ != HtmlFieldType::kUnrecognized ||
+      server_type_prediction_is_override() || IsCreditCardPrediction()) {
+    return false;
+  }
+
+  switch (ac_unrecognized_behavior) {
+    case AutocompleteUnrecognizedBehavior::kSuggestionsSuppressed:
+      return true;
+    case AutocompleteUnrecognizedBehavior::kSuggestionsAllowed:
+      return !base::FeatureList::IsEnabled(
+          features::kAutofillEnableSkippingUnrecognizedAttribute);
+  }
 }
 
 void AutofillField::SetPasswordRequirements(PasswordRequirementsSpec spec) {

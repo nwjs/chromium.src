@@ -6,10 +6,10 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -50,6 +50,7 @@ constexpr auto kDumpProviderAllowlist =
         "DOMStorage",
         "DawnSharedContext",
         "DevTools",
+        "DevtoolsDurableMessageCollectorManager",
         "DiscardableSharedMemoryManager",
         "DownloadService",
         "DawnCache",
@@ -146,6 +147,7 @@ constexpr auto kAllocatorDumpNameAllowlist =
         "cc/tile_memory/provider_0x?",
         "components/download/controller_0x?",
         "devtools/file_watcher_0x?",
+        "devtools/durable_message_collectors",
         "discardable",
         "discardable/madv_free_allocated",
         "discardable/child_0x?",
@@ -217,6 +219,10 @@ constexpr auto kAllocatorDumpNameAllowlist =
         "malloc/partitions/original",
         "malloc/sys_malloc",
         "malloc/win_heap",
+        "partition_alloc/partitions/buffer/",
+        "partition_alloc/partitions/buffer/scheduler_loop_quarantine",
+        "partition_alloc/partitions/buffer/thread_cache",
+        "partition_alloc/partitions/buffer/thread_cache/main_thread",
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
         "media/webmediaplayer/audio/player_0x?",
         "media/webmediaplayer/data_source/player_0x?",
@@ -356,7 +362,8 @@ bool IsMemoryDumpProviderInAllowlist(const char* mdp_name) {
   if (g_dump_provider_allowlist_for_testing.empty()) {
     return kDumpProviderAllowlist.contains(mdp_name);
   } else {
-    return base::Contains(g_dump_provider_allowlist_for_testing, mdp_name);
+    return std::ranges::contains(g_dump_provider_allowlist_for_testing,
+                                 mdp_name);
   }
 }
 
@@ -404,8 +411,8 @@ bool IsMemoryAllocatorDumpNameInAllowlist(const std::string& name) {
   if (g_allocator_dump_name_allowlist_for_testing.empty()) {
     return kAllocatorDumpNameAllowlist.contains(stripped_str);
   } else {
-    return base::Contains(g_allocator_dump_name_allowlist_for_testing,
-                          stripped_str);
+    return std::ranges::contains(g_allocator_dump_name_allowlist_for_testing,
+                                 stripped_str);
   }
 }
 

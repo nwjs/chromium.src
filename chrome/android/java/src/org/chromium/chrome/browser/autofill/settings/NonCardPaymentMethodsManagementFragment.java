@@ -14,8 +14,9 @@ import androidx.preference.PreferenceScreen;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
@@ -62,7 +63,8 @@ public class NonCardPaymentMethodsManagementFragment extends ChromeBaseSettingsF
     @VisibleForTesting static final String PREFERENCE_KEY_A2A = "a2a";
     private final Callback<String> mFinancialAccountManageLinkOpenerCallback =
             url -> CustomTabActivity.showInfoPage(getActivity(), url);
-    private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
+    private final SettableMonotonicObservableSupplier<String> mPageTitle =
+            ObservableSuppliers.createMonotonic();
     private PersonalDataManager mPersonalDataManager;
     private Ewallet @Nullable [] mEwallets;
 
@@ -82,7 +84,7 @@ public class NonCardPaymentMethodsManagementFragment extends ChromeBaseSettingsF
 
     // EmbeddableSettingsPage implementation.
     @Override
-    public ObservableSupplier<String> getPageTitle() {
+    public MonotonicObservableSupplier<String> getPageTitle() {
         return mPageTitle;
     }
 

@@ -15,7 +15,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_promo_util.h"
-#include "chrome/browser/ui/extensions/extension_post_install_dialog_utils.h"
+#include "chrome/browser/ui/extensions/extension_post_install_dialog.h"
 #include "chrome/browser/ui/signin/promos/bubble_signin_promo_delegate.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/views/extensions/extension_post_install_dialog_view_utils.h"
@@ -128,41 +128,6 @@ class ExtensionPostInstallDialogViewUtilsSignInBrowserTest
   base::test::ScopedFeatureList feature_list_;
 };
 
-// Test that by default, signing in from the extension post-install bubble will
-// sign the user into sync.
-IN_PROC_BROWSER_TEST_F(ExtensionPostInstallDialogViewUtilsSignInBrowserTest,
-                       BubbleSignsIntoSync) {
-  // The default browser created for tests start with one tab open on
-  // about:blank.  The sign-in page is a singleton that will replace this tab.
-  // This function replaces about:blank with another URL so that the sign in
-  // page goes into a new tab.
-  ShowSingletonTabOverwritingNTP(browser(), GURL("chrome:version"),
-                                 NavigateParams::IGNORE_AND_NAVIGATE);
-
-  // Load a syncable extension.
-  auto extension = LoadPackedExtension("simple_with_file");
-  ASSERT_TRUE(extension);
-
-  views::Widget* bubble_view_widget = ShowBubble(extension);
-  ASSERT_TRUE(bubble_view_widget);
-  ASSERT_TRUE(bubble_view_widget->widget_delegate());
-
-  // The sync promo should be shown for a syncable extension.
-  EXPECT_TRUE(
-      signin::ShouldShowExtensionSyncPromo(*browser()->profile(), *extension));
-
-  // Simulate a user signing in from the promo. This should open up a new tab
-  // with the sign in page.
-  int starting_tab_count = browser()->tab_strip_model()->count();
-  BubbleSignInPromoDelegate delegate(
-      *browser()->tab_strip_model()->GetActiveWebContents(),
-      signin_metrics::AccessPoint::kExtensionInstallBubble,
-      syncer::LocalDataItemModel::DataId(extension->id()));
-  delegate.OnSignIn(AccountInfo());
-
-  EXPECT_EQ(starting_tab_count + 1, browser()->tab_strip_model()->count());
-}
-
 // Test that users can perform an explicit sign in through the extension
 // installed promo in transport mode.
 IN_PROC_BROWSER_TEST_F(ExtensionPostInstallDialogViewUtilsSignInBrowserTest,
@@ -214,9 +179,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionPostInstallDialogViewUtilsSignInBrowserTest,
   // syncing for extensions is enabled.
   EXPECT_TRUE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
-  EXPECT_FALSE(
-      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
-
   EXPECT_TRUE(extensions::sync_util::IsSyncingExtensionsEnabled(profile()));
 
   // Due to the long delay, the old extensions should not be promoted to an
@@ -254,8 +216,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionPostInstallDialogViewUtilsSignInBrowserTest,
   // extensions should not be syncing.
   EXPECT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
-  EXPECT_FALSE(
-      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
   EXPECT_FALSE(extensions::sync_util::IsSyncingExtensionsEnabled(profile()));
 
   // Now simulate signing into chrome via the extension promo for the given

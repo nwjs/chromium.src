@@ -66,8 +66,6 @@ class PrerenderHostObserver {
   // Begins observing the given PrerenderHost immediately. DCHECKs if |host_id|
   // does not identify a live PrerenderHost.
   PrerenderHostObserver(WebContents& web_contents, PrerenderHostId host_id);
-  // Deprecated: Use the PrerenderHostId version.
-  PrerenderHostObserver(WebContents& web_contents, FrameTreeNodeId host_id);
 
   // Will start observing a PrerenderHost for |url| as soon as it is
   // triggered.
@@ -195,7 +193,8 @@ class PrerenderTestHelper {
       std::optional<std::string> no_vary_search_hint,
       const std::string& target_hint,
       std::optional<std::string> ruleset_tag = std::nullopt,
-      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
+      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL,
+      std::optional<bool> form_submission = std::nullopt);
   // AddPrerenderAsync() is the same as AddPrerender(), but does not wait until
   // the completion of prerendering.
   void AddPrerenderAsync(const GURL& prerendering_url,
@@ -211,7 +210,8 @@ class PrerenderTestHelper {
       std::optional<std::string> no_vary_search_hint,
       const std::string& target_hint,
       std::optional<std::string> ruleset_tag = std::nullopt,
-      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
+      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL,
+      std::optional<bool> form_submission = std::nullopt);
   void AddPrerenderUntilScriptAsync(
       const GURL& url,
       blink::mojom::SpeculationEagerness eagerness =

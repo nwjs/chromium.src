@@ -73,11 +73,6 @@
 
 using blink::mojom::ConsoleMessageLevel;
 
-#if defined(OS_MAC)
-#include "content/public/browser/browser_plugin_guest_manager.h"
-#include "extensions/browser/process_manager.h"
-#endif
-
 #include "extensions/browser/extension_host.h"
 //#include "extensions/common/extension_messages.h"
 
@@ -107,7 +102,7 @@ const int kDefaultHeight = 384;
 
 void SetConstraintProperty(const std::string& name,
                            int value,
-                           base::Value::Dict* bounds_properties) {
+                           base::DictValue* bounds_properties) {
   DCHECK(bounds_properties);
   if (value != SizeConstraints::kUnboundedSize)
     bounds_properties->Set(name, value);
@@ -119,9 +114,9 @@ void SetBoundsProperties(const gfx::Rect& bounds,
                          const gfx::Size& min_size,
                          const gfx::Size& max_size,
                          const std::string& bounds_name,
-                         base::Value::Dict* window_properties) {
+                         base::DictValue* window_properties) {
   DCHECK(window_properties);
-  base::Value::Dict bounds_properties;
+  base::DictValue bounds_properties;
 
   bounds_properties.Set("left", bounds.x());
   bounds_properties.Set("top", bounds.y());
@@ -315,7 +310,7 @@ AppWindow::AppWindow(BrowserContext* context,
 }
 
 void AppWindow::LoadingStateChanged(content::WebContents* source, bool to_different_document) {
-  base::Value::List args;
+  base::ListValue args;
   if (source->IsLoading()) {
     args.Append("loading");
     last_to_different_document_ = to_different_document;
@@ -375,6 +370,7 @@ void AppWindow::Init(const GURL& url,
   WebContentsModalDialogManager::CreateForWebContents(web_contents());
 
   web_contents()->SetDelegate(this);
+  web_contents()->SetIgnoreZoomGestures(true);
   WebContentsModalDialogManager::FromWebContents(web_contents())
       ->SetDelegate(this);
 
@@ -571,32 +567,6 @@ void AppWindow::RequestPointerLock(WebContents* web_contents,
   helper_->RequestPointerLock();
 }
 
-bool AppWindow::PreHandleGestureEvent(WebContents* source,
-                                      const blink::WebGestureEvent& event) {
-#if defined(OS_MAC)
-  // Disable "smart zoom" (double-tap with two fingers on Mac trackpad)
-  // for the PDF viewer, otherwise the viewer's controls will be scaled off
-  // screen.
-  // TODO(mcnee): Investigate having the PDF viewer handle the gesture
-  // once it is a service. crbug.com/757541
-  if (event.GetType() == blink::WebInputEvent::Type::kGestureDoubleTap) {
-    content::BrowserPluginGuestManager* guest_manager =
-        source->GetBrowserContext()->GetGuestManager();
-    if (guest_manager) {
-      content::WebContents* guest_contents = guest_manager->GetFullPageGuest(source);
-      if (guest_contents) {
-        const extensions::Extension* extension =
-            extensions::ProcessManager::Get(guest_contents->GetBrowserContext())
-                ->GetExtensionForWebContents(guest_contents);
-        if (extension && extension->id() == extension_misc::kPdfExtensionId)
-          return true;
-      }
-    }
-  }
-#endif  // defined(OS_MAC)
-  return false;
-}
-
 content::PictureInPictureResult AppWindow::EnterPictureInPicture(
     content::WebContents* web_contents) {
   return app_delegate_->EnterPictureInPicture(web_contents);
@@ -643,7 +613,7 @@ bool AppWindow::NWCanClose(bool user_force) const {
                               rfh->GetFrameToken().ToString(),
                               &listener_extension_id);
   if (listening_to_close) {
-    base::Value::List args;
+    base::ListValue args;
     if (user_force)
       args.Append("quit");
     ExtensionWebContentsObserver::GetForWebContents(web_contents())
@@ -954,7 +924,7 @@ void AppWindow::RestoreAlwaysOnTop() {
     UpdateNativeAlwaysOnTop();
 }
 
-void AppWindow::GetSerializedState(base::Value::Dict* properties) const {
+void AppWindow::GetSerializedState(base::DictValue* properties) const {
   DCHECK(properties);
 
   properties->Set("resizable", native_app_window_->IsResizable());

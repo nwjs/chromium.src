@@ -16,8 +16,8 @@
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/syslog_logging.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/default_clock.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/ash/account_manager/account_manager_util.h"
 #include "chrome/browser/ash/app_list/app_list_client_impl.h"
@@ -37,7 +37,6 @@
 #include "chrome/browser/ash/profiles/signin_profile_handler.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -374,16 +373,16 @@ void InitFeaturesSessionType(const user_manager::User* user) {
 }  // namespace
 
 ChromeSessionManager::ChromeSessionManager(
-    std::unique_ptr<session_manager::SessionManagerDelegate> delegate)
-    : session_manager::SessionManager(std::move(delegate)),
+    session_manager::SessionManager* session_manager)
+    : session_manager_(CHECK_DEREF(session_manager)),
       oobe_configuration_(std::make_unique<OobeConfiguration>()),
-      user_session_initializer_(std::make_unique<UserSessionInitializer>()) {
-  AddObserver(user_session_initializer_.get());
+      user_session_initializer_(
+          std::make_unique<UserSessionInitializer>(session_manager)) {
+  CHECK(session_manager);
+  observation_.Observe(session_manager);
 }
 
-ChromeSessionManager::~ChromeSessionManager() {
-  RemoveObserver(user_session_initializer_.get());
-}
+ChromeSessionManager::~ChromeSessionManager() = default;
 
 // static
 void ChromeSessionManager::RegisterPrefs(PrefRegistrySimple* registry) {
@@ -393,7 +392,8 @@ void ChromeSessionManager::RegisterPrefs(PrefRegistrySimple* registry) {
 
 void ChromeSessionManager::OnUserManagerCreated(
     user_manager::UserManager* user_manager) {
-  SessionManager::OnUserManagerCreated(user_manager);
+  CHECK(!user_manager_);
+  user_manager_ = user_manager;
 
   // Record the stored session length for enrolled device.
   if (ash::InstallAttributes::Get()->IsEnterpriseManaged()) {
@@ -431,7 +431,7 @@ void ChromeSessionManager::Initialize(
   }
 
   if (base::FeatureList::IsEnabled(arc::kEnableArcVmDataMigration) &&
-      MaybeStartArcVmDataMigration(user_manager(), profile)) {
+      MaybeStartArcVmDataMigration(user_manager_, profile)) {
     return;
   }
 
@@ -461,7 +461,7 @@ void ChromeSessionManager::Initialize(
     StartLoginOobeSession();
   } else {
     VLOG(1) << "Starting Chrome with a user session.";
-    StartUserSession(user_manager(), profile, login_account_id.GetUserEmail());
+    StartUserSession(user_manager_, profile, login_account_id.GetUserEmail());
   }
 }
 
@@ -474,44 +474,29 @@ void ChromeSessionManager::Shutdown() {
         session_length_limiter_->GetSessionDuration();
     if (!session_length.is_zero()) {
       enterprise_user_session_metrics::StoreSessionLength(
-          user_manager()->GetActiveUser()->GetType(), session_length);
+          user_manager_->GetActiveUser()->GetType(), session_length);
     }
   }
   session_length_limiter_.reset();
 }
 
-void ChromeSessionManager::SessionStarted() {
-  session_manager::SessionManager::SessionStarted();
-  SetSessionState(session_manager::SessionState::ACTIVE);
-
-  // Notifies UserManager so that it can update login state.
-  user_manager()->OnSessionStarted();
-}
-
-void ChromeSessionManager::OnSessionCreated(bool browser_restart) {
-  if (user_manager()->GetLoggedInUsers().size() == 1) {
-    InitFeaturesSessionType(user_manager()->GetPrimaryUser());
+void ChromeSessionManager::OnSessionCreated(const AccountId& account_id) {
+  bool is_primary_user_session = user_manager_->GetLoggedInUsers().size() == 1;
+  if (is_primary_user_session) {
+    InitFeaturesSessionType(user_manager_->FindUser(account_id));
   }
+
+  // TODO(crbug.com/478739999): Revisit here for the combination of
+  // multi-user sign-in and session length limiting.
+  bool browser_restart = is_primary_user_session &&
+                         base::CommandLine::ForCurrentProcess()->HasSwitch(
+                             ash::switches::kLoginUser);
 
   // Initialize the session length limiter and start it only if
   // session limit is defined by the policy.
   session_length_limiter_ = std::make_unique<SessionLengthLimiter>(
-      /*delegate=*/nullptr, browser_restart);
-}
-
-void ChromeSessionManager::OnUsersSignInConstraintsChanged() {
-  const user_manager::UserList& logged_in_users =
-      user_manager()->GetLoggedInUsers();
-  for (user_manager::User* user : logged_in_users) {
-    if (user->IsDeviceLocalAccount()) {
-      continue;
-    }
-    if (!user_manager()->IsUserAllowed(*user)) {
-      SYSLOG(ERROR)
-          << "The current user is not allowed, terminating the session.";
-      chrome::AttemptUserExit();
-    }
-  }
+      base::DefaultClock::GetInstance(), &session_manager_.get(),
+      browser_restart);
 }
 
 }  // namespace ash

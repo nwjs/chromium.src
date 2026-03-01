@@ -44,7 +44,10 @@ suite('IdentityDocsPage', function() {
    {identityDocsOptIn: false},
   ].forEach(({identityDocsOptIn}) => {
     test(`Toggle should show current opt-in status`, async function() {
-      loadTimeData.overrideValues({userEligibleForAutofillAi: true});
+      loadTimeData.overrideValues({
+        userEligibleForAutofillAi: true,
+        autofillAiAvailableByDefault: false,
+      });
 
       entityDataManager.setGetOptInStatusResponse(true);
 
@@ -108,6 +111,33 @@ suite('IdentityDocsPage', function() {
         });
   });
 
+  [{canEnableOrDisableAutofillAi: true},
+   {canEnableOrDisableAutofillAi: false},
+  ].forEach(({canEnableOrDisableAutofillAi}) => {
+    test(
+        'When Autofill AI is available by default ' +
+            '(autofillAiAvailableByDefault is true) the toggle ' +
+            'availability depends on ' +
+            'canEnableOrDisableAutofillAi, not on the opt-in status: ' +
+            `canEnableOrDisableAutofillAi(${canEnableOrDisableAutofillAi})`,
+        async function() {
+          loadTimeData.overrideValues({
+            userEligibleForAutofillAi: false,
+            autofillAiAvailableByDefault: true,
+            canEnableOrDisableAutofillAi: canEnableOrDisableAutofillAi,
+          });
+
+          entityDataManager = new TestEntityDataManagerProxy();
+          EntityDataManagerProxyImpl.setInstance(entityDataManager);
+          entityDataManager.setGetOptInStatusResponse(false);
+
+          const page = await setupPage();
+
+          assertEquals(
+              page.$.optInToggle.disabled, !canEnableOrDisableAutofillAi);
+        });
+  });
+
   [{identityDocsOptIn: true},
    {identityDocsOptIn: false},
   ].forEach(({identityDocsOptIn}) => {
@@ -161,6 +191,7 @@ suite('IdentityDocsPage', function() {
           loadTimeData.overrideValues({
             userEligibleForAutofillAi: true,
             AutofillAiIgnoresWhetherAddressFillingIsEnabled: experimentEnabled,
+            autofillAiAvailableByDefault: false,
           });
 
           entityDataManager.setGetOptInStatusResponse(true);

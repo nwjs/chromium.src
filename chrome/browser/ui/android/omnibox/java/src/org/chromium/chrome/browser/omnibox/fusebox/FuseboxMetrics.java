@@ -5,12 +5,15 @@
 package org.chromium.chrome.browser.omnibox.fusebox;
 
 import android.annotation.SuppressLint;
+import android.os.SystemClock;
 
 import androidx.annotation.IntDef;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.components.feature_engagement.EventConstants;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -21,6 +24,10 @@ import java.lang.annotation.Target;
 import java.util.Arrays;
 
 public class FuseboxMetrics {
+    private static final String ABANDONED_HISTOGRAM = "Omnibox.MobileFusebox.AttachmentAbandoned";
+    private static final String FAILED_HISTOGRAM = "Omnibox.MobileFusebox.AttachmentFailed";
+    private static final String SUCCEEDED_HISTOGRAM = "Omnibox.MobileFusebox.AttachmentSucceeded";
+    private static final String TOKEN_SEPARATOR = ".";
 
     // LINT.IfChange(AiModeActivationSource)
     @IntDef({
@@ -83,7 +90,8 @@ public class FuseboxMetrics {
                 AiModeActivationSource.COUNT);
     }
 
-    static void notifyAttachmentsPopupToggled(boolean toShowPopup, PropertyModel model) {
+    static void notifyAttachmentsPopupToggled(
+            boolean toShowPopup, PropertyModel model, Tracker tracker) {
         RecordHistogram.recordBooleanHistogram(
                 "Omnibox.MobileFusebox.AttachmentsPopupToggled", toShowPopup);
         if (toShowPopup) {
@@ -92,6 +100,7 @@ public class FuseboxMetrics {
                     notifyAttachmentButtonShown(buttonType);
                 }
             }
+            tracker.notifyEvent(EventConstants.FUSEBOX_ATTACHMENT_POPUP_USED);
         }
 
         sAttachmentsPopupButtonUsedInSession = true;
@@ -154,6 +163,18 @@ public class FuseboxMetrics {
         Arrays.fill(sAttachmentButtonsUsedInSession, false);
     }
 
+    static void notifyAttachmentAbandoned(long startTime, @FuseboxAttachmentButtonType int type) {
+        notifyAttachmentTime(startTime, type, ABANDONED_HISTOGRAM);
+    }
+
+    static void notifyAttachmentFailed(long startTime, @FuseboxAttachmentButtonType int type) {
+        notifyAttachmentTime(startTime, type, FAILED_HISTOGRAM);
+    }
+
+    static void notifyAttachmentSucceeded(long startTime, @FuseboxAttachmentButtonType int type) {
+        notifyAttachmentTime(startTime, type, SUCCEEDED_HISTOGRAM);
+    }
+
     @SuppressLint("SwitchIntDef") // COUNT entry missing
     private static String getStringForAttachmentType(
             @FuseboxAttachmentButtonType int attachmentType) {
@@ -176,13 +197,26 @@ public class FuseboxMetrics {
             case FuseboxAttachmentButtonType.TAB_PICKER ->
                     ChromeFeatureList.sChromeItemPickerUi.isEnabled();
             case FuseboxAttachmentButtonType.CURRENT_TAB ->
-                    model.get(FuseboxProperties.CURRENT_TAB_BUTTON_VISIBLE);
+                    model.get(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_VISIBLE);
             case FuseboxAttachmentButtonType.CLIPBOARD ->
-                    model.get(FuseboxProperties.POPUP_CLIPBOARD_BUTTON_VISIBLE);
+                    model.get(FuseboxProperties.POPUP_ATTACH_CLIPBOARD_VISIBLE);
             case FuseboxAttachmentButtonType.FILES ->
-                    model.get(FuseboxProperties.POPUP_FILE_BUTTON_VISIBLE);
+                    model.get(FuseboxProperties.POPUP_ATTACH_FILE_VISIBLE);
             default -> false;
         };
+    }
+
+    private static void notifyAttachmentTime(
+            long startTime, @FuseboxAttachmentButtonType int type, String genericHistogram) {
+        long duration = SystemClock.elapsedRealtime() - startTime;
+        RecordHistogram.recordMediumTimesHistogram(genericHistogram, duration);
+        String typeHistogram = typeScopedHistogram(genericHistogram, type);
+        RecordHistogram.recordMediumTimesHistogram(typeHistogram, duration);
+    }
+
+    private static String typeScopedHistogram(
+            String baseHistogram, @FuseboxAttachmentButtonType int type) {
+        return baseHistogram + TOKEN_SEPARATOR + getStringForAttachmentType(type);
     }
 
     static void resetForTesting() {

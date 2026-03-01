@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/promos/ios_promo_controller.h"
 
 #include "base/functional/bind.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -14,9 +15,11 @@
 #include "chrome/browser/ui/promos/ios_promos_utils.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/common/pref_names.h"
 #include "components/desktop_to_mobile_promos/features.h"
 #include "components/desktop_to_mobile_promos/promos_types.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/prefs/pref_service.h"
 #include "components/sync_device_info/device_info.h"
 #include "ui/views/widget/widget.h"
 
@@ -37,6 +40,10 @@ const base::Feature& FeatureForIOSPromoType(PromoType promo_type) {
       return feature_engagement::kIPHiOSEnhancedBrowsingDesktopFeature;
     case PromoType::kLens:
       return feature_engagement::kIPHiOSLensPromoDesktopFeature;
+    case PromoType::kTabGroups:
+      return feature_engagement::kIPHiOSTabGroupsDesktopFeature;
+    case PromoType::kPriceTracking:
+      return feature_engagement::kIPHiOSPriceTrackingDesktopFeature;
   }
 }
 
@@ -65,6 +72,13 @@ IOSPromoController* IOSPromoController::From(
 }
 
 void IOSPromoController::OnPromoTriggered(PromoType promo_type) {
+  // TODO(crbug.com/485862381): Remove once check is integrated with user
+  // education system.
+  PrefService* local_state = g_browser_process->local_state();
+  if (local_state && !local_state->GetBoolean(prefs::kPromotionsEnabled)) {
+    return;
+  }
+
   BrowserWindow* window = browser_->window();
   // Don't show the promo if the toolbar is not visible.
   if (!window || !window->IsToolbarVisible()) {
@@ -112,6 +126,12 @@ bool IOSPromoController::ShouldShowPromo(PromoType promo_type) {
       break;
     case PromoType::kLens:
       feature_type = MobilePromoOnDesktopPromoType::kLensPromo;
+      break;
+    case PromoType::kTabGroups:
+      feature_type = MobilePromoOnDesktopPromoType::kTabGroups;
+      break;
+    case PromoType::kPriceTracking:
+      feature_type = MobilePromoOnDesktopPromoType::kPriceTracking;
       break;
     case PromoType::kAddress:
     case PromoType::kPayment:

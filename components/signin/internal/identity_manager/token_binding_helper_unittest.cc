@@ -41,6 +41,7 @@ namespace {
 
 using GenerateAssertionFuture = base::test::TestFuture<std::string>;
 using ::base::test::ErrorIs;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Return;
 
@@ -292,6 +293,9 @@ TEST_F(TokenBindingHelperTest, StartGarbageCollectionDeletesUnusedKeys) {
   EXPECT_CALL(*unused_unexportable_key_new, GetCreationTime())
       .WillOnce(Return(base::Time::Now()));
 
+  auto* raw_unused_unexportable_key1 = unused_unexportable_key1.get();
+  auto* raw_unused_unexportable_key2 = unused_unexportable_key2.get();
+
   EXPECT_CALL(mock_key_provider, GetAllSigningKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
@@ -307,20 +311,9 @@ TEST_F(TokenBindingHelperTest, StartGarbageCollectionDeletesUnusedKeys) {
   helper().StartGarbageCollection({used_wrapped_key_in_db});
 
   EXPECT_CALL(mock_key_provider,
-              DeleteSigningKeySlowly(Eq(unused_wrapped_key1)))
-      .WillOnce(Return(true));
-  EXPECT_CALL(mock_key_provider,
-              DeleteSigningKeySlowly(Eq(unused_wrapped_key2)))
-      .WillOnce(Return(true));
-  EXPECT_CALL(mock_key_provider,
-              DeleteSigningKeySlowly(Eq(used_wrapped_key_in_memory)))
-      .Times(0);
-  EXPECT_CALL(mock_key_provider,
-              DeleteSigningKeySlowly(Eq(used_wrapped_key_in_db)))
-      .Times(0);
-  EXPECT_CALL(mock_key_provider,
-              DeleteSigningKeySlowly(Eq(unused_wrapped_key_new)))
-      .Times(0);
+              DeleteSigningKeysSlowly(ElementsAre(
+                  raw_unused_unexportable_key1, raw_unused_unexportable_key2)))
+      .WillOnce(Return(2));
   RunBackgroundTasks();
 
   histogram_tester().ExpectUniqueSample(

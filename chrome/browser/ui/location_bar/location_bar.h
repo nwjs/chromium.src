@@ -13,8 +13,12 @@
 #include "base/time/time.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
+class Browser;
+class ChipController;
 class CommandUpdater;
 class LocationBarModel;
 class LocationBarTesting;
@@ -27,6 +31,10 @@ struct AnchorConfiguration;
 
 namespace content {
 class WebContents;
+}
+
+namespace ui {
+class TrackedElement;
 }
 
 // The LocationBar class is a virtual interface, defining access to the
@@ -94,6 +102,9 @@ class LocationBar {
   virtual std::optional<bubble_anchor_util::AnchorConfiguration>
   GetChipAnchor() = 0;
 
+  // Controls the chip in the LocationBar.
+  virtual ChipController* GetChipController() = 0;
+
   // Called when anything has changed that might affect the layout or contents
   // of the views around the edit, including the text of the edit and the
   // status of any keyword- or hint-related state.
@@ -104,6 +115,52 @@ class LocationBar {
 
   CommandUpdater* command_updater() { return command_updater_; }
   const CommandUpdater* command_updater() const { return command_updater_; }
+
+  // Warning: this may be null if the location bar is not visible.
+  // Gets an anchor for the entire location bar.
+  virtual ui::TrackedElement* GetAnchorOrNull() = 0;
+
+  // Returns the Browser object this is for. This may be nullptr sometimes;
+  // known cases include captive portals on ChromeOS and
+  // PresentationReceiverWindowView.
+  virtual Browser* GetBrowser() = 0;
+
+  // Returns true if the location bar is visible.
+  virtual bool IsVisible() const = 0;
+
+  // True if the location bar is drawn on screen; this is basically a recursive
+  // equivalent of IsVisible() that also checks the parent UI elements.
+  virtual bool IsDrawn() const = 0;
+
+  // True if the top-level window this location bar is on is in a full-screen
+  // mode.
+  virtual bool IsTopLevelFullscreen() const = 0;
+
+  // Returns true if corresponding omnibox is editing text or empty.
+  virtual bool IsEditingOrEmpty() const = 0;
+
+  // Tells whatever UI system is used that it should recompute sizes of things.
+  virtual void InvalidateLayout() = 0;
+
+  // Returns the the location bar's bounds; see views::View::bounds().
+  virtual gfx::Rect Bounds() const = 0;
+
+  // Returns the minimum size of the location bar.
+  virtual gfx::Size MinimumSize() const = 0;
+
+  // Returns the preferred size of the location bar.
+  virtual gfx::Size PreferredSize() const = 0;
+
+  // Updates the controller, and, if `contents` is non-null, restores saved
+  // state that the tab holds.
+  virtual void Update(content::WebContents* contents) = 0;
+
+  // Clears the location bar's state for `contents`.
+  virtual void ResetTabState(content::WebContents* contents) = 0;
+
+  // Returns true if the location bar's current security state does not match
+  // the currently visible state.
+  virtual bool HasSecurityStateChanged() = 0;
 
   // Returns a pointer to the testing interface.
   virtual LocationBarTesting* GetLocationBarForTesting() = 0;

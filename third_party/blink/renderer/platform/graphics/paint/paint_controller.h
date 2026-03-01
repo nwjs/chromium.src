@@ -84,6 +84,7 @@ struct SubsequencesData {
 };
 
 class PaintController;
+struct TrackedElementRect;
 
 class PLATFORM_EXPORT PaintControllerPersistentData
     : public GarbageCollected<PaintControllerPersistentData> {
@@ -178,6 +179,10 @@ class PLATFORM_EXPORT PaintController {
   void RecordRegionCaptureData(const DisplayItemClient& client,
                                const RegionCaptureCropId& crop_id,
                                const gfx::Rect& rect);
+
+  void RecordTrackedElementData(const DisplayItemClient& client,
+                                const TrackedElementRect& tracked_element_rect,
+                                const gfx::Rect& rect);
 
   void RecordScrollHitTestData(
       const DisplayItemClient&,

@@ -38,6 +38,13 @@ enum class RebindReceiverEvent {
 
 BASE_DECLARE_FEATURE(kRebindPreconnectReceivers);
 BASE_DECLARE_FEATURE_PARAM(RebindReceiverEvent, kRebindReceiverEvent);
+
+BASE_DECLARE_FEATURE(kAdjustPreconnectRetryInterval);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectRetryInterval);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectBackoffBaseTime);
+BASE_DECLARE_FEATURE_PARAM(double, kPreconnectBackoffMultiplier);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectNetworkChangeInterval);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kPreconnectInitialRetryInterval);
 }  // namespace features
 
 // Class to keep track of the current visibility. It is used to determine if the

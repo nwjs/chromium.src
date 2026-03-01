@@ -45,6 +45,15 @@ class CORE_EXPORT BoxFragmentPainter : public BoxPainterBase {
                      const PhysicalBoxFragment& fragment,
                      InlinePaintContext* inline_context);
 
+  // Paints a highlight overlay for elements identified as ads. This supports
+  // the "Highlight ads" feature in DevTools.
+  static void PaintAdHighlightIfNeeded(
+      const PaintInfo& paint_info,
+      const PhysicalOffset& paint_offset,
+      const PhysicalBoxFragment& fragment,
+      const DisplayItemClient& display_item_client,
+      PaintPhase phase);
+
   // Paint a fragment. This normally just creates a BoxFragmentPainter and calls
   // Paint(), but certain object types require custom painters (such as replaced
   // content).
@@ -204,6 +213,12 @@ class CORE_EXPORT BoxFragmentPainter : public BoxPainterBase {
                                const DisplayItemClient& background_client);
 
   bool ShouldRecordHitTestData(const PaintInfo&);
+
+  static void RecordRegionCaptureAndTrackedElementData(
+      Element* element,
+      const PaintInfo& paint_info,
+      const PhysicalRect& paint_rect,
+      const DisplayItemClient& display_item_client);
 
   // This struct has common data needed while traversing trees for the hit
   // testing.

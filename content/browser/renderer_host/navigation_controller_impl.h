@@ -36,7 +36,6 @@
 #include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/navigation/navigation_api_history_entry_arrays.mojom-forward.h"
-#include "third_party/blink/public/mojom/navigation/navigation_initiator_activation_and_ad_status.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom-forward.h"
 
 namespace blink {
@@ -243,8 +242,8 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       bool is_form_submission,
       const std::optional<blink::Impression>& impression,
-      blink::mojom::NavigationInitiatorActivationAndAdStatus
-          initiator_activation_and_ad_status,
+      bool has_user_gesture,
+      bool started_by_ad,
       base::TimeTicks actual_navigation_start_time,
       base::TimeTicks navigation_start_time,
       bool is_embedder_initiated_fenced_frame_navigation = false,
@@ -752,12 +751,18 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       bool has_user_gesture);
 
   // Creates and returns a NavigationRequest based on |load_params| for a
-  // new navigation in |node|.
-  // Will return nullptr if the parameters are invalid and the navigation cannot
-  // start.
-  // |override_user_agent|, |should_replace_current_entry| and
-  // |has_user_gesture| will override the values from |load_params|. The same
-  // values should be passed to CreateNavigationEntryFromLoadParams.
+  // new navigation in |node|. Will return nullptr if the parameters are invalid
+  // and the navigation cannot start.
+  //
+  // |override_user_agent| and |should_replace_current_entry| will override the
+  // values from |load_params|. The same values should be passed to
+  // CreateNavigationEntryFromLoadParams.
+  //
+  // If `from_frame_proxy` is true, the navigation is initiated via a proxy. In
+  // this case, the CommonNavigationParams sent to the renderer will be
+  // initialized with `has_user_gesture = false`, regardless of the status
+  // within `load_params`.
+  //
   // TODO(clamy): Remove the dependency on NavigationEntry and
   // FrameNavigationEntry.
   std::unique_ptr<NavigationRequest> CreateNavigationRequestFromLoadParams(
@@ -765,13 +770,13 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       const LoadURLParams& load_params,
       bool override_user_agent,
       bool should_replace_current_entry,
-      bool has_user_gesture,
       network::mojom::SourceLocationPtr source_location,
       ReloadType reload_type,
       NavigationEntryImpl* entry,
       FrameNavigationEntry* frame_entry,
       base::TimeTicks actual_navigation_start_time,
       base::TimeTicks navigation_start_time,
+      bool from_frame_proxy,
       bool is_embedder_initiated_fenced_frame_navigation = false,
       bool is_unfenced_top_navigation = false,
       bool is_container_initiated = false,

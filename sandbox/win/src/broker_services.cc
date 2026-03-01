@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
 #include "base/task/thread_pool.h"
@@ -151,7 +150,8 @@ DWORD WINAPI TargetEventsThread(PVOID param) {
       // (as the key is no longer valid). We therefore check if the tracker has
       // already been deleted. Note that Windows may emit notifications after
       // 'job finished' (active process zero), so not every case is unexpected.
-      if (!base::Contains(jobs, tracker, &std::unique_ptr<JobTracker>::get)) {
+      if (!std::ranges::contains(jobs, tracker,
+                                 &std::unique_ptr<JobTracker>::get)) {
         // CHECK if job already deleted.
         CHECK_NE(static_cast<int>(event), JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO);
         // Continue to next notification otherwise.
@@ -544,9 +544,11 @@ BrokerServicesBase::PreSpawnTarget(std::wstring_view exe_path,
   startup_info->SetStdHandles(policy_base->GetStdoutHandle(),
                               policy_base->GetStderrHandle());
   // Add any additional handles that were requested.
-  const auto& policy_handle_list = policy_base->GetHandlesBeingShared();
-  for (HANDLE handle : policy_handle_list) {
+  for (HANDLE handle : policy_base->GetHandlesBeingShared()) {
     startup_info->AddInheritedHandle(handle);
+  }
+  for (const auto& handle : config_base->shared_handles()) {
+    startup_info->AddInheritedHandle(handle.get());
   }
 
   AppContainer* container = config_base->GetAppContainer();

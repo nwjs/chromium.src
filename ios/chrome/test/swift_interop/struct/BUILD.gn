@@ -6,11 +6,17 @@ import("//build/config/apple/swift_source_set.gni")
 
 if (enable_swift_cxx_interop) {
   swift_modulemap("struct") {
-    module_name = "Struct"
-    sources = [ "struct.h" ]
+    testonly = true
+    modules = [
+      {
+        name = "Struct"
+        sources = [ "struct.h" ]
+      },
+    ]
   }
 
   swift_source_set("tests") {
+    testonly = true
     sources = [ "struct_xctest.swift" ]
     deps = [
       ":struct",

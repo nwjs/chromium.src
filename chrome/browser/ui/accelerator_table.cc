@@ -7,9 +7,9 @@
 #include <stddef.h>
 #include "build/nwjs_buildflags.h"
 
+#include <algorithm>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
@@ -386,5 +386,5 @@ bool GetStandardAcceleratorForCommandId(int command_id,
 }
 
 bool IsCommandRepeatable(int command_id) {
-  return base::Contains(kRepeatableCommandIds, command_id);
+  return std::ranges::contains(kRepeatableCommandIds, command_id);
 }

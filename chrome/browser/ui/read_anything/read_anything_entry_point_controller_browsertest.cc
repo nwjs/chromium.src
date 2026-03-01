@@ -22,19 +22,16 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "url/url_constants.h"
 
-class ReadAnythingEntryPointControllerBrowserTest
+class ReadAnythingEntryPointControllerTestBase
     : public InProcessBrowserTest,
       public testing::WithParamInterface<bool> {
  public:
-  ReadAnythingEntryPointControllerBrowserTest() {
-    scoped_feature_list_.InitWithFeatureState(features::kImmersiveReadAnything,
-                                              IsImmersiveEnabled());
-  }
-
   bool IsImmersiveEnabled() const { return GetParam(); }
 
   void VerifyUIState() {
@@ -52,12 +49,41 @@ class ReadAnythingEntryPointControllerBrowserTest
     }
   }
 
- private:
+ protected:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerBrowserTest,
-                       ShowSidePanelFromOmnibox_DoesNothingWithFlagDisabled) {
+class ReadAnythingEntryPointControllerBrowserTest
+    : public ReadAnythingEntryPointControllerTestBase {
+ public:
+  ReadAnythingEntryPointControllerBrowserTest() {
+    scoped_feature_list_.InitWithFeatureState(features::kImmersiveReadAnything,
+                                              IsImmersiveEnabled());
+  }
+};
+
+class ReadAnythingEntryPointControllerOmniboxDisabledBrowserTest
+    : public ReadAnythingEntryPointControllerTestBase {
+ public:
+  ReadAnythingEntryPointControllerOmniboxDisabledBrowserTest() {
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    disabled_features.push_back(features::kReadAnythingOmniboxChip);
+
+    if (IsImmersiveEnabled()) {
+      enabled_features.push_back(features::kImmersiveReadAnything);
+    } else {
+      disabled_features.push_back(features::kImmersiveReadAnything);
+    }
+
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(
+    ReadAnythingEntryPointControllerOmniboxDisabledBrowserTest,
+    ShowSidePanelFromOmnibox_DoesNothingWithFlagDisabled) {
   base::HistogramTester histogram_tester;
   auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
@@ -71,8 +97,9 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerBrowserTest,
   histogram_tester.ExpectTotalCount("SidePanel.ReadAnything.ShowTriggered", 0);
 }
 
-IN_PROC_BROWSER_TEST_P(ReadAnythingEntryPointControllerBrowserTest,
-                       OnPageActionIgnored_DoesNothingWithFlagDisabled) {
+IN_PROC_BROWSER_TEST_P(
+    ReadAnythingEntryPointControllerOmniboxDisabledBrowserTest,
+    OnPageActionIgnored_DoesNothingWithFlagDisabled) {
   auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
@@ -148,6 +175,11 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ReadAnythingEntryPointControllerBrowserTest,
                          testing::Bool());
 
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ReadAnythingEntryPointControllerOmniboxDisabledBrowserTest,
+    testing::Bool());
+
 class ReadAnythingEntryPointControllerOmniboxBrowserTest
     : public InProcessBrowserTest {
  public:
@@ -204,6 +236,91 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
   }));
   EXPECT_EQ(0, browser()->GetProfile()->GetPrefs()->GetInteger(
                    prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount));
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
+                       CheckIfShouldSuggestReadingMode_RunsHeuristic) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.google.com"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  static bool called_back = false;
+  auto result_callback =
+      base::BindOnce([](bool is_good_candidate) { called_back = true; });
+
+  read_anything::ReadAnythingEntryPointController::
+      CheckIfShouldSuggestReadingMode(browser(), std::move(result_callback));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() { return called_back; }));
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
+                       CheckIfShouldSuggestReadingMode_NonHttpIsNotCandidate) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(url::kAboutBlankURL),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  static bool is_good_candidate_ = true;
+  auto result_callback = base::BindOnce(
+      [](bool is_good_candidate) { is_good_candidate_ = is_good_candidate; });
+
+  read_anything::ReadAnythingEntryPointController::
+      CheckIfShouldSuggestReadingMode(browser(), std::move(result_callback));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() { return !is_good_candidate_; }));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingEntryPointControllerOmniboxBrowserTest,
+    CheckIfShouldSuggestReadingMode_DeniedDomainIsNotCandidate) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.docs.google.com"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  static bool is_good_candidate_ = true;
+  auto result_callback = base::BindOnce(
+      [](bool is_good_candidate) { is_good_candidate_ = is_good_candidate; });
+
+  read_anything::ReadAnythingEntryPointController::
+      CheckIfShouldSuggestReadingMode(browser(), std::move(result_callback));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() { return !is_good_candidate_; }));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingEntryPointControllerOmniboxBrowserTest,
+    CheckIfShouldSuggestReadingModeNaive_ReturnsFalseForNonHttp) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(url::kAboutBlankURL),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  ASSERT_FALSE(read_anything::ReadAnythingEntryPointController::
+                   CheckIfShouldSuggestReadingModeNaive(browser()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingEntryPointControllerOmniboxBrowserTest,
+    CheckIfShouldSuggestReadingModeNaive_ReturnsFalseForDenyList) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.docs.google.com"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  ASSERT_FALSE(read_anything::ReadAnythingEntryPointController::
+                   CheckIfShouldSuggestReadingModeNaive(browser()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ReadAnythingEntryPointControllerOmniboxBrowserTest,
+    CheckIfShouldSuggestReadingModeNaive_ReturnsTrueForAllowedDomains) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("https://www.google.com"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  ASSERT_TRUE(read_anything::ReadAnythingEntryPointController::
+                  CheckIfShouldSuggestReadingModeNaive(browser()));
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,

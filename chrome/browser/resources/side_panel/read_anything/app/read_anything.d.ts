@@ -83,9 +83,12 @@ declare namespace chrome {
 
     // Enum values for line focus modes.
     let lineFocusOff: number;
-    let lineFocusOneLineWindow: number;
-    let lineFocusThreeLineWindow: number;
-    let lineFocusFiveLineWindow: number;
+    let lineFocusSmallStaticWindow: number;
+    let lineFocusMediumStaticWindow: number;
+    let lineFocusLargeStaticWindow: number;
+    let lineFocusSmallCursorWindow: number;
+    let lineFocusMediumCursorWindow: number;
+    let lineFocusLargeCursorWindow: number;
     let lineFocusStaticLine: number;
     let lineFocusCursorLine: number;
 
@@ -109,6 +112,10 @@ declare namespace chrome {
 
     // Whether the line focus feature flag is enabled.
     let isLineFocusEnabled: boolean;
+
+    // Whether the links can be enabled when the Readability feature flag is
+    // enabled.
+    let isReadabilityWithLinksEnabled: boolean;
 
     // Indicates if this page is a Google doc.
     let isGoogleDocs: boolean;
@@ -137,6 +144,25 @@ declare namespace chrome {
 
     // Max number of characters to display in one line of Reading mode.
     let maxLineWidth: number;
+
+    // Distiled title from DOM distiller distillation.
+    let htmlTitle: string;
+
+    // Distiled html content from DOM distiller distillation.
+    let htmlContent: string;
+
+    // The active distillation method currently showing in page content.
+    // Possible values are distillationTypeScreen2x or
+    // distillationTypeReadability.
+    let activeDistillationMethod: number;
+
+    // The constant value representing the Screen2x (AXTree) distillation
+    // method.
+    let distillationTypeScreen2x: number;
+
+    // The constant value representing the Readability (HTML string)
+    // distillation method.
+    let distillationTypeReadability: number;
 
     // Returns whether the reading highlight is currently on.
     function isHighlightOn(): boolean;

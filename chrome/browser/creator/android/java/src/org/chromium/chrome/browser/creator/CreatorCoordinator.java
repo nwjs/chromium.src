@@ -22,7 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
 
 import org.chromium.base.Callback;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.version_info.VersionInfo;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -120,7 +120,7 @@ public class CreatorCoordinator
     private boolean mFullyOpened;
     private final WebContentsCreator mCreatorWebContents;
     private final NewTabCreator mCreatorOpenTab;
-    private final ObservableSupplier<ShareDelegate> mBottomsheetShareDelegateSupplier;
+    private final MonotonicObservableSupplier<ShareDelegate> mBottomsheetShareDelegateSupplier;
     private @MonotonicNonNull GURL mBottomSheetUrl;
     private final int mEntryPoint;
 
@@ -152,7 +152,7 @@ public class CreatorCoordinator
             String url,
             WebContentsCreator creatorWebContents,
             NewTabCreator creatorOpenTab,
-            ObservableSupplier<ShareDelegate> bottomsheetShareDelegateSupplier,
+            MonotonicObservableSupplier<ShareDelegate> bottomsheetShareDelegateSupplier,
             int entryPoint,
             boolean isFollowing,
             SignInInterstitialInitiator signInInterstitialInitiator) {
@@ -213,7 +213,8 @@ public class CreatorCoordinator
      * @param feedActionDelegate Interface for Feed actions implemented by the Browser.
      */
     public void queryFeedStream(
-            FeedActionDelegate feedActionDelegate, Supplier<ShareDelegate> shareDelegateSupplier) {
+            FeedActionDelegate feedActionDelegate,
+            Supplier<@Nullable ShareDelegate> shareDelegateSupplier) {
         if (mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY) == null) {
             Callback<QueryResult> queryWebFeedIdCallback =
                     result -> {
@@ -256,7 +257,8 @@ public class CreatorCoordinator
      * @param feedActionDelegate Interface for Feed actions implemented by the Browser.
      */
     private void initFeedStream(
-            FeedActionDelegate feedActionDelegate, Supplier<ShareDelegate> shareDelegateSupplier) {
+            FeedActionDelegate feedActionDelegate,
+            Supplier<@Nullable ShareDelegate> shareDelegateSupplier) {
         mStream =
                 new FeedStream(
                         mActivity,

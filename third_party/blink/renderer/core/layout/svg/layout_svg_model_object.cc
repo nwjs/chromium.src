@@ -148,12 +148,10 @@ void LayoutSVGModelObject::ImageChanged(WrappedImagePtr image,
     if (style_image && image == style_image->Data()) {
       SetShouldDoFullPaintInvalidationWithoutLayoutChange(
           PaintInvalidationReason::kImage);
-      if (style_image->IsMaskSource()) {
-        // Since an invalid <mask> reference does not yield a paint property on
-        // SVG content (see CSSMaskPainter), we need to update paint properties
-        // when such a reference changes.
-        SetNeedsPaintPropertyUpdate();
-      }
+      // Since an invalid <mask> reference does not yield a paint property on
+      // SVG content (see CSSMaskPainter), we need to update paint properties
+      // when such a reference changes.
+      SetNeedsPaintPropertyUpdate();
       break;
     }
   }
@@ -167,8 +165,9 @@ void LayoutSVGModelObject::StyleDidChange(
   LayoutObject::StyleDidChange(diff, old_style, style_change_context);
 
   if (diff.NeedsFullLayout()) {
-    if (diff.TransformChanged())
+    if (diff.transform_changed) {
       SetNeedsTransformUpdate();
+    }
   }
 
   SetHasTransformRelatedProperty(
@@ -180,7 +179,7 @@ void LayoutSVGModelObject::StyleDidChange(
     return;
 
   if (!IsSVGHiddenContainer()) {
-    if (diff.BlendModeChanged()) {
+    if (diff.blend_mode_changed) {
       DCHECK(IsBlendingAllowed());
       Parent()->DescendantIsolationRequirementsChanged(
           StyleRef().HasBlendMode() ? kDescendantIsolationRequired

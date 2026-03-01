@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_scheduler_impl.h"
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -131,6 +132,7 @@ class MockWidgetSchedulerDelegate : public WidgetScheduler::Delegate {
 
   MOCK_METHOD(void, RequestBeginMainFrameNotExpected, (bool));
   MOCK_METHOD(bool, AreMainFramesPausedOrDeferred, (), (const, override));
+  MOCK_METHOD(void, RequestEfficientScheduling, (bool), (const, override));
 };
 
 }  // namespace
@@ -360,10 +362,6 @@ class MainThreadSchedulerImplForTest : public MainThreadSchedulerImpl {
       std::move(on_microtask_checkpoint_).Run();
   }
 
-  void SetCurrentUseCase(UseCase use_case) {
-    SetCurrentUseCaseForTest(use_case);
-  }
-
   UseCase ComputeCurrentUseCase(base::TimeTicks now,
                                 base::TimeDelta* expected_use_case_duration)
       const override EXCLUSIVE_LOCKS_REQUIRED(any_thread_lock_) {
@@ -422,7 +420,8 @@ class MainThreadSchedulerImplTest : public testing::Test {
                 .Build())));
 
 #if BUILDFLAG(IS_ANDROID)
-    if (base::FeatureList::IsEnabled(kRestrictMainThreadBigCoreAffinity)) {
+    if (base::IsEligibleForBigCoreAffinityChange() &&
+        base::FeatureList::IsEnabled(kRestrictMainThreadBigCoreAffinity)) {
       // Checking early, as the forced update below will reset it.
       EXPECT_TRUE(scheduler_->main_thread_only_for_testing().affinity_boost);
     }
@@ -4460,8 +4459,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_F(MainThreadSchedulerImplTest, ThreadPriorityUseCaseChangesScrolling) {
   // The initial thread type outside of tests is kDisplayCritical.
-  base::PlatformThread::SetCurrentThreadType(
-      base::ThreadType::kDisplayCritical);
+  base::PlatformThread::SetCurrentThreadType(base::ThreadType::kPresentation);
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(kLowerPriorityForCompositorGestures);
@@ -4476,7 +4474,7 @@ TEST_F(MainThreadSchedulerImplTest, ThreadPriorityUseCaseChangesScrolling) {
   test_task_runner_->AdvanceMockTickClock(base::Seconds(1));
   ForceUpdatePolicyAndGetCurrentUseCase();
   EXPECT_EQ(base::PlatformThread::GetCurrentThreadType(),
-            base::ThreadType::kDisplayCritical);
+            base::ThreadType::kPresentation);
 
   // Compositor gesture, lower priority.
   SimulateCompositorGestureStart(TouchEventPolicy::kDontSendTouchStart);
@@ -4494,14 +4492,13 @@ TEST_F(MainThreadSchedulerImplTest, ThreadPriorityUseCaseChangesScrolling) {
   EXPECT_NE(ForceUpdatePolicyAndGetCurrentUseCase(),
             UseCase::kCompositorGesture);
   EXPECT_EQ(base::PlatformThread::GetCurrentThreadType(),
-            base::ThreadType::kDisplayCritical);
+            base::ThreadType::kPresentation);
 }
 
 TEST_F(MainThreadSchedulerImplTest,
        ThreadPriorityUseCaseChangesMainThreadScrolling) {
   // The initial thread type outside of tests is kDisplayCritical.
-  base::PlatformThread::SetCurrentThreadType(
-      base::ThreadType::kDisplayCritical);
+  base::PlatformThread::SetCurrentThreadType(base::ThreadType::kPresentation);
 
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(kLowerPriorityForCompositorGestures);
@@ -4524,6 +4521,9 @@ class MainThreadSchedulerImplAffinityBoostTest
  protected:
   void SetUp() override {
     MainThreadSchedulerImplTest::SetUp();
+    // Need at least 3 different core types to become eligible.
+    base::SetMaxFrequencyPerProcessorOverrideForTesting(
+        &fake_cpu_max_frequencies);
     ThreadAffinityBoost::SetTaskRunnerForTesting(task_runner_.get());
     ThreadAffinityBoost::SetCanRunOnBigCoreOverrideForTesting(&override_);
     calls_count_ = 0;
@@ -4531,8 +4531,11 @@ class MainThreadSchedulerImplAffinityBoostTest
   }
 
   void TearDown() override {
+    base::SetMaxFrequencyPerProcessorOverrideForTesting(
+        &fake_cpu_max_frequencies);
     ThreadAffinityBoost::SetCanRunOnBigCoreOverrideForTesting(nullptr);
     ThreadAffinityBoost::SetTaskRunnerForTesting(nullptr);
+    base::SetMaxFrequencyPerProcessorOverrideForTesting(nullptr);
     MainThreadSchedulerImplTest::TearDown();
   }
 
@@ -4552,6 +4555,8 @@ class MainThreadSchedulerImplAffinityBoostTest
             calls_count_++;
             can_run_ = allowed;
           });
+  std::vector<uint64_t> fake_cpu_max_frequencies = {1000000000, 2000000000,
+                                                    3000000000ull};
 };
 
 TEST_F(MainThreadSchedulerImplAffinityBoostTest, Simple) {

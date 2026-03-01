@@ -342,7 +342,6 @@
 <translation id="2201071101391734388">Недавнее фото <ph name="INDEX" /> из <ph name="TOTAL_COUNT" /></translation>
 <translation id="2201687081523799384">Скрыть информацию из Google Задач</translation>
 <translation id="2208323208084708176">Единый рабочий стол</translation>
-<translation id="2210311543574621570">Чтобы открыть историю буфера обмена, нажмите и удерживайте клавиши Ctrl + V. Если вы не хотите использовать это сочетание клавиш, отключите экспериментальный параметр #clipboard-history-longpress на странице chrome://flags.</translation>
 <translation id="2215920961700443347">Нет доступа к интернету. Подключитесь и повторите попытку.</translation>
 <translation id="2222841058024245321">Рабочий стол 7</translation>
 <translation id="2223384056430485343">В режиме разделения экрана</translation>
@@ -2195,7 +2194,6 @@
 <translation id="8241650983304689286">Добавить вкладку для параллельного просмотра</translation>
 <translation id="8247060538831475781">Статус подключения – "<ph name="CONNECTION_STATUS" />", уровень сигнала – <ph name="SIGNAL_STRENGTH" />, заряд батареи – <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Показать все результаты поиска на Google Диске</translation>
-<translation id="8257510091797044096">Настроить устройство</translation>
 <translation id="8261506727792406068">Удалить</translation>
 <translation id="8262312463845990408">Воспроизвести/приостановить</translation>
 <translation id="8268302343625273732">Посмотреть все задания в Google Классе</translation>

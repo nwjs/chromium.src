@@ -232,7 +232,7 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::INHERIT_IN_INCOGNITO,
            PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
 
-  Register(ContentSettingsType::DURABLE_STORAGE, "durable-storage",
+  Register(ContentSettingsType::PERSISTENT_STORAGE, "durable-storage",
            CONTENT_SETTING_ASK, WebsiteSettingsInfo::UNSYNCABLE,
            /*allowlisted_primary_schemes=*/{},
            /*valid_settings=*/
@@ -658,21 +658,6 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::INHERIT_IN_INCOGNITO,
            PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
 
-  Register(ContentSettingsType::THIRD_PARTY_STORAGE_PARTITIONING,
-           "third-party-storage-partitioning", CONTENT_SETTING_ALLOW,
-           WebsiteSettingsInfo::UNSYNCABLE, /*allowlisted_primary_schemes=*/{},
-           /*valid_settings=*/{CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK},
-           WebsiteSettingsInfo::TOP_ORIGIN_ONLY_SCOPE,
-           WebsiteSettingsRegistry::ALL_PLATFORMS,
-           ContentSettingsInfo::INHERIT_IN_INCOGNITO,
-           PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_AND_INSECURE_ORIGINS);
-
-  // Controls automatic picture-in-picture (auto-PiP).
-  // On Desktop, this controls both video and document auto-PiP and prompts the
-  // user for permission.
-  // On Android, this is for video auto-PiP only. It defaults to ALLOW in
-  // regular profiles and BLOCK in incognito. This default is shown in the UI
-  // instead of "Ask". The setting can still be explicitly changed.
   Register(ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
            "auto-picture-in-picture", CONTENT_SETTING_ASK,
            WebsiteSettingsInfo::UNSYNCABLE, /*allowlisted_primary_schemes=*/{},
@@ -766,19 +751,6 @@ void ContentSettingsRegistry::Init() {
            WebsiteSettingsRegistry::DESKTOP,
            ContentSettingsInfo::INHERIT_IN_INCOGNITO,
            PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
-
-  Register(
-      ContentSettingsType::TRACKING_PROTECTION, "tracking-protection",
-      CONTENT_SETTING_BLOCK, WebsiteSettingsInfo::SYNCABLE,
-      /*allowlisted_primary_schemes=*/{kChromeUIScheme, kChromeDevToolsScheme},
-      /*valid_settings=*/
-      {CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK},
-      WebsiteSettingsInfo::REQUESTING_ORIGIN_WITH_TOP_ORIGIN_EXCEPTIONS_SCOPE,
-      WebsiteSettingsRegistry::DESKTOP |
-          WebsiteSettingsRegistry::PLATFORM_ANDROID |
-          WebsiteSettingsRegistry::PLATFORM_IOS,
-      ContentSettingsInfo::INHERIT_IN_INCOGNITO,
-      PermissionSettingsInfo::EXCEPTIONS_ON_SECURE_AND_INSECURE_ORIGINS);
 
   // This setting is only available to WebUI pages and should be set through
   // WebUIAllowlist.

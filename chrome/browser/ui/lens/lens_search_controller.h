@@ -238,7 +238,7 @@ class LensSearchController {
   virtual lens::LensOverlayQueryController* lens_overlay_query_controller();
 
   // Returns the LensQueryFlowRouter.
-  lens::LensQueryFlowRouter* query_router();
+  virtual lens::LensQueryFlowRouter* query_router();
 
   // Returns the LensOverlaySidePanelCoordinator.
   lens::LensOverlaySidePanelCoordinator* lens_overlay_side_panel_coordinator();
@@ -285,10 +285,7 @@ class LensSearchController {
   virtual std::unique_ptr<LensOverlayController> CreateLensOverlayController(
       tabs::TabInterface* tab,
       LensSearchController* lens_search_controller,
-      variations::VariationsClient* variations_client,
-      signin::IdentityManager* identity_manager,
       PrefService* pref_service,
-      syncer::SyncService* sync_service,
       ThemeService* theme_service);
 
   // Override these methods to stub out network requests for testing.

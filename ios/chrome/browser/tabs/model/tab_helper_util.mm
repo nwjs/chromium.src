@@ -62,6 +62,7 @@
 #import "ios/chrome/browser/infobars/model/overlays/translate_overlay_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/public/provider/chrome/browser/intelligence/classification_metrics_tab_helper_api.h"
 #import "ios/chrome/browser/itunes_urls/model/itunes_urls_handler_tab_helper.h"
 #import "ios/chrome/browser/lens/model/lens_tab_helper.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
@@ -302,9 +303,7 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   // created before AppLauncherTabHelper, which will filter out
   // unhandled schemes.
   attacher.CreateWhen<LensTabHelper>(attacher.IsNotInTabHelperFilter());
-  attacher.CreateWhen<LensOverlayTabHelper>(
-      attacher.IsNotInTabHelperFilter() &&
-      IsLensOverlayAvailable(profile->GetPrefs()));
+  attacher.CreateWhen<LensOverlayTabHelper>(attacher.IsNotInTabHelperFilter());
   attacher
       .CreateDeferredWhen<AppLauncherTabHelper>(!attacher.IsForLensOverlay() &&
                                                 !attacher.IsForPrerender())
@@ -437,7 +436,7 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
 
   attacher
       .CreateDeferredWhen<ContextualPanelTabHelper>(
-          attacher.IsForStandardNavigation() && IsContextualPanelEnabled())
+          attacher.IsForStandardNavigation())
       .With([&]() {
         ContextualPanelModelService* model_service =
             ContextualPanelModelServiceFactory::GetForProfile(profile);
@@ -479,4 +478,9 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.CreateWhen<LastTapLocationTabHelper>(
       attacher.IsNotInTabHelperFilter() &&
       base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu));
+
+  if (!attacher.IsOffTheRecord() && !attacher.IsForPrerender() &&
+      IsModelBasedPageClassificationEnabled()) {
+    ios::provider::AttachClassificationMetricsTabHelper(web_state);
+  }
 }

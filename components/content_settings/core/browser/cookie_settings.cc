@@ -4,10 +4,10 @@
 
 #include "components/content_settings/core/browser/cookie_settings.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
@@ -220,12 +220,12 @@ void CookieSettings::ResetThirdPartyCookieSetting(const GURL& first_party_url) {
       CONTENT_SETTING_DEFAULT);
 }
 
-bool CookieSettings::IsStorageDurable(const GURL& origin) const {
+bool CookieSettings::IsStoragePersistent(const GURL& origin) const {
   // TODO(dgrogan): Don't use host_content_settings_map_ directly.
   // https://crbug.com/539538
   ContentSetting setting = host_content_settings_map_->GetContentSetting(
       origin /*primary*/, origin /*secondary*/,
-      ContentSettingsType::DURABLE_STORAGE);
+      ContentSettingsType::PERSISTENT_STORAGE);
   return setting == CONTENT_SETTING_ALLOW;
 }
 
@@ -317,10 +317,11 @@ ContentSetting CookieSettings::GetContentSetting(
 
 bool CookieSettings::IsThirdPartyCookiesAllowedScheme(
     std::string_view scheme) const {
-  return base::Contains(ContentSettingsRegistry::GetInstance()
-                            ->Get(ContentSettingsType::COOKIES)
-                            ->third_party_cookie_allowed_secondary_schemes(),
-                        scheme);
+  return std::ranges::contains(
+      ContentSettingsRegistry::GetInstance()
+          ->Get(ContentSettingsType::COOKIES)
+          ->third_party_cookie_allowed_secondary_schemes(),
+      scheme);
 }
 
 CookieSettings::~CookieSettings() = default;

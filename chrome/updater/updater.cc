@@ -327,9 +327,10 @@ std::string MemoryStatus() {
   MEMORYSTATUSEX memory_status = {};
   memory_status.dwLength = sizeof(memory_status);
   return ::GlobalMemoryStatusEx(&memory_status)
-             ? base::StringPrintf("available: %dK, total: %dK",
-                                  memory_status.ullAvailPageFile / 1024,
-                                  memory_status.ullTotalPageFile / 1024)
+             ? base::StringPrintf("available: %dM, total: %dM, phys: %dG",
+                                  memory_status.ullAvailPageFile / (1 << 20),
+                                  memory_status.ullTotalPageFile / (1 << 20),
+                                  1 + memory_status.ullTotalPhys / (1 << 30))
              : std::string("n/a");
 }
 
@@ -351,7 +352,7 @@ void EnsureEnoughMemory() {
   if (memory_status.ullAvailPageFile >= kMinMemoryNeeded) {
     return;
   }
-  if (void* alloc = []() -> void* {
+  if (void* alloc = [] -> void* {
         constexpr int kMaxTries = 25;
         constexpr int kDelayMs = 50;
         for (int tries = 0; tries < kMaxTries; ++tries) {
@@ -432,6 +433,7 @@ int UpdaterMain(int argc, const char* const* argv) {
           << base::SysInfo::ProcessCPUArchitecture()
           << ", command line: " << GetCommandLineString();
   VLOG(1) << "OS version: " << OperatingSystemVersion()
+          << ", arch: " << base::SysInfo::OperatingSystemArchitecture()
           << ", System uptime (seconds): "
           << base::SysInfo::Uptime().InSeconds()
           << ", parent pid: " << parent_pid;

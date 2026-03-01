@@ -4,9 +4,9 @@
 
 #include "chrome/common/chrome_content_client.h"
 
+#include <algorithm>
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -40,7 +40,7 @@ TEST(ChromeContentClientTest, AdditionalSchemes) {
             origin.Serialize());
 #endif
 
-  // IsUrlPotentiallyTrustworthy assertions test for https://crbug.com/734581.
+  // IsUrlPotentiallyTrustworthy assertions test for https://crbug.com/41326084.
   constexpr const char* kChromeLayerUrlsRegisteredAsSecure[] = {
       // The schemes below are registered both as secure and no-access.  Product
       // code needs to treat such URLs as trustworthy, even though no-access
@@ -64,7 +64,8 @@ TEST(ChromeContentClientTest, AdditionalSchemes) {
   for (const std::string& str : kChromeLayerUrlsRegisteredAsSecure) {
     SCOPED_TRACE(str);
     GURL url(str);
-    EXPECT_TRUE(base::Contains(url::GetSecureSchemes(), url.GetScheme()));
+    EXPECT_TRUE(
+        std::ranges::contains(url::GetSecureSchemes(), url.GetScheme()));
     EXPECT_TRUE(network::IsUrlPotentiallyTrustworthy(url));
   }
 

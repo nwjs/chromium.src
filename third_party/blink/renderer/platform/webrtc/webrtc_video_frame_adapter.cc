@@ -4,10 +4,10 @@
 
 #include "third_party/blink/renderer/platform/webrtc/webrtc_video_frame_adapter.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/dcheck_is_on.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
@@ -51,7 +51,8 @@ bool IsApproxEquals(const gfx::Rect& a, const gfx::Rect& b) {
          IsApproxEquals(a.height(), b.height());
 }
 
-class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
+class Context
+    : public media::RenderableMappableSharedImageVideoFramePool::Context {
  public:
   explicit Context(
       scoped_refptr<viz::RasterContextProvider> raster_context_provider)
@@ -244,7 +245,7 @@ WebRtcVideoFrameAdapter::SharedResources::ConstructVideoFrameFromTexture(
       source_frame->format() != media::PIXEL_FORMAT_NV12) {
     if (!accelerated_frame_pool_) {
       accelerated_frame_pool_ =
-          media::RenderableGpuMemoryBufferVideoFramePool::Create(
+          media::RenderableMappableSharedImageVideoFramePool::Create(
               std::make_unique<Context>(raster_context_provider));
     }
 
@@ -376,7 +377,7 @@ void WebRtcVideoFrameAdapter::SharedResources::ScaleAndMapFrameAsync(
           raster_context_provider->ContextCapabilities())) {
     if (!accelerated_frame_pool_) {
       accelerated_frame_pool_ =
-          media::RenderableGpuMemoryBufferVideoFramePool::Create(
+          media::RenderableMappableSharedImageVideoFramePool::Create(
               std::make_unique<Context>(raster_context_provider));
     }
 
@@ -595,7 +596,8 @@ webrtc::scoped_refptr<webrtc::VideoFrameBuffer>
 WebRtcVideoFrameAdapter::ScaledBuffer::GetMappedFrameBuffer(
     webrtc::ArrayView<webrtc::VideoFrameBuffer::Type> types) {
   auto frame_buffer = parent_->GetOrCreateFrameBufferForSize(size_);
-  return base::Contains(types, frame_buffer->type()) ? frame_buffer : nullptr;
+  return std::ranges::contains(types, frame_buffer->type()) ? frame_buffer
+                                                            : nullptr;
 }
 
 webrtc::scoped_refptr<webrtc::VideoFrameBuffer>
@@ -652,7 +654,8 @@ webrtc::scoped_refptr<webrtc::VideoFrameBuffer>
 WebRtcVideoFrameAdapter::GetMappedFrameBuffer(
     webrtc::ArrayView<webrtc::VideoFrameBuffer::Type> types) {
   auto frame_buffer = GetOrCreateFrameBufferForSize(full_size_);
-  return base::Contains(types, frame_buffer->type()) ? frame_buffer : nullptr;
+  return std::ranges::contains(types, frame_buffer->type()) ? frame_buffer
+                                                            : nullptr;
 }
 
 // Soft-applies cropping and scaling. The result is a ScaledBuffer.

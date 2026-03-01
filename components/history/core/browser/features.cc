@@ -132,6 +132,11 @@ BASE_FEATURE(kBrowsingHistoryActorIntegrationM2,
 BASE_FEATURE(kBrowsingHistoryActorIntegrationM3,
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables improved chrome://history de-duplication logic, this includes
+// grouping entries by hostname and title per day.
+BASE_FEATURE(kBrowsingHistorySimilarVisitsGrouping,
+             base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+
 // Whether Browsing History Actor Integration M1 or any dependent feature is
 // enabled.
 bool IsBrowsingHistoryActorIntegrationM1Enabled() {
@@ -157,5 +162,10 @@ bool IsBrowsingHistoryActorIntegrationM3Enabled() {
 // and switch to querying remote data only once all local data has been
 // exhausted.
 BASE_FEATURE(kHistoryQueryOnlyLocalFirst, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the WebHistoryService will use a new API for querying browsing
+// history (https://footprints-pa.googleapis.com/...) instead of the old and
+// deprecated one (https://history.google.com/history/api/...).
+BASE_FEATURE(kWebHistoryUseNewApi, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace history

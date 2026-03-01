@@ -43,11 +43,11 @@ constexpr size_t kMaxParallelBitmapRequestsLowMemory = 2;
 
 }  // namespace
 
-static jlong JNI_PlayerCompositorDelegateImpl_Initialize(
+static int64_t JNI_PlayerCompositorDelegateImpl_Initialize(
     JNIEnv* env,
     const JavaRef<jobject>& j_object,
-    jlong paint_preview_service,
-    jlong j_capture_result_ptr,
+    int64_t paint_preview_service,
+    int64_t j_capture_result_ptr,
     const JavaRef<jstring>& j_url_spec,
     const JavaRef<jstring>& j_directory_key,
     bool j_main_frame_mode,
@@ -67,7 +67,7 @@ PlayerCompositorDelegateAndroid::PlayerCompositorDelegateAndroid(
     JNIEnv* env,
     const JavaRef<jobject>& j_object,
     PaintPreviewBaseService* paint_preview_service,
-    jlong j_capture_result_ptr,
+    int64_t j_capture_result_ptr,
     const JavaRef<jstring>& j_url_spec,
     const JavaRef<jstring>& j_directory_key,
     bool j_main_frame_mode,
@@ -199,16 +199,16 @@ void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
   }
 }
 
-jint PlayerCompositorDelegateAndroid::RequestBitmap(
+int32_t PlayerCompositorDelegateAndroid::RequestBitmap(
     JNIEnv* env,
     std::optional<base::UnguessableToken>& frame_guid,
     const JavaRef<jobject>& j_bitmap_callback,
-    const JavaRef<jobject>& j_error_callback,
-    jfloat j_scale_factor,
-    jint j_clip_x,
-    jint j_clip_y,
-    jint j_clip_width,
-    jint j_clip_height) {
+    base::OnceClosure&& error_callback,
+    float j_scale_factor,
+    int32_t j_clip_x,
+    int32_t j_clip_y,
+    int32_t j_clip_width,
+    int32_t j_clip_height) {
   TRACE_EVENT0("paint_preview", "RequestBitmap");
   TRACE_EVENT_BEGIN("paint_preview",
                     "PlayerCompositorDelegateAndroid::RequestBitmap",
@@ -216,26 +216,26 @@ jint PlayerCompositorDelegateAndroid::RequestBitmap(
   gfx::Rect rect(j_clip_x, j_clip_y, j_clip_width, j_clip_height);
   auto callback = base::BindPostTask(
       task_runner_,
-      base::BindOnce(
-          &ConvertToJavaBitmap,
-          base::BindPostTaskToCurrentDefault(base::BindOnce(
-              &PlayerCompositorDelegateAndroid::OnJavaBitmapCallback,
-              weak_factory_.GetWeakPtr(),
-              ScopedJavaGlobalRef<jobject>(j_bitmap_callback),
-              ScopedJavaGlobalRef<jobject>(j_error_callback), request_id_))));
+      base::BindOnce(&ConvertToJavaBitmap,
+                     base::BindPostTaskToCurrentDefault(base::BindOnce(
+                         &PlayerCompositorDelegateAndroid::OnJavaBitmapCallback,
+                         weak_factory_.GetWeakPtr(),
+                         ScopedJavaGlobalRef<jobject>(j_bitmap_callback),
+                         std::move(error_callback), request_id_))));
   ++request_id_;
 
   // Callback can skip UI thread.
-  return static_cast<jint>(
+  return static_cast<int32_t>(
       PlayerCompositorDelegate::RequestBitmap(frame_guid, rect, j_scale_factor,
                                               std::move(callback)),
       /*run_callback_on_default_task_runner=*/false);
 }
 
-bool PlayerCompositorDelegateAndroid::CancelBitmapRequest(JNIEnv* env,
-                                                          jint j_request_id) {
-  return static_cast<bool>(PlayerCompositorDelegate::CancelBitmapRequest(
-      static_cast<int32_t>(j_request_id)));
+bool PlayerCompositorDelegateAndroid::CancelBitmapRequest(
+    JNIEnv* env,
+    int32_t j_request_id) {
+  return static_cast<bool>(
+      PlayerCompositorDelegate::CancelBitmapRequest(j_request_id));
 }
 
 void PlayerCompositorDelegateAndroid::CancelAllBitmapRequests(JNIEnv* env) {
@@ -244,7 +244,7 @@ void PlayerCompositorDelegateAndroid::CancelAllBitmapRequests(JNIEnv* env) {
 
 void PlayerCompositorDelegateAndroid::OnJavaBitmapCallback(
     const ScopedJavaGlobalRef<jobject>& j_bitmap_callback,
-    const ScopedJavaGlobalRef<jobject>& j_error_callback,
+    base::OnceClosure&& error_callback,
     int request_id,
     JavaBitmapResult result) {
   TRACE_EVENT0("paint_preview", "OnBitmapReceived");
@@ -255,13 +255,13 @@ void PlayerCompositorDelegateAndroid::OnJavaBitmapCallback(
 
   if (result.status ==
       mojom::PaintPreviewCompositor::BitmapStatus::kAllocFailed) {
-    base::android::RunRunnableAndroid(j_error_callback);
+    std::move(error_callback).Run();
     PlayerCompositorDelegate::OnAllocationFailure();
     return;
   }
 
   if (result.status != mojom::PaintPreviewCompositor::BitmapStatus::kSuccess) {
-    base::android::RunRunnableAndroid(j_error_callback);
+    std::move(error_callback).Run();
     return;
   }
 
@@ -280,8 +280,8 @@ void PlayerCompositorDelegateAndroid::OnJavaBitmapCallback(
 ScopedJavaLocalRef<jstring> PlayerCompositorDelegateAndroid::OnClick(
     JNIEnv* env,
     std::optional<base::UnguessableToken>& frame_guid,
-    jint j_x,
-    jint j_y) {
+    int32_t j_x,
+    int32_t j_y) {
   if (!frame_guid.has_value()) {
     return jni_zero::g_empty_string.AsLocalRef(env);
   }

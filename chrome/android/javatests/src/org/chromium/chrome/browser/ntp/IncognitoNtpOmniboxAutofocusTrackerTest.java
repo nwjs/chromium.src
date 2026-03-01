@@ -25,12 +25,12 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 
@@ -409,6 +409,11 @@ public class IncognitoNtpOmniboxAutofocusTrackerTest {
 
     private HistogramWatcher createAutoFocusHistogramWatcher() {
         return HistogramWatcher.newBuilder()
+                .expectIntRecord(
+                        IncognitoNtpOmniboxAutofocusTracker
+                                .HISTOGRAM_OMNIBOX_AUTOFOCUS_ON_FOCUS_TAB_HEIGHT_CHANGE,
+                        IncognitoNtpOmniboxAutofocusTracker.OmniboxAutofocusTabHeightChange
+                                .DECREASED_TO_NON_ZERO)
                 .expectAnyRecord(
                         IncognitoNtpOmniboxAutofocusTracker
                                 .HISTOGRAM_OMNIBOX_AUTOFOCUS_ON_FOCUS_KEYBOARD_HEIGHT_PERCENTAGE)
@@ -435,6 +440,11 @@ public class IncognitoNtpOmniboxAutofocusTrackerTest {
 
     private HistogramWatcher createManualFocusHistogramWatcher() {
         return HistogramWatcher.newBuilder()
+                .expectIntRecord(
+                        IncognitoNtpOmniboxAutofocusTracker
+                                .HISTOGRAM_OMNIBOX_AUTOFOCUS_ON_FOCUS_TAB_HEIGHT_CHANGE,
+                        IncognitoNtpOmniboxAutofocusTracker.OmniboxAutofocusTabHeightChange
+                                .DECREASED_TO_NON_ZERO)
                 .expectAnyRecord(
                         IncognitoNtpOmniboxAutofocusTracker
                                 .HISTOGRAM_OMNIBOX_AUTOFOCUS_ON_FOCUS_KEYBOARD_HEIGHT_PERCENTAGE)

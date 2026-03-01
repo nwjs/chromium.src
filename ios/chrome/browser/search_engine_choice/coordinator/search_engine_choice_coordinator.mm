@@ -48,10 +48,6 @@ using search_engines::SearchEngineChoiceScreenEvents;
       _searchEngineChoiceLearnMoreCoordinator;
   // Whether the screen is being shown in the FRE.
   BOOL _firstRun;
-  // Whether the primary account button was already tapped.
-  BOOL _didTapPrimaryButton;
-  // Timestamp of the previous call to `-(void)_didTapPrimaryButton`.
-  base::Time _lastCallToDidTapPrimaryButtonTimestamp;
   // First run screen delegate.
   __weak id<FirstRunScreenDelegate> _firstRunDelegate;
 }
@@ -63,7 +59,6 @@ using search_engines::SearchEngineChoiceScreenEvents;
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _firstRun = NO;
-    _didTapPrimaryButton = NO;
   }
   return self;
 }
@@ -180,19 +175,8 @@ using search_engines::SearchEngineChoiceScreenEvents;
 }
 
 - (void)didTapPrimaryButton {
-  if (_didTapPrimaryButton) {
-    SCOPED_CRASH_KEY_NUMBER("SearchEngineChoice", "isfirstrun", _firstRun);
-    int64_t delay =
-        (base::Time::Now() - _lastCallToDidTapPrimaryButtonTimestamp)
-            .InMilliseconds();
-    SCOPED_CRASH_KEY_NUMBER("SearchEngineChoice", "delay", delay);
-    NOTREACHED(base::NotFatalUntil::M150)
-        << "Double tap on primary button [_firstRun = " << _firstRun
-        << " ; delay : " << delay << " ms]";
-    return;
-  }
-  _didTapPrimaryButton = YES;
-  _lastCallToDidTapPrimaryButtonTimestamp = base::Time::Now();
+  // TODO(crbug.com/483961510): Need to add a metric to see how many times
+  // users can double tap on the primary button.
   if (_firstRun) {
     [self recordChoiceScreenEvent:SearchEngineChoiceScreenEvents::
                                       kFreDefaultWasSet];

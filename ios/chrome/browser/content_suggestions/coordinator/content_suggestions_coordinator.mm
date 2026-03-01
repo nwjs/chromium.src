@@ -8,7 +8,6 @@
 #import <vector>
 
 #import "base/apple/foundation_util.h"
-#import "base/containers/contains.h"
 #import "base/feature_list.h"
 #import "base/ios/block_types.h"
 #import "base/ios/ios_util.h"
@@ -22,6 +21,7 @@
 #import "components/commerce/core/shopping_service.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
+#import "components/keyed_service/core/service_access_type.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/pref_names.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
@@ -59,6 +59,7 @@
 #import "ios/chrome/browser/content_suggestions/model/content_suggestions_metrics_constants.h"
 #import "ios/chrome/browser/content_suggestions/model/content_suggestions_metrics_recorder.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/coordinator/most_visited_tiles_mediator.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/public/pinned_site_action.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/pinned_site_form_view_controller.h"
 #import "ios/chrome/browser/content_suggestions/price_tracking_promo/coordinator/price_tracking_promo_action_delegate.h"
@@ -91,6 +92,7 @@
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_view_controller_audience.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/default_browser/promo/public/features.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
@@ -99,7 +101,9 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/favicon/model/large_icon_cache.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
+#import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/menu/ui_bundled/browser_action_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
@@ -145,7 +149,7 @@
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/credential_provider_promo_commands.h"
-#import "ios/chrome/browser/shared/public/commands/docking_promo_commands.h"
+#import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
@@ -177,6 +181,9 @@
 #import "url/gurl.h"
 
 namespace {
+
+// The identifier for the pin site form height detent.
+NSString* const kPinSiteFormDetentIdentifier = @"kPinSiteFormDetentIdentifier";
 
 // Logs the user's decision to opt-in or opt-out of Safety Check notifications
 // from the Magic Stack. Determines the source based on the `viaContextMenu`
@@ -324,15 +331,25 @@ using segmentation_platform::TipIdentifier;
   ChromeAccountManagerService* accountManagerService =
       ChromeAccountManagerServiceFactory::GetForProfile(profile);
 
+  history::HistoryService* historyService =
+      ios::HistoryServiceFactory::GetForProfile(
+          profile, ServiceAccessType::EXPLICIT_ACCESS);
+
+  feature_engagement::Tracker* engagementTracker =
+      feature_engagement::TrackerFactory::GetForProfile(profile);
+
   NSMutableArray* moduleMediators = [NSMutableArray array];
 
   _mostVisitedTilesMediator = [[MostVisitedTilesMediator alloc]
       initWithMostVisitedSite:std::move(mostVisitedFactory)
+               historyService:historyService
                   prefService:prefs
              largeIconService:largeIconService
                largeIconCache:cache
        URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(self.browser)
-        accountManagerService:accountManagerService];
+        accountManagerService:accountManagerService
+            engagementTracker:engagementTracker
+            layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)];
   _mostVisitedTilesMediator.contentSuggestionsDelegate = self.delegate;
   _mostVisitedTilesMediator.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
@@ -341,6 +358,8 @@ using segmentation_platform::TipIdentifier;
              scenario:kMenuScenarioHistogramMostVisitedEntry];
   _mostVisitedTilesMediator.snackbarHandler =
       static_cast<id<SnackbarCommands>>(self.browser->GetCommandDispatcher());
+  _mostVisitedTilesMediator.helpHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
   _mostVisitedTilesMediator.NTPActionsDelegate = self.NTPActionsDelegate;
   [moduleMediators addObject:_mostVisitedTilesMediator];
   self.contentSuggestionsMediator.mostVisitedTilesMediator =
@@ -673,9 +692,19 @@ using segmentation_platform::TipIdentifier;
   viewController.mutator = _mostVisitedTilesMediator;
   UINavigationController* navController = [[UINavigationController alloc]
       initWithRootViewController:viewController];
-  // TODO(crbug.com/473728173): The modal presentation style is set as a
-  // placeholder only. Configure detent height.
   navController.modalPresentationStyle = UIModalPresentationFormSheet;
+  UISheetPresentationController* sheetPresentationController =
+      navController.sheetPresentationController;
+  auto detentResolver = ^CGFloat(
+      id<UISheetPresentationControllerDetentResolutionContext> context) {
+    /// Use the same detent height as othe form sheets for home customization.
+    return kBottomSheetDetentHeight;
+  };
+  sheetPresentationController.detents = @[ [UISheetPresentationControllerDetent
+      customDetentWithIdentifier:kPinSiteFormDetentIdentifier
+                        resolver:detentResolver] ];
+  sheetPresentationController.prefersEdgeAttachedInCompactHeight = YES;
+  navController.presentationController.delegate = viewController;
   [self.contentSuggestionsViewController presentViewController:navController
                                                       animated:YES
                                                     completion:nil];
@@ -737,9 +766,9 @@ using segmentation_platform::TipIdentifier;
     OpenIOSDefaultBrowserSettingsPage();
   } else if (variation ==
              DefaultBrowserMagicStackIosVariationType::kTapToAppSettings) {
-    id<SettingsCommands> settings_handler = HandlerForProtocol(
+    id<SettingsCommands> settingsHandler = HandlerForProtocol(
         self.browser->GetCommandDispatcher(), SettingsCommands);
-    [settings_handler
+    [settingsHandler
         showDefaultBrowserSettingsFromViewController:nil
                                         sourceForUMA:
                                             DefaultBrowserSettingsPageSource::
@@ -1232,6 +1261,18 @@ using segmentation_platform::TipIdentifier;
 - (void)showUIForSelectedSetUpListItem:(SetUpListItemType)type {
   switch (type) {
     case SetUpListItemType::kDefaultBrowser:
+      if (IsDefaultBrowserPictureInPictureEnabled()) {
+        id<SettingsCommands> settingsHandler = HandlerForProtocol(
+            self.browser->GetCommandDispatcher(), SettingsCommands);
+        [settingsHandler
+            showDefaultBrowserSettingsFromViewController:nil
+                                            sourceForUMA:
+                                                DefaultBrowserSettingsPageSource::
+                                                    kSetUpList];
+        LogToFETDefaultBrowserPromoShown(
+            feature_engagement::TrackerFactory::GetForProfile(self.profile));
+        return;
+      }
       [self showDefaultBrowserPromo];
       break;
     case SetUpListItemType::kAutofill:
@@ -1246,6 +1287,14 @@ using segmentation_platform::TipIdentifier;
       break;
     case SetUpListItemType::kAllSet:
       NOTREACHED();
+    case SetUpListItemType::kSafariImport:
+      [self.delegate openSafariDataImport];
+      break;
+    case SetUpListItemType::kBackgroundCustomization:
+      [self.delegate openMainCustomizationMenu];
+      [HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands)
+          presentInProductHelpWithType:InProductHelpType::
+                                           kHomeBackgroundCustomization];
   }
 }
 

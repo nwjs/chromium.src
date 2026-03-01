@@ -73,6 +73,9 @@ COMPONENT_EXPORT(HISTORY_FEATURES)
 BASE_DECLARE_FEATURE(kBrowsingHistoryActorIntegrationM3);
 
 COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kBrowsingHistorySimilarVisitsGrouping);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
 bool IsBrowsingHistoryActorIntegrationM1Enabled();
 
 COMPONENT_EXPORT(HISTORY_FEATURES)
@@ -84,6 +87,9 @@ bool IsBrowsingHistoryActorIntegrationM3Enabled();
 
 COMPONENT_EXPORT(HISTORY_FEATURES)
 BASE_DECLARE_FEATURE(kHistoryQueryOnlyLocalFirst);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kWebHistoryUseNewApi);
 
 }  // namespace history
 

@@ -22,9 +22,9 @@ import androidx.core.view.MenuItemCompat;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -65,7 +65,7 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
     // If not blank, represents a substring to use to search for site names.
     private String mSearch = "";
 
-    private final SettableObservableSupplier<String> mPageTitle =
+    private final SettableMonotonicObservableSupplier<String> mPageTitle =
             ObservableSuppliers.createMonotonic();
 
     @Override
@@ -97,7 +97,7 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
     }
 
     @Override
-    public ObservableSupplier<String> getPageTitle() {
+    public MonotonicObservableSupplier<String> getPageTitle() {
         return mPageTitle;
     }
 
@@ -362,8 +362,7 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
         return AnimationType.PROPERTY;
     }
 
-    // TODO(crbug.com/444470792): Determine what entries need to be created and added under
-    // #updateDynamicPreferences.
     public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
-            new BaseSearchIndexProvider(ChosenObjectSettings.class.getName(), 0);
+            new BaseSearchIndexProvider(
+                    ChosenObjectSettings.class.getName(), BaseSearchIndexProvider.INDEX_OPT_OUT);
 }

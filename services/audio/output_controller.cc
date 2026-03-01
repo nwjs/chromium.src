@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -41,6 +40,9 @@ BASE_FEATURE(kAudioOutputControllerRequestBeforeRead,
 
 // Time in seconds between two successive measurements of audio power levels.
 constexpr base::TimeDelta kPowerMonitorLogInterval = base::Seconds(15);
+
+// Time in seconds between two successive glitch stat logs.
+constexpr base::TimeDelta kGlitchStatsLogInterval = base::Seconds(15);
 
 const char* StateToString(OutputController::State state) {
   switch (state) {
@@ -88,6 +90,7 @@ OutputController::ErrorStatisticsTracker::ErrorStatisticsTracker(
     OutputController* controller)
     : controller_(controller),
       start_time_(base::TimeTicks::Now()),
+      last_periodic_log_time_(start_time_),
       on_more_io_data_called_(0) {
   // WedgeCheck() will look to see if |on_more_io_data_called_| is true after
   // the timeout expires and log this as a UMA stat. If the stream is
@@ -97,20 +100,13 @@ OutputController::ErrorStatisticsTracker::ErrorStatisticsTracker(
 }
 
 OutputController::ErrorStatisticsTracker::~ErrorStatisticsTracker() {
-  const base::TimeDelta duration = base::TimeTicks::Now() - start_time_;
+  base::TimeTicks now = base::TimeTicks::Now();
+  const base::TimeDelta duration = now - start_time_;
   UMA_HISTOGRAM_LONG_TIMES("Media.OutputStreamDuration", duration);
   UMA_HISTOGRAM_BOOLEAN("Media.AudioOutputController.CallbackError",
                         error_during_callback_);
   if (controller_) {
-    controller_->SendLogMessage("StopStream => (duration=%" PRId64 " sec)",
-                                duration.InSeconds());
-    const double glitch_percentage =
-        duration.is_zero()
-            ? 0
-            : glitch_info_.duration.InSecondsF() / duration.InSecondsF();
-    controller_->SendLogMessage(
-        "StopStream => (glitches=[%s], glitch_percentage=%.3f%%)",
-        glitch_info_.ToString().c_str(), glitch_percentage * 100);
+    LogGlitchStats("StopStream", now);
     controller_->SendLogMessage("StopStream => (error_during_callback=%s)",
                                 base::ToString(error_during_callback_).c_str());
   }
@@ -129,6 +125,12 @@ void OutputController::ErrorStatisticsTracker::OnMoreDataCalled(
   // thread starts, it's safe to compare and then increment.
   if (on_more_io_data_called_.IsZero())
     on_more_io_data_called_.Increment();
+
+  base::TimeTicks now = base::TimeTicks::Now();
+  if (controller_ && now - last_periodic_log_time_ >= kGlitchStatsLogInterval) {
+    last_periodic_log_time_ = now;
+    LogGlitchStats("OnMoreData", now);
+  }
 }
 
 void OutputController::ErrorStatisticsTracker::WedgeCheck() {
@@ -138,6 +140,20 @@ void OutputController::ErrorStatisticsTracker::WedgeCheck() {
     if (controller_)
       controller_->SendLogMessage("WedgeCheck => (stream is alive)");
   }
+}
+void OutputController::ErrorStatisticsTracker::LogGlitchStats(
+    const std::string& call_name,
+    base::TimeTicks now) {
+  const base::TimeDelta total_duration = now - start_time_;
+  const double glitch_percentage =
+      total_duration.is_zero()
+          ? 0
+          : glitch_info_.duration.InSecondsF() / total_duration.InSecondsF();
+  controller_->SendLogMessage("%s => (duration=%" PRId64 " sec)",
+                              call_name.c_str(), total_duration.InSeconds());
+  controller_->SendLogMessage(
+      "%s => (glitches=[%s], glitch_percentage=%.3f%%)", call_name.c_str(),
+      glitch_info_.ToString().c_str(), glitch_percentage * 100);
 }
 
 OutputController::OutputController(
@@ -162,7 +178,8 @@ OutputController::OutputController(
       state_(kEmpty),
       sync_reader_(sync_reader),
       power_monitor_(params.sample_rate(),
-                     base::Milliseconds(kPowerMeasurementTimeConstantMillis)),
+                     base::Milliseconds(std::to_underlying(
+                         kPowerMeasurementTimeConstantMillis))),
       request_before_read_(base::FeatureList::IsEnabled(
           kAudioOutputControllerRequestBeforeRead)),
       will_monitor_audio_levels_(ShouldMonitorAudioLevels()) {
@@ -481,7 +498,7 @@ int OutputController::OnMoreData(base::TimeDelta delay,
     sync_reader_->RequestMoreData(delay, delay_timestamp, glitch_info);
   }
 
-#if !BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)
+#if !BUILDFLAG(ENABLE_PASSTHROUGH_AUDIO_CODECS)
   constexpr bool is_bitstream = false;
 #else
   const bool is_bitstream = params_.IsBitstreamFormat();
@@ -560,7 +577,7 @@ void OutputController::StartSnooping(Snooper* snooper) {
 
   // The list will only update on this thread, and only be read on the realtime
   // audio thread.
-  DCHECK(!base::Contains(snoopers_, snooper));
+  DCHECK(!std::ranges::contains(snoopers_, snooper));
   base::AutoLock lock(snooper_lock_);
   snoopers_.push_back(snooper);
 }

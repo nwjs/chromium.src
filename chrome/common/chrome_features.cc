@@ -11,6 +11,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_switches.h"
+#include "pdf/buildflags.h"
 
 namespace features {
 
@@ -35,14 +36,20 @@ const base::FeatureParam<base::TimeDelta>
 BASE_FEATURE(kAppSpecificNotifications, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDisableBoostPriority, base::FEATURE_DISABLED_BY_DEFAULT);
-static constexpr base::FeatureParam<DisableBoostPriorityMode>::Option
+static constexpr base::FeatureParam<DisableBoostPriorityExemption>::Option
     kDisableBoostPriorityOptions[] = {
-        {DisableBoostPriorityMode::kAfterLoading, "AfterLoading"},
-        {DisableBoostPriorityMode::kAtStartup, "AtStartup"}};
-constinit const base::FeatureParam<DisableBoostPriorityMode>
-    kDisableBoostPriorityMode{&kDisableBoostPriority, "mode",
-                              DisableBoostPriorityMode::kAtStartup,
-                              &kDisableBoostPriorityOptions};
+        {DisableBoostPriorityExemption::kBrowserNetwork, "BrowserNetwork"},
+        {DisableBoostPriorityExemption::kGpuBrowserNetwork,
+         "GpuBrowserNetwork"},
+        {DisableBoostPriorityExemption::kLoadingBrowserNetwork,
+         "LoadingBrowserNetwork"},
+        {DisableBoostPriorityExemption::kForegroundBrowserNetwork,
+         "ForegroundBrowserNetwork"}};
+constinit const base::FeatureParam<DisableBoostPriorityExemption>
+    kDisableBoostPriorityExemption{
+        &kDisableBoostPriority, "exempt_processes",
+        DisableBoostPriorityExemption::kForegroundBrowserNetwork,
+        &kDisableBoostPriorityOptions};
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
@@ -63,7 +70,7 @@ BASE_FEATURE(kAppShimLaunchChromeSilently, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, notifications coming from PWAs will be displayed via their app
 // shim processes, rather than directly by chrome.
-// https://crbug.com/938661
+// https://crbug.com/40616749
 BASE_FEATURE(kAppShimNotificationAttribution,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -195,16 +202,6 @@ BASE_FEATURE(kDesktopPWAsElidedExtensionsMenu,
 #endif
 );
 
-// Enables or disables Desktop PWAs to be auto-started on OS login.
-BASE_FEATURE(kDesktopPWAsRunOnOsLogin,
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
 // If enabled, allow-listed PWAs cannot be closed manually by the user.
 BASE_FEATURE(kDesktopPWAsPreventClose,
 #if BUILDFLAG(IS_CHROMEOS)
@@ -272,7 +269,11 @@ BASE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate,
 BASE_FEATURE(kGeoLanguage, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the actor component of Glic is enabled.
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kGlicActor, base::FEATURE_DISABLED_BY_DEFAULT);
+#else
 BASE_FEATURE(kGlicActor, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 const base::FeatureParam<base::TimeDelta> kGlicActorPageToolTimeout{
     &kGlicActor, "glic-actor-page-tool-timeout", base::Seconds(30)};
@@ -282,12 +283,6 @@ const base::FeatureParam<base::TimeDelta> kGlicActorClickDelay{
 
 // Controls whether the Actor UI components are enabled.
 BASE_FEATURE(kGlicActorUi, base::FEATURE_ENABLED_BY_DEFAULT);
-// Controls whether the new icon UI is enabled.
-BASE_FEATURE(kGlicActorUiTaskIconV2, base::FEATURE_ENABLED_BY_DEFAULT);
-// Controls whether the task nudge UI fixes are enabled.
-BASE_FEATURE(kGlicActorUiTaskNudgeUiFix, base::FEATURE_ENABLED_BY_DEFAULT);
-// Controls whether the global task indicator and related features are enabled.
-BASE_FEATURE(kGlicActorUiGlobalTaskIndicator, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether we ignore users preference of reduced motion enabled and
 // still show the tab indicator spinner. No-op if kGlicActorUiTabIndicator is
 // disabled.
@@ -298,9 +293,8 @@ BASE_FEATURE(kGlicActorUiTabIndicatorSpinnerIgnoreReducedMotion,
 // and other elements.
 BASE_FEATURE(kActorUiThemed, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, hides handoff button when the client is in control.
-BASE_FEATURE(kGlicHandoffButtonHiddenClientControl,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Controls whether UI bug fixes for the Task Icon are enabled.
+BASE_FEATURE(kGlicActorUiTaskIconUiFixes, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, post tasks in the window controller to fix re-entrancy crash.
 BASE_FEATURE(kGlicActorPostTaskUiUpdateEnabled,
@@ -320,6 +314,24 @@ BASE_FEATURE(kGlicHandoffButtonHideWhenOmniboxPopupOpened,
 
 // If enabled, the magic cursor in the actor overlay is shown.
 BASE_FEATURE(kGlicActorUiOverlayMagicCursor, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Default: 0.667 pixels per millisecond
+const base::FeatureParam<double> kGlicActorUiOverlayMagicCursorSpeed{
+    &kGlicActorUiOverlayMagicCursor, "magic-cursor-speed-px-per-ms", 0.667};
+
+// Default: 50ms
+const base::FeatureParam<int> kGlicActorUiOverlayMagicCursorMinDuration{
+    &kGlicActorUiOverlayMagicCursor, "magic-cursor-min-duration-ms", 50};
+
+// Default: 675ms
+const base::FeatureParam<int> kGlicActorUiOverlayMagicCursorMaxDuration{
+    &kGlicActorUiOverlayMagicCursor, "magic-cursor-max-duration-ms", 675};
+
+// If enabled, tool execution is split into separate Validate and Execute steps.
+// The Validate step initializes the tool in the renderer and returns the
+// target's coordinate point early, before the actual execution occurs.
+BASE_FEATURE(kGlicActorSplitValidateAndExecute,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kGlicActorUiTaskIconName[] = "glic-actor-ui-task-icon";
 const char kGlicActorUiOverlayName[] = "glic-actor-ui-overlay";
@@ -422,7 +434,7 @@ const base::FeatureParam<base::TimeDelta> kGlicActorTypeToolEnterDelay{
     &kGlicActor, "glic-actor-type-tool-enter-delay", base::Milliseconds(600)};
 
 constexpr base::FeatureParam<std::string> kGlicActorEligibleTiers{
-    &kGlicActor, "glic-actor-eligible-tiers", ""};
+    &kGlicActor, "glic-actor-eligible-tiers", "1,2"};
 
 constexpr base::FeatureParam<GlicActorEnterprisePrefDefault>::Option
     kGlicActorEnterprisePrefDefaultOptions[] = {
@@ -484,12 +496,17 @@ BASE_FEATURE(kGlicLocaleFiltering, base::FEATURE_DISABLED_BY_DEFAULT);
 // main app.
 BASE_FEATURE(kGlicUnifiedFreScreen, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls the bugfix where the unified FRE synchronizes cookies to the wrong
+// storage partition.
+BASE_FEATURE(kGlicUseMainPartitionForUnifiedFre,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls the Glic Trust First Onboarding experience.
 BASE_FEATURE(kGlicTrustFirstOnboarding, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kGlicTrustFirstOnboardingArmParam{
     &kGlicTrustFirstOnboarding, "arm", 1 /* kStartChat */};
-#if BUILDFLAG(ENABLE_GLIC) || BUILDFLAG(ENABLE_GLIC_ANDROID)
+#if BUILDFLAG(ENABLE_GLIC)
 // Controls whether the Glic feature is enabled.
 // IMPORTANT: this feature should never be expired! It is used as the main
 // kill-switch for Glic and can be used in the future to handle unsupported
@@ -747,6 +764,9 @@ const base::FeatureParam<bool>
         &kGlicClientResponsivenessCheck,
         "glic-client-responsiveness-check-ignore-when-debugger-attached", true};
 
+BASE_FEATURE(kGlicEnableCachedGetUserProfileInfo,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicUseShaderCache, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicKeyboardShortcutNewBadge, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -932,7 +952,7 @@ BASE_FEATURE(kGlicDaisyChainNewTabs, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicLiveModeOnlyGlow, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicMITabContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicMITabContextMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicUseToolbarHeightSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1009,6 +1029,9 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 
 BASE_FEATURE(kGlicDisableUnderlineAnimations,
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicGuestUrlPresets, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kGlicGuestUrlPresetType{
+    &kGlicGuestUrlPresets, "glic-guest-url-preset-type", 0};
 
 BASE_FEATURE(kActorFormFillingServiceEnableAddress,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1022,6 +1045,11 @@ BASE_FEATURE(kGoogleChromeScheme, base::FEATURE_DISABLED_BY_DEFAULT);
 // Force Privacy Guide to be available even if it would be unavailable
 // otherwise. This is meant for development and test purposes only.
 BASE_FEATURE(kPrivacyGuideForceAvailable, base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(ENABLE_GLIC) && BUILDFLAG(ENABLE_PDF)
+BASE_FEATURE(kPdfGlicSummarize, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPdfGlicSummarizeFre, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 // Enables or disables the Happiness Tracking System demo mode for Desktop
@@ -1066,6 +1094,24 @@ const base::FeatureParam<base::TimeDelta>
     kHappinessTrackingSurveysForDesktopPrivacyGuideTime{
         &kHappinessTrackingSurveysForDesktopPrivacyGuide, "settings-time",
         base::Seconds(20)};
+
+// Enables or disables the Happiness Tracking System for Desktop History Page in
+// the Experiment group.
+BASE_FEATURE(kHappinessTrackingSurveysForDesktopHistoryPageExperiment,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta>
+    kHappinessTrackingSurveysForDesktopHistoryPageExperimentTime{
+        &kHappinessTrackingSurveysForDesktopHistoryPageExperiment,
+        "history-page-time", base::Seconds(5)};
+
+// Enables or disables the Happiness Tracking System for Desktop History Page in
+// the Control group.
+BASE_FEATURE(kHappinessTrackingSurveysForDesktopHistoryPageControl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta>
+    kHappinessTrackingSurveysForDesktopHistoryPageControlTime{
+        &kHappinessTrackingSurveysForDesktopHistoryPageControl,
+        "history-page-time", base::Seconds(5)};
 
 // Enables or disables the Happiness Tracking System for Desktop Chrome
 // Settings.
@@ -1123,6 +1169,9 @@ const base::FeatureParam<base::TimeDelta>
         &kHappinessTrackingSurveysForDesktopWhatsNew, "whats-new-time",
         base::Seconds(20)};
 
+// Enables or disables the Happiness Tracking System for SE Hijacking.
+BASE_FEATURE(kHappinessTrackingSurveysForDesktopSEHijacking,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables or disables the Happiness Tracking System for Chrome security page.
 BASE_FEATURE(kHappinessTrackingSurveysForSecurityPage,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1294,54 +1343,6 @@ BASE_FEATURE(kIsolatedWebAppManagedGuestSessionInstall,
 // session.
 BASE_FEATURE(kIsolatedWebAppBundleCache, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-// When enabled, allows other features to use the k-Anonymity Service.
-BASE_FEATURE(kKAnonymityService, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Origin to use for requests to the k-Anonymity Auth server to get trust
-// tokens.
-constexpr base::FeatureParam<std::string> kKAnonymityServiceAuthServer{
-    &kKAnonymityService, "KAnonymityServiceAuthServer",
-    "https://chromekanonymityauth-pa.googleapis.com/"};
-
-// Origin to use as a relay for OHTTP requests to the k-Anonymity Join server.
-constexpr base::FeatureParam<std::string> kKAnonymityServiceJoinRelayServer{
-    &kKAnonymityService, "KAnonymityServiceJoinRelayServer",
-    "https://google-ohttp-relay-join.fastly-edge.com/"};
-
-// Origin to use to notify the k-Anonymity Join server of group membership.
-constexpr base::FeatureParam<std::string> kKAnonymityServiceJoinServer{
-    &kKAnonymityService, "KAnonymityServiceJoinServer",
-    "https://chromekanonymity-pa.googleapis.com/"};
-
-// Minimum amount of time allowed between notifying the Join server of
-// membership in a distinct group.
-constexpr base::FeatureParam<base::TimeDelta> kKAnonymityServiceJoinInterval{
-    &kKAnonymityService, "KAnonymityServiceJoinInterval", base::Days(1)};
-
-// Origin to use as a relay for OHTTP requests to the k-Anonymity Query server.
-constexpr base::FeatureParam<std::string> kKAnonymityServiceQueryRelayServer{
-    &kKAnonymityService, "KAnonymityServiceQueryRelayServer",
-    "https://google-ohttp-relay-query.fastly-edge.com/"};
-
-// Origin to use to request k-anonymity status from the k-Anonymity Query
-// server.
-constexpr base::FeatureParam<std::string> kKAnonymityServiceQueryServer{
-    &kKAnonymityService, "KAnonymityServiceQueryServer",
-    "https://chromekanonymityquery-pa.googleapis.com/"};
-
-// Minimum amount of time allowed between requesting k-anonymity status from the
-// Query server for a distinct group.
-constexpr base::FeatureParam<base::TimeDelta> kKAnonymityServiceQueryInterval{
-    &kKAnonymityService, "KAnonymityServiceQueryInterval", base::Days(1)};
-
-// When enabled, the k-Anonymity Service will send requests to the Join and
-// Query k-anonymity servers.
-BASE_FEATURE(kKAnonymityServiceOHTTPRequests, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, the k-Anonymity Service can use a persistent storage to cache
-// public keys.
-BASE_FEATURE(kKAnonymityServiceStorage, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kLinuxLowMemoryMonitor, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1600,7 +1601,7 @@ BASE_FEATURE(kSitePerProcess,
 // The default behavior to opt devtools users out of
 // kProcessPerSiteUpToMainFrameThreshold.
 BASE_FEATURE(kProcessPerSiteSkipDevtoolsUsers,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The default behavior to opt enterprise users out of
 // kProcessPerSiteUpToMainFrameThreshold.
@@ -1611,7 +1612,14 @@ BASE_FEATURE(kProcessPerSiteSkipEnterpriseUsers,
 // engine. Has no effect if "ProcessPerSiteUpToMainFrameThreshold" is disabled.
 // Note: The "ProcessPerSiteUpToMainFrameThreshold" feature is defined in
 // //content.
-BASE_FEATURE(kProcessPerSiteForDSE, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kProcessPerSiteForDSE,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // Consider the default search engine (DSE) warmup page as a search results page
 // (SRP), for the purpose of applying the "process per site for DSE SRP" policy
@@ -1621,7 +1629,7 @@ BASE_FEATURE(kConsiderDSEWarmUpPageAsSRP, base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables Camera Cloud Storage for saving photos and videos on Google Drive
 // or OneDrive, controlled by CameraSaveLocation policy.
-BASE_FEATURE(kCameraCloudStorage, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCameraCloudStorage, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the SkyVault (cloud-first) changes, some of which are also controlled
 // by policies: removing local storage, saving downloads and screen captures to
@@ -1843,6 +1851,9 @@ BASE_FEATURE(kWebAppPeriodicPreinstallUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebAppMigratePreinstalledChat, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+BASE_FEATURE(kWebAppUpgradeToDatabaseVersion6,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebium, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables logging InitialWebUI-related metrics. The metrics are not necessary
@@ -1854,18 +1865,39 @@ BASE_FEATURE(kInitialWebUIMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome will be loaded as the content.
 // crbug.com/444358999
 BASE_FEATURE(kWebUIReloadButton, base::FEATURE_DISABLED_BY_DEFAULT);
+// Switches location bar over to a WebUI implementation.
+// See crbug.com/470042732
+BASE_FEATURE(kWebUILocationBar, base::FEATURE_DISABLED_BY_DEFAULT);
 // The following feature params control the crash recovery behavior of the Web
 // UI reload button. If the renderer crashes, we will try to recover it by
 // reloading the contents until the number of crashes reaches
 // `kWebUIReloadButtonMaxCrashRecoveryTimes`. If the maximum number of crash
-// counts is reached, no recovery will be attempted. The counter will reset if
+// counts is reached, no recovery will be attempted until
+// `WebUIReloadButtonCrashRecoverRetryInterval` later. The counter will reset if
 // there is no crash within `WebUIReloadButtonCrashRecoverResetInterval`.
+// Here is an example with the default settings.
+// - 00:00 renderer crashes
+// - 00:00 recovery is triggered
+// - 00:05 renderer crashes
+// - 00:05 recovery is triggered
+// - 00:16 renderer crashes
+// - 00:16 recovery is triggered, as it has been >= 10s and the counter is reset
+// - 00:17 renderer crashes
+// - 00:17 recovery is triggered
+// - 00:18 renderer crashes
+// - 01:18 recovery is triggered, it's not immediate because the it exceeds the
+//         max recovery times, but it will retry after 1 minute
 const base::FeatureParam<int> kWebUIReloadButtonMaxCrashRecoveryTimes{
     &kWebUIReloadButton, "WebUIReloadButtonMaxCrashRecoveryTimes", 3};
 const base::FeatureParam<base::TimeDelta>
     kWebUIReloadButtonCrashRecoverResetInterval{
         &kWebUIReloadButton, "WebUIReloadButtonCrashRecoverResetInterval",
         base::Seconds(10)};
+const base::FeatureParam<base::TimeDelta>
+    kWebUIReloadButtonCrashRecoverRetryInterval{
+        &kWebUIReloadButton, "WebUIReloadButtonCrashRecoverRetryInterval",
+        base::Minutes(1)};
+
 // When enabled, initial WebUI renderers that become unresponsive will be
 // restarted without showing the hung renderer dialog.
 // `WebUIReloadButtonRestartUnresponsiveRenderersTimeout` controls the timeout
@@ -1882,6 +1914,14 @@ const base::FeatureParam<base::TimeDelta>
         &kWebUIReloadButton,
         "WebUIReloadButtonRestartUnresponsiveRenderersTimeout",
         base::Seconds(15)};
+// When enabled, the split tabs button will be replaced with WebUI loaded from
+// chrome://webui-toolbar.top-chrome.
+// crbug.com/470039098
+BASE_FEATURE(kWebUISplitTabsButton, base::FEATURE_DISABLED_BY_DEFAULT);
+// When enabled, the home button will be replaced with WebUI loaded from
+// chrome://webui-toolbar.top-chrome.
+// crbug.com/470039765
+BASE_FEATURE(kWebUIHomeButton, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables the User-Agent override fix for SearchPrefetch. This will work only
@@ -1911,10 +1951,6 @@ BASE_FEATURE(kWinPinPWAShortcutWithLAF, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
-// A feature to enable event based log uploads. See
-// go/cros-eventbasedlogcollection-dd.
-BASE_FEATURE(kEventBasedLogUpload, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // A feature to enable periodic log upload migration. This includes using new
 // mechanism for collecting, exporting and uploading logs. See
 // go/legacy-log-upload-migration.
@@ -1936,6 +1972,6 @@ BASE_FEATURE(kDisableShortcutsEnableDiy, base::FEATURE_ENABLED_BY_DEFAULT);
 // A feature to enabled updating policy and default management installed PWAs to
 // happen silently without prompting an updating dialog.
 BASE_FEATURE(kSilentPolicyAndDefaultAppUpdating,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

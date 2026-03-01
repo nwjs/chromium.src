@@ -165,21 +165,6 @@ TriggeredRule::Action GetHighestPrecedenceAction(
   return action;
 }
 
-TriggeredRule::ForceSaveToCloudDestination
-GetHighestPrecedenceForceSaveToCloudDestination(
-    TriggeredRule::ForceSaveToCloudDestination destination_1,
-    TriggeredRule::ForceSaveToCloudDestination destination_2) {
-  // Prefer G_DRIVE over ONEDRIVE.
-  if (destination_1 == TriggeredRule::CORP_G_DRIVE ||
-      destination_2 == TriggeredRule::CORP_G_DRIVE) {
-    return TriggeredRule::CORP_G_DRIVE;
-  } else if (destination_1 == TriggeredRule::CORP_ONEDRIVE ||
-             destination_2 == TriggeredRule::CORP_ONEDRIVE) {
-    return TriggeredRule::CORP_ONEDRIVE;
-  }
-  return TriggeredRule::UNSPECIFIED;
-}
-
 TriggeredRule::Action GetHighestPrecedenceAction(
     const TriggeredRule::Action& action_1,
     const TriggeredRule::Action& action_2) {
@@ -474,6 +459,27 @@ std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point) {
       return "Print";
     case DeepScanAccessPoint::FILE_TRANSFER:
       return "FileTransfer";
+  }
+  NOTREACHED();
+}
+
+std::string FinalContentAnalysisResultToString(
+    FinalContentAnalysisResult result) {
+  switch (result) {
+    case FinalContentAnalysisResult::FAILURE:
+      return "Failure";
+    case FinalContentAnalysisResult::FAIL_CLOSED:
+      return "FailClosed";
+    case FinalContentAnalysisResult::LARGE_FILES:
+      return "LargeFiles";
+    case FinalContentAnalysisResult::ENCRYPTED_FILES:
+      return "EncryptedFiles";
+    case FinalContentAnalysisResult::WARNING:
+      return "Warning";
+    case FinalContentAnalysisResult::SUCCESS:
+      return "Success";
+    case FinalContentAnalysisResult::FORCE_SAVE_TO_CLOUD:
+      return "ForceSaveToCloud";
   }
   NOTREACHED();
 }

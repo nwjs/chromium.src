@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.compositor.layouts;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
@@ -16,7 +17,8 @@ import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.lifetime.DestroyChecker;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -41,6 +43,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarPositionController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.ScrollDirection;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 import org.chromium.ui.util.AccessibilityUtil;
 
@@ -55,7 +58,7 @@ import java.util.function.Supplier;
 public class LayoutManagerChrome extends LayoutManagerImpl implements AccessibilityUtil.Observer {
     // Layouts
     /** A {@link Layout} that should be used when the user is swiping sideways on the toolbar. */
-    protected ToolbarSwipeLayout mToolbarSwipeLayout;
+    protected @Nullable ToolbarSwipeLayout mToolbarSwipeLayout;
 
     /**
      * A {@link Layout} that should be used when the user is in the tab switcher when the hub flag
@@ -69,7 +72,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
     /** Whether or not animations are enabled. This can disable certain layouts or effects. */
     private boolean mEnableAnimations = true;
 
-    protected ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
+    protected MonotonicObservableSupplier<TabContentManager> mTabContentManagerSupplier;
     private boolean mFinishNativeInitialization;
     private @Nullable TabContentManager mTabContentManager;
 
@@ -101,7 +104,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
             ViewGroup contentContainer,
             Supplier<TabSwitcher> tabSwitcherSupplier,
             Supplier<TabModelSelector> tabModelSelectorSupplier,
-            ObservableSupplier<TabContentManager> tabContentManagerSupplier,
+            MonotonicObservableSupplier<TabContentManager> tabContentManagerSupplier,
             Supplier<TopUiThemeColorProvider> topUiThemeColorProvider,
             HubLayoutDependencyHolder hubLayoutDependencyHolder) {
         super(host, contentContainer, tabContentManagerSupplier, topUiThemeColorProvider);
@@ -172,23 +175,30 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
             @Nullable ControlContainer controlContainer,
             DynamicResourceLoader dynamicResourceLoader,
             TopUiThemeColorProvider topUiColorProvider,
-            ObservableSupplier<Integer> bottomControlsOffsetSupplier) {
+            NonNullObservableSupplier<Integer> bottomControlsOffsetSupplier) {
         Context context = mHost.getContext();
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
         BrowserControlsStateProvider browserControlsStateProvider =
                 mHost.getBrowserControlsManager();
 
         // Build Layouts
-        mToolbarSwipeLayout =
-                new ToolbarSwipeLayout(
-                        context,
-                        this,
-                        renderHost,
-                        browserControlsStateProvider,
-                        this,
-                        topUiColorProvider,
-                        bottomControlsOffsetSupplier,
-                        getContentContainer());
+        if (isToolbarSwipeTabSwitchSupported()) {
+            mToolbarSwipeLayout =
+                    new ToolbarSwipeLayout(
+                            context,
+                            this,
+                            renderHost,
+                            browserControlsStateProvider,
+                            this,
+                            topUiColorProvider,
+                            bottomControlsOffsetSupplier,
+                            getContentContainer(),
+                            () -> {
+                                if (controlContainer != null) {
+                                    controlContainer.doSynchronousLayoutAndCapture();
+                                }
+                            });
+        }
 
         super.init(
                 selector,
@@ -198,15 +208,19 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
                 topUiColorProvider,
                 bottomControlsOffsetSupplier);
 
-        // Initialize Layouts
-        TabContentManager content = mTabContentManagerSupplier.get();
-        mToolbarSwipeLayout.setTabModelSelector(selector);
-        mToolbarSwipeLayout.setTabContentManager(content);
+        // Initialize Layouts.
+        TabContentManager content = assertNonNull(mTabContentManagerSupplier.get());
+        if (mToolbarSwipeLayout != null) {
+            mToolbarSwipeLayout.setTabModelSelector(selector);
+            mToolbarSwipeLayout.setTabContentManager(content);
+        }
+
         if (mHubLayout != null) {
             mHubLayout.setTabModelSelector(selector);
             mHubLayout.setTabContentManager(content);
             mHubLayout.onFinishNativeInitialization();
         }
+
         mFinishNativeInitialization = true;
     }
 
@@ -265,6 +279,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
         }
         if (mToolbarSwipeLayout != null) {
             mToolbarSwipeLayout.destroy();
+            mToolbarSwipeLayout = null;
         }
     }
 
@@ -272,6 +287,9 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
     protected Layout getLayoutForType(@LayoutType int layoutType) {
         Layout layout = null;
         if (layoutType == LayoutType.TOOLBAR_SWIPE) {
+            // {@link LayoutType.TOOLBAR_SWIPE} is only requested by {@link this#switchToTab()},
+            // which guarantees that {@link mToolbarSwipeLayout} is not null.
+            assert mToolbarSwipeLayout != null;
             layout = mToolbarSwipeLayout;
         } else if (layoutType == LayoutType.TAB_SWITCHER) {
             if (mHubLayout != null) {
@@ -340,6 +358,12 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
                         showLayout(LayoutType.TAB_SWITCHER, /* animate= */ false);
                     }
                 });
+    }
+
+    /** Returns true if the device configuration supports the Toolbar Swipe Layout. */
+    private boolean isToolbarSwipeTabSwitchSupported() {
+        return DeviceClassManager.enableToolbarSwipe()
+                && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mHost.getContext());
     }
 
     /** Initializes HubLayout without needing to open the Tab Switcher. */
@@ -485,8 +509,8 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
         @Override
         public boolean isSwipeEnabled(@ScrollDirection int direction) {
             FullscreenManager manager = mHost.getFullscreenManager();
-            if (getActiveLayout() != mStaticLayout
-                    || !DeviceClassManager.enableToolbarSwipe()
+            if (!isToolbarSwipeTabSwitchSupported()
+                    || getActiveLayout() != mStaticLayout
                     || (manager != null && manager.getPersistentFullscreenMode())) {
                 return false;
             }
@@ -514,7 +538,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
 
     @Override
     protected void switchToTab(@Nullable Tab tab, int lastTabId) {
-        if (tab == null || lastTabId == Tab.INVALID_TAB_ID) {
+        if (tab == null || lastTabId == Tab.INVALID_TAB_ID || mToolbarSwipeLayout == null) {
             super.switchToTab(tab, lastTabId);
             return;
         }

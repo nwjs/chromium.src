@@ -11,8 +11,8 @@
 #include "base/memory/raw_ptr.h"
 #include "build/android_buildflags.h"
 #include "chrome/browser/flags/android/chrome_session_state.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/android/tab_model/android_live_tab_context.h"
-#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/omnibox/browser/location_bar_model_delegate.h"
 #include "components/sessions/core/session_id.h"
@@ -42,13 +42,29 @@ class TabModelObserver;
 // with Android's Tabs and Tab Model.
 class TabModel : public TabListInterface {
  public:
-  DECLARE_USER_DATA(TabModel);
-
   // LINT.IfChange(kInvalidIndex)
   // Keep this in sync with
   // chrome/browser/tabmodel/android/java/src/org/chromium/chrome/browser/tabmodel/TabList.java
   static constexpr int kInvalidIndex = -1;
   // LINT.ThenChange(//chrome/browser/tabmodel/android/java/src/org/chromium/chrome/browser/tabmodel/TabList.java:INVALID_TAB_INDEX)
+
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.tabmodel
+  enum class TabModelType {
+    // A standard tab model that contains tabs from a profile.
+    kStandard,
+    // An empty tab model that contains no tabs.
+    kEmpty,
+    // A tab model that contains archived tabs from the regular profile. These
+    // tabs will never have a WebContents unless restored to another tab model.
+    kArchived,
+    // Similar to a standard tab model, but used for a set of tabs that are not
+    // associated with any open window. The tabs in this model are intended to
+    // be "read-only" and cannot be navigated or have a WebContents. If the
+    // window associated with this tab model is opened the headless tab model
+    // will be destroyed and the tabs will be re-created in a standard tab
+    // model.
+    kHeadless,
+  };
 
   // LINT.IfChange(TabLaunchType)
   // Various ways tabs can be launched.
@@ -290,9 +306,12 @@ class TabModel : public TabListInterface {
                                               const base::Time& end_time) = 0;
 
   chrome::android::ActivityType activity_type() const { return activity_type_; }
+  TabModelType GetTabModelType() const { return tab_model_type_; }
 
  protected:
-  TabModel(Profile* profile, chrome::android::ActivityType activity_type);
+  TabModel(Profile* profile,
+           chrome::android::ActivityType activity_type,
+           TabModelType tab_model_type);
   ~TabModel() override;
 
   // Instructs the TabModel to broadcast a notification that all tabs are now
@@ -317,6 +336,7 @@ class TabModel : public TabListInterface {
   raw_ptr<Profile, DanglingUntriaged> profile_;
 
   chrome::android::ActivityType activity_type_;
+  TabModelType tab_model_type_;
 
   // The LiveTabContext associated with TabModel.
   // Used to restore closed tabs through the TabRestoreService.

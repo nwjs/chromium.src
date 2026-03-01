@@ -4,10 +4,10 @@
 
 #include "content/browser/service_worker/embedded_worker_instance.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "base/check_is_test.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -44,6 +44,7 @@
 #include "content/public/browser/hid_delegate.h"
 #include "content/public/browser/usb_delegate.h"
 #include "content/public/browser/web_ui_url_loader_factory.h"
+#include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -305,6 +306,11 @@ void EmbeddedWorkerInstance::Start(
   const url::Origin origin = url::Origin::Create(params->script_url);
   ChildProcessSecurityPolicyImpl::GetInstance()->AddCommittedOrigin(process_id,
                                                                     origin);
+
+  // Pass the cross-origin isolated capability of the worker.
+  params->cross_origin_isolated =
+      rph->GetProcessLock().agent_cluster_key().IsCrossOriginIsolated() ||
+      rph->GetProcessLock().GetWebExposedIsolationInfo().is_isolated();
 
   rph->BindReceiver(client_.BindNewPipeAndPassReceiver());
   client_.set_disconnect_handler(
@@ -880,7 +886,7 @@ EmbeddedWorkerInstance::CreateFactoryBundle(
           std::move(dip_reporter),
           static_cast<StoragePartitionImpl*>(rph->GetStoragePartition())
               ->CreateURLLoaderNetworkObserverForServiceOrSharedWorker(
-                  rph->GetDeprecatedID(), origin),
+                  ToOriginatingProcess(rph->GetID()), origin),
           NetworkServiceDevToolsObserver::MakeSelfOwned(devtools_worker_token),
           std::move(client_security_state),
           "EmbeddedWorkerInstance::CreateFactoryBundle",
@@ -945,7 +951,7 @@ EmbeddedWorkerInstance::CreateFactoryBundle(
     // redirects to data: URLs in ServiceWorkerGlobalScope
     // (https://crbug.com/1334249).
     if (scheme != url::kDataScheme &&
-        !base::Contains(GetServiceWorkerSchemes(), scheme)) {
+        !std::ranges::contains(GetServiceWorkerSchemes(), scheme)) {
       continue;
     }
 

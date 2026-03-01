@@ -15,6 +15,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/glic/common/future_browser_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_features.h"
 #include "components/favicon/content/content_favicon_driver.h"
@@ -25,10 +26,6 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/tabs/tab_model.h"
-#endif
 
 namespace glic {
 
@@ -120,7 +117,8 @@ TabDataObserver::TabDataObserver(
     content::WebContents* web_contents,
     base::RepeatingCallback<void(TabDataChange)> tab_data_changed)
     : content::WebContentsObserver(web_contents),
-      tab_data_changed_(std::move(tab_data_changed)) {
+      tab_data_changed_(std::move(tab_data_changed)),
+      tab_(tab) {
   if (web_contents) {
     auto* favicon_driver =
         favicon::ContentFaviconDriver::FromWebContents(web_contents);
@@ -154,6 +152,7 @@ void TabDataObserver::ClearObservation() {
   ReportUpdatesPerNavigation();
   updates_since_navigation_ = 0;
   tab_detach_subscription_ = {};
+  tab_ = nullptr;
 }
 
 void TabDataObserver::DidFinishNavigation(
@@ -205,7 +204,7 @@ void TabDataObserver::SendRateLimitedUpdate() {
 void TabDataObserver::SendUpdate() {
   deferred_update_.Stop();
   ++updates_since_navigation_;
-  tab_data_changed_.Run({change_causes_, CreateTabData(web_contents())});
+  tab_data_changed_.Run({change_causes_, CreateTabData(tab_)});
   change_causes_ = {};
 }
 
@@ -246,10 +245,11 @@ const GURL& GetTabUrl(content::WebContents* web_contents) {
 }
 
 // CreateTabData Implementation:
-glic::mojom::TabDataPtr CreateTabData(content::WebContents* web_contents) {
-  if (!web_contents) {
+glic::mojom::TabDataPtr CreateTabData(tabs::TabInterface* tab) {
+  if (!tab) {
     return nullptr;
   }
+  content::WebContents* web_contents = tab->GetContents();
 
   SkBitmap favicon;
   auto* favicon_driver =
@@ -274,22 +274,13 @@ glic::mojom::TabDataPtr CreateTabData(content::WebContents* web_contents) {
   bool is_observable = is_audible || is_foreground;
   bool is_active_in_window = false;
   bool is_window_active = false;
-#if !BUILDFLAG(IS_ANDROID)
-  tabs::TabInterface* tab =
-      tabs::TabInterface::MaybeGetFromContents(web_contents);
+
   if (base::FeatureList::IsEnabled(features::kGlicGetTabByIdApi)) {
     is_active_in_window = tab && tab->IsActivated();
-    // This code may be reached during the dragging of the tab out into a new
-    // window. In that case the BrowserWindowInterface would be null, but we
-    // cannot call GetBrowserWindowInterface to check for null. So we resort to
-    // null checking the underlying tab strip.
-    // TODO(crbug.com/456445100): Determine a better way to safely call this.
-    is_window_active = tab &&
-                       static_cast<tabs::TabModel*>(tab)->owning_model() &&
-                       tab->GetBrowserWindowInterface()->IsActive();
+    is_window_active = tab->GetBrowserWindowInterface()
+                           ? IsActive(tab->GetBrowserWindowInterface())
+                           : false;
   }
-#else  // TODO(b/470059315): Implement for android
-#endif
   return glic::mojom::TabData::New(
       GetTabId(web_contents),
       sessions::SessionTabHelper::IdForWindowContainingTab(web_contents).id(),
@@ -304,13 +295,11 @@ glic::mojom::FocusedTabDataPtr CreateFocusedTabData(
     const FocusedTabData& focused_tab_data) {
   if (focused_tab_data.is_focus()) {
     return mojom::FocusedTabData::NewFocusedTab(
-        CreateTabData(focused_tab_data.focus()->GetContents()));
+        CreateTabData(focused_tab_data.focus()));
   }
   return mojom::FocusedTabData::NewNoFocusedTabData(
       mojom::NoFocusedTabData::New(
-          CreateTabData(focused_tab_data.unfocused_tab()
-                            ? focused_tab_data.unfocused_tab()->GetContents()
-                            : nullptr),
+          CreateTabData(focused_tab_data.unfocused_tab()),
           focused_tab_data.GetFocus().error()));
 }
 

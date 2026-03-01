@@ -55,6 +55,7 @@ class TabsEventRouterPlatformDelegate
 
   // BrowserListObserver:
   void OnBrowserSetLastActive(Browser* browser) override;
+  void OnBrowserAdded(Browser* browser) override;
   void OnBrowserNoLongerActive(Browser* browser) override;
   void NWStatusUpdated(content::WebContents* web_contents,
                        const std::string& nwstatus);
@@ -90,13 +91,8 @@ class TabsEventRouterPlatformDelegate
   void DispatchTabDetachedAt(content::WebContents* contents,
                              int index,
                              bool was_active);
-  void DispatchActiveTabChanged(content::WebContents* old_contents,
-                                content::WebContents* new_contents);
   void DispatchTabSelectionChanged(TabStripModel* tab_strip_model,
                                    const ui::ListSelectionModel& old_model);
-  void DispatchTabMoved(content::WebContents* contents,
-                        int from_index,
-                        int to_index);
   void DispatchTabReplacedAt(content::WebContents* old_contents,
                              content::WebContents* new_contents,
                              int index);

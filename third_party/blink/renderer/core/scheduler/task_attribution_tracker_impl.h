@@ -7,7 +7,6 @@
 
 #include <optional>
 
-#include "base/containers/contains.h"
 #include "base/memory/weak_ptr.h"
 #include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -75,8 +74,6 @@ class CORE_EXPORT TaskAttributionTrackerImpl
       TaskAttributionTaskState* previous_task_state,
       TaskScopeType type);
   void OnTaskScopeDestroyed(const TaskScope&) override;
-
-  TaskAttributionId next_task_id_{1};
 
   // A queue of TaskAttributionInfo objects representing tasks that initiated a
   // same-document navigation that was sent to the browser side. They are kept

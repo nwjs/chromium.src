@@ -18,7 +18,7 @@
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/signin/model/account_capabilities_fetcher_factory_ios.h"
+#import "ios/chrome/browser/signin/model/account_fetcher_factory_ios.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/device_accounts_provider_impl.h"
 #import "ios/chrome/browser/signin/model/signin_client_factory.h"
@@ -52,13 +52,15 @@ IdentityManagerFactory* IdentityManagerFactory::GetInstance() {
 std::unique_ptr<KeyedService> IdentityManagerFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {
   signin::IdentityManagerBuildParams params;
+  ChromeAccountManagerService* chrome_account_manager_service =
+      ChromeAccountManagerServiceFactory::GetForProfile(profile);
   params.account_consistency = signin::AccountConsistencyMethod::kMirror;
   params.device_accounts_provider =
       std::make_unique<DeviceAccountsProviderImpl>(
-          ChromeAccountManagerServiceFactory::GetForProfile(profile));
-  params.account_capabilities_fetcher_factory =
-      std::make_unique<ios::AccountCapabilitiesFetcherFactoryIOS>(
-          ChromeAccountManagerServiceFactory::GetForProfile(profile));
+          chrome_account_manager_service);
+  params.account_fetcher_factory =
+      std::make_unique<ios::AccountFetcherFactoryIOS>(
+          chrome_account_manager_service);
   params.image_decoder = image_fetcher::CreateIOSImageDecoder();
   params.local_state = GetApplicationContext()->GetLocalState();
   params.pref_service = profile->GetPrefs();
@@ -67,13 +69,12 @@ std::unique_ptr<KeyedService> IdentityManagerFactory::BuildServiceInstanceFor(
   params.account_tracker_service = std::make_unique<AccountTrackerService>();
   params.account_tracker_service->Initialize(params.pref_service,
                                              params.profile_path);
-  params.require_sync_consent_for_scope_verification = false;
 
   std::unique_ptr<ProfileOAuth2TokenServiceDelegate> delegate =
       std::make_unique<ProfileOAuth2TokenServiceIOSDelegate>(
           params.signin_client,
           std::make_unique<DeviceAccountsProviderImpl>(
-              ChromeAccountManagerServiceFactory::GetForProfile(profile)),
+              chrome_account_manager_service),
           params.account_tracker_service.get());
   params.token_service = tests_hook::GetOverriddenTokenService(
       params.pref_service, std::move(delegate));

@@ -48,28 +48,29 @@ class CORE_EXPORT TimelineTrigger : public AnimationTrigger {
   const AnimationTimeline* Timeline() const {
     return GetRange() ? GetRange()->timeline() : nullptr;
   }
-  const RangeBoundary* RangeStart() {
-    return GetRange() ? GetRange()->rangeStart(nullptr) : nullptr;
+  const RangeBoundary* ActivationRangeStart() {
+    return GetRange() ? GetRange()->activationRangeStart(nullptr) : nullptr;
   }
-  const RangeBoundary* RangeEnd() {
-    return GetRange() ? GetRange()->rangeEnd(nullptr) : nullptr;
+  const RangeBoundary* ActivationRangeEnd() {
+    return GetRange() ? GetRange()->activationRangeEnd(nullptr) : nullptr;
   }
-  const RangeBoundary* ExitRangeStart() {
-    return GetRange() ? GetRange()->exitRangeStart(nullptr) : nullptr;
+  const RangeBoundary* ActiveRangeStart() {
+    return GetRange() ? GetRange()->activeRangeStart(nullptr) : nullptr;
   }
-  const RangeBoundary* ExitRangeEnd() {
-    return GetRange() ? GetRange()->exitRangeEnd(nullptr) : nullptr;
+  const RangeBoundary* ActiveRangeEnd() {
+    return GetRange() ? GetRange()->activeRangeEnd(nullptr) : nullptr;
   }
   AnimationTimeline* GetTimelineInternal() {
     return GetRange() ? GetRange()->GetTimelineInternal() : nullptr;
   }
-  void SetRangeBoundariesForTest(RangeBoundary* start,
-                                 RangeBoundary* end,
-                                 RangeBoundary* exit_start,
-                                 RangeBoundary* exit_end) {
+  void SetRangeBoundariesForTest(RangeBoundary* activation_start,
+                                 RangeBoundary* activation_end,
+                                 RangeBoundary* active_start,
+                                 RangeBoundary* active_end) {
     // TODO(crbug.com/473568234): Support multiple timelines.
     if (TimelineTriggerRange* range = GetRange()) {
-      range->SetRangeBoundariesForTest(start, end, exit_start, exit_end);
+      range->SetRangeBoundariesForTest(activation_start, activation_end,
+                                       active_start, active_end);
     }
   }
   TriggerBoundaries ComputeTriggerBoundariesForTest(
@@ -92,6 +93,10 @@ class CORE_EXPORT TimelineTrigger : public AnimationTrigger {
 
   void CreateCompositorTrigger() override;
   void DestroyCompositorTrigger() override;
+
+  Document* GetDocument() override {
+    return Timeline() ? Timeline()->GetDocument() : nullptr;
+  }
 
   using TimelineState = ScrollSnapshotTimeline::TimelineState;
 

@@ -9,7 +9,7 @@
 #include "base/memory/raw_ref.h"
 #include "chrome/browser/ui/autofill/bubble_controller_base.h"
 #include "components/tabs/public/tab_interface.h"
-#include "components/wallet/core/browser/walletable_pass_client.h"
+#include "components/wallet/core/browser/ingestion/walletable_pass_client.h"
 #include "content/public/browser/web_contents.h"
 
 namespace wallet {
@@ -44,6 +44,7 @@ class WalletablePassBubbleControllerBase
   // BubbleControllerBase:
   void OnBubbleDiscarded() override;
   bool CanBeReshown() const override;
+  bool ShouldReshowOnTabVisible() const override;
   void HideBubble(bool initiated_by_bubble_manager) override;
   bool IsShowingBubble() const override;
   bool IsMouseHovered() const override;

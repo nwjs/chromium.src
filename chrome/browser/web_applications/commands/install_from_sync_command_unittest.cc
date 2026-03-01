@@ -73,12 +73,12 @@ class InstallFromSyncTest : public base::test::WithFeatureOverride,
   const int kIconSize = 96;
   const GURL kWebAppStartUrl = GURL("https://example.com/path/index.html");
   const webapps::ManifestId kWebAppManifestId =
-      GURL("https://example.com/path/index.html");
+      webapps::ManifestId(GURL("https://example.com/path/index.html"));
 
   const GURL kOtherWebAppStartUrl =
       GURL("https://example.com/path2/index.html");
   const webapps::ManifestId kOtherWebAppManifestId =
-      GURL("https://example.com/path2/index.html");
+      webapps::ManifestId(GURL("https://example.com/path2/index.html"));
 
   const std::u16string kManifestName = u"Manifest Name";
   const GURL kWebAppManifestUrl =
@@ -687,7 +687,7 @@ TEST_P(InstallFromSyncTest, Shutdown) {
   ASSERT_TRUE(future.Wait());
   EXPECT_EQ(future.Get<webapps::InstallResultCode>(),
             webapps::InstallResultCode::kCancelledOnWebAppProviderShuttingDown);
-  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
+  EXPECT_FALSE(registrar().GetInstallState(app_id).has_value());
 }
 
 TEST_P(InstallFromSyncTest, TrustedIconInstallsFromFallback) {

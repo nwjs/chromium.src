@@ -691,7 +691,7 @@ void AuthenticatorTouchIdSheetModel::OnAccept() {
   }
   webauthn::user_actions::RecordAcceptClick();
   touch_id_completed_ = true;
-  dialog_model()->OnTouchIDComplete(false);
+  dialog_model()->OnGPMTouchIDComplete(false);
 }
 
 void AuthenticatorTouchIdSheetModel::OnTouchIDSensorTapped(
@@ -709,7 +709,7 @@ void AuthenticatorTouchIdSheetModel::OnTouchIDSensorTapped(
   }
   touch_id_completed_ = true;
   dialog_model()->local_auth_token = std::move(local_auth_token);
-  dialog_model()->OnTouchIDComplete(true);
+  dialog_model()->OnGPMTouchIDComplete(true);
 }
 
 #endif  // IS_MAC
@@ -1344,33 +1344,36 @@ std::u16string AuthenticatorCableErrorSheetModel::GetCancelButtonLabel() const {
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_CABLEV2_ERROR_CLOSE);
 }
 
-// AuthenticatorCreatePasskeySheetModel
+// AuthenticatorChromeProfileCreatePasskeySheetModel
 // --------------------------------------------------
 
-AuthenticatorCreatePasskeySheetModel::AuthenticatorCreatePasskeySheetModel(
-    AuthenticatorRequestDialogModel* dialog_model)
+AuthenticatorChromeProfileCreatePasskeySheetModel::
+    AuthenticatorChromeProfileCreatePasskeySheetModel(
+        AuthenticatorRequestDialogModel* dialog_model)
     : AuthenticatorSheetModelBase(dialog_model,
                                   OtherMechanismButtonVisibility::kVisible) {
   lottie_illustrations_.emplace(IDR_WEBAUTHN_PASSKEY_LIGHT,
                                 IDR_WEBAUTHN_PASSKEY_DARK);
 }
 
-AuthenticatorCreatePasskeySheetModel::~AuthenticatorCreatePasskeySheetModel() =
-    default;
+AuthenticatorChromeProfileCreatePasskeySheetModel::
+    ~AuthenticatorChromeProfileCreatePasskeySheetModel() = default;
 
-std::u16string AuthenticatorCreatePasskeySheetModel::GetStepTitle() const {
+std::u16string AuthenticatorChromeProfileCreatePasskeySheetModel::GetStepTitle()
+    const {
   return l10n_util::GetStringFUTF16(
       IDS_WEBAUTHN_CREATE_PASSKEY_TITLE,
       GetRelyingPartyIdStringTitle(dialog_model()));
 }
 
-std::u16string AuthenticatorCreatePasskeySheetModel::GetStepDescription()
-    const {
+std::u16string
+AuthenticatorChromeProfileCreatePasskeySheetModel::GetStepDescription() const {
   return u"";
 }
 
 std::u16string
-AuthenticatorCreatePasskeySheetModel::passkey_storage_description() const {
+AuthenticatorChromeProfileCreatePasskeySheetModel::passkey_storage_description()
+    const {
   return l10n_util::GetStringUTF16(
       dialog_model()->is_off_the_record
           ? IDS_WEBAUTHN_CREATE_PASSKEY_EXTRA_INCOGNITO
@@ -1378,17 +1381,19 @@ AuthenticatorCreatePasskeySheetModel::passkey_storage_description() const {
 }
 
 AuthenticatorRequestSheetModel::AcceptButtonState
-AuthenticatorCreatePasskeySheetModel::GetAcceptButtonState() const {
+AuthenticatorChromeProfileCreatePasskeySheetModel::GetAcceptButtonState()
+    const {
   return AcceptButtonState::kEnabled;
 }
 
-std::u16string AuthenticatorCreatePasskeySheetModel::GetAcceptButtonLabel()
+std::u16string
+AuthenticatorChromeProfileCreatePasskeySheetModel::GetAcceptButtonLabel()
     const {
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_CONTINUE);
 }
 
-void AuthenticatorCreatePasskeySheetModel::OnAccept() {
-  dialog_model()->OnCreatePasskeyAccepted();
+void AuthenticatorChromeProfileCreatePasskeySheetModel::OnAccept() {
+  dialog_model()->OnChromeProfileCreatePasskeyAccepted();
 }
 
 // AuthenticatorGPMErrorSheetModel -------------------------------------------
@@ -1562,7 +1567,7 @@ std::u16string AuthenticatorGpmPinSheetModelBase::GetGpmAccountEmail() const {
   if (!account_info) {
     return std::u16string();
   }
-  return base::UTF8ToUTF16(account_info->email);
+  return base::UTF8ToUTF16(account_info->GetEmail());
 }
 
 std::u16string AuthenticatorGpmPinSheetModelBase::GetGpmAccountName() const {
@@ -1570,7 +1575,7 @@ std::u16string AuthenticatorGpmPinSheetModelBase::GetGpmAccountName() const {
   if (!account_info) {
     return std::u16string();
   }
-  return base::UTF8ToUTF16(account_info->full_name);
+  return base::UTF8ToUTF16(account_info->GetFullName().value_or(""));
 }
 
 gfx::Image AuthenticatorGpmPinSheetModelBase::GetGpmAccountImage() const {
@@ -1578,11 +1583,9 @@ gfx::Image AuthenticatorGpmPinSheetModelBase::GetGpmAccountImage() const {
   if (!account_info) {
     return gfx::Image();
   }
-  gfx::Image account_image = account_info->account_image;
-  if (account_image.IsEmpty()) {
-    account_image = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-        profiles::GetPlaceholderAvatarIconResourceID());
-  }
+  gfx::Image account_image = account_info->GetAvatarImage().value_or(
+      ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+          profiles::GetPlaceholderAvatarIconResourceID()));
   constexpr int kAvatarIconSize = 32;
   return profiles::GetSizedAvatarIcon(account_image,
                                       /*width=*/kAvatarIconSize,
@@ -1652,7 +1655,7 @@ void AuthenticatorGpmPinSheetModelBase::OnCancel() {
 
 void AuthenticatorGpmPinSheetModelBase::OnForgotGPMPin() const {
   webauthn::user_actions::RecordGpmForgotPinClick();
-  dialog_model()->OnForgotGPMPinPressed();
+  dialog_model()->OnGPMForgotPinPressed();
 }
 
 void AuthenticatorGpmPinSheetModelBase::OnGPMPinOptionChosen(
@@ -1871,7 +1874,7 @@ std::u16string AuthenticatorTrustThisComputerAssertionSheetModel::
 
 void AuthenticatorTrustThisComputerAssertionSheetModel::OnAccept() {
   webauthn::user_actions::RecordAcceptClick();
-  dialog_model()->OnTrustThisComputer();
+  dialog_model()->OnGPMTrustThisComputer();
 }
 
 // AuthenticatorCreateGpmPasskeySheetModel -------------------------------------
@@ -1924,7 +1927,7 @@ std::u16string AuthenticatorCreateGpmPasskeySheetModel::GetAcceptButtonLabel()
 
 void AuthenticatorCreateGpmPasskeySheetModel::OnAccept() {
   webauthn::user_actions::RecordAcceptClick();
-  dialog_model()->OnGPMCreatePasskey();
+  dialog_model()->OnGPMCreationConfirmed();
 }
 
 void AuthenticatorCreateGpmPasskeySheetModel::OnCancel() {
@@ -2046,7 +2049,7 @@ AuthenticatorTrustThisComputerCreationSheetModel::GetOtherMechanismButtonLabel()
 
 void AuthenticatorTrustThisComputerCreationSheetModel::OnAccept() {
   webauthn::user_actions::RecordAcceptClick();
-  dialog_model()->OnTrustThisComputer();
+  dialog_model()->OnGPMTrustThisComputer();
 }
 
 // AuthenticatorGPMLockedPinSheetModel ----------------------------------
@@ -2083,7 +2086,7 @@ std::u16string AuthenticatorGPMLockedPinSheetModel::GetAcceptButtonLabel()
 
 void AuthenticatorGPMLockedPinSheetModel::OnAccept() {
   webauthn::user_actions::RecordAcceptClick();
-  dialog_model()->OnForgotGPMPinPressed();
+  dialog_model()->OnGPMForgotPinPressed();
 }
 
 // CombinedSelectorSheetModel

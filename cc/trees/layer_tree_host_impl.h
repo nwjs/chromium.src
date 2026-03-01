@@ -66,6 +66,7 @@
 #include "cc/trees/render_frame_metadata.h"
 #include "cc/trees/task_runner_provider.h"
 #include "cc/trees/throttle_decider.h"
+#include "cc/trees/tracked_element_bounds.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/gpu/context_cache_controller.h"
 #include "components/viz/common/quads/compositor_render_pass.h"
@@ -751,6 +752,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void ScheduleMicroBenchmark(std::unique_ptr<MicroBenchmarkImpl> benchmark);
 
   viz::RegionCaptureBounds CollectRegionCaptureBounds();
+  TrackedElementBounds CollectTrackedElementBounds();
 
   viz::CompositorFrameMetadata MakeCompositorFrameMetadata();
   RenderFrameMetadata MakeRenderFrameMetadata(FrameData* frame);
@@ -1286,6 +1288,10 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // or
   // <meta name="viewport" content="initial-scale=1.0">
   bool is_viewport_mobile_optimized_ = false;
+
+  // If true, forwards a request to viz/ to use ADPF's
+  // setPreferEfficientScheduling API on Android. No-op for other platforms.
+  bool prefer_efficient_scheduling_ = false;
 
   bool prefers_reduced_motion_ = false;
 

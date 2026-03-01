@@ -82,6 +82,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 
 namespace blink {
 
@@ -638,10 +639,10 @@ class TokenPreloadScanner::StartTagScanner {
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#attribute-name-state
     if (replacement == kDisallowURLReplacement && !url_to_load_.empty())
       return;
-    String url = StripLeadingAndTrailingHTMLSpaces(value);
+    StringView url = StripLeadingAndTrailingHtmlSpaces(value);
     if (url.empty())
       return;
-    url_to_load_ = url;
+    url_to_load_ = url.ToString();
   }
 
   const String& Charset() const {
@@ -1132,7 +1133,7 @@ void TokenPreloadScanner::UpdatePredictedBaseURL(const HTMLToken& token) {
   if (const HTMLToken::Attribute* href_attribute =
           token.GetAttributeItem(html_names::kHrefAttr)) {
     KURL url(document_url_,
-             StripLeadingAndTrailingHTMLSpaces(href_attribute->Value()));
+             StripLeadingAndTrailingHtmlSpaces(href_attribute->Value()));
     bool is_valid_base_url =
         url.IsValid() && !url.ProtocolIsData() && !url.ProtocolIsJavaScript();
     predicted_base_element_url_ = is_valid_base_url ? url : KURL();
@@ -1204,19 +1205,18 @@ HTMLPreloadScanner::HTMLPreloadScanner(
       tokenizer_(std::move(tokenizer)),
       script_token_scanner_(std::move(script_token_scanner)),
       take_preload_(std::move(take_preload)) {
-  TRACE_EVENT_WITH_FLOW0("blink", "HTMLPreloadScanner::HTMLPreloadScanner",
-                         TRACE_ID_LOCAL(this), TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("blink", "HTMLPreloadScanner::HTMLPreloadScanner",
+              perfetto::Flow::FromPointer(this));
 }
 
 HTMLPreloadScanner::~HTMLPreloadScanner() {
-  TRACE_EVENT_WITH_FLOW0("blink", "HTMLPreloadScanner::~HTMLPreloadScanner",
-                         TRACE_ID_LOCAL(this), TRACE_EVENT_FLAG_FLOW_IN);
+  TRACE_EVENT("blink", "HTMLPreloadScanner::~HTMLPreloadScanner",
+              perfetto::TerminatingFlow::FromPointer(this));
 }
 
 void HTMLPreloadScanner::AppendToEnd(const SegmentedString& source) {
-  TRACE_EVENT_WITH_FLOW0("blink", "HTMLPreloadScanner::AppendToEnd",
-                         TRACE_ID_LOCAL(this),
-                         TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("blink", "HTMLPreloadScanner::AppendToEnd",
+              perfetto::Flow::FromPointer(this));
   source_.Append(source);
 }
 
@@ -1224,10 +1224,9 @@ std::unique_ptr<PendingPreloadData> HTMLPreloadScanner::Scan(
     const KURL& starting_base_element_url) {
   auto pending_data = std::make_unique<PendingPreloadData>();
 
-  TRACE_EVENT_WITH_FLOW1("blink", "HTMLPreloadScanner::scan",
-                         TRACE_ID_LOCAL(this),
-                         TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
-                         "source_length", source_.length());
+  TRACE_EVENT("blink", "HTMLPreloadScanner::scan",
+              perfetto::Flow::FromPointer(this), "source_length",
+              source_.length());
 
   // When we start scanning, our best prediction of the baseElementURL is the
   // real one!
@@ -1282,9 +1281,8 @@ std::unique_ptr<PendingPreloadData> HTMLPreloadScanner::Scan(
 void HTMLPreloadScanner::ScanInBackground(
     const String& source,
     const KURL& document_base_element_url) {
-  TRACE_EVENT_WITH_FLOW0("blink", "HTMLPreloadScanner::ScanInBackground",
-                         TRACE_ID_LOCAL(this),
-                         TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
+  TRACE_EVENT("blink", "HTMLPreloadScanner::ScanInBackground",
+              perfetto::Flow::FromPointer(this));
   source_.Append(source);
   take_preload_.Run(Scan(document_base_element_url));
 }

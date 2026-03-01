@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import {ComposeboxContextAddedMethod} from '//resources/cr_components/search/constants.js';
+import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
@@ -41,6 +42,13 @@ export interface TabUpload {
 
 export type ContextualUpload = TabUpload|FileUpload;
 
+export enum GlifAnimationState {
+  INELIGIBLE = 'ineligible',
+  SPINNER_ONLY = 'spinner-only',
+  STARTED = 'started',
+  FINISHED = 'finished',
+}
+
 export function recordEnumerationValue(
     metricName: string, value: number, enumSize: number) {
   // In rare cases chrome.metricsPrivate is not available.
@@ -76,4 +84,11 @@ export function recordContextAdditionMethod(
   recordEnumerationValue(
       'ContextualSearch.ContextAdded.ContextAddedMethod.' + composeboxSource,
       additionMethod, ComposeboxContextAddedMethod.MAX_VALUE + 1);
+}
+
+export function hasValidInputState(inputState: InputState|null): boolean {
+  return !!inputState &&
+    (inputState.allowedModels.length > 0 ||
+     inputState.allowedTools.length > 0 ||
+     inputState.allowedInputTypes.length > 0);
 }

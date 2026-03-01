@@ -15,6 +15,8 @@
 #import "base/scoped_observation.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/pref_registry/pref_registry_syncable.h"
+#import "components/signin/ios/browser/account_consistency_service.h"
+#import "components/signin/ios/browser/signin_enabled_datasource.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -37,7 +39,8 @@ class PrefService;
 // policies.
 class AuthenticationService : public KeyedService,
                               public signin::IdentityManager::Observer,
-                              public ChromeAccountManagerService::Observer {
+                              public ChromeAccountManagerService::Observer,
+                              public signin::SigninEnabledDataSource {
  public:
   // The service status for AuthenticationService.
   enum class ServiceStatus {
@@ -54,11 +57,6 @@ class AuthenticationService : public KeyedService,
   };
 
   // All passed-in services must not be null, and must outlive this service.
-  // Profile can be null until its callers in ios_internal are fixed.
-  AuthenticationService(PrefService* pref_service,
-                        ChromeAccountManagerService* account_manager_service,
-                        signin::IdentityManager* identity_manager,
-                        syncer::SyncService* sync_service);
   AuthenticationService(ProfileIOS* profile,
                         PrefService* pref_service,
                         ChromeAccountManagerService* account_manager_service,
@@ -153,11 +151,10 @@ class AuthenticationService : public KeyedService,
   // sync the accounts between the IdentityManager and the SSO library.
   void OnApplicationWillEnterForeground();
 
-  // Whether the sign-in is not disabled.
-  bool SigninEnabled() const;
+  bool SigninEnabled() const override;
 
  private:
-  friend class AuthenticationServiceTestBase;
+  friend class AuthenticationServiceTest;
   friend class FakeAuthenticationService;
 
   // LINT.IfChange(IOSProfileInitializationOutcome)
@@ -271,6 +268,9 @@ class AuthenticationService : public KeyedService,
   // Clears the account settings prefs of all removed accounts from device.
   void ClearAccountSettingsPrefsOfRemovedAccounts();
 
+  // Returns whether the
+  bool IsPersonalProfile();
+
   // Returns the active identities for MDM.
   NSArray<id<SystemIdentity>>* ActiveIdentities();
 
@@ -279,8 +279,7 @@ class AuthenticationService : public KeyedService,
   // is null.
   std::unique_ptr<AuthenticationServiceDelegate> delegate_;
 
-  // The profile associated to this service. May be null during migration of the
-  // constructor in ios-internal.
+  // The profile associated to this service.
   raw_ptr<ProfileIOS> profile_;
   // Pointer to the KeyedServices used by AuthenticationService.
   raw_ptr<PrefService> pref_service_ = nullptr;

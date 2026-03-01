@@ -98,20 +98,16 @@ constexpr auto kInputModes =
         {kJpPrefInputModeKana, JapaneseSettings::InputMode::kKana},
     });
 
-// TODO(b:466239577): Adapt kJpPrefPunctuationStyle* const names (possibly
-// without changing their CrOS-Prefs-persisted string values), so they match
-// Mozc Config protobuf, just like JapaneseSettings::PunctuationStyle Mojo enum.
-// The misnomers originate from Mozc Config protobuf but have been fixed there.
 constexpr auto kPunctuations =
     base::MakeFixedFlatMap<std::string_view,
                            JapaneseSettings::PunctuationStyle>({
-        {kJpPrefPunctuationStyleKutenTouten,
+        {kJpPrefPunctuationStyleToutenKuten,
          JapaneseSettings::PunctuationStyle::kToutenKuten},
         {kJpPrefPunctuationStyleCommaPeriod,
          JapaneseSettings::PunctuationStyle::kCommaPeriod},
-        {kJpPrefPunctuationStyleKutenPeriod,
+        {kJpPrefPunctuationStyleToutenPeriod,
          JapaneseSettings::PunctuationStyle::kToutenPeriod},
-        {kJpPrefPunctuationStyleCommaTouten,
+        {kJpPrefPunctuationStyleCommaKuten,
          JapaneseSettings::PunctuationStyle::kCommaKuten},
     });
 
@@ -201,7 +197,7 @@ JapaneseSettingsPtr MakeDefaultJapaneseSettings() {
 
 }  // namespace
 
-JapaneseSettingsPtr ToMojomInputMethodSettings(const base::Value::Dict& prefs) {
+JapaneseSettingsPtr ToMojomInputMethodSettings(const base::DictValue& prefs) {
   JapaneseSettingsPtr response = MakeDefaultJapaneseSettings();
   if (const std::string* val = prefs.FindString(kJpPrefInputMode);
       val != nullptr) {

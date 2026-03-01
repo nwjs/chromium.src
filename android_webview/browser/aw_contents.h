@@ -33,6 +33,7 @@
 #include "components/js_injection/browser/js_communication_host.h"
 #include "components/js_injection/common/enum.mojom-forward.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/child_process_id.h"
 
 class SkBitmap;
 
@@ -111,7 +112,8 @@ class AwContents : public FindHelper::Listener,
   void InitSensitiveContentClient(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetWebContents(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetBrowserContext(JNIEnv* env);
-  void SetCompositorFrameConsumer(JNIEnv* env, jlong compositor_frame_consumer);
+  void SetCompositorFrameConsumer(JNIEnv* env,
+                                  int64_t compositor_frame_consumer);
   base::android::ScopedJavaLocalRef<jobject> GetRenderProcess(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
   void Destroy(JNIEnv* env);
@@ -136,30 +138,30 @@ class AwContents : public FindHelper::Listener,
   bool IsVisible(JNIEnv* env);
   bool IsDisplayingInterstitialForTesting(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jbyteArray>
-  GetOpaqueState(JNIEnv* env, jint max_size, bool include_forward_state);
+  GetOpaqueState(JNIEnv* env, int32_t max_size, bool include_forward_state);
   bool RestoreFromOpaqueState(JNIEnv* env,
                               const base::android::JavaRef<jbyteArray>& state);
   void FocusFirstNode(JNIEnv* env);
-  void SetBackgroundColor(JNIEnv* env, jint color);
-  void ZoomBy(JNIEnv* env, jfloat delta);
-  void OnComputeScroll(JNIEnv* env, jlong animation_time_millis);
+  void SetBackgroundColor(JNIEnv* env, int32_t color);
+  void ZoomBy(JNIEnv* env, float delta);
+  void OnComputeScroll(JNIEnv* env, int64_t animation_time_millis);
   bool OnDraw(JNIEnv* env,
               const base::android::JavaRef<jobject>& canvas,
               bool is_hardware_accelerated,
-              jint scroll_x,
-              jint scroll_y,
-              jint visible_left,
-              jint visible_top,
-              jint visible_right,
-              jint visible_bottom,
+              int32_t scroll_x,
+              int32_t scroll_y,
+              int32_t visible_left,
+              int32_t visible_top,
+              int32_t visible_right,
+              int32_t visible_bottom,
               bool force_auxiliary_bitmap_rendering);
-  jfloat GetVelocityInPixelsPerSecond(JNIEnv* env);
+  float GetVelocityInPixelsPerSecond(JNIEnv* env);
   bool NeedToDrawBackgroundColor(JNIEnv* env);
-  jlong CapturePicture(JNIEnv* env, int width, int height);
+  int64_t CapturePicture(JNIEnv* env, int width, int height);
   void EnableOnNewPicture(JNIEnv* env, bool enabled);
   void InsertVisualStateCallback(
       JNIEnv* env,
-      jlong request_id,
+      int64_t request_id,
       const base::android::JavaRef<jobject>& callback);
   void ClearView(JNIEnv* env);
   void SetExtraHeadersForUrl(
@@ -171,47 +173,47 @@ class AwContents : public FindHelper::Listener,
                                  bool value,
                                  const base::android::JavaRef<jstring>& origin);
 
-  jint GetEffectivePriority(JNIEnv* env);
+  int32_t GetEffectivePriority(JNIEnv* env);
 
   js_injection::JsCommunicationHost* GetJsCommunicationHost();
 
-  jint AddPersistentJavaScript(
+  int32_t AddPersistentJavaScript(
       JNIEnv* env,
       const std::u16string& script,
       js_injection::mojom::DocumentInjectionTime event_type,
       const std::vector<std::string>& allowed_origin_rules,
-      jint world_identifier);
+      int32_t world_identifier);
 
-  void RemovePersistentJavaScript(JNIEnv* env, jint script_id);
+  void RemovePersistentJavaScript(JNIEnv* env, int32_t script_id);
 
   base::android::ScopedJavaLocalRef<jstring> AddWebMessageListener(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& listener,
       const std::u16string& js_object_name,
       const std::vector<std::string>& allowed_origin_rules,
-      jint world_id);
+      int32_t world_id);
 
   void RemoveWebMessageListener(JNIEnv* env,
                                 const std::u16string& js_object_name,
-                                jint world_id);
+                                int32_t world_id);
 
   std::vector<jni_zero::ScopedJavaLocalRef<jobject>> GetWebMessageListenerInfos(
       JNIEnv* env);
 
-  std::vector<jni_zero::ScopedJavaLocalRef<jobject>>
-  GetDocumentStartupJavascripts(JNIEnv* env);
+  std::vector<jni_zero::ScopedJavaLocalRef<jobject>> GetPersistentJavascripts(
+      JNIEnv* env);
 
-  void FlushBackForwardCache(JNIEnv* env, jint reason);
+  void FlushBackForwardCache(JNIEnv* env, int32_t reason);
 
   // Returns a non-negative non-zero integer when prerendering successfully
   // started. The returned integer can be passed to CancelPrerendering().
   // Returns -1 when prerendering failed to start.
-  jint StartPrerendering(
+  int32_t StartPrerendering(
       JNIEnv* env,
       const std::string& prerendering_url,
       const base::android::JavaRef<jobject>& j_prefetch_params,
-      const base::android::JavaRef<jobject>& j_activation_callback,
-      const base::android::JavaRef<jobject>& j_error_callback);
+      base::OnceClosure&& activation_callback,
+      base::OnceClosure&& error_callback);
 
   // `prerender_id` should be a returned value of StartPrerendering(). If a
   // corresponding prerendering has already been canceled or activated, this
@@ -235,7 +237,7 @@ class AwContents : public FindHelper::Listener,
 
   void PreauthorizePermission(JNIEnv* env,
                               const base::android::JavaRef<jstring>& origin,
-                              jlong resources);
+                              int64_t resources);
 
   // AwBrowserPermissionRequestDelegate implementation.
   void RequestProtectedMediaIdentifierPermission(
@@ -304,20 +306,20 @@ class AwContents : public FindHelper::Listener,
   // details.
   void SetPendingWebContentsForPopup(
       std::unique_ptr<content::WebContents> pending);
-  jlong ReleasePopupAwContents(JNIEnv* env);
+  int64_t ReleasePopupAwContents(JNIEnv* env);
 
-  void ScrollTo(JNIEnv* env, jint x, jint y);
-  void RestoreScrollAfterTransition(JNIEnv* env, jint x, jint y);
+  void ScrollTo(JNIEnv* env, int32_t x, int32_t y);
+  void RestoreScrollAfterTransition(JNIEnv* env, int32_t x, int32_t y);
   void SmoothScroll(JNIEnv* env,
-                    jint target_x,
-                    jint target_y,
-                    jlong duration_ms);
-  void SetDipScale(JNIEnv* env, jfloat dip_scale);
+                    int32_t target_x,
+                    int32_t target_y,
+                    int64_t duration_ms);
+  void SetDipScale(JNIEnv* env, float dip_scale);
   base::android::ScopedJavaLocalRef<jstring> GetScheme(JNIEnv* env);
   void OnInputEvent(JNIEnv* env);
 
   void SetJsOnlineProperty(JNIEnv* env, bool network_up);
-  void TrimMemory(JNIEnv* env, jint level, bool visible);
+  void TrimMemory(JNIEnv* env, int32_t level, bool visible);
 
   void GrantFileSchemeAccesstoChildProcess(JNIEnv* env);
 
@@ -357,6 +359,8 @@ class AwContents : public FindHelper::Listener,
 
   void SetDipScaleInternal(float dip_scale);
 
+  void UpdateAwRenderProcessAssociation();
+
   JavaObjectWeakGlobalRef java_ref_;
   BrowserViewRenderer browser_view_renderer_;  // Must outlive |web_contents_|.
   std::unique_ptr<content::WebContents> web_contents_;
@@ -387,6 +391,8 @@ class AwContents : public FindHelper::Listener,
   std::list<OriginCallback> pending_geolocation_prompts_;
 
   base::TimeDelta preferred_frame_interval_;
+
+  content::ChildProcessId associated_rph_id_;
 
   base::WeakPtrFactory<AwContents> weak_ptr_factory_{this};
 };

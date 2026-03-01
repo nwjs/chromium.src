@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/scoped_observation.h"
@@ -27,13 +28,14 @@ class Time;
 }  // namespace base
 
 namespace supervised_user {
-class SupervisedUserURLFilter;
+class FamilyLinkUrlFilter;
 
 // Service to initialize and control metric recorders of supervised users.
 // Records metrics daily, or when the SupervisedUserService changes.
-class SupervisedUserMetricsService : public KeyedService,
-                                     public SupervisedUserServiceObserver,
-                                     public DeviceParentalControls::Observer {
+class SupervisedUserMetricsService
+    : public KeyedService,
+      public SupervisedUserServiceObserver,
+      public SupervisedUserUrlFilteringService::Observer {
  public:
   // Delegate for recording metrics relating to extensions for supervised users
   // such as metrics that should be recorded daily.
@@ -52,7 +54,7 @@ class SupervisedUserMetricsService : public KeyedService,
   SupervisedUserMetricsService(
       PrefService* pref_service,
       SupervisedUserService& supervised_user_service,
-      const SupervisedUserUrlFilteringService& url_filtering_service,
+      SupervisedUserUrlFilteringService& url_filtering_service,
       DeviceParentalControls& device_parental_controls,
       std::unique_ptr<SupervisedUserMetricsServiceExtensionDelegate>
           extensions_metrics_delegate,
@@ -70,9 +72,11 @@ class SupervisedUserMetricsService : public KeyedService,
   // SupervisedUserServiceObserver:
   void OnURLFilterChanged() override;
 
-  // DeviceParentalControls::Observer:
-  void OnAndroidParentalControlsSearchContentFiltersChanged() override;
-  void OnAndroidParentalControlsBrowserContentFiltersChanged() override;
+  // SupervisedUserUrlFilteringService::Observer:
+  void OnUrlFilteringServiceChanged() override;
+
+  void OnDeviceParentalControlsChanged(
+      const DeviceParentalControls& device_parental_controls);
 
   // Helper function to check if a new day has arrived.
   void CheckForNewDay();
@@ -92,7 +96,7 @@ class SupervisedUserMetricsService : public KeyedService,
   const raw_ptr<PrefService> pref_service_;
   raw_ref<SupervisedUserService> supervised_user_service_;
   raw_ref<const SupervisedUserUrlFilteringService> url_filtering_service_;
-  raw_ref<const DeviceParentalControls> device_parental_controls_;
+  const raw_ref<const DeviceParentalControls> device_parental_controls_;
   std::unique_ptr<SupervisedUserMetricsServiceExtensionDelegate>
       extensions_metrics_delegate_;
   std::unique_ptr<SynteticFieldTrialDelegate> synthetic_field_trial_delegate_;
@@ -100,17 +104,19 @@ class SupervisedUserMetricsService : public KeyedService,
   // A periodic timer that checks if a new day has arrived.
   base::RepeatingTimer timer_;
 
-  // Cache of last recorded values of SupervisedUserURLFilter to avoid
-  // duplicated emissions.
+  // Cache of last recorded values of FamilyLinkUrlFilter to avoid duplicated
+  // emissions.
   std::optional<WebFilterType> last_recorded_family_link_web_filter_type_;
-  std::optional<SupervisedUserURLFilter::Statistics> last_recorded_statistics_;
+  std::optional<FamilyLinkUrlFilter::Statistics> last_recorded_statistics_;
   std::optional<WebFilterType> last_recorded_supervised_user_web_filter_type_;
 
   base::ScopedObservation<SupervisedUserService, SupervisedUserServiceObserver>
       supervised_user_service_observation_{this};
-  base::ScopedObservation<DeviceParentalControls,
-                          DeviceParentalControls::Observer>
-      device_parental_controls_observation_{this};
+  base::ScopedObservation<SupervisedUserUrlFilteringService,
+                          SupervisedUserUrlFilteringService::Observer>
+      url_filtering_service_observation_{this};
+
+  base::CallbackListSubscription device_parental_controls_subscription_;
 };
 
 }  // namespace supervised_user

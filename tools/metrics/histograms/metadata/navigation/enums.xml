@@ -198,6 +198,8 @@ chromium-metrics-reviews@google.com.
   <int value="71" label="Cache limit pruned on critical memory pressure"/>
   <int value="72" label="Message from SharedWorker to a page in BFCache"/>
   <int value="73" label="SharedWorker has no active clients"/>
+  <int value="74"
+      label="Pages with web locks in bfcache encountered a lock contention"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/public/browser/back_forward_cache.h:NotRestoredReason) -->
@@ -1720,6 +1722,7 @@ chromium-metrics-reviews@google.com.
   <int value="22" label="kIsHistoryNavigationInNewChildFrame"/>
   <int value="23" label="kReferrerPolicy (Obsolete)"/>
   <int value="24" label="kRequestDestination"/>
+  <int value="25" label="kIsOverridingUserAgent"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/preloading/prerender/prerender_host.h:ActivationNavigationParamsMatch) -->

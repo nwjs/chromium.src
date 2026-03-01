@@ -6,10 +6,10 @@ package org.chromium.chrome.browser.compositor.layouts.phone;
 
 import org.chromium.base.Callback;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -64,9 +64,9 @@ class AnimationInterruptor implements Destroyable {
     private final LayoutStateProvider mLayoutStateProvider;
     private final NullableObservableSupplier<Tab> mCurrentTabSupplier;
     private final Tab mAnimationTab;
-    private final ObservableSupplier<Boolean> mScrimVisibilitySupplier;
-    private final SettableNonNullObservableSupplier<Boolean> mContextMenuVisibilitySupplier;
-    private final ObservableSupplier<Float> mNtpSearchBoxTransitionPercentageSupplier;
+    private final MonotonicObservableSupplier<Boolean> mScrimVisibilitySupplier;
+    private final NonNullObservableSupplier<Boolean> mContextMenuVisibilitySupplier;
+    private final NonNullObservableSupplier<Float> mNtpSearchBoxTransitionPercentageSupplier;
 
     private @Nullable Runnable mInterruptAnimationRunnable;
 
@@ -85,8 +85,8 @@ class AnimationInterruptor implements Destroyable {
             LayoutStateProvider layoutStateProvider,
             NullableObservableSupplier<Tab> currentTabSupplier,
             Tab animationTab,
-            ObservableSupplier<Boolean> scrimVisibilitySupplier,
-            ObservableSupplier<Float> ntpSearchBoxTransitionPercentageSupplier,
+            MonotonicObservableSupplier<Boolean> scrimVisibilitySupplier,
+            NonNullObservableSupplier<Float> ntpSearchBoxTransitionPercentageSupplier,
             boolean isRegularNtp,
             Runnable interruptAnimationRunnable) {
         mLayoutStateProvider = layoutStateProvider;
@@ -96,7 +96,7 @@ class AnimationInterruptor implements Destroyable {
         mNtpSearchBoxTransitionPercentageSupplier = ntpSearchBoxTransitionPercentageSupplier;
         TabContextMenuData data = TabContextMenuData.getForTab(animationTab);
         if (data == null) {
-            mContextMenuVisibilitySupplier = ObservableSuppliers.createNonNull(false);
+            mContextMenuVisibilitySupplier = ObservableSuppliers.alwaysFalse();
         } else {
             mContextMenuVisibilitySupplier = data.getTabContextMenuVisibilitySupplier();
         }
@@ -109,7 +109,8 @@ class AnimationInterruptor implements Destroyable {
         mContextMenuVisibilitySupplier.addSyncObserver(mScrimVisibilityObserver);
 
         if (isRegularNtp) {
-            mNtpSearchBoxTransitionPercentageSupplier.addObserver(mNtpSearchBoxTransitionObserver);
+            mNtpSearchBoxTransitionPercentageSupplier.addSyncObserverAndPostIfNonNull(
+                    mNtpSearchBoxTransitionObserver);
         }
     }
 

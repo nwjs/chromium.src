@@ -118,7 +118,6 @@ class ComponentCloudPolicyServiceTest : public testing::Test {
         core_(dm_protocol::GetChromeUserPolicyType(),
               std::string(),
               &store_,
-              /*extension_install_store=*/nullptr,
               base::SingleThreadTaskRunner::GetCurrentDefault(),
               network::TestNetworkConnectionTracker::CreateGetter()) {
     builder_.SetDefaultSigningKey();
@@ -249,7 +248,7 @@ class ComponentCloudPolicyServiceTest : public testing::Test {
   std::unique_ptr<ResourceCache> owned_cache_;
   raw_ptr<ResourceCache, AcrossTasksDanglingUntriaged> cache_;
   raw_ptr<MockCloudPolicyClient, DanglingUntriaged> client_;
-  MockCloudPolicyStore store_;
+  MockCloudPolicyStore store_{dm_protocol::GetChromeUserPolicyType()};
   CloudPolicyCore core_;
   SchemaRegistry registry_;
   std::unique_ptr<ComponentCloudPolicyService> service_;

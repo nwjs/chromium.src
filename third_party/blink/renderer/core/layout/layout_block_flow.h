@@ -138,7 +138,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   virtual void WillCollectInlines() { NOT_DESTROYED(); }
 
  protected:
-  void WillBeDestroyed() override;
   void StyleDidChange(StyleDifference,
                       const ComputedStyle* old_style,
                       const StyleChangeContext&) override;
@@ -146,10 +145,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   void InvalidateDisplayItemClients(PaintInvalidationReason) const override;
 
   Node* NodeForHitTest() const final;
-  bool HitTestChildren(HitTestResult&,
-                       const HitTestLocation&,
-                       const PhysicalOffset& accumulated_offset,
-                       HitTestPhase) override;
 
   void AddOutlineRects(OutlineRectCollector&,
                        LayoutObject::OutlineInfo*,

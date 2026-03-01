@@ -64,8 +64,12 @@ bool InsertLineBreakCommand::ShouldUseBreakElement(
   // parent's layoutObject.
   Position p(insertion_pos.ParentAnchoredEquivalent());
   if (auto* text_control = EnclosingTextControl(p)) {
-    return RuntimeEnabledFeatures::TextareaLineEndingsAsBrEnabled() &&
-           IsA<HTMLTextAreaElement>(text_control);
+    return IsA<HTMLTextAreaElement>(text_control);
+  }
+  // Use <br> for <pre> elements to align with other browsers
+  if (RuntimeEnabledFeatures::FixLinebreakForPreTagEnabled() &&
+      EnclosingElementWithTag(p, html_names::kPreTag)) {
+    return true;
   }
   return IsRichlyEditablePosition(p) && p.AnchorNode()->GetLayoutObject() &&
          p.AnchorNode()->GetLayoutObject()->Style()->ShouldCollapseBreaks();

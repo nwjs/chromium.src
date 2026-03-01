@@ -9,11 +9,18 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 
+class GURL;
+namespace content {
+class BrowserContext;
+}  // namespace content
+
 BASE_DECLARE_FEATURE(kSearchPrefetchServicePrefetching);
 
 BASE_DECLARE_FEATURE(kSearchPrefetchOnlyAllowDefaultMatchPreloading);
 
 BASE_DECLARE_FEATURE(kSearchPrefetchWithNoVarySearchDiskCache);
+
+BASE_DECLARE_FEATURE(kSearchPrefetchBeaconLogging);
 
 // Whether the search prefetch service actually initiates prefetches.
 bool SearchPrefetchServicePrefetchingIsEnabled();
@@ -76,6 +83,11 @@ bool IsNoVarySearchDiskCacheEnabled();
 // TODO(https://crbug.com/413557424): Remove the DryRun mode once the
 // investigation is done.
 bool CacheAliasLoaderDryRunModeEnabled();
+
+// Whether to enable beacon tracking for search prefetch.
+bool IsSearchPrefetchBeaconLoggingEnabled(
+    const GURL& url,
+    content::BrowserContext* browser_context);
 
 // Allows the omnibox search prefetch in Incognito.
 //

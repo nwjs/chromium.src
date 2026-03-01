@@ -703,8 +703,9 @@ template("single_gcc_toolchain") {
           "${rspfile}.rust",
         ]
 
-        rspfile_content = "{{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $libname -- -Clinker=\"${invoker.cxx}\" $rustc_common_args LDFLAGS RUSTENV {{rustenv}}"
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $libname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
       }
 
@@ -732,8 +733,9 @@ template("single_gcc_toolchain") {
           "${rspfile}.rust",
         ]
 
-        rspfile_content = "{{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $rlibname -- -Clinker=\"${invoker.cxx}\" $rustc_common_args LDFLAGS RUSTENV {{rustenv}}"
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $rlibname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
       }
 
@@ -752,8 +754,9 @@ template("single_gcc_toolchain") {
           "${rspfile}.rust",
         ]
 
-        rspfile_content = "{{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $exename -- -Clinker=\"${invoker.cxx}\" $rustc_common_args LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $exename -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
       }
 
@@ -773,8 +776,9 @@ template("single_gcc_toolchain") {
           "${rspfile}.rust",
         ]
 
-        rspfile_content = "{{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" $rustc_common_args LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
       }
 
@@ -794,8 +798,9 @@ template("single_gcc_toolchain") {
           "${rspfile}.rust",
         ]
 
-        rspfile_content = "{{rustdeps}} {{externs}} SOURCES {{sources}}"
-        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" $rustc_common_args LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
       }
     }

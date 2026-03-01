@@ -789,18 +789,21 @@ bool ScopedFocusNavigation::IsNonEntryFocusgroupItem(const Element& element) {
     return false;
   }
 
+  // When an element is effectively opted out (either explicitly via
+  // focusgroup="none", or because it's a focused arrow key handler),
+  // treat it as not a focusgroup item for sequential navigation purposes.
+  // This allows normal Tab order to apply.
+  if (FocusgroupControllerUtils::IsEffectivelyOptedOut(&element)) {
+    return false;
+  }
+
   // Calling this on every element is expensive. TODO(janewman): We should keep
   // track of when we enter/exit focusgroups during navigation, and only call
   // this when we are inside a focusgroup.
-  const Element* focusgroup_owner = focusgroup::FindFocusgroupOwner(&element);
-
-  // GetFocusgroupOwnerOfItem additionally checks if the element is keyboard
-  // focusable, avoid this expensive check as IsNonEntryFocusgroupItem assumes
-  // the element is already keyboard focusable.
-  DCHECK_EQ(focusgroup_owner,
-            FocusgroupControllerUtils::GetFocusgroupOwnerOfItem(&element));
+  const Element* focusgroup_owner =
+      FocusgroupControllerUtils::GetFocusgroupOwnerOfItem(&element);
   if (!focusgroup_owner) {
-    // Not in a focusgroup.
+    // Not participating in a focusgroup.
     return false;
   }
 
@@ -929,6 +932,9 @@ ScopedFocusNavigation ScopedFocusNavigation::OwnedByPopoverInvoker(
     const Element& invoker,
     FocusController::OwnerMap& owner_map) {
   HTMLElement* popover = invoker.GetOpenPopoverTarget();
+  if (IsShadowHost(popover)) {
+    return ScopedFocusNavigation::OwnedByShadowHost(*popover, owner_map);
+  }
   DCHECK(InvokerForOpenPopover(popover));
   return ScopedFocusNavigation(*popover, nullptr, owner_map);
 }

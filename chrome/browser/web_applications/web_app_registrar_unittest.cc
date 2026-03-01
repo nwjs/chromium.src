@@ -4,6 +4,7 @@
 
 #include "chrome/browser/web_applications/web_app_registrar.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -11,7 +12,6 @@
 #include <vector>
 
 #include "ash/constants/web_app_id_constants.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
@@ -89,11 +89,11 @@ Registry CreateRegistryForTesting(const std::string& base_url, int num_apps) {
         GenerateManifestIdFromStartUrlOnly(start_url);
     GURL scope = start_url.GetWithoutFilename();
     auto web_app = std::make_unique<WebApp>(manifest_id, start_url, scope);
-    web_app->AddSource(WebAppManagement::kSync);
     web_app->SetName("Name" + base::NumberToString(i));
     web_app->SetDisplayMode(DisplayMode::kBrowser);
     web_app->SetUserDisplayMode(mojom::UserDisplayMode::kBrowser);
     web_app->SetInstallState(proto::INSTALLED_WITH_OS_INTEGRATION);
+    web_app->AddSource(WebAppManagement::kSync);
     // Set an OS integration state (with shortcuts) to prevent migration to a
     // partially installed status.
     proto::os_state::WebAppOsIntegration os_state;
@@ -228,9 +228,9 @@ class WebAppRegistrarTest_TabStrip : public WebAppRegistrarTest {
 TEST_F(WebAppRegistrarTest, EmptyRegistrar) {
   StartWebAppProvider();
   EXPECT_TRUE(registrar().is_empty());
-  EXPECT_FALSE(registrar().IsInRegistrar(webapps::AppId()));
+  EXPECT_FALSE(registrar().GetInstallState(webapps::AppId()).has_value());
   EXPECT_EQ(std::nullopt, registrar().GetInstallState(webapps::AppId()));
-  EXPECT_FALSE(registrar().IsInRegistrar(webapps::AppId()));
+  EXPECT_FALSE(registrar().GetInstallState(webapps::AppId()).has_value());
   EXPECT_EQ(nullptr, registrar().GetAppById(webapps::AppId()));
   EXPECT_EQ(std::string(), registrar().GetAppShortName(webapps::AppId()));
   EXPECT_EQ(GURL(), registrar().GetAppStartUrl(webapps::AppId()));
@@ -277,7 +277,7 @@ TEST_F(WebAppRegistrarTest, InitWithApps) {
 
   StartWebAppProvider();
 
-  EXPECT_TRUE(registrar().IsInRegistrar(app_id));
+  EXPECT_TRUE(registrar().GetInstallState(app_id).has_value());
   EXPECT_EQ(proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
             registrar().GetInstallState(app_id));
 
@@ -292,7 +292,7 @@ TEST_F(WebAppRegistrarTest, InitWithApps) {
 
   EXPECT_FALSE(registrar().is_empty());
 
-  EXPECT_TRUE(registrar().IsInRegistrar(app_id));
+  EXPECT_TRUE(registrar().GetInstallState(app_id).has_value());
   EXPECT_EQ(proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
             registrar().GetInstallState(app_id2));
   const WebApp* app2 = registrar().GetAppById(app_id2);
@@ -301,20 +301,20 @@ TEST_F(WebAppRegistrarTest, InitWithApps) {
   EXPECT_EQ(CountApps(registrar().GetApps()), 2);
 
   Uninstall(app_id);
-  EXPECT_FALSE(registrar().IsInRegistrar(app_id));
+  EXPECT_FALSE(registrar().GetInstallState(app_id).has_value());
   EXPECT_EQ(std::nullopt, registrar().GetInstallState(app_id));
   EXPECT_EQ(nullptr, registrar().GetAppById(app_id));
   EXPECT_FALSE(registrar().is_empty());
 
   // Check that app2 is still registered.
   app2 = registrar().GetAppById(app_id2);
-  EXPECT_TRUE(registrar().IsInRegistrar(app_id2));
+  EXPECT_TRUE(registrar().GetInstallState(app_id2).has_value());
   EXPECT_EQ(proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
             registrar().GetInstallState(app_id2));
   EXPECT_EQ(app_id2, app2->app_id());
 
   Uninstall(app_id2);
-  EXPECT_FALSE(registrar().IsInRegistrar(app_id2));
+  EXPECT_FALSE(registrar().GetInstallState(app_id2).has_value());
   EXPECT_EQ(std::nullopt, registrar().GetInstallState(app_id2));
   EXPECT_EQ(nullptr, registrar().GetAppById(app_id2));
   EXPECT_TRUE(registrar().is_empty());
@@ -392,11 +392,11 @@ TEST_F(WebAppRegistrarTest, AppsNotLocallyInstalledMetric) {
 
   auto web_app = web_app::test::CreateWebApp(GURL("https://example.com/path"),
                                              WebAppManagement::kSync);
-  web_app->AddSource(WebAppManagement::kSync);
   web_app->SetDisplayMode(DisplayMode::kStandalone);
   web_app->SetUserDisplayMode(mojom::UserDisplayMode::kStandalone);
   web_app->SetName("name");
   web_app->SetInstallState(proto::SUGGESTED_FROM_ANOTHER_DEVICE);
+  web_app->AddSource(WebAppManagement::kSync);
   PopulateRegistryWithApp(std::move(web_app));
   StartWebAppProvider();
 
@@ -472,7 +472,6 @@ TEST_F(WebAppRegistrarTest, GetAppDataFields) {
       DisplayOverride::Create(DisplayMode::kStandalone)};
 
   auto web_app = std::make_unique<WebApp>(manifest_id, start_url, scope);
-  web_app->AddSource(WebAppManagement::kSync);
   web_app->SetName(name);
   web_app->SetDescription(description);
   web_app->SetThemeColor(theme_color);
@@ -480,6 +479,7 @@ TEST_F(WebAppRegistrarTest, GetAppDataFields) {
   web_app->SetUserDisplayMode(user_display_mode);
   web_app->SetDisplayModeOverride(std::move(display_mode_override));
   web_app->SetInstallState(proto::SUGGESTED_FROM_ANOTHER_DEVICE);
+  web_app->AddSource(WebAppManagement::kSync);
   webapps::AppId app_id = web_app->app_id();
 
   PopulateRegistryWithApp(std::move(web_app));
@@ -501,11 +501,11 @@ TEST_F(WebAppRegistrarTest, GetAppDataFields) {
   }
 
   {
-    EXPECT_TRUE(registrar().IsInRegistrar(app_id));
+    EXPECT_TRUE(registrar().GetInstallState(app_id).has_value());
     EXPECT_EQ(proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
               registrar().GetInstallState(app_id));
 
-    EXPECT_FALSE(registrar().IsInRegistrar("unknown"));
+    EXPECT_FALSE(registrar().GetInstallState("unknown").has_value());
     EXPECT_EQ(std::nullopt, registrar().GetInstallState("unknown"));
     base::test::TestFuture<void> future;
     fake_provider().scheduler().InstallAppLocally(app_id, future.GetCallback());
@@ -560,8 +560,6 @@ TEST_F(WebAppRegistrarTest, CanFindAppsInScope) {
       origin_scope,
       web_app::WebAppFilter::InstalledInOperatingSystemForTesting());
   EXPECT_EQ(0u, in_scope.size());
-  // TODO(crbug.com/340952100): Evaluate call sites of DoesScopeContainAnyApp
-  // for correctness (note: multiple instances within this function).
   EXPECT_FALSE(registrar().DoesScopeContainAnyApp(
       origin_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
                      proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
@@ -971,32 +969,6 @@ TEST_F(WebAppRegistrarTest, GetAllIsolatedWebAppStoragePartitionConfigs) {
   EXPECT_EQ(expected_config, storage_partition_configs[0]);
 }
 
-TEST_F(
-    WebAppRegistrarTest,
-    GetAllIsolatedWebAppStoragePartitionConfigsEmptyWhenNotLocallyInstalled) {
-  base::test::ScopedFeatureList scoped_feature_list(features::kIsolatedWebApps);
-  StartWebAppProvider();
-
-  GURL start_url(
-      "isolated-app://"
-      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic");
-  auto isolated_web_app = test::CreateWebApp(start_url);
-  const webapps::AppId app_id = isolated_web_app->app_id();
-  isolated_web_app->SetIsolationData(
-      IsolationData::Builder(
-          IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-          *IwaVersion::Create("1.0.0"))
-          .Build());
-  isolated_web_app->SetInstallState(
-      proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE);
-  RegisterAppUnsafe(std::move(isolated_web_app));
-
-  std::vector<content::StoragePartitionConfig> storage_partition_configs =
-      registrar().GetIsolatedWebAppStoragePartitionConfigs(app_id);
-
-  EXPECT_TRUE(storage_partition_configs.empty());
-}
-
 TEST_F(WebAppRegistrarTest, SaveAndGetInMemoryControlledFramePartitionConfig) {
   base::test::ScopedFeatureList scoped_feature_list(features::kIsolatedWebApps);
   StartWebAppProvider();
@@ -1059,7 +1031,7 @@ TEST_F(WebAppRegistrarTest,
     if (web_app.app_id() == web_app_in_sync_install_id) {
       web_app_in_sync_install_found = true;
     } else {
-      EXPECT_TRUE(base::Contains(ids, web_app.app_id()));
+      EXPECT_TRUE(std::ranges::contains(ids, web_app.app_id()));
     }
   }
   EXPECT_TRUE(web_app_in_sync_install_found);
@@ -1881,7 +1853,7 @@ TEST_F(WebAppRegistrarAshTest, SourceSupported) {
   EXPECT_EQ(registrar.GetAppScope(uninstalling_id),
             GURL("https://example.com/uninstalling/"));
   EXPECT_TRUE(registrar.GetAppUserDisplayMode(uninstalling_id).has_value());
-  EXPECT_FALSE(base::Contains(registrar.GetAppIds(), uninstalling_id));
+  EXPECT_FALSE(std::ranges::contains(registrar.GetAppIds(), uninstalling_id));
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -2209,6 +2181,42 @@ TEST_P(WebAppRegistrarParameterizedTest, Filter_IsIsolatedApp) {
   EXPECT_TRUE(registrar().AppMatches(app_id, WebAppFilter::IsIsolatedApp()));
   EXPECT_EQ(app_id, registrar().FindBestAppWithUrlInScope(
                         app_url, WebAppFilter::IsIsolatedApp()));
+}
+
+TEST_P(WebAppRegistrarParameterizedTest, Filter_IsIsolatedSubApp) {
+  base::test::ScopedFeatureList scoped_feature_list(features::kIsolatedWebApps);
+  StartWebAppProvider();
+
+  constexpr char kIwaHostname[] =
+      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+  GURL app_url(base::StrCat({webapps::kIsolatedAppScheme,
+                             url::kStandardSchemeSeparator, kIwaHostname}));
+  auto isolated_web_app = test::CreateWebApp(app_url);
+  const webapps::AppId app_id = isolated_web_app->app_id();
+
+  isolated_web_app->SetIsolationData(
+      IsolationData::Builder(
+          IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
+          *IwaVersion::Create("1.0.0"))
+          .Build());
+  isolated_web_app->SetDisplayMode(DisplayMode::kBrowser);
+  isolated_web_app->SetUserDisplayMode(mojom::UserDisplayMode::kBrowser);
+  RegisterAppUnsafe(std::move(isolated_web_app));
+
+  constexpr char kSubIwaHostname[] =
+      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+  GURL sub_app_url(
+      base::StrCat({webapps::kIsolatedAppScheme, url::kStandardSchemeSeparator,
+                    kSubIwaHostname, "/sub_app/"}));
+  auto isolated_sub_app = test::CreateWebApp(sub_app_url);
+  isolated_sub_app->SetParentAppId(app_id);
+  const webapps::AppId sub_app_id = isolated_sub_app->app_id();
+  RegisterAppUnsafe(std::move(isolated_sub_app));
+
+  EXPECT_TRUE(
+      registrar().AppMatches(sub_app_id, WebAppFilter::IsIsolatedSubApp()));
+  EXPECT_EQ(sub_app_id, registrar().FindBestAppWithUrlInScope(
+                            sub_app_url, WebAppFilter::IsIsolatedSubApp()));
 }
 
 INSTANTIATE_TEST_SUITE_P(

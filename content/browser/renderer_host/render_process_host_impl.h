@@ -260,7 +260,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   bool FastShutdownIfPossible(size_t page_count = 0,
                               bool skip_unload_handlers = false,
                               bool ignore_workers = false,
-                              bool ignore_keep_alive = false) override;
+                              bool ignore_keep_alive = false,
+                              bool ignore_pending_reuse = false) override;
   const base::Process& GetProcess() override;
   bool IsReady() override;
   BrowserContext* GetBrowserContext() override;
@@ -372,6 +373,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
 #endif
   void SetBatterySaverMode(bool battery_saver_mode_enabled) override;
   uint64_t GetPrivateMemoryFootprint() override;
+  bool IsOnlyHostingPrerenderedFramesOrEmpty() override;
 
   void PauseSocketManagerForRenderFrameHost(
       const GlobalRenderFrameHostId& render_frame_host_id) override;
@@ -898,10 +900,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   static void SetVideoDecoderEventCBForTesting(VideoDecoderEventCB cb);
 #endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
-  // Returns whether the process is only hosting RFHs in prerendered pages
-  // or no RFHs at all.
-  bool IsOnlyHostingPrerenderedFramesOrEmpty();
-
   void GetBoundInterfacesForTesting(std::vector<std::string>& out);
 
   void SetPrivateMemoryFootprintForTesting(
@@ -1209,12 +1207,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // RenderFrameHost, but all of its RenderFrameHosts are non-live. In this case
   // the RenderProcessHost is needed but the renderer process is not.
   bool HasOnlyNonLiveRenderFrameHosts();
-
-  // Helper method for CreateLockManager() which facilitates use of |bucket|
-  // instead of |origin| for binding |receiver|
-  void CreateLockManagerWithBucketInfo(
-      mojo::PendingReceiver<blink::mojom::LockManager> receiver,
-      storage::QuotaErrorOr<storage::BucketInfo> bucket);
 
   // Get an existing RenderProcessHost associated with the given browser
   // context, if possible.  The renderer process is chosen randomly from

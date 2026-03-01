@@ -4,7 +4,8 @@
 
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_mediator_test.h"
 
-#import "base/containers/contains.h"
+#import <algorithm>
+
 #import "base/test/ios/wait_util.h"
 #import "components/saved_tab_groups/test_support/fake_tab_group_sync_service.h"
 #import "components/saved_tab_groups/test_support/mock_tab_group_sync_service.h"
@@ -135,7 +136,7 @@ void GridMediatorTestClass::SetUp() {
           GetApplicationContext()->GetSystemIdentityManager());
   system_identity_manager->AddIdentity(identity);
   auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
-  auth_service_->SignIn(identity, signin_metrics::AccessPoint::kUnknown);
+  auth_service_->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
   scene_state_ = OCMClassMock([SceneState class]);
   OCMStub([scene_state_ sceneSessionID]).andReturn(@(kIdentifier));
   browser_ = std::make_unique<TestBrowser>(
@@ -174,7 +175,7 @@ void GridMediatorTestClass::SetUp() {
     auto web_state = CreateFakeWebStateWithURL(GURL(urls[i]));
     web::WebStateID identifier = web_state.get()->GetUniqueIdentifier();
     // Tab IDs should be unique.
-    ASSERT_FALSE(base::Contains(identifiers, identifier));
+    ASSERT_FALSE(std::ranges::contains(identifiers, identifier));
     identifiers.push_back(identifier);
     browser_->GetWebStateList()->InsertWebState(
         std::move(web_state), WebStateList::InsertionParams::AtIndex(i));

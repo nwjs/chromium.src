@@ -30,6 +30,7 @@ try_.defaults.set(
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
+    siso_keep_going = siso.KEEP_GOING,
     # Downloading with "minimum" strategy doesn't work
     # well for the win builder because some steps are missing inputs.
     # e.g. mini_installer.exe
@@ -452,6 +453,15 @@ try_.builder(
     mirrors = ["ci/win10-code-coverage"],
     gn_args = "ci/win10-code-coverage",
     execution_timeout = 20 * time.hour,
+)
+
+try_.builder(
+    name = "win-treesinviz-enabled-rel",
+    mirrors = [
+        "ci/win-treesinviz-enabled-rel",
+    ],
+    gn_args = "ci/win-treesinviz-enabled-rel",
+    contact_team_email = "chrome-gpu-team@google.com",
 )
 
 gpu.try_.optional_tests_builder(

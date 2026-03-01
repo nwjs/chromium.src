@@ -70,8 +70,10 @@ class HttpStreamPool::Attempt {
     // Callback methods. Only one of these methods will be called. Once one of
     // these methods is called, the Attempt must immediately be deleted, or it
     // will enter an undefined state.
-    virtual void OnStreamSocketReady(Attempt* attempt,
-                                     std::unique_ptr<StreamSocket> stream) = 0;
+    virtual void OnStreamSocketReady(
+        Attempt* attempt,
+        std::unique_ptr<StreamSocket> stream,
+        LoadTimingInfo::ConnectTiming connect_timing) = 0;
     virtual void OnAttemptFailure(Attempt* attempt, int rv) = 0;
     virtual void OnCertificateError(Attempt* attempt,
                                     int rv,
@@ -81,7 +83,9 @@ class HttpStreamPool::Attempt {
         scoped_refptr<SSLCertRequestInfo> cert_info) = 0;
   };
 
-  Attempt(Delegate& delegate, const StreamAttemptParams& stream_attempt_params);
+  Attempt(Delegate& delegate,
+          const StreamAttemptParams& stream_attempt_params,
+          NetLogWithSource net_log);
 
   ~Attempt();
 
@@ -129,9 +133,7 @@ class HttpStreamPool::Attempt {
   base::expected<ServiceEndpoint, TlsStreamAttempt::GetServiceEndpointError>
   GetServiceEndpointForTlsHandshake(const IPEndPoint& ip_endpoint) const;
 
-  void OnSlowTimerFired();
-
-  void OnTcpHandshakeComplete(TcpAttempt* attempt);
+  void OnTcpAttemptSlow(TcpAttempt* attempt);
 
   void OnTcpAttemptComplete(TcpAttempt* attempt, int rv);
 
@@ -143,6 +145,8 @@ class HttpStreamPool::Attempt {
 
   const perfetto::Track track_;
 
+  const NetLogWithSource net_log_;
+
   std::unique_ptr<TcpAttempt> ipv4_attempt_;
   std::unique_ptr<TcpAttempt> ipv6_attempt_;
 
@@ -150,8 +154,8 @@ class HttpStreamPool::Attempt {
   // endpoints are ready for crypto (TLS) handshake.
   bool is_crypto_ready_ = false;
 
-  base::OneShotTimer slow_timer_;
-  bool slow_timer_expired_ = false;
+  // Set to true when any of the inner attempts is observed to be slow.
+  bool observed_slow_attempt_ = false;
 
   std::optional<AttemptResult> most_recent_attempt_failure_;
 

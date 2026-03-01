@@ -9,10 +9,11 @@ import {previousReadHighlightClass} from '../read_aloud/movement.js';
 import {getReadAloudModel} from '../read_aloud/read_aloud_model_browser_proxy.js';
 import {ReadAloudNode} from '../read_aloud/read_aloud_types.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
-import {LOG_EMPTY_DELAY_MS} from '../shared/common.js';
+import {isDistilledByReadability, LOG_EMPTY_DELAY_MS} from '../shared/common.js';
 import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
 import {NodeStore} from './node_store.js';
+import {ReadabilityImageClassifier} from './readability_image_classifier.js';
 
 const DATA_PREFIX = 'data-';
 const LINK_DATA_ATTR = 'link';
@@ -25,7 +26,7 @@ export const HIGHLIGHTED_LINK_CLASS = 'highlighted-link';
 // Reading mode sometimes needs to use a different html tag to display a
 // particular node than the one used in the main panel. This maps the tags
 // received from the renderer to the tag to use in Reading mode.
-const TAG_TO_RM_TAG: Map<string, string> = new Map([
+const SCREEN2X_TAG_TO_RM_TAG: Map<string, string> = new Map([
   // getHtmlTag might return '#document' which is not a valid to pass to
   // createElement.
   ['#document', 'div'],
@@ -47,9 +48,23 @@ const TAG_TO_RM_TAG: Map<string, string> = new Map([
   ['button', 'div'],
 ]);
 
+// Readability doesn't need to replace as many tags as Screen2x. If there's
+// more overlap in the future, the Screen2x map and the Readability map
+// may need to be merged more.
+const READABILITY_TAG_TO_RM_TAG: Map<string, string> = new Map([
+  ['button', 'div'],
+  ['details', 'div'],
+]);
+
 export interface ContentListener {
+  // Called when the current state changes between the different ContentTypes.
   onContentStateChange(): void;
+  // Called when the new content is determined to be a different page from
+  // before.
   onNewPageDrawn(): void;
+  // Called when any content on the page has changed. e.g. content is added or
+  // removed.
+  onContentChange(): void;
 }
 
 export enum ContentType {
@@ -121,6 +136,13 @@ export class ContentController {
   private currentState_: ContentState = CONTENT_STATES[ContentType.NO_CONTENT];
   private previousRootId_?: number;
 
+  // The Trusted Types policy is registered globally on the window object.
+  // The browser only allows a policy name to be registered once per page load.
+  // Making this static ensures that multiple instances of ContentController
+  // (which occur frequently during WebUI test runs) share the same policy
+  // reference and do not trigger a "Policy already exists" TypeError.
+  private static trustedUpdatePolicy: TrustedTypePolicy|undefined;
+
   getState(): ContentState {
     return this.currentState_;
   }
@@ -179,6 +201,7 @@ export class ContentController {
     if (deletedNode) {
       this.nodeStore_.removeDomNode(deletedNode);
       deletedNode.remove();
+      this.listeners_.forEach(l => l.onContentChange());
     }
     const root = this.nodeStore_.getDomNode(chrome.readingMode.rootId);
     if (this.hasContent() && !root?.textContent) {
@@ -198,20 +221,85 @@ export class ContentController {
           chrome.readingMode.unexpectedUpdateContentStopSource);
     }
 
-    const isReadAloudEnabled = chrome.readingMode.isReadAloudEnabled;
-    if (isReadAloudEnabled) {
+    if (chrome.readingMode.isReadAloudEnabled) {
       this.speechController_.saveReadAloudState();
       this.speechController_.resetForNewContent();
     }
 
     this.nodeStore_.clearDomNodes();
 
-    // Construct a dom subtree starting with the display root. The display root
-    // may be invalid if there are no content nodes and no selection. This does
-    // not use Lit's templating abstraction, which would create a shadow node
-    // element representing each AXNode, because experimentation (with Polymer)
-    // found the shadow node creation to be ~8-10x slower than constructing and
-    // appending nodes directly to the container element.
+    if (isDistilledByReadability()) {
+      return this.updateContentForReadability();
+    }
+    return this.updateContentForScreen2x(shadowRoot);
+  }
+
+  updateContentForReadability(): Node|null {
+    if (isDistilledByReadability()) {
+      // Readability Path: Build DOM from the HTML string.
+      const title = chrome.readingMode.htmlTitle;
+      const contentHtml = chrome.readingMode.htmlContent;
+
+      if (!contentHtml) {
+        this.setEmpty();
+        return null;
+      }
+
+      const contentFragment = document.createDocumentFragment();
+
+      if (title) {
+        const titleElement = document.createElement('h1');
+        titleElement.textContent = title;
+        contentFragment.appendChild(titleElement);
+      }
+
+      const contentContainer = document.createElement('div');
+      contentContainer.innerHTML = this.getTrustedHtml(contentHtml);
+
+      // Replace tags that shouldn't be interactive or have special behavior
+      // in reading mode. This is similar to what happens in `buildSubtree_`
+      // for Screen2x.
+      for (const [tag, replacement] of READABILITY_TAG_TO_RM_TAG) {
+        const elements = contentContainer.querySelectorAll(tag);
+        for (const element of elements) {
+          const replacementEl = document.createElement(replacement);
+          while (element.firstChild) {
+            replacementEl.appendChild(element.firstChild);
+          }
+          for (const attr of element.attributes) {
+            replacementEl.setAttribute(attr.name, attr.value);
+          }
+          element.replaceWith(replacementEl);
+        }
+      }
+
+      // Set before updateImages to avoid early return.
+      this.setState(ContentType.HAS_CONTENT);
+
+      // Process images from distillation.
+      this.updateImages(contentContainer);
+      contentFragment.appendChild(contentContainer);
+
+      // Ensure link visibility is updated with user preferences.
+      this.updateLinksForReadability(contentContainer);
+
+      // TODO(crbug.com/40910704): Remove ReadabilityImageClassifier once we
+      // share code with mobile's Reading Mode.
+      ReadabilityImageClassifier.processImagesIn(contentContainer);
+      this.updateReadAloudState(contentFragment);
+      this.listeners_.forEach(l => l.onContentChange());
+      return contentFragment;
+    }
+    return null;
+  }
+
+  updateContentForScreen2x(shadowRoot?: ShadowRoot): Node|null {
+    // Construct a dom subtree starting with the display root. The display
+    // root may be invalid if there are no content nodes and no selection.
+    // This does not use Lit's templating abstraction, which would create a
+    // shadow node element representing each AXNode, because experimentation
+    // (with Polymer) found the shadow node creation to be ~8-10x slower than
+    // constructing and appending nodes directly to the container element.
     const rootId = chrome.readingMode.rootId;
     if (!rootId) {
       return null;
@@ -248,11 +336,18 @@ export class ContentController {
     this.loadImages();
     this.setState(ContentType.HAS_CONTENT);
     this.updateImages(shadowRoot);
+    this.listeners_.forEach(l => l.onContentChange());
 
+    this.updateReadAloudState(node);
+    return node;
+  }
+
+  updateReadAloudState(rootNode: Node): void {
     // If the previous reading position still exists and we haven't reached the
     // end of speech, keep that spot.
-    const setPreviousReadingPosition = isReadAloudEnabled &&
+    const setPreviousReadingPosition = chrome.readingMode.isReadAloudEnabled &&
         this.speechController_.setPreviousReadingPositionIfExists();
+
     requestAnimationFrame(() => {
       // Count this as a new page as long as there's no reading position to keep
       // from before.
@@ -262,7 +357,7 @@ export class ContentController {
       this.nodeStore_.estimateWordsSeenWithDelay();
       // Initialize the speech tree with the new content.
       if (chrome.readingMode.isTsTextSegmentationEnabled) {
-        const contextNode = ReadAloudNode.create(node);
+        const contextNode = ReadAloudNode.create(rootNode);
         if (contextNode) {
           // Don't initialize until after drawing otherwise, the DOM nodes might
           // not yet exist in the tree.
@@ -270,7 +365,6 @@ export class ContentController {
         }
       }
     });
-    return node;
   }
 
   private buildSubtree_(nodeId: number): Node {
@@ -289,8 +383,8 @@ export class ContentController {
       return this.createTextNode_(nodeId);
     }
 
-    if (TAG_TO_RM_TAG.has(htmlTag)) {
-      htmlTag = TAG_TO_RM_TAG.get(htmlTag)!;
+    if (SCREEN2X_TAG_TO_RM_TAG.has(htmlTag)) {
+      htmlTag = SCREEN2X_TAG_TO_RM_TAG.get(htmlTag)!;
     }
 
     const url = chrome.readingMode.getUrl(nodeId);
@@ -318,6 +412,10 @@ export class ContentController {
       element.classList.add('downloaded-image');
     }
 
+    if (element.nodeName === 'FIGURE') {
+      element.style.display = chrome.readingMode.imagesEnabled ? '' : 'none';
+    }
+
     if (url && element.nodeName === 'A') {
       this.setLinkAttributes_(element, url, nodeId);
     }
@@ -338,11 +436,13 @@ export class ContentController {
   }
 
   private setLinkAttributes_(
-      element: HTMLElement, url: string, nodeId: number) {
+      element: HTMLElement, url: string, nodeId?: number) {
     element.setAttribute('href', url);
     element.onclick = (event: MouseEvent) => {
       event.preventDefault();
-      chrome.readingMode.onLinkClicked(nodeId);
+      if (nodeId) {
+        chrome.readingMode.onLinkClicked(nodeId);
+      }
     };
   }
 
@@ -390,10 +490,40 @@ export class ContentController {
     }
   }
 
+  // TODO: crbug.com/458961470- This should be merged with updateLinks. This
+  // is being kept as a separate method temporarily in order to make things
+  // slightly safer for cherrypicking.
+  updateLinksForReadability(root?: ParentNode) {
+    if (!root || !this.hasContent()) {
+      return;
+    }
+
+    const showLinks = this.shouldShowLinks_();
+    const selector = showLinks ? LINKS_OFF_SELECTOR : LINKS_ON_TAG;
+    const elements = root.querySelectorAll<HTMLElement>(selector);
+    for (const elem of elements) {
+      this.transformLinkContainer_(elem, showLinks);
+    }
+
+    // Ensure the link attributes are set initially when reading mode is
+    // first opened.
+    if (isDistilledByReadability()) {
+      const links = root.querySelectorAll('a');
+      for (const link of links) {
+        const nodeId = this.nodeStore_.getAxId(link);
+        this.setLinkAttributes_(link, link.href, nodeId);
+      }
+    }
+  }
+
   private transformLinkContainer_(
       elemToReplace: HTMLElement, showLinks: boolean) {
     const nodeId = this.nodeStore_.getAxId(elemToReplace);
-    assert(nodeId !== undefined, 'link node id is undefined');
+    // If using Readability distillation, we don't expect there to be an
+    // AX id for the node, so don't assert that it exists.
+    if (!isDistilledByReadability()) {
+      assert(nodeId !== undefined, 'link node id is undefined');
+    }
     const newTag = showLinks ? LINKS_ON_TAG : LINKS_OFF_TAG;
     const newElem = document.createElement(newTag);
     // Move children to preserve inner highlighting or other formatting.
@@ -442,6 +572,13 @@ export class ContentController {
 
   // TODO(crbug.com/40910704): Potentially hide links during distillation.
   private shouldShowLinks_(): boolean {
+    // If Readability is enabled and the ReadabilityWithLinks flag is disabled,
+    // don't show links.
+    if (chrome.readingMode.isReadabilityEnabled &&
+        !chrome.readingMode.isReadabilityWithLinksEnabled) {
+      return false;
+    }
+
     // Links should only show when Read Aloud is paused.
     return chrome.readingMode.linksEnabled &&
         !this.speechController_.isSpeechActive();
@@ -485,9 +622,20 @@ export class ContentController {
     }
   }
 
-  updateImages(shadowRoot?: ShadowRoot) {
-    if (!shadowRoot || !chrome.readingMode.imagesFeatureEnabled ||
-        !this.hasContent()) {
+  updateImages(root?: ParentNode) {
+    if (!root || !this.hasContent()) {
+      return;
+    }
+
+    if (isDistilledByReadability()) {
+      this.updateImagesForReadability(root);
+    } else {
+      this.updateImagesForAxTree(root);
+    }
+  }
+
+  updateImagesForAxTree(shadowRoot: ParentNode) {
+    if (!chrome.readingMode.imagesFeatureEnabled) {
       return;
     }
 
@@ -497,13 +645,34 @@ export class ContentController {
     }
     // There is some strange issue where the HTML css application does not work
     // on canvases.
-    for (const canvas of shadowRoot.querySelectorAll('canvas')) {
+    const canvases = shadowRoot.querySelectorAll('canvas');
+    const figures = shadowRoot.querySelectorAll('figure');
+    for (const canvas of canvases) {
       canvas.style.display = imagesEnabled ? '' : 'none';
       this.markTextNodesHiddenIfImagesHidden_(canvas);
     }
-    for (const canvas of shadowRoot.querySelectorAll('figure')) {
+    for (const canvas of figures) {
       canvas.style.display = imagesEnabled ? '' : 'none';
       this.markTextNodesHiddenIfImagesHidden_(canvas);
+    }
+    if (canvases.length > 0 || figures.length > 0) {
+      this.listeners_.forEach(l => l.onContentChange());
+    }
+  }
+
+  updateImagesForReadability(container: ParentNode) {
+    if (!isDistilledByReadability()) {
+      return;
+    }
+
+    // If chrome.readingMode.imagesFeatureEnabled is disabled, hide images also.
+    const imagesEnabled = chrome.readingMode.imagesEnabled &&
+        chrome.readingMode.imagesFeatureEnabled;
+    // We look for 'img' tags (standard HTML) and 'figure' tags like screen2x.
+    const images = container.querySelectorAll<HTMLElement>('img, figure');
+
+    for (const element of images) {
+      element.style.display = imagesEnabled ? '' : 'none';
     }
   }
 
@@ -535,6 +704,25 @@ export class ContentController {
         }
       });
     });
+  }
+
+  private getTrustedHtml(html: string): TrustedHTML {
+    if (!ContentController.trustedUpdatePolicy || !isDistilledByReadability()) {
+      return window.trustedTypes!.emptyHTML;
+    }
+    return ContentController.trustedUpdatePolicy.createHTML(html);
+  }
+
+  configureTrustedTypes(): void {
+    if (!window.trustedTypes || ContentController.trustedUpdatePolicy) {
+      return;
+    }
+    ContentController.trustedUpdatePolicy =
+        window.trustedTypes.createPolicy('reader-mode-policy', {
+          createHTML: (s: string) => s,
+          createScript: () => '',
+          createScriptURL: () => '',
+        });
   }
 
   static getInstance(): ContentController {

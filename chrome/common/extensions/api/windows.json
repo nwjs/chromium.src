@@ -412,6 +412,11 @@
         "description": "Fired when a window wants to be closed.",
         "filters": [
           {
+            "name": "instanceId",
+            "type": "string", 
+            "description": "Matches the main frame token."
+          },
+          {
             "name": "windowTypes",
             "type": "array",
             "items": { "$ref": "WindowType" },

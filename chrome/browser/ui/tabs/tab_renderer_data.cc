@@ -67,9 +67,7 @@ bool IsNTP(const GURL& url) {
 }  // namespace
 
 // static
-TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
-                                                int index) {
-  tabs::TabInterface* const tab = model->GetTabAtIndex(index);
+TabRendererData TabRendererData::FromTabInterface(tabs::TabInterface* tab) {
   CHECK(tab);
   content::WebContents* const contents = tab->GetContents();
   CHECK(contents);
@@ -93,11 +91,13 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
   TabUIHelper* const tab_ui_helper = TabUIHelper::From(tab);
   data.favicon = tab_ui_helper->GetFavicon();
   data.title = tab_ui_helper->GetTitle();
+  data.needs_attention = tab_ui_helper->needs_attention();
   auto* const bwi = tab->GetBrowserWindowInterface();
   Browser* browser = bwi ? bwi->GetBrowserForMigrationOnly() : nullptr;
 
   // Note that in unit tests, this may be null.
   if (bwi) {
+    const int index = bwi->GetTabStripModel()->GetIndexOfTab(tab);
     // Tabbed web apps should use the app icon on the home tab.
     if (auto* const app_controller =
             web_app::WebAppBrowserController::From(bwi);
@@ -201,5 +201,6 @@ bool TabRendererData::operator==(const TabRendererData& other) const {
          should_show_discard_status == other.should_show_discard_status &&
          discarded_memory_savings == other.discarded_memory_savings &&
          tab_resource_usage == other.tab_resource_usage &&
-         is_monochrome_favicon == other.is_monochrome_favicon;
+         is_monochrome_favicon == other.is_monochrome_favicon &&
+         needs_attention == other.needs_attention;
 }

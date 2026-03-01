@@ -15,6 +15,7 @@ export class TestEntityDataManagerProxy extends TestBrowserProxy implements
     EntityDataManagerProxy {
   private entityInstancesWithLabels_: EntityInstanceWithLabels[] = [];
   private attributeTypes_: AttributeType[] = [];
+  private requiredAttributeTypes_: AttributeType[] = [];
   private entityInstance_: EntityInstance|null = null;
   private entityTypes_: EntityType[] = [];
   private entityInstancesChangedListener_: EntityInstancesChangedListener|null =
@@ -23,27 +24,35 @@ export class TestEntityDataManagerProxy extends TestBrowserProxy implements
   private setOptInStatusResponse_: boolean = true;
   private walletOptInStatus_: boolean = false;
   private setWalletablePassDetectionOptInStatusResponse_: boolean = true;
+  private authenticateUserBeforeViewingEntityDataResponse_: boolean = true;
 
   constructor() {
     super([
       'addEntityInstancesChangedListener',
       'addOrUpdateEntityInstance',
+      'authenticateUserBeforeViewingEntityData',
       'getAllAttributeTypesForEntityTypeName',
-      'getWritableEntityTypes',
+      'getRequiredAttributeTypesForEntityTypeName',
       'getEntityInstanceByGuid',
+      'getOptInStatus',
+      'getWalletablePassDetectionOptInStatus',
+      'getWritableEntityTypes',
       'loadEntityInstances',
       'removeEntityInstance',
       'removeEntityInstancesChangedListener',
       'setOptInStatus',
-      'getOptInStatus',
-      'getWalletablePassDetectionOptInStatus',
       'setWalletablePassDetectionOptInStatus',
+      'toggleAutofillAiReauthRequirement',
     ]);
   }
 
   setLoadEntityInstancesResponse(
       entityInstancesWithLabels: EntityInstanceWithLabels[]): void {
     this.entityInstancesWithLabels_ = entityInstancesWithLabels;
+  }
+
+  setAuthenticateUserBeforeViewingEntityDataResponse(success: boolean): void {
+    this.authenticateUserBeforeViewingEntityDataResponse_ = success;
   }
 
   setGetEntityInstanceByGuidResponse(entityInstance: EntityInstance): void {
@@ -57,6 +66,11 @@ export class TestEntityDataManagerProxy extends TestBrowserProxy implements
   setGetAllAttributeTypesForEntityTypeNameResponse(
       attributeTypes: AttributeType[]): void {
     this.attributeTypes_ = attributeTypes;
+  }
+
+  setGetRequiredAttributeTypesForEntityTypeNameResponse(
+      types: chrome.autofillPrivate.AttributeType[]) {
+    this.requiredAttributeTypes_ = types;
   }
 
   setGetOptInStatusResponse(optInStatus: boolean): void {
@@ -108,6 +122,13 @@ export class TestEntityDataManagerProxy extends TestBrowserProxy implements
     return Promise.resolve(structuredClone(this.attributeTypes_));
   }
 
+  getRequiredAttributeTypesForEntityTypeName(entityTypeName: number):
+      Promise<chrome.autofillPrivate.AttributeType[]> {
+    this.methodCalled(
+        'getRequiredAttributeTypesForEntityTypeName', entityTypeName);
+    return Promise.resolve(this.requiredAttributeTypes_);
+  }
+
   addEntityInstancesChangedListener(listener: EntityInstancesChangedListener):
       void {
     this.methodCalled('addEntityInstancesChangedListener');
@@ -138,5 +159,15 @@ export class TestEntityDataManagerProxy extends TestBrowserProxy implements
   setWalletablePassDetectionOptInStatus(optedIn: boolean): Promise<boolean> {
     this.methodCalled('setWalletablePassDetectionOptInStatus', optedIn);
     return Promise.resolve(this.setWalletablePassDetectionOptInStatusResponse_);
+  }
+
+  authenticateUserBeforeViewingEntityData(): Promise<boolean> {
+    this.methodCalled('authenticateUserBeforeViewingEntityData');
+    return Promise.resolve(
+        this.authenticateUserBeforeViewingEntityDataResponse_);
+  }
+
+  toggleAutofillAiReauthRequirement(): void {
+    this.methodCalled('toggleAutofillAiReauthRequirement');
   }
 }

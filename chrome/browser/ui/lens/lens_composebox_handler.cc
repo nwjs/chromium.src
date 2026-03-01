@@ -154,15 +154,6 @@ void LensComposeboxHandler::FocusChanged(bool focused) {
   lens_composebox_controller_->OnFocusChanged(focused);
 }
 
-void LensComposeboxHandler::SetDeepSearchMode(bool enabled) {
-  mojo::ReportBadMessage("Deep search not implemented for lens");
-}
-
-void LensComposeboxHandler::SetCreateImageMode(bool enabled,
-                                               bool image_present) {
-  mojo::ReportBadMessage("Create image not implemented for lens");
-}
-
 void LensComposeboxHandler::HandleLensButtonClick() {
   lens_composebox_controller_->ShowLensSelectionOverlay();
 }
@@ -205,7 +196,7 @@ void LensComposeboxHandler::DeleteContext(
   lens_composebox_controller_->DeleteContext(file_token);
 }
 
-void LensComposeboxHandler::ClearFiles() {
+void LensComposeboxHandler::ClearFiles(bool should_block_auto_suggested_tabs) {
   lens_composebox_controller_->ClearFiles();
 }
 

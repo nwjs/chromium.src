@@ -147,12 +147,11 @@ class CloudPolicyInvalidatorTestBase : public testing::Test {
   const base::Time start_time{task_environment_.GetMockClock()->Now()};
 
   // Objects the invalidator depends on.
-  testing::NiceMock<MockCloudPolicyStore> store_;
-  testing::NiceMock<MockCloudPolicyStore> extension_install_store_;
+  testing::NiceMock<MockCloudPolicyStore> store_{
+      dm_protocol::GetChromeUserPolicyType()};
   CloudPolicyCore core_{dm_protocol::GetChromeUserPolicyType(),
                         std::string(),
                         &store_,
-                        &extension_install_store_,
                         task_environment_.GetMainThreadTaskRunner(),
                         network::TestNetworkConnectionTracker::CreateGetter()};
   int policy_refresh_count_ = 0;
@@ -211,7 +210,7 @@ void CloudPolicyInvalidatorTestBase::StorePolicy(int64_t invalidation_version,
   data->set_policy_value(policy_value_cur_);
   store_.invalidation_version_ = invalidation_version;
   store_.set_policy_data_for_testing(std::move(data));
-  base::Value::Dict policies;
+  base::DictValue policies;
   policies.Set(key::kMaxInvalidationFetchDelay,
                static_cast<int>(
                    CloudPolicyInvalidator::kMaxFetchDelayMin.InMilliseconds()));

@@ -4,6 +4,7 @@
 
 #include "components/contextual_tasks/internal/contextual_tasks_service_impl.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <set>
@@ -44,8 +45,12 @@ using ::testing::Return;
 class MockAimEligibilityService : public AimEligibilityService {
  public:
   explicit MockAimEligibilityService(PrefService* pref_service)
-      : AimEligibilityService(*pref_service, nullptr, nullptr, nullptr, false) {
-  }
+      : AimEligibilityService(*pref_service,
+                              nullptr,
+                              nullptr,
+                              nullptr,
+                              false,
+                              "en-US") {}
   MOCK_METHOD(bool, IsAimEligible, (), (const, override));
 
   // The following methods are marked as pure virtual in AimEligibilityService,
@@ -69,6 +74,7 @@ class MockAiThreadSyncBridge : public AiThreadSyncBridge {
               GetThread,
               (const std::string& server_id),
               (const, override));
+  MOCK_METHOD(std::vector<Thread>, GetThreads, (), (const, override));
 };
 
 class MockContextualTaskSyncBridge : public ContextualTaskSyncBridge {
@@ -1291,6 +1297,15 @@ TEST_F(ContextualTasksServiceImplTest, GetContextualTaskForTab_NotFound) {
 
 TEST_F(ContextualTasksServiceImplTest, DisassociateAllTabsFromTask) {
   service_->AddObserver(&observer_);
+
+  // Wait for the sync pieces to finish init so there aren't multiple code
+  // paths trying to add tasks to the service.
+  base::RunLoop init_run_loop;
+  EXPECT_CALL(observer_, OnInitialized()).WillOnce([&]() {
+    init_run_loop.Quit();
+  });
+  init_run_loop.Run();
+
   ContextualTask task = service_->CreateTask();
   SessionID tab_id1 = SessionID::FromSerializedValue(1);
   SessionID tab_id2 = SessionID::FromSerializedValue(2);
@@ -1446,6 +1461,8 @@ TEST_F(ContextualTasksServiceImplTest, BuildContextualTasksFromLoadedData) {
                 "conversation_turn_id");
   ON_CALL(*mock_ai_thread_bridge, GetThread(thread_id))
       .WillByDefault(Return(thread));
+  ON_CALL(*mock_ai_thread_bridge, GetThreads())
+      .WillByDefault(Return(std::vector<Thread>({thread})));
 
   SetAiThreadSyncBridgeForTesting(std::move(mock_ai_thread_bridge));
   SetContextualTaskSyncBridgeForTesting(std::move(mock_contextual_task_bridge));
@@ -1471,6 +1488,129 @@ TEST_F(ContextualTasksServiceImplTest, BuildContextualTasksFromLoadedData) {
   ASSERT_TRUE(result_thread.has_value());
   EXPECT_EQ(thread_id, result_thread->server_id);
   EXPECT_EQ("Thread Title", result_thread->title);
+
+  service_->RemoveObserver(&observer_);
+}
+
+// If there are threads provided by that backend but no tasks associated with
+// them, the system should create one task per unowned thread.
+TEST_F(ContextualTasksServiceImplTest,
+       BuildContextualTasksFromLoadedData_NoPersistedTasks) {
+  auto mock_ai_thread_bridge =
+      std::make_unique<testing::NiceMock<MockAiThreadSyncBridge>>();
+  auto mock_contextual_task_bridge =
+      std::make_unique<testing::NiceMock<MockContextualTaskSyncBridge>>();
+
+  std::string thread_id = "thread_id";
+
+  ON_CALL(*mock_contextual_task_bridge, GetTasks())
+      .WillByDefault(Return(std::vector<ContextualTask>()));
+
+  // Only the thread for the first task is returned by the AiThreadSyncBridge.
+  Thread thread(ThreadType::kAiMode, thread_id, "Thread Title",
+                "conversation_turn_id");
+  ON_CALL(*mock_ai_thread_bridge, GetThread(thread_id))
+      .WillByDefault(Return(thread));
+  ON_CALL(*mock_ai_thread_bridge, GetThreads())
+      .WillByDefault(Return(std::vector<Thread>({thread})));
+
+  SetAiThreadSyncBridgeForTesting(std::move(mock_ai_thread_bridge));
+  SetContextualTaskSyncBridgeForTesting(std::move(mock_contextual_task_bridge));
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer_, OnInitialized()).WillOnce([&]() { run_loop.Quit(); });
+
+  service_->AddObserver(&observer_);
+
+  EXPECT_FALSE(service_->IsInitialized());
+  CallOnThreadDataStoreLoaded();
+  CallOnContextualTaskDataStoreLoaded();
+
+  run_loop.Run();
+
+  EXPECT_TRUE(service_->IsInitialized());
+
+  // Since the task is being created based on the thread, the titles should be
+  // the same.
+  std::vector<ContextualTask> result_tasks = GetTasks();
+  ASSERT_EQ(1u, result_tasks.size());
+  std::optional<Thread> result_thread = result_tasks[0].GetThread();
+  ASSERT_TRUE(result_thread.has_value());
+  EXPECT_EQ(thread_id, result_thread->server_id);
+  EXPECT_EQ(result_tasks[0].GetTitle(), result_thread->title);
+
+  service_->RemoveObserver(&observer_);
+}
+
+// A task should not be created for a thread if it is already owned by a
+// different task.
+TEST_F(ContextualTasksServiceImplTest,
+       BuildContextualTasksFromLoadedData_UnownedThread) {
+  auto mock_ai_thread_bridge =
+      std::make_unique<testing::NiceMock<MockAiThreadSyncBridge>>();
+  auto mock_contextual_task_bridge =
+      std::make_unique<testing::NiceMock<MockContextualTaskSyncBridge>>();
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  std::string thread_id = "thread_id";
+  std::string thread_id_2 = "thread_id_2";
+
+  ContextualTask task(task_id);
+  task.SetTitle("Task Title");
+  task.AddThread(Thread(ThreadType::kAiMode, thread_id, "", ""));
+  std::vector<ContextualTask> tasks = {task};
+
+  ON_CALL(*mock_contextual_task_bridge, GetTasks())
+      .WillByDefault(Return(tasks));
+
+  // Add two threads where one isn't owned by a task.
+  Thread thread(ThreadType::kAiMode, thread_id, "Thread 1",
+                "conversation_turn_id");
+  Thread thread_2(ThreadType::kAiMode, thread_id_2, "Thread 2",
+                  "conversation_turn_id");
+
+  ON_CALL(*mock_ai_thread_bridge, GetThread(thread_id))
+      .WillByDefault(Return(thread));
+  ON_CALL(*mock_ai_thread_bridge, GetThread(thread_id_2))
+      .WillByDefault(Return(thread_2));
+  ON_CALL(*mock_ai_thread_bridge, GetThreads())
+      .WillByDefault(Return(std::vector<Thread>({thread, thread_2})));
+
+  SetAiThreadSyncBridgeForTesting(std::move(mock_ai_thread_bridge));
+  SetContextualTaskSyncBridgeForTesting(std::move(mock_contextual_task_bridge));
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer_, OnInitialized()).WillOnce([&]() { run_loop.Quit(); });
+
+  service_->AddObserver(&observer_);
+
+  EXPECT_FALSE(service_->IsInitialized());
+  CallOnThreadDataStoreLoaded();
+  CallOnContextualTaskDataStoreLoaded();
+
+  run_loop.Run();
+
+  EXPECT_TRUE(service_->IsInitialized());
+
+  // There should be two tasks, one that was persisted and another created for
+  // the unowned thread.
+  std::vector<ContextualTask> result_tasks = GetTasks();
+  ASSERT_EQ(2u, result_tasks.size());
+
+  size_t existing_task_index = result_tasks[0].GetTaskId() == task_id ? 0 : 1;
+  size_t new_task_index = existing_task_index == 1 ? 0 : 1;
+
+  std::optional<Thread> result_thread =
+      result_tasks[existing_task_index].GetThread();
+  ASSERT_TRUE(result_thread.has_value());
+  EXPECT_EQ(thread_id, result_thread->server_id);
+  EXPECT_EQ("Task Title", result_tasks[existing_task_index].GetTitle());
+
+  std::optional<Thread> result_thread_2 =
+      result_tasks[new_task_index].GetThread();
+  ASSERT_TRUE(result_thread_2.has_value());
+  EXPECT_EQ(thread_id_2, result_thread_2->server_id);
+  EXPECT_EQ("Thread 2", result_tasks[new_task_index].GetTitle());
 
   service_->RemoveObserver(&observer_);
 }
@@ -1572,6 +1712,47 @@ TEST_F(ContextualTasksServiceImplTest, OnThreadAddedOrUpdatedRemotely) {
   ASSERT_TRUE(result_task.has_value());
   ASSERT_TRUE(result_task->GetThread().has_value());
   EXPECT_EQ("New Title", result_task->GetThread()->title);
+
+  service_->RemoveObserver(&observer_);
+}
+
+// A task should be created for an added thread that isn't associated with a
+// task.
+TEST_F(ContextualTasksServiceImplTest, OnThreadAddedOrUpdatedRemotely_NoTask) {
+  service_->AddObserver(&observer_);
+
+  // 1. Create a thread to mimic a new one created from the backend.
+  std::string server_id = "server_id";
+
+  proto::AiThreadEntity thread_entity;
+  thread_entity.mutable_specifics()->set_server_id(server_id);
+  thread_entity.mutable_specifics()->set_title("Title");
+  thread_entity.mutable_specifics()->set_conversation_turn_id("turn_id");
+  thread_entity.mutable_specifics()->set_type(
+      sync_pb::AiThreadSpecifics::AI_MODE);
+
+  std::vector<proto::AiThreadEntity> new_threads = {thread_entity};
+
+  // 2. Expect OnTaskAdded to be called and verify the task is created.
+  base::RunLoop run_loop;
+  EXPECT_CALL(
+      observer_,
+      OnTaskAdded(testing::_, ContextualTasksService::TriggerSource::kRemote))
+      .WillOnce([&](const ContextualTask& task,
+                    ContextualTasksService::TriggerSource source) {
+        EXPECT_EQ(task.GetTaskId(), task.GetTaskId());
+        ASSERT_TRUE(task.GetThread().has_value());
+        EXPECT_EQ("Title", task.GetThread()->title);
+        EXPECT_EQ("turn_id", task.GetThread()->conversation_turn_id);
+        run_loop.Quit();
+      });
+
+  // 3. Call the method under test.
+  CallOnThreadAddedOrUpdatedRemotely(new_threads);
+  run_loop.Run();
+
+  // 4. Verify the task was created.
+  EXPECT_EQ(1u, GetTasks().size());
 
   service_->RemoveObserver(&observer_);
 }
@@ -1748,13 +1929,13 @@ TEST_F(ContextualTasksServiceImplTest, GetTabsAssociatedWithTask) {
   std::vector<SessionID> tabs_for_task1 =
       service_->GetTabsAssociatedWithTask(task1.GetTaskId());
   ASSERT_EQ(2u, tabs_for_task1.size());
-  EXPECT_TRUE(base::Contains(tabs_for_task1, tab_id1));
-  EXPECT_TRUE(base::Contains(tabs_for_task1, tab_id2));
+  EXPECT_TRUE(std::ranges::contains(tabs_for_task1, tab_id1));
+  EXPECT_TRUE(std::ranges::contains(tabs_for_task1, tab_id2));
 
   std::vector<SessionID> tabs_for_task2 =
       service_->GetTabsAssociatedWithTask(task2.GetTaskId());
   ASSERT_EQ(1u, tabs_for_task2.size());
-  EXPECT_TRUE(base::Contains(tabs_for_task2, tab_id3));
+  EXPECT_TRUE(std::ranges::contains(tabs_for_task2, tab_id3));
 
   // Test with a task that has no associated tabs.
   ContextualTask task3 = service_->CreateTask();
@@ -1781,9 +1962,9 @@ TEST_F(ContextualTasksServiceImplTest,
       service_->GetContextualTaskForTab(tab_id);
   ASSERT_TRUE(current_task.has_value());
   EXPECT_EQ(task1.GetTaskId(), current_task->GetTaskId());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       service_->GetTabsAssociatedWithTask(task1.GetTaskId()), tab_id));
-  EXPECT_FALSE(base::Contains(
+  EXPECT_FALSE(std::ranges::contains(
       service_->GetTabsAssociatedWithTask(task2.GetTaskId()), tab_id));
 
   // Associate same tab with task2.
@@ -1791,9 +1972,9 @@ TEST_F(ContextualTasksServiceImplTest,
   current_task = service_->GetContextualTaskForTab(tab_id);
   ASSERT_TRUE(current_task.has_value());
   EXPECT_EQ(task2.GetTaskId(), current_task->GetTaskId());
-  EXPECT_TRUE(base::Contains(
+  EXPECT_TRUE(std::ranges::contains(
       service_->GetTabsAssociatedWithTask(task2.GetTaskId()), tab_id));
-  EXPECT_FALSE(base::Contains(
+  EXPECT_FALSE(std::ranges::contains(
       service_->GetTabsAssociatedWithTask(task1.GetTaskId()), tab_id));
 }
 

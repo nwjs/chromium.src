@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "base/metrics/histogram_functions.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
 #include "net/base/net_errors.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
@@ -51,12 +52,16 @@ void RecordActionChipsRequestStatus(
              result.error());
 }
 
-// Helper method to record impression metrics for the generated chips.
 void RecordImpressionMetrics(
-    const std::vector<action_chips::mojom::ActionChipPtr>& chips) {
+    base::span<const action_chips::mojom::ActionChipPtr> chips) {
   for (const auto& chip : chips) {
-    base::UmaHistogramEnumeration("NewTabPage.ActionChips.Shown", chip->type);
+    base::UmaHistogramEnumeration("NewTabPage.ActionChips.Shown2",
+                                  chip->suggest_template_info->type_icon);
   }
+}
+
+void RecordActionChipsAnyShown(bool any_shown) {
+  base::UmaHistogramBoolean("NewTabPage.ActionChips.AnyShown", any_shown);
 }
 
 // Helper method to record latency metrics for action chips retrieval.

@@ -144,6 +144,8 @@ bool Partitions::InitializeOnce() {
   // pay it when we don't have to.
 #if !PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   options.thread_cache = PartitionOptions::kEnabled;
+  options.thread_cache_index =
+      partition_alloc::internal::kDefaultRootThreadCacheIndex;
   static base::NoDestructor<partition_alloc::PartitionAllocator>
       fast_malloc_allocator(options);
   fast_malloc_root_ = fast_malloc_allocator->root();
@@ -241,15 +243,15 @@ size_t Partitions::TotalSizeOfCommittedPages() {
   size_t total_size = 0;
   // Racy reads below: this is fine to collect statistics.
   if (auto* fast_malloc_partition = FastMallocPartition()) {
-    total_size +=
-        TS_UNCHECKED_READ(fast_malloc_partition->total_size_of_committed_pages);
+    total_size += TS_UNCHECKED_READ(
+        fast_malloc_partition->total_size_of_committed_pages_);
   }
   if (ArrayBufferPartitionInitialized()) {
     total_size += TS_UNCHECKED_READ(
-        ArrayBufferPartition()->total_size_of_committed_pages);
+        ArrayBufferPartition()->total_size_of_committed_pages_);
   }
   total_size +=
-      TS_UNCHECKED_READ(BufferPartition()->total_size_of_committed_pages);
+      TS_UNCHECKED_READ(BufferPartition()->total_size_of_committed_pages_);
   return total_size;
 }
 

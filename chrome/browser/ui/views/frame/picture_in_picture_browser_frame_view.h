@@ -47,15 +47,14 @@ namespace {
 class WindowEventObserver;
 }  // namespace
 
-class PictureInPictureBrowserFrameView
-    : public BrowserFrameView,
-      public ChromeLocationBarModelDelegate,
-      public LocationIconView::Delegate,
-      public IconLabelBubbleView::Delegate,
-      public ContentSettingImageView::Delegate,
-      public views::WidgetObserver,
-      public PictureInPictureWindow,
-      public gfx::AnimationDelegate {
+class PictureInPictureBrowserFrameView : public BrowserFrameView,
+                                         public ChromeLocationBarModelDelegate,
+                                         public LocationIconView::Delegate,
+                                         public IconLabelBubbleView::Delegate,
+                                         public ContentSettingImageViewDelegate,
+                                         public views::WidgetObserver,
+                                         public PictureInPictureWindow,
+                                         public gfx::AnimationDelegate {
   METADATA_HEADER(PictureInPictureBrowserFrameView, BrowserFrameView)
 
  public:
@@ -68,10 +67,6 @@ class PictureInPictureBrowserFrameView
   ~PictureInPictureBrowserFrameView() override;
 
   // BrowserFrameView:
-  gfx::Rect GetBoundsForTabStripRegion(
-      const gfx::Size& tabstrip_minimum_size) const override;
-  gfx::Rect GetBoundsForWebAppFrameToolbar(
-      const gfx::Size& toolbar_preferred_size) const override;
   int GetTopInset(bool restored) const override;
   bool ShouldShowWebAppFrameToolbar() const override;
   void OnBrowserViewInitViewsComplete() override;
@@ -113,7 +108,7 @@ class PictureInPictureBrowserFrameView
   SkColor GetIconLabelBubbleSurroundingForegroundColor() const override;
   SkColor GetIconLabelBubbleBackgroundColor() const override;
 
-  // ContentSettingImageView::Delegate:
+  // ContentSettingImageViewDelegate:
   bool ShouldHideContentSettingImage() override;
   content::WebContents* GetContentSettingWebContents() override;
   ContentSettingBubbleModelDelegate* GetContentSettingBubbleModelDelegate()
@@ -188,6 +183,7 @@ class PictureInPictureBrowserFrameView
   views::View* GetBackToTabButtonForTesting();
   views::View* GetCloseButtonForTesting();
   views::Label* GetWindowTitleForTesting();
+  void SetWindowTitleForTesting(const std::u16string& title);
   PictureInPictureWidgetFadeAnimator* GetFadeAnimatorForTesting();
 
   // These values are persisted to logs. Entries should not be renumbered and

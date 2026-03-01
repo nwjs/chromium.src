@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/policy/reporting/metrics_reporting/metric_reporting_manager.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -13,7 +14,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -847,7 +847,7 @@ MetricReportingManager::GetTelemetryCollectorsFromSetting(
     std::string_view setting_name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  const base::Value::List* telemetry_list = nullptr;
+  const base::ListValue* telemetry_list = nullptr;
   const bool valid = ::ash::CrosSettings::Get()->GetList(
       std::string(setting_name), &telemetry_list);
   if (!valid || !telemetry_list) {
@@ -864,8 +864,8 @@ MetricReportingManager::GetTelemetryCollectorsFromSetting(
 
     const std::string* telemetry_name = telemetry.GetIfString();
     if (telemetry_name && telemetry_collectors_.contains(*telemetry_name) &&
-        !base::Contains(samplers,
-                        telemetry_collectors_.at(*telemetry_name).get())) {
+        !std::ranges::contains(
+            samplers, telemetry_collectors_.at(*telemetry_name).get())) {
       samplers.push_back(telemetry_collectors_.at(*telemetry_name).get());
     }
   }

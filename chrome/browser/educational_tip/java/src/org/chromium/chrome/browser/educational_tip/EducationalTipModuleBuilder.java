@@ -8,7 +8,7 @@ import android.view.LayoutInflater;
 import android.view.ViewGroup;
 
 import org.chromium.base.Callback;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -42,9 +42,8 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder, Modul
     @Override
     public boolean build(
             ModuleDelegate moduleDelegate, Callback<ModuleProvider> onModuleBuiltCallback) {
-        if (!ChromeFeatureList.sEducationalTipModule.isEnabled()
-                || !ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.SEGMENTATION_PLATFORM_EPHEMERAL_CARD_RANKER)) {
+        if (!ChromeFeatureList.isEnabled(
+                ChromeFeatureList.SEGMENTATION_PLATFORM_EPHEMERAL_CARD_RANKER)) {
             return false;
         }
 
@@ -87,16 +86,15 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder, Modul
     }
 
     @Override
-    public boolean hasManualOrdering() {
-        // Manual ordering is only needed for setup list items, when the setup list is active.
-        return SetupListModuleUtils.isSetupListModule(mModuleType);
+    public @Nullable Integer getManualRank() {
+        return SetupListModuleUtils.getManualRank(mModuleType);
     }
 
     // ModuleEligibilityChecker implementation:
 
     @Override
     public boolean isEligible() {
-        return ChromeFeatureList.sEducationalTipModule.isEnabled();
+        return true;
     }
 
     @Override
@@ -108,7 +106,7 @@ public class EducationalTipModuleBuilder implements ModuleProviderBuilder, Modul
     }
 
     /** Gets the regular profile if exists. */
-    private Profile getRegularProfile(ObservableSupplier<Profile> profileSupplier) {
+    private Profile getRegularProfile(MonotonicObservableSupplier<Profile> profileSupplier) {
         if (mProfile != null) {
             return mProfile;
         }

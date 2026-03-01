@@ -108,6 +108,7 @@ bool CheckPageEmbeddedPermissionTypes(
   for (const auto& permission_type : permissions) {
     auto type = blink::PermissionDescriptorToPermissionType(permission_type);
     if (type != blink::PermissionType::GEOLOCATION &&
+        type != blink::PermissionType::WEB_APP_INSTALLATION &&
         type != blink::PermissionType::AUDIO_CAPTURE &&
         type != blink::PermissionType::VIDEO_CAPTURE) {
       return false;
@@ -157,15 +158,32 @@ void PermissionServiceImpl::RegisterPageEmbeddedPermissionControl(
     std::vector<PermissionDescriptorPtr> permissions,
     blink::mojom::EmbeddedPermissionRequestDescriptorPtr descriptor,
     mojo::PendingRemote<EmbeddedPermissionControlClient> observer) {
-  if (descriptor->geolocation &&
-      !base::FeatureList::IsEnabled(blink::features::kGeolocationElement)) {
-    bad_message::ReceivedBadMessage(
-        context_->render_frame_host()->GetProcess(),
-        bad_message::PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE);
-    return;
+  // If the control has a detail, ensure the corresponding feature is enabled.
+  if (descriptor->detail) {
+    switch (descriptor->detail->which()) {
+      case blink::mojom::EmbeddedPermissionControlDescriptorExtension::Tag::
+          kGeolocation:
+        if (!base::FeatureList::IsEnabled(
+                blink::features::kGeolocationElement)) {
+          bad_message::ReceivedBadMessage(
+              context_->render_frame_host()->GetProcess(),
+              bad_message::PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE);
+          return;
+        }
+        break;
+      case blink::mojom::EmbeddedPermissionControlDescriptorExtension::Tag::
+          kInstall:
+        if (!base::FeatureList::IsEnabled(blink::features::kInstallElement)) {
+          bad_message::ReceivedBadMessage(
+              context_->render_frame_host()->GetProcess(),
+              bad_message::PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE);
+          return;
+        }
+        break;
+    }
   }
 
-  if (!descriptor->geolocation &&
+  if (!descriptor->detail &&
       !base::FeatureList::IsEnabled(blink::features::kPermissionElement) &&
       !base::FeatureList::IsEnabled(blink::features::kUserMediaElement)) {
     bad_message::ReceivedBadMessage(
@@ -190,10 +208,20 @@ void PermissionServiceImpl::RegisterPageEmbeddedPermissionControl(
     }
   }
 
-  auto source =
-      descriptor->geolocation
-          ? EmbeddedPermissionControlChecker::Source::kGeolocationElement
-          : EmbeddedPermissionControlChecker::Source::kPermissionElement;
+  EmbeddedPermissionControlChecker::Source source =
+      EmbeddedPermissionControlChecker::Source::kPermissionElement;
+  if (descriptor->detail) {
+    switch (descriptor->detail->which()) {
+      case blink::mojom::EmbeddedPermissionControlDescriptorExtension::Tag::
+          kGeolocation:
+        source = EmbeddedPermissionControlChecker::Source::kGeolocationElement;
+        break;
+      case blink::mojom::EmbeddedPermissionControlDescriptorExtension::Tag::
+          kInstall:
+        source = EmbeddedPermissionControlChecker::Source::kInstallElement;
+        break;
+    }
+  }
   checker->CheckPageEmbeddedPermission(
       source, std::move(permission_names), std::move(observer),
       base::BindOnce(
@@ -229,9 +257,21 @@ void PermissionServiceImpl::RequestPageEmbeddedPermission(
     std::vector<PermissionDescriptorPtr> permissions,
     EmbeddedPermissionRequestDescriptorPtr descriptor,
     RequestPageEmbeddedPermissionCallback callback) {
-  if (!base::FeatureList::IsEnabled(
-          descriptor->geolocation ? blink::features::kGeolocationElement
-                                  : blink::features::kPermissionElement)) {
+  if (permissions.empty()) {
+    ReceivedBadMessage();
+    return;
+  }
+
+  const base::Feature* required_feature = &blink::features::kPermissionElement;
+  if (descriptor->detail) {
+    if (descriptor->detail->is_geolocation()) {
+      required_feature = &blink::features::kGeolocationElement;
+    } else if (descriptor->detail->is_install()) {
+      required_feature = &blink::features::kInstallElement;
+    }
+  }
+
+  if (!base::FeatureList::IsEnabled(*required_feature)) {
     bad_message::ReceivedBadMessage(
         context_->render_frame_host()->GetProcess(),
         bad_message::PSI_REQUEST_EMBEDDED_PERMISSION_WITHOUT_FEATURE);
@@ -275,6 +315,11 @@ void PermissionServiceImpl::RequestPermissions(
     return;
   }
 
+  if (permissions.empty()) {
+    ReceivedBadMessage();
+    return;
+  }
+
   // This condition is valid if the call is coming from a ChildThread instead
   // of a RenderFrame. Some consumers of the service run in Workers and some
   // in Frames. In the context of a Worker, it is not possible to show a
@@ -307,35 +352,44 @@ void PermissionServiceImpl::RequestPermissionsInternal(
     PermissionRequestDescription request_description,
     RequestPermissionsCallback callback) {
   const auto& permissions = request_description.permissions;
-  std::unique_ptr<PendingRequest> pending_request =
-      std::make_unique<PendingRequest>(request_description.permissions,
-                                       std::move(callback));
-
-  int pending_request_id = pending_requests_.Add(std::move(pending_request));
-
   if (!permissions.empty() &&
       PermissionUtil::IsDomainOverride(permissions[0])) {
     if (!PermissionUtil::ValidateDomainOverride(request_description.permissions,
                                                 context_->render_frame_host(),
                                                 permissions[0])) {
-      ReceivedBadMessage();
+      // To prevent crash in the top-level storage access permission request
+      // used by rSAFor. See https://crbug.com/332235257 for more details.
+      std::move(callback).Run(std::vector<PermissionStatus>(
+          permissions.size(), PermissionStatus::DENIED));
       return;
     }
     const url::Origin& requesting_origin =
         PermissionUtil::ExtractDomainOverride(permissions[0]);
     request_description.requesting_origin = requesting_origin.GetURL();
+    int pending_request_id =
+        CreatePendingRequest(permissions, std::move(callback));
     PermissionControllerImpl::FromBrowserContext(browser_context)
         ->RequestPermissions(
-            context_->render_frame_host(), request_description,
+            context_->render_frame_host(), std::move(request_description),
             base::BindOnce(&PermissionServiceImpl::OnRequestPermissionsResponse,
                            weak_factory_.GetWeakPtr(), pending_request_id));
   } else {
+    int pending_request_id =
+        CreatePendingRequest(permissions, std::move(callback));
     PermissionControllerImpl::FromBrowserContext(browser_context)
         ->RequestPermissionsFromCurrentDocument(
             context_->render_frame_host(), std::move(request_description),
             base::BindOnce(&PermissionServiceImpl::OnRequestPermissionsResponse,
                            weak_factory_.GetWeakPtr(), pending_request_id));
   }
+}
+
+int PermissionServiceImpl::CreatePendingRequest(
+    const std::vector<blink::mojom::PermissionDescriptorPtr>& permissions,
+    RequestPermissionsCallback callback) {
+  std::unique_ptr<PendingRequest> pending_request =
+      std::make_unique<PendingRequest>(permissions, std::move(callback));
+  return pending_requests_.Add(std::move(pending_request));
 }
 
 void PermissionServiceImpl::OnRequestPermissionsResponse(

@@ -21,7 +21,6 @@
 #include "base/clang_profiling_buildflags.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/map_util.h"
 #include "base/debug/alias.h"
@@ -142,7 +141,6 @@
 #include "content/common/content_constants_internal.h"
 #include "content/common/content_switches_internal.h"
 #include "content/common/in_process_child_thread_params.h"
-#include "content/common/pseudonymization_salt.h"
 #include "content/public/browser/browser_child_process_host.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -761,13 +759,15 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
   void FindRenderProcessesForSiteInstance(
       SiteInstanceImpl* site_instance,
       ProcessReusePolicy process_reuse_policy,
-      std::set<RenderProcessHost*>* foreground_processes,
-      std::set<RenderProcessHost*>* background_processes) {
+      std::vector<RenderProcessHost*>* foreground_processes,
+      std::vector<RenderProcessHost*>* background_processes) {
     auto result = map_.find(site_instance->GetSiteInfo());
     if (result == map_.end())
       return;
 
     ChildProcessIdCountMap& counts_per_process = result->second;
+    foreground_processes->reserve(counts_per_process.size());
+    background_processes->reserve(counts_per_process.size());
     for (auto iter : counts_per_process) {
       auto* host = RenderProcessHost::FromID(iter.first);
       if (!host) {
@@ -794,20 +794,21 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
 
       if (process_reuse_policy ==
           ProcessReusePolicy::kReusePrerenderingProcessForMainFrame) {
-        // TODO(crbug.com/434845948): Avoid downcasting to
-        // RenderProcessHostImpl. This policy should not be used with
-        // MockRenderProcessHost.
-        if (!static_cast<RenderProcessHostImpl*>(host)
-                 ->IsOnlyHostingPrerenderedFramesOrEmpty()) {
+        if (!host->IsOnlyHostingPrerenderedFramesOrEmpty()) {
           continue;
         }
       }
 
       if (host->VisibleClientCount())
-        foreground_processes->insert(host);
+        foreground_processes->push_back(host);
       else
-        background_processes->insert(host);
+        background_processes->push_back(host);
     }
+
+    // At this point, both foreground_processes and background_processes contain
+    // eligible hosts in an arbitrary order. There are no duplicates in either
+    // vector, because they are subsets of the keys of counts_per_process, which
+    // is a map.
   }
 
   // Check whether |host| is associated with at least one URL for which
@@ -1299,8 +1300,8 @@ bool IsKeepAliveRefCountAllowed() {
 static RenderProcessHost* FindEmptyBackgroundHostForReuse(
     BrowserContext* browser_context,
     SiteInstanceImpl* site_instance) {
-  std::set<RenderProcessHost*> eligible_foreground_hosts;
-  std::set<RenderProcessHost*> eligible_background_hosts;
+  std::vector<RenderProcessHost*> eligible_foreground_hosts;
+  std::vector<RenderProcessHost*> eligible_background_hosts;
 
   SiteProcessCountTracker* tracker = static_cast<SiteProcessCountTracker*>(
       browser_context->GetUserData(kEmptySiteProcessCountTrackerKey));
@@ -2329,19 +2330,9 @@ void RenderProcessHostImpl::CreateLockManager(
     mojo::PendingReceiver<blink::mojom::LockManager> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  storage_partition_impl_->GetQuotaManager()->proxy()->UpdateOrCreateBucket(
-      storage::BucketInitParams::ForDefaultBucket(storage_key),
-      GetUIThreadTaskRunner({}),
-      base::BindOnce(&RenderProcessHostImpl::CreateLockManagerWithBucketInfo,
-                     instance_weak_factory_.GetWeakPtr(), std::move(receiver)));
-}
-
-void RenderProcessHostImpl::CreateLockManagerWithBucketInfo(
-    mojo::PendingReceiver<blink::mojom::LockManager> receiver,
-    storage::QuotaErrorOr<storage::BucketInfo> bucket) {
-  storage_partition_impl_->GetLockManager()->BindReceiver(
-      bucket.has_value() ? bucket->id : storage::BucketId(),
-      std::move(receiver));
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  storage_partition_impl_->BindLockManager(storage_key, token,
+                                           std::move(receiver));
 }
 
 void RenderProcessHostImpl::CreatePermissionService(
@@ -3421,8 +3412,8 @@ bool RenderProcessHostImpl::HostHasNotBeenUsed() {
 }
 
 bool RenderProcessHostImpl::IsSpare() const {
-  return base::Contains(SpareRenderProcessHostManagerImpl::Get().GetSpares(),
-                        this);
+  return std::ranges::contains(
+      SpareRenderProcessHostManagerImpl::Get().GetSpares(), this);
 }
 
 void RenderProcessHostImpl::SetProcessLock(
@@ -3455,18 +3446,6 @@ void RenderProcessHostImpl::NotifyRendererOfLockedStateUpdate() {
 
   if (process_lock.is_invalid())
     return;
-
-  // Check if the process is cross_origin isolated based on the
-  // WebExposedIsolationLevel and the AgentClusterKey.
-  bool is_cross_origin_isolated = process_lock.GetWebExposedIsolationLevel() >=
-                                  WebExposedIsolationLevel::kIsolated;
-  is_cross_origin_isolated |=
-      process_lock.agent_cluster_key().GetCrossOriginIsolationKey() &&
-      process_lock.agent_cluster_key()
-              .GetCrossOriginIsolationKey()
-              ->cross_origin_isolation_mode ==
-          CrossOriginIsolationMode::kConcrete;
-  GetRendererInterface()->SetIsCrossOriginIsolated(is_cross_origin_isolated);
 
   GetRendererInterface()->SetIsIsolatedContext(IsIsolatedContext(this));
 
@@ -3825,6 +3804,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       blink::switches::kMaxUntiledLayerWidth,
       blink::switches::kMaxUntiledLayerHeight,
       blink::switches::kNetworkQuietTimeout,
+      blink::switches::kShowContentfulPaintRects,
       blink::switches::kShowLayoutShiftRegions,
       blink::switches::kShowPaintRects,
       blink::switches::kTouchTextSelectionStrategy,
@@ -3852,6 +3832,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kRunAllCompositorStagesBeforeDraw,
 
       network::switches::kForcePermissionPolicyUnloadDefaultEnabled,
+      network::switches::kLocalNetworkAccessPermissionsPolicyDefaultEnabled,
 
       switches::kWebRtcMaxCaptureFramerate,
       switches::kEnableLowEndDeviceMode,
@@ -4037,7 +4018,8 @@ bool RenderProcessHostImpl::ShutdownRequested() {
 bool RenderProcessHostImpl::FastShutdownIfPossible(size_t page_count,
                                                    bool skip_unload_handlers,
                                                    bool ignore_workers,
-                                                   bool ignore_keep_alive) {
+                                                   bool ignore_keep_alive,
+                                                   bool ignore_pending_reuse) {
   base::UmaHistogramBoolean(
       "BrowserRenderProcessHost.FastShutdownIfPossible.Total", true);
   // Do not shut down the process if there are active or pending views other
@@ -4107,7 +4089,7 @@ bool RenderProcessHostImpl::FastShutdownIfPossible(size_t page_count,
     return false;
   }
 
-  if (pending_reuse_ref_count_ != 0) {
+  if (!ignore_pending_reuse && pending_reuse_ref_count_ != 0) {
     LogDelayReasonForFastShutdown(DelayShutdownReason::kPendingReuse);
     return false;
   }
@@ -4136,18 +4118,6 @@ void RenderProcessHostImpl::OnAssociatedInterfaceRequest(
 
 void RenderProcessHostImpl::OnChannelConnected(int32_t peer_pid) {
   channel_connected_ = true;
-
-  // Propagate the pseudonymization salt to all the child processes.
-  //
-  // Doing this as the first step in this method helps to minimize scenarios
-  // where child process runs code that depends on the pseudonymization salt
-  // before it has been set.  See also https://crbug.com/1479308#c5
-  //
-  // TODO(dullweber, lukasza): Figure out if it is possible to reset the salt
-  // at a regular interval (on the order of hours?).  The browser would need to
-  // be responsible for 1) deciding when the refresh happens and 2) pushing the
-  // updated salt to all the child processes.
-  child_process_->SetPseudonymizationSalt(GetPseudonymizationSalt());
 
 #if BUILDFLAG(IS_MAC)
   ChildProcessTaskPortProvider::GetInstance()->OnChildProcessLaunched(
@@ -4474,15 +4444,6 @@ void RenderProcessHostImpl::Cleanup() {
   // shutdown delay has now been cancelled.
   StopTrackingProcessForShutdownDelay();
 
-  if (IsEmptyRendererProcessesReuseAllowed()) {
-    // Remove this host from the tracker of empty processes. This is required
-    // to ensure that the process' id is not kept in the tracker if it's
-    // cleaned up while non-empty.
-    SiteProcessCountTracker::GetInstance(GetBrowserContext(),
-                                         kEmptySiteProcessCountTrackerKey)
-        ->ClearProcessForAllSites(GetID());
-  }
-
   // Use `DeleteSoon` to delete `this` RenderProcessHost *after* the tasks
   // that are *already* queued on the UI thread have been given a chance to run
   // (this may include IPC handling tasks that depend on the existence of
@@ -4665,17 +4626,29 @@ void RenderProcessHostImpl::UnregisterHost(ChildProcessId host_id) {
                           host->GetBrowserContext()->GetUserData(
                               kCommittedSiteProcessCountTrackerKey)));
 
+  if (IsEmptyRendererProcessesReuseAllowed()) {
+    // Remove this host from the tracker of empty processes. This guarantees
+    // the tracker is cleaned up if the process is destroyed if the standard
+    // RenderProcessHostImpl::Cleanup() path is bypassed (e.g.
+    // MockRenderProcessHost in unit tests).
+    SiteProcessCountTracker::GetInstance(host->GetBrowserContext(),
+                                         kEmptySiteProcessCountTrackerKey)
+        ->ClearProcessForAllSites(host_id);
+  }
+
   if (g_main_host == host)
     g_main_host = nullptr;
 
   if (run_renderer_in_process() && g_browser_main_loop_shutting_down)
     return; //or the following line will crash because browser context
             //has been destroyed
+
   // Look up the map of site to process for the given browser_context,
   // in case we need to remove this process from it.  It will be registered
   // under any sites it rendered that use process-per-site mode.
   SiteProcessMap* map =
       GetSiteProcessMapForBrowserContext(host->GetBrowserContext());
+
   map->RemoveProcess(host);
 }
 
@@ -5078,9 +5051,7 @@ RenderProcessHost* RenderProcessHostImpl::GetExistingProcessHost(
 
   // Now pick a random suitable renderer, if we have any.
   if (!suitable_renderers.empty()) {
-    //int suitable_count = static_cast<int>(suitable_renderers.size());
-    //int random_index = base::RandInt(0, suitable_count - 1);
-    //return suitable_renderers[random_index];
+    //return base::RandomChoice(suitable_renderers);
     //NWJS: reuse first renderer, the main process for valid nw.Window.open
     //callback value. see also app_window_api.cc:416
     return suitable_renderers[0];
@@ -6037,8 +6008,8 @@ RenderProcessHostImpl::FindReusableProcessHostForSiteInstance(
   if (!ShouldFindReusableProcessHostForSite(site_instance->GetSiteInfo()))
     return nullptr;
 
-  std::set<RenderProcessHost*> eligible_foreground_hosts;
-  std::set<RenderProcessHost*> eligible_background_hosts;
+  std::vector<RenderProcessHost*> eligible_foreground_hosts;
+  std::vector<RenderProcessHost*> eligible_background_hosts;
 
   // First, add the RenderProcessHosts expecting a navigation to |site_url| to
   // the list of eligible RenderProcessHosts.
@@ -6080,19 +6051,11 @@ RenderProcessHostImpl::FindReusableProcessHostForSiteInstance(
   }
 
   if (!eligible_foreground_hosts.empty()) {
-    int index = base::RandInt(0, eligible_foreground_hosts.size() - 1);
-    auto iterator = eligible_foreground_hosts.begin();
-    for (int i = 0; i < index; ++i)
-      ++iterator;
-    return *iterator;
+    return base::RandomChoice(eligible_foreground_hosts);
   }
 
   if (!eligible_background_hosts.empty()) {
-    int index = base::RandInt(0, eligible_background_hosts.size() - 1);
-    auto iterator = eligible_background_hosts.begin();
-    for (int i = 0; i < index; ++i)
-      ++iterator;
-    return *iterator;
+    return base::RandomChoice(eligible_background_hosts);
   }
 
   return nullptr;

@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <algorithm>
 #include <array>
 #include <locale>
 #include <memory>
@@ -17,7 +18,6 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -86,7 +86,7 @@ void HandleRequestOnCmdThread(
     const HttpResponseSenderFunc& send_response_func) {
   if (!allowed_ips.empty()) {
     const net::IPAddress& peer_address = request.peer.address();
-    if (!base::Contains(allowed_ips, peer_address)) {
+    if (!std::ranges::contains(allowed_ips, peer_address)) {
       LOG(WARNING) << "unauthorized access from " << request.peer.ToString();
       std::unique_ptr<net::HttpServerResponseInfo> response(
           new net::HttpServerResponseInfo(net::HTTP_UNAUTHORIZED));
@@ -188,7 +188,7 @@ void StartServerOnIOThread(
   } else {
 // Currently, the network layer provides no way for us to control dual-protocol
 // bind option, or to query the current setting of that option, so we do our
-// best to determine the current setting. See https://crbug.com/858892.
+// best to determine the current setting. See https://crbug.com/41398711.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     // On Linux, dual-protocol bind is controlled by a system file.
     // ChromeOS builds also have OS_LINUX defined, so the code below applies.

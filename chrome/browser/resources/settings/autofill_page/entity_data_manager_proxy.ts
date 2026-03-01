@@ -49,6 +49,14 @@ export interface EntityDataManagerProxy {
       Promise<AttributeType[]>;
 
   /**
+   * Returns a list of all attribute types that are required to save an entity
+   * instance. The list represents a disjunction: presenting any one attribute
+   * is sufficient.
+   */
+  getRequiredAttributeTypesForEntityTypeName(entityTypeName: number):
+      Promise<AttributeType[]>;
+
+  /**
    * Adds a listener to changes in the entity instances.
    */
   addEntityInstancesChangedListener(listener: EntityInstancesChangedListener):
@@ -59,6 +67,19 @@ export interface EntityDataManagerProxy {
    */
   removeEntityInstancesChangedListener(
       listener: EntityInstancesChangedListener): void;
+
+  /**
+   * Authenticates the user before viewing entity data. Returns true if
+   * authentication was successful or if no authentication was required.
+   */
+  authenticateUserBeforeViewingEntityData(): Promise<boolean>;
+
+  /**
+   * Updates the pref that controls whether users need to authenticate
+   * to view sensitive entity information. This method itself triggers
+   * reauthentication
+   */
+  toggleAutofillAiReauthRequirement(): void;
 
   /**
    * Gets the opt-in status for AutofillAi for the current user.
@@ -109,6 +130,12 @@ export class EntityDataManagerProxyImpl implements EntityDataManagerProxy {
         entityTypeName);
   }
 
+  getRequiredAttributeTypesForEntityTypeName(entityTypeName: number):
+      Promise<AttributeType[]> {
+    return chrome.autofillPrivate.getRequiredAttributeTypesForEntityTypeName(
+        entityTypeName);
+  }
+
   addEntityInstancesChangedListener(listener: EntityInstancesChangedListener) {
     chrome.autofillPrivate.onEntityInstancesChanged.addListener(listener);
   }
@@ -116,6 +143,14 @@ export class EntityDataManagerProxyImpl implements EntityDataManagerProxy {
   removeEntityInstancesChangedListener(
       listener: EntityInstancesChangedListener) {
     chrome.autofillPrivate.onEntityInstancesChanged.removeListener(listener);
+  }
+
+  authenticateUserBeforeViewingEntityData() {
+    return chrome.autofillPrivate.authenticateUserBeforeViewingEntityData();
+  }
+
+  toggleAutofillAiReauthRequirement() {
+    return chrome.autofillPrivate.toggleAutofillAiReauthRequirement();
   }
 
   getOptInStatus() {

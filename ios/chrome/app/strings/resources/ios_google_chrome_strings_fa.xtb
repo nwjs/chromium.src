@@ -1,6 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="fa">
+<translation id="1035560095760914532">‏‫Chrome را در قسمت پایین قرار دهید تا هرزمان خواستید به آن دسترسی داشته باشید</translation>
 <translation id="1076643793026027628">‏‫Chrome پیوندهای «ناشناس» YouTube را به‌طور خودکار در حالت «ناشناس» باز می‌کند.</translation>
 <translation id="1081114897601629648">‏گذرواژه‌های زیر در «مدیر گذرواژه Google» وارد نشدند زیرا با الزامات مطابقت ندارند.</translation>
 <translation id="1086486568852410168">‏جستجو با «لنز Google»</translation>
@@ -86,6 +87,10 @@
 <translation id="2767464022270041271">‏گذرواژه‌ای ذخیره نشده است. اگر گذرواژه‌هایتان را ذخیره کنید، «مدیر گذرواژه Google» می‌تواند آن‌ها را بررسی کند.</translation>
 <translation id="2788811701191021538">‏صفحه تنظیم روش‌های پرداخت را در Chrome باز می‌کند.</translation>
 <translation id="2876628302275096482">‏درباره اینکه <ph name="BEGIN_LINK" />Chrome چگونه داده‌های شما را خصوصی نگه می‌دارد<ph name="END_LINK" /> بیشتر بدانید</translation>
+<translation id="288992067439702510">‏به حداکثر تعداد نشانک‌های Google Chrome (<ph name="LIMIT" />) رسیده‌اید، بنابراین برخی‌از نشانک‌هایتان هنوز در «حساب Google» شما ذخیره نشده است.
+
+تا زمانی‌که تعدادی از نشانک‌ها را حذف نکنید، نمی‌توانید نشانک‌های جدید را در حسابتان ذخیره کنید. اگر اکنون از سیستم خارج شوید، نشانک‌های ذخیره‌نشده حذف خواهد شد.</translation>
+<translation id="2901621928549457170">‏وقتی از iPad استفاده می‌کنید، Chrome را فوری باز کنید</translation>
 <translation id="2922914028977213693">‏برای اینکه بیشترین بهره را از Chrome در iPad ببرید، اینجا تک‌ضرب بزنید.</translation>
 <translation id="292371311537977079">‏تنظیمات Chrome</translation>
 <translation id="2923827943290349720">‏قفل کردن «برگه‌های ناشناس» وقتی Chrome را می‌بندید</translation>
@@ -131,7 +136,7 @@
 <translation id="3913386780052199712">‏به Chrome وارد شد</translation>
 <translation id="3984746313391923992">‏سازمانتان از شما می‌خواهد خارج از سیستم Chrome باقی بمانید.</translation>
 <translation id="3988789688219830639">‏Google Chrome به عکس‌ها یا ویدیوهای شما دسترسی ندارد. با رفتن به تنظیمات iOS &gt; حریم خصوصی &gt; عکس‌ها دسترسی را فعال کنید.</translation>
-<translation id="4064699917955374540">‏برای استفاده از داده‌های Chrome و ذخیره کردن این داده‌ها در «حساب Google»، هویت خود را به‌تأیید برسانید.</translation>
+<translation id="4064699917955374540">‏برای استفاده از داده‌های Chrome و ذخیره کردن این داده‌ها در «حساب Google»، هویت خود را درستی‌سنجی کنید.</translation>
 <translation id="411154422556990518">‏از به‌روزرسانی‌های ردگیری قیمت و نکات Chrome مطلع شوید.</translation>
 <translation id="4167555379306984168">‏تازه‌های Chrome را ببینید</translation>
 <translation id="417201473131094001">‏در Chrome Canary پشتیبانی نمی‌شود</translation>
@@ -170,6 +175,8 @@
 <translation id="5119391094379141756">‏Chrome را انتخاب کنید</translation>
 <translation id="5123188916260706415">‏جستجو با صدا در Chrome</translation>
 <translation id="5162467219239570114">‏نسخه Chrome قدیمی است. اگر به‌روزرسانی‌ای در <ph name="BEGIN_LINK" />فروشگاه برنامه<ph name="END_LINK" /> دردسترس نیست، احتمالاً دستگاهتان نسخه‌های جدید Chrome را دیگر پشتیبانی نمی‌کند.</translation>
+<translation id="5172049865623113551">‏وقتی در iPhone خود هستید، Chromium را فوری باز کنید</translation>
+<translation id="5179095426828744632">‏از سکوی برنامه‌ها سریع‌تر به Chrome دسترسی پیدا کنید</translation>
 <translation id="5184329579814168207">‏باز کردن در Chrome</translation>
 <translation id="5190139289262548459">‏سازمانتان (<ph name="DOMAIN" />) حسابی که به سیستم آن وارد شده‌اید و نحوه استفاده از Chrome را مدیریت می‌کند.</translation>
 <translation id="5209238444239954363">‏‫Chrome موفق نشد به‌روزرسانی‌ها را بررسی کند. بعداً دوباره امتحان کنید.</translation>
@@ -304,7 +311,6 @@
 <translation id="7787205077729386167">‏تنظیمات Chrome را در iOS باز کنید، سپس روی «برنامه مرورگر پیش‌فرض» تک‌ضرب بزنید و Chrome را انتخاب کنید.</translation>
 <translation id="778855399387580014">‏جستجویی در برگه Chrome جدیدی شروع کنید.</translation>
 <translation id="7792140019572081272">‏Chrome بااستفاده از Face ID امنیت داده‌های حساس شما را حفظ می‌کند.</translation>
-<translation id="7825648984449922731">‏ویرایش تصویر با «Gemini در Chrome»</translation>
 <translation id="7855730255114109580">‏Google Chrome به‌روز است</translation>
 <translation id="787226752901403048">‏به سیستم Chrome وارد شوید و گروه‌های زبانه را هم‌سانی کنید، به آن‌ها بپیوندید، و با هم روی ایده‌ها کار کنید</translation>
 <translation id="7897703007638178753">‏دیدن برگه‌های اخیر Chrome</translation>

@@ -281,6 +281,12 @@ void CheckDownloadUrlDone(
 }
 #endif  // SAFE_BROWSING_DOWNLOAD_PROTECTION
 
+// Returns true if the danger type is either FORCE_SAVE_TO_ONEDRIVE or
+// FORCE_SAVE_TO_GDrive.
+bool IsForceSaveToCloud(download::DownloadDangerType danger_type) {
+  return danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_ONEDRIVE ||
+         danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
+}
 // Called asynchronously to determine the MIME type for |path|.
 std::string GetMimeType(const base::FilePath& path) {
 #if BUILDFLAG(IS_ANDROID)
@@ -504,8 +510,8 @@ download::DownloadDangerType SavePackageDangerType(
       return download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE;
     case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
       return download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
-    // TODO(crbug.com/458033434): Add a danger type for FORCE_SAVE_TO_ONEDRIVE.
     case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE:
+      return download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_ONEDRIVE;
     case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
       return download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK;
     case safe_browsing::DownloadCheckResult::BLOCKED_SCAN_FAILED:
@@ -563,7 +569,7 @@ actor::ExecutionEngine* GetExecutionEngineForDownloadItem(
 
   if (const actor::ActorTask* actor_task =
           actor_service->GetActingActorTaskForWebContents(web_contents)) {
-    return actor_task->GetExecutionEngine();
+    return &actor_task->GetExecutionEngine();
   }
 
   return nullptr;
@@ -852,7 +858,8 @@ bool ChromeDownloadManagerDelegate::IsDangerTypeBlocked(
          danger_type ==
              download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK ||
          danger_type == download::DOWNLOAD_DANGER_TYPE_BLOCKED_SCAN_FAILED ||
-         danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
+         danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE ||
+         danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_ONEDRIVE;
 }
 
 bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
@@ -938,7 +945,7 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
             // Specifying a dangerous type here would take precedence over the
             // blocking of the file.
             download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS,
-            danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE
+            IsForceSaveToCloud(danger_type)
                 ? download::DOWNLOAD_INTERRUPT_REASON_LOCAL_DOWNLOAD_BLOCKED
                 : download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED);
       } else {
@@ -1773,14 +1780,14 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_WARNING:
         danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING;
         break;
-
-      // TODO(eliashomsi): Add a new danger type for FORCE_SAVE_TO_ONEDRIVE.
-      case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE:
       case safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK:
         danger_type = download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK;
         break;
       case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_GDRIVE:
         danger_type = download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE;
+        break;
+      case safe_browsing::DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_ONEDRIVE;
         break;
       case safe_browsing::DownloadCheckResult::DEEP_SCANNED_SAFE:
         danger_type = download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE;
@@ -1855,7 +1862,7 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       }
       item->OnContentCheckCompleted(
           danger_type,
-          danger_type == download::DOWNLOAD_DANGER_TYPE_FORCE_SAVE_TO_GDRIVE
+          IsForceSaveToCloud(danger_type)
               ? download::DOWNLOAD_INTERRUPT_REASON_LOCAL_DOWNLOAD_BLOCKED
               : download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED);
     } else {
@@ -2042,7 +2049,7 @@ bool ChromeDownloadManagerDelegate::IsOpenInBrowserPreferredForFile(
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && \
     BUILDFLAG(ENABLE_PLUGINS)
   // TODO(asanka): Consider other file types and MIME types.
-  // http://crbug.com/323561
+  // http://crbug.com/41076988
   if (path.MatchesExtension(FILE_PATH_LITERAL(".pdf")) ||
       path.MatchesExtension(FILE_PATH_LITERAL(".htm")) ||
       path.MatchesExtension(FILE_PATH_LITERAL(".html")) ||

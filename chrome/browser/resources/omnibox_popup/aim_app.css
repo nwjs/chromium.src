@@ -10,10 +10,11 @@
  * #css_wrapper_metadata_end */
 
 :host {
+  --color-file-chip-remove-button-fill: var(--color-omnibox-results-icon);
   --composebox-context-menu-entrypoint-button-color: var(--color-sys-on-surface);
+  --cr-composebox-cancel-button-top: 5px;
   --cr-composebox-custom-font-size: var(--omnibox-font-size);
   --cr-composebox-expanded-border-radius: 16px;
-  --cr-composebox-file-thumbnail-remove-button-fill-color: var(--color-omnibox-results-icon);
   --cr-composebox-input-bottom-spacing: 8px;
   --cr-composebox-input-placeholder-font-size: var(--omnibox-font-size);
   --cr-composebox-match-height: 40px;
@@ -22,11 +23,11 @@
   --cr-composebox-match-match-padding-bottom: 0;
   --cr-composebox-match-remove-button-top: 4px;
   --cr-composebox-match-text-container-font-size: var(--omnibox-font-size);
+  --cr-composebox-match-text-padding-inline-end: 4px;
   --cr-composebox-max-height: 800px;
   --cr-composebox-text-container-padding-block-start: 0;
-  --search-animated-glif-rotation-duration: 2000ms;
-  --cr-composebox-cancel-button-top: 5px;
   --cr-composebox-voice-icon-fill-color: var(--color-sys-on-surface);
+  --search-animated-glif-rotation-duration: 2000ms;
 }
 
 cr-composebox {
@@ -78,12 +79,12 @@ cr-composebox {
   position: relative;
 }
 
-cr-composebox[searchbox-layout-mode="Compact"] {
+cr-composebox[searchbox-layout-mode='Compact'] {
   --input-bottom-spacing: 14px;
   --cr-composebox-context-margin-top: -12px;
 }
 
-cr-composebox[searchbox-layout-mode="Compact"]::part(context-menu-entrypoint-icon) {
+cr-composebox[searchbox-layout-mode='Compact']::part(context-menu-entrypoint-icon) {
   --cr-icon-button-icon-size: 20px;
   --cr-icon-button-size: 28px;
   left: 12px;
@@ -94,15 +95,15 @@ cr-composebox::part(voice-icon) {
   --cr-icon-button-fill-color: var(--cr-composebox-voice-icon-fill-color);
 }
 
-cr-composebox[searchbox-layout-mode="TallBottomContext"]::part(voice-icon) {
+cr-composebox[searchbox-layout-mode='TallBottomContext']::part(voice-icon) {
   bottom: 6px;
 }
 
-cr-composebox[show-submit_][submit-enabled_][searchbox-layout-mode="TallBottomContext"]:not([show-dropdown_])::part(submit) {
+cr-composebox[show-submit_][submit-enabled_][searchbox-layout-mode='TallBottomContext']:not([show-dropdown_])::part(submit) {
     bottom: 6px;
 }
 
-cr-composebox[searchbox-layout-mode="TallTopContext"] {
+cr-composebox[searchbox-layout-mode='TallTopContext'] {
   --cr-composebox-submit-button-margin-inline-start: 0;
 }
 
@@ -111,15 +112,15 @@ cr-composebox[show-submit_][submit-enabled_][searchbox-layout-mode='TallBottomCo
   margin-inline-end: 6px;
 }
 
-cr-composebox[show-submit_][submit-enabled_][searchbox-layout-mode="TallTopContext"]::part(voice-icon) {
+cr-composebox[show-submit_][submit-enabled_][searchbox-layout-mode='TallTopContext']::part(voice-icon) {
   margin-inline-end: -2px;
 }
 
-cr-composebox[searchbox-layout-mode="TallBottomContext"][show-dropdown_]::part(voice-icon) {
+cr-composebox[searchbox-layout-mode='TallBottomContext'][show-dropdown_]::part(voice-icon) {
   bottom: 9px;
 }
 
-:host-context([dir='rtl']) cr-composebox[searchbox-layout-mode="Compact"]::part(context-menu-entrypoint-icon) {
+:host-context([dir='rtl']) cr-composebox[searchbox-layout-mode='Compact']::part(context-menu-entrypoint-icon) {
   left: unset;
   right: 12px;
 }

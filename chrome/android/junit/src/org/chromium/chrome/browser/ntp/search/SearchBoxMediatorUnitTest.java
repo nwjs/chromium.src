@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
@@ -38,6 +39,7 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.composeplate.ComposeplateUtils;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -162,32 +164,41 @@ public class SearchBoxMediatorUnitTest {
         assertNotEquals(0, Float.compare(0f, expectedElevation));
         Drawable defaultBackground =
                 mContext.getDrawable(R.drawable.home_surface_search_box_background);
-        int originalHeight = 72;
-        mView.setLayoutParams(new ViewGroup.MarginLayoutParams(120, originalHeight));
         View searchBoxContainer = mView.findViewById(R.id.search_box_container);
 
         // Tests the case to apply a white background with shadow.
+        int resId = R.style.TextAppearance_FakeSearchBoxTextMediumDark;
+        ColorStateList colorStateList =
+                ComposeplateUtils.getSearchBoxIconColorTint(
+                        mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ true);
         mMediator.applyWhiteBackgroundWithShadow(true);
         assertTrue(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW));
+        assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
+        assertEquals(
+                colorStateList,
+                mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
         verifyApplyBackground(searchBoxContainer, expectedElevation);
         assertEquals(paddingForShadowLateralPx, mView.getPaddingStart());
         assertEquals(paddingForShadowLateralPx, mView.getPaddingEnd());
         assertEquals(paddingForShadowBottomPx, mView.getPaddingTop());
         assertEquals(paddingForShadowBottomPx, mView.getPaddingBottom());
-        ViewGroup.MarginLayoutParams marginLayoutParams =
-                (ViewGroup.MarginLayoutParams) mView.getLayoutParams();
-        assertEquals(originalHeight + 2 * paddingForShadowBottomPx, marginLayoutParams.height);
 
         // Tests the case to remove the white background with shadow.
+        resId = R.style.TextAppearance_FakeSearchBoxTextMedium;
+        colorStateList =
+                ComposeplateUtils.getSearchBoxIconColorTint(
+                        mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ false);
         mMediator.applyWhiteBackgroundWithShadow(false);
         assertFalse(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_WITH_SHADOW));
+        assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
+        assertEquals(
+                colorStateList,
+                mPropertyModel.get(SearchBoxProperties.VOICE_SEARCH_COLOR_STATE_LIST));
         verifyResetBackground(searchBoxContainer, defaultBackground);
         assertEquals(0, mView.getPaddingStart());
         assertEquals(0, mView.getPaddingEnd());
         assertEquals(0, mView.getPaddingTop());
         assertEquals(0, mView.getPaddingBottom());
-        marginLayoutParams = (ViewGroup.MarginLayoutParams) mView.getLayoutParams();
-        assertEquals(originalHeight, marginLayoutParams.height);
     }
 
     private void verifyApplyBackground(View view, float elevation) {

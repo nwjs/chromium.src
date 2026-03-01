@@ -6,31 +6,51 @@ import("//build/config/apple/swift_source_set.gni")
 
 if (enable_swift_cxx_interop) {
   source_set("outlined") {
+    testonly = true
     sources = [
       "outlined.cc",
       "outlined.h",
     ]
   }
 
-  swift_modulemap("classes") {
-    module_name = "Classes"
-    apinotes = "classes.apinotes"
-    sources = [
-      "inlined_classes.h",
-      "outlined.h",
-      "polymorphism.h",
+  swift_modulemap("all_classes") {
+    testonly = true
+    modules = [
+      {
+        name = "Classes"
+        sources = [
+          "inlined_classes.h",
+          "outlined.h",
+        ]
+        apinotes = {
+          Tags = [
+            {
+              Name = "RenamedClassOriginal"
+              SwiftName = "RenamedClass"
+            },
+          ]
+        }
+      },
+
+      # This target deliberately tests the possibility of defining multiple
+      # modules in a single modulemap.
+      {
+        name = "Polymorphism"
+        sources = [ "polymorphism.h" ]
+      },
     ]
-    public_deps = [ ":outlined" ]
   }
 
   swift_source_set("tests") {
+    testonly = true
     sources = [
       "inlined_xctest.swift",
       "outlined_xctest.swift",
       "polymorphism_xctest.swift",
     ]
     deps = [
-      ":classes",
+      ":all_classes",
+      ":outlined",
       "//build/config/ios:xctest",
     ]
   }

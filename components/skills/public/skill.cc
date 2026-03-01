@@ -6,11 +6,25 @@
 
 namespace skills {
 
+Skill::Skill() = default;
+
 Skill::Skill(const std::string& id,
              const std::string& name,
              const std::string& icon,
-             const std::string& prompt)
-    : id(id), name(name), icon(icon), prompt(prompt) {}
+             const std::string& prompt,
+             const std::string& description,
+             const sync_pb::SkillSource& source)
+    : id(id),
+      name(name),
+      icon(icon),
+      prompt(prompt),
+      description(description),
+      source(source) {}
+
+Skill::Skill(const Skill&) = default;
+Skill& Skill::operator=(const Skill&) = default;
+Skill::Skill(Skill&&) = default;
+Skill& Skill::operator=(Skill&&) = default;
 
 Skill::~Skill() = default;
 

@@ -4,13 +4,14 @@
 
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 
+#include <algorithm>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/future_browser_features.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -18,10 +19,6 @@
 #include "content/public/browser/web_contents.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
-#endif
 
 namespace glic {
 
@@ -40,7 +37,7 @@ bool IsTabValidForSharing(content::WebContents* web_contents) {
        GURL(chrome::kChromeUINewTabPageThirdPartyURL),
        GURL(chrome::kChromeUINewTabPageURL), GURL(chrome::kChromeUINewTabURL),
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
-       // NEEDS_ANDROID_IMPL: This isn't yet available on android desktop.
+       // NEEDS_ANDROID_IMPL: what's new page
        // "What's New" does not exist in the form of a tab on ChromeOS.
        GURL(chrome::kChromeUIWhatsNewURL)
 #endif
@@ -50,7 +47,7 @@ bool IsTabValidForSharing(content::WebContents* web_contents) {
   }
   const GURL& url = web_contents->GetLastCommittedURL();
   return url.SchemeIsHTTPOrHTTPS() || url.SchemeIsFile() ||
-         base::Contains(*kUrlAllowList, url);
+         std::ranges::contains(*kUrlAllowList, url);
 }
 
 GlicPinEvent GetEmptyPinEvent() {
@@ -66,7 +63,6 @@ GlicUnpinEvent GetEmptyUnpinEvent() {
                         base::TimeTicks::Now());
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 GlicActiveTabForProfileTracker::GlicActiveTabForProfileTracker(Profile* profile)
     : active_tab_changed_callback_list_(), profile_(profile) {
   browser_collection_observation_.Observe(
@@ -90,7 +86,8 @@ bool GlicActiveTabForProfileTracker::IsBrowserActiveForProfile(
 void GlicActiveTabForProfileTracker::UpdateActiveTabSubscription(
     BrowserWindowInterface* browser) {
   if (IsBrowserActiveForProfile(browser)) {
-    active_tab_subscription_ = browser->RegisterActiveTabDidChange(
+    active_tab_subscription_ = RegisterActiveTabDidChange(
+        browser,
         base::BindRepeating(&GlicActiveTabForProfileTracker::OnActiveTabChanged,
                             base::Unretained(this)));
   } else {
@@ -122,7 +119,7 @@ void GlicActiveTabForProfileTracker::UpdateActiveTab() {
   BrowserWindowInterface* const browser =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   if (IsBrowserActiveForProfile(browser)) {
-    active_tab = browser->GetActiveTabInterface();
+    active_tab = TabListInterface::From(browser)->GetActiveTab();
   }
 
   if (last_notified_tab_.WasInvalidated() ||
@@ -147,6 +144,5 @@ void GlicActiveTabForProfileTracker::NotifyActiveTabChanged(
     tabs::TabInterface* active_tab) {
   active_tab_changed_callback_list_.Notify(active_tab);
 }
-#endif
 
 }  // namespace glic

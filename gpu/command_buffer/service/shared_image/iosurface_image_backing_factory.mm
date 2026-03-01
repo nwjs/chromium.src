@@ -47,18 +47,13 @@ bool UsageWillResultInGLWrite(gpu::SharedImageUsageSet usage,
 }
 
 bool IsFormatSupported(viz::SharedImageFormat format) {
-  return (format == viz::SinglePlaneFormat::kRGBA_8888) ||
-         (format == viz::SinglePlaneFormat::kRGBX_8888) ||
+  return (format == viz::SinglePlaneFormat::kRGBX_8888) ||
          (format == viz::SinglePlaneFormat::kBGRA_8888) ||
          (format == viz::SinglePlaneFormat::kBGRX_8888) ||
-         (format == viz::SinglePlaneFormat::kRGBA_F16) ||
          (format == viz::SinglePlaneFormat::kR_8) ||
          (format == viz::SinglePlaneFormat::kRG_88) ||
          (format == viz::SinglePlaneFormat::kR_16) ||
-         (format == viz::SinglePlaneFormat::kR_F16) ||
-         (format == viz::SinglePlaneFormat::kRG_1616) ||
-         (format == viz::SinglePlaneFormat::kBGRA_1010102) ||
-         (format == viz::SinglePlaneFormat::kRGBA_1010102);
+         (format == viz::SinglePlaneFormat::kRG_1616);
 }
 
 void SetIOSurfaceColorSpace(IOSurfaceRef io_surface,
@@ -145,14 +140,20 @@ IOSurfaceImageBackingFactory::IOSurfaceImageBackingFactory(
       angle_texture_usage_(feature_info->feature_flags().angle_texture_usage),
       progress_reporter_(progress_reporter),
       texture_target_(texture_target) {
-  for (gfx::BufferFormat buffer_format :
-       feature_info->feature_flags().gpu_memory_buffer_formats) {
-    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
+  for (auto format : feature_info->feature_flags().mappable_formats) {
     // Add supported single-plane formats.
     if (format.is_single_plane() && IsFormatSupported(format)) {
       supported_formats_.insert(format);
     }
   }
+
+  // These are assumed to be always supported on Apple.
+  supported_formats_.insert(viz::SinglePlaneFormat::kBGR_565);
+  supported_formats_.insert(viz::SinglePlaneFormat::kRGBA_4444);
+  supported_formats_.insert(viz::SinglePlaneFormat::kRGBA_8888);
+  supported_formats_.insert(viz::SinglePlaneFormat::kRGBA_F16);
+  // BGRA_1010102 is always supported on Apple but RGBA_1010102 is not.
+  supported_formats_.insert(viz::SinglePlaneFormat::kBGRA_1010102);
 
   // Support R_F16 for SHARED_IMAGE_USAGE_WEBNN_SHARED_TENSOR.
   supported_formats_.insert(viz::SinglePlaneFormat::kR_F16);
@@ -353,7 +354,7 @@ IOSurfaceImageBackingFactory::CreateSharedImageInternal(
     std::string debug_label,
     bool is_thread_safe,
     base::span<const uint8_t> pixel_data) {
-  if (!base::Contains(supported_formats_, format)) {
+  if (!supported_formats_.contains(format)) {
     LOG(ERROR) << "CreateSharedImage: Unable to create SharedImage with format "
                << format.ToString();
     return nullptr;
@@ -433,7 +434,7 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
     return nullptr;
   }
 
-  if (!base::Contains(supported_formats_, format)) {
+  if (!supported_formats_.contains(format)) {
     LOG(ERROR) << "CreateSharedImage: Unable to create SharedImage with format "
                << format.ToString();
     return nullptr;

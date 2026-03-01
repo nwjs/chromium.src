@@ -6,6 +6,7 @@
 
 #include <array>
 #include <optional>
+#include <iterator>
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
@@ -42,7 +43,7 @@ class PrivateKeyFactoryImpl : public PrivateKeyFactory {
   void LoadPrivateKey(
       const client_certificates_pb::PrivateKey& serialized_private_key,
       PrivateKeyCallback callback) override;
-  void LoadPrivateKeyFromDict(const base::Value::Dict& serialized_private_key,
+  void LoadPrivateKeyFromDict(const base::DictValue& serialized_private_key,
                               PrivateKeyCallback callback) override;
 
  private:
@@ -96,7 +97,7 @@ void PrivateKeyFactoryImpl::LoadPrivateKey(
 }
 
 void PrivateKeyFactoryImpl::LoadPrivateKeyFromDict(
-    const base::Value::Dict& serialized_private_key,
+    const base::DictValue& serialized_private_key,
     PrivateKeyCallback callback) {
   std::optional<int> source = serialized_private_key.FindInt(kKeySource);
   if (!source.has_value()) {
@@ -122,12 +123,20 @@ void PrivateKeyFactoryImpl::OnPrivateKeyCreated(
     PrivateKeyCallback callback,
     scoped_refptr<PrivateKey> private_key) {
   if (!private_key && source != PrivateKeySource::kSoftwareKey) {
-    auto it = sub_factories_.find(PrivateKeySource::kSoftwareKey);
-    if (it != sub_factories_.end()) {
-      // If a more secure key failed to be created, fallback to creating a
-      // software key (which should always succeed).
-      it->second->CreatePrivateKey(std::move(callback));
-      return;
+    for (auto fallback_source =
+             std::next(std::find(std::begin(kKeySourcesOrderedBySecurity),
+                                 std::end(kKeySourcesOrderedBySecurity), source));
+         fallback_source != std::end(kKeySourcesOrderedBySecurity);
+         fallback_source++) {
+      auto it = sub_factories_.find(*fallback_source);
+      if (it != sub_factories_.end()) {
+        // If a more secure key failed to be created, fallback to creating a
+        // less secure key.
+        it->second->CreatePrivateKey(base::BindOnce(
+            &PrivateKeyFactoryImpl::OnPrivateKeyCreated,
+            weak_factory_.GetWeakPtr(), *fallback_source, std::move(callback)));
+        return;
+      }
     }
   }
 

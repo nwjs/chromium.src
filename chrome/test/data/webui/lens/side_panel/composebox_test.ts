@@ -519,7 +519,7 @@ suite('Composebox', () => {
     const matches = [createSearchMatchForTesting({
       fillIntoEdit: query,
       destinationUrl:
-          {url: `https://www.google.com/search?q=${query.replace(/ /g, '+')}`},
+          `https://www.google.com/search?q=${query.replace(/ /g, '+')}`,
       allowedToBeDefaultMatch: true,
     })];
     searchboxCallbackRouterRemote.autocompleteResultChanged(
@@ -540,7 +540,7 @@ suite('Composebox', () => {
         await mockSearchboxPageHandler.whenCalled('openAutocompleteMatch');
     assertEquals(matchIndex, 0);
     assertEquals(
-        url.url, `https://www.google.com/search?q=${query.replace(/ /g, '+')}`);
+        url, `https://www.google.com/search?q=${query.replace(/ /g, '+')}`);
   });
 
   test('SubmitButtonNoopWhenDisabled', async () => {

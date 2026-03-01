@@ -191,9 +191,8 @@ bool IsMatchingDevice(CHROME_LUID desired_luid, ID3D11Device* device) {
     return false;
   }
   ComDXGIAdapter dxgi_adapter;
-  if (FAILED(dxgi_device->GetAdapter(&dxgi_adapter))) {
-    return false;
-  }
+  HRESULT hr = dxgi_device->GetAdapter(&dxgi_adapter);
+  CHECK_EQ(hr, S_OK);
   DXGI_ADAPTER_DESC adapter_desc{};
   if (FAILED(dxgi_adapter->GetDesc(&adapter_desc))) {
     return false;
@@ -1490,7 +1489,7 @@ void MediaFoundationVideoEncodeAccelerator::SetSWRateControl() {
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
       VideoCodec::kAV1,
   };
-  if (!base::Contains(kCodecsHaveSWBRC, codec_)) {
+  if (!std::ranges::contains(kCodecsHaveSWBRC, codec_)) {
     return;
   }
 

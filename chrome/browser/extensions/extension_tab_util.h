@@ -9,15 +9,16 @@
 #include <string>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/functional/callback.h"
 #include "base/types/expected.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/common/extensions/api/tab_groups.h"
 #include "chrome/common/extensions/api/tabs.h"
+#include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_color.h"  // nogncheck
 #include "components/tab_groups/tab_group_id.h"     // nogncheck
-#include "components/tabs/public/split_tab_id.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/mojom/context_type.mojom-forward.h"
 #include "ui/base/window_open_disposition.h"
@@ -98,9 +99,9 @@ class ExtensionTabUtil {
   static int GetTabId(const content::WebContents* web_contents);
   static int GetWindowIdOfTab(const content::WebContents* web_contents);
 
-  static base::Value::List CreateTabList(BrowserWindowInterface* browser,
-                                         const Extension* extension,
-                                         mojom::ContextType context);
+  static base::ListValue CreateTabList(BrowserWindowInterface* browser,
+                                       const Extension* extension,
+                                       mojom::ContextType context);
 
   static WindowController* GetControllerFromWindowID(
       const ChromeExtensionFunctionDetails& details,
@@ -135,13 +136,13 @@ class ExtensionTabUtil {
                                         const Extension* extension,
                                         TabListInterface* tab_list,
                                         int tab_index);
-  // Creates a base::Value::Dict representing the window for the given
+  // Creates a base::DictValue representing the window for the given
   // `browser`, and scrubs any privacy-sensitive data that `extension` does not
   // have access to. `populate_tab_behavior` determines whether tabs will be
   // populated in the result. `context` is used to determine the
   // ScrubTabBehavior for the populated tabs data.
   // TODO(devlin): Convert this to a api::Windows::Window object.
-  static base::Value::Dict CreateWindowValueForExtension(
+  static base::DictValue CreateWindowValueForExtension(
       BrowserWindowInterface& browser,
       const Extension* extension,
       WindowController::PopulateTabBehavior populate_tab_behavior,
@@ -200,6 +201,11 @@ class ExtensionTabUtil {
 
   // Gets the extensions-specific split view ID.
   static int GetSplitId(const split_tabs::SplitTabId& id);
+
+  // Returns true if the `browser` supports tab groups in its tab strip. For
+  // example, tab groups are not supported by many app types (PWAs, WebApks,
+  // Chrome Apps, etc.).
+  static bool SupportsTabGroups(BrowserWindowInterface* browser);
 
   // Gets the metadata for the group with ID `group_id`. Sets the `error` if not
   // found. `out_window`, `out_id`, or `out_visual_data` may be nullptr and will
@@ -301,7 +307,7 @@ class ExtensionTabUtil {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // Open the extension's options page. Returns true if an options page was
   // successfully opened (though it may not necessarily *load*, e.g. if the
-  // URL does not exist). This call to open the options page is iniatiated by
+  // URL does not exist). This call to open the options page is initiated by
   // the extension via chrome.runtime.openOptionsPage.
   static bool OpenOptionsPageFromAPI(const Extension* extension,
                                      content::BrowserContext* browser_context);
@@ -313,11 +319,9 @@ class ExtensionTabUtil {
   static bool OpenOptionsPage(const Extension* extension,
                               BrowserWindowInterface* browser);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   // Returns true if the given Browser can report tabs to extensions.
   // Example of Browsers which don't support tabs include apps and devtools.
   static bool BrowserSupportsTabs(BrowserWindowInterface* browser);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // Determines the loading status of the given `contents`. This needs to access
   // some non-const member functions of `contents`, but actually leaves it
@@ -338,12 +342,9 @@ class ExtensionTabUtil {
   // IsTabStripEditable() for details.
   static TabListInterface* GetEditableTabList(BrowserWindowInterface& browser);
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // Retrieve a TabStripModel only if every browser is editable.
-  // TODO(https://crbug.com/430344931): Remove this in favor of
-  // GetEditableTabList().
-  static TabStripModel* GetEditableTabStripModel(Browser* browser);
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+  // Disables editing of the tab list for testing purposes. This will be reset
+  // when the returned AutoReset<> goes out of scope.
+  static base::AutoReset<bool> DisableTabListEditingForTesting();
 };
 
 }  // namespace extensions

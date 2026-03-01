@@ -200,16 +200,24 @@ suite('BorderGlow', function() {
   });
 });
 
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 suite('MagicCursor', function() {
   let page: ActorOverlayAppElement;
   let testRemote: ActorOverlayPageRemote;
-  // Store original DPR to restore it after tests.
+  // Store original window params to restore it after tests.
   const originalDpr = window.devicePixelRatio;
   const originalInnerWindowWidth = window.innerWidth;
+  const originalMatchMedia = window.matchMedia;
 
   suiteSetup(function() {
     loadTimeData.overrideValues({
       isMagicCursorEnabled: true,
+      magicCursorSpeed: 0.667,
+      magicCursorMinDurationMs: 50,
+      magicCursorMaxDurationMs: 675,
     });
     const testBrowserProxy = new TestActorOverlayBrowserProxy();
     ActorOverlayBrowserProxy.setInstance(testBrowserProxy);
@@ -236,6 +244,8 @@ suite('MagicCursor', function() {
       configurable: true,
       value: originalInnerWindowWidth,
     });
+    // Restore original window match media.
+    window.matchMedia = originalMatchMedia;
   });
 
   test('MoveCursorAndVerifyLocation_StandardDPI', async function() {
@@ -431,6 +441,9 @@ suite('MagicCursor', function() {
       value: 1000,
     });
 
+    const isReducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     // Spy on the private `setCursorTransform` method to verify the sequence
     // of coordinate updates (edge start -> target). We call the original
     // method to ensure the UI still updates.
@@ -446,22 +459,30 @@ suite('MagicCursor', function() {
     const movePromise = testRemote.moveCursorTo(point);
     await microtasksFinished();
 
-    // Expect 2 calls: [0]: Start Position, [1]: End Position.
-    assertEquals(2, transformCalls.length);
+    if (isReducedMotion) {
+      // Expect ONLY 1 call (Directly to Target).
+      assertEquals(1, transformCalls.length);
+      assertEquals(targetX, transformCalls[0]!.x);
+      assertEquals(targetY, transformCalls[0]!.y);
+      await movePromise;
+    } else {
+      // Expect 2 calls: [0]: Start Position, [1]: End Position.
+      assertEquals(2, transformCalls.length);
 
-    // Check start position.
-    assertEquals(expectedStartX, transformCalls[0]!.x);
-    assertEquals(expectedStartY, transformCalls[0]!.y);
+      // Check start position.
+      assertEquals(expectedStartX, transformCalls[0]!.x);
+      assertEquals(expectedStartY, transformCalls[0]!.y);
 
-    // Check end position.
-    assertEquals(targetX, transformCalls[1]!.x);
-    assertEquals(targetY, transformCalls[1]!.y);
+      // Check end position.
+      assertEquals(targetX, transformCalls[1]!.x);
+      assertEquals(targetY, transformCalls[1]!.y);
 
-    const magicCursor =
-        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
-    assertTrue(!!magicCursor);
-    magicCursor.dispatchEvent(new Event('transitionend'));
-    await movePromise;
+      const magicCursor =
+          page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+      assertTrue(!!magicCursor);
+      magicCursor.dispatchEvent(new Event('transitionend'));
+      await movePromise;
+    }
   }
 
   test('InitialMoveFromLeftEdge', async function() {
@@ -531,5 +552,193 @@ suite('MagicCursor', function() {
     assertEquals('0.4s', style.animationDuration);
     assertEquals('ease-out', style.animationTimingFunction);
     assertTrue(style.animationName.includes('cursor-click'));
+  });
+
+  test('CursorImageStructure', function() {
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    const cursorImage = magicCursor.querySelector<HTMLElement>('#cursorImage');
+    assertTrue(!!cursorImage);
+
+    const style = window.getComputedStyle(cursorImage);
+    assertEquals('transform', style.willChange);
+    assertTrue(style.backgroundImage.includes('magic_cursor.svg'));
+  });
+
+  test('LoadingState_TriggersAfterMoveAndDelay', async function() {
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    // Initialize the cursor with the first movement.
+    const point = {x: 100, y: 100};
+    const movePromise = testRemote.moveCursorTo(point);
+    await microtasksFinished();
+    magicCursor.dispatchEvent(new Event('transitionend'));
+    await movePromise;
+
+    // Verify that we aren't in the loading state yet.
+    assertFalse(magicCursor.classList.contains('loading'));
+
+    // Verify that we still aren't in the loading state yet after 100ms.
+    await wait(100);
+    assertFalse(magicCursor.classList.contains('loading'));
+
+    // Wait another 150ms, total time is 250ms, which is greater than the 200ms
+    // delay. Verify that we are now in the loading state.
+    await wait(150);
+    assertTrue(magicCursor.classList.contains('loading'));
+  });
+
+  test('LoadingState_RemovedImmediatelyOnNewMove', async function() {
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    // Initialize the cursor with the first movement.
+    const point1 = {x: 100, y: 100};
+    const movePromise1 = testRemote.moveCursorTo(point1);
+    await microtasksFinished();
+    magicCursor.dispatchEvent(new Event('transitionend'));
+    await movePromise1;
+    await wait(250);  // Wait for delay
+    assertTrue(magicCursor.classList.contains('loading'));
+
+    // Move the cursor again.
+    const point2 = {x: 200, y: 200};
+    testRemote.moveCursorTo(point2);
+    await microtasksFinished();
+
+    // Verify the loading class is removed immediately.
+    assertFalse(magicCursor.classList.contains('loading'));
+  });
+
+  test('LoadingState_DelayCancelledByInterruption', async function() {
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    // Initialize the cursor with the first movement.
+    const point = {x: 100, y: 100};
+    const movePromise = testRemote.moveCursorTo(point);
+    await microtasksFinished();
+    magicCursor.dispatchEvent(new Event('transitionend'));
+    await movePromise;
+
+    // Verify that we aren't in the loading state yet.
+    await wait(50);
+    assertFalse(magicCursor.classList.contains('loading'));
+
+    // Trigger a click animation, which should kill the first loading timer.
+    const clickPromise = testRemote.triggerClickAnimation();
+    await microtasksFinished();
+
+    // Wait another 200ms, total time would be 250ms. Verify that we are still
+    // not in the loading state yet. This verifies that the first timer was
+    // killed once the click animation was triggered.
+    await wait(200);
+    assertFalse(magicCursor.classList.contains('loading'));
+
+    // Finish click animation
+    magicCursor.dispatchEvent(new Event('animationend'));
+    await clickPromise;
+
+    // Wait 250ms, which should complete the new timer, verifying that we are in
+    // the loading state.
+    await wait(250);
+    assertTrue(magicCursor.classList.contains('loading'));
+  });
+
+  function setReducedMotion(enabled: boolean) {
+    window.matchMedia = (query) => {
+      return {
+        matches: enabled && query === '(prefers-reduced-motion: reduce)',
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      } as unknown as MediaQueryList;
+    };
+  }
+
+  test('ReducedMotion_SpawnsAtTarget', async function() {
+    setReducedMotion(true);
+    await verifyInitialCursorMove(500, 500, 0, 0);
+  });
+
+  test('ReducedMotion_MoveCursor', async function() {
+    setReducedMotion(true);
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    // Initialize cursor.
+    await testRemote.moveCursorTo({x: 100, y: 100});
+    await microtasksFinished();
+
+    // Trigger a second move.
+    const point = {x: 800, y: 800};
+    const movePromise = testRemote.moveCursorTo(point);
+
+    await microtasksFinished();
+
+    // Verify transition duration is 0ms.
+    assertEquals('0ms', magicCursor.style.transitionDuration);
+    assertEquals('translate(800px, 800px)', magicCursor.style.transform);
+    await movePromise;
+
+    // Verify that we don't enter loading state immediately after new cursor
+    // location and after the 200ms delay.
+    assertFalse(magicCursor.classList.contains('loading'));
+    await wait(250);
+    assertFalse(magicCursor.classList.contains('loading'));
+
+    setReducedMotion(false);
+
+    // Trigger a third move
+    const point2 = {x: 100, y: 100};
+    const movePromise2 = testRemote.moveCursorTo(point2);
+    await microtasksFinished();
+
+    // Verify transition duration is restored (NOT 0ms).
+    assertEquals('675ms', magicCursor.style.transitionDuration);
+    assertEquals('translate(100px, 100px)', magicCursor.style.transform);
+
+    // Dispatch transitionend to simulate animation finishing.
+    magicCursor.dispatchEvent(new Event('transitionend'));
+    await movePromise2;
+
+    // Verify loading state now appears after the delay.
+    await wait(250);
+    assertTrue(magicCursor.classList.contains('loading'));
+  });
+
+  test('ReducedMotion_ClickAnimation', async function() {
+    setReducedMotion(true);
+    const magicCursor =
+        page.shadowRoot.querySelector<HTMLElement>('#magicCursor');
+    assertTrue(!!magicCursor);
+
+    // Initialize cursor.
+    await testRemote.moveCursorTo({x: 100, y: 100});
+    await microtasksFinished();
+
+    // Trigger Click.
+    const clickPromise = testRemote.triggerClickAnimation();
+    await microtasksFinished();
+
+    // Verify click still occurs.
+    assertTrue(magicCursor.classList.contains('clicking'));
+    magicCursor.dispatchEvent(new Event('animationend'));
+    await clickPromise;
+    assertFalse(magicCursor.classList.contains('clicking'));
+
+    // Verify that we don't enter loading state immediately after new cursor
+    // location and after the 200ms delay.
+    assertFalse(magicCursor.classList.contains('loading'));
+    await wait(250);
+    assertFalse(magicCursor.classList.contains('loading'));
   });
 });

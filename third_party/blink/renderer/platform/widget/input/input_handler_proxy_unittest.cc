@@ -645,13 +645,18 @@ TEST_P(InputHandlerProxyTest, MouseWheelEventMayBeginPhaseNoListener) {
               GetEventListenerProperties(cc::EventListenerClass::kMouseWheel))
       .WillRepeatedly(testing::Return(cc::EventListenerProperties::kNone));
 
+  bool fade_in_scrollbar_enabled = base::FeatureList::IsEnabled(
+      blink::features::kFadeInScrollbarWhenMouseWheelMayBegin);
+
   {
     WebMouseWheelEvent wheel(WebInputEvent::Type::kMouseWheel,
                              WebInputEvent::kControlKey,
                              WebInputEvent::GetStaticTimeStampForTests());
     wheel.phase = WebMouseWheelEvent::kPhaseMayBegin;
     wheel.dispatch_type = WebInputEvent::DispatchType::kBlocking;
-    EXPECT_EQ(InputHandlerProxy::DID_NOT_HANDLE,
+    EXPECT_EQ(fade_in_scrollbar_enabled
+                  ? InputHandlerProxy::DID_NOT_HANDLE_NON_BLOCKING
+                  : InputHandlerProxy::DROP_EVENT,
               HandleInputEventWithLatencyInfo(input_handler_.get(), wheel));
   }
 
@@ -661,7 +666,9 @@ TEST_P(InputHandlerProxyTest, MouseWheelEventMayBeginPhaseNoListener) {
                              WebInputEvent::GetStaticTimeStampForTests());
     wheel.phase = WebMouseWheelEvent::kPhaseBegan;
     wheel.dispatch_type = WebInputEvent::DispatchType::kBlocking;
-    EXPECT_EQ(InputHandlerProxy::DROP_EVENT,
+    EXPECT_EQ(fade_in_scrollbar_enabled
+                  ? InputHandlerProxy::DID_NOT_HANDLE_NON_BLOCKING
+                  : InputHandlerProxy::DROP_EVENT,
               HandleInputEventWithLatencyInfo(input_handler_.get(), wheel));
   }
 
@@ -681,7 +688,21 @@ TEST_P(InputHandlerProxyTest, MouseWheelEventMayBeginPhaseNoListener) {
                              WebInputEvent::GetStaticTimeStampForTests());
     wheel.phase = WebMouseWheelEvent::kPhaseMayBegin;
     wheel.dispatch_type = WebInputEvent::DispatchType::kEventNonBlocking;
-    EXPECT_EQ(InputHandlerProxy::DID_NOT_HANDLE,
+    EXPECT_EQ(fade_in_scrollbar_enabled
+                  ? InputHandlerProxy::DID_NOT_HANDLE_NON_BLOCKING
+                  : InputHandlerProxy::DROP_EVENT,
+              HandleInputEventWithLatencyInfo(input_handler_.get(), wheel));
+  }
+
+  {
+    WebMouseWheelEvent wheel(WebInputEvent::Type::kMouseWheel,
+                             WebInputEvent::kControlKey,
+                             WebInputEvent::GetStaticTimeStampForTests());
+    wheel.phase = WebMouseWheelEvent::kPhaseCancelled;
+    wheel.dispatch_type = WebInputEvent::DispatchType::kEventNonBlocking;
+    EXPECT_EQ(fade_in_scrollbar_enabled
+                  ? InputHandlerProxy::DID_NOT_HANDLE_NON_BLOCKING
+                  : InputHandlerProxy::DROP_EVENT,
               HandleInputEventWithLatencyInfo(input_handler_.get(), wheel));
   }
 
@@ -3220,6 +3241,7 @@ TEST_P(InputHandlerProxyEventQueueTest, MomentumScrollEventsTracking) {
     EXPECT_FALSE(input_handler_proxy_->HandlingFlingForTesting());
   }
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+  input_handler_proxy_.reset();
 }
 
 TEST_P(InputHandlerProxyEventQueueTest, KeyEventAttribution) {

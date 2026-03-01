@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_unparsed_declaration_value.h"
+#include "third_party/blink/renderer/core/css/media_feature_names.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_impl.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
@@ -46,6 +47,7 @@
 #include "third_party/blink/renderer/platform/wtf/decimal.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
@@ -58,7 +60,7 @@ static inline bool FeatureWithValidIdent(const String& media_feature,
                                          const CSSParserContext& context) {
   if (media_feature == media_feature_names::kDisplayModeMediaFeature) {
     return ident == CSSValueID::kFullscreen ||
-           ident == CSSValueID::kBorderless ||
+           ident == CSSValueID::kBorderless || ident == CSSValueID::kUnframed ||
            ident == CSSValueID::kStandalone ||
            ident == CSSValueID::kMinimalUi ||
            ident == CSSValueID::kWindowControlsOverlay ||
@@ -515,26 +517,31 @@ std::optional<MediaQueryExpValue> MediaQueryExpValue::Consume(
       << "Under the assumption that custom properties in style() container "
          "queries are currently the only case sensitive features";
 
+  // TODO(crbug.com/475808971): We don't have property name for random in media
+  // query, this should probably be specified.
+  CSSParserLocalContext local_context =
+      CSSParserLocalContext::CreateWithoutPropertyForMediaQueries();
   if (media_feature == media_feature_names::kFallbackMediaFeature) {
     if (CSSValue* fallback_value =
-            css_parsing_utils::ConsumeAnchoredFallbackQueryValue(stream,
-                                                                 context)) {
+            css_parsing_utils::ConsumeAnchoredFallbackQueryValue(
+                stream, context, local_context)) {
       return MediaQueryExpValue(*fallback_value);
     }
   }
-
   CSSPrimitiveValue* value = css_parsing_utils::ConsumeInteger(
-      stream, context, -std::numeric_limits<double>::max() /* minimum_value */);
+      stream, context, local_context,
+      -std::numeric_limits<double>::max() /* minimum_value */);
   if (!value && !FeatureExpectingInteger(media_feature, context)) {
     value = css_parsing_utils::ConsumeNumber(
-        stream, context, CSSPrimitiveValue::ValueRange::kAll);
+        stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
   }
   if (!value) {
     value = css_parsing_utils::ConsumeLength(
-        stream, context, CSSPrimitiveValue::ValueRange::kAll);
+        stream, context, local_context, CSSPrimitiveValue::ValueRange::kAll);
   }
   if (!value) {
-    value = css_parsing_utils::ConsumeResolution(stream, context);
+    value =
+        css_parsing_utils::ConsumeResolution(stream, context, local_context);
   }
 
   if (!value) {
@@ -565,7 +572,8 @@ std::optional<MediaQueryExpValue> MediaQueryExpValue::Consume(
                                     1, CSSPrimitiveValue::UnitType::kNumber));
     }
     CSSPrimitiveValue* denominator = css_parsing_utils::ConsumeNumber(
-        stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+        stream, context, local_context,
+        CSSPrimitiveValue::ValueRange::kNonNegative);
     if (!denominator) {
       return std::nullopt;
     }

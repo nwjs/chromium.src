@@ -164,6 +164,7 @@
   /* Find bar colors. */ \
   E_CPONLY(kColorFindBarBackground) \
   E_CPONLY(kColorFindBarButtonIcon) \
+  E_CPONLY(kColorFindBarButtonIconHovered) \
   E_CPONLY(kColorFindBarButtonIconDisabled) \
   E_CPONLY(kColorFindBarForeground) \
   E_CPONLY(kColorFindBarMatchCount) \
@@ -599,6 +600,7 @@
   E_CPONLY(kColorReadAnythingLineFocusYellow) \
   E_CPONLY(kColorReadAnythingLineFocusHighContrast) \
   E_CPONLY(kColorReadAnythingLineFocusLowContrast) \
+  E_CPONLY(kColorReadAnythingLineFocusScrim) \
   E_CPONLY(kColorReadAnythingLineFocusSepiaLight) \
   E_CPONLY(kColorReadAnythingLineFocusSepiaDark) \
   E_CPONLY(kColorReadAnythingSeparator) \
@@ -664,6 +666,42 @@
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightLowContrast) \
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightSepiaLight) \
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightSepiaDark) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackground) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundBlue) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundDark) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundLight) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundYellow) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundHighContrast) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundLowContrast) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundSepiaLight) \
+  E_CPONLY(kColorReadAnythingAudioPlayerBackgroundSepiaDark) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIcon) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconBlue) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconDark) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconLight) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconYellow) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconHighContrast) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconLowContrast) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconSepiaLight) \
+  E_CPONLY(kColorReadAnythingAudioPlayerIconSepiaDark) \
+  E_CPONLY(kColorReadAnythingToolbarIcon) \
+  E_CPONLY(kColorReadAnythingToolbarIconBlue) \
+  E_CPONLY(kColorReadAnythingToolbarIconDark) \
+  E_CPONLY(kColorReadAnythingToolbarIconLight) \
+  E_CPONLY(kColorReadAnythingToolbarIconYellow) \
+  E_CPONLY(kColorReadAnythingToolbarIconHighContrast) \
+  E_CPONLY(kColorReadAnythingToolbarIconLowContrast) \
+  E_CPONLY(kColorReadAnythingToolbarIconSepiaLight) \
+  E_CPONLY(kColorReadAnythingToolbarIconSepiaDark) \
+  E_CPONLY(kColorReadAnythingAudioControlsIcon) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconBlue) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconDark) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconLight) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconYellow) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconHighContrast) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconLowContrast) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconSepiaLight) \
+  E_CPONLY(kColorReadAnythingAudioControlsIconSepiaDark) \
   /* Realbox colors. */ \
   E_CPONLY(kColorSearchboxAnswerIconBackground) \
   E_CPONLY(kColorSearchboxAnswerIconForeground) \
@@ -985,8 +1023,8 @@
   E_CPONLY(kColorToolbarTextDisabledDefault) \
   E_CPONLY(kColorToolbarTopSeparatorFrameActive) \
   E_CPONLY(kColorToolbarTopSeparatorFrameInactive) \
-  /* Vertical Tabs colors. */ \
-  E_CPONLY(kColorVerticalTabStripBottomButtonBackground) \
+  /* Vertical tabstrip colors. */ \
+  E_CPONLY(kColorVerticalTabStripShadow) \
   /* WebAuthn colors. */ \
   E_CPONLY(kColorWebAuthnHoverButtonForeground) \
   E_CPONLY(kColorWebAuthnHoverButtonForegroundDisabled) \

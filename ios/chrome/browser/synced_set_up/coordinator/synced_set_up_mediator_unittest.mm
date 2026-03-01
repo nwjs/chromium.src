@@ -7,7 +7,6 @@
 #import <string>
 
 #import "base/strings/sys_string_conversions.h"
-#import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/time/time.h"
 #import "base/values.h"
@@ -43,7 +42,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/testing_application_context.h"
-#import "ios/web/common/features.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest_mac.h"
@@ -54,6 +52,8 @@
 #import "url/gurl.h"
 
 namespace {
+
+using ServiceStatus = ::sync_preferences::CrossDevicePrefTracker::ServiceStatus;
 
 // Test implementation of `CrossDevicePrefTracker`.
 class TestCrossDevicePrefTracker
@@ -68,6 +68,7 @@ class TestCrossDevicePrefTracker
   // `CrossDevicePrefTracker` overrides.
   void AddObserver(Observer* observer) override {}
   void RemoveObserver(Observer* observer) override {}
+  ServiceStatus GetServiceStatus() const override { return service_status_; }
 
   std::vector<sync_preferences::TimestampedPrefValue> GetValues(
       std::string_view pref_name,
@@ -104,6 +105,7 @@ class TestCrossDevicePrefTracker
   std::map<std::string_view,
            std::vector<sync_preferences::TimestampedPrefValue>>
       pref_values_;
+  ServiceStatus service_status_ = ServiceStatus::kAvailable;
 };
 
 }  // namespace
@@ -181,8 +183,6 @@ class SyncedSetUpMediatorTest : public PlatformTest {
   // Configures `web_state_list_` with a an active WebState, given whether the
   // visible page should be the NTP.
   void ConfigureWebStateList(bool on_ntp = false) {
-    scoped_feature_list_.InitAndEnableFeature(
-        web::features::kCreateTabHelperOnlyForRealizedWebStates);
     web_state_->SetIsRealized(false);
     if (on_ntp) {
       web_state_->SetVisibleURL(GURL("chrome://newtab"));
@@ -257,7 +257,6 @@ class SyncedSetUpMediatorTest : public PlatformTest {
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<TestProfileIOS> profile_;
-  base::test::ScopedFeatureList scoped_feature_list_;
   TestCrossDevicePrefTracker pref_tracker_;
   syncer::FakeDeviceInfoSyncService device_info_sync_service_;
   raw_ptr<AuthenticationService> authentication_service_;
@@ -437,7 +436,7 @@ TEST_F(SyncedSetUpMediatorTest, TestConsumerUpdatesOnSignedInState) {
       GetApplicationContext()->GetSystemIdentityManager())
       ->AddIdentity(fake_identity_);
   authentication_service_->SignIn(fake_identity_,
-                                  signin_metrics::AccessPoint::kUnknown);
+                                  signin_metrics::AccessPoint::kStartPage);
 
   NSString* expectedTitle = l10n_util::GetNSStringF(
       IDS_IOS_SYNCED_SET_UP_WELCOME_MESSAGE_WITH_USER_NAME_TITLE,
@@ -519,7 +518,7 @@ TEST_F(SyncedSetUpMediatorTest, TestConsumerUpdatesOnSignIn) {
       GetApplicationContext()->GetSystemIdentityManager())
       ->AddIdentity(fake_identity_);
   authentication_service_->SignIn(fake_identity_,
-                                  signin_metrics::AccessPoint::kUnknown);
+                                  signin_metrics::AccessPoint::kStartPage);
 
   EXPECT_OCMOCK_VERIFY(consumer_mock_);
 }
@@ -533,7 +532,7 @@ TEST_F(SyncedSetUpMediatorTest, TestConsumerUpdatesOnAccountInfoUpdated) {
           GetApplicationContext()->GetSystemIdentityManager());
   system_identity_manager->AddIdentity(fake_identity_);
   authentication_service_->SignIn(fake_identity_,
-                                  signin_metrics::AccessPoint::kUnknown);
+                                  signin_metrics::AccessPoint::kStartPage);
 
   NSString* signedInTitle = l10n_util::GetNSStringF(
       IDS_IOS_SYNCED_SET_UP_WELCOME_MESSAGE_WITH_USER_NAME_TITLE,

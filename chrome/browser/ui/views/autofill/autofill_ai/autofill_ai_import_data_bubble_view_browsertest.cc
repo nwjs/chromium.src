@@ -30,10 +30,6 @@ namespace {
 
 using ::testing::Bool;
 using ::testing::Combine;
-using EntityAttributeUpdateDetails =
-    AutofillAiImportDataController::EntityAttributeUpdateDetails;
-using EntityAttributeUpdateType =
-    AutofillAiImportDataController::EntityAttributeUpdateType;
 using TestParameterType = std::tuple<bool, bool>;
 
 class AutofillAiImportDataBubbleViewBrowsertest
@@ -48,7 +44,7 @@ class AutofillAiImportDataBubbleViewBrowsertest
     UiBrowserTest::SetUpOnMainThread();
 
     base::i18n::SetRTLForTesting(IsBrowserLanguageRTL(this->GetParam()));
-    ON_CALL(mock_controller(), GetTitleImagesResourceId())
+    ON_CALL(mock_controller(), GetSaveUpdateDialogTitleImagesResourceId())
         .WillByDefault(testing::Return(
             IDR_AUTOFILL_SAVE_PASSPORT_AND_NATIONAL_ID_CARD_LOTTIE));
   }
@@ -109,23 +105,27 @@ class AutofillAiImportDataBubbleViewBrowsertest
 // a dialog that is close to what most users will see.
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        TypicalPassportCase_Save) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_SAVE_PASSPORT_ENTITY_DIALOG_TITLE)));
   std::vector<EntityAttributeUpdateDetails> details = {
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Name", /*attribute_value=*/u"Jon doe",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Country", /*attribute_value=*/u"Brazil",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Expiry date",
           /*attribute_value=*/u"12/12/2027",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Issue date",
           /*attribute_value=*/u"12/12/2020",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));
@@ -136,23 +136,27 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
 
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        TypicalPassportCase_Update) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_UPDATE_PASSPORT_ENTITY_DIALOG_TITLE)));
   std::vector<EntityAttributeUpdateDetails> details = {
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Name", /*attribute_value=*/u"Jon doe",
+          /*old_attribute_value=*/u"Seb Doe",
           EntityAttributeUpdateType::kNewEntityAttributeUpdated),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Country", /*attribute_value=*/u"Brazil",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Expiry date",
           /*attribute_value=*/u"12/12/2027",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Issue date",
           /*attribute_value=*/u"12/12/2020",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));
@@ -161,7 +165,7 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
 
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        WalletableEntity_Save) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_SAVE_VEHICLE_ENTITY_DIALOG_TITLE)));
   ON_CALL(mock_controller(), IsSavePrompt())
@@ -174,14 +178,16 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Owner",
           /*attribute_value=*/u"Machado de Assis",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Model",
-          /*attribute_value=*/u"Käfer",
+          /*attribute_value=*/u"Käfer", /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Maker",
           /*attribute_value=*/u"Volkswagen",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));
@@ -190,7 +196,7 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
 
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        WalletableEntity_Update) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_UPDATE_VEHICLE_ENTITY_DIALOG_TITLE)));
   ON_CALL(mock_controller(), IsSavePrompt())
@@ -203,14 +209,16 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Owner",
           /*attribute_value=*/u"Machado de Assis",
+          /*old_attribute_value=*/u"Seb Doe",
           EntityAttributeUpdateType::kNewEntityAttributeUpdated),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Model",
-          /*attribute_value=*/u"Käfer",
+          /*attribute_value=*/u"Käfer", /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Maker",
           /*attribute_value=*/u"Volkswagen",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));
@@ -220,31 +228,36 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
 // This tests corner cases related to attribute names and values sizes.
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        LongAttributeNamesAndValues_Update) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_UPDATE_PASSPORT_ENTITY_DIALOG_TITLE)));
   std::vector<EntityAttributeUpdateDetails> details = {
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Name", /*attribute_value=*/
           u"Jon Doe Schmidt Muller Benedikt Da Silva Mendes",
+          /*old_attribute_value=*/u"Seb Doe",
           EntityAttributeUpdateType::kNewEntityAttributeUpdated),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Country", /*attribute_value=*/u"Brazil",
+          /*old_attribute_value=*/u"Ukraine",
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Number",
           /*attribute_value=*/
           u"123456789123456789123456789123456789123456789123456789",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Expiry date, meaning date when your passport is "
                              u"no longer valid",
           /*attribute_value=*/
           u"December twenty four of one two thousand forty four",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Issue date",
           /*attribute_value=*/u"12/12/2020",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeUnchanged)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));
@@ -254,7 +267,7 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
 // This tests corner cases related to attribute names and values sizes.
 IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                        LongAttributeNamesAndValues_Save) {
-  ON_CALL(mock_controller(), GetDialogTitle())
+  ON_CALL(mock_controller(), GetSaveUpdateDialogTitle())
       .WillByDefault(testing::Return(l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_SAVE_PASSPORT_ENTITY_DIALOG_TITLE)));
   ON_CALL(mock_controller(), IsSavePrompt())
@@ -264,18 +277,20 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Name",
           /*attribute_value=*/u"Jon Doe Schmidt Muller Neuhaus Sigmund Bring",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       // Test only the attribute name being long.
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Country of birth or country where passport was "
                              u"issued",
-          /*attribute_value=*/u"Brazil",
+          /*attribute_value=*/u"Brazil", /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       // Test the value being long but without a space to define the line
       // breaking point.
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Number",
           /*attribute_value=*/u"123456789123456789123456789123456789",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       // Test both the attribute name and value being long. Note that, date
       // values are never expressed this way,
@@ -285,10 +300,12 @@ IN_PROC_BROWSER_TEST_P(AutofillAiImportDataBubbleViewBrowsertest,
                              u"no longer valid",
           /*attribute_value=*/
           u"December twenty four of one two thousand forty four",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded),
       EntityAttributeUpdateDetails(
           /*attribute_name=*/u"Issue date",
           /*attribute_value=*/u"12/12/2020",
+          /*old_attribute_value=*/std::nullopt,
           EntityAttributeUpdateType::kNewEntityAttributeAdded)};
   ON_CALL(mock_controller(), GetUpdatedAttributesDetails())
       .WillByDefault(testing::Return(details));

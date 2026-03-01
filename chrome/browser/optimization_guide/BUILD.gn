@@ -86,10 +86,12 @@ source_set("impl") {
   } else {
     sources += [ "legion_model_execution_fetcher.cc" ]
     deps += [
+      "//chrome/browser/legion",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//components/legion",
       "//components/legion:proto",
+      "//components/legion/phosphor",
     ]
   }
 }
@@ -200,6 +202,10 @@ source_set("unit_tests") {
       # Android uses a different way of showing browser windows.
       "optimization_guide_tab_url_provider_unittest.cc",
     ]
-    deps += [ "//components/legion" ]
+    deps += [
+      "//components/legion",
+      "//components/legion:proto",
+      "//components/legion:testing",
+    ]
   }
 }

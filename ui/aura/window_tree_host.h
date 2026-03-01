@@ -391,7 +391,12 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   virtual gfx::Rect GetTransformedRootWindowBoundsFromPixelSize(
       const gfx::Size& size_in_pixels) const;
 
-  base::ObserverList<WindowTreeHostObserver>& observers() { return observers_; }
+  base::ObserverList<WindowTreeHostObserver,
+                     /*check_empty=*/false,
+                     /*allow_reentrancy=*/true>&
+  observers() {
+    return observers_;
+  }
 
   // Called to enabled/disable native window occlusion calculation.
   void SetNativeWindowOcclusionEnabled(bool enable);
@@ -466,7 +471,10 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   // figures this out, so it's cheaper to store the fact here.
   std::optional<bool> on_current_workspace_;
 
-  base::ObserverList<WindowTreeHostObserver> observers_;
+  base::ObserverList<WindowTreeHostObserver,
+                     /*check_empty=*/false,
+                     /*allow_reentrancy=*/true>
+      observers_;
 
   display::ScopedDisplayObserver display_observer_{this};
 

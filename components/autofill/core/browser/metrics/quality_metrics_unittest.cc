@@ -912,10 +912,10 @@ TEST_F(QualityMetricsTest, BasedOnAutocomplete) {
   base::HistogramTester histogram_tester;
   test_api(autofill_manager())
       .OnLoadedServerPredictions(
-          response_string, test::GetEncodedSignatures(*form_structure_ptr));
+          response_string, test::GetEncodedSignatures(*form_structure_ptr),
+          {form});
 
-  // Verify that ParseServerPredictionsQueryResponse was called (here and
-  // below).
+  // Verify that the server response was parsed (here and below).
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.ServerQueryResponse"),
       BucketsInclude(Bucket(AutofillMetrics::QUERY_RESPONSE_RECEIVED, 1),

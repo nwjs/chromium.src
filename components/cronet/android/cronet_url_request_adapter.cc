@@ -62,25 +62,25 @@ base::android::ScopedJavaLocalRef<jobjectArray> ConvertResponseHeadersToJava(
 
 }  // namespace
 
-static jlong JNI_CronetUrlRequest_CreateRequestAdapter(
+static int64_t JNI_CronetUrlRequest_CreateRequestAdapter(
     JNIEnv* env,
     const JavaRef<jobject>& jurl_request,
-    jlong jurl_request_context_adapter,
+    int64_t jurl_request_context_adapter,
     const JavaRef<jstring>& jurl_string,
-    jint jpriority,
+    int32_t jpriority,
     bool jdisable_cache,
     bool jdisable_connection_migration,
     bool jtraffic_stats_tag_set,
-    jint jtraffic_stats_tag,
+    int32_t jtraffic_stats_tag,
     bool jtraffic_stats_uid_set,
-    jint jtraffic_stats_uid,
-    jint jidempotency,
+    int32_t jtraffic_stats_uid,
+    int32_t jidempotency,
     const base::android::JavaRef<jbyteArray>& jdictionary_sha256_hash,
     const base::android::JavaRef<jobject>& jdictionary_byte_buffer,
-    jint jdictionary_position,
-    jint jdictionary_limit,
+    int32_t jdictionary_position,
+    int32_t jdictionary_limit,
     const base::android::JavaRef<jstring>& jdictionary_id,
-    jlong jnetwork_handle) {
+    int64_t jnetwork_handle) {
   CHECK(jdictionary_id);
   CronetContextAdapter* context_adapter =
       reinterpret_cast<CronetContextAdapter*>(jurl_request_context_adapter);
@@ -106,7 +106,7 @@ static jlong JNI_CronetUrlRequest_CreateRequestAdapter(
           /*dictionary_id=*/jdictionary_id),
       jnetwork_handle);
 
-  return reinterpret_cast<jlong>(adapter);
+  return reinterpret_cast<int64_t>(adapter);
 }
 
 CronetURLRequestAdapter::CronetURLRequestAdapter(
@@ -118,12 +118,12 @@ CronetURLRequestAdapter::CronetURLRequestAdapter(
     bool jdisable_cache,
     bool jdisable_connection_migration,
     bool jtraffic_stats_tag_set,
-    jint jtraffic_stats_tag,
+    int32_t jtraffic_stats_tag,
     bool jtraffic_stats_uid_set,
-    jint jtraffic_stats_uid,
+    int32_t jtraffic_stats_uid,
     net::Idempotency idempotency,
     scoped_refptr<net::SharedDictionary> shared_dictionary,
-    jlong network)
+    int64_t network)
     : request_(new CronetURLRequest(context->cronet_url_request_context(),
                                     base::WrapUnique<>(this),
                                     url,
@@ -182,8 +182,8 @@ void CronetURLRequestAdapter::FollowDeferredRedirect(JNIEnv* env) {
 
 bool CronetURLRequestAdapter::ReadData(JNIEnv* env,
                                        const JavaRef<jobject>& jbyte_buffer,
-                                       jint jposition,
-                                       jint jlimit) {
+                                       int32_t jposition,
+                                       int32_t jlimit) {
   DCHECK_LT(jposition, jlimit);
 
   IOBufferWithByteBuffer* read_buffer =

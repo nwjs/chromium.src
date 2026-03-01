@@ -291,21 +291,23 @@ TEST_F(DownloadListTableViewControllerTest, TestSetDownloadListItemsMultiple) {
 
 /// Tests setEmptyState behavior for both enabled and disabled states.
 TEST_F(DownloadListTableViewControllerTest, TestSetEmptyState) {
-  // Test enabling empty state.
+  // Test enabling empty state with header hidden (no records at all).
+  [controller_ setDownloadListHeaderShown:NO];
   [controller_ setEmptyState:YES];
 
-  // Verify navigation item is configured for empty state.
+  // Verify navigation item is configured to never show large title.
   EXPECT_EQ(UINavigationItemLargeTitleDisplayModeNever,
             controller_.navigationItem.largeTitleDisplayMode);
 
   // Verify background view is set.
   EXPECT_TRUE(controller_.tableView.backgroundView);
 
-  // Test disabling empty state.
+  // Test disabling empty state with header shown (records exist).
+  [controller_ setDownloadListHeaderShown:YES];
   [controller_ setEmptyState:NO];
 
-  // Verify navigation item is configured for normal state.
-  EXPECT_EQ(UINavigationItemLargeTitleDisplayModeAlways,
+  // Verify navigation item is configured to show large title automatically.
+  EXPECT_EQ(UINavigationItemLargeTitleDisplayModeAutomatic,
             controller_.navigationItem.largeTitleDisplayMode);
 
   // Verify background view is cleared.
@@ -414,13 +416,13 @@ TEST_F(DownloadListTableViewControllerTest, TestNavigationItemConfiguration) {
   EXPECT_TRUE(controller_.navigationItem.rightBarButtonItem);
 }
 
-/// Tests presentationControllerWillDismiss calls download list handler.
+/// Tests presentationControllerDidDismiss calls download list handler.
 TEST_F(DownloadListTableViewControllerTest,
-       TestPresentationControllerWillDismiss) {
+       TestPresentationControllerDidDismiss) {
   id mockPresentationController =
       OCMClassMock([UIPresentationController class]);
 
-  [controller_ presentationControllerWillDismiss:mockPresentationController];
+  [controller_ presentationControllerDidDismiss:mockPresentationController];
 
   EXPECT_TRUE(mock_download_list_handler_.hideDownloadListCalled);
 }

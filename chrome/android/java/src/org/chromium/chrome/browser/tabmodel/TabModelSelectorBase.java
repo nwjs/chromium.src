@@ -13,12 +13,12 @@ import org.chromium.base.CallbackController;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
@@ -53,7 +53,7 @@ public abstract class TabModelSelectorBase
     private final List<TabModelInternal> mTabModelInternals = new ArrayList<>();
     private @Nullable IncognitoTabModel mIncognitoTabModel;
 
-    private final SettableObservableSupplier<TabModel> mTabModelSupplier =
+    private final SettableMonotonicObservableSupplier<TabModel> mTabModelSupplier =
             ObservableSuppliers.createMonotonic();
     private final NullableObservableSupplier<Tab> mCurrentTabSupplier;
     private final NonNullObservableSupplier<Integer> mCurrentModelTabCountSupplier;
@@ -66,8 +66,8 @@ public abstract class TabModelSelectorBase
 
     private final Callback<TabModel> mIncognitoReauthDialogDelegateCallback;
 
-    private final ObservableSupplierImpl<@Nullable TabGroupModelFilter>
-            mCurrentTabGroupModelFilterSupplier = new ObservableSupplierImpl<>();
+    private final SettableNullableObservableSupplier<TabGroupModelFilter>
+            mCurrentTabGroupModelFilterSupplier = ObservableSuppliers.createNullable();
     private final Callback<TabModel> mCurrentTabModelObserver = this::onCurrentTabModelChanged;
     private final List<TabModelObserver> mPendingTabModelFilterObserver = new ArrayList<>();
     private List<TabGroupModelFilterInternal> mTabGroupModelFilters = new ArrayList<>();
@@ -214,7 +214,7 @@ public abstract class TabModelSelectorBase
     }
 
     @Override
-    public ObservableSupplier<TabModel> getCurrentTabModelSupplier() {
+    public MonotonicObservableSupplier<TabModel> getCurrentTabModelSupplier() {
         return mTabModelSupplier;
     }
 
@@ -545,8 +545,7 @@ public abstract class TabModelSelectorBase
     }
 
     @Override
-    public ObservableSupplier<@Nullable TabGroupModelFilter>
-            getCurrentTabGroupModelFilterSupplier() {
+    public NullableObservableSupplier<TabGroupModelFilter> getCurrentTabGroupModelFilterSupplier() {
         return mCurrentTabGroupModelFilterSupplier;
     }
 

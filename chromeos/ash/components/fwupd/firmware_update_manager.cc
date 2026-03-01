@@ -15,7 +15,6 @@
 #include "base/base_paths.h"
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -328,12 +327,12 @@ std::string GetFirmwareFileNameFromJsonString(const std::string& json_content) {
                         << value.error().ToString();
     return "";
   }
-  base::Value::Dict* dict = value->GetIfDict();
+  base::DictValue* dict = value->GetIfDict();
   if (!dict) {
     FIRMWARE_LOG(ERROR) << "Parsed JSON is not a dictionary";
     return "";
   }
-  base::Value::List* items = dict->FindList("Items");
+  base::ListValue* items = dict->FindList("Items");
   if (items == nullptr || items->empty()) {
     FIRMWARE_LOG(ERROR) << "Couldn't find 'Items' key in checksum json file";
     return "";

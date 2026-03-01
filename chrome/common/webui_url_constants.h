@@ -83,6 +83,7 @@ inline constexpr char kChromeUIComponentsUrl[] = "chrome://components";
 inline constexpr char kChromeUIConflictsHost[] = "conflicts";
 inline constexpr char kChromeUIConnectorsInternalsHost[] =
     "connectors-internals";
+inline constexpr char kChromeUIConstrainedHTMLTestHost[] = "constrained-test";
 inline constexpr char kChromeUIConstrainedHTMLTestURL[] =
     "chrome://constrained-test/";
 inline constexpr char kChromeUIContactInfoPath[] = "/contactInfo";
@@ -287,6 +288,9 @@ inline constexpr char kChromeUISignoutConfirmationURL[] =
     "chrome://signout-confirmation";
 #endif
 inline constexpr char kChromeUISiteEngagementHost[] = "site-engagement";
+inline constexpr char kChromeUISkillsHost[] = "skills";
+inline constexpr char kChromeUISkillsURL[] = "chrome://skills/";
+inline constexpr char kChromeUISkillsDialogPath[] = "dialog";
 inline constexpr char kChromeUISplitViewNewTabPageURL[] =
     "chrome://tab-search.top-chrome/split_new_tab_page.html";
 inline constexpr char kChromeUISuggestInternalsHost[] = "suggest-internals";
@@ -566,6 +570,10 @@ inline constexpr char kChromeUIDiscardsURL[] = "chrome://discards/";
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+inline constexpr char kChromeUIDefaultBrowserModalURL[] =
+    "chrome://default-browser-modal/";
+inline constexpr char kChromeUIDefaultBrowserModalHost[] =
+    "default-browser-modal";
 inline constexpr char kChromeUIWebAppSettingsHost[] = "app-settings";
 inline constexpr char kChromeUIWebAppSettingsURL[] = "chrome://app-settings/";
 inline constexpr char kChromeUIWhatsNewHost[] = "whats-new";
@@ -704,7 +712,6 @@ inline constexpr char kSyncSetupSubPage[] = "syncSetup";
 inline constexpr char kSyncSetupAdvancedSubPage[] = "syncSetup/advanced";
 inline constexpr char kTriggeredResetProfileSettingsSubPage[] =
     "triggeredResetProfileSettings";
-inline constexpr char kYourSavedInfoSubPage[] = "yourSavedInfo";
 
 #if BUILDFLAG(IS_WIN)
 inline constexpr char kCleanupSubPage[] = "cleanup";

@@ -28,11 +28,11 @@
 #include "content/public/browser/browser_context.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/tab_strip_context_decorator.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"  // nogncheck crbug.com/40147906
-#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #endif
@@ -51,9 +51,8 @@ size_t GetNumberOfActiveTasks(Profile* profile) {
         }
 
         // Check how many tasks are cached in the side panel.
-        if (auto* coordinator =
-                ContextualTasksSidePanelCoordinator::From(browser)) {
-          number_of_active_tasks += coordinator->GetNumberOfActiveTasks();
+        if (auto* controller = ContextualTasksPanelController::From(browser)) {
+          number_of_active_tasks += controller->GetNumberOfActiveTasks();
         }
 
         // Check how many tasks are open in a full tab.
@@ -139,9 +138,8 @@ ContextualTasksServiceFactory::BuildServiceInstanceForBrowserContext(
       std::make_unique<TabStripContextDecorator>(profile));
 #endif
 
-  // When sync is enabled, we should only set this to true for incognito and
-  // guest sessions.
-  bool supports_ephemeral_only = true;
+  bool supports_ephemeral_only =
+      profile->IsOffTheRecord() || profile->IsGuestSession();
 
   return std::make_unique<ContextualTasksServiceImpl>(
       chrome::GetChannel(),

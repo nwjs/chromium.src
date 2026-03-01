@@ -243,7 +243,7 @@ bool CanvasRenderingContext2D::IsComposited() const {
     return false;
   }
 
-  if (!resource_provider_->AsSharedImageProvider()) {
+  if (!resource_provider_->As2DSharedImageProvider()) {
     return false;
   }
 
@@ -342,8 +342,8 @@ bool CanvasRenderingContext2D::WritePixels(const SkImageInfo& orig_info,
 
   if (x <= 0 && y <= 0 && x + orig_info.width() >= host->Size().width() &&
       y + orig_info.height() >= host->Size().height()) {
-    MemoryManagedPaintRecorder& recorder = provider->Recorder();
-    if (recorder.HasSideRecording()) {
+    MemoryManagedPaintRecorder* recorder = Recorder();
+    if (recorder->HasSideRecording()) {
       // Even with opened layers, WritePixels would write to the main canvas
       // surface under the layers. We can therefore clear the paint ops recorded
       // before the first `beginLayer`, but the layers themselves must be kept
@@ -351,9 +351,9 @@ bool CanvasRenderingContext2D::WritePixels(const SkImageInfo& orig_info,
       // disabled in `putImageData` by raising an exception if layers are
       // opened. Still, it's preferable to handle this scenario here because the
       // alternative would be to crash or leave the canvas in an invalid state.
-      recorder.ReleaseMainRecording();
+      recorder->ReleaseMainRecording();
     } else {
-      recorder.RestartRecording();
+      recorder->RestartRecording();
     }
   } else {
     provider->FlushCanvas();
@@ -469,7 +469,7 @@ MemoryManagedPaintCanvas* CanvasRenderingContext2D::GetOrCreatePaintCanvas() {
     }
   }
 
-  return &provider->Recorder().getRecordingCanvas();
+  return &Recorder()->getRecordingCanvas();
 }
 
 const MemoryManagedPaintCanvas* CanvasRenderingContext2D::GetPaintCanvas()
@@ -481,11 +481,19 @@ const MemoryManagedPaintCanvas* CanvasRenderingContext2D::GetPaintCanvas()
   if (!provider) [[unlikely]] {
     return nullptr;
   }
-  return &provider->Recorder().getRecordingCanvas();
+  return &Recorder()->getRecordingCanvas();
 }
 
 const MemoryManagedPaintRecorder* CanvasRenderingContext2D::Recorder() const {
   const CanvasResourceProvider* provider = GetResourceProvider();
+  if (provider == nullptr) [[unlikely]] {
+    return nullptr;
+  }
+  return &provider->Recorder();
+}
+
+MemoryManagedPaintRecorder* CanvasRenderingContext2D::Recorder() {
+  CanvasResourceProvider* provider = GetResourceProvider();
   if (provider == nullptr) [[unlikely]] {
     return nullptr;
   }
@@ -550,6 +558,14 @@ void CanvasRenderingContext2D::setFontForTesting(const String& new_font) {
   // Dependency inversion to allow BaseRenderingContext2D::setFont
   // to be invoked from core unit tests.
   setFont(new_font);
+}
+
+void CanvasRenderingContext2D::fillTextForTesting(const String& text,
+                                                  double x,
+                                                  double y) {
+  // Dependency inversion to allow BaseRenderingContext2D::fillText
+  // to be invoked from core unit tests.
+  fillText(text, x, y);
 }
 
 bool CanvasRenderingContext2D::ResolveFont(const String& new_font) {
@@ -721,7 +737,7 @@ CanvasRenderingContext2D::PaintRenderingResultsToResource(
   }
 
   // Only CRPSI can produce CanvasResources.
-  auto* si_provider = resource_provider_->AsSharedImageProvider();
+  auto* si_provider = resource_provider_->As2DSharedImageProvider();
   if (!si_provider) {
     return nullptr;
   }
@@ -921,6 +937,18 @@ DOMMatrix* CanvasRenderingContext2D::DrawElementInternal(
     dst_rect.set_size(ideal_dst_size);
   }
 
+  CompositorElementId placeholder_id =
+      CompositorElementIdFromDOMNodeId(element->GetDomNodeId());
+  {
+    auto* c = GetOrCreatePaintCanvas();
+    cc::RecordPaintCanvas::DisableFlushCheckScope disable_flush_check_scope(
+        static_cast<cc::RecordPaintCanvas*>(c));
+    c->drawElementImagePlaceholder(placeholder_id);
+  };
+
+  // TODO(crbug.com/480074852): All the drawing code below should be removed
+  // once the placeholder op recorded above is handled during BeginMainFrame.
+
   // TODO(crbug.com/421834883): This code is based on image drawing. Maybe we
   // need a distinct paint_type: kImagePaintType seems to do the right thing
   // but maybe its treatment of anti-aliasing is incorrect. The kNonOpaqueImage
@@ -1085,7 +1113,8 @@ void CanvasRenderingContext2D::PageVisibilityChanged() {
   // whether resource recycling is enabled based on page visibility.
   auto* resource_provider = GetResourceProvider();
   auto* resource_provider_si =
-      resource_provider ? resource_provider->AsSharedImageProvider() : nullptr;
+      resource_provider ? resource_provider->As2DSharedImageProvider()
+                        : nullptr;
   if (resource_provider_si) {
     resource_provider_si->SetResourceRecyclingEnabled(page_is_visible);
   }
@@ -1336,7 +1365,7 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
       shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
       shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
     }
-    provider = CanvasResourceProvider::CreateSharedImageProvider(
+    provider = Canvas2DResourceProviderSharedImage::Create(
         canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
         SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
         shared_image_usage_flags, canvas());
@@ -1350,7 +1379,7 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
         RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled()) {
       shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
     }
-    provider = CanvasResourceProvider::CreateSharedImageProvider(
+    provider = Canvas2DResourceProviderSharedImage::Create(
         canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
         SharedGpuContext::ContextProviderWrapper(), RasterMode::kGPU,
         shared_image_usage_flags, canvas());
@@ -1358,13 +1387,13 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
              RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled()) {
     // In this case, we are using CPU raster and GPU compositing and native
     // mappable buffers are supported. Try to use a
-    // CanvasResourceProviderSharedImage, which if successful will result in
+    // Canvas2DResourceProviderSharedImage, which if successful will result in
     // using a SharedImage that can be mapped onto the CPU for software raster
     // writes and then read by the display compositor (and potentially used as
     // an overlay).
     const gpu::SharedImageUsageSet shared_image_usage_flags =
         gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT;
-    provider = CanvasResourceProvider::CreateSharedImageProvider(
+    provider = Canvas2DResourceProviderSharedImage::Create(
         canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
         SharedGpuContext::ContextProviderWrapper(), RasterMode::kCPU,
         shared_image_usage_flags, canvas());
@@ -1377,11 +1406,9 @@ CanvasRenderingContext2D::CreateCanvasResourceProvider() {
     // In this case, we are using CPU raster and CPU compositing. Create a
     // CanvasResourceProvider that uses a SharedImage backed by a shared-memory
     // buffer that can be written by canvas raster and read by the compositor.
-    provider =
-        CanvasResourceProvider::CreateSharedImageProviderForSoftwareCompositor(
-            canvas()->Size(), format, alpha_type, color_space,
-            kShouldInitialize, SharedGpuContext::SharedImageInterfaceProvider(),
-            canvas());
+    provider = Canvas2DResourceProviderSharedImage::CreateForSoftwareCompositor(
+        canvas()->Size(), format, alpha_type, color_space, kShouldInitialize,
+        SharedGpuContext::SharedImageInterfaceProvider(), canvas());
   }
   if (!provider) {
     // The final fallback is to raster into a bitmap that will then either be

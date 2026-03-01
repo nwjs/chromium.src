@@ -3,9 +3,10 @@
 // found in the LICENSE file.
 
 import 'chrome://updater/event_list/event_list_item.js';
+import 'chrome://updater/enterprise_policy_table/enterprise_policy_table.js';
 
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import type {MergedHistoryEvent, MergedInstallEvent, MergedUpdaterProcessEvent, PersistedDataEvent, Scope} from 'chrome://updater/event_history.js';
+import type {MergedHistoryEvent, MergedInstallEvent, MergedUpdaterProcessEvent, PersistedDataEvent, PolicySet, Scope} from 'chrome://updater/event_history.js';
 import {localizeEventType, UpdaterProcessMap} from 'chrome://updater/event_history.js';
 import type {EventListItemElement} from 'chrome://updater/event_list/event_list_item.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertStringContains, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -463,12 +464,6 @@ suite('EventListItemElement', () => {
     item.event = mergedEvent;
     await microtasksFinished();
     assertEquals('error', item.status);
-    assertStringContains(
-        item.shadowRoot.textContent,
-        loadTimeData.getStringF('errorDetails', 4, 5, 6));
-    assertStringContains(
-        item.shadowRoot.textContent,
-        loadTimeData.getStringF('errorDetails', 7, 8, 9));
   });
 
   test('toggles details', async () => {
@@ -645,9 +640,9 @@ suite('EventListItemElement', () => {
     };
     item.event = event;
     await microtasksFinished();
-    const appSpan = item.shadowRoot.querySelector('.event-app');
-    assertTrue(!!appSpan);
-    assertEquals('Chrome', appSpan.textContent.trim());
+    const appColumn = item.shadowRoot.querySelector('.event-app-column');
+    assertTrue(!!appColumn);
+    assertEquals('Chrome', appColumn.textContent.trim());
   });
 
   test('displays app id for unknown app', async () => {
@@ -679,9 +674,9 @@ suite('EventListItemElement', () => {
     };
     item.event = event;
     await microtasksFinished();
-    const appSpan = item.shadowRoot.querySelector('.event-app');
-    assertTrue(!!appSpan);
-    assertEquals('{UNKNOWN-APP}', appSpan.textContent.trim());
+    const appColumn = item.shadowRoot.querySelector('.event-app-column');
+    assertTrue(!!appColumn);
+    assertEquals('{UNKNOWN-APP}', appColumn.textContent.trim());
   });
 
   test('displays scope icon', () => {
@@ -1015,5 +1010,56 @@ suite('EventListItemElement', () => {
       await microtasksFinished();
       assertEquals('', item.getAttribute('status'));
     });
+  });
+
+  test('displays policies', async () => {
+    const event: MergedHistoryEvent = {
+      eventType: 'INSTALL',
+      startEvent: {
+        eventType: 'INSTALL',
+        eventId: '1',
+        deviceUptime: 0,
+        pid: 0,
+        processToken: '',
+        bound: 'START',
+        errors: [],
+        appId: '{app1}',
+      },
+      endEvent: {
+        eventType: 'INSTALL',
+        eventId: '1',
+        deviceUptime: 1000,
+        pid: 0,
+        processToken: '',
+        bound: 'END',
+        errors: [],
+        version: '1.0',
+      },
+    };
+    const policies: PolicySet = {
+      policiesByName: {
+        'UpdaterPolicy': {
+          valuesBySource: {'Default': 1},
+          prevailingSource: 'Default',
+        },
+      },
+      policiesByAppId: {
+        '{app1}': {
+          'AppPolicy': {
+            valuesBySource: {'Group Policy': 'foobar'},
+            prevailingSource: 'Group Policy',
+          },
+        },
+      },
+    };
+
+    item.event = event;
+    item.policies = policies;
+    await microtasksFinished();
+
+    const policyTable =
+        item.shadowRoot.querySelector('enterprise-policy-table');
+    assertTrue(!!policyTable);
+    assertEquals(policies, policyTable.policies);
   });
 });

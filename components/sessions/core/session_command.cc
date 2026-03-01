@@ -23,7 +23,7 @@ SessionCommand::SessionCommand(id_type id, const base::Pickle& pickle)
     : id_(id),
       contents_(pickle.size(), 0) {
   DCHECK(pickle.size() < std::numeric_limits<size_type>::max());
-  UNSAFE_TODO(memcpy(contents(), pickle.data(), pickle.size()));
+  contents().copy_from(pickle);
 }
 
 SessionCommand::size_type SessionCommand::GetSerializedSize() const {
@@ -41,8 +41,8 @@ bool SessionCommand::GetPayload(void* dest, size_t count) const {
   return true;
 }
 
-base::Pickle SessionCommand::PayloadAsPickle() const {
-  return base::Pickle::WithUnownedBuffer(base::as_byte_span(contents_));
+base::PickleIterator SessionCommand::PayloadAsPickle() const {
+  return base::PickleIterator::WithData(contents());
 }
 
 }  // namespace sessions

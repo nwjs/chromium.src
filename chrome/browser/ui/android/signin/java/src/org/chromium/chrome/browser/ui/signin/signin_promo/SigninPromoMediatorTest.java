@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,14 +37,16 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
-import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.SigninFeatures;
+import org.chromium.components.signin.test.util.FakeIdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
 
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
 public class SigninPromoMediatorTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
@@ -51,23 +54,26 @@ public class SigninPromoMediatorTest {
     @Rule
     public final AccountManagerTestRule mAccountManagerTestRule = new AccountManagerTestRule();
 
-    // TODO(crbug.com/374683682): Create and use FakeIdentityManager and add tests for sign-in and
-    // sign-out events.
-    private @Mock IdentityManager mIdentityManager;
     private @Mock SyncService mSyncService;
     private @Mock SigninPromoDelegate mPromoDelegate;
     private @Mock SigninPromoMediator.Delegate mMediatorDelegate;
     private @Mock Profile mProfile;
     private @Mock SigninManager mSigninManager;
-    private @Mock IdentityServicesProvider mIdentityServicesProvider;
     private @Mock SigninAndHistorySyncActivityLauncher mLauncher;
+    private @Mock HistorySyncHelper mHistorySyncHelper;
     private ProfileDataCache mProfileDataCache;
     private final Context mContext = ApplicationProvider.getApplicationContext();
+    // TODO(crbug.com/374683682): Add tests for sign-in and sign-out events
+    private final FakeIdentityManager mIdentityManager =
+            mAccountManagerTestRule.getIdentityManager();
 
     private SigninPromoMediator mMediator;
 
     @Before
     public void setUp() {
+        mContext.setTheme(R.style.Theme_BrowserUI_DayNight);
+        HistorySyncHelper.setInstanceForTesting(mHistorySyncHelper);
+        lenient().doReturn(true).when(mHistorySyncHelper).shouldDisplayHistorySync();
         lenient().doReturn(true).when(mPromoDelegate).canShowPromo();
     }
 
@@ -75,9 +81,7 @@ public class SigninPromoMediatorTest {
     public void testSecondaryButtonHiddenByDelegate() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         doReturn(true).when(mPromoDelegate).shouldHideSecondaryButton();
-        doReturn(TestAccounts.ACCOUNT1)
-                .when(mIdentityManager)
-                .getPrimaryAccountInfo(ConsentLevel.SIGNIN);
+        mIdentityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
         createSigninPromoMediator(mPromoDelegate);
 
         boolean isSecondaryButtonHidden =
@@ -98,9 +102,7 @@ public class SigninPromoMediatorTest {
     public void testSecondaryButtonShown_visibleAccountFromIdentityManager() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         doReturn(false).when(mPromoDelegate).shouldHideSecondaryButton();
-        doReturn(TestAccounts.ACCOUNT1)
-                .when(mIdentityManager)
-                .getPrimaryAccountInfo(ConsentLevel.SIGNIN);
+        mIdentityManager.setPrimaryAccount(TestAccounts.ACCOUNT1);
         createSigninPromoMediator(mPromoDelegate);
 
         boolean isSecondaryButtonHidden =
@@ -143,7 +145,7 @@ public class SigninPromoMediatorTest {
         String newPrimaryButtonText = "newPrimaryButtonText";
         String newSecondaryButtonText = "newSecondaryButtonText";
         doReturn(true).when(mPromoDelegate).refreshPromoState(any());
-        doReturn(true).when(mPromoDelegate).shouldHideDismissButton();
+        doReturn(false).when(mPromoDelegate).canBeDismissedPermanently();
         doReturn(newTitle).when(mPromoDelegate).getTitle();
         doReturn(newDescription).when(mPromoDelegate).getDescription(any());
         doReturn(newPrimaryButtonText).when(mPromoDelegate).getTextForPrimaryButton(any());
@@ -175,10 +177,7 @@ public class SigninPromoMediatorTest {
     })
     public void testModelValuesNtp_noAccountsOnDevice() {
         when(mSigninManager.isSigninAllowed()).thenReturn(true);
-        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
-        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
-        when(mIdentityServicesProvider.getSigninManager(mProfile)).thenReturn(mSigninManager);
-
+        IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
         NtpSigninPromoDelegate delegate =
                 new NtpSigninPromoDelegate(
                         ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
@@ -193,7 +192,7 @@ public class SigninPromoMediatorTest {
                 mContext.getString(R.string.custom_tabs_signed_out_message_subtitle),
                 mMediator.getModel().get(SigninPromoProperties.DESCRIPTION_TEXT));
         assertEquals(
-                mContext.getString(R.string.sign_in_to_chrome),
+                mContext.getString(R.string.signin_promo_sign_in),
                 mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT));
         assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_SECONDARY_BUTTON));
     }
@@ -207,12 +206,7 @@ public class SigninPromoMediatorTest {
     public void testModelValuesNtp_accountAvailableOnDevice() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         when(mSigninManager.isSigninAllowed()).thenReturn(true);
-        when(mIdentityManager.findExtendedAccountInfoByAccountId(TestAccounts.ACCOUNT1.getId()))
-                .thenReturn(TestAccounts.ACCOUNT1);
-        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
-        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
-        when(mIdentityServicesProvider.getSigninManager(mProfile)).thenReturn(mSigninManager);
-
+        IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
         NtpSigninPromoDelegate delegate =
                 new NtpSigninPromoDelegate(
                         ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
@@ -233,6 +227,112 @@ public class SigninPromoMediatorTest {
                 mContext.getString(R.string.signin_promo_choose_another_account),
                 mMediator.getModel().get(SigninPromoProperties.SECONDARY_BUTTON_TEXT));
         assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_SECONDARY_BUTTON));
+    }
+
+    @Test
+    public void testCannotDismissPromo_UndoSigninNeverDismissesPromo() {
+        doReturn(false).when(mPromoDelegate).canBeDismissedPermanently();
+        createSigninPromoMediator(mPromoDelegate);
+
+        mMediator.onSigninUndone();
+
+        verify(mPromoDelegate, never()).permanentlyDismissPromo();
+    }
+
+    @Test
+    public void testCanDismissPromo_UndoSigninDismissesPromo() {
+        doReturn(true).when(mPromoDelegate).canBeDismissedPermanently();
+        createSigninPromoMediator(mPromoDelegate);
+
+        mMediator.onSigninUndone();
+
+        verify(mPromoDelegate).permanentlyDismissPromo();
+    }
+
+    @Test
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/compact"
+                + "/seamless-signin-string-type/signinButton"
+    })
+    public void testHideDismissButtonInLoadingState_Ntp() {
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        when(mSigninManager.isSigninAllowed()).thenReturn(true);
+        IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
+        NtpSigninPromoDelegate delegate =
+                new NtpSigninPromoDelegate(
+                        ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
+        createSigninPromoMediator(delegate);
+
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        // In NTP the promo can be permanently dismissed
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        String primaryButtonText =
+                mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        String expectedPrimaryButtonText =
+                mContext.getString(
+                        R.string.signin_promo_sign_in_as, TestAccounts.ACCOUNT1.getGivenName());
+        assertEquals(expectedPrimaryButtonText, primaryButtonText);
+
+        mMediator.onFlowStarted();
+
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        // In NTP the promo can be permanently dismissed
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        primaryButtonText = mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        String expectedLoadingStatePrimaryButtonText =
+                mContext.getString(R.string.signin_account_picker_bottom_sheet_signin_title);
+        assertEquals(expectedLoadingStatePrimaryButtonText, primaryButtonText);
+
+        mMediator.onFlowCompleted();
+
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        primaryButtonText = mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        assertEquals(expectedPrimaryButtonText, primaryButtonText);
+    }
+
+    @Test
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/compact"
+                + "/seamless-signin-string-type/signinButton"
+    })
+    public void testHideDismissButtonInLoadingState_RecentTabs() {
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        when(mSigninManager.isSigninAllowed()).thenReturn(true);
+        IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
+        RecentTabsSigninPromoDelegate delegate =
+                new RecentTabsSigninPromoDelegate(
+                        ApplicationProvider.getApplicationContext(), mProfile, mLauncher, () -> {});
+        createSigninPromoMediator(delegate);
+
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        // In Recent Tabs the promo cannot be permanently dismissed
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        String primaryButtonText =
+                mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        String expectedPrimaryButtonText =
+                mContext.getString(
+                        R.string.signin_promo_sign_in_as, TestAccounts.ACCOUNT1.getGivenName());
+        assertEquals(expectedPrimaryButtonText, primaryButtonText);
+
+        mMediator.onFlowStarted();
+
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        primaryButtonText = mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        String expectedLoadingStatePrimaryButtonText =
+                mContext.getString(R.string.signin_account_picker_bottom_sheet_signin_title);
+        assertEquals(expectedLoadingStatePrimaryButtonText, primaryButtonText);
+
+        mMediator.onFlowCompleted();
+
+        assertFalse(mMediator.getModel().get(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE));
+        // In Recent Tabs the promo cannot be permanently dismissed
+        assertTrue(mMediator.getModel().get(SigninPromoProperties.SHOULD_HIDE_DISMISS_BUTTON));
+        primaryButtonText = mMediator.getModel().get(SigninPromoProperties.PRIMARY_BUTTON_TEXT);
+        assertEquals(expectedPrimaryButtonText, primaryButtonText);
     }
 
     private void createSigninPromoMediator(SigninPromoDelegate delegate) {

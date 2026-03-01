@@ -74,7 +74,7 @@ class WebAppCleanupHandlerBrowserTest : public WebAppBrowserTestBase {
     {
       ScopedListPrefUpdate update(profile()->GetPrefs(),
                                   prefs::kWebAppInstallForceList);
-      update->Append(base::Value::Dict().Set(web_app::kUrlKey, install_url));
+      update->Append(base::DictValue().Set(web_app::kUrlKey, install_url));
     }
     webapps::AppId app_id = observer.Wait();
     return app_id;
@@ -139,8 +139,8 @@ IN_PROC_BROWSER_TEST_F(WebAppCleanupHandlerBrowserTest,
       app_id1, WebAppFilter::InstalledInOperatingSystemForTesting()));
   EXPECT_TRUE(registrar_unsafe().AppMatches(
       app_id2, WebAppFilter::InstalledInOperatingSystemForTesting()));
-  EXPECT_FALSE(registrar_unsafe().IsInRegistrar(app_id3));
-  EXPECT_FALSE(registrar_unsafe().IsInRegistrar(app_id4));
+  EXPECT_FALSE(registrar_unsafe().GetInstallState(app_id3).has_value());
+  EXPECT_FALSE(registrar_unsafe().GetInstallState(app_id4).has_value());
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppCleanupHandlerBrowserTest,
@@ -187,7 +187,7 @@ IN_PROC_BROWSER_TEST_F(WebAppCleanupHandlerBrowserTest,
       app_id2, WebAppFilter::InstalledInOperatingSystemForTesting()));
   EXPECT_TRUE(registrar_unsafe().AppMatches(
       app_id3, WebAppFilter::InstalledInOperatingSystemForTesting()));
-  EXPECT_FALSE(registrar_unsafe().IsInRegistrar(app_id4));
+  EXPECT_FALSE(registrar_unsafe().GetInstallState(app_id4).has_value());
 
   // Web App 3 is still installed but the user install source (kSync) is
   // removed.

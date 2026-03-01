@@ -20,8 +20,9 @@ namespace {
 class DesktopCapturerAndroidJni : public DesktopCapturerAndroidJniInterface {
  public:
   ~DesktopCapturerAndroidJni() override = default;
-  base::android::ScopedJavaLocalRef<jobject> Create(JNIEnv* env,
-                                                    jlong native_ptr) override {
+  base::android::ScopedJavaLocalRef<jobject> Create(
+      JNIEnv* env,
+      int64_t native_ptr) override {
     return Java_ScreenCapture_create(env, native_ptr);
   }
   bool StartCapture(JNIEnv* env,
@@ -103,14 +104,14 @@ bool DesktopCapturerAndroid::SelectSource(SourceId id) {
 void DesktopCapturerAndroid::OnRgbaFrameAvailable(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& release_cb,
-    jlong timestamp_ns,
+    int64_t timestamp_ns,
     const base::android::JavaRef<jobject>& buf,
-    jint unchecked_pixel_stride,
-    jint unchecked_row_stride,
-    jint unchecked_crop_left,
-    jint unchecked_crop_top,
-    jint unchecked_crop_right,
-    jint unchecked_crop_bottom) {
+    int32_t unchecked_pixel_stride,
+    int32_t unchecked_row_stride,
+    int32_t unchecked_crop_left,
+    int32_t unchecked_crop_top,
+    int32_t unchecked_crop_right,
+    int32_t unchecked_crop_bottom) {
   // Use unsigned checked arithmetic since our operations should never go
   // negative.
   PlaneInfo plane;
@@ -129,20 +130,20 @@ void DesktopCapturerAndroid::OnRgbaFrameAvailable(
 void DesktopCapturerAndroid::OnI420FrameAvailable(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& release_cb,
-    jlong timestamp_ns,
+    int64_t timestamp_ns,
     const base::android::JavaRef<jobject>& y_buf,
-    jint y_unchecked_pixel_stride,
-    jint y_unchecked_row_stride,
+    int32_t y_unchecked_pixel_stride,
+    int32_t y_unchecked_row_stride,
     const base::android::JavaRef<jobject>& u_buf,
-    jint u_unchecked_pixel_stride,
-    jint u_unchecked_row_stride,
+    int32_t u_unchecked_pixel_stride,
+    int32_t u_unchecked_row_stride,
     const base::android::JavaRef<jobject>& v_buf,
-    jint v_unchecked_pixel_stride,
-    jint v_unchecked_row_stride,
-    jint unchecked_crop_left,
-    jint unchecked_crop_top,
-    jint unchecked_crop_right,
-    jint unchecked_crop_bottom) {
+    int32_t v_unchecked_pixel_stride,
+    int32_t v_unchecked_row_stride,
+    int32_t unchecked_crop_left,
+    int32_t unchecked_crop_top,
+    int32_t unchecked_crop_right,
+    int32_t unchecked_crop_bottom) {
   // TODO(crbug.com/352187279): Implement processing of I420 frames.
   NOTREACHED();
 }
@@ -160,7 +161,7 @@ void DesktopCapturerAndroid::ProcessRgbaFrame(int64_t timestamp_ns,
                                               PlaneInfo plane) {
   // Don't process frames if we are no longer doing anything.
   if (finishing_) {
-    base::android::RunRunnableAndroid(plane.release_cb);
+    jni_zero::RunRunnable(plane.release_cb);
     return;
   }
 
@@ -237,7 +238,7 @@ void DesktopCapturerAndroid::ProcessRgbaFrame(int64_t timestamp_ns,
       static_cast<uint32_t>(plane.row_stride.ValueOrDie()),
       webrtc::DesktopRect::MakeSize(size));
 
-  base::android::RunRunnableAndroid(plane.release_cb);
+  jni_zero::RunRunnable(plane.release_cb);
 }
 
 }  // namespace content

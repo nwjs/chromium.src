@@ -27,10 +27,14 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_search_engine_logo_mediator_provider.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/image_fetcher/model/image_fetcher_service_factory.h"
+#import "ios/chrome/browser/ntp/model/set_up_list_item_type.h"
+#import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/mediator/search_engine_logo_mediator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette_util.h"
+#import "ios/chrome/browser/promos_manager/coordinator/promos_manager_ui_handler.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -44,14 +48,8 @@
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace {
-
-// The height of the menu's initial detent, which roughly represents a header
-// and 3 cells.
-const CGFloat kInitialDetentHeight = 350;
-
 // The corner radius of the customization menu sheet.
 CGFloat const kSheetCornerRadius = 30;
-
 }  // namespace
 
 @interface HomeCustomizationCoordinator () <
@@ -165,6 +163,8 @@ CGFloat const kSheetCornerRadius = 30;
       tracker->Dismissed(
           feature_engagement::kIPHiOSPromoBackgroundCustomizationFeature);
     }
+
+    [self.promosManagerUIHandler promoWasDismissed];
   }
 
   if ([self.browser->GetCommandDispatcher()
@@ -304,7 +304,7 @@ CGFloat const kSheetCornerRadius = 30;
 - (UIViewController*)createMenuPage:(CustomizationMenuPage)page {
   auto detentResolver = ^CGFloat(
       id<UISheetPresentationControllerDetentResolutionContext> context) {
-    return kInitialDetentHeight;
+    return kBottomSheetDetentHeight;
   };
   UISheetPresentationControllerDetent* initialDetent =
       [UISheetPresentationControllerDetent
@@ -350,6 +350,11 @@ CGFloat const kSheetCornerRadius = 30;
                                 resolver:expandedDetentResolver];
       [detents addObject:expandedDetent];
 
+      // Opening the Home Customization main page marks the
+      // background customization item as completed in prefs.
+      set_up_list_prefs::MarkItemComplete(
+          GetApplicationContext()->GetLocalState(),
+          SetUpListItemType::kBackgroundCustomization);
       break;
     }
     case CustomizationMenuPage::kMagicStack: {
@@ -440,7 +445,7 @@ CGFloat const kSheetCornerRadius = 30;
 
 - (CGFloat)detentHeightForMainViewControllerExpanded {
   CGFloat height = self.mainViewController.viewContentHeight;
-  return (height < kInitialDetentHeight)
+  return (height < kBottomSheetDetentHeight)
              ? UISheetPresentationControllerDetentInactive
              : height;
 }

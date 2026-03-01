@@ -30,7 +30,8 @@ class MockGlicWindowController
               (BrowserWindowInterface*,
                bool,
                mojom::InvocationSource,
-               std::optional<std::string>),
+               std::optional<std::string>,
+               bool),
               (override));
   MOCK_METHOD(void, ShowAfterSignIn, (base::WeakPtr<Browser>), (override));
   MOCK_METHOD(void, Attach, (), ());
@@ -114,6 +115,23 @@ class MockGlicWindowController
               (PanelStateObserver*),
               (override));
   MOCK_METHOD(glic::GlicInstanceMetrics*, instance_metrics, (), (override));
+
+  MOCK_METHOD(void,
+              CreateNewConversationForTabs,
+              (const std::vector<tabs::TabInterface*>&),
+              (override));
+  MOCK_METHOD(void,
+              ShowInstanceForTabs,
+              (const std::vector<tabs::TabInterface*>&, const InstanceId&),
+              (override));
+  MOCK_METHOD(std::vector<ConversationInfo>,
+              GetRecentlyActiveInstances,
+              (size_t),
+              (override));
+  MOCK_METHOD(void,
+              ArchiveInstanceWithFrame,
+              (content::RenderFrameHost*),
+              (override));
 
   base::WeakPtr<GlicWindowControllerInterface> GetWeakPtr() override {
     return weak_ptr_factory_.GetWeakPtr();

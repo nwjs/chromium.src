@@ -191,6 +191,7 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    branch_selector = branches.selector.ANDROID_BRANCHES,
     builder = "cronet-arm64-gn2bp-debug",
     # The limited traffic to the location_filters specified below makes this
     # use of owner_whitelist acceptable (see
@@ -429,6 +430,10 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "test-emulator",
+)
+
+chrome_internal_verifier(
+    builder = "test-tablet",
 )
 
 chrome_internal_verifier(

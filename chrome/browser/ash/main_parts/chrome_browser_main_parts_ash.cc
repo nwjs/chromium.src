@@ -172,6 +172,7 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
 #include "chrome/browser/metrics/structured/chrome_structured_metrics_delegate.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
@@ -305,7 +306,6 @@
 
 #if BUILDFLAG(PLATFORM_CUTTLEFISH)
 #include "chrome/browser/ash/dbus/fjord_oobe_service_provider.h"
-#include "chrome/browser/ash/login/fjord_oobe/fjord_oobe_state_manager.h"
 #endif
 
 #if BUILDFLAG(USE_CUPS)
@@ -397,7 +397,9 @@ class DBusServices {
         system_bus, chromeos::kPluginVmServiceName,
         dbus::ObjectPath(chromeos::kPluginVmServicePath),
         CrosDBusService::CreateServiceProviderList(
-            std::make_unique<PluginVmServiceProvider>()));
+            std::make_unique<PluginVmServiceProvider>(
+                g_browser_process->platform_part()
+                    ->browser_policy_connector_ash())));
 
     screen_lock_service_ = CrosDBusService::Create(
         system_bus, chromeos::kScreenLockServiceName,
@@ -425,6 +427,7 @@ class DBusServices {
         dbus::ObjectPath(chromeos::kChromeFeaturesServicePath),
         CrosDBusService::CreateServiceProviderList(
             std::make_unique<ChromeFeaturesServiceProvider>(
+                g_browser_process->local_state(),
                 std::move(feature_list_accessor))));
 
     printers_service_ = CrosDBusService::Create(
@@ -473,7 +476,8 @@ class DBusServices {
         system_bus, cryptohome::kCryptohomeKeyDelegateServiceName,
         dbus::ObjectPath(cryptohome::kCryptohomeKeyDelegateServicePath),
         CrosDBusService::CreateServiceProviderList(
-            std::make_unique<CryptohomeKeyDelegateServiceProvider>()));
+            std::make_unique<CryptohomeKeyDelegateServiceProvider>(
+                g_browser_process->local_state())));
 
     encrypted_reporting_service_ = CrosDBusService::Create(
         system_bus, chromeos::kChromeReportingServiceName,
@@ -536,13 +540,11 @@ class DBusServices {
             std::make_unique<ArcCroshServiceProvider>()));
 
 #if BUILDFLAG(PLATFORM_CUTTLEFISH)
-    if (features::IsFjordOobeEnabled()) {
-      fjord_oobe_service_ = CrosDBusService::Create(
-          system_bus, chromeos::kFjordOobeServiceName,
-          dbus::ObjectPath(chromeos::kFjordOobeServicePath),
-          CrosDBusService::CreateServiceProviderList(
-              std::make_unique<FjordOobeServiceProvider>()));
-    }
+    fjord_oobe_service_ = CrosDBusService::Create(
+        system_bus, chromeos::kFjordOobeServiceName,
+        dbus::ObjectPath(chromeos::kFjordOobeServicePath),
+        CrosDBusService::CreateServiceProviderList(
+            std::make_unique<FjordOobeServiceProvider>()));
 #endif
 
     // Initialize PowerDataCollector after DBusThreadManager is initialized.
@@ -888,6 +890,8 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
           g_browser_process->local_state());
 
   session_termination_manager_ = std::make_unique<SessionTerminationManager>();
+  app_terminating_subscription_ = browser_shutdown::AddAppTerminatingCallback(
+      session_termination_manager_->GetClosureNotifyingAppTerminating());
 
   // This should be in PreProfileInit but it needs to be created before the
   // policy connector is started.
@@ -897,10 +901,6 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
 #if BUILDFLAG(PLATFORM_CFM)
   cfm::InitializeCfmServices();
 #endif  // BUILDFLAG(PLATFORM_CFM)
-
-#if BUILDFLAG(PLATFORM_CUTTLEFISH)
-  FjordOobeStateManager::Initialize();
-#endif  // BUILDFLAG(PLATFORM_CUTTLEFISH)
 
   SystemProxyManager::Initialize(g_browser_process->local_state());
 
@@ -1159,7 +1159,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
     std::string username_hash =
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             switches::kLoginProfile);
-    session_manager.CreateSessionForRestart(account_id, username_hash, created);
+    session_manager.CreateSession(account_id, username_hash, created,
+                                  /*has_active_session=*/false);
 
     // If restarting demo session, mark demo session as started before primary
     // profile starts initialization so browser context keyed services created
@@ -1323,7 +1324,7 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
         std::make_unique<parent_access::ParentAccessService>(
             g_browser_process->local_state());
 
-    g_browser_process->platform_part()->session_manager()->Initialize(
+    g_browser_process->platform_part()->chrome_session_manager()->Initialize(
         *base::CommandLine::ForCurrentProcess(), profile,
         is_integration_test());
 
@@ -1703,7 +1704,7 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   CHECK(g_browser_process);
   CHECK(g_browser_process->platform_part());
 
-  g_browser_process->platform_part()->session_manager()->Shutdown();
+  g_browser_process->platform_part()->chrome_session_manager()->Shutdown();
 
   // Let the UserManager unregister itself as an observer of the CrosSettings
   // singleton before it is destroyed. This also ensures that the UserManager
@@ -1766,10 +1767,6 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   // critical services are destroyed
   cfm::ShutdownCfmServices();
 #endif  // BUILDFLAG(PLATFORM_CFM)
-
-#if BUILDFLAG(PLATFORM_CUTTLEFISH)
-  FjordOobeStateManager::Shutdown();
-#endif
 
   // Cleans up dbus services depending on ash.
   dbus_services_->PreAshShutdown();

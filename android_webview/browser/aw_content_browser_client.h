@@ -224,7 +224,6 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldDisableOriginIsolation() override;
   bool ShouldLockProcessToSite(content::BrowserContext* browser_context,
                                const GURL& effective_url) override;
-  bool ShouldEnforceNewCanCommitUrlChecks() override;
   size_t GetMaxRendererProcessCountOverride() override;
   void WillCreateURLLoaderFactory(
       content::BrowserContext* browser_context,
@@ -269,7 +268,8 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
   void LogWebDXFeatureForCurrentPage(
       content::RenderFrameHost* render_frame_host,
       blink::mojom::WebDXFeature feature) override;
-  PrivateNetworkRequestPolicyOverride ShouldOverridePrivateNetworkRequestPolicy(
+  LocalNetworkAccessRequestPolicyOverride
+  ShouldOverrideLocalNetworkAccessRequestPolicy(
       content::BrowserContext* browser_context,
       const url::Origin& origin) override;
   content::SpeechRecognitionManagerDelegate*
@@ -323,6 +323,8 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       bool* out_block_is_site_setting_specific) override;
 
   bool ShouldAnimateBackForwardTransitions() override;
+  bool OriginSupportsConcreteCrossOriginIsolation(
+      const url::Origin& origin) override;
 
   AwFeatureListCreator* aw_feature_list_creator() {
     return aw_feature_list_creator_;

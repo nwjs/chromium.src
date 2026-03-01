@@ -106,7 +106,7 @@ content::WebContents* AddWebContents(
     std::optional<base::Value> root = base::JSONReader::Read(
         manifest, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     if (root && root->is_dict()) {
-      base::Value::Dict* mnfst = root->GetIfDict();
+      base::DictValue* mnfst = root->GetIfDict();
       std::optional<int> width = mnfst->FindInt("width");
       if (width)
         rect.set_width(*width);

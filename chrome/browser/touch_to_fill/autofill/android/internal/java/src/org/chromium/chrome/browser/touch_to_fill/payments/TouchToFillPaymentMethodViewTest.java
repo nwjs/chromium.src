@@ -128,6 +128,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.DimenRes;
 import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.filters.MediumTest;
@@ -413,7 +414,9 @@ public class TouchToFillPaymentMethodViewTest {
                     /* programName= */ "Loyalty program",
                     /* programLogo= */ new GURL("https://site.com/icon.png"),
                     /* loyaltyCardNumber= */ "1234",
-                    /* merchantDomains= */ Collections.emptyList());
+                    /* merchantDomains= */ Collections.emptyList(),
+                    /* useDate= */ 0,
+                    /* useCount= */ 0);
     private static final BnplIssuerContext BNPL_ISSUER_CONTEXT_AFFIRM_LINKED =
             new BnplIssuerContext(
                     /* issuerId= */ "affirm",
@@ -1509,6 +1512,7 @@ public class TouchToFillPaymentMethodViewTest {
 
     @Test
     @MediumTest
+    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
     public void testBnplIssuerTosHeader() {
         runOnUiThreadBlocking(
                 () -> {
@@ -1524,6 +1528,38 @@ public class TouchToFillPaymentMethodViewTest {
                         .getContentView()
                         .findViewById(R.id.bnpl_tos_branding_icon);
         assertThat(bnplTosBrandingIcon.isShown(), is(true));
+
+        int expectedHeight =
+                getDimensionPixelSize(R.dimen.bnpl_tos_header_item_icon_wallet_branding_height);
+        assertThat(bnplTosBrandingIcon.getLayoutParams().height, is(expectedHeight));
+
+        TextView bnplTosTitle =
+                mTouchToFillPaymentMethodView.getContentView().findViewById(R.id.bnpl_tos_title);
+        assertThat(bnplTosTitle.getText().toString(), is(ISSUER_TITLE_TEXT));
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
+    public void testBnplIssuerTosHeader_walletBrandingDisabled() {
+        runOnUiThreadBlocking(
+                () -> {
+                    mTouchToFillPaymentMethodModel
+                            .get(SHEET_ITEMS)
+                            .add(new ListItem(TOS_HEADER, createTosHeaderModel()));
+                    mTouchToFillPaymentMethodModel.set(VISIBLE, true);
+                });
+        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
+
+        ImageView bnplTosBrandingIcon =
+                mTouchToFillPaymentMethodView
+                        .getContentView()
+                        .findViewById(R.id.bnpl_tos_branding_icon);
+        assertThat(bnplTosBrandingIcon.isShown(), is(true));
+
+        int expectedHeight = getDimensionPixelSize(R.dimen.bnpl_tos_header_item_icon_height);
+        assertThat(bnplTosBrandingIcon.getLayoutParams().height, is(expectedHeight));
+
         TextView bnplTosTitle =
                 mTouchToFillPaymentMethodView.getContentView().findViewById(R.id.bnpl_tos_title);
         assertThat(bnplTosTitle.getText().toString(), is(ISSUER_TITLE_TEXT));
@@ -2166,6 +2202,10 @@ public class TouchToFillPaymentMethodViewTest {
 
     private String getString(@StringRes int id) {
         return mActivityTestRule.getActivity().getString(id);
+    }
+
+    private int getDimensionPixelSize(@DimenRes int dimenId) {
+        return mActivityTestRule.getActivity().getResources().getDimensionPixelSize(dimenId);
     }
 
     private static PropertyModel createHeaderModel() {

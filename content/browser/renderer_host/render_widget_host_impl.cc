@@ -18,7 +18,6 @@
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
@@ -29,6 +28,7 @@
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/safety_checks.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -101,6 +101,7 @@
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/tracked_element_observer.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -1598,6 +1599,10 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
   TRACE_EVENT2("input", "RenderWidgetHostImpl::ForwardMouseEvent", "x",
                mouse_event.PositionInWidget().x(), "y",
                mouse_event.PositionInWidget().y());
+  // Input comes from the OS (trusted) and is critical for user interaction, we
+  // exclude free-d memory from additional safety checks.
+  // TODO(crbug.com/478562227): Optimize and remove if possible.
+  base::ScopedSafetyChecksExclusion excluded;
 
   CHECK_GE(mouse_event.GetType(), WebInputEvent::Type::kMouseTypeFirst);
   CHECK_LE(mouse_event.GetType(), WebInputEvent::Type::kMouseTypeLast);
@@ -1643,6 +1648,10 @@ void RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(
     const ui::LatencyInfo& latency) {
   TRACE_EVENT2("input", "RenderWidgetHostImpl::ForwardWheelEvent", "dx",
                wheel_event.delta_x, "dy", wheel_event.delta_y);
+  // Input comes from the OS (trusted) and is critical for user interaction, we
+  // exclude free-d memory from additional safety checks.
+  // TODO(crbug.com/478562227): Optimize and remove if possible.
+  base::ScopedSafetyChecksExclusion excluded;
 
   if (IsIgnoringWebInputEvents(wheel_event)) {
     return;
@@ -1707,6 +1716,10 @@ void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
     const ui::LatencyInfo& latency,
     std::vector<blink::mojom::EditCommandPtr> commands,
     bool* update_event) {
+  // Input comes from the OS (trusted) and is critical for user interaction, we
+  // exclude free-d memory from additional safety checks.
+  // TODO(crbug.com/478562227): Optimize and remove if possible.
+  base::ScopedSafetyChecksExclusion excluded;
   CHECK(WebInputEvent::IsKeyboardEventType(key_event.GetType()));
 
   TRACE_EVENT0("input", "RenderWidgetHostImpl::ForwardKeyboardEvent");
@@ -1877,7 +1890,7 @@ input::InputRouter* RenderWidgetHostImpl::input_router() {
 
 void RenderWidgetHostImpl::AddKeyPressEventCallback(
     const KeyPressEventCallback& callback) {
-  CHECK(!base::Contains(key_press_event_callbacks_, callback));
+  CHECK(!std::ranges::contains(key_press_event_callbacks_, callback));
   key_press_event_callbacks_.push_back(callback);
 }
 
@@ -1888,7 +1901,7 @@ void RenderWidgetHostImpl::RemoveKeyPressEventCallback(
 
 void RenderWidgetHostImpl::AddMouseEventCallback(
     const MouseEventCallback& callback) {
-  CHECK(!base::Contains(mouse_event_callbacks_, callback));
+  CHECK(!std::ranges::contains(mouse_event_callbacks_, callback));
   mouse_event_callbacks_.push_back(callback);
 }
 
@@ -1899,7 +1912,7 @@ void RenderWidgetHostImpl::RemoveMouseEventCallback(
 
 void RenderWidgetHostImpl::AddSuppressShowingImeCallback(
     const SuppressShowingImeCallback& callback) {
-  CHECK(!base::Contains(suppress_showing_ime_callbacks_, callback));
+  CHECK(!std::ranges::contains(suppress_showing_ime_callbacks_, callback));
   suppress_showing_ime_callbacks_.push_back(callback);
 }
 
@@ -1923,6 +1936,16 @@ void RenderWidgetHostImpl::AddInputEventObserver(
 void RenderWidgetHostImpl::RemoveInputEventObserver(
     RenderWidgetHost::InputEventObserver* observer) {
   input_event_observers_.RemoveObserver(observer);
+}
+
+void RenderWidgetHostImpl::AddTrackedElementObserver(
+    TrackedElementObserver* observer) {
+  tracked_element_observers_.AddObserver(observer);
+}
+
+void RenderWidgetHostImpl::RemoveTrackedElementObserver(
+    TrackedElementObserver* observer) {
+  tracked_element_observers_.RemoveObserver(observer);
 }
 
 void RenderWidgetHostImpl::AddObserver(RenderWidgetHostObserver* observer) {
@@ -2132,21 +2155,15 @@ RenderProcessHostPriorityClient::Priority RenderWidgetHostImpl::GetPriority() {
       importance_,
 #endif
   };
-  bool should_contribute = false;
-  if (base::FeatureList::IsEnabled(features::kSubframePriorityContribution)) {
-    should_contribute = should_contribute_priority_to_process_;
-    if (owner_delegate_ && !owner_delegate_->IsMainFrameActive()) {
-      // If this RenderWidgetHost is owned by a RenderViewHost which does not
-      // have an active main frame, it should not contribute to the priority of
-      // the process. This can happen for an OOPIF which not only has its own
-      // RenderWidgetHost, but also has an inactive RenderViewHost in its
-      // SiteInstance, and that RenderViewHost owns another unused
-      // RenderWidgetHost which is what's being excluded here.
-      should_contribute = false;
-    }
-  } else {
-    should_contribute = !owner_delegate_ ||
-                        owner_delegate_->ShouldContributePriorityToProcess();
+  bool should_contribute = should_contribute_priority_to_process_;
+  if (owner_delegate_ && !owner_delegate_->IsMainFrameActive()) {
+    // If this RenderWidgetHost is owned by a RenderViewHost which does not
+    // have an active main frame, it should not contribute to the priority of
+    // the process. This can happen for an OOPIF which not only has its own
+    // RenderWidgetHost, but also has an inactive RenderViewHost in its
+    // SiteInstance, and that RenderViewHost owns another unused
+    // RenderWidgetHost which is what's being excluded here.
+    should_contribute = false;
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -2396,15 +2413,12 @@ void RenderWidgetHostImpl::ImeCancelComposition() {
 
 void RenderWidgetHostImpl::RejectPointerLockOrUnlockIfNecessary(
     blink::mojom::PointerLockResult reason) {
-  CHECK(!pending_pointer_lock_request_ || !IsPointerLocked());
+  CHECK(!request_pointer_lock_callback_ || !IsPointerLocked());
   CHECK(reason != blink::mojom::PointerLockResult::kSuccess);
-  if (pending_pointer_lock_request_) {
-    CHECK(request_pointer_lock_callback_);
-    pending_pointer_lock_request_ = false;
+  if (request_pointer_lock_callback_) {
     pointer_lock_raw_movement_ = false;
     std::move(request_pointer_lock_callback_)
         .Run(reason, /*context=*/mojo::NullRemote());
-
   } else if (IsPointerLocked()) {
     view_->UnlockPointer();
   }
@@ -2917,7 +2931,7 @@ void RenderWidgetHostImpl::StartDragging(
   //    renderer for any file paths in the drop.
   filtered_data.filenames.clear();
   for (const auto& file_info : drop_data.filenames) {
-    if (policy->CanReadFile(GetProcess()->GetDeprecatedID(), file_info.path)) {
+    if (policy->CanReadFile(GetProcess()->GetID(), file_info.path)) {
       filtered_data.filenames.push_back(file_info);
     }
   }
@@ -2940,8 +2954,7 @@ void RenderWidgetHostImpl::StartDragging(
       continue;
     }
 
-    if (policy->CanReadFileSystemFile(GetProcess()->GetDeprecatedID(),
-                                      file_system_url)) {
+    if (policy->CanReadFileSystemFile(GetProcess()->GetID(), file_system_url)) {
       filtered_data.file_system_files.push_back(file_system_file);
     }
   }
@@ -3281,7 +3294,7 @@ void RenderWidgetHostImpl::RequestMouseLock(
     bool from_user_gesture,
     bool unadjusted_movement,
     input::InputRouterImpl::RequestMouseLockCallback response) {
-  if (pending_pointer_lock_request_ || IsPointerLocked()) {
+  if (IsPointerLocked()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kAlreadyLocked,
                             /*context=*/mojo::NullRemote());
     return;
@@ -3295,7 +3308,6 @@ void RenderWidgetHostImpl::RequestMouseLock(
 
   request_pointer_lock_callback_ = std::move(response);
 
-  pending_pointer_lock_request_ = true;
   pointer_lock_raw_movement_ = unadjusted_movement;
   if (!delegate_) {
     // No delegate, reject message.
@@ -3314,11 +3326,6 @@ void RenderWidgetHostImpl::RequestMouseLock(
 void RenderWidgetHostImpl::RequestMouseLockChange(
     bool unadjusted_movement,
     PointerLockContext::RequestMouseLockChangeCallback response) {
-  if (pending_pointer_lock_request_) {
-    std::move(response).Run(blink::mojom::PointerLockResult::kAlreadyLocked);
-    return;
-  }
-
   if (!view_ || !view_->HasFocus()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kWrongDocument);
     return;
@@ -3330,8 +3337,7 @@ void RenderWidgetHostImpl::RequestMouseLockChange(
 void RenderWidgetHostImpl::UnlockPointer() {
   // Got unlock request from renderer. Will update |is_last_unlocked_by_target_|
   // for silent re-lock.
-  const bool was_mouse_locked =
-      !pending_pointer_lock_request_ && IsPointerLocked();
+  const bool was_mouse_locked = IsPointerLocked();
   RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult::kUserRejected);
   if (was_mouse_locked) {
@@ -3500,14 +3506,11 @@ bool RenderWidgetHostImpl::GotResponseToPointerLockRequest(
   if (response != blink::mojom::PointerLockResult::kSuccess) {
     RejectPointerLockOrUnlockIfNecessary(response);
   }
-  if (!pending_pointer_lock_request_) {
-    // This is possible, e.g., the plugin sends us an unlock request before
-    // the user allows to lock to mouse.
+
+  if (!request_pointer_lock_callback_) {
     return false;
   }
 
-  CHECK(request_pointer_lock_callback_);
-  pending_pointer_lock_request_ = false;
   if (!view_ || !view_->HasFocus()) {
     std::move(request_pointer_lock_callback_)
         .Run(blink::mojom::PointerLockResult::kWrongDocument,
@@ -3665,8 +3668,7 @@ void RenderWidgetHostImpl::GrantFileAccessFromDropData(DropData* drop_data) {
   RenderProcessHost* process = GetProcess();
   PrepareDropDataForChildProcess(
       drop_data, ChildProcessSecurityPolicyImpl::GetInstance(),
-      process->GetDeprecatedID(),
-      process->GetStoragePartition()->GetFileSystemContext());
+      process->GetID(), process->GetStoragePartition()->GetFileSystemContext());
 }
 
 void RenderWidgetHostImpl::RequestCompositionUpdates(bool immediate_request,
@@ -3906,6 +3908,11 @@ void RenderWidgetHostImpl::OnRenderFrameMetadataChangedAfterActivation(
 
   const auto& metadata =
       render_frame_metadata_provider_.LastRenderFrameMetadata();
+
+  for (TrackedElementObserver& observer : tracked_element_observers_) {
+    observer.OnTrackedElementBoundsChanged(metadata.tracked_element_bounds,
+                                           metadata.device_scale_factor);
+  }
 
   const bool mobile_optimized_state_changed =
       (is_mobile_optimized_ != metadata.is_mobile_optimized);

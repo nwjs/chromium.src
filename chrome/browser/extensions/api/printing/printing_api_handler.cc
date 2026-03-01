@@ -9,7 +9,6 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -19,6 +18,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_runner.h"
+#include "base/types/to_address.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/ash/printing/local_printer_impl.h"
 #include "chrome/browser/chromeos/printing/cups_wrapper.h"
@@ -159,7 +159,7 @@ void PrintingAPIHandler::SubmitJob(
   PrintJobSubmitter::Run(std::make_unique<PrintJobSubmitter>(
       native_window, browser_context_, print_job_controller_.get(),
       pdf_blob_data_flattener_.get(), std::move(extension),
-      std::move(params->request), cros_local_printer_,
+      std::move(params->request), base::to_address(local_printer_),
       base::BindOnce(&PrintingAPIHandler::OnPrintJobSubmitted,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
                      std::move(extension_id))));
@@ -194,7 +194,7 @@ void PrintingAPIHandler::OnPrintJobSubmitted(
       base::BindOnce(std::move(callback), api::printing::SubmitJobStatus::kOk,
                      cups_id, std::nullopt));
 
-  DCHECK(!base::Contains(in_progress_print_jobs_, cups_id));
+  DCHECK(!in_progress_print_jobs_.contains(cups_id));
   constexpr api::printing::JobStatus job_status =
       api::printing::JobStatus::kPending;
   in_progress_print_jobs_[cups_id] =
@@ -288,6 +288,7 @@ void PrintingAPIHandler::GetPrinterInfo(const std::string& printer_id,
 void PrintingAPIHandler::OnPrinterCapabilitiesRetrieved(
     const std::string& printer_id,
     GetPrinterInfoCallback callback,
+    base::optional_ref<const chromeos::Printer> /*printer*/,
     const std::optional<printing::PrinterSemanticCapsAndDefaults>& caps) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 

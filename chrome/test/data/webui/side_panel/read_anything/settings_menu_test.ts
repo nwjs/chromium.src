@@ -4,12 +4,13 @@
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {MENU_SHOW_DELAY_MS} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {KEYBOARD_NAV_CLASS, MENU_SHOW_DELAY_MS, SUBMENU_SHOW_DELAY_MS} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {SettingsMenuElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {SettingsOption, ToolbarEvent} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
+import {keyDownOn} from 'chrome-untrusted://webui-test/keyboard_mock_interactions.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
-import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
+import {eventToPromise, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
 import {FakeReadingMode} from './fake_reading_mode.js';
 
@@ -101,7 +102,7 @@ suite('SettingsMenuElement', () => {
         for (const item of menuItems) {
           item.dispatchEvent(new PointerEvent(
               'pointerenter', {bubbles: true, cancelable: true, view: window}));
-          timer.tick(MENU_SHOW_DELAY_MS + 10);
+          timer.tick(SUBMENU_SHOW_DELAY_MS + 10);
         }
         timer.uninstall();
 
@@ -144,5 +145,155 @@ suite('SettingsMenuElement', () => {
     targetItem.click();
     assertTrue(imagesEventWasFired);
     assertTrue(imagesEnabledTogled);
+  });
+
+  test('moving the mouse removes keyboard-nav class', () => {
+    const actionMenu = settingsMenu.$.lazyMenu.get();
+    actionMenu.classList.add(KEYBOARD_NAV_CLASS);
+    assertTrue(actionMenu.classList.contains(KEYBOARD_NAV_CLASS));
+
+    actionMenu.dispatchEvent(new PointerEvent(
+        'pointerenter', {bubbles: true, cancelable: true, view: window}));
+    actionMenu.classList.remove(KEYBOARD_NAV_CLASS);
+  });
+
+  test('mouse leave clears open timer', () => {
+    const actionMenu = settingsMenu.$.lazyMenu.get();
+    const menuItems =
+        actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row');
+    const targetItem = menuItems[0];
+    assertTrue(!!targetItem);
+
+    let submenuEvents = 0;
+    settingsMenu.addEventListener(
+        ToolbarEvent.OPEN_SETTINGS_SUBMENU, ((event: CustomEvent) => {
+                                              if (event.detail.id) {
+                                                submenuEvents++;
+                                              }
+                                            }) as EventListener);
+
+    const timer = new MockTimer();
+    timer.install();
+
+    // Hover over the item
+    targetItem.dispatchEvent(new PointerEvent(
+        'pointerenter', {bubbles: true, cancelable: true, view: window}));
+
+    // Leave the item before the timer fires
+    targetItem.dispatchEvent(new PointerEvent(
+        'pointerleave', {bubbles: true, cancelable: true, view: window}));
+
+    // Advance the timer past the delay
+    timer.tick(MENU_SHOW_DELAY_MS + 10);
+    timer.uninstall();
+
+    assertEquals(0, submenuEvents, 'Submenu event should not have fired');
+  });
+
+  test(
+      'pressing escape or back horizontal arrow fires close submenu event',
+      async () => {
+        const actionMenu = settingsMenu.$.lazyMenu.get();
+        const menuItems =
+            Array.from(actionMenu.querySelectorAll<HTMLElement>('.menu-row'));
+        const targetItem =
+            menuItems.find(item => item.id === SettingsOption.FONT);
+        assertTrue(!!targetItem);
+        targetItem.click();
+
+        const whenFired =
+            eventToPromise(ToolbarEvent.CLOSE_SUBMENU_REQUESTED, settingsMenu);
+        keyDownOn(settingsMenu, 0, undefined, 'Escape');
+        await whenFired;
+
+        targetItem.click();
+        keyDownOn(settingsMenu, 0, undefined, 'ArrowLeft');
+        await whenFired;
+      });
+
+  test('closing the menu prevents open timer to be fired', () => {
+    const actionMenu = settingsMenu.$.lazyMenu.get();
+    const menuItems =
+        Array.from(actionMenu.querySelectorAll<HTMLElement>('.menu-row'));
+    const targetItem =
+        menuItems.find(item => item.id === SettingsOption.LINE_SPACING);
+    assertTrue(!!targetItem);
+
+    let openSubmenuWasFiredAfterClose = false;
+    actionMenu.addEventListener(ToolbarEvent.OPEN_SETTINGS_SUBMENU, () => {
+      openSubmenuWasFiredAfterClose = true;
+    });
+
+    const timer = new MockTimer();
+    targetItem.dispatchEvent(new PointerEvent(
+        'pointerenter', {bubbles: true, cancelable: true, view: window}));
+    timer.tick(SUBMENU_SHOW_DELAY_MS - 1);
+    actionMenu.close();
+    timer.tick(1);
+
+    assertFalse(openSubmenuWasFiredAfterClose);
+    timer.uninstall();
+  });
+
+  test('opening the menu fires a settings-opened event', async () => {
+    settingsMenu.close();
+
+    const whenFired =
+        eventToPromise(ToolbarEvent.SETTINGS_OPENED, settingsMenu);
+    const anchor = document.createElement('div');
+    document.body.appendChild(anchor);
+    settingsMenu.open(anchor);
+    await whenFired;
+  });
+
+  test('closing the menu fires a settings-closed event', async () => {
+    const whenFired =
+        eventToPromise(ToolbarEvent.SETTINGS_CLOSED, settingsMenu);
+    settingsMenu.close();
+    await whenFired;
+  });
+
+  test('backward arrow is ignored when focus is on preview play button', () => {
+    settingsMenu['isOnPreviewPlayButton'] = true;
+
+    // If CLOSE_SUBMENU_REQUESTED is fired, update testing variable.
+    let closeSubmenuFired = false;
+    settingsMenu.addEventListener(
+        ToolbarEvent.CLOSE_SUBMENU_REQUESTED, () => closeSubmenuFired = true);
+
+    // Create and dispatch the Left Arrow event with a fake composedPath
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    settingsMenu.dispatchEvent(event);
+
+    assertFalse(
+        closeSubmenuFired,
+        'Should NOT have closed submenu when on preview play button');
+  });
+
+  test('forward arrow is ignored when focus is on previewplaybutton', () => {
+    // Pretend we are in Voice Selection submenu.
+    settingsMenu['currentOpenId_'] = SettingsOption.VOICE_SELECTION;
+
+    // Move focus away from settings menu row.
+    const dummySubmenuElement = document.createElement('button');
+    document.body.appendChild(dummySubmenuElement);
+    dummySubmenuElement.focus();
+
+    // Create and dispatch the forward arrow event.
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    settingsMenu.dispatchEvent(event);
+
+    // Verify that the settings menu did NOT try to close the submenu.
+    assertFalse(event.defaultPrevented, 'Should not have canceled the event');
   });
 });

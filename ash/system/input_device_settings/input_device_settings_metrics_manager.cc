@@ -4,6 +4,7 @@
 
 #include "ash/system/input_device_settings/input_device_settings_metrics_manager.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <iterator>
@@ -21,7 +22,6 @@
 #include "ash/system/input_device_settings/input_device_settings_pref_names.h"
 #include "ash/system/input_device_settings/input_device_settings_utils.h"
 #include "ash/system/input_device_settings/settings_updated_metrics_info.h"
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/json/values_util.h"
@@ -56,7 +56,6 @@ enum class PointerSensitivity {
 
 // Do not change ordering of this list as the ordering is used to compute
 // modifier hash in `RecordModifierRemappingHash()`.
-// TODO(b/329330990): Update modifier names map.
 struct ModifierName {
   const char* key_name;
   ui::mojom::ModifierKey modifier_key;
@@ -106,7 +105,6 @@ constexpr int kSplitModifierNumModifiers = std::size(kModifierNames) - 1;
 // Verify that the number of modifiers we are trying to hash together into a
 // 32-bit int will fit without any overflow or UB.
 // Modifier hash is limited to 32 bits as metrics can only handle 32 bit ints.
-// TODO(b/329330990): Update modifier hash.
 static_assert((sizeof(int32_t) * 8) >= (kModifierHashWidth * kNumModifiers));
 static_assert(static_cast<int>(ui::mojom::ModifierKey::kMaxValue) <=
               kMaxModifierValue);
@@ -290,14 +288,14 @@ bool ShouldRecordFkeyMetrics(const mojom::Keyboard& keyboard) {
          Shell::Get()->keyboard_capability()->IsChromeOSKeyboard(keyboard.id) &&
          (keyboard.settings->f11.has_value() &&
           keyboard.settings->f12.has_value()) &&
-         !base::Contains(keyboard.modifier_keys,
-                         ui::mojom::ModifierKey::kFunction);
+         !std::ranges::contains(keyboard.modifier_keys,
+                                ui::mojom::ModifierKey::kFunction);
 }
 
 bool ShouldRecordSixPackKeyMetrics(const mojom::Keyboard& keyboard) {
   return features::IsAltClickAndSixPackCustomizationEnabled() &&
-         !base::Contains(keyboard.modifier_keys,
-                         ui::mojom::ModifierKey::kFunction);
+         !std::ranges::contains(keyboard.modifier_keys,
+                                ui::mojom::ModifierKey::kFunction);
 }
 
 void RecordButtonMetrics(const mojom::Button& button,
@@ -509,7 +507,7 @@ std::optional<uint32_t> CountNumberOfDevicesUsedInLast28Days(
   }
 
   uint32_t num_devices_used = 0;
-  const base::Value::Dict& devices_dict = pref_service->GetDict(pref_name);
+  const base::DictValue& devices_dict = pref_service->GetDict(pref_name);
   for (const auto device_entry : devices_dict) {
     const auto* device = device_entry.second.GetIfDict();
     if (!device) {
@@ -672,8 +670,8 @@ void InputDeviceSettingsMetricsManager::RecordKeyboardInitialMetrics(
   }
 
   // Record remapping metrics when keyboard is initialized.
-  if (base::Contains(keyboard.modifier_keys,
-                     ui::mojom::ModifierKey::kQuickInsert)) {
+  if (std::ranges::contains(keyboard.modifier_keys,
+                            ui::mojom::ModifierKey::kQuickInsert)) {
     RecordSplitModifierRemappingHash(keyboard);
   } else {
     RecordModifierRemappingHash(keyboard);

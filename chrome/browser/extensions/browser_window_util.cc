@@ -4,13 +4,13 @@
 
 #include "chrome/browser/extensions/browser_window_util.h"
 
+#include <algorithm>
 #include <vector>
 
-#include "base/containers/contains.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
-#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "components/tabs/public/tab_interface.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -72,7 +72,7 @@ BrowserWindowInterface* GetBrowserForTabContents(
       continue;
     }
     std::vector<tabs::TabInterface*> all_tabs = tab_list->GetAllTabs();
-    if (base::Contains(all_tabs, tab)) {
+    if (std::ranges::contains(all_tabs, tab)) {
       return browser;  // Found it!
     }
   }

@@ -25,6 +25,7 @@ class Browser;
 class BrowserView;
 struct AccountInfo;
 class GaiaId;
+class StateProvider;
 
 // Enum used for testing. It allows overriding different delay values based on
 // their usage in the `AvatarToolbarButton` through helper testing functions.
@@ -36,8 +37,8 @@ enum class AvatarDelayType {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Delay for the SigninPending mode to show the "Verify it's you" text.
   kSigninPendingText,
-  // Delay for the History Sync Opt-in entry point.
-  kHistorySyncOptin,
+  // Delay for the promo that are shown by expanding the button.
+  kPromo,
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 };
 
@@ -186,7 +187,18 @@ class AvatarToolbarButton : public ToolbarButton,
   // and whether the chip is expanded.
   void UpdateInkdrop();
 
+  // Animates hiding/shrinking the button according to the text changes.
+  void AnimateTextChange(StateProvider* state_provider,
+                         const ui::ColorProvider* color_provider);
   void UpdateAccessibilityLabel();
+
+  // LabelButton:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
+
+  // gfx::AnimationDelegate:
+  void AnimationProgressed(const gfx::Animation* animation) override;
+  void AnimationEnded(const gfx::Animation* animation) override;
 
   // Lists of observers.
   base::ObserverList<Observer, true> observer_list_;
@@ -211,6 +223,8 @@ class AvatarToolbarButton : public ToolbarButton,
   // remembered following a web sign-in event but waiting for the available
   // account information to be fetched in order to show the sign in IPH.
   GaiaId gaia_id_for_signin_choice_remembered_;
+
+  gfx::SlideAnimation slide_animation_;
 
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>

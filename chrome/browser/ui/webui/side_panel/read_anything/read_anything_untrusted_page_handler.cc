@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chrome/common/read_anything/read_anything.mojom-shared.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/common/read_anything/read_anything_util.h"
 #include "components/dom_distiller/content/browser/distiller_javascript_utils.h"
@@ -53,6 +54,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
 #include "content/public/browser/web_ui.h"
+#include "content/public/common/url_constants.h"
 #include "extensions/browser/extension_registry.h"
 #include "net/http/http_status_code.h"
 #include "pdf/buildflags.h"
@@ -69,6 +71,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
@@ -88,6 +91,7 @@ using ash::language_packs::LanguagePackManager;
 using content::TtsController;
 using read_anything::mojom::ErrorCode;
 using read_anything::mojom::InstallationState;
+using read_anything::mojom::ReadAnythingDistillationState;
 using read_anything::mojom::ReadAnythingPresentationState;
 using read_anything::mojom::UntrustedPage;
 using read_anything::mojom::UntrustedPageHandler;
@@ -106,7 +110,7 @@ class ReadAnythingUntrustedPageHandler::DistillerDelegate
     // observer of previous request and allow it to observe new request.
     viewer_handle_.reset();
     const GURL& url = contents->GetLastCommittedURL();
-    viewer_handle_ = service->ViewUrl(
+    viewer_handle_ = service->ViewUrlIgnoreCache(
         this,
         service->CreateDefaultDistillerPageWithHandle(
             std::make_unique<dom_distiller::SourcePageHandleWebContents>(
@@ -366,7 +370,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
                 prefs->GetDouble(
                     prefs::kAccessibilityReadAnythingHighlightGranularity))
           : read_anything::mojom::HighlightGranularity::kDefaultValue;
-  base::Value::Dict voices = base::Value::Dict();
+  base::DictValue voices = base::DictValue();
   if (features::IsReadAnythingReadAloudEnabled()) {
     voices = prefs->GetDict(prefs::kAccessibilityReadAnythingVoiceName).Clone();
   }
@@ -391,7 +395,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
       features::IsReadAnythingReadAloudEnabled()
           ? prefs->GetList(prefs::kAccessibilityReadAnythingLanguagesEnabled)
                 .Clone()
-          : base::Value::List(),
+          : base::ListValue(),
       highlight_granularity, line_focus);
 
   // Get user's default language to check for compatible fonts.
@@ -700,7 +704,8 @@ void ReadAnythingUntrustedPageHandler::SendNextLanguageRequest() {
 // otherwise do nothing.
 // TODO(crbug.com/463728166): Remove IsImmersiveReadAnythingEnabled flag when no
 // longer flag-guarded code.
-void ReadAnythingUntrustedPageHandler::OnGetPresentationState() {
+ReadAnythingController*
+ReadAnythingUntrustedPageHandler::GetReadAnythingController() {
   if (features::IsImmersiveReadAnythingEnabled()) {
     content::WebContents* main_web_contents = main_observer_->web_contents();
     CHECK(main_web_contents);
@@ -710,6 +715,14 @@ void ReadAnythingUntrustedPageHandler::OnGetPresentationState() {
     CHECK(tab);
 
     auto* ra_controller = ReadAnythingController::From(tab);
+    return ra_controller;
+  }
+  return nullptr;
+}
+
+void ReadAnythingUntrustedPageHandler::OnGetPresentationState() {
+  if (features::IsImmersiveReadAnythingEnabled()) {
+    auto* ra_controller = GetReadAnythingController();
     CHECK(ra_controller);
 
     page_->OnGetPresentationState(ra_controller->GetPresentationState());
@@ -718,6 +731,35 @@ void ReadAnythingUntrustedPageHandler::OnGetPresentationState() {
 
 void ReadAnythingUntrustedPageHandler::GetPresentationState() {
   OnGetPresentationState();
+}
+
+void ReadAnythingUntrustedPageHandler::OnDistillationStateChanged(
+    read_anything::mojom::ReadAnythingDistillationState new_state) {
+  if (features::IsImmersiveReadAnythingEnabled()) {
+    // Distillation state transitions to kNotAttempted are only valid during
+    // initialization (i.e. when the current state is kUndefined).
+    if (distillation_state_ !=
+            read_anything::mojom::ReadAnythingDistillationState::kUndefined &&
+        new_state == read_anything::mojom::ReadAnythingDistillationState::
+                         kNotAttempted) {
+      mojo::ReportBadMessage("Invalid distillation state transition");
+      return;
+    }
+
+    // Distillation state transitions to kUndefined are not valid, regardless of
+    // what the current state is.
+    if (new_state ==
+        read_anything::mojom::ReadAnythingDistillationState::kUndefined) {
+      mojo::ReportBadMessage("Invalid distillation state transition");
+      return;
+    }
+
+    distillation_state_ = new_state;
+    auto* ra_controller = GetReadAnythingController();
+    CHECK(ra_controller);
+
+    ra_controller->OnDistillationStateChanged(new_state);
+  }
 }
 
 void ReadAnythingUntrustedPageHandler::OnGetVoicePackInfo(
@@ -1033,8 +1075,7 @@ void ReadAnythingUntrustedPageHandler::OnDistillationStatus(
       last_open_trigger_.value() == ReadAnythingOpenTrigger::kOmniboxChip) {
     last_open_trigger_.reset();
     base::UmaHistogramEnumeration(
-        "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status,
-        read_anything::mojom::DistillationStatus::kMaxValue);
+        "Accessibility.ReadAnything.DistillationStatusAfterOmnibox", status);
     base::UmaHistogramCustomCounts(
         "Accessibility.ReadAnything.WordsDistilledAfterOmnibox", word_count, 1,
         kMaxWordsDistilled, kWordsDistilledBuckets);
@@ -1229,16 +1270,21 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
 
 void ReadAnythingUntrustedPageHandler::RequestDomDistillerDistillation(
     content::WebContents* content) {
-  // TODO(crbug.com/459156156): Work on PDF distillation in a future CL.
   if (!features::IsReadAnythingWithReadabilityEnabled() || is_pdf_) {
     return;
   }
   const GURL& url = content->GetLastCommittedURL();
+  RecordDistillationSchemeHistogram(url);
+
   if (!url.SchemeIsHTTPOrHTTPS()) {
     VLOG(1) << kReadAnythingPrefix << ": URL is not HTTP/HTTPS, skipping for "
             << url.spec();
-    // TODO(crbug.com/467084642): Create UMA / UKM metric to track non
-    // HTTP/HTTPS readability distillation attempt.
+    // Call UpdateContent with empty values so status can be updated from show
+    // loading to no content.
+    page_->OnReadabilityDistillationStateChanged(
+        read_anything::mojom::ReadAnythingDistillationState::
+            kDistillationEmpty);
+    page_->UpdateContent("", "");
     return;
   }
 
@@ -1246,7 +1292,35 @@ void ReadAnythingUntrustedPageHandler::RequestDomDistillerDistillation(
       dom_distiller::DomDistillerServiceFactory::GetForBrowserContext(
           content->GetBrowserContext());
   DCHECK(dom_distiller_service);
+  page_->OnReadabilityDistillationStateChanged(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationInProgress);
   distiller_delegate_->StartDistillation(dom_distiller_service, content);
+}
+
+void ReadAnythingUntrustedPageHandler::RecordDistillationSchemeHistogram(
+    const GURL& url) const {
+  ReadAnythingDistillationScheme scheme =
+      ReadAnythingDistillationScheme::kOther;
+
+  if (url.SchemeIsHTTPOrHTTPS()) {
+    scheme = ReadAnythingDistillationScheme::kHttpOrHttps;
+  } else if (url.SchemeIsFile()) {
+    scheme = ReadAnythingDistillationScheme::kFile;
+  } else if (url.SchemeIs(url::kDataScheme)) {
+    scheme = ReadAnythingDistillationScheme::kData;
+  } else if (url.SchemeIs(extensions::kExtensionScheme)) {
+    scheme = ReadAnythingDistillationScheme::kExtension;
+  } else if (url.IsAboutBlank() || url.IsAboutSrcdoc()) {
+    scheme = ReadAnythingDistillationScheme::kAbout;
+  } else if (url.SchemeIsBlob()) {
+    scheme = ReadAnythingDistillationScheme::kBlob;
+  } else if (url.SchemeIs(content::kChromeUIScheme)) {
+    scheme = ReadAnythingDistillationScheme::kInternal;
+  }
+
+  base::UmaHistogramEnumeration("Accessibility.ReadAnything.DistillationScheme",
+                                scheme);
 }
 
 void ReadAnythingUntrustedPageHandler::ProcessDistilledArticle(
@@ -1260,6 +1334,21 @@ void ReadAnythingUntrustedPageHandler::ProcessDistilledArticle(
       full_html.append(page.html());
     }
     dom_distiller_content_ = full_html;
+
+    // If distillation successfully produced content, update the distillation
+    // state and notify the renderer.
+    if (dom_distiller_content()) {
+      page_->OnReadabilityDistillationStateChanged(
+          read_anything::mojom::ReadAnythingDistillationState::
+              kDistillationWithContent);
+      page_->UpdateContent(dom_distiller_title().value_or(""),
+                           dom_distiller_content().value());
+    }
+  } else {
+    page_->OnReadabilityDistillationStateChanged(
+        read_anything::mojom::ReadAnythingDistillationState::
+            kDistillationEmpty);
+    page_->UpdateContent(/*title=*/"", /*content=*/"");
   }
 }
 

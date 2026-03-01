@@ -31,7 +31,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.Log;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -72,8 +72,8 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     private final Supplier<StripLayoutHelper> mStripLayoutHelperSupplier;
     private final Supplier<Boolean> mStripLayoutVisibilitySupplier;
-    private final ObservableSupplier<TabContentManager> mTabContentManagerSupplier;
-    private final ObservableSupplier<LayerTitleCache> mLayerTitleCacheSupplier;
+    private final MonotonicObservableSupplier<TabContentManager> mTabContentManagerSupplier;
+    private final MonotonicObservableSupplier<LayerTitleCache> mLayerTitleCacheSupplier;
     private final BrowserControlsStateProvider mBrowserControlStateProvider;
     private final float mPxToDp;
     private final Supplier<Integer> mTabStripHeightSupplier;
@@ -82,6 +82,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable mOnDragExitRunnable = this::onDragExit;
+    private final Runnable mOnDragEndRunnable = this::stopReorderModeOnDragEnd;
 
     /** Drag shadow properties */
     @Nullable private StripDragShadowView mShadowView;
@@ -95,6 +96,8 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     // Tracks whether the current drag has ever left the source strip.
     private boolean mDragEverLeftStrip;
+
+    private boolean mWasCancelled;
 
     /**
      * Prepares the toolbar view to listen to the drag events and data drop after the drag is
@@ -117,8 +120,8 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             Context context,
             Supplier<StripLayoutHelper> stripLayoutHelperSupplier,
             Supplier<Boolean> stripLayoutVisibilitySupplier,
-            ObservableSupplier<TabContentManager> tabContentManagerSupplier,
-            ObservableSupplier<LayerTitleCache> layerTitleCacheSupplier,
+            MonotonicObservableSupplier<TabContentManager> tabContentManagerSupplier,
+            MonotonicObservableSupplier<LayerTitleCache> layerTitleCacheSupplier,
             MultiInstanceManager multiInstanceManager,
             DragAndDropDelegate dragAndDropDelegate,
             BrowserControlsStateProvider browserControlStateProvider,
@@ -331,6 +334,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
                             isMultiTabDrop());
                     res = false;
                 }
+                if (res) DragDropGlobalState.notifyChromeHandledDrop(dragEvent);
                 break;
         }
         return res;
@@ -361,6 +365,12 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             return Boolean.TRUE.equals(mStripLayoutVisibilitySupplier.get());
         }
 
+        // This callback ends reorder mode. If a new drag is starting, we should cancel the runnable
+        // so it does not unexpectedly end the new drag.
+        if (mHandler.hasCallbacks(mOnDragEndRunnable)) {
+            mHandler.removeCallbacks(mOnDragEndRunnable);
+        }
+
         // If the tab is quickly dragged off the source strip on drag start with a mouse, the source
         // strip may not receive an enter/exit event, preventing the drag shadow from being made
         // visible. Post an #onDragExit here that will be cancelled if the source strip gets that
@@ -369,6 +379,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         mHandler.postDelayed(mOnDragExitRunnable, /* delayMillis= */ 50L);
 
         mLastXDp = xPx * mPxToDp;
+        mWasCancelled = false;
         return true;
     }
 
@@ -396,7 +407,7 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     private boolean onDrop(DragEvent dropEvent) {
         StripLayoutHelper helper = mStripLayoutHelperSupplier.get();
-        helper.stopReorderMode();
+        helper.stopReorderMode(false);
         if (isDragSource()) {
             DragDropMetricUtils.recordReorderStripWithDragDrop(
                     mDragEverLeftStrip, isTabGroupDrop(), isMultiTabDrop());
@@ -554,7 +565,27 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             return false;
         }
 
-        mStripLayoutHelperSupplier.get().stopReorderMode();
+        if (dropHandled && !DragDropGlobalState.didChromeHandleDrop()) {
+            // If browser content is dragged off the strip, then dropped to create a new window,
+            // there's no strong signal that a reparent is expected. The PendingIntent to create the
+            // new window is sent asynchronously, so it's not guaranteed to be received before this
+            // #onDragEnd. dropHandled could be true for drops that don't result in a reparent, such
+            // as pasting the tab title into a text field.
+            //
+            // This is not an issue when dropping to an existing window, since the reparent is
+            // handled in #onDrop, which is guaranteed to happen before #onDragEnd.
+            //
+            // This causes the dragged content (and most noticeably the previously selected tab) to
+            // flash in its source window before being reparented to the newly created window. To
+            // mitigate this, we'll post the #stopReorderMode event sent to the source tab strip to
+            // hopefully prevent the flashing. This does unnecessarily delay the expected behavior
+            // for non-reparenting drops, but those are expected to be a less common user journey.
+            // See crbug.com/440597875 for more context.
+            mHandler.postDelayed(mOnDragEndRunnable, /* delayMillis= */ 1000L);
+        } else {
+            mStripLayoutHelperSupplier.get().stopReorderMode(mWasCancelled);
+        }
+
         mHandler.removeCallbacks(mOnDragExitRunnable);
         if (mShadowView != null) {
             mShadowView.clear();
@@ -563,6 +594,10 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         finishDrag(dropHandled);
 
         return true;
+    }
+
+    private void stopReorderModeOnDragEnd() {
+        mStripLayoutHelperSupplier.get().stopReorderMode(mWasCancelled);
     }
 
     private void recordTabRemovedFromGroupUserAction() {
@@ -661,6 +696,12 @@ public class TabStripDragHandler extends TabDragHandlerBase {
                 /* isTabGroup= */ true,
                 /* isMultiTab= */ false);
         return true;
+    }
+
+    @Override
+    protected @BackPressResult int cancelDrag() {
+        mWasCancelled = true;
+        return super.cancelDrag();
     }
 
     @VisibleForTesting
@@ -771,5 +812,9 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     Runnable getOnDragExitRunnableForTesting() {
         return mOnDragExitRunnable;
+    }
+
+    Runnable getOnDragEndRunnableForTesting() {
+        return mOnDragEndRunnable;
     }
 }

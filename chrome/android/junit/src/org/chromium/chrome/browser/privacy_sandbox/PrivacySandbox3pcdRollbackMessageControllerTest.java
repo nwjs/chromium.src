@@ -109,6 +109,7 @@ public class PrivacySandbox3pcdRollbackMessageControllerTest {
                 /* isValidSearchFormUrl= */ false,
                 /* transition= */ 0,
                 /* errorCode= */ 0,
+                /* errorDescription= */ "",
                 /* httpStatuscode= */ 200,
                 /* isExternalProtocol= */ false,
                 /* isPdf= */ false,
@@ -196,7 +197,8 @@ public class PrivacySandbox3pcdRollbackMessageControllerTest {
                                     return fragmentArgs
                                             .getString(SingleCategorySettings.EXTRA_CATEGORY)
                                             .equals("third_party_cookies");
-                                }));
+                                }),
+                        eq(false));
     }
 
     @Test

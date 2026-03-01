@@ -5,22 +5,31 @@
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/coordinator/most_visited_tiles_mediator.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/check.h"
 #import "base/ios/ios_util.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/task/cancelable_task_tracker.h"
+#import "base/time/time.h"
 #import "base/values.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/feature_engagement/public/tracker.h"
+#import "components/history/core/browser/history_service.h"
 #import "components/ntp_tiles/features.h"
 #import "components/ntp_tiles/metrics.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/ntp_tile.h"
 #import "components/ntp_tiles/pref_names.h"
+#import "components/ntp_tiles/tile_source.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/url_formatter/url_fixer.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_delegate.h"
 #import "ios/chrome/browser/content_suggestions/model/content_suggestions_metrics_recorder.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/public/metrics.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tile_view.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_config.h"
@@ -40,6 +49,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/utils/observable_boolean.h"
+#import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
@@ -62,6 +72,29 @@ const NSInteger kMaxNumMostVisitedTiles = 8;
 // Size below which the provider returns a colored tile instead of an image.
 const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
+// Number of repeating visits of a site to trigger an in-product help.
+const int kRepeatingVisitsToTriggerIPH = 3;
+
+// Returns YES if an in-product help should be triggered, based on the result of
+// querying visits of a URL.
+BOOL ShouldTriggerIPHForURLVisits(history::QueryURLAndVisitsResult result) {
+  if (!result.success || result.visits.size() < kRepeatingVisitsToTriggerIPH) {
+    return NO;
+  }
+  base::Time earliest_visit_time = result.visits.back().visit_time;
+  return (base::Time::Now() - earliest_visit_time) < base::Days(7);
+}
+
+// Fix up and validate the `url`. If the url is invalid, return an empty URL.
+GURL GetValidUrl(NSString* urlString) {
+  GURL fixedUpURL = url_formatter::FixupURL(base::SysNSStringToUTF8(urlString),
+                                            std::string());
+  if (fixedUpURL.IsStandard() || fixedUpURL.SchemeIs("chrome")) {
+    return fixedUpURL;
+  }
+  return GURL();
+}
+
 }  // namespace
 
 @interface MostVisitedTilesMediator () <ContentSuggestionsMenuElementsProvider,
@@ -79,28 +112,40 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
   // Whether incognito mode is available.
   BOOL _incognitoAvailable;
   BOOL _recordedPageImpression;
+  raw_ptr<history::HistoryService> _historyService;
   raw_ptr<PrefService, DanglingUntriaged> _prefService;
   PrefChangeRegistrar _prefChangeRegistrar;
   raw_ptr<UrlLoadingBrowserAgent, DanglingUntriaged> _URLLoadingBrowserAgent;
   raw_ptr<ChromeAccountManagerService, DanglingUntriaged>
       _accountManagerService;
+  raw_ptr<feature_engagement::Tracker> _engagementTracker;
+  LayoutGuideCenter* _layoutGuideCenter;
+  // Tracker for cancellable tasks initiated by the mediator.
+  base::CancelableTaskTracker _cancelableTaskTracker;
 }
 
 - (instancetype)
     initWithMostVisitedSite:
         (std::unique_ptr<ntp_tiles::MostVisitedSites>)mostVisitedSites
+             historyService:(history::HistoryService*)historyService
                 prefService:(PrefService*)prefService
            largeIconService:(favicon::LargeIconService*)largeIconService
              largeIconCache:(LargeIconCache*)largeIconCache
      URLLoadingBrowserAgent:(UrlLoadingBrowserAgent*)URLLoadingBrowserAgent
-      accountManagerService:
-          (ChromeAccountManagerService*)accountManagerService {
+      accountManagerService:(ChromeAccountManagerService*)accountManagerService
+          engagementTracker:(feature_engagement::Tracker*)engagementTracker
+          layoutGuideCenter:(LayoutGuideCenter*)layoutGuideCenter {
   self = [super init];
   if (self) {
+    CHECK(historyService);
+    CHECK(engagementTracker);
     _prefService = prefService;
     _prefChangeRegistrar.Init(_prefService);
     _URLLoadingBrowserAgent = URLLoadingBrowserAgent;
     _accountManagerService = accountManagerService;
+    _historyService = historyService;
+    _engagementTracker = engagementTracker;
+    _layoutGuideCenter = layoutGuideCenter;
     _incognitoAvailable = !IsIncognitoModeDisabled(prefService);
     _mostVisitedAttributesProvider = [[FaviconAttributesProvider alloc]
         initWithFaviconSize:kMagicStackFaviconWidth
@@ -113,7 +158,8 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
     _mostVisitedSites = std::move(mostVisitedSites);
     _mostVisitedBridge =
-        std::make_unique<ntp_tiles::MostVisitedSitesObserverBridge>(self);
+        std::make_unique<ntp_tiles::MostVisitedSitesObserverBridge>(
+            self, _mostVisitedSites.get());
     if (IsContentSuggestionsCustomizable()) {
       _mostVisitedSites->EnableTileTypes(
           ntp_tiles::MostVisitedSites::EnableTileTypesOptions()
@@ -128,6 +174,9 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 }
 
 - (void)disconnect {
+  _cancelableTaskTracker.TryCancelAll();
+  _historyService = nullptr;
+  _engagementTracker = nullptr;
   _prefChangeRegistrar.RemoveAll();
   _mostVisitedBridge.reset();
   _mostVisitedSites.reset();
@@ -155,16 +204,16 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
 #pragma mark - MostVisitedSitesObserving
 
-- (void)onMostVisitedURLsAvailable:
-    (const ntp_tiles::NTPTilesVector&)mostVisited {
+- (void)mostVisitedSites:(ntp_tiles::MostVisitedSites*)mostVisitedSites
+          didUpdateTiles:(const ntp_tiles::NTPTilesVector&)tiles {
   // This is used by the shortcuts widget.
   content_suggestions_tile_saver::SaveMostVisitedToDisk(
-      mostVisited, _mostVisitedAttributesProvider,
+      tiles, _mostVisitedAttributesProvider,
       app_group::ShortcutsWidgetFaviconsFolder(), _accountManagerService);
 
   _freshMostVisitedItems = [NSMutableArray array];
   int index = 0;
-  for (const ntp_tiles::NTPTile& tile : mostVisited) {
+  for (const ntp_tiles::NTPTile& tile : tiles) {
     MostVisitedItem* item = [self convertNTPTile:tile];
     item.commandHandler = self;
     item.incognitoAvailable = _incognitoAvailable;
@@ -176,14 +225,15 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
   [self useFreshMostVisited];
 
-  if (mostVisited.size() && !_recordedPageImpression) {
+  if (tiles.size() && !_recordedPageImpression) {
     _recordedPageImpression = YES;
     [self recordMostVisitedTilesDisplayed];
-    ntp_tiles::metrics::RecordPageImpression(mostVisited.size());
+    ntp_tiles::metrics::RecordPageImpression(tiles.size());
   }
 }
 
-- (void)onIconMadeAvailable:(const GURL&)siteURL {
+- (void)mostVisitedSites:(ntp_tiles::MostVisitedSites*)mostVisitedSites
+    didUpdateFaviconForURL:(const GURL&)siteURL {
   // This is used by the shortcuts widget.
   content_suggestions_tile_saver::UpdateSingleFavicon(
       siteURL, _mostVisitedAttributesProvider,
@@ -260,6 +310,38 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
                               atIndex:item.index];
 }
 
+- (void)pinOrUnpinMostVisited:(MostVisitedItem*)item {
+  GURL url = item.URL;
+  __weak MostVisitedTilesMediator* weakSelf = self;
+  if (_mostVisitedSites->HasCustomLink(url)) {
+    // Remove the custom link.
+    if (_mostVisitedSites->DeleteCustomLink(url)) {
+      [self showSnackbarWithMessage:
+                l10n_util::GetNSString(
+                    IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_SNACKBAR_UNPINNED)
+                         undoAction:^{
+                           [weakSelf undoLastPinAction];
+                           RecordSnackbarUndoUserAction(/*undo_pin=*/NO);
+                         }];
+    }
+    return;
+  }
+  if (!_mostVisitedSites->AddCustomLink(url,
+                                        base::SysNSStringToUTF16(item.title))) {
+    return;
+  }
+  _engagementTracker->NotifyEvent(
+      feature_engagement::events::kIOSPinMVTSiteUsed);
+  // Show snackbar message.
+  [self showSnackbarWithMessage:
+            l10n_util::GetNSString(
+                IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_SNACKBAR_PINNED)
+                     undoAction:^{
+                       [weakSelf undoLastPinAction];
+                       RecordSnackbarUndoUserAction(/*undo_pin=*/YES);
+                     }];
+}
+
 - (void)removeMostVisited:(MostVisitedItem*)item {
   [self.contentSuggestionsMetricsRecorder recordMostVisitedTileRemoved];
   [self blockMostVisitedURL:item.URL];
@@ -271,8 +353,18 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
                      }];
 }
 
+- (void)moveMostVisitedItem:(MostVisitedItem*)item toIndex:(NSUInteger)index {
+  _mostVisitedSites->ReorderCustomLink(item.URL, index);
+  RecordReorderUserAction();
+}
+
 - (void)openModalToAddPinnedSite {
   [self.contentSuggestionsHandler showPinnedSiteCreator];
+  RecordAddSiteUserAction();
+}
+
+- (void)openModalToEditPinnedSite:(MostVisitedItem*)item {
+  [self.contentSuggestionsHandler showPinnedSiteEditorForItem:item];
 }
 
 #pragma mark - ContentSuggestionsMenuProvider
@@ -331,8 +423,7 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
     [menuElements
         addObject:[self.actionFactory
                       actionToEditPinnedSiteOnMostVisitedTileWithBlock:^{
-                        [weakSelf.contentSuggestionsHandler
-                            showPinnedSiteEditorForItem:item];
+                        [weakSelf openModalToEditPinnedSite:item];
                       }]];
     [menuElements addObject:[self.actionFactory
                                 actionToUnpinSiteFromMostVisitedTileWithBlock:^{
@@ -355,36 +446,44 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
 #pragma mark - MostVisitedTilesPinnedSiteMutator
 
-- (BOOL)addPinnedSiteWithTitle:(NSString*)title URL:(NSString*)URL {
-  GURL fixedUpURL =
-      url_formatter::FixupURL(base::SysNSStringToUTF8(URL), std::string());
+- (PinnedSiteMutationResult)addPinnedSiteWithTitle:(NSString*)title
+                                               URL:(NSString*)URL {
+  GURL fixedUpURL = GetValidUrl(URL);
+  if (fixedUpURL.is_empty()) {
+    return PinnedSiteMutationResult::kURLInvalid;
+  }
   if (!_mostVisitedSites->AddCustomLink(fixedUpURL,
                                         base::SysNSStringToUTF16(title))) {
-    return NO;
+    return PinnedSiteMutationResult::kURLExisted;
   }
+  _engagementTracker->NotifyEvent(
+      feature_engagement::events::kIOSPinMVTSiteUsed);
   __weak MostVisitedTilesMediator* weakSelf = self;
   [self showSnackbarWithMessage:
             l10n_util::GetNSString(
                 IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_SNACKBAR_ADDED_AND_PINNED)
                      undoAction:^{
                        [weakSelf undoLastPinAction];
+                       RecordSnackbarUndoUserAction(/*undo_pin=*/YES);
                      }];
-  return YES;
+  return PinnedSiteMutationResult::kSuccess;
 }
 
-- (BOOL)editPinnedSiteForURL:(NSString*)oldURL
-                   withTitle:(NSString*)title
-                         URL:(NSString*)newURL {
+- (PinnedSiteMutationResult)editPinnedSiteForURL:(NSString*)oldURL
+                                       withTitle:(NSString*)title
+                                             URL:(NSString*)newURL {
+  GURL newKeyURL = GetValidUrl(newURL);
+  if (newKeyURL.is_empty()) {
+    return PinnedSiteMutationResult::kURLInvalid;
+  }
   GURL oldKeyURL = GURL(base::SysNSStringToUTF8(oldURL));
-  GURL newKeyURL =
-      url_formatter::FixupURL(base::SysNSStringToUTF8(newURL), std::string());
   if (oldKeyURL == newKeyURL) {
     // Do not provide the new URL if only the title is changing.
     newKeyURL = GURL();
   }
   if (!_mostVisitedSites->UpdateCustomLink(oldKeyURL, newKeyURL,
                                            base::SysNSStringToUTF16(title))) {
-    return NO;
+    return PinnedSiteMutationResult::kURLExisted;
   }
   __weak MostVisitedTilesMediator* weakSelf = self;
   [self showSnackbarWithMessage:
@@ -393,16 +492,16 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
                      undoAction:^{
                        [weakSelf undoLastPinAction];
                      }];
-  return YES;
+  return PinnedSiteMutationResult::kSuccess;
 }
 
 #pragma mark - Private
 
 // Replaces the Most Visited items currently displayed by the most recent ones.
 - (void)useFreshMostVisited {
-  base::Value::List oldMostVisitedSites =
+  base::ListValue oldMostVisitedSites =
       _prefService->GetList(prefs::kIosLatestMostVisitedSites).Clone();
-  base::Value::List freshMostVisitedSites;
+  base::ListValue freshMostVisitedSites;
   for (MostVisitedItem* item in _freshMostVisitedItems) {
     freshMostVisitedSites.Append(item.URL.spec());
   }
@@ -418,13 +517,17 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
   _prefService->SetList(prefs::kIosLatestMostVisitedSites,
                         std::move(freshMostVisitedSites));
 
-  _mostVisitedConfig = [[MostVisitedTilesConfig alloc] init];
+  _mostVisitedConfig = [[MostVisitedTilesConfig alloc]
+      initWithLayoutGuideCenter:_layoutGuideCenter];
   _mostVisitedConfig.imageDataSource = self;
   _mostVisitedConfig.commandHandler = self;
   _mostVisitedConfig.mostVisitedItems = _freshMostVisitedItems;
 
   [self.consumer setMostVisitedTilesConfig:_mostVisitedConfig];
   [self.contentSuggestionsDelegate contentSuggestionsWasUpdated];
+  if (IsContentSuggestionsCustomizable()) {
+    [self maybeDisplayIPH];
+  }
 }
 
 // Logs a histogram due to a Most Visited item being opened.
@@ -475,9 +578,8 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
 
 // Logs a User Action if `freshMostVisitedSites` has at least one site that
 // isn't in `oldMostVisitedSites`.
-- (void)
-    lookForNewMostVisitedSite:(const base::Value::List&)freshMostVisitedSites
-          oldMostVisitedSites:(const base::Value::List&)oldMostVisitedSites {
+- (void)lookForNewMostVisitedSite:(const base::ListValue&)freshMostVisitedSites
+              oldMostVisitedSites:(const base::ListValue&)oldMostVisitedSites {
   for (const auto& freshSiteURLValue : freshMostVisitedSites) {
     BOOL freshSiteInOldList = NO;
     for (const auto& oldSiteURLValue : oldMostVisitedSites) {
@@ -495,29 +597,6 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
       return;
     }
   }
-}
-
-// Pins or unpins the item to/from the most visited tile, depending on whether
-// the item is already pinned or not.
-- (void)pinOrUnpinMostVisited:(MostVisitedItem*)item {
-  GURL url = item.URL;
-  if (_mostVisitedSites->HasCustomLink(url)) {
-    // Remove the custom link.
-    _mostVisitedSites->DeleteCustomLink(url);
-    return;
-  }
-  if (!_mostVisitedSites->AddCustomLink(url,
-                                        base::SysNSStringToUTF16(item.title))) {
-    return;
-  }
-  // Show snackbar message.
-  __weak MostVisitedTilesMediator* weakSelf = self;
-  [self showSnackbarWithMessage:
-            l10n_util::GetNSString(
-                IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_SNACKBAR_PINNED)
-                     undoAction:^{
-                       [weakSelf undoLastPinAction];
-                     }];
 }
 
 // Undo the last action that adds/removes/edits a pinned site.
@@ -550,6 +629,42 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
   SnackbarMessage* snackbar = [[SnackbarMessage alloc] initWithTitle:message];
   snackbar.action = action;
   [self.snackbarHandler showSnackbarMessage:snackbar];
+}
+
+// Display an in-product help on the first tile of the most visited tiles if
+// conditions are met.
+- (void)maybeDisplayIPH {
+  if (_freshMostVisitedItems.firstObject &&
+      _freshMostVisitedItems.firstObject.source !=
+          ntp_tiles::TileSource::TOP_SITES) {
+    // The order of the items are pinned sites, most visited sites and popular
+    // sites. If this happens, either the user does not have a list of most
+    // visited sites, or has already pinned a site.
+    return;
+  }
+  if (!_engagementTracker->WouldTriggerHelpUI(
+          feature_engagement::kIPHiOSPinMostVisitedSiteFeature)) {
+    // If the in-product help is not eligible as determined by the in-product
+    // help view, return directly without consulting history service.
+    return;
+  }
+  id<HelpCommands> helpHandler = self.helpHandler;
+  auto presentIPHForRepeatingVisits =
+      ^void(history::QueryURLAndVisitsResult result) {
+        if (ShouldTriggerIPHForURLVisits(result)) {
+          [helpHandler presentInProductHelpWithType:InProductHelpType::
+                                                        kPinSiteToMostVisited];
+        }
+      };
+  for (MostVisitedItem* item in _freshMostVisitedItems) {
+    if (item.source == ntp_tiles::TileSource::TOP_SITES) {
+      _historyService->GetMostRecentVisitsForGurl(
+          item.URL, /*max_visits=*/kRepeatingVisitsToTriggerIPH,
+          history::VisitQuery404sPolicy::kInclude404s,
+          base::BindOnce(presentIPHForRepeatingVisits),
+          &_cancelableTaskTracker);
+    }
+  }
 }
 
 @end

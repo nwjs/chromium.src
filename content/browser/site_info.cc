@@ -8,7 +8,6 @@
 #include <optional>
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/safe_ref.h"
 #include "base/no_destructor.h"
@@ -17,7 +16,6 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/origin_agent_cluster_isolation_state.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
-#include "content/browser/security/coop/cross_origin_isolation_mode.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/webui/url_data_manager_backend.h"
 #include "content/common/features.h"
@@ -54,7 +52,8 @@ WebUIDomains GetWebUIDomains(const GURL& url) {
 // to share a process whilst maintaining independent SiteURLs to allow for
 // WebUIType differentiation.
 bool IsWebUIAndUsesTLDForProcessLockURL(const GURL& url) {
-  if (!base::Contains(URLDataManagerBackend::GetWebUISchemes(), url.scheme())) {
+  if (!std::ranges::contains(URLDataManagerBackend::GetWebUISchemes(),
+                             url.scheme())) {
     return false;
   }
 
@@ -311,7 +310,10 @@ SiteInfo SiteInfo::Create(const IsolationContext& isolation_context,
                   site_url, isolation_context, browser_context,
                   url_info.requests_coop_isolation(),
                   !url_info.oac_header_request.has_value(),
-                  url_info.is_sandboxed, url_info.is_pdf)
+                  url_info.is_sandboxed, url_info.is_pdf,
+                  url_info.cross_origin_isolation_key.has_value() &&
+                      url_info.cross_origin_isolation_key
+                          ->cross_origin_isolated_through_dip)
           ? GURL()
           : agent_cluster_key.GetURL();
   is_jitless =
@@ -662,11 +664,11 @@ std::string SiteInfo::GetDebugString() const {
                         ->common_coi_origin.GetDebugString();
     if (agent_cluster_key_.GetCrossOriginIsolationKey()
             ->cross_origin_isolation_mode ==
-        CrossOriginIsolationMode::kConcrete) {
+        blink::mojom::CrossOriginIsolationMode::kConcrete) {
       debug_string += ", concrete coi";
     } else if (agent_cluster_key_.GetCrossOriginIsolationKey()
                    ->cross_origin_isolation_mode ==
-               CrossOriginIsolationMode::kLogical) {
+               blink::mojom::CrossOriginIsolationMode::kLogical) {
       debug_string += ", logical coi";
     }
   }
@@ -686,7 +688,10 @@ bool SiteInfo::RequiresDedicatedProcess(
   return RequiresDedicatedProcessInternal(
       site_url_, isolation_context, browser_context,
       does_site_request_dedicated_process_for_coop_,
-      agent_cluster_key_.IsOriginKeyed(), is_sandboxed_, is_pdf_);
+      agent_cluster_key_.IsOriginKeyed(), is_sandboxed_, is_pdf_,
+      agent_cluster_key_.IsCrossOriginIsolated() &&
+          agent_cluster_key_.GetCrossOriginIsolationKey()
+              ->cross_origin_isolated_through_dip);
 }
 
 bool SiteInfo::ShouldLockProcessToSite(
@@ -709,7 +714,7 @@ bool SiteInfo::ShouldLockProcessToSite(
   // Most WebUI processes should be locked on all platforms.  The only exception
   // is NTP, handled via the separate callout to the embedder.
   const auto& webui_schemes = URLDataManagerBackend::GetWebUISchemes();
-  if (base::Contains(webui_schemes, site_url_.scheme())) {
+  if (std::ranges::contains(webui_schemes, site_url_.scheme())) {
     return GetContentClient()->browser()->DoesWebUIUrlRequireProcessLock(
         site_url_);
   }
@@ -1103,12 +1108,21 @@ bool SiteInfo::RequiresDedicatedProcessInternal(
     bool does_site_request_dedicated_process_for_coop,
     bool requires_origin_keyed_process,
     bool is_sandboxed,
-    bool is_pdf) {
+    bool is_pdf,
+    bool cross_origin_isolated_through_dip) {
 #if 0
   // If --site-per-process is enabled, site isolation is enabled everywhere.
   if (SiteIsolationPolicy::UseDedicatedProcessesForAllSites()) {
     return true;
   }
+
+  // If we have access to some form of SiteIsolation, require a dedicated
+  // process for content cross-origin isolated through DocumentIsolationPolicy.
+  if (SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled() &&
+      cross_origin_isolated_through_dip) {
+    return true;
+  }
+
 #endif
   // If there is a COOP header request to require a dedicated process for this
   // SiteInfo, honor it.  Note that we have already checked other eligibility

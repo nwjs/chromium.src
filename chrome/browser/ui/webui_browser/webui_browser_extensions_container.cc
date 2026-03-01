@@ -43,10 +43,11 @@ class WebUIBrowserExtensionsContainer::ActionInfo {
       : extensions_container_(extensions_container),
         browser_(browser),
         model_(std::move(model)),
-        model_subscription_(model_->RegisterUpdateObserver(base::BindRepeating(
-            &WebUIBrowserExtensionsContainer::NotifyOfOneAction,
-            base::Unretained(extensions_container_),
-            model_->GetId()))) {}
+        model_subscription_(
+            model_->RegisterIconUpdateObserver(base::BindRepeating(
+                &WebUIBrowserExtensionsContainer::NotifyOfOneAction,
+                base::Unretained(extensions_container_),
+                model_->GetId()))) {}
 
   ui::TrackedElement* GetAnchor() {
     // TODO(webium): Use the proper button once TrackedElement supports
@@ -167,7 +168,7 @@ WebUIBrowserExtensionsContainer::WebUIBrowserExtensionsContainer(
       window_(window),
       model_(*ToolbarActionsModel::Get(browser.profile())),
       extensions_menu_coordinator_(
-          std::make_unique<ExtensionsMenuCoordinator>(&browser_.get())) {
+          std::make_unique<ExtensionsMenuCoordinator>(&browser_.get(), this)) {
   CreateActions();
   observe_actions_.Observe(&model_.get());
 }
@@ -211,7 +212,7 @@ void WebUIBrowserExtensionsContainer::ToggleExtensionsMenu() {
     extensions_menu_coordinator_->Hide();
   } else {
     extensions_menu_coordinator_->Show(window_->GetExtensionsMenuButtonAnchor(),
-                                       this, this);
+                                       this);
   }
 }
 

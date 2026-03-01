@@ -5,17 +5,16 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.build.NullUtil.assertNonNull;
-import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
 
 import org.chromium.base.supplier.LazyOneshotSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
-import org.chromium.base.supplier.SettableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
@@ -43,16 +42,16 @@ public class TabGroupsPane extends PaneBase {
     private final LazyOneshotSupplier<TabGroupModelFilter> mTabGroupModelFilterSupplier;
     private final OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
     private final Supplier<PaneManager> mPaneManagerSupplier;
-    private final Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
-    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
-    private final SettableObservableSupplier<FullButtonData> mActionButtonSupplier =
+    private final Supplier<@Nullable TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
+    private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
+    private final SettableMonotonicObservableSupplier<FullButtonData> mActionButtonSupplier =
             ObservableSuppliers.createMonotonic();
     private final SettableNonNullObservableSupplier<Boolean> mHairlineVisibilitySupplier =
             ObservableSuppliers.createNonNull(false);
     private final DataSharingTabManager mDataSharingTabManager;
 
     private @Nullable TabGroupListCoordinator mTabGroupListCoordinator;
-    private final ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeSupplier;
+    private final MonotonicObservableSupplier<EdgeToEdgeController> mEdgeToEdgeSupplier;
 
     /**
      * @param context Used to inflate UI.
@@ -71,9 +70,9 @@ public class TabGroupsPane extends PaneBase {
             DoubleConsumer onToolbarAlphaChange,
             OneshotSupplier<ProfileProvider> profileProviderSupplier,
             Supplier<PaneManager> paneManagerSupplier,
-            Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            Supplier<@Nullable TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             DataSharingTabManager dataSharingTabManager) {
         super(PaneId.TAB_GROUPS, context, onToolbarAlphaChange);
         mTabGroupModelFilterSupplier = tabGroupModelFilterSupplier;
@@ -87,7 +86,7 @@ public class TabGroupsPane extends PaneBase {
                 new TabGroupCreationUiDelegate(
                         context,
                         modalDialogManagerSupplier,
-                        paneManagerSupplier,
+                        (Supplier<@Nullable PaneManager>) paneManagerSupplier,
                         mTabGroupModelFilterSupplier::get,
                         TabGroupCreationDialogManager::new);
         mActionButtonSupplier.set(
@@ -120,11 +119,11 @@ public class TabGroupsPane extends PaneBase {
             mTabGroupListCoordinator =
                     new TabGroupListCoordinator(
                             mContext,
-                            assumeNonNull(mTabGroupModelFilterSupplier.get()),
+                            assertNonNull(mTabGroupModelFilterSupplier.get()),
                             assertNonNull(mProfileProviderSupplier.get()),
-                            mPaneManagerSupplier.get(),
-                            mTabGroupUiActionHandlerSupplier.get(),
-                            mModalDialogManagerSupplier.get(),
+                            assertNonNull(mPaneManagerSupplier.get()),
+                            assertNonNull(mTabGroupUiActionHandlerSupplier.get()),
+                            assertNonNull(mModalDialogManagerSupplier.get()),
                             mHairlineVisibilitySupplier::set,
                             mEdgeToEdgeSupplier,
                             mDataSharingTabManager);
@@ -135,7 +134,7 @@ public class TabGroupsPane extends PaneBase {
     }
 
     @Override
-    public ObservableSupplier<FullButtonData> getActionButtonDataSupplier() {
+    public MonotonicObservableSupplier<FullButtonData> getActionButtonDataSupplier() {
         return mActionButtonSupplier;
     }
 

@@ -201,7 +201,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   void BindWebNNContextProvider(
       mojo::PendingReceiver<webnn::mojom::WebNNContextProvider>
           pending_receiver,
-      int client_id) override;
+      int client_id,
+      bool is_incognito) override;
 
   void GetVideoMemoryUsageStats(
       GetVideoMemoryUsageStatsCallback callback) override;
@@ -371,9 +372,9 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   void SetHostProcessId(base::ProcessId pid);
 #endif
 
-  using VisibilityChangedCallback =
-      base::RepeatingCallback<void(bool /*visible*/)>;
-  void SetVisibilityChangedCallback(VisibilityChangedCallback);
+  using PriorityChangedCallback =
+      base::RepeatingCallback<void(base::Process::Priority /*priority*/)>;
+  void SetPriorityChangedCallback(PriorityChangedCallback);
 
  private:
   void InitializeWithHostInternal(
@@ -538,7 +539,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   // Should only be accessed on the IO thread after creation.
   mojo::Receiver<mojom::GpuService> receiver_{this};
 
-  VisibilityChangedCallback visibility_changed_callback_;
+  PriorityChangedCallback priority_changed_callback_;
 
   base::ProcessId host_process_id_ = base::kNullProcessId;
 

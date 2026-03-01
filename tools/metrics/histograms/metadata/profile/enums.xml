@@ -404,6 +404,7 @@ chromium-metrics-reviews@google.com.
   <int value="40" label="kGlicView"/>
   <int value="41" label="kWaitingForGlicView"/>
   <int value="42" label="kWaitingForBookmarksImportOnFirstRun"/>
+  <int value="43" label="kSkillsDialog"/>
 </enum>
 
 <!-- LINT.IfChange(ProfileManagementFlowStep) -->
@@ -585,6 +586,24 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Child account"/>
   <int value="3" label="No account (signed-out)"/>
 </enum>
+
+<!-- LINT.IfChange(SigninUIErrorType) -->
+
+<enum name="SigninUIErrorType">
+  <int value="0" label="OK"/>
+  <int value="1" label="UsernameNotAllowedByPatternFromPrefs"/>
+  <int value="2" label="WrongReauthAccount"/>
+  <int value="3" label="AccountAlreadyUsedByAnotherProfile"/>
+  <int value="4" label="ProfileWasUsedByAnotherAccount"/>
+  <int value="5" label="FromGoogleServiceAuthError"/>
+  <int value="6" label="FromCredentialProviderUiExitCode"/>
+  <int value="7" label="NoProfile"/>
+  <int value="8" label="SigninDisallowed"/>
+  <int value="9" label="SigninCookiesDisallowed"/>
+  <int value="10" label="NoIdentityManager"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webui/signin/signin_ui_error.h:SigninUIErrorType) -->
 
 </enums>
 

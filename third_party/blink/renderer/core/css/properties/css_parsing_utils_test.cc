@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/css_view_value.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -85,16 +86,9 @@ double ConsumeAngleValue(String target) {
   // This function only works on calc() expressions that can be resolved at
   // parse time.
   CSSToLengthConversionData conversion_data(/*element=*/nullptr);
-  return ConsumeAngle(stream, *MakeContext(), std::nullopt)
-      ->ComputeDegrees(conversion_data);
-}
-
-double ConsumeAngleValue(String target, double min, double max) {
-  CSSParserTokenStream stream(target);
-  // This function only works on calc() expressions that can be resolved at
-  // parse time.
-  CSSToLengthConversionData conversion_data(/*element=*/nullptr);
-  return ConsumeAngle(stream, *MakeContext(), std::nullopt, min, max)
+  CSSParserLocalContext local_context =
+      CSSParserLocalContext::CreateWithoutPropertyForTest();
+  return ConsumeAngle(stream, *MakeContext(), local_context, std::nullopt)
       ->ComputeDegrees(conversion_data);
 }
 
@@ -108,11 +102,6 @@ TEST(CSSParsingUtilsTest, ConsumeAngles) {
   EXPECT_EQ(kMaxDegreeValue, ConsumeAngleValue("calc(infinity * 1deg)"));
   EXPECT_EQ(-kMaxDegreeValue, ConsumeAngleValue("calc(-infinity * 1deg)"));
   EXPECT_EQ(0, ConsumeAngleValue("calc(NaN * 1deg)"));
-
-  // Math function with min and max ranges
-
-  EXPECT_EQ(-100, ConsumeAngleValue("calc(-3.40282e+38deg)", -100, 100));
-  EXPECT_EQ(100, ConsumeAngleValue("calc(3.40282e+38deg)", -100, 100));
 }
 
 TEST(CSSParsingUtilsTest, AtIdent) {
@@ -222,13 +211,17 @@ TEST(CSSParsingUtilsTest, ConsumeAbsoluteColor) {
   auto ConsumeColorForTest = [](String css_text) {
     CSSParserTokenStream stream(css_text);
     CSSParserContext* context = MakeContext();
-    return ConsumeColor(stream, *context,
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    return ConsumeColor(stream, *context, local_context,
                         css_parsing_utils::ColorParserContext());
   };
   auto ConsumeAbsoluteColorForTest = [](String css_text) {
     CSSParserTokenStream stream(css_text);
     CSSParserContext* context = MakeContext();
-    return ConsumeAbsoluteColor(stream, *context);
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    return ConsumeAbsoluteColor(stream, *context, local_context);
   };
 
   struct {
@@ -264,7 +257,10 @@ TEST(CSSParsingUtilsTest, ConsumeAbsoluteColor) {
 TEST(CSSParsingUtilsTest, InternalColorsOnlyAllowedInUaMode) {
   auto ConsumeColorForTest = [](String css_text, CSSParserMode mode) {
     CSSParserTokenStream stream(css_text);
-    return css_parsing_utils::ConsumeColor(stream, *MakeContext(mode));
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    return css_parsing_utils::ConsumeColor(stream, *MakeContext(mode),
+                                           local_context);
   };
 
   struct {
@@ -310,13 +306,16 @@ TEST(CSSParsingUtilsTest, InternalColorsOnlyAllowedInUaMode) {
 TEST(CSSParsingUtilsTest, ConsumeColorRangePreservation) {
   const char* tests[] = {
       "color-mix(42deg)",
-      "color-contrast(42deg)",
+      "contrast-color(42deg)",
   };
   for (const char*& test : tests) {
     String input(test);
     SCOPED_TRACE(input);
     CSSParserTokenStream stream(input);
-    EXPECT_EQ(nullptr, css_parsing_utils::ConsumeColor(stream, *MakeContext()));
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    EXPECT_EQ(nullptr, css_parsing_utils::ConsumeColor(stream, *MakeContext(),
+                                                       local_context));
     EXPECT_EQ(test, stream.RemainingText());
   }
 }
@@ -325,8 +324,10 @@ TEST(CSSParsingUtilsTest, InternalPositionTryFallbacksInUAMode) {
   auto ConsumePositionTryFallbackForTest = [](String css_text,
                                               CSSParserMode mode) {
     CSSParserTokenStream stream(css_text);
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
     return css_parsing_utils::ConsumeSinglePositionTryFallback(
-        stream, *MakeContext(mode));
+        stream, *MakeContext(mode), local_context);
   };
 
   struct {
@@ -358,8 +359,10 @@ TEST(CSSParsingUtilsTest, InternalPositionTryFallbacksInUAMode) {
 TEST(CSSParsingUtilsTest, ConsumePositionTryFallbacksInUAMode) {
   String css_text = "block-start span-inline-end";
   CSSParserTokenStream stream(css_text);
+  CSSParserLocalContext local_context =
+      CSSParserLocalContext::CreateWithoutPropertyForTest();
   CSSValue* value = css_parsing_utils::ConsumePositionTryFallbacks(
-      stream, *MakeContext(kUASheetMode));
+      stream, *MakeContext(kUASheetMode), local_context);
   ASSERT_TRUE(value);
   EXPECT_EQ("block-start span-inline-end", value->CssText());
 }
@@ -424,8 +427,10 @@ TEST(CSSParsingUtilsTest, ConsumeProgressType) {
   };
   for (auto& expectation : expectations) {
     CSSParserTokenStream stream(expectation.input);
-    CSSValue* progress =
-        css_parsing_utils::ConsumeProgressType(stream, *MakeContext());
+    CSSParserLocalContext local_context =
+        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    CSSValue* progress = css_parsing_utils::ConsumeProgressType(
+        stream, *MakeContext(), local_context);
     if (!expectation.output) {
       EXPECT_FALSE(progress);
     } else {

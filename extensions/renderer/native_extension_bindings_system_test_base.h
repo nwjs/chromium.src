@@ -58,7 +58,7 @@ class TestIPCMessageSender : public IPCMessageSender {
   void SendRequestIPC(ScriptContext* context,
                       mojom::RequestParamsPtr params,
                       bool sync = false,
-                      bool* success = nullptr, ::base::Value::List* response = nullptr,
+                      bool* success = nullptr, ::base::ListValue* response = nullptr,
                       std::string* error = nullptr) override;
   MOCK_METHOD2(SendResponseAckIPC,
                void(ScriptContext* context, const base::Uuid& uuid));
@@ -79,12 +79,12 @@ class TestIPCMessageSender : public IPCMessageSender {
   MOCK_METHOD4(SendAddFilteredEventListenerIPC,
                void(ScriptContext* context,
                     const std::string& event_name,
-                    const base::Value::Dict& filter,
+                    const base::DictValue& filter,
                     bool is_lazy));
   MOCK_METHOD4(SendRemoveFilteredEventListenerIPC,
                void(ScriptContext* context,
                     const std::string& event_name,
-                    const base::Value::Dict& filter,
+                    const base::DictValue& filter,
                     bool remove_lazy_listener));
   MOCK_METHOD2(
       SendBindAutomationIPC,
@@ -104,7 +104,7 @@ class TestIPCMessageSender : public IPCMessageSender {
                     const ExtensionId& extension_id,
                     IPCMessageSender::ActivityLogCallType call_type,
                     const std::string& call_name,
-                    base::Value::List args,
+                    base::ListValue args,
                     const std::string& extra));
   const mojom::RequestParams* last_params() const { return last_params_.get(); }
 
@@ -159,6 +159,7 @@ class NativeExtensionBindingsSystemUnittest
   void set_allow_unregistered_contexts(bool allow_unregistered_contexts) {
     allow_unregistered_contexts_ = allow_unregistered_contexts;
   }
+  void DestroyBindingsSystem();
 
   // NativeExtensionBindingsSystem::Delegate implementation.
   ScriptContextSetIterable* GetScriptContextSet() override;

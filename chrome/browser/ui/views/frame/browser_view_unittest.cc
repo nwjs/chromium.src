@@ -61,6 +61,10 @@
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/controls/webview/webview.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
+#endif
+
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/recently_audible_helper.h"
 #endif
@@ -73,13 +77,12 @@ namespace {
 
 // Tab strip bounds depend on the window frame sizes.
 gfx::Point ExpectedTabStripRegionOrigin(BrowserView* browser_view) {
-  gfx::Rect tabstrip_bounds(
-      browser_view->browser_widget()
-          ->GetFrameView()
-          ->GetBoundsForTabStripRegion(
-              browser_view->tab_strip_view()->GetMinimumSize()));
-  gfx::Point tabstrip_region_origin(tabstrip_bounds.origin());
-  views::View::ConvertPointToTarget(browser_view->parent(), browser_view,
+  auto* const frame = browser_view->browser_widget()->GetFrameView();
+  const auto params = frame->GetBrowserLayoutParams();
+  gfx::Point tabstrip_region_origin = params.visual_client_area.origin();
+  tabstrip_region_origin.Offset(
+      params.leading_exclusion.ContentWithPadding().width(), 0);
+  views::View::ConvertPointToTarget(frame, browser_view,
                                     &tabstrip_region_origin);
   return tabstrip_region_origin;
 }
@@ -159,15 +162,19 @@ TEST_F(BrowserViewTest, BrowserView) {
 
 #if BUILDFLAG(IS_CHROMEOS)
 TEST_F(BrowserViewTest, OnTaskLockedBrowserView) {
-  ASSERT_TRUE(browser_view()->browser());
-  browser_view()->browser()->SetLockedForOnTask(true);
+  Browser* const browser = browser_view()->browser();
+  ASSERT_TRUE(browser);
+  ash::boca::OnTaskLockedController::From(browser)->set_locked_for_on_task(
+      true);
   EXPECT_FALSE(browser_view()->CanMinimize());
   EXPECT_FALSE(browser_view()->ShouldShowCloseButton());
 }
 
 TEST_F(BrowserViewTest, OnTaskUnlockedBrowserView) {
-  ASSERT_TRUE(browser_view()->browser());
-  browser_view()->browser()->SetLockedForOnTask(false);
+  Browser* const browser = browser_view()->browser();
+  ASSERT_TRUE(browser);
+  ash::boca::OnTaskLockedController::From(browser)->set_locked_for_on_task(
+      false);
   EXPECT_TRUE(browser_view()->CanMinimize());
   EXPECT_TRUE(browser_view()->ShouldShowCloseButton());
 }
@@ -711,47 +718,29 @@ TEST_F(BrowserViewHostedAppTest, Layout) {
   gfx::Point header_offset;
   views::View::ConvertPointToTarget(browser_view(), frame_view, &header_offset);
 
-  // The calculations are different for the new layout. The old layout is
-  // actually *wrong* but it passes the old version of the test below.
-  if (base::FeatureList::IsEnabled(features::kAppBrowserUseNewLayout)) {
-    const auto params = frame_view->GetBrowserLayoutParams();
+  const auto params = frame_view->GetBrowserLayoutParams();
 
 #if BUILDFLAG(IS_MAC)
-    // The system paints the caption area, so the contents start at the top of
-    // the layout.
-    const int bottom_of_header = 0;
+  // The system paints the caption area, so the contents start at the top of
+  // the layout.
+  const int bottom_of_header = 0;
 #else
-    // The position of the bottom of the header (the bar with the window
-    // controls) in the coordinates of the browser view.
-    const int bottom_of_header = base::ClampCeil(
-        std::max(params.leading_exclusion.ContentWithPadding().height(),
-                 params.trailing_exclusion.ContentWithPadding().height()));
+  // The position of the bottom of the header (the bar with the window
+  // controls) in the coordinates of the browser view.
+  const int bottom_of_header = base::ClampCeil(
+      std::max(params.leading_exclusion.ContentWithPadding().height(),
+               params.trailing_exclusion.ContentWithPadding().height()));
 #endif
 
-    // The top of the browser view in the coordinates of the frame.
-    const int top_inset = bottom_of_header + params.visual_client_area.y();
+  // The top of the browser view in the coordinates of the frame.
+  const int top_inset = bottom_of_header + params.visual_client_area.y();
 
-    // The web contents should be flush with the bottom of the header.
-    EXPECT_EQ(bottom_of_header, contents_container_y);
+  // The web contents should be flush with the bottom of the header.
+  EXPECT_EQ(bottom_of_header, contents_container_y);
 
-    // The find bar should be aligned with the bottom of the header in the
-    // coordinates of the frame.
-    EXPECT_EQ(top_inset, browser_view()->GetFindBarBoundingBox().y());
-
-  } else {
-    // The position of the bottom of the header (the bar with the window
-    // controls) in the coordinates of BrowserView.
-    const int top_inset =
-        browser_view()->browser_widget()->GetFrameView()->GetTopInset(false);
-    const int bottom_of_header = top_inset - header_offset.y();
-
-    // The web contents should be flush with the bottom of the header.
-    EXPECT_EQ(bottom_of_header, contents_container_y);
-
-    // The find bar should butt against the 1px header/web-contents separator at
-    // the bottom of the header.
-    EXPECT_EQ(top_inset, browser_view()->GetFindBarBoundingBox().y());
-  }
+  // The find bar should be aligned with the bottom of the header in the
+  // coordinates of the frame.
+  EXPECT_EQ(top_inset, browser_view()->GetFindBarBoundingBox().y());
 }
 
 using BrowserViewWindowTypeTest = BrowserWithTestWindowTest;

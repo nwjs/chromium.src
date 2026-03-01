@@ -110,6 +110,10 @@ class CONTENT_EXPORT RequestService
   // this method.
   void ResetAndDeleteThisForTesting();
 
+  void SetForceAllowRedirectToForTesting(bool allow) {
+    force_allow_redirect_to_for_testing_ = allow;
+  }
+
   // An overload of the mojo version of RequestToken. If |navigation_handle|
   // is provided, that handle is checked to see if user activation is present.
   // This is virtual so that it can be mocked.MockNavigationThrottleRegistry
@@ -129,6 +133,7 @@ class CONTENT_EXPORT RequestService
                        RequestUserInfoCallback) override;
   void CancelTokenRequest() override;
   void ResolveTokenRequest(const std::optional<std::string>& account_id,
+                           const std::optional<GURL>& redirect_to,
                            base::Value token,
                            ResolveTokenRequestCallback callback) override;
   void SetIdpSigninStatus(
@@ -157,6 +162,7 @@ class CONTENT_EXPORT RequestService
   void OnClose() override;
   bool OnResolve(GURL idp_config_url,
                  const std::optional<std::string>& account_id,
+                 const std::optional<GURL>& redirect_to,
                  const base::Value& token) override;
   void OnOriginMismatch(Method method,
                         const url::Origin& expected,
@@ -179,9 +185,6 @@ class CONTENT_EXPORT RequestService
   // Returns false when no identity registry could be created (e.g. this
   // is not in a context created by ShowModalDialog).
   bool SetupIdentityRegistryFromPopup();
-
-  // Rejects the pending request if it has not been resolved naturally yet.
-  void OnRejectRequest();
 
   // Returns whether the API is enabled or not.
   FederatedIdentityApiPermissionContextDelegate::PermissionStatus
@@ -391,6 +394,7 @@ class CONTENT_EXPORT RequestService
       blink::mojom::IdentityProviderRequestOptionsPtr idp,
       FetchStatus status,
       const GURL& redirect_to);
+  void RedirectTo(const GURL& idp_config_url, const GURL& redirect_to);
 
   // Called after we get at token (either from the ID assertion endpoint or
   // from IdentityProvider.resolve) to update our various permissions.
@@ -419,6 +423,19 @@ class CONTENT_EXPORT RequestService
       const MediationRequirement& requirement);
 
   void CleanUp();
+
+  // Records metrics and console errors.
+  void RecordMetricsAndConsoleError(
+      blink::mojom::FederatedAuthRequestResult result,
+      std::optional<RequestIdTokenStatus> token_status,
+      const std::optional<GURL>& selected_idp_config_url);
+
+  void CompleteRequestInternal(
+      blink::mojom::FederatedAuthRequestResult result,
+      std::optional<TokenError> token_error,
+      const std::optional<GURL>& selected_idp_config_url,
+      std::optional<base::Value> token_data,
+      bool is_auto_selected);
 
   std::unique_ptr<IdpNetworkRequestManager> CreateNetworkManager();
   std::unique_ptr<IdentityRequestDialogController> CreateDialogController();
@@ -534,7 +551,6 @@ class CONTENT_EXPORT RequestService
   base::TimeTicks accounts_dialog_display_time_;
   base::TimeTicks select_account_time_;
   base::TimeTicks id_assertion_response_time_;
-  bool errors_logged_to_console_{false};
   // This gets set at the beginning of a request. It indicates whether we
   // should bypass the delay to notify the renderer, for use in automated
   // tests when the delay is irrelevant to the test but slows it down
@@ -644,6 +660,12 @@ class CONTENT_EXPORT RequestService
   // Whether this RequestService can make top level redirections, available
   // currently only for interception-initiated requests.
   bool can_accept_redirect_to_{false};
+
+  // Whether the callback for the current request has been delayed.
+  bool complete_request_delayed_{false};
+
+  // Can be set to true in tests.
+  bool force_allow_redirect_to_for_testing_{false};
 
   mojo::Receiver<blink::mojom::FederatedAuthRequest> receiver_{this};
 

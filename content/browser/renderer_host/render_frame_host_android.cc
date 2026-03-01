@@ -44,19 +44,6 @@ using base::android::ScopedJavaLocalRef;
 namespace content {
 
 namespace {
-void OnGetCanonicalUrlForSharing(
-    const base::android::JavaRef<jobject>& jcallback,
-    const std::optional<GURL>& url) {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  if (!url) {
-    base::android::RunObjectCallbackAndroid(jcallback,
-                                            url::GURLAndroid::EmptyGURL(env));
-    return;
-  }
-
-  base::android::RunObjectCallbackAndroid(
-      jcallback, url::GURLAndroid::FromNativeGURL(env, url.value()));
-}
 
 void JavaScriptResultCallback(
     const base::android::ScopedJavaGlobalRef<jobject>& callback,
@@ -138,11 +125,8 @@ ScopedJavaLocalRef<jobject> RenderFrameHostAndroid::GetMainFrame(JNIEnv* env) {
 }
 
 void RenderFrameHostAndroid::GetCanonicalUrlForSharing(
-    JNIEnv* env,
-    const base::android::JavaRef<jobject>& jcallback) const {
-  render_frame_host_->GetCanonicalUrl(base::BindOnce(
-      &OnGetCanonicalUrlForSharing,
-      base::android::ScopedJavaGlobalRef<jobject>(env, jcallback)));
+    base::OnceCallback<void(const std::optional<GURL>&)> callback) const {
+  render_frame_host_->GetCanonicalUrl(std::move(callback));
 }
 
 std::vector<ScopedJavaLocalRef<jobject>>
@@ -155,9 +139,8 @@ RenderFrameHostAndroid::GetAllRenderFrameHosts(JNIEnv* env) const {
   return ret;
 }
 
-bool RenderFrameHostAndroid::IsFeatureEnabled(
-    JNIEnv* env,
-    jint feature) const {
+bool RenderFrameHostAndroid::IsFeatureEnabled(JNIEnv* env,
+                                              int32_t feature) const {
   return render_frame_host_->IsFeatureEnabled(
       static_cast<network::mojom::PermissionsPolicyFeature>(feature));
 }
@@ -196,7 +179,7 @@ bool RenderFrameHostAndroid::IsRenderFrameLive(JNIEnv* env) const {
 void RenderFrameHostAndroid::GetInterfaceToRendererFrame(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& interface_name,
-    jlong message_pipe_raw_handle) const {
+    int64_t message_pipe_raw_handle) const {
   DCHECK(render_frame_host_->IsRenderFrameLive());
   render_frame_host_->GetRemoteInterfaces()->GetInterfaceByName(
       ConvertJavaStringToUTF8(env, interface_name),
@@ -206,7 +189,7 @@ void RenderFrameHostAndroid::GetInterfaceToRendererFrame(
 
 void RenderFrameHostAndroid::TerminateRendererDueToBadMessage(
     JNIEnv* env,
-    jint reason) const {
+    int32_t reason) const {
   DCHECK_LT(reason, bad_message::BAD_MESSAGE_MAX);
   ReceivedBadMessage(render_frame_host_->GetProcess(),
                      static_cast<bad_message::BadMessageReason>(reason));
@@ -241,7 +224,7 @@ void RenderFrameHostAndroid::PerformGetAssertionWebAuthSecurityChecks(
                 callback,
                 Java_RenderFrameHostImpl_createWebAuthSecurityChecksResults(
                     base::android::AttachCurrentThread(),
-                    static_cast<jint>(status), is_cross_origin));
+                    static_cast<int32_t>(status), is_cross_origin));
           },
           base::android::ScopedJavaGlobalRef<jobject>(callback)));
 }
@@ -271,7 +254,7 @@ void RenderFrameHostAndroid::PerformMakeCredentialWebAuthSecurityChecks(
                 callback,
                 Java_RenderFrameHostImpl_createWebAuthSecurityChecksResults(
                     base::android::AttachCurrentThread(),
-                    static_cast<jint>(status), is_cross_origin));
+                    static_cast<int32_t>(status), is_cross_origin));
           },
           base::android::ScopedJavaGlobalRef<jobject>(callback)));
 }
@@ -291,19 +274,19 @@ void RenderFrameHostAndroid::PerformReportWebAuthSecurityChecks(
                 callback,
                 Java_RenderFrameHostImpl_createWebAuthSecurityChecksResults(
                     base::android::AttachCurrentThread(),
-                    static_cast<jint>(status), is_cross_origin));
+                    static_cast<int32_t>(status), is_cross_origin));
           },
           base::android::ScopedJavaGlobalRef<jobject>(callback)));
 }
 
-jint RenderFrameHostAndroid::GetLifecycleState(JNIEnv* env) const {
-  return static_cast<jint>(render_frame_host_->GetLifecycleState());
+int32_t RenderFrameHostAndroid::GetLifecycleState(JNIEnv* env) const {
+  return static_cast<int32_t>(render_frame_host_->GetLifecycleState());
 }
 
 void RenderFrameHostAndroid::ExecuteJavaScriptInIsolatedWorld(
     JNIEnv* env,
     const base::android::JavaRef<jstring>& jscript,
-    jint jworldId,
+    int32_t jworldId,
     const base::android::JavaRef<jobject>& jcallback) {
   if (!jcallback) {
     render_frame_host()->ExecuteJavaScriptInIsolatedWorld(
@@ -321,11 +304,8 @@ void RenderFrameHostAndroid::ExecuteJavaScriptInIsolatedWorld(
 }
 
 void RenderFrameHostAndroid::InsertVisualStateCallback(
-    JNIEnv* env,
-    const JavaRef<jobject>& jcallback) {
-  render_frame_host()->InsertVisualStateCallback(
-      base::BindOnce(&base::android::RunBooleanCallbackAndroid,
-                     base::android::ScopedJavaGlobalRef<jobject>(jcallback)));
+    base::OnceCallback<void(bool)> callback) {
+  render_frame_host()->InsertVisualStateCallback(std::move(callback));
 }
 
 bool RenderFrameHostAndroid::HasHitTestDataForTesting(JNIEnv* env) {

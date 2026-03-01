@@ -6,7 +6,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "android_webview/browser/aw_browser_permission_request_delegate.h"
@@ -15,7 +14,6 @@
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/common/aw_features.h"
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
@@ -32,6 +30,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 
@@ -156,7 +155,7 @@ class LastRequestResultCache {
     return requesting + "," + embedding;
   }
 
-  using StatusMap = std::unordered_map<std::string, PermissionStatus>;
+  using StatusMap = absl::flat_hash_map<std::string, PermissionStatus>;
   StatusMap pmi_result_cache_;
 };
 
@@ -216,7 +215,7 @@ class AwPermissionManager::PendingRequest {
   }
 
   bool HasPermissionType(PermissionType type) {
-    return base::Contains(permission_index_map_, type);
+    return permission_index_map_.contains(type);
   }
 
   bool IsCompleted() const {
@@ -352,7 +351,7 @@ void AwPermissionManager::RequestPermissions(
       case PermissionType::AUDIO_CAPTURE:
       case PermissionType::VIDEO_CAPTURE:
       case PermissionType::NOTIFICATIONS:
-      case PermissionType::DURABLE_STORAGE:
+      case PermissionType::PERSISTENT_STORAGE:
       case PermissionType::BACKGROUND_SYNC:
       case PermissionType::CLIPBOARD_READ_WRITE:
       case PermissionType::PAYMENT_HANDLER:
@@ -547,7 +546,7 @@ PermissionStatus AwPermissionManager::GetPermissionStatusInternal(
     case blink::PermissionType::CAPTURED_SURFACE_CONTROL:
     case blink::PermissionType::CLIPBOARD_READ_WRITE:
     case blink::PermissionType::DISPLAY_CAPTURE:
-    case blink::PermissionType::DURABLE_STORAGE:
+    case blink::PermissionType::PERSISTENT_STORAGE:
     case blink::PermissionType::HAND_TRACKING:
     case blink::PermissionType::IDLE_DETECTION:
     case blink::PermissionType::KEYBOARD_LOCK:
@@ -698,7 +697,7 @@ void AwPermissionManager::CancelPermissionRequest(int request_id) {
           delegate->CancelMIDISysexPermissionRequests(requesting_origin);
         break;
       case PermissionType::NOTIFICATIONS:
-      case PermissionType::DURABLE_STORAGE:
+      case PermissionType::PERSISTENT_STORAGE:
       case PermissionType::AUDIO_CAPTURE:
       case PermissionType::VIDEO_CAPTURE:
       case PermissionType::BACKGROUND_SYNC:

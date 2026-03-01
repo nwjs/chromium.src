@@ -24,6 +24,7 @@
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/installer/util/auto_launch_util.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
@@ -42,6 +43,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/shell.h"
+#include "chromeos/constants/chromeos_features.h"
 #endif
 
 using auto_launch_util::StartupLaunchMode;
@@ -71,6 +73,12 @@ class GlicBackgroundModeManagerUiTest : public test::InteractiveGlicTest {
               return std::make_unique<TestStartupLaunchManager>(
                   &browser_process);
             }));
+#if BUILDFLAG(IS_CHROMEOS)
+    feature_list_.InitWithFeatures(
+        {features::kGlicShowStatusTrayIcon,
+         chromeos::features::kSupportCustomIconsInStatusArea},
+        {});
+#endif
   }
 
   void TearDownOnMainThread() override {
@@ -126,13 +134,7 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, KeepAlive) {
 }
 
 // Checks that the status icon exists when the pref is enabled.
-// TODO(crbug.com/460829115): Enable on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_StatusIcon DISABLED_StatusIcon
-#else
-#define MAYBE_StatusIcon StatusIcon
-#endif
-IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, MAYBE_StatusIcon) {
+IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, StatusIcon) {
   ASSERT_FALSE(g_browser_process->status_tray()->HasStatusIconOfTypeForTesting(
       StatusTray::StatusIconType::GLIC_ICON));
 
@@ -236,6 +238,10 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, LaunchOnStartup) {
   auto* launch_manager = static_cast<TestStartupLaunchManager*>(
       StartupLaunchManager::From(g_browser_process));
 
+  // Disable foreground launch explicitly.
+  g_browser_process->local_state()->SetBoolean(
+      ::prefs::kForegroundLaunchOnLogin, false);
+
   EXPECT_CALL(*launch_manager,
               UpdateLaunchOnStartup({StartupLaunchMode::kBackground}))
       .Times(testing::Exactly(1));
@@ -300,10 +306,11 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, DeleteEligibleProfile) {
 
   // Delete the first profile and the glic launcher should not be in the
   // background since there are no profiles that are eligible to use glic.
+  ui_test_utils::BrowserDestroyedObserver observer(browser());
   profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
       browser()->profile()->GetPath(), base::DoNothing(),
       ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
-  ui_test_utils::WaitForBrowserToClose(browser());
+  observer.Wait();
   EXPECT_FALSE(background_mode_manager->IsInBackgroundModeForTesting());
   EXPECT_TRUE(g_browser_process->local_state()->GetBoolean(
       prefs::kGlicLauncherEnabled));

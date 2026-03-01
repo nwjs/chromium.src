@@ -27,14 +27,21 @@ BASE_FEATURE(kAutofillDedupeFormSubmission, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillFixXhrForXframe, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAutofillExtractFullUrlOnIOs, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAutofillFormSubmissionEventsInCaptureMode,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAutofillPaymentsSheetStateless,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillPaymentsSheetV2Ios, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillPaymentsSheetV3Ios, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillRefillForFormsIos, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAutofillUndoIos, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // LINT.IfChange(autofill_report_form_submission_errors)
 BASE_FEATURE(kAutofillReportFormSubmissionErrors,
@@ -44,14 +51,14 @@ BASE_FEATURE(kAutofillReportFormSubmissionErrors,
 BASE_FEATURE(kAutofillStickyInfobarIos, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillThrottleDocumentFormScanIos,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // Minimal period of time between the document form scanning batches.
 extern const base::FeatureParam<int> kAutofillDocumentFormScanPeriodMs = {
     &kAutofillThrottleDocumentFormScanIos,
     /*name=*/"period-ms", /*default_value=*/250};
 
 BASE_FEATURE(kAutofillThrottleDocumentFormScanForceFirstScanIos,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillThrottleFilteredDocumentFormScanIos,
              base::FEATURE_DISABLED_BY_DEFAULT);

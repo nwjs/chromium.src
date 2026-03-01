@@ -69,6 +69,12 @@ CameraSaveHandler::~CameraSaveHandler() {
   }
 }
 
+CameraSaveHandler::FileSaveDestination CameraSaveHandler::GetDestination()
+    const {
+  CHECK(delegate_);
+  return delegate_->GetDestination();
+}
+
 base::FilePath CameraSaveHandler::GetWritableRoot() const {
   CHECK(delegate_);
   switch (delegate_->GetDestination()) {
@@ -256,14 +262,15 @@ void CameraSaveHandler::OnUploadProgress(const base::FilePath& upload_from_path,
   UpdateProgressNotification();
 }
 
-void CameraSaveHandler::OnUploadDone(const base::FilePath& upload_from_path,
-                                     const gfx::Image& thumbnail,
-                                     bool success) {
+void CameraSaveHandler::OnUploadDone(
+    const base::FilePath& upload_from_path,
+    const gfx::Image& thumbnail,
+    bool success,
+    std::optional<base::FilePath> uploaded_path) {
   UntrackUpload(upload_from_path, success);
-  auto uploaded_file_path = GetFinalPath().Append(upload_from_path.BaseName());
+  auto uploaded_file_path = uploaded_path.value_or(
+      GetFinalPath().Append(upload_from_path.BaseName()));
   DCHECK(delegate_);
-  // TODO(crbug.com/454152412): Add unit tests for upload done handling and
-  // notifications.
   if (success) {
     CreateUploadDoneNotification(
         delegate_->GetDestination() == FileSaveDestination::kOneDrive,

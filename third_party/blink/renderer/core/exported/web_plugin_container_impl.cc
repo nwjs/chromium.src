@@ -186,6 +186,12 @@ void WebPluginContainerImpl::Paint(GraphicsContext& context,
         visual_rect);
   }
 
+  if (element_->GetTrackedElementRect()) {
+    const auto* tracked_element_rect = element_->GetTrackedElementRect();
+    context.GetPaintController().RecordTrackedElementData(
+        *GetLayoutEmbeddedContent(), *tracked_element_rect, visual_rect);
+  }
+
   if (layer_) {
     layer_->SetBounds(Size());
     layer_->SetIsDrawable(true);
@@ -858,7 +864,7 @@ void WebPluginContainerImpl::HandleDragEvent(MouseEvent& event) {
   if (drag_status == kWebDragStatusUnknown)
     return;
 
-  DataTransfer* data_transfer = event.getDataTransfer();
+  DataTransfer* data_transfer = event.dataTransfer();
   WebDragData drag_data = data_transfer->GetDataObject()->ToWebDragData();
   DragOperationsMask drag_operation_mask = data_transfer->SourceOperation();
   gfx::PointF drag_screen_location(event.screenX(), event.screenY());

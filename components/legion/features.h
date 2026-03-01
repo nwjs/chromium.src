@@ -14,11 +14,17 @@ namespace legion {
 // The feature for Legion.
 BASE_DECLARE_FEATURE(kLegion);
 
+// Feature flag to enable server attestation.
+BASE_DECLARE_FEATURE(kLegionSeverAttestation);
+
 // The API key for Legion.
 extern const base::FeatureParam<std::string> kLegionApiKey;
 
 // Endpoint for Legion
 extern const base::FeatureParam<std::string> kLegionUrl;
+
+// Endpoint for the Legion Proxy Server.
+extern const base::FeatureParam<std::string> kLegionProxyServerUrl;
 
 // Sets the name of the Legion auth token server.
 extern const base::FeatureParam<std::string> kLegionTokenServerUrl;

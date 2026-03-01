@@ -9,8 +9,14 @@
 
 #include <vector>
 
+#include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/native_ui_types.h"
+
+namespace base {
+class FilePath;
+}
 
 class Browser;
 class Profile;
@@ -78,6 +84,9 @@ class ElementContext;
 
 namespace chrome {
 
+using ProfileBrowsersCloseCallback =
+    base::RepeatingCallback<void(const base::FilePath&)>;
+
 // If you want to find the last active tabbed browser and create a new browser
 // if there are no tabbed browsers, use ScopedTabbedBrowserDisplayer.
 
@@ -92,27 +101,27 @@ namespace chrome {
 // in the corresponding display may be returned. Browsers that have closed and
 // are pending deletion are not returned.
 // WARNING: Do not use this method. See comment at top of file.
-Browser* FindTabbedBrowser(Profile* profile,
+Browser* FindTabbedBrowser(const Profile* profile,
                            bool match_original_profiles,
                            int64_t display_id = display::kInvalidDisplayId);
 
 // Returns an existing browser window of any kind.
 // WARNING: Do not use this method. See comment at top of file.
-Browser* FindAnyBrowser(Profile* profile, bool match_original_profiles);
+Browser* FindAnyBrowser(const Profile* profile, bool match_original_profiles);
 
 // Returns an existing browser window with the provided profile. Searches in the
 // order of last activation. Only browsers that have been active can be
 // returned. Returns nullptr if no such browser currently exists.
 // WARNING: Do not use this method. See comment at top of file.
-Browser* FindBrowserWithProfile(Profile* profile);
+Browser* FindBrowserWithProfile(const Profile* profile);
 
 // Returns all tabbed browsers with the provided profile. Returns an empty
 // vector if no such browsers currently exist.
-std::vector<Browser*> FindAllTabbedBrowsersWithProfile(Profile* profile);
+std::vector<Browser*> FindAllTabbedBrowsersWithProfile(const Profile* profile);
 
 // Returns all browsers of any type with the provided profile. Returns an empty
 // vector if no such browsers currently exist.
-std::vector<Browser*> FindAllBrowsersWithProfile(Profile* profile);
+std::vector<Browser*> FindAllBrowsersWithProfile(const Profile* profile);
 
 // Returns an existing browser with the provided ID. Returns nullptr if no such
 // browser currently exists.
@@ -219,6 +228,21 @@ bool IsOffTheRecordBrowserInUse(Profile* profile);
 
 // Returns the number of Guest browsers excluding DevTools windows.
 size_t GetGuestBrowserCount();
+
+// Closes all browsers for `profile` across all desktops. Uses
+// ProfileBrowserCollection and triggers any OnBeforeUnload events unless
+// `skip_beforeunload` is true. See the BrowserList variant for more details.
+void CloseAllBrowsersWithProfile(
+    Profile* profile,
+    bool skip_beforeunload,
+    const ProfileBrowsersCloseCallback& on_close_success = base::NullCallback(),
+    const ProfileBrowsersCloseCallback& on_close_aborted =
+        base::NullCallback());
+
+// Closes all browsers for the off-the-record `profile` without touching
+// browsers that use the original profile.
+void CloseAllBrowsersWithIncognitoProfile(Profile* profile,
+                                          bool skip_beforeunload = true);
 
 }  // namespace chrome
 

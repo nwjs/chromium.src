@@ -13,9 +13,9 @@ import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/cr_components/composebox/composebox.js';
 import 'chrome://resources/cr_components/composebox/threads_rail.js';
 
-import {GlifAnimationState} from '//resources/cr_components/composebox/context_menu_entrypoint.js';
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
+import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ContextualUpload} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox.js';
@@ -33,6 +33,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
@@ -318,8 +319,7 @@ export class AppElement extends AppElementBase {
       ntpNextFeaturesEnabled_: {type: Boolean},
       maxTilesBeforeShowMore_: {type: Number},
 
-      searchboxInputFocused_: {type: Boolean},
-      composeboxInputFocused_: {type: Boolean},
+      containerFocused_: {type: Boolean},
       /**
        * Whether the scrim is shown in Realbox Next.
        */
@@ -333,6 +333,10 @@ export class AppElement extends AppElementBase {
        * Whether to show the AIM threads rail when composebox is open.
        */
       enableThreadsRail_: {type: Boolean},
+      reducedMotionPreferred_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
@@ -412,13 +416,12 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('ntpNextFeaturesEnabled');
   protected accessor maxTilesBeforeShowMore_: number =
       loadTimeData.getInteger('maxTilesBeforeShowMore');
-  protected accessor searchboxInputFocused_: boolean = false;
-  protected accessor composeboxInputFocused_: boolean = false;
+  protected accessor containerFocused_: boolean = false;
   protected accessor showScrim_: boolean = false;
-  private reducedMotionPreferred_: boolean =
-      WindowProxy.getInstance()
-          .matchMedia('(prefers-reduced-motion: reduce)')
-          .matches;
+  private reducedMotionMediaQueryList_: MediaQueryList =
+      WindowProxy.getInstance().matchMedia('(prefers-reduced-motion: reduce)');
+  protected accessor reducedMotionPreferred_: boolean =
+      this.reducedMotionMediaQueryList_.matches;
   protected accessor contextMenuGlifAnimationState_: GlifAnimationState =
       !this.reducedMotionPreferred_ && this.ntpNextFeaturesEnabled_ &&
           this.isActionChipsVisible_ ?
@@ -454,6 +457,7 @@ export class AppElement extends AppElementBase {
   private pendingComposeboxText_: string = '';
   private pendingComposeboxMode_: ToolMode = ToolMode.kUnspecified;
   private pendingComposeboxModel_: ModelMode = ModelMode.kUnspecified;
+  private pendingComposeboxInputState_: InputState|null = null;
   private pendingAutoRemovalToasts_:
       Array<{message: string, undo: () => void}> = [];
 
@@ -510,7 +514,9 @@ export class AppElement extends AppElementBase {
   override connectedCallback() {
     super.connectedCallback();
     realboxCanShowSecondarySideMediaQueryList.addEventListener(
-        'change', this.onRealboxCanShowSecondarySideChanged_.bind(this));
+        'change', this.onRealboxCanShowSecondarySideChanged_);
+    this.reducedMotionMediaQueryList_.addEventListener(
+        'change', this.onReducedMotionChanged_);
 
     // Listen for chrome-untrusted://ntp-microsoft-auth iframe trying to
     // connect to the NTP.
@@ -622,7 +628,9 @@ export class AppElement extends AppElementBase {
   override disconnectedCallback() {
     super.disconnectedCallback();
     realboxCanShowSecondarySideMediaQueryList.removeEventListener(
-        'change', this.onRealboxCanShowSecondarySideChanged_.bind(this));
+        'change', this.onRealboxCanShowSecondarySideChanged_);
+    this.reducedMotionMediaQueryList_.removeEventListener(
+        'change', this.onReducedMotionChanged_);
     this.callbackRouter_.removeListener(
         this.connectMicrosoftAuthToParentDocumentListenerId_!);
     this.callbackRouter_.removeListener(this.setThemeListenerId_!);
@@ -701,8 +709,7 @@ export class AppElement extends AppElementBase {
     if (this.ntpRealboxNextEnabled_ && [
           'showComposebox_',
           'showLensUploadDialog_',
-          'searchboxInputFocused_',
-          'composeboxInputFocused_',
+          'containerFocused_',
         ].some((prop) => changedPrivateProperties.has(prop))) {
       /**
        * The current requirement is that the scrim should be shown when the
@@ -716,11 +723,9 @@ export class AppElement extends AppElementBase {
        * - Without it:
        *   1. A click outside is made.
        *   2. The focusout event first occurs.
-       *   3. composeboxInputFocused_ is set to false.
+       *   3. containerFocused_ is set to false.
        *   4. The scrim is removed.
        *   5. The click event fires.
-       *   6. Since there is no scrim, the onclick handle of the scrim is not
-       *      called.
        * - With it:
        *   1-3. same as above
        *   4. The scrim is kept since showComposebox_ is still true.
@@ -728,7 +733,7 @@ export class AppElement extends AppElementBase {
        *      false, and everything works as desired.
        */
       this.showScrim_ = this.showComposebox_ || this.showLensUploadDialog_ ||
-          this.searchboxInputFocused_ || this.composeboxInputFocused_;
+          this.containerFocused_;
     }
   }
 
@@ -817,9 +822,7 @@ export class AppElement extends AppElementBase {
   }
 
   private computeBackgroundImageAttributionUrl_(): string {
-    return this.theme_ && this.theme_.backgroundImageAttributionUrl ?
-        this.theme_.backgroundImageAttributionUrl.url :
-        '';
+    return this.theme_ && this.theme_.backgroundImageAttributionUrl || '';
   }
 
   private computeRealboxShown_(): boolean {
@@ -835,9 +838,13 @@ export class AppElement extends AppElementBase {
          this.modulesLoadedStatus_ === ModuleLoadStatus.MODULE_LOAD_COMPLETE);
   }
 
-  private onRealboxCanShowSecondarySideChanged_(e: MediaQueryListEvent) {
+  private onRealboxCanShowSecondarySideChanged_ = (e: MediaQueryListEvent) => {
     this.realboxCanShowSecondarySide = e.matches;
-  }
+  };
+
+  private onReducedMotionChanged_ = (e: MediaQueryListEvent) => {
+    this.reducedMotionPreferred_ = e.matches;
+  };
 
   private onLazyRendered_() {
     // Integration tests use this attribute to determine when lazy load has
@@ -863,16 +870,18 @@ export class AppElement extends AppElementBase {
 
   protected onComposeboxInitialized_(e: CustomEvent<{
     initializeComposeboxState:
-        (text: string, files: ContextualUpload[], mode: ToolMode,
-         model: number) => void,
+        (text: string, files: ContextualUpload[], mode: ToolMode, model: number,
+         inputState: InputState|null) => void,
   }>) {
     e.detail.initializeComposeboxState(
         this.pendingComposeboxText_, this.pendingComposeboxContextFiles_,
-        this.pendingComposeboxMode_, this.pendingComposeboxModel_);
+        this.pendingComposeboxMode_, this.pendingComposeboxModel_,
+        this.pendingComposeboxInputState_);
     this.pendingComposeboxContextFiles_ = [];
     this.pendingComposeboxText_ = '';
     this.pendingComposeboxMode_ = ToolMode.kUnspecified;
     this.pendingComposeboxModel_ = ModelMode.kUnspecified;
+    this.pendingComposeboxInputState_ = null;
   }
 
   protected openComposebox_(e: CustomEvent<{
@@ -880,6 +889,7 @@ export class AppElement extends AppElementBase {
     contextFiles: ContextualUpload[],
     mode: ToolMode,
     model: ModelMode,
+    inputState: InputState|null,
   }>) {
     if (e.detail.searchboxText) {
       this.pendingComposeboxText_ = e.detail.searchboxText;
@@ -889,6 +899,7 @@ export class AppElement extends AppElementBase {
     }
     this.pendingComposeboxMode_ = e.detail.mode;
     this.pendingComposeboxModel_ = e.detail.model;
+    this.pendingComposeboxInputState_ = e.detail.inputState;
     this.toggleComposebox_();
   }
 
@@ -909,6 +920,7 @@ export class AppElement extends AppElementBase {
     if (this.showLensUploadDialog_) {
       this.onCloseLensSearch_();
     }
+    this.containerFocused_ = false;
   }
 
   protected onComposeboxClickOutside_() {
@@ -1423,22 +1435,23 @@ export class AppElement extends AppElementBase {
     return !!this.theme_?.backgroundImage?.attributionUrl;
   }
 
-  protected onInputFocusChanged_(e: CustomEvent<{value: boolean}>) {
-    switch (e.type) {
-      case 'searchbox-input-focus-changed':
-        this.searchboxInputFocused_ = e.detail.value;
-        break;
-      case 'composebox-input-focus-changed':
-        this.composeboxInputFocused_ = e.detail.value;
-        break;
-      default:
-        assertNotReached();
-    }
-  }
-
   protected onRealboxHadSecondarySideChanged_(
       e: CustomEvent<{value: boolean}>) {
     this.realboxHadSecondarySide = e.detail.value;
+  }
+
+  protected onSearchboxContainerFocusIn_() {
+    if (this.ntpRealboxNextEnabled_) {
+      this.containerFocused_ = true;
+    }
+  }
+
+  protected onSearchboxContainerFocusOut_() {
+    if (this.ntpRealboxNextEnabled_) {
+      this.containerFocused_ =
+          this.shadowRoot.getElementById('searchboxContainer')!.matches(
+              ':focus-within');
+    }
   }
 
   protected onModulesShownToUserChanged_(e: CustomEvent<{value: boolean}>) {
@@ -1447,11 +1460,11 @@ export class AppElement extends AppElementBase {
 
   protected onActionChipsRetrievalStateChanged_(
       e: CustomEvent<{state: ActionChipsRetrievalState}>) {
-    const state = e.detail.state;
     if (this.reducedMotionPreferred_) {
       // The animation should not be started.
       return;
     }
+    const state = e.detail.state;
     // Mapping of ActionChipsRetrievalState => GlifAnimationState:
     // REQUESTED => SPINNER_ONLY
     // UPDATED => STARTED (or FINISHED if cr_context_menu_entrypoint sets it)

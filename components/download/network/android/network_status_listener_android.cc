@@ -18,18 +18,17 @@ NetworkStatusListenerAndroid::~NetworkStatusListenerAndroid() = default;
 
 void NetworkStatusListenerAndroid::OnNetworkStatusReady(
     JNIEnv* env,
-    jint connectionType) {
+    int32_t connectionType) {
   DCHECK(observer_);
-  using ConnectionType = network::mojom::ConnectionType;
+  using ConnectionType = net::NetworkChangeNotifier::ConnectionType;
   ConnectionType connection_type = static_cast<ConnectionType>(connectionType);
   observer_->OnNetworkStatusReady(connection_type);
 }
 
-void NetworkStatusListenerAndroid::NotifyNetworkChange(
-    JNIEnv* env,
-    jint connectionType) {
+void NetworkStatusListenerAndroid::NotifyNetworkChange(JNIEnv* env,
+                                                       int32_t connectionType) {
   DCHECK(observer_);
-  using ConnectionType = network::mojom::ConnectionType;
+  using ConnectionType = net::NetworkChangeNotifier::ConnectionType;
   ConnectionType connection_type = static_cast<ConnectionType>(connectionType);
   observer_->OnNetworkChanged(connection_type);
 }
@@ -50,12 +49,13 @@ void NetworkStatusListenerAndroid::Stop() {
       base::android::AttachCurrentThread(), java_obj_);
 }
 
-network::mojom::ConnectionType
+net::NetworkChangeNotifier::ConnectionType
 NetworkStatusListenerAndroid::GetConnectionType() {
   int connection_type =
       Java_NetworkStatusListenerAndroid_getCurrentConnectionType(
           base::android::AttachCurrentThread(), java_obj_);
-  return static_cast<network::mojom::ConnectionType>(connection_type);
+  return static_cast<net::NetworkChangeNotifier::ConnectionType>(
+      connection_type);
 }
 
 }  // namespace download

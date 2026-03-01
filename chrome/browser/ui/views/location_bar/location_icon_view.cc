@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 
 #include "base/functional/bind.h"
+#include "base/trace_event/trace_event.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
@@ -125,6 +126,11 @@ bool LocationIconView::ShowBubble(const ui::Event& event) {
 bool LocationIconView::IsBubbleShowing() const {
   return PageInfoBubbleView::GetShownBubbleType() !=
          PageInfoBubbleView::BUBBLE_NONE;
+}
+
+void LocationIconView::OnGestureEvent(ui::GestureEvent* event) {
+  delegate_->OnLocationIconGestureEvent(event);
+  IconLabelBubbleView::OnGestureEvent(event);
 }
 
 bool LocationIconView::OnMousePressed(const ui::MouseEvent& event) {
@@ -357,6 +363,7 @@ void LocationIconView::OnIconFetched(const gfx::Image& image) {
 
 void LocationIconView::Update(bool suppress_animations,
                               bool force_hide_background) {
+  TRACE_EVENT("omnibox", "LocationIconView::Update");
   UpdateTextVisibility(suppress_animations);
   UpdateBorder();
   // Update the background before the icon, since the vector icon

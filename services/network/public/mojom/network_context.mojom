@@ -25,6 +25,7 @@ import "services/network/public/mojom/cookie_setting_overrides.mojom";
 import "services/network/public/mojom/cors_origin_pattern.mojom";
 import "services/network/public/mojom/cross_origin_embedder_policy.mojom";
 import "services/network/public/mojom/ct_policy.mojom";
+import "services/network/public/mojom/originating_process.mojom";
 import "services/network/public/mojom/default_credentials.mojom";
 import "services/network/public/mojom/device_bound_sessions.mojom";
 import "services/network/public/mojom/devtools_observer.mojom";
@@ -587,10 +588,6 @@ struct NetworkContextParams {
   // |bound_network|.
   int64 bound_network = -1;
 
-  // Stores mapping of endpoint name to endpoint url from initial reporting
-  // endpoints set by the ReportingEndpoints enterprise policy.
-  map<string, url.mojom.Url>? enterprise_reporting_endpoints;
-
   // Enables usage of net::dns::StaleHostResolver. This is only available
   // as opt-in in Android. This will be used during constructing
   // the URLRequestContextOwner object in the NetworkContext.
@@ -601,8 +598,7 @@ struct NetworkContextParams {
   // gets applied while constructing NetworkContext by updating the quic_params.
   int64? quic_idle_connection_timeout_seconds;
 
-  // If true, the HTTP cache will be encrypted on disk. For now, this only
-  // switches the backend on Windows.
+  // If true, the HTTP cache will be encrypted on disk.
   bool enable_encrypted_http_cache = false;
 
   // If set, the network process will use the remote to reach the unexportable
@@ -769,16 +765,16 @@ struct URLLoaderFactoryParams {
   // since only the Browser process should be able to call
   // NetworkContext::CreateURLLoaderFactory.)
   //
-  // Set to kBrowserProcessId to indicate the browser process.
-  // SECURITY NOTE: Factories with kBrowserProcessId should not be sent
-  // to untrustworthy processes.
+  // Set to `network.mojom.BrowserProcess` to indicate the browser process.
+  // SECURITY NOTE: Factories with `network.mojom.BrowserProcess` should not be
+  // sent to untrustworthy processes.
   //
-  // Set to RenderProcessHost::GetDeprecatedID() to indicate a renderer
-  // process.
+  // Set to `network.mojom.RendererProcess` with `process_id` set to
+  // RenderProcessHost::GetID() to indicate a renderer process.
   // SECURITY NOTE: Factories should not be shared among multiple renderer
   // processes (e.g. |request_initiator_origin_lock| is specific to a single
   // renderer process).
-  int32 process_id = kInvalidProcessId;
+  network.mojom.OriginatingProcess process_id;
 
   // If specified, then |request_initiator_origin_lock| locks
   // |ResourceRequest::request_initiator| to the specified origin.
@@ -1204,12 +1200,6 @@ interface NetworkContext {
       IsolationInfo isolation_info,
       map<string, string> endpoints);
 
-  // Configures reporting endpoints set by the ReportingEndpoints enterprise
-  // policy.
-  // `endpoints` is a mapping of endpoint name to URL (URLs will be rejected if
-  // they fail to parse or are not secure).
-  SetEnterpriseReportingEndpoints(map<string, url.mojom.Url> endpoints);
-
   // Queues any outstanding reports for a single |reporting_source| (which
   // must not be empty), and removes the reporting endpoint configuration for
   // that source. This is called when the reporting source (document or worker)
@@ -1449,7 +1439,7 @@ interface NetworkContext {
       StorageAccessApiStatus storage_access_api_status,
       IsolationInfo isolation_info,
       array<HttpHeader> additional_headers,
-      int32 process_id,
+      network.mojom.OriginatingProcess process_id,
       url.mojom.Origin origin,
       ClientSecurityState client_security_state,
       uint32 options,
@@ -1494,13 +1484,19 @@ interface NetworkContext {
   // initiated from.
   // `keepalive_config` specifies keep-alive behavior such as periodic ping or
   // reconnect notifier.
-  // The preconnect is aborted if network access is disabled for
-  // `network_anonymization_key->GetNonce()`.
+  // The preconnect is aborted if
+  // 1. network access is disabled for `network_anonymization_key->GetNonce()`.
+  // 2. or the url is blocked by the connection-allowlist associated with the
+  // `network_restrictions_id`. Please see: crbug.com/447954811.
+  // More context on network revocation and connection-allowlist is in the
+  // comment for `RevokeNetworkForNonces()`. If `network_restrictions_id` is
+  // nullopt, connection-allowlist is not enforced on the preconnect.
   PreconnectSockets(
       uint32 num_streams,
       url.mojom.Url url,
       network.mojom.CredentialsMode credentials_mode,
       NetworkAnonymizationKey network_anonymization_key,
+      mojo_base.mojom.UnguessableToken? network_restrictions_id,
       MutableNetworkTrafficAnnotationTag traffic_annotation,
       ConnectionKeepAliveConfig? keepalive_config,
       pending_remote<ConnectionChangeObserverClient>? observer_client);

@@ -121,16 +121,18 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.PRECONNECT,
                 Features.HYPERLINK_CONTEXT_MENU_ITEMS + Features.DEV_SUFFIX,
                 Features.ASYNC_WEBVIEW_STARTUP_ASYNC_STARTUP_LOCATIONS + Features.DEV_SUFFIX,
-                Features.PAGE_IS_PRERENDERING,
                 Features.CUSTOM_REQUEST_HEADERS,
                 Features.RENDERER_LIBRARY_PREFETCH_MODE + Features.DEV_SUFFIX,
                 Features.WEB_VIEW_NAVIGATION_LISTENER_V1,
                 Features.ADD_QUIC_HINTS_V1,
                 Features.ON_NAVIGATION_COMPLETED_NON_COMMITTED,
                 Features.COMMITTED_NAVIGATION_GET_PAGE_NON_NULL,
-                Features.BACK_FORWARD_CACHE_SETTINGS_V2 + Features.DEV_SUFFIX,
                 Features.WEB_VIEW_NAVIGATION_LISTENER_V2,
                 Features.WEBVIEW_BUILDER_V2 + Features.DEV_SUFFIX,
+                Features.BACK_FORWARD_CACHE_SETTINGS_V3,
+                Features.PAGE_GET_URL,
+                Features.JS_INJECTION_IN_FRAME_AND_WORLD,
+                Features.NAVIGATION_GET_WEB_RESOURCE_ERROR + Features.DEV_SUFFIX,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -301,7 +303,6 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.BACK_FORWARD_CACHE_SETTINGS_GET_MAX_PAGES_IN_CACHE,
         ApiCall.PRECONNECT,
         ApiCall.SET_HYPERLINK_CONTEXT_MENU_ITEMS,
-        ApiCall.PAGE_IS_PRERENDERING,
         ApiCall.ADD_ORIGIN_MATCHED_HEADER,
         ApiCall.GET_ORIGIN_MATCHED_HEADERS,
         ApiCall.SET_RENDERER_LIBRARY_PREFETCH_MODE,
@@ -311,6 +312,14 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.ADD_NAVIGATION_LISTENER,
         ApiCall.REMOVE_NAVIGATION_LISTENER,
         ApiCall.ADD_QUIC_HINTS,
+        ApiCall.PAGE_GET_URL,
+        ApiCall.JS_REPLY_EXECUTE_JS,
+        ApiCall.NAVIGATION_GET_WEB_RESOURCE_ERROR,
+        ApiCall.ADD_JAVA_SCRIPT_ON_EVENT,
+        ApiCall.REMOVE_JAVA_SCRIPT_ON_EVENT,
+        ApiCall.ADD_WEB_MESSAGE_LISTENER_WITH_WORLD,
+        ApiCall.REMOVE_WEB_MESSAGE_LISTENER_WITH_WORLD,
+        ApiCall.GET_JAVA_SCRIPT_WORLD,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -480,7 +489,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int BACK_FORWARD_CACHE_SETTINGS_GET_MAX_PAGES_IN_CACHE = 158;
         int PRECONNECT = 159;
         int SET_HYPERLINK_CONTEXT_MENU_ITEMS = 160;
-        int PAGE_IS_PRERENDERING = 161;
+        @Deprecated int PAGE_IS_PRERENDERING = 161;
         int ADD_ORIGIN_MATCHED_HEADER = 162;
         int GET_ORIGIN_MATCHED_HEADERS = 163;
         int SET_RENDERER_LIBRARY_PREFETCH_MODE = 164;
@@ -490,8 +499,16 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int ADD_NAVIGATION_LISTENER = 168;
         int REMOVE_NAVIGATION_LISTENER = 169;
         int ADD_QUIC_HINTS = 170;
+        int PAGE_GET_URL = 171;
+        int JS_REPLY_EXECUTE_JS = 172;
+        int NAVIGATION_GET_WEB_RESOURCE_ERROR = 173;
+        int ADD_JAVA_SCRIPT_ON_EVENT = 174;
+        int REMOVE_JAVA_SCRIPT_ON_EVENT = 175;
+        int ADD_WEB_MESSAGE_LISTENER_WITH_WORLD = 176;
+        int REMOVE_WEB_MESSAGE_LISTENER_WITH_WORLD = 177;
+        int GET_JAVA_SCRIPT_WORLD = 178;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 171;
+        int COUNT = 179;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)

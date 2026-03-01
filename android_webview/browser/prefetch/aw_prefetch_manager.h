@@ -5,6 +5,12 @@
 #ifndef ANDROID_WEBVIEW_BROWSER_PREFETCH_AW_PREFETCH_MANAGER_H_
 #define ANDROID_WEBVIEW_BROWSER_PREFETCH_AW_PREFETCH_MANAGER_H_
 
+#include <jni.h>
+
+#include <optional>
+#include <vector>
+
+#include "base/android/scoped_java_ref.h"
 #include "base/containers/circular_deque.h"
 #include "base/memory/raw_ref.h"
 #include "content/public/browser/browser_context.h"
@@ -78,23 +84,34 @@ class AwPrefetchManager {
       const base::android::JavaRef<jobject>& callback,
       const base::android::JavaRef<jobject>& callback_executor);
 
-  void CancelPrefetch(JNIEnv* env, jint prefetch_key);
+  void CancelPrefetch(JNIEnv* env, int32_t prefetch_key);
 
-  bool GetIsPrefetchInCacheForTesting(JNIEnv* env, jint prefetch_key);
+  // Registers an external experiment (synthetic trial) in UMA for the current
+  // prefetch request. The experiment ID is derived from the Variations ID
+  // provided by the embedder.
+  //
+  // This is called during `StartPrefetchRequest()` to ensure the metrics state
+  // reflects the parameters of the most recent request. If no Variations ID is
+  // provided, any previously registered prefetch experiment will be cleared.
+  void SetOrClearExternalPrefetchExperiment(std::optional<int> variations_id);
+
+  bool GetIsPrefetchInCacheForTesting(JNIEnv* env, int32_t prefetch_key);
 
   // Updates Time-To-Live (TTL) for the prefetched content in seconds.
-  void SetTtlInSec(JNIEnv* env, jint ttl_in_sec) { ttl_in_sec_ = ttl_in_sec; }
+  void SetTtlInSec(JNIEnv* env, int32_t ttl_in_sec) {
+    ttl_in_sec_ = ttl_in_sec;
+  }
 
   // Updates the maximum number of allowed prefetches in cache
-  void SetMaxPrefetches(JNIEnv* env, jint max_prefetches) {
+  void SetMaxPrefetches(JNIEnv* env, int32_t max_prefetches) {
     max_prefetches_ = std::min(max_prefetches, ABSOLUTE_MAX_PREFETCHES);
   }
 
   // Returns the Time-to-Live (TTL) for prefetched content in seconds.
-  jint GetTtlInSec(JNIEnv* env) const { return ttl_in_sec_; }
+  int32_t GetTtlInSec(JNIEnv* env) const { return ttl_in_sec_; }
 
   // Returns the maximum number of allowed prefetches in cache.
-  jint GetMaxPrefetches(JNIEnv* env) const { return max_prefetches_; }
+  int32_t GetMaxPrefetches(JNIEnv* env) const { return max_prefetches_; }
 
   // Returns the key associated with the prefetch handle inside of
   // `all_prefetches_map_`.

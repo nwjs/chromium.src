@@ -16,11 +16,11 @@ namespace syncer {
 
 namespace {
 
-static_assert(60 == syncer::GetNumDataTypes(),
+static_assert(61 == syncer::GetNumDataTypes(),
               "When adding a new type, update enum SyncDataTypes in enums.xml "
               "and suffix SyncDataType in histograms.xml.");
 
-static_assert(60 == syncer::GetNumDataTypes(),
+static_assert(61 == syncer::GetNumDataTypes(),
               "When adding a new type, follow the integration checklist in "
               "https://www.chromium.org/developers/design-documents/sync/"
               "integration-checklist/");
@@ -117,6 +117,7 @@ constexpr kSpecificsFieldNumberToDataTypeMap specifics_field_number2data_type =
         {sync_pb::EntitySpecifics::kAiThreadFieldNumber, AI_THREAD},
         {sync_pb::EntitySpecifics::kContextualTaskFieldNumber, CONTEXTUAL_TASK},
         {sync_pb::EntitySpecifics::kSkillFieldNumber, SKILL},
+        {sync_pb::EntitySpecifics::kGeminiThreadFieldNumber, GEMINI_THREAD},
         // ---- Control Types ----
         {sync_pb::EntitySpecifics::kNigoriFieldNumber, NIGORI},
     });
@@ -305,6 +306,9 @@ void AddDefaultFieldValue(DataType type, sync_pb::EntitySpecifics* specifics) {
     case SKILL:
       specifics->mutable_skill();
       break;
+    case GEMINI_THREAD:
+      specifics->mutable_gemini_thread();
+      break;
   }
 }
 
@@ -441,6 +445,8 @@ int GetSpecificsFieldNumberFromDataType(DataType data_type) {
       return sync_pb::EntitySpecifics::kNigoriFieldNumber;
     case SKILL:
       return sync_pb::EntitySpecifics::kSkillFieldNumber;
+    case GEMINI_THREAD:
+      return sync_pb::EntitySpecifics::kGeminiThreadFieldNumber;
   }
   NOTREACHED();
 }
@@ -457,194 +463,23 @@ void internal::GetDataTypeSetFromSpecificsFieldNumberListHelper(
 }
 
 DataType GetDataTypeFromSpecifics(const sync_pb::EntitySpecifics& specifics) {
-  static_assert(60 == syncer::GetNumDataTypes(),
-                "When adding new protocol types, the following type lookup "
-                "logic must be updated.");
-  if (specifics.has_bookmark()) {
-    return BOOKMARKS;
-  }
-  if (specifics.has_preference()) {
-    return PREFERENCES;
-  }
-  if (specifics.has_password()) {
-    return PASSWORDS;
-  }
-  if (specifics.has_autofill_profile()) {
-    return AUTOFILL_PROFILE;
-  }
-  if (specifics.has_autofill()) {
-    return AUTOFILL;
-  }
-  if (specifics.has_autofill_wallet()) {
-    return AUTOFILL_WALLET_DATA;
-  }
-  if (specifics.has_wallet_metadata()) {
-    return AUTOFILL_WALLET_METADATA;
-  }
-  if (specifics.has_theme()) {
-    return THEMES;
-  }
-  if (specifics.has_extension()) {
-    return EXTENSIONS;
-  }
-  if (specifics.has_search_engine()) {
-    return SEARCH_ENGINES;
-  }
-  if (specifics.has_session()) {
-    return SESSIONS;
-  }
-  if (specifics.has_app()) {
-    return APPS;
-  }
-  if (specifics.has_app_setting()) {
-    return APP_SETTINGS;
-  }
-  if (specifics.has_extension_setting()) {
-    return EXTENSION_SETTINGS;
-  }
-  if (specifics.has_history_delete_directive()) {
-    return HISTORY_DELETE_DIRECTIVES;
-  }
-  if (specifics.has_dictionary()) {
-    return DICTIONARY;
-  }
-  if (specifics.has_device_info()) {
-    return DEVICE_INFO;
-  }
-  if (specifics.has_priority_preference()) {
-    return PRIORITY_PREFERENCES;
-  }
-  if (specifics.has_managed_user_setting()) {
-    return SUPERVISED_USER_SETTINGS;
-  }
-  if (specifics.has_app_list()) {
-    return APP_LIST;
-  }
-  if (specifics.has_arc_package()) {
-    return ARC_PACKAGE;
-  }
-  if (specifics.has_printer()) {
-    return PRINTERS;
-  }
-  if (specifics.has_reading_list()) {
-    return READING_LIST;
-  }
-  if (specifics.has_user_event()) {
-    return USER_EVENTS;
-  }
-  if (specifics.has_user_consent()) {
-    return USER_CONSENTS;
-  }
-  if (specifics.has_nigori()) {
-    return NIGORI;
-  }
-  if (specifics.has_send_tab_to_self()) {
-    return SEND_TAB_TO_SELF;
-  }
-  if (specifics.has_security_event()) {
-    return SECURITY_EVENTS;
-  }
-  if (specifics.has_web_app()) {
-    return WEB_APPS;
-  }
-  if (specifics.has_web_apk()) {
-    return WEB_APKS;
-  }
-  if (specifics.has_wifi_configuration()) {
-    return WIFI_CONFIGURATIONS;
-  }
-  if (specifics.has_os_preference()) {
-    return OS_PREFERENCES;
-  }
-  if (specifics.has_os_priority_preference()) {
-    return OS_PRIORITY_PREFERENCES;
-  }
-  if (specifics.has_sharing_message()) {
-    return SHARING_MESSAGE;
-  }
-  if (specifics.has_autofill_offer()) {
-    return AUTOFILL_WALLET_OFFER;
-  }
-  if (specifics.has_workspace_desk()) {
-    return WORKSPACE_DESK;
-  }
-  if (specifics.has_history()) {
-    return HISTORY;
-  }
-  if (specifics.has_printers_authorization_server()) {
-    return PRINTERS_AUTHORIZATION_SERVERS;
-  }
-  if (specifics.has_contact_info()) {
-    return CONTACT_INFO;
-  }
-  if (specifics.has_autofill_wallet_usage()) {
-    return AUTOFILL_WALLET_USAGE;
-  }
-  if (specifics.has_saved_tab_group()) {
-    return SAVED_TAB_GROUP;
-  }
-  if (specifics.has_webauthn_credential()) {
-    return WEBAUTHN_CREDENTIAL;
-  }
-  if (specifics.has_incoming_password_sharing_invitation()) {
-    return INCOMING_PASSWORD_SHARING_INVITATION;
-  }
-  if (specifics.has_outgoing_password_sharing_invitation()) {
-    return OUTGOING_PASSWORD_SHARING_INVITATION;
-  }
-  if (specifics.has_autofill_wallet_credential()) {
-    return AUTOFILL_WALLET_CREDENTIAL;
-  }
-  if (specifics.has_shared_tab_group_data()) {
-    return SHARED_TAB_GROUP_DATA;
-  }
-  if (specifics.has_collaboration_group()) {
-    return COLLABORATION_GROUP;
-  }
-  if (specifics.has_plus_address()) {
-    return PLUS_ADDRESS;
-  }
-  if (specifics.has_product_comparison()) {
-    return PRODUCT_COMPARISON;
-  }
-  if (specifics.has_cookie()) {
-    return COOKIES;
-  }
-  if (specifics.has_plus_address_setting()) {
-    return PLUS_ADDRESS_SETTING;
-  }
-  if (specifics.has_autofill_valuable()) {
-    return AUTOFILL_VALUABLE;
-  }
-  if (specifics.has_autofill_valuable_metadata()) {
-    return AUTOFILL_VALUABLE_METADATA;
-  }
-  if (specifics.has_account_setting()) {
-    return ACCOUNT_SETTING;
-  }
-  if (specifics.has_shared_tab_group_account_data()) {
-    return SHARED_TAB_GROUP_ACCOUNT_DATA;
-  }
-  if (specifics.has_shared_comment()) {
-    return SHARED_COMMENT;
-  }
-  if (specifics.has_ai_thread()) {
-    return AI_THREAD;
-  }
-  if (specifics.has_contextual_task()) {
-    return CONTEXTUAL_TASK;
-  }
-  if (specifics.has_skill()) {
-    return SKILL;
+  // SpecificsVariantCase is a generated enum that lists all possible
+  // variants of the `specifics` oneof and has values corresponding to the
+  // field numbers of the oneof.
+  if (specifics.specifics_variant_case() ==
+      sync_pb::EntitySpecifics::SPECIFICS_VARIANT_NOT_SET) {
+    // This client version doesn't understand `specifics`.
+    DVLOG(1) << "Unknown datatype in sync proto.";
+    return UNSPECIFIED;
   }
 
-  // This client version doesn't understand `specifics`.
-  DVLOG(1) << "Unknown datatype in sync proto.";
-  return UNSPECIFIED;
+  return GetDataTypeFromSpecificsFieldNumber(
+      specifics.specifics_variant_case());
 }
 
 DataTypeSet AlwaysPreferredUserTypes() {
-  // TODO(crbug.com/471795213): add SKILL to a corresponding UserSelectableType.
+  // TODO(crbug.com/477624427): add SKILL to a corresponding UserSelectableType
+  // or another toggle.
   DataTypeSet types = {ACCOUNT_SETTING,
                        DEVICE_INFO,
                        USER_CONSENTS,
@@ -666,7 +501,7 @@ DataTypeSet AlwaysPreferredUserTypes() {
 }
 
 DataTypeSet EncryptableUserTypes() {
-  static_assert(60 == syncer::GetNumDataTypes(),
+  static_assert(61 == syncer::GetNumDataTypes(),
                 "If adding an unencryptable type, remove from "
                 "encryptable_user_types below.");
   DataTypeSet encryptable_user_types = UserTypes();
@@ -697,6 +532,7 @@ DataTypeSet EncryptableUserTypes() {
   encryptable_user_types.Remove(PRIORITY_PREFERENCES);
   encryptable_user_types.Remove(OS_PRIORITY_PREFERENCES);
   encryptable_user_types.Remove(SUPERVISED_USER_SETTINGS);
+  encryptable_user_types.Remove(SKILL);
   // Password sharing invitations have different encryption implementation.
   encryptable_user_types.Remove(INCOMING_PASSWORD_SHARING_INVITATION);
   encryptable_user_types.Remove(OUTGOING_PASSWORD_SHARING_INVITATION);
@@ -836,6 +672,8 @@ const char* DataTypeToDebugString(DataType data_type) {
       return "Encryption Keys";
     case SKILL:
       return "Skill";
+    case GEMINI_THREAD:
+      return "Gemini Thread";
   }
   NOTREACHED();
 }
@@ -963,6 +801,8 @@ const char* DataTypeToHistogramSuffix(DataType data_type) {
       return "ACCOUNT_SETTING";
     case SKILL:
       return "SKILL";
+    case GEMINI_THREAD:
+      return "GEMINI_THREAD";
   }
   // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/histograms.xml:DataTypeHistogramSuffix)
   NOTREACHED();
@@ -1090,6 +930,8 @@ DataTypeForHistograms DataTypeHistogramValue(DataType data_type) {
       return DataTypeForHistograms::kNigori;
     case SKILL:
       return DataTypeForHistograms::kSkill;
+    case GEMINI_THREAD:
+      return DataTypeForHistograms::kGeminiThread;
   }
   NOTREACHED();
 }
@@ -1234,6 +1076,8 @@ const char* DataTypeToStableLowerCaseString(DataType data_type) {
       return "nigori";
     case SKILL:
       return "skill";
+    case GEMINI_THREAD:
+      return "gemini_thread";
   }
   // WARNING: existing strings must not be changed without migration, they
   // are persisted!

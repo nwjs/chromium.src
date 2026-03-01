@@ -1,0 +1,20 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+xr_module_desc = {
+  name = "xr"
+  android_manifest =
+      "//chrome/android/modules/xr/internal/java/AndroidManifest.xml"
+  java_deps = [
+    "//chrome/android/modules/xr:java",
+    "//third_party/android_sdk:android_xr_extensions_java",
+  ]
+  uses_split = "chrome"
+  loadable_modules_64_bit = [
+    "$root_out_dir/obj/third_party/androidx/androidx_xr_arcore_arcore_openxr_java/jni/arm64-v8a/libandroidx.xr.runtime.openxr.so",
+    "$root_out_dir/obj/third_party/android_deps/com_google_ar_impress_java/jni/arm64-v8a/libimpress_api_jni.so",
+    "$root_out_dir/obj/third_party/arcore-android-sdk-client/com_google_ar_core_java/jni/arm64-v8a/libarcore_sdk_jni.so",
+    "$root_out_dir/obj/third_party/arcore-android-sdk-client/com_google_ar_core_java/jni/arm64-v8a/libarcore_sdk_c.so",
+  ]
+}

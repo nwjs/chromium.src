@@ -37,9 +37,9 @@ class MidiInputPortAndroid final {
   // Called by the Java world.
   void OnData(JNIEnv* env,
               const base::android::JavaRef<jbyteArray>& data,
-              jint offset,
-              jint size,
-              jlong timestamp);
+              int32_t offset,
+              int32_t size,
+              int64_t timestamp);
 
  private:
   base::android::ScopedJavaGlobalRef<jobject> raw_port_;

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_container_outline.h"
+#include "chrome/browser/ui/views/frame/custom_floating_corner.h"
 #include "chrome/browser/ui/views/frame/multi_contents_background_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_drop_target_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_resize_area.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/ui/views/frame/multi_contents_view_drop_target_controller.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view_mini_toolbar.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/test/split_view_interactive_test_mixin.h"
 #include "chrome/browser/ui/views/test/tab_strip_interactive_test_mixin.h"
 #include "chrome/common/webui_url_constants.h"
@@ -34,8 +36,8 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_collection.h"
-#include "components/tabs/public/split_tab_visual_data.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -212,6 +214,24 @@ class MultiContentsViewUiTest
           return multi_contents_view->GetActiveContentsView()->HasFocus();
         });
   }
+
+  auto OpenContextualSidePanel() {
+    using SidePanelViewObserver =
+        views::test::PollingViewObserver<bool, SidePanel>;
+    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(SidePanelViewObserver,
+                                        kSidePanelViewObserver);
+
+    return Steps(Do(base::BindLambdaForTesting([this]() {
+                   chrome::ExecuteCommand(browser(),
+                                          IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
+                 })),
+                 PollView(kSidePanelViewObserver, kSidePanelElementId,
+                          [](const SidePanel* side_panel) -> bool {
+                            return side_panel->width() > 0 &&
+                                   side_panel->height() > 0;
+                          }),
+                 WaitForState(kSidePanelViewObserver, true));
+  }
 };
 
 // Check that MultiContentsView exists when the side by side flag is enabled
@@ -275,6 +295,28 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSplitView) {
                    multi_contents_view()->GetActiveContentsView()),
       SelectTab(kTabStripElementId, 2, InputType::kMouse),
       WaitForActiveTabChange(2),
+      CheckState(kActiveContentsViewBoundsChangedObserver, 1),
+      StopObservingState(kActiveContentsViewBoundsChangedObserver));
+}
+
+// Tests switching tabs with side panel. This also adds coverage to ensuring
+// that there isn't any unnecessary re-layout during tab switching.
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, TabSwitchWithSidePanel) {
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ViewBoundsChangedObserver,
+                                      kActiveContentsViewBoundsChangedObserver);
+
+  auto disable_rich_animation =
+      gfx::AnimationTestApi::SetRichAnimationRenderMode(
+          gfx::Animation::RichAnimationRenderMode::FORCE_DISABLED);
+
+  RunTestSequence(
+      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUISettingsURL), 1),
+      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUISettingsURL), 2),
+      WaitForActiveTabChange(2), OpenContextualSidePanel(),
+      ObserveState(kActiveContentsViewBoundsChangedObserver,
+                   multi_contents_view()->GetActiveContentsView()),
+      SelectTab(kTabStripElementId, 1, InputType::kMouse),
+      WaitForActiveTabChange(1),
       CheckState(kActiveContentsViewBoundsChangedObserver, 1),
       StopObservingState(kActiveContentsViewBoundsChangedObserver));
 }
@@ -685,16 +727,17 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       WaitForShow(kContentsSeparatorTopEdgeElementId),
       WaitForShow(kContentsSeparatorTrailingEdgeElementId),
       WaitForHide(kContentsSeparatorLeadingEdgeElementId),
-      WaitForShow(kContentsSeparatorTrailingTopCornerElementId),
-      WaitForHide(kContentsSeparatorLeadingTopCornerElementId),
+      WaitForShow(kContentsSeparatorTopCornerElementId),
+      CheckViewProperty(kContentsSeparatorTopCornerElementId,
+                        &CustomFloatingCorner::orientation_for_testing,
+                        CustomFloatingCorner::CornerOrientation::kTopTrailing),
       // Open split view.
       CreateTabsAndEnterSplitView(),
       // Verify no contents separators are visible.
       WaitForHide(kContentsSeparatorTopEdgeElementId),
       WaitForHide(kContentsSeparatorTrailingEdgeElementId),
       WaitForHide(kContentsSeparatorLeadingEdgeElementId),
-      WaitForHide(kContentsSeparatorTrailingTopCornerElementId),
-      WaitForHide(kContentsSeparatorLeadingTopCornerElementId));
+      WaitForHide(kContentsSeparatorTopCornerElementId));
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)

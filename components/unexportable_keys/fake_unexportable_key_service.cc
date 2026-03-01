@@ -41,14 +41,13 @@ void FakeUnexportableKeyService::SignSlowlyAsync(
     base::OnceCallback<void(ServiceErrorOr<std::vector<uint8_t>>)> callback) {
   std::move(callback).Run(base::unexpected(ServiceError::kKeyNotFound));
 }
-void FakeUnexportableKeyService::DeleteKeySlowlyAsync(
-    UnexportableKeyId key_id,
+void FakeUnexportableKeyService::DeleteKeysSlowlyAsync(
+    base::span<const UnexportableKeyId> key_ids,
     BackgroundTaskPriority priority,
-    base::OnceCallback<void(ServiceErrorOr<void>)> callback) {
+    base::OnceCallback<void(ServiceErrorOr<size_t>)> callback) {
   std::move(callback).Run(base::unexpected(ServiceError::kKeyNotFound));
 }
 void FakeUnexportableKeyService::DeleteAllKeysSlowlyAsync(
-    BackgroundTaskPriority priority,
     base::OnceCallback<void(ServiceErrorOr<size_t>)> callback) {
   std::move(callback).Run(base::unexpected(ServiceError::kKeyNotFound));
 }

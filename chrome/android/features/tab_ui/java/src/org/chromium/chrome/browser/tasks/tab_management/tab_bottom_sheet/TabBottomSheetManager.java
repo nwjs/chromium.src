@@ -4,69 +4,195 @@
 
 package org.chromium.chrome.browser.tasks.tab_management.tab_bottom_sheet;
 
-import android.content.Context;
+import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.app.Activity;
+import android.view.View;
+
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabSelectionType;
-import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModelObserver;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
+import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.WindowAndroid;
 
-/** Helper class to manage the conditions for showing the tab bottom sheet and triggering it. */
+/** Manager class for the tab bottom sheet. */
 @NullMarked
 public class TabBottomSheetManager implements Destroyable {
-    private final Context mContext;
-    private final TabModel mTabModel;
-    private final BottomSheetController mBottomSheetController;
-    private @Nullable TabBottomSheetCoordinator mTabBottomSheetCoordinator;
 
-    private final TabModelObserver mTabModelObserver =
-            new TabModelObserver() {
-                @Override
-                public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
-                    onDidSelectTab(tab);
-                }
-            };
+    // Interface for the native to communicate with the tab bottom sheet manager.
+    interface NativeInterfaceDelegate {
+        /** Inner class to hold the singleton instance. */
+        static class LazyHolder {
+            static final NativeInterfaceDelegate INSTANCE =
+                    new NativeInterfaceDelegate() {
+                        @Override
+                        public void onBottomSheetClosed() {}
+
+                        @Override
+                        public long getRequestId() {
+                            return 0;
+                        }
+                    };
+        }
+
+        static NativeInterfaceDelegate getInstance() {
+            return LazyHolder.INSTANCE;
+        }
+
+        // Method called when the bottom sheet is closed.
+        void onBottomSheetClosed();
+
+        // Method called to get the request id.
+        long getRequestId();
+    }
+
+    private final Activity mActivity;
+    private final WindowAndroid mWindowAndroid;
+    private final BottomSheetController mBottomSheetController;
+    private final BottomSheetObserver mBottomSheetObserver;
+
+    private @Nullable TabBottomSheetToolbar mToolbar;
+    private @Nullable TabBottomSheetWebUi mWebUi;
+    private @Nullable TabBottomSheetFusebox mFusebox;
+    private @Nullable TabBottomSheetCoordinator mTabBottomSheetCoordinator;
+    private @Nullable NativeInterfaceDelegate mNativeInterfaceDelegate;
 
     /**
      * Constructor.
      *
-     * @param context The Android Context.
-     * @param tabModel The regular {@link TabModel} for the current session.
-     * @param bottomSheetController The BottomSheetController for showing the promo.
+     * @param activity The current {@link Activity} instance.
+     * @param profileSupplier A supplier for the current {@link Profile}.
+     * @param windowAndroid The {@link WindowAndroid} for managing window-level operations.
+     * @param lifecycleDispatcher The {@link ActivityLifecycleDispatcher} for managing activity
+     *     lifecycle.
+     * @param snackbarManager The {@link SnackbarManager} for showing snackbars.
+     * @param bottomSheetController The {@link BottomSheetController} used to show the bottom sheet.
      */
     public TabBottomSheetManager(
-            Context context, TabModel tabModel, BottomSheetController bottomSheetController) {
-        mContext = context;
-        mTabModel = tabModel;
+            Activity activity,
+            NonNullObservableSupplier<Profile> profileSupplier,
+            WindowAndroid windowAndroid,
+            ActivityLifecycleDispatcher lifecycleDispatcher,
+            SnackbarManager snackbarManager,
+            BottomSheetController bottomSheetController) {
+        mActivity = activity;
+        mWindowAndroid = windowAndroid;
         mBottomSheetController = bottomSheetController;
-
-        if (checkConditionsForBottomSheet()) {
-            mTabModel.addObserver(mTabModelObserver);
+        mToolbar = new TabBottomSheetSimpleToolbar(activity);
+        mWebUi = new TabBottomSheetWebUi(activity, windowAndroid);
+        if (TabBottomSheetUtils.shouldShowFusebox()) {
+            mFusebox =
+                    new TabBottomSheetFusebox(
+                            activity,
+                            profileSupplier,
+                            windowAndroid,
+                            lifecycleDispatcher,
+                            CallbackUtils.emptyCallback(),
+                            snackbarManager);
         }
+
+        mBottomSheetObserver = buildBottomSheetObserver();
+        TabBottomSheetUtils.attachManagerToWindow(windowAndroid, this);
     }
 
     /**
-     * Attempts to show the Tab BottomSheet. This method will first verify a set of eligibility
-     * conditions (e.g., feature flags, user preferences) by calling an internal check. If all
-     * conditions are met, it will attempt to instantiate and display the promo bottom sheet to the
-     * user.
+     * Attempts to show the Tab BottomSheet. The boolean params are temporary, they will be moved
+     * into enums later to allow more flexibility.
+     *
+     * @param nativeInterfaceDelegate The native interface delegate.
+     * @param shouldShowToolbar Whether to show the toolbar.
+     * @param shouldShowFusebox Whether to show the fusebox.
+     * @return Whether the bottom sheet was shown.
      */
-    public void tryToShowBottomSheet() {
-        if (checkConditionsForBottomSheet()) {
+    boolean tryToShowBottomSheet(
+            NativeInterfaceDelegate nativeInterfaceDelegate,
+            boolean shouldShowToolbar,
+            boolean shouldShowFusebox) {
+        if (TabBottomSheetUtils.isTabBottomSheetEnabled()) {
+            assert mWebUi != null : "WebUi should not be null";
             if (mTabBottomSheetCoordinator == null) {
                 mTabBottomSheetCoordinator =
-                        new TabBottomSheetCoordinator(mContext, mBottomSheetController);
+                        new TabBottomSheetCoordinator(mActivity, mBottomSheetController);
             }
-            mTabBottomSheetCoordinator.showBottomSheet();
-        } else {
-            destroy();
+
+            View toolbarView =
+                    mToolbar != null && shouldShowToolbar ? mToolbar.getToolbarView() : null;
+            View webUiView = mWebUi.getWebUiView();
+            View fuseboxView =
+                    mFusebox != null && shouldShowFusebox ? mFusebox.getFuseboxView() : null;
+            if (mTabBottomSheetCoordinator.tryToShowBottomSheet(
+                    toolbarView, webUiView, fuseboxView)) {
+                // Successfully showed bottom sheet.
+                mBottomSheetController.addObserver(mBottomSheetObserver);
+                mNativeInterfaceDelegate = nativeInterfaceDelegate;
+                return true;
+            }
         }
+        // Failed to show bottom sheet.
+        return false;
+    }
+
+    void detachNativeInterfaceDelegate(NativeInterfaceDelegate delegate) {
+        if (mNativeInterfaceDelegate == delegate) {
+            mNativeInterfaceDelegate = null;
+        }
+    }
+
+    void tryToCloseBottomSheet() {
+        if (mTabBottomSheetCoordinator != null) {
+            mTabBottomSheetCoordinator.closeBottomSheet();
+        }
+    }
+
+    boolean isSheetShowing() {
+        return mTabBottomSheetCoordinator != null && mTabBottomSheetCoordinator.isSheetShowing();
+    }
+
+    boolean setWebContents(WebContents webContents) {
+        if (mWebUi != null) {
+            mWebUi.setWebContents(webContents);
+            return true;
+        }
+        return false;
+    }
+
+    @Nullable WebContents getWebContents() {
+        return mWebUi != null ? mWebUi.getWebContents() : null;
+    }
+
+    // Observer methods.
+    private BottomSheetObserver buildBottomSheetObserver() {
+        return new EmptyBottomSheetObserver() {
+            @Override
+            public void onSheetOpened(@StateChangeReason int reason) {
+                if (mFusebox != null) {
+                    mFusebox.onBottomSheetShown();
+                }
+            }
+
+            @Override
+            public void onSheetStateChanged(@SheetState int state, @StateChangeReason int reason) {}
+
+            @Override
+            public void onSheetClosed(@StateChangeReason int reason) {
+                mBottomSheetController.removeObserver(mBottomSheetObserver);
+                if (mNativeInterfaceDelegate != null) {
+                    mNativeInterfaceDelegate.onBottomSheetClosed();
+                    mNativeInterfaceDelegate = null;
+                }
+                assumeNonNull(mTabBottomSheetCoordinator).destroy();
+            }
+        };
     }
 
     @Override
@@ -75,30 +201,18 @@ public class TabBottomSheetManager implements Destroyable {
             mTabBottomSheetCoordinator.destroy();
             mTabBottomSheetCoordinator = null;
         }
-        if (mTabModel != null) {
-            mTabModel.removeObserver(mTabModelObserver);
+        if (mToolbar != null) {
+            mToolbar = null;
         }
-    }
-
-    /* Observer logic. */
-    private void onDidSelectTab(Tab tab) {
-        if (checkConditionsForTab(tab)) {
-            tryToShowBottomSheet();
+        if (mWebUi != null) {
+            mWebUi.destroy();
+            mWebUi = null;
         }
-    }
-
-    // Conditions required for the tab to show the bottomsheet.
-    private boolean checkConditionsForTab(Tab tab) {
-        return tab != null
-                && !tab.isIncognitoBranded()
-                && UrlUtilities.isNtpUrl(tab.getUrl())
-                && !tab.isClosing()
-                && !tab.isHidden();
-    }
-
-    // Conditions required for the bottomsheet to be shown.
-    private boolean checkConditionsForBottomSheet() {
-        return ChromeFeatureList.sTabBottomSheet.isEnabled();
+        if (mFusebox != null) {
+            mFusebox.destroy();
+            mFusebox = null;
+        }
+        TabBottomSheetUtils.detachManagerFromWindow(mWindowAndroid);
     }
 
     /* Testing methods */

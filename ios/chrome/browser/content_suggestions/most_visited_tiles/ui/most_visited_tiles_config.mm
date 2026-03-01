@@ -8,10 +8,32 @@
 
 @implementation MostVisitedTilesConfig
 
+@synthesize layoutGuideCenter = _layoutGuideCenter;
+
+- (instancetype)initWithLayoutGuideCenter:
+    (LayoutGuideCenter*)layoutGuideCenter {
+  self = [super init];
+  if (self) {
+    _layoutGuideCenter = layoutGuideCenter;
+  }
+  return self;
+}
+
 #pragma mark - MagicStackModule
 
 - (ContentSuggestionsModuleType)type {
   return ContentSuggestionsModuleType::kMostVisited;
+}
+
+#pragma mark - NSCopying
+
+- (id)copyWithZone:(NSZone*)zone {
+  MostVisitedTilesConfig* copy =
+      [[super copyWithZone:zone] initWithLayoutGuideCenter:_layoutGuideCenter];
+  copy.mostVisitedItems = self.mostVisitedItems;
+  copy.imageDataSource = self.imageDataSource;
+  copy.commandHandler = self.commandHandler;
+  return copy;
 }
 
 @end

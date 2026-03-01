@@ -2,49 +2,45 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {html} from '//resources/lit/v3_0/lit.rollup.js';
+import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OmniboxPopupAppElement} from './app.js';
+import {getHtml as getContextualEntrypointHtml} from './app_contextual_entrypoint.html.js';
 
 export function getHtml(this: OmniboxPopupAppElement) {
   // clang-format off
-  const searchboxDropdown = html`
-<cr-searchbox-dropdown part="searchbox-dropdown"
-    exportparts="dropdown-content"
-    role="listbox" .result="${this.result_}"
-    ?can-show-secondary-side="${this.canShowSecondarySide}"
-    ?has-secondary-side="${this.hasSecondarySide}"
-    @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
-    @dom-change="${this.onResultRepaint_}"
-    ?hidden="${!this.hasVisibleMatches_}">
-</cr-searchbox-dropdown>
-  `;
-
   return html`<!--_html_template_start_-->
 ${this.showContextEntrypoint_ ? html`
 <!-- WebUI Omnibox popup w/ "Add Context" button -->
 <div class="dropdownContainer">
-  <contextual-entrypoint-and-carousel id="context"
-      part="contextual-entrypoint-and-carousel"
-      exportparts="composebox-entrypoint, context-menu-entrypoint-icon"
-      .showMenuOnClick="${false}"
-      entrypoint-name="Omnibox"
-      searchbox-layout-mode="${this.searchboxLayoutMode_}"
-      .tabSuggestions="${this.tabSuggestions_}"
-      ?hide-entrypoint-button="${this.shouldHideEntrypointButton_}"
-      ?show-dropdown="${this.hasVisibleMatches_}"
-      ?show-lens-search-chip="${
-        this.isContentSharingEnabled_ && this.isLensSearchEligible_}"
-      ?show-recent-tab-chip="${
-        this.isContentSharingEnabled_ && this.computeShowRecentTabChip_()}"
-      @add-tab-context="${this.addTabContext_}"
-      @context-menu-entrypoint-click="${this.onContextualEntryPointClicked_}"
-      @lens-search-click="${this.onLensSearchChipClicked_}">
-    ${searchboxDropdown}
-  </contextual-entrypoint-and-carousel>
+  ${this.searchboxLayoutMode_ === 'TallTopContext' ? html`
+    ${getContextualEntrypointHtml.call(this)}
+    ${this.hasVisibleMatches_ ?
+      html`<div class="carousel-divider"></div>` : nothing}
+  ` : nothing}
+  <cr-searchbox-dropdown part="searchbox-dropdown"
+      exportparts="dropdown-content"
+      role="listbox" .result="${this.result_}"
+      ?can-show-secondary-side="${this.canShowSecondarySide}"
+      ?has-secondary-side="${this.hasSecondarySide}"
+      @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
+      @dom-change="${this.onResultRepaint_}"
+      ?hidden="${!this.hasVisibleMatches_}">
+  </cr-searchbox-dropdown>
+  ${this.searchboxLayoutMode_ !== 'TallTopContext' ?
+    getContextualEntrypointHtml.call(this) : nothing}
 </div>` : html`
 <!-- WebUI Omnibox popup w/o "Add Context" button -->
-  ${searchboxDropdown}`}
+  <cr-searchbox-dropdown part="searchbox-dropdown"
+      exportparts="dropdown-content"
+      role="listbox" .result="${this.result_}"
+      ?can-show-secondary-side="${this.canShowSecondarySide}"
+      ?has-secondary-side="${this.hasSecondarySide}"
+      @has-secondary-side-changed="${this.onHasSecondarySideChanged_}"
+      @dom-change="${this.onResultRepaint_}"
+      ?hidden="${!this.hasVisibleMatches_}">
+  </cr-searchbox-dropdown>
+`}
 <!--_html_template_end_-->`;
   // clang-format on
 }

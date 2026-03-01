@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import './composebox_tool_chip.js';
-import './context_menu_entrypoint.js';
+import './contextual_entrypoint_and_menu.js';
 import './contextual_entrypoint_button.js';
 import './composebox_lens_search.js';
 import './file_carousel.js';
@@ -26,12 +26,11 @@ import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/ung
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import type {ComposeboxFile, ContextualUpload} from './common.js';
-import {recordBoolean, recordContextAdditionMethod, recordEnumerationValue, recordUserAction, TabUploadOrigin} from './common.js';
-import {FileUploadErrorType, FileUploadStatus, ToolMode as ComposeboxToolMode} from './composebox_query.mojom-webui.js';
-import {type ContextMenuEntrypointElement, GlifAnimationState} from './context_menu_entrypoint.js';
+import {GlifAnimationState, hasValidInputState, recordBoolean, recordContextAdditionMethod, recordEnumerationValue, recordUserAction, TabUploadOrigin} from './common.js';
+import {FileUploadErrorType, FileUploadStatus, InputType, ToolMode as ComposeboxToolMode} from './composebox_query.mojom-webui.js';
 import {getCss} from './contextual_entrypoint_and_carousel.css.js';
 import {getHtml} from './contextual_entrypoint_and_carousel.html.js';
-import type {ContextualEntrypointButtonElement} from './contextual_entrypoint_button.js';
+import type {ContextualEntrypointAndMenuElement} from './contextual_entrypoint_and_menu.js';
 import type {ComposeboxFileCarouselElement} from './file_carousel.js';
 import type {RecentTabChipElement} from './recent_tab_chip.js';
 
@@ -39,8 +38,7 @@ export interface ContextualEntrypointAndCarouselElement {
   $: {
     fileInput: HTMLInputElement,
     fileUploadButton: CrIconButtonElement,
-    contextEntrypoint: ContextMenuEntrypointElement|
-    ContextualEntrypointButtonElement,
+    contextEntrypoint: ContextualEntrypointAndMenuElement,
     carousel: ComposeboxFileCarouselElement,
     imageInput: HTMLInputElement,
     imageUploadButton: CrIconButtonElement,
@@ -82,6 +80,9 @@ enum ProcessFilesError {
   FILE_TOO_LARGE = 2,
   FILE_EMPTY = 3,
   MAX_FILES_EXCEEDED = 4,
+  MAX_IMAGES_EXCEEDED = 5,
+  MAX_PDFS_EXCEEDED = 6,
+  FILE_UPLOAD_NOT_ALLOWED = 7,
 }
 
 
@@ -119,9 +120,15 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       // Determines if the entrypoint button should be hidden. This applies
       // specifically to Omnibox Searchbox in compact mode, as opposed to the
       // AIM composebox where the entrypoint is always visible.
-      hideEntrypointButton: {type: Boolean},
       inComposebox: {type: Boolean},
       showModelPicker: {type: Boolean},
+      fileUploadsComplete: {
+        type: Boolean,
+        reflect: true,
+      },
+      enableCarouselScrolling: {type: Boolean},
+      showRecentTabChip: {type: Boolean},
+      recentTabForChip: {type: Object},
 
       // =========================================================================
       // Protected properties
@@ -129,13 +136,8 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       attachmentFileTypes_: {type: Array},
       contextMenuEnabled_: {type: Boolean},
       files_: {type: Object},
-      pendingFiles_: {type: Object},
       addedTabsIds_: {type: Object},
       imageFileTypes_: {type: Array},
-      inputsDisabled_: {
-        reflect: true,
-        type: Boolean,
-      },
       composeboxShowPdfUpload_: {
         reflect: true,
         type: Boolean,
@@ -145,18 +147,21 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         reflect: true,
         type: Boolean,
       },
-      showRecentTabChip: {type: Boolean},
       activeTool_: {type: Number},
-      recentTabForChip_: {type: Object},
       carouselOnTop_: {type: Boolean},
       submitButtonShown: {type: Boolean},
       isOmniboxInCompactMode_: {
         type: Boolean,
         reflect: true,
       },
+      uploadButtonDisabled_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
+  accessor fileUploadsComplete: boolean = true;
   accessor showDropdown: boolean = false;
   accessor showLensSearchChip: boolean = false;
   accessor searchboxLayoutMode: string = '';
@@ -171,7 +176,9 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       GlifAnimationState.INELIGIBLE;
   accessor inComposebox: boolean = false;
   accessor showModelPicker: boolean = false;
+  accessor enableCarouselScrolling: boolean = false;
   accessor isOmniboxInCompactMode_: boolean = false;
+  accessor recentTabForChip: TabInfo|null = null;
 
   protected accessor attachmentFileTypes_: string[] =
       loadTimeData.getString('composeboxAttachmentFileTypes').split(',');
@@ -179,11 +186,9 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       loadTimeData.getBoolean('composeboxShowContextMenu');
   protected accessor files_: Map<UnguessableToken, ComposeboxFile> = new Map();
   protected accessor addedTabsIds_: Map<number, UnguessableToken> = new Map();
-  protected accessor pendingFiles_: Map<UnguessableToken, FileUploadStatus> =
-      new Map();
   protected accessor imageFileTypes_: string[] =
       loadTimeData.getString('composeboxImageFileTypes').split(',');
-  protected accessor inputsDisabled_: boolean = false;
+  protected accessor uploadButtonDisabled_: boolean = false;
   protected accessor composeboxShowPdfUpload_: boolean =
       loadTimeData.getBoolean('composeboxShowPdfUpload');
   protected contextMenuDescriptionEnabled_: boolean =
@@ -193,9 +198,30 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   protected accessor showFileCarousel_: boolean = false;
   protected accessor activeTool_: ComposeboxToolMode =
       ComposeboxToolMode.kUnspecified;
-  protected accessor recentTabForChip_: TabInfo|null = null;
   protected accessor submitButtonShown: boolean = false;
-  protected accessor hideEntrypointButton: boolean = false;
+
+  computeUploadButtonDisabled(): boolean {
+    // If only 1 image is uploaded and the create image tool is enabled, we
+    // don't want to disable the context menu entrypoint because the user
+    // should still be able to use the tool within the context menu.
+    const isCreateImageToolAvailableWithImages = this.createImageModeEnabled_ &&
+        this.hasImageFiles() && this.files_.size === 1;
+    // Only return true if:
+    //   1. The max number of files is reached, and the create image tool button
+    //      is not available.
+    //   2. The user has an image uploaded and is in create image mode.
+    //   3. The user is in deep search mode.
+    return (this.activeTool_ === ComposeboxToolMode.kDeepSearch) ||
+        (this.files_.size >= this.maxFileCount_ &&
+         !isCreateImageToolAvailableWithImages) ||
+        (this.hasImageFiles() &&
+         this.activeTool_ === ComposeboxToolMode.kImageGen) ||
+        !this.fileUploadsComplete;
+  }
+
+  getActiveToolMode() {
+    return this.activeTool_;
+  }
 
   hasAutomaticActiveTabChipToken(): boolean {
     return this.automaticActiveTabChipToken_ !== null;
@@ -221,14 +247,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   }
 
   private shouldShowContextualSearchChips_(): boolean {
-    return this.files_.size === 0 && !this.inToolMode_ &&
-        !(this.searchboxLayoutMode === 'Compact' &&
-          this.entrypointName === 'Realbox');
-  }
-
-  protected get shouldShowRecentTabChip_(): boolean {
-    return this.shouldShowContextualSearchChips_() &&
-        !!this.recentTabForChip_ && this.showRecentTabChip;
+    return this.files_.size === 0 && !this.inToolMode_;
   }
 
   protected get shouldShowLensSearchChip_(): boolean {
@@ -237,7 +256,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
 
   protected get shouldShowContextualChipsForCompactMode_(): boolean {
     return this.searchboxLayoutMode === 'Compact' &&
-        (this.shouldShowRecentTabChip_ || this.shouldShowLensSearchChip_);
+        (this.showRecentTabChip || this.shouldShowLensSearchChip_);
   }
 
   protected get shouldShowToolChipsForTallMode_(): boolean {
@@ -251,7 +270,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   }
 
   protected get toolChipsVisible_(): boolean {
-    return this.shouldShowRecentTabChip_ || this.shouldShowLensSearchChip_ ||
+    return this.showRecentTabChip || this.shouldShowLensSearchChip_ ||
         this.inToolMode_;
   }
 
@@ -284,9 +303,36 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
 
   protected get shouldHideEntrypointButton_(): boolean {
     return this.shouldShowContextualChipsForCompactMode_ ||
-        this.hideEntrypointButton;
+        (this.showModelPicker && !hasValidInputState(this.inputState));
   }
 
+  protected shouldShowDescription_(): boolean {
+    return this.showContextMenuDescription_ && !this.showRecentTabChip &&
+        !this.shouldShowLensSearchChip_;
+  }
+
+  protected getToolChipLabel_(tool: ComposeboxToolMode): string {
+    if (this.inputState && this.inputState.toolConfigs) {
+      const config = this.inputState.toolConfigs.find(c => c.tool === tool);
+      if (config && config.chipLabel) {
+        return config.chipLabel;
+      }
+    }
+    // Fallback to i18n strings
+    switch (tool) {
+      case ComposeboxToolMode.kDeepSearch:
+        return this.i18n('deepSearch');
+      case ComposeboxToolMode.kImageGen:
+        return this.i18n('createImages');
+      case ComposeboxToolMode.kCanvas:
+        return this.i18n('canvas');
+      default:
+        return '';
+    }
+  }
+
+  // TODO(b/481755889): Move property declarations above methods and remove
+  // getters.
   private maxFileCount_: number =
       loadTimeData.getInteger('composeboxFileMaxCount');
   private maxFileSize_: number =
@@ -302,37 +348,16 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
 
     const changedPrivateProperties =
         changedProperties as Map<PropertyKey, unknown>;
+    if (changedPrivateProperties.has('fileUploadsComplete')) {
+      this.uploadButtonDisabled_ = this.computeUploadButtonDisabled();
+    }
     if (changedPrivateProperties.has('files_') ||
         changedPrivateProperties.has(`activeTool_`)) {
-      // If only 1 image is uploaded and the create image tool is enabled, we
-      // don't want to disable the context menu entrypoint because the user
-      // should still be able to use the tool within the context menu.
-      const isCreateImageToolAvailableWithImages =
-          this.createImageModeEnabled_ && this.hasImageFiles() &&
-          this.files_.size === 1;
-      // `inputsDisabled_` decides whether or not the context menu entrypoint is
-      // shown to the user. Only set `inputsDisabled_` to true if
-      // 1. The max number of files is reached, and the create image tool button
-      //    is not available.
-      // 2. The user has an image uploaded and is in create image mode.
-      // 3. The user is in deep search mode.
-      this.inputsDisabled_ =
-          (this.activeTool_ === ComposeboxToolMode.kDeepSearch) ||
-          (this.files_.size >= this.maxFileCount_ &&
-           !isCreateImageToolAvailableWithImages) ||
-          (this.hasImageFiles() &&
-           this.activeTool_ === ComposeboxToolMode.kImageGen);
+      // `uploadButtonDisabled_` decides whether or not the context menu
+      // entrypoint is shown to the user.
+      this.uploadButtonDisabled_ = this.computeUploadButtonDisabled();
       this.showFileCarousel_ = this.files_.size > 0;
       this.fire('on-context-files-changed', {files: this.files_.size});
-    }
-
-    if (changedProperties.has('tabSuggestions')) {
-      this.recentTabForChip_ =
-          this.tabSuggestions.find(tab => tab.showInCurrentTabChip) || null;
-      if (!this.recentTabForChip_) {
-        this.recentTabForChip_ =
-            this.tabSuggestions.find(tab => tab.showInPreviousTabChip) || null;
-      }
     }
 
     if (changedProperties.has('entrypointName') ||
@@ -340,6 +365,10 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       this.isOmniboxInCompactMode_ = this.entrypointName === 'Omnibox' &&
           this.searchboxLayoutMode === 'Compact';
     }
+  }
+
+  onToolClickForTesting(toolMode: ComposeboxToolMode) {
+    this.handleToolClick_(toolMode);
   }
 
   addDroppedFiles(files: FileList|null) {
@@ -354,25 +383,32 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         ComposeboxContextAddedMethod.COPY_PASTE, this.composeboxSource_);
   }
 
-  blurEntrypoint() {
-    this.$.contextEntrypoint.blur();
-  }
-
   closeMenu() {
-    if (this.contextMenuEnabled_) {
-      this.$.contextEntrypoint.closeMenu();
+    if (!this.showMenuOnClick) {
+      return;
+    }
+
+    const entrypointAndMenu =
+        this.shadowRoot.querySelector<ContextualEntrypointAndMenuElement>(
+            '#contextEntrypoint');
+    if (entrypointAndMenu) {
+      entrypointAndMenu.closeMenu();
     }
   }
 
   setContextFiles(files: ContextualUpload[]) {
+    const dataTransfer = new DataTransfer();
     for (const file of files) {
       if ('tabId' in file) {
         // If the composebox is being initialized with tab context from the
         // context menu, we want to keep the context menu open to allow for
         // multi-tab selection.
-        if (this.contextMenuEnabled_ &&
+        const entrypointAndMenu =
+            this.shadowRoot.querySelector<ContextualEntrypointAndMenuElement>(
+                '#contextEntrypoint');
+        if (entrypointAndMenu &&
             file.origin === TabUploadOrigin.CONTEXT_MENU) {
-          this.$.contextEntrypoint.openMenuForMultiSelection();
+          entrypointAndMenu.openMenuForMultiSelection();
         }
         this.addTabContext_(new CustomEvent('addTabContext', {
           detail: {
@@ -385,9 +421,10 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
           },
         }));
       } else {
-        this.addFileContext_([file.file]);
+        dataTransfer.items.add(file.file);
       }
     }
+    this.processFiles_(dataTransfer.files);
   }
 
   setInitialMode(mode: ComposeboxToolMode) {
@@ -406,6 +443,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
             FileUploadStatus.kValidationFailed,
             FileUploadStatus.kUploadFailed,
             FileUploadStatus.kUploadExpired,
+            FileUploadStatus.kUploadReplaced,
           ].includes(status)) {
         this.files_.delete(token);
         if (file.tabId) {
@@ -427,16 +465,25 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
           default:
             break;
         }
-        if (this.contextMenuEnabled_) {
-          this.$.contextEntrypoint.closeMenu();
-        }
+        this.closeMenu();
       } else {
         file = {...file, status: status};
         this.files_.set(token, file);
       }
       this.files_ = new Map([...this.files_]);
     } else {
-      this.pendingFiles_.set(token, status);
+      file = {
+        uuid: token,
+        name: '',
+        objectUrl: null,
+        dataUrl: null,
+        type: '',
+        status: status,
+        url: null,
+        tabId: null,
+        isDeletable: true,
+      };
+      this.onFileContextAdded(file);
     }
     return {file, errorMessage};
   }
@@ -459,27 +506,17 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   resetModes() {
     const previousTool = this.activeTool_;
     this.activeTool_ = ComposeboxToolMode.kUnspecified;
-    this.inputsDisabled_ = false;
+    this.uploadButtonDisabled_ = false;
 
     if (previousTool !== ComposeboxToolMode.kUnspecified) {
       this.showContextMenuDescription_ = this.contextMenuDescriptionEnabled_;
     }
 
-    switch (previousTool) {
-      case ComposeboxToolMode.kDeepSearch:
-        this.fire('set-deep-search-mode', {inDeepSearchMode: false});
-        break;
-      case ComposeboxToolMode.kImageGen:
-        this.fire('set-create-image-mode', {
-          inCreateImageMode: false,
-          imagePresent: this.hasImageFiles(),
-        });
-        break;
-      case ComposeboxToolMode.kCanvas:
-        this.fire('set-canvas-mode', {inCanvasMode: false});
-        break;
-      default:
-        break;
+    if (previousTool !== ComposeboxToolMode.kUnspecified) {
+      this.fire('set-tool-mode', {
+        tool: previousTool,
+        enabled: false,
+      });
     }
   }
 
@@ -516,6 +553,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
   }
 
   updateAutoActiveTabContext(tab: TabInfo|null) {
+    const chipPresentBeforeUpdate = this.automaticActiveTabChipToken_;
     // If there is already a suggested tab context, remove it.
     if (this.automaticActiveTabChipToken_) {
       this.onDeleteFile_(new CustomEvent('deleteTabContext', {
@@ -526,24 +564,50 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       this.automaticActiveTabChipToken_ = null;
     }
 
+    // Only query autocomplete if we're replacing the current chip or if we're
+    // adding a new chip. Autocomplete should not be re-queried if there was no
+    // autochip to start, and the current tab cannot be added as an autochip.
     if (!tab) {
-      return;  // No new tab to add, so we're done.
-    }
+      if (chipPresentBeforeUpdate) {
+        this.fire('query-autocomplete', {clearMatches: true});
+      }
+    } else {
+      this.addTabContext_(new CustomEvent('addTabContext', {
+        detail: {
+          id: tab.tabId,
+          title: tab.title,
+          url: tab.url,
+          delayUpload: /*delay_upload=*/ true,
+          replaceAutoActiveTabToken: true,
+          origin: TabUploadOrigin.OTHER,
+        },
+      }));
 
-    this.addTabContext_(new CustomEvent('addTabContext', {
-      detail: {
-        id: tab.tabId,
-        title: tab.title,
-        url: tab.url,
-        delayUpload: /*delay_upload=*/ true,
-        replaceAutoActiveTabToken: true,
-        origin: TabUploadOrigin.OTHER,
-      },
-    }));
+      // TODO(crbug.com/482150500): Correctly query for url based suggestions
+      // when delayed tab is present. Right now, while url-based suggestions are
+      // not set-up, clear the autocomplete matches.
+      this.fire('clear-autocomplete-matches');
+    }
+  }
+
+  private isMimeTypeAllowed_(
+      mimeType: string, allowedTypes: string[]): boolean {
+    const lowerMimeType = mimeType.toLowerCase();
+    return allowedTypes.some(type => {
+      if (type.endsWith('/*')) {
+        const prefix = type.slice(0, -1);
+        return lowerMimeType.startsWith(prefix);
+      }
+      return lowerMimeType === type;
+    });
   }
 
   private addFileFromAttachment_(fileAttachment: FileAttachment) {
-    const pendingStatus = this.pendingFiles_.get(fileAttachment.uuid);
+    if (!this.isFileAllowed_(fileAttachment.mimeType)) {
+      this.handleProcessFilesError_(ProcessFilesError.INVALID_TYPE);
+      return;
+    }
+    const pendingStatus = this.files_.get(fileAttachment.uuid)?.status;
     const composeboxFile: ComposeboxFile = {
       uuid: fileAttachment.uuid,
       name: fileAttachment.name,
@@ -555,9 +619,6 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       tabId: null,
       isDeletable: true,
     };
-    if (pendingStatus) {
-      this.pendingFiles_.delete(fileAttachment.uuid);
-    }
     this.onFileContextAdded(composeboxFile);
   }
 
@@ -583,7 +644,7 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       }
     }
 
-    if (context.attachments) {
+    if (context.attachments.length > 0) {
       recordContextAdditionMethod(
           ComposeboxContextAddedMethod.CONTEXT_MENU, this.composeboxSource_);
     }
@@ -595,13 +656,22 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       case ToolMode.kCreateImage:
         this.setInitialMode(ComposeboxToolMode.kImageGen);
         break;
+      case ToolMode.kCanvas:
+        this.setInitialMode(ComposeboxToolMode.kCanvas);
+        break;
       default:
     }
   }
 
-  protected preventFocus_(e: FocusEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  protected onContextMenuContainerMouseDown_(e: FocusEvent) {
+    // Special treatment for the "Tall" layout variants where not clicking on an
+    // inner element should be treated as clicking on a non-focusable area.
+    if (this.searchboxLayoutMode !== 'Compact' &&
+        (e.target instanceof HTMLElement &&
+         e.target.id === 'contextMenuContainer')) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }
 
   protected onContextMenuContainerClick_(e: MouseEvent) {
@@ -622,19 +692,23 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
 
   protected onDeleteFile_(
       e: CustomEvent<{uuid: UnguessableToken, fromUserAction?: boolean}>) {
-    if (!e.detail.uuid || !this.files_.has(e.detail.uuid)) {
+    this.deleteFile(e.detail.uuid, e.detail.fromUserAction);
+  }
+
+  deleteFile(uuidToDelete: UnguessableToken, fromUserAction?: boolean) {
+    if (!uuidToDelete || !this.files_.has(uuidToDelete)) {
       return;
     }
 
-    const file = this.files_.get(e.detail.uuid);
+    const file = this.files_.get(uuidToDelete);
     if (file?.tabId) {
       this.addedTabsIds_ = new Map([...this.addedTabsIds_.entries()].filter(
           ([id, _]) => id !== file.tabId));
     }
 
     const fromAutoSuggestedChip =
-        e.detail.uuid === this.automaticActiveTabChipToken_ &&
-        (e.detail.fromUserAction === true);
+        uuidToDelete === this.automaticActiveTabChipToken_ &&
+        (fromUserAction === true);
     if (fromAutoSuggestedChip) {
       const metricName = 'ContextualSearch.UserAction.DeleteAutoSuggestedTab.' +
           this.composeboxSource_;
@@ -644,10 +718,10 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
     }
 
     this.files_ = new Map([...this.files_.entries()].filter(
-        ([uuid, _]) => uuid !== e.detail.uuid));
+        ([uuid, _]) => uuid !== uuidToDelete));
     this.fire(
         'delete-context',
-        {uuid: e.detail.uuid, fromAutoSuggestedChip: fromAutoSuggestedChip});
+        {uuid: uuidToDelete, fromAutoSuggestedChip: fromAutoSuggestedChip});
   }
 
   private handleProcessFilesError_(error: ProcessFilesError) {
@@ -663,6 +737,14 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         metric = ComposeboxFileValidationError.TOO_MANY_FILES;
         errorMessage = 'maxFilesReachedError';
         break;
+      case ProcessFilesError.MAX_IMAGES_EXCEEDED:
+        metric = ComposeboxFileValidationError.TOO_MANY_FILES;
+        errorMessage = 'maxImagesReachedError';
+        break;
+      case ProcessFilesError.MAX_PDFS_EXCEEDED:
+        metric = ComposeboxFileValidationError.TOO_MANY_FILES;
+        errorMessage = 'maxPdfsReachedError';
+        break;
       case ProcessFilesError.FILE_EMPTY:
         metric = ComposeboxFileValidationError.FILE_EMPTY;
         errorMessage = 'composeboxFileUploadInvalidEmptySize';
@@ -674,28 +756,47 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       case ProcessFilesError.INVALID_TYPE:
         errorMessage = 'composeFileTypesAllowedError';
         break;
+      case ProcessFilesError.FILE_UPLOAD_NOT_ALLOWED:
+        errorMessage = 'composeboxFileUploadNotAllowed';
+        break;
       default:
         break;
     }
 
     this.recordFileValidationMetric_(metric);
-    if (this.contextMenuEnabled_) {
-      this.$.contextEntrypoint.closeMenu();
-    }
+    this.closeMenu();
     this.fire('on-file-validation-error', {
       errorMessage: this.i18n(errorMessage),
     });
   }
 
-  private isFileAllowed_(file: File, allowedTypes: string[]): boolean {
-    const fileType = file.type.toLowerCase();
-    return allowedTypes.some(type => {
-      if (type.endsWith('/*')) {
-        const prefix = type.slice(0, -1);
-        return fileType.startsWith(prefix);
-      }
-      return fileType === type;
-    });
+  private isFileAllowed_(fileType: string): boolean {
+    return this.isMimeTypeAllowed_(fileType, this.imageFileTypes_) ||
+        this.isMimeTypeAllowed_(fileType, this.attachmentFileTypes_);
+  }
+
+  private getInputType_(type: string): InputType {
+    if (type === 'tab') {
+      return InputType.kBrowserTab;
+    }
+    if (type === 'image') {
+      return InputType.kLensImage;
+    }
+    if (type === 'pdf') {
+      return InputType.kLensFile;
+    }
+
+    if (this.imageFileTypes_.some(t => {
+          if (t.endsWith('/*')) {
+            const prefix = t.slice(0, -1);
+            return type.startsWith(prefix);
+          }
+          return type === t;
+        })) {
+      return InputType.kLensImage;
+    }
+
+    return InputType.kLensFile;
   }
 
   protected processFiles_(files: FileList|null) {
@@ -703,14 +804,52 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
       return;
     }
 
+    if (this.activeTool_ === ComposeboxToolMode.kDeepSearch) {
+      this.handleProcessFilesError_(ProcessFilesError.FILE_UPLOAD_NOT_ALLOWED);
+      return;
+    }
+
+    if (this.entrypointName === 'Realbox') {
+      this.addFileContext_(Array.from(files));
+      return;
+    }
+
     const filesToUpload: File[] = [];
     let errorToDisplay = ProcessFilesError.NONE;
 
-    if (this.files_.size + files.length > this.maxFileCount_) {
-      errorToDisplay = ProcessFilesError.MAX_FILES_EXCEEDED;
+    const counts = new Map<InputType, number>();
+    counts.set(InputType.kLensImage, 0);
+    counts.set(InputType.kLensFile, 0);
+    counts.set(InputType.kBrowserTab, 0);
+
+    for (const file of this.files_.values()) {
+      const type = this.getInputType_(file.type);
+      counts.set(type, (counts.get(type) || 0) + 1);
+    }
+
+    let totalCount = this.files_.size;
+
+    let maxTotal = this.maxFileCount_;
+    if (this.inputState && this.inputState.maxTotalInputs > 0) {
+      maxTotal = this.inputState.maxTotalInputs;
+    }
+
+    if (totalCount + files.length > maxTotal) {
+      errorToDisplay = Math.max(errorToDisplay, ProcessFilesError.MAX_FILES_EXCEEDED);
     }
 
     for (const file of files) {
+      const inputType = this.getInputType_(file.type);
+      if (this.inputState &&
+          this.activeTool_ !== ComposeboxToolMode.kUnspecified) {
+        const disabledTypes = this.inputState.disabledInputTypes || [];
+        if (disabledTypes.includes(inputType)) {
+          errorToDisplay =
+              Math.max(errorToDisplay, ProcessFilesError.INVALID_TYPE);
+          continue;
+        }
+      }
+
       if (file.size === 0 || file.size > this.maxFileSize_) {
         const sizeError = file.size === 0 ? ProcessFilesError.FILE_EMPTY :
                                             ProcessFilesError.FILE_TOO_LARGE;
@@ -718,15 +857,39 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
         continue;
       }
 
-      if (!this.isFileAllowed_(file, this.imageFileTypes_) &&
-          !this.isFileAllowed_(file, this.attachmentFileTypes_)) {
+      if (!this.isFileAllowed_(file.type)) {
         errorToDisplay =
             Math.max(errorToDisplay, ProcessFilesError.INVALID_TYPE);
         continue;
       }
 
-      if ((this.files_.size + filesToUpload.length) < this.maxFileCount_) {
+      let maxType = maxTotal;
+      if (this.inputState &&
+          this.inputState.maxInstances[inputType] !== undefined) {
+        maxType = this.inputState.maxInstances[inputType];
+      }
+
+      const currentTypeCount = counts.get(inputType) || 0;
+
+      if (totalCount < maxTotal && currentTypeCount < maxType) {
         filesToUpload.push(file);
+        totalCount++;
+        counts.set(inputType, currentTypeCount + 1);
+      } else {
+        if (currentTypeCount >= maxType) {
+          switch (inputType) {
+            case InputType.kLensImage:
+              errorToDisplay = Math.max(errorToDisplay, ProcessFilesError.MAX_IMAGES_EXCEEDED);
+              break;
+            case InputType.kLensFile:
+              errorToDisplay = Math.max(errorToDisplay, ProcessFilesError.MAX_PDFS_EXCEEDED);
+              break;
+            default:
+              errorToDisplay = Math.max(errorToDisplay, ProcessFilesError.MAX_FILES_EXCEEDED);
+          }
+        } else {
+          errorToDisplay = Math.max(errorToDisplay, ProcessFilesError.MAX_FILES_EXCEEDED);
+        }
       }
     }
 
@@ -811,14 +974,31 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
     }
   }
 
-  protected onToolClick_(e: CustomEvent<{tool: ComposeboxToolMode}>) {
-    this.handleToolClick_(e.detail.tool);
+  protected onToolClick_(e: CustomEvent<{toolMode: ComposeboxToolMode}>) {
+    this.handleToolClick_(e.detail.toolMode);
+  }
+
+  protected handleDeepSearchClick_() {
+    this.handleToolClick_(ComposeboxToolMode.kDeepSearch);
+  }
+
+  protected handleImageGenClick_() {
+    this.handleToolClick_(ComposeboxToolMode.kImageGen);
+  }
+
+  protected handleCanvasClick_() {
+    this.handleToolClick_(ComposeboxToolMode.kCanvas);
   }
 
   protected handleToolClick_(tool: ComposeboxToolMode) {
     if (this.entrypointName !== 'Realbox') {
       if (this.contextMenuDescriptionEnabled_) {
-        this.showContextMenuDescription_ = !this.showContextMenuDescription_;
+        if (this.activeTool_ === tool) {
+          this.showContextMenuDescription_ = true;
+        } else {
+          this.showContextMenuDescription_ =
+              tool === ComposeboxToolMode.kUnspecified;
+        }
       }
 
       if (this.activeTool_ === tool) {
@@ -829,24 +1009,16 @@ export class ContextualEntrypointAndCarouselElement extends I18nMixinLit
     }
 
     const isActive = this.activeTool_ === tool;
-    switch (tool) {
-      case ComposeboxToolMode.kDeepSearch:
-        this.fire('set-deep-search-mode', {inDeepSearchMode: isActive});
-        break;
-      case ComposeboxToolMode.kImageGen:
-        this.fire('set-create-image-mode', {
-          inCreateImageMode: isActive,
-          imagePresent: this.hasImageFiles(),
-        });
-        break;
-      case ComposeboxToolMode.kCanvas:
-        this.fire('set-canvas-mode', {
-          inCanvasMode: isActive,
-        });
-        break;
-      default:
-        break;
-    }
+    this.fire('set-tool-mode', {
+      tool: tool,
+      enabled: isActive,
+    });
+  }
+
+  protected shouldShowVoiceSearchAtBottom_(): boolean {
+    return (this.searchboxLayoutMode === 'TallBottomContext' ||
+            !this.searchboxLayoutMode) &&
+        this.showVoiceSearch;
   }
 
   protected onVoiceSearchClick_() {

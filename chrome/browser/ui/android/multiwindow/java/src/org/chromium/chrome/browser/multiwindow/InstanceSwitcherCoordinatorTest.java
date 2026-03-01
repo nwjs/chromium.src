@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.multiwindow;
 
-import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.replaceText;
@@ -27,7 +26,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
@@ -35,7 +33,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 
@@ -66,9 +63,9 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -76,8 +73,10 @@ import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.favicon.LargeIconBridge;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.test.util.BlankUiTestActivity;
+import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.url.GURL;
 
 import java.util.Arrays;
@@ -87,10 +86,7 @@ import java.util.concurrent.TimeoutException;
 /** Unit tests for {@link InstanceSwitcherCoordinator}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DisableFeatures({
-    ChromeFeatureList.INSTANCE_SWITCHER_V2,
-    ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
-})
+@DisableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
 public class InstanceSwitcherCoordinatorTest {
     private static final int MAX_INSTANCE_COUNT = 5;
 
@@ -138,10 +134,71 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    public void testOpenWindow() throws Exception {
+    public void testShowDialog_ListsAreSorted() throws Exception {
         InstanceInfo[] instances =
-                createPersistedInstances(
-                        /* numActiveInstances= */ 3, /* numInactiveInstances= */ 0);
+                new InstanceInfo[] {
+                    new InstanceInfo(
+                            /* instanceId= */ 0,
+                            /* taskId= */ 57,
+                            InstanceInfo.Type.OTHER,
+                            "url0",
+                            "title0",
+                            /* customTitle= */ null,
+                            /* tabCount= */ 0,
+                            /* incognitoTabCount= */ 0,
+                            /* isIncognitoSelected= */ false,
+                            /* lastAccessedTime= */ getDaysAgoMillis(2),
+                            /* closureTime= */ 0),
+                    new InstanceInfo(
+                            /* instanceId= */ 1,
+                            /* taskId= */ 58,
+                            InstanceInfo.Type.OTHER,
+                            "ur11",
+                            "title1",
+                            /* customTitle= */ null,
+                            /* tabCount= */ 2,
+                            /* incognitoTabCount= */ 0,
+                            /* isIncognitoSelected= */ false,
+                            /* lastAccessedTime= */ getDaysAgoMillis(1),
+                            /* closureTime= */ 0),
+                    new InstanceInfo(
+                            /* instanceId= */ 2,
+                            /* taskId= */ 59,
+                            InstanceInfo.Type.CURRENT,
+                            "url2",
+                            "title2",
+                            /* customTitle= */ null,
+                            /* tabCount= */ 0,
+                            /* incognitoTabCount= */ 0,
+                            /* isIncognitoSelected= */ false,
+                            /* lastAccessedTime= */ getDaysAgoMillis(0),
+                            /* closureTime= */ 0),
+                    new InstanceInfo(
+                            /* instanceId= */ 3,
+                            /* taskId= */ -1,
+                            InstanceInfo.Type.OTHER,
+                            "url3",
+                            "title3",
+                            /* customTitle= */ null,
+                            /* tabCount= */ 0,
+                            /* incognitoTabCount= */ 0,
+                            /* isIncognitoSelected= */ false,
+                            /* lastAccessedTime= */ getDaysAgoMillis(1),
+                            /* closureTime= */ 0),
+                    new InstanceInfo(
+                            /* instanceId= */ 4,
+                            /* taskId= */ -1,
+                            InstanceInfo.Type.OTHER,
+                            "url4",
+                            "title4",
+                            /* customTitle= */ null,
+                            /* tabCount= */ 0,
+                            /* incognitoTabCount= */ 0,
+                            /* isIncognitoSelected= */ false,
+                            /* lastAccessedTime= */ getDaysAgoMillis(3),
+                            /* closureTime= */ getDaysAgoMillis(2))
+                };
+
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     InstanceSwitcherCoordinator.showDialog(
@@ -153,14 +210,80 @@ public class InstanceSwitcherCoordinatorTest {
                             Arrays.asList(instances),
                             /* isIncognitoWindow= */ false);
                 });
-        onData(anything()).inRoot(isDialog()).atPosition(1).perform(click());
-        verify(mDelegate).openInstance(eq(instances[1].instanceId));
+
+        // Verify that the "Current window" string is at position 0.
+        onView(withId(R.id.active_instance_list))
+                .inRoot(isDialog())
+                .check(
+                        matches(
+                                atPosition(
+                                        0,
+                                        hasDescendant(
+                                                allOf(
+                                                        withId(R.id.last_accessed),
+                                                        withText("Current window"),
+                                                        isDisplayed())))));
+
+        // Verify that the "Yesterday" string is at position 1.
+        onView(withId(R.id.active_instance_list))
+                .inRoot(isDialog())
+                .check(
+                        matches(
+                                atPosition(
+                                        1,
+                                        hasDescendant(
+                                                allOf(
+                                                        withId(R.id.last_accessed),
+                                                        withText("Yesterday"),
+                                                        isDisplayed())))));
+
+        // Verify that the "2 days ago" string is at position 2.
+        onView(withId(R.id.active_instance_list))
+                .inRoot(isDialog())
+                .check(
+                        matches(
+                                atPosition(
+                                        2,
+                                        hasDescendant(
+                                                allOf(
+                                                        withId(R.id.last_accessed),
+                                                        withText("2 days ago"),
+                                                        isDisplayed())))));
+
+        // Switch to the the inactive instances tab.
+        onView(allOf(withText("Inactive (2)"), isDescendantOfA(withId(R.id.tabs))))
+                .perform(click());
+
+        // Verify that the "Yesterday" string is at position 0.
+        onView(withId(R.id.inactive_instance_list))
+                .inRoot(isDialog())
+                .check(
+                        matches(
+                                atPosition(
+                                        0,
+                                        hasDescendant(
+                                                allOf(
+                                                        withId(R.id.last_accessed),
+                                                        withText("Yesterday"),
+                                                        isDisplayed())))));
+
+        // Verify that the "2 days ago" string is at position 1.
+        onView(withId(R.id.inactive_instance_list))
+                .inRoot(isDialog())
+                .check(
+                        matches(
+                                atPosition(
+                                        1,
+                                        hasDescendant(
+                                                allOf(
+                                                        withId(R.id.last_accessed),
+                                                        withText("2 days ago"),
+                                                        isDisplayed())))));
     }
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testOpenWindow_InstanceSwitcherV2() throws Exception {
+    public void testOpenWindow() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
                         /* numActiveInstances= */ 3, /* numInactiveInstances= */ 0);
@@ -217,8 +340,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testRestoreWindow_InstanceSwitcherV2() throws Exception {
+    public void testRestoreWindow() throws Exception {
         // Initialize instance list with 2 active instances and 1 inactive instance.
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -276,9 +398,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testRestoreButtonDisabledWhenSelectedInstanceClosed_InstanceSwitcherV2()
-            throws Exception {
+    public void testRestoreButtonDisabledWhenSelectedInstanceClosed() throws Exception {
         // Initialize instance list with 1 active instance and 3 inactive instances.
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -324,7 +444,11 @@ public class InstanceSwitcherCoordinatorTest {
                 .check(matches(isEnabled()));
 
         // Close the selected instance.
-        closeInstanceAt(0, /* isActiveInstance= */ false, closeCallbackHelper);
+        closeInstanceAt(
+                0,
+                /* isActiveInstance= */ false,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ true);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[1].instanceId));
 
         // Verify "Restore" button is now disabled.
@@ -335,9 +459,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testRestoreButtonEnabledWhenOtherInstanceClosed_InstanceSwitcherV2()
-            throws Exception {
+    public void testRestoreButtonEnabledWhenOtherInstanceClosed() throws Exception {
         // Initialize instance list with 1 active instance and 3 inactive instances.
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -383,7 +505,11 @@ public class InstanceSwitcherCoordinatorTest {
                 .check(matches(isEnabled()));
 
         // Close the first instance.
-        closeInstanceAt(0, /* isActiveInstance= */ false, closeCallbackHelper);
+        closeInstanceAt(
+                0,
+                /* isActiveInstance= */ false,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ true);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[1].instanceId));
 
         // Verify "Restore" button is still enabled.
@@ -394,8 +520,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testBlockInstanceRestorationAtLimit_InstanceSwitcherV2() throws Exception {
+    public void testBlockInstanceRestorationAtLimit() throws Exception {
         // Initialize instance list with MAX_INSTANCE_COUNT active instances, 1 inactive instance.
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -442,8 +567,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    public void testActiveInactiveTabSwitch_InstanceSwitcherV2() throws Exception {
+    public void testActiveInactiveTabSwitch() throws Exception {
         // Initialize instance list with 2 active instances and 1 inactive instance.
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -510,7 +634,6 @@ public class InstanceSwitcherCoordinatorTest {
     @SmallTest
     @EnableFeatures({
         ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW,
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
         ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
     })
     public void testNewIncognitoWindow() throws Exception {
@@ -580,59 +703,26 @@ public class InstanceSwitcherCoordinatorTest {
                             /* isIncognitoWindow= */ false);
                 });
 
-        // Verify that we have only [cancel] button.
-        onView(withId(R.id.positive_button))
+        // Verify that we have [cancel] and [open] buttons visible.
+        onView(allOf(withId(R.id.positive_button), withText(R.string.open)))
                 .inRoot(isDialog())
-                .check(matches(withEffectiveVisibility(GONE)));
-        onView(withText(R.string.cancel)).check(matches(withEffectiveVisibility(VISIBLE)));
+                .check(matches(withEffectiveVisibility(VISIBLE)));
+        onView(allOf(withText(R.string.cancel)))
+                .inRoot(isDialog())
+                .check(matches(withEffectiveVisibility(VISIBLE)));
 
-        onData(anything()).atPosition(2).onChildView(withId(R.id.more)).perform(click());
-        onView(withText(R.string.instance_switcher_close_window))
+        clickMoreButtonAtPosition(/* instanceIndex= */ 2, "title2");
+        onView(withText(R.string.close))
                 .inRoot(withDecorView(withClassName(containsString("Popup"))))
                 .perform(click());
 
-        // Verify that we have both [cancel] [close] buttons now.
+        // Verify that we have [cancel] and [close] buttons visible now.
         onView(withText(R.string.close)).check(matches(withEffectiveVisibility(VISIBLE)));
         onView(withText(R.string.cancel)).check(matches(withEffectiveVisibility(VISIBLE)));
 
         onView(withText(R.string.close)).perform(click());
         itemClickCallbackHelper.waitForCallback(itemClickCount);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[2].instanceId));
-    }
-
-    @Test
-    @SmallTest
-    @SuppressWarnings("unchecked")
-    public void testMaxNumberOfWindows() throws Exception {
-        InstanceInfo[] instances =
-                createPersistedInstances(
-                        /* numActiveInstances= */ MAX_INSTANCE_COUNT,
-                        /* numInactiveInstances= */ 0);
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    InstanceSwitcherCoordinator.showDialog(
-                            mActivityTestRule.getActivity(),
-                            mModalDialogManager,
-                            mIconBridge,
-                            mDelegate,
-                            MAX_INSTANCE_COUNT,
-                            Arrays.asList(instances),
-                            /* isIncognitoWindow= */ false);
-                });
-
-        // Verify that we show a info message that users can have up to 5 windows when there are
-        // already maximum number of windows.
-        String text =
-                mActivityTestRule
-                        .getActivity()
-                        .getResources()
-                        .getString(R.string.max_number_of_windows, MAX_INSTANCE_COUNT);
-        onData(anything())
-                .inRoot(isDialog())
-                .atPosition(5)
-                .onChildView(withText(text))
-                .check(matches(isDisplayed()));
     }
 
     @Test
@@ -662,7 +752,6 @@ public class InstanceSwitcherCoordinatorTest {
                         })
                 .when(mDelegate)
                 .openNewWindow(anyBoolean());
-        InstanceSwitcherCoordinator.setSkipCloseConfirmation();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -676,85 +765,7 @@ public class InstanceSwitcherCoordinatorTest {
                             /* isIncognitoWindow= */ false);
                 });
 
-        // Verify that we show info message that users can have up to 5 windows when there are more
-        // than maximum number of windows.
-        String text =
-                mActivityTestRule
-                        .getActivity()
-                        .getResources()
-                        .getString(R.string.max_number_of_windows, MAX_INSTANCE_COUNT);
-        onData(anything())
-                .inRoot(isDialog())
-                .atPosition(6)
-                .onChildView(withText(text))
-                .check(matches(isDisplayed()));
-
-        // Close an instance.
-        closeInstanceAt(2, closeCallbackHelper);
-        verify(mDelegate).closeInstances(Collections.singletonList(instances[2].instanceId));
-
-        // Verify that we show info message that users can have up to 5 windows when there are
-        // maximum number of windows.
-        onData(anything())
-                .inRoot(isDialog())
-                .atPosition(5)
-                .onChildView(withText(text))
-                .check(matches(isDisplayed()));
-
-        // Close another instance.
-        closeInstanceAt(2, closeCallbackHelper);
-        verify(mDelegate).closeInstances(Collections.singletonList(instances[3].instanceId));
-
-        // List positions 0 ~ 3: instances. 4: 'new window' command.
-        onData(anything()).inRoot(isDialog()).atPosition(4).perform(click());
-        newWindowCallbackHelper.waitForCallback(newWindowClickCount);
-        verify(mDelegate).openNewWindow(false);
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
-    @DisabledTest(message = "crbug.com/430445069")
-    public void testExceedsMaxNumberOfWindows_InstanceSwitcherV2() throws Exception {
-        // Simulate persistence of MAX_INSTANCE_COUNT active instances and 1 inactive instance.
-        InstanceInfo[] instances =
-                createPersistedInstances(
-                        /* numActiveInstances= */ MAX_INSTANCE_COUNT,
-                        /* numInactiveInstances= */ 1);
-
-        final CallbackHelper newWindowCallbackHelper = new CallbackHelper();
-        final int newWindowClickCount = newWindowCallbackHelper.getCallCount();
-
-        final CallbackHelper closeCallbackHelper = new CallbackHelper();
-        doAnswer(
-                        invocation -> {
-                            closeCallbackHelper.notifyCalled();
-                            return null;
-                        })
-                .when(mDelegate)
-                .closeInstances(any());
-        doAnswer(
-                        invocation -> {
-                            newWindowCallbackHelper.notifyCalled();
-                            return null;
-                        })
-                .when(mDelegate)
-                .openNewWindow(anyBoolean());
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    InstanceSwitcherCoordinator.showDialog(
-                            mActivityTestRule.getActivity(),
-                            mModalDialogManager,
-                            mIconBridge,
-                            mDelegate,
-                            MAX_INSTANCE_COUNT,
-                            Arrays.asList(instances),
-                            /* isIncognitoWindow= */ false);
-                });
-
-        // Verify that we show max info message that users can have up to 5 windows when there are
-        // more than maximum number of windows.
+        // Verify that we show max info message when there are more than maximum number of windows.
         String activeMaxInfoText =
                 mActivityTestRule
                         .getActivity()
@@ -794,7 +805,11 @@ public class InstanceSwitcherCoordinatorTest {
                 .check(matches(withText(inactiveMaxInfoText)))
                 .check(matches(isDisplayed()));
 
-        closeInstanceAt(0, /* isActiveInstance= */ false, closeCallbackHelper);
+        closeInstanceAt(
+                0,
+                /* isActiveInstance= */ false,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ true);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[5].instanceId));
 
         // Switch to the active instance tab.
@@ -805,7 +820,11 @@ public class InstanceSwitcherCoordinatorTest {
                 .perform(click());
 
         // Close an active instance (e.g., the third one, at index 2).
-        closeInstanceAt(2, /* isActiveInstance= */ true, closeCallbackHelper);
+        closeInstanceAt(
+                2,
+                /* isActiveInstance= */ true,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ true);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[2].instanceId));
 
         // Verify max instance info message is gone.
@@ -824,10 +843,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testMaxInfoTextRes_RobustWindowManagement() throws Exception {
         // Simulate persistence of MAX_INSTANCE_COUNT active instances and 1 inactive instance.
         InstanceInfo[] instances =
@@ -847,8 +863,7 @@ public class InstanceSwitcherCoordinatorTest {
                             /* isIncognitoWindow= */ false);
                 });
 
-        // Verify that we show max info message that users can have up to 5 windows when there are
-        // more than maximum number of windows.
+        // Verify that we show max info message when there are more than maximum number of windows.
         String activeMaxInfoText =
                 mActivityTestRule
                         .getActivity()
@@ -891,7 +906,6 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
     public void testDeselectWindow() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -967,8 +981,8 @@ public class InstanceSwitcherCoordinatorTest {
                             /* tabCount= */ 0,
                             /* incognitoTabCount= */ 0,
                             /* isIncognitoSelected= */ false,
-                            /* lastAccessedTime= */ 0,
-                            /* markedForDeletion= */ false),
+                            /* lastAccessedTime= */ 3,
+                            /* closureTime= */ 0),
                     new InstanceInfo(
                             /* instanceId= */ 1,
                             /* taskId= */ 58,
@@ -979,8 +993,8 @@ public class InstanceSwitcherCoordinatorTest {
                             /* tabCount= */ 2,
                             /* incognitoTabCount= */ 0,
                             /* isIncognitoSelected= */ false,
-                            /* lastAccessedTime= */ 0,
-                            /* markedForDeletion= */ false),
+                            /* lastAccessedTime= */ 2,
+                            /* closureTime= */ 0),
                     new InstanceInfo(
                             /* instanceId= */ 2,
                             /* taskId= */ 59,
@@ -991,8 +1005,8 @@ public class InstanceSwitcherCoordinatorTest {
                             /* tabCount= */ 0,
                             /* incognitoTabCount= */ 0,
                             /* isIncognitoSelected= */ false,
-                            /* lastAccessedTime= */ 0,
-                            /* markedForDeletion= */ false)
+                            /* lastAccessedTime= */ 1,
+                            /* closureTime= */ 0)
                 };
         final CallbackHelper closeCallbackHelper = new CallbackHelper();
         doAnswer(
@@ -1016,13 +1030,21 @@ public class InstanceSwitcherCoordinatorTest {
                 });
 
         // Closing a hidden, tab-less instance skips the confirmation.
-        closeInstanceAt(2, closeCallbackHelper);
+        closeInstanceAt(
+                /* position= */ 2,
+                /* isActiveInstance= */ true,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ false);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[2].instanceId));
 
         // Verify that the close callback skips the confirmation when the skip checkbox
         // was ticked on.
         InstanceSwitcherCoordinator.setSkipCloseConfirmation();
-        closeInstanceAt(1, closeCallbackHelper);
+        closeInstanceAt(
+                /* position= */ 1,
+                /* isActiveInstance= */ true,
+                closeCallbackHelper,
+                /* expectCloseConfirmation= */ false);
         verify(mDelegate).closeInstances(Collections.singletonList(instances[1].instanceId));
     }
 
@@ -1044,15 +1066,12 @@ public class InstanceSwitcherCoordinatorTest {
                             /* isIncognitoWindow= */ false);
                 });
 
-        onData(anything())
-                .inRoot(isDialog())
-                .atPosition(2)
-                .onChildView(withId(R.id.more))
-                .perform(click());
-        onView(withText(R.string.instance_switcher_close_window))
+        clickMoreButtonAtPosition(/* instanceIndex= */ 2, "title2");
+        onView(withText(R.string.close))
                 .inRoot(withDecorView(withClassName(containsString("Popup"))))
                 .perform(click());
-        onView(allOf(withText(R.string.instance_switcher_close_confirm_header)))
+        onView(withText(R.string.instance_switcher_close_confirm_header))
+                .inRoot(isDialog())
                 .check(matches(isDisplayed()));
 
         onView(withText(R.string.cancel)).perform(click());
@@ -1065,7 +1084,6 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
     public void testLastAccessedStringsForInstances() {
         final String expectedCurrentString = "Current window";
         final String expectedOtherString = "2 days ago";
@@ -1115,10 +1133,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testRenameWindow() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1189,10 +1204,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testRenameWindow_inactiveInstance() {
         // Initialize instance list with 2 active instances and 1 inactive instance.
         InstanceInfo[] instances =
@@ -1241,10 +1253,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testRenameWindowWithEmptyName() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1315,9 +1324,96 @@ public class InstanceSwitcherCoordinatorTest {
     @Test
     @SmallTest
     @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT
+        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT,
+        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
     })
+    @Restriction({
+        DeviceFormFactor.TABLET_OR_DESKTOP,
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
+        DeviceRestriction.RESTRICTION_TYPE_NON_FOLDABLE
+    })
+    public void testClearIncognitoWindowName() throws Exception {
+        InstanceInfo[] instances =
+                new InstanceInfo[] {
+                    new InstanceInfo(
+                            /* instanceId= */ 0,
+                            1,
+                            InstanceInfo.Type.CURRENT,
+                            "url0",
+                            "title0",
+                            /* customTitle= */ "Window 1",
+                            /* tabCount= */ 0,
+                            /* incognitoTabCount= */ 1,
+                            /* isIncognitoSelected= */ true,
+                            /* lastAccessedTime= */ 0,
+                            /* closureTime= */ 0)
+                };
+        final CallbackHelper renameCallbackHelper = new CallbackHelper();
+        final int renameCallbackCount = renameCallbackHelper.getCallCount();
+        doAnswer(
+                        invocation -> {
+                            renameCallbackHelper.notifyCalled();
+                            return null;
+                        })
+                .when(mDelegate)
+                .renameInstance(anyInt(), anyString());
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    InstanceSwitcherCoordinator.showDialog(
+                            mActivityTestRule.getActivity(),
+                            mModalDialogManager,
+                            mIconBridge,
+                            mDelegate,
+                            MAX_INSTANCE_COUNT,
+                            Arrays.asList(instances),
+                            /* isIncognitoWindow= */ true);
+                });
+
+        // Click on the 'more' button for the instance.
+        clickMoreButtonAtPosition(0, "Window 1");
+
+        // Check that "Name" is an option and click it.
+        onView(withText(R.string.instance_switcher_name_window))
+                .inRoot(withDecorView(withClassName(containsString("Popup"))))
+                .check(matches(isDisplayed()))
+                .perform(click());
+
+        // Check that the "Name this window" dialog is shown.
+        onView(withText(R.string.instance_switcher_name_window_confirm_header))
+                .inRoot(isDialog())
+                .check(matches(isDisplayed()));
+
+        // Enter an empty name and save.
+        onView(withId(R.id.title_input_text)).inRoot(isDialog()).perform(replaceText(""));
+        onView(withText(R.string.save)).inRoot(isDialog()).perform(click());
+
+        // Check that the instance title is updated to the default title for an incognito window.
+        String defaultTitle = "Incognito window";
+        onView(withId(R.id.active_instance_list))
+                .inRoot(isDialog())
+                .check(matches(atPosition(0, hasDescendant(withText(defaultTitle)))));
+
+        // Check that the rename callback was called.
+        assertEquals(renameCallbackCount + 1, renameCallbackHelper.getCallCount());
+        verify(mDelegate).renameInstance(instances[0].instanceId, "");
+
+        // Reopen the name window dialog.
+        clickMoreButtonAtPosition(0, defaultTitle);
+        onView(withText(R.string.instance_switcher_name_window))
+                .inRoot(withDecorView(withClassName(containsString("Popup"))))
+                .check(matches(isDisplayed()))
+                .perform(click());
+
+        // Check that the input text field is updated.
+        onView(withId(R.id.title_input_text))
+                .inRoot(isDialog())
+                .check(matches(withText(defaultTitle)));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
     public void testCancelRenameWindow() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1371,10 +1467,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testMultiSelectInactiveWindows_robustWindowManagement() throws Exception {
         // Initialize instance list with 2 active instances and 3 inactive instances.
         InstanceInfo[] instances =
@@ -1470,7 +1563,6 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.INSTANCE_SWITCHER_V2)
     public void testSingleSelectInactiveWindows_noRobustWindowManagement() throws Exception {
         // Initialize instance list with 2 active instances and 3 inactive instances.
         InstanceInfo[] instances =
@@ -1541,10 +1633,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testTitleUpdateOnSelection() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1642,10 +1731,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testSelectAll() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1702,10 +1788,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testDeselectAll() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1778,10 +1861,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testCloseSelectedInstances() throws Exception {
         InstanceInfo[] instances =
                 createPersistedInstances(
@@ -1841,10 +1921,7 @@ public class InstanceSwitcherCoordinatorTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ChromeFeatureList.INSTANCE_SWITCHER_V2,
-        ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true"
-    })
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT + ":bulk_close/true")
     public void testMoreButtonHiddenWhenListIsEmpty() throws Exception {
         // 1 active, 1 inactive instance.
         InstanceInfo[] instances =
@@ -1924,6 +2001,34 @@ public class InstanceSwitcherCoordinatorTest {
         onView(allOf(withId(R.id.title_more_button), isDisplayed())).check(doesNotExist());
     }
 
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT)
+    public void testCommandUiAtInstanceLimit_RobustWindowManagement() throws Exception {
+        // Simulate persistence of (MAX_INSTANCE_COUNT - 1) active instances and 1 inactive
+        // instance.
+        InstanceInfo[] instances =
+                createPersistedInstances(
+                        /* numActiveInstances= */ MAX_INSTANCE_COUNT - 1,
+                        /* numInactiveInstances= */ 1);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    InstanceSwitcherCoordinator.showDialog(
+                            mActivityTestRule.getActivity(),
+                            mModalDialogManager,
+                            mIconBridge,
+                            mDelegate,
+                            MAX_INSTANCE_COUNT,
+                            Arrays.asList(instances),
+                            /* isIncognitoWindow= */ false);
+                });
+
+        // Verify the "+ New window" command is displayed, since # of active instances is less than
+        // the instance limit.
+        onView(withId(R.id.new_window)).inRoot(isDialog()).check(matches(isDisplayed()));
+    }
+
     private InstanceInfo[] createPersistedInstances(
             int numActiveInstances, int numInactiveInstances) {
         int totalInstances = numActiveInstances + numInactiveInstances;
@@ -1942,8 +2047,8 @@ public class InstanceSwitcherCoordinatorTest {
                         /* tabCount= */ 1,
                         /* incognitoTabCount= */ 1,
                         /* isIncognitoSelected= */ false,
-                        /* lastAccessedTime= */ 0,
-                        /* markedForDeletion= */ false);
+                        /* lastAccessedTime= */ getDaysAgoMillis(0),
+                        /* closureTime= */ 0);
 
         // Create other active instances.
         for (int i = 1; i < numActiveInstances; i++) {
@@ -1959,7 +2064,7 @@ public class InstanceSwitcherCoordinatorTest {
                             /* incognitoTabCount= */ 0,
                             /* isIncognitoSelected= */ false,
                             /* lastAccessedTime= */ getDaysAgoMillis(i),
-                            /* markedForDeletion= */ false);
+                            /* closureTime= */ 0);
         }
 
         // Create inactive instances.
@@ -1975,8 +2080,8 @@ public class InstanceSwitcherCoordinatorTest {
                             /* tabCount= */ 1,
                             /* incognitoTabCount= */ 0,
                             /* isIncognitoSelected= */ false,
-                            /* lastAccessedTime= */ 0,
-                            /* markedForDeletion= */ false);
+                            /* lastAccessedTime= */ getDaysAgoMillis(i),
+                            /* closureTime= */ 3);
         }
 
         return instances;
@@ -1987,24 +2092,11 @@ public class InstanceSwitcherCoordinatorTest {
         return TimeUtils.currentTimeMillis() - lastAccessedDaysAgo * 24L * 60L * 60L * 1000L;
     }
 
-    /* For use in instance switcher v1. */
-    private void closeInstanceAt(int position, CallbackHelper closeCallbackHelper)
-            throws TimeoutException {
-        int closeCallbackCount = closeCallbackHelper.getCallCount();
-        onData(anything())
-                .inRoot(isDialog())
-                .atPosition(position)
-                .onChildView(withId(R.id.more))
-                .perform(click());
-        onView(withText(R.string.instance_switcher_close_window))
-                .inRoot(withDecorView(withClassName(containsString("Popup"))))
-                .perform(click());
-        closeCallbackHelper.waitForCallback(closeCallbackCount);
-    }
-
-    /* For use in instance switcher v2. */
     private void closeInstanceAt(
-            int position, boolean isActiveInstance, CallbackHelper closeCallbackHelper)
+            int position,
+            boolean isActiveInstance,
+            CallbackHelper closeCallbackHelper,
+            boolean expectCloseConfirmation)
             throws TimeoutException {
         int closeCallbackCount = closeCallbackHelper.getCallCount();
         onView(withId(isActiveInstance ? R.id.active_instance_list : R.id.inactive_instance_list))
@@ -2042,11 +2134,13 @@ public class InstanceSwitcherCoordinatorTest {
                     .perform(click());
         }
 
-        onView(withText(R.string.instance_switcher_close_confirm_header))
-                .inRoot(isDialog())
-                .check(matches(isDisplayed()));
+        if (expectCloseConfirmation) {
+            onView(withText(R.string.instance_switcher_close_confirm_header))
+                    .inRoot(isDialog())
+                    .check(matches(isDisplayed()));
+            onView(withText(R.string.close)).inRoot(isDialog()).perform(click());
+        }
 
-        onView(withText(R.string.close)).inRoot(isDialog()).perform(click());
         closeCallbackHelper.waitForCallback(closeCallbackCount);
     }
 

@@ -4,12 +4,12 @@
 
 #include "chrome/browser/performance_manager/policies/background_tab_loading_policy.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/functional/callback.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/numerics/safe_conversions.h"
@@ -42,9 +42,6 @@ namespace performance_manager {
 namespace policies {
 
 namespace {
-
-// Pointer to the instance of itself.
-BackgroundTabLoadingPolicy* g_background_tab_loading_policy = nullptr;
 
 const char kDescriberName[] = "BackgroundTabLoadingPolicy";
 
@@ -81,7 +78,7 @@ BackgroundTabLoadingPolicy::PageNodeData::operator=(const PageNodeData& other) =
 BackgroundTabLoadingPolicy::PageNodeData::~PageNodeData() = default;
 
 bool CanScheduleLoadForRestoredTabs() {
-  return BackgroundTabLoadingPolicy::GetInstance();
+  return BackgroundTabLoadingPolicy::GetFromGraph();
 }
 
 void ScheduleLoadForRestoredTabs(
@@ -129,27 +126,27 @@ void ScheduleLoadForRestoredTabs(
         content->GetLastCommittedURL(), notification_permission);
   }
 
-  auto* policy = BackgroundTabLoadingPolicy::GetInstance();
+  auto* policy = BackgroundTabLoadingPolicy::GetFromGraph();
   CHECK(policy);
   policy->ScheduleLoadForRestoredTabs(std::move(page_node_data_vector));
 }
 
 void InstallBackgroundTabLoadingPolicyForTesting(
     base::RepeatingClosure all_restored_tabs_loaded_callback) {
-  CHECK(!BackgroundTabLoadingPolicy::GetInstance());
+  CHECK(!BackgroundTabLoadingPolicy::GetFromGraph());
   PerformanceManager::GetGraph()->PassToGraph(
       std::make_unique<BackgroundTabLoadingPolicy>(
           std::move(all_restored_tabs_loaded_callback)));
 }
 
 void SetMaxLoadedBackgroundTabCountForTesting(size_t max_tabs_to_load) {
-  auto* policy = BackgroundTabLoadingPolicy::GetInstance();
+  auto* policy = BackgroundTabLoadingPolicy::GetFromGraph();
   CHECK(policy);
   policy->SetMaxLoadedTabCountForTesting(max_tabs_to_load);  // IN-TEST
 }
 
 void SetMaxSimultaneousBackgroundTabLoadsForTesting(size_t loading_slots) {
-  auto* policy = BackgroundTabLoadingPolicy::GetInstance();
+  auto* policy = BackgroundTabLoadingPolicy::GetFromGraph();
   CHECK(policy);
   policy->SetMaxSimultaneousLoadsForTesting(loading_slots);  // IN-TEST
 }
@@ -163,17 +160,12 @@ BackgroundTabLoadingPolicy::BackgroundTabLoadingPolicy(
           FROM_HERE,
           base::MemoryPressureListenerTag::kBackgroundTabLoadingPolicy,
           this) {
-  DCHECK(!g_background_tab_loading_policy);
-  g_background_tab_loading_policy = this;
   max_simultaneous_tab_loads_ = CalculateMaxSimultaneousTabLoads(
       kMinSimultaneousTabLoads, kMaxSimultaneousTabLoads,
       kCoresPerSimultaneousTabLoad, base::SysInfo::NumberOfProcessors());
 }
 
-BackgroundTabLoadingPolicy::~BackgroundTabLoadingPolicy() {
-  DCHECK_EQ(this, g_background_tab_loading_policy);
-  g_background_tab_loading_policy = nullptr;
-}
+BackgroundTabLoadingPolicy::~BackgroundTabLoadingPolicy() = default;
 
 void BackgroundTabLoadingPolicy::OnPassedToGraph(Graph* graph) {
   graph->AddPageNodeObserver(this);
@@ -215,7 +207,7 @@ void BackgroundTabLoadingPolicy::OnLoadingStateChanged(
         // from |kLoading| to |kLoadedBusy|, so no change is necessary when it
         // transitions back to |kLoading|.
         DCHECK(page_nodes_loading_.contains(page_node));
-        DCHECK(!base::Contains(page_nodes_load_initiated_, page_node));
+        DCHECK(!std::ranges::contains(page_nodes_load_initiated_, page_node));
         DCHECK(!FindPageNodeToLoadData(page_node));
         return;
       }
@@ -249,7 +241,7 @@ void BackgroundTabLoadingPolicy::OnLoadingStateChanged(
       // The PageNode should have been added to |page_nodes_loading_| when it
       // transitioned to |kLoading|.
       DCHECK(page_nodes_loading_.contains(page_node));
-      DCHECK(!base::Contains(page_nodes_load_initiated_, page_node));
+      DCHECK(!std::ranges::contains(page_nodes_load_initiated_, page_node));
       DCHECK(!FindPageNodeToLoadData(page_node));
       return;
     }
@@ -280,7 +272,7 @@ void BackgroundTabLoadingPolicy::ScheduleLoadForRestoredTabs(
 
     DCHECK_EQ(page_node->GetType(), PageType::kTab);
     DCHECK(!FindPageNodeToLoadData(page_node));
-    DCHECK(!base::Contains(page_nodes_load_initiated_, page_node));
+    DCHECK(!std::ranges::contains(page_nodes_load_initiated_, page_node));
 
     // Setting main frame restored state ensures that the notification
     // permission status and background title/favicon update properties are set
@@ -341,11 +333,6 @@ void BackgroundTabLoadingPolicy::ResetPolicyForTesting() {
   tab_loads_started_ = 0;
 }
 
-// TODO(crbug.com/427952137): This could use GraphRegistered.
-BackgroundTabLoadingPolicy* BackgroundTabLoadingPolicy::GetInstance() {
-  return g_background_tab_loading_policy;
-}
-
 BackgroundTabLoadingPolicy::PageNodeToLoadData::PageNodeToLoadData(
     const PageNode* page_node)
     : page_node(page_node) {}
@@ -369,10 +356,10 @@ struct BackgroundTabLoadingPolicy::ScoredTabComparator {
   }
 };
 
-base::Value::Dict BackgroundTabLoadingPolicy::DescribePageNodeData(
+base::DictValue BackgroundTabLoadingPolicy::DescribePageNodeData(
     const PageNode* node) const {
-  base::Value::Dict dict;
-  if (base::Contains(page_nodes_load_initiated_, node)) {
+  base::DictValue dict;
+  if (std::ranges::contains(page_nodes_load_initiated_, node)) {
     // Transient state between InitiateLoad() and OnLoadingStateChanged(),
     // shouldn't be sticking around for long.
     dict.Set("page_load_initiated", true);
@@ -380,12 +367,12 @@ base::Value::Dict BackgroundTabLoadingPolicy::DescribePageNodeData(
   if (page_nodes_loading_.contains(node)) {
     dict.Set("page_loading", true);
   }
-  return !dict.empty() ? std::move(dict) : base::Value::Dict();
+  return !dict.empty() ? std::move(dict) : base::DictValue();
 }
 
-base::Value::Dict BackgroundTabLoadingPolicy::DescribeSystemNodeData(
+base::DictValue BackgroundTabLoadingPolicy::DescribeSystemNodeData(
     const SystemNode* node) const {
-  base::Value::Dict dict;
+  base::DictValue dict;
   dict.Set("max_simultaneous_tab_loads",
            base::saturated_cast<int>(max_simultaneous_tab_loads_));
   dict.Set("tab_loads_started", base::saturated_cast<int>(tab_loads_started_));
@@ -548,7 +535,7 @@ void BackgroundTabLoadingPolicy::InitiateLoad(const PageNode* page_node) {
     // Extra page nodes that weren't passed to ScheduleLoadForRestoredTabs() may
     // already be loading.
     if (to_load != page_node && page_nodes_loading_.contains(to_load)) {
-      DCHECK(!base::Contains(page_nodes_load_initiated_, to_load));
+      DCHECK(!std::ranges::contains(page_nodes_load_initiated_, to_load));
       continue;
     }
     InitiateSinglePageLoad(to_load);
@@ -558,7 +545,7 @@ void BackgroundTabLoadingPolicy::InitiateLoad(const PageNode* page_node) {
 void BackgroundTabLoadingPolicy::InitiateSinglePageLoad(
     const PageNode* page_node) {
   // The page shouldn't already be loading.
-  DCHECK(!base::Contains(page_nodes_load_initiated_, page_node));
+  DCHECK(!std::ranges::contains(page_nodes_load_initiated_, page_node));
   DCHECK(!page_nodes_loading_.contains(page_node));
   DCHECK_EQ(tabs_scored_, page_nodes_to_load_.size());
 

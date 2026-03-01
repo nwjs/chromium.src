@@ -17,7 +17,6 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
@@ -73,7 +72,7 @@ public class SigninPromoCoordinator
      *     original profile, not the incognito one.
      * @param delegate A {@link SigninPromoDelegate} to customize the view.
      */
-    // TODO(https://crbug.com/437039516): Remove the constructor below.
+    // TODO(https://crbug.com/448227402): Remove the constructor below.
     @Deprecated
     public SigninPromoCoordinator(Context context, Profile profile, SigninPromoDelegate delegate) {
         mContext = context;
@@ -116,8 +115,8 @@ public class SigninPromoCoordinator
             Profile profile,
             ActivityResultTracker activityResultTracker,
             SigninAndHistorySyncActivityLauncher launcher,
-            BottomSheetController bottomSheetController,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<BottomSheetController> bottomSheetController,
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
             SnackbarManager snackbarManager,
             DeviceLockActivityLauncher deviceLockActivityLauncher,
             SigninPromoDelegate delegate) {
@@ -127,21 +126,8 @@ public class SigninPromoCoordinator
             return;
         }
 
-        OneshotSupplierImpl<ProfileProvider> profileSupplier = new OneshotSupplierImpl<>();
-        ProfileProvider profileProvider =
-                new ProfileProvider() {
-                    @Override
-                    public Profile getOriginalProfile() {
-                        return profile;
-                    }
-
-                    @Override
-                    public @Nullable Profile getOffTheRecordProfile(boolean createIfNeeded) {
-                        throw new RuntimeException(
-                                "Profile used by sign-in flow cannot be off-the-record");
-                    }
-                };
-        profileSupplier.set(profileProvider);
+        OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
+        profileSupplier.set(profile);
         mSigninCoordinator =
                 launcher.createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
                         windowAndroid,
@@ -190,21 +176,32 @@ public class SigninPromoCoordinator
     }
 
     void setLoadingStateForTesting(boolean shouldShowLoadingState) {
-        mMediator
-                .getModel()
-                .set(SigninPromoProperties.SHOULD_SHOW_LOADING_STATE, shouldShowLoadingState);
+        if (shouldShowLoadingState) {
+            mMediator.onFlowStarted();
+        } else {
+            mMediator.onFlowCompleted();
+        }
     }
 
-    /** Implements {@link SigninAndHistorySyncCoordinator.Delegate}. */
+    /** Implements {@link BottomSheetSigninAndHistorySyncCoordinator.Delegate}. */
     @Override
     public void onFlowComplete(SigninAndHistorySyncCoordinator.Result result) {
-        // TODO(https://crbug.com/437040024): Replace this class with real implementation.
+        mMediator.onFlowCompleted();
     }
 
+    /** Implements {@link BottomSheetSigninAndHistorySyncCoordinator.Delegate} */
+    @Override
+    public void onSigninUndone() {
+        assert SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
+        mMediator.onSigninUndone();
+    }
+
+    /** Implements {@link SigninPromoMediator.Delegate} */
     @Override
     public void startSigninFlow(BottomSheetSigninAndHistorySyncConfig config) {
         assert (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
                 && mSigninCoordinator != null);
+        mMediator.onFlowStarted();
         mSigninCoordinator.startSigninFlow(config);
     }
 

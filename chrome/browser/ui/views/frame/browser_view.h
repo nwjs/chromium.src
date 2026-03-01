@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
+#include "chrome/browser/ui/views/frame/layout/browser_view_layout_params.h"
 #include "chrome/browser/ui/views/frame/shadow_overlay_view.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
@@ -202,9 +203,9 @@ class BrowserView : public BrowserWindow,
   // window.
   gfx::Rect GetFindBarBoundingBox() const;
 
-  // Returns the preferred height of the TabStrip. Used to position the
-  // incognito avatar icon.
-  int GetTabStripHeight() const;
+  // Returns information about elements that want to render in the top window
+  // frame area.
+  ClientFrameElementInfo GetFrameElementInfo() const;
 
   // Returns the preferred size of the Web App Frame Toolbar. Used for example
   // to determine the height of the title bar.
@@ -330,6 +331,10 @@ class BrowserView : public BrowserWindow,
     return weak_ptr_factory_.GetWeakPtr();
   }
 
+#if BUILDFLAG(ENABLE_GLIC)
+  views::LabelButton* GetGlicButton();
+#endif  // BUILDFLAG(ENABLE_GLIC)
+
   // Accessor for the BrowserView's TabSearchBubbleHost instance.
   TabSearchBubbleHost* GetTabSearchBubbleHost();
 
@@ -349,6 +354,9 @@ class BrowserView : public BrowserWindow,
 
   // Returns whether a vertical tabstrip should be shown.
   bool ShouldDrawVerticalTabStrip() const;
+
+  // Returns whether the webapp frame toolbar should be drawn.
+  bool ShouldDrawWebAppFrameToolbar() const;
 
   // Returns whether or not strokes should be drawn around and under the tabs.
   bool ShouldDrawTabStrokes() const;
@@ -491,6 +499,7 @@ class BrowserView : public BrowserWindow,
 
   // Getter for the `window.setResizable(bool)` state.
   std::optional<bool> GetWebApiWindowResizable() const;
+  void SetResizableFromWebApi(std::optional<bool> resizable);
 
   // Returns true if the browser is currently showing tabs in a split view.
   bool IsInSplitView() const;
@@ -561,7 +570,6 @@ class BrowserView : public BrowserWindow,
   void Maximize() override;
   void Minimize() override;
   void Restore() override;
-  void OnWebApiWindowResizableChanged() override;
   bool GetCanResize() override;
   ui::mojom::WindowShowState GetWindowShowState() const override;
   bool ShouldHideUIForFullscreen() const override;
@@ -581,7 +589,6 @@ class BrowserView : public BrowserWindow,
   void SetDevToolsScrimVisibility(bool visible) override;
   void ResetToolbarTabState(content::WebContents* contents) override;
   void FocusToolbar() override;
-  ExtensionsContainer* GetExtensionsContainer() override;
   void ToolbarSizeChanged(bool is_animating) override;
   void TabDraggingStatusChanged(bool is_dragging) override;
   void LinkOpeningFromGesture(WindowOpenDisposition disposition) override;
@@ -639,9 +646,6 @@ class BrowserView : public BrowserWindow,
   void StartPartialTranslate(const std::string& source_language,
                              const std::string& target_language,
                              const std::u16string& text_selection) override;
-  void ShowOneClickSigninConfirmation(
-      const std::u16string& email,
-      base::OnceCallback<void(bool)> confirmed_callback) override;
   DownloadBubbleUIController* GetDownloadBubbleUIController() override;
   void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
@@ -763,7 +767,6 @@ class BrowserView : public BrowserWindow,
                                             bool visible) override;
 
   // content::WebContentsObserver:
-  void DidFirstVisuallyNonEmptyPaint() override;
   void TitleWasSet(content::NavigationEntry* entry) override;
 
   // views::ClientView:
@@ -810,20 +813,6 @@ class BrowserView : public BrowserWindow,
   void OnWillChangeFocus(View* focused_before, View* focused_now) override;
   void OnDidChangeFocus(View* focused_before, View* focused_now) override;
 
-  // Creates an accessible tab label for screen readers that includes the tab
-  // status for the given tab index. This takes the form of
-  // "Page title - Tab state". The optional parameter `is_for_tab` can be set
-  // when getting the label for a tab (instead of a window). Titles for the
-  // window don't include less important messages like memory usage.
-  std::u16string GetAccessibleTabLabel(int index,
-                                       bool is_for_tab = false) const;
-
-  // Gets the string id to format a tab's accessible label if it is part of a
-  // split.
-  int GetAccessibleTabLabelFormatStringForSplit(
-      split_tabs::SplitTabLayout layout,
-      int tab_index_in_split) const;
-
   // Testing interface:
   views::View* GetContentsContainerForTest() { return contents_container_; }
   BrowserViewLayout* GetBrowserViewLayoutForTesting() {
@@ -869,7 +858,7 @@ class BrowserView : public BrowserWindow,
   // This value is used in a common calculation in FrameView
   // subclasses. This must be added to the origin of the first painted pixel of
   // FrameView to get the correct offset. See
-  // TopContainerBackground::PaintThemeCustomImage for details.
+  // ThemedBackground::PaintThemeCustomImage for details.
   gfx::Point GetThemeOffsetFromBrowserView() const;
 
   void UpdateAccessibleNameForAllTabs();
@@ -888,7 +877,7 @@ class BrowserView : public BrowserWindow,
 
 #if BUILDFLAG(IS_CHROMEOS)
   // This is used only for SWA/PWA scenario.
-  void OnLockedForOnTaskUpdated();
+  void OnLockedForOnTaskUpdated(bool locked_for_on_task);
 
   bool IsLockedFullscreen() const;
 #endif
@@ -967,7 +956,7 @@ class BrowserView : public BrowserWindow,
   // affected.
   void RevealTabStripIfNeeded();
 
-  void OnVerticalTabStripStateChanged(
+  void OnVerticalTabStripModeChanged(
       tabs::VerticalTabStripStateController* controller);
 
   void OnProjectsPanelStateChanged(ProjectsPanelStateController* controller);
@@ -1024,7 +1013,11 @@ private:
   // in response to a change notification from the specified
   // |contents|. |contents| can be null. In this case, all optional UI will be
   // removed.
-  void UpdateUIForContents(content::WebContents* contents);
+  void UpdateUIForContents(content::WebContents* contents,
+                           bool should_layout_immediately = true);
+
+  // Updates fast resize value for all the visible content views.
+  void UpdateFastResizeForContentViews(bool fast_resize);
 
   // Returns the y coordinate of the client area.
   int GetClientAreaTop();
@@ -1172,6 +1165,9 @@ private:
   // view is successfully painted onto the screen for the first time.
   // `frame_timing_details` contains the paint timing information of the frame.
   void OnFirstPresentation(const viz::FrameTimingDetails& frame_timing_details);
+
+  // Called when the initial WebUI components are ready.
+  void OnInitialWebUIReady();
 
   // TODO(crbug.com/461955649): Move ExclusiveAccessContextImpl out of
   // BrowserView and make it shared so BrowserWindowFeatures can own it
@@ -1321,11 +1317,21 @@ private:
   // contents_web_view_.
   raw_ptr<views::View> lens_overlay_view_ = nullptr;
 
+  // The view that contains the AI highlight overlay. The AI highlight overlay
+  // is a UI overlay that is shown on top of the web contents. It therefore must
+  // always have the same bounds as the contents_view_, but also be above the
+  // contents_view_.
+  raw_ptr<views::View> context_highlight_view_ = nullptr;
+
   // Handled by ContentsLayoutManager.
   raw_ptr<views::View> contents_container_ = nullptr;
 
   // The view responsible for housing the contents of the vertical tab strip.
   raw_ptr<VerticalTabStripRegionView> vertical_tab_strip_region_view_ = nullptr;
+
+  // Outward-projecting corners of the vertical tab strip.
+  raw_ptr<views::View> vertical_tab_strip_top_corner_ = nullptr;
+  raw_ptr<views::View> vertical_tab_strip_bottom_corner_ = nullptr;
 
   // The view responsible for housing the contents of the projects panel.
   raw_ptr<ProjectsPanelView> projects_panel_container_ = nullptr;
@@ -1456,9 +1462,7 @@ private:
   std::optional<content::PermissionController::SubscriptionId>
       window_management_subscription_id_;
 
-  // Caching the last value of `PageData::can_resize_` that has been notified to
-  // the WidgetObservers to avoid notifying them when nothing has changed.
-  std::optional<bool> cached_can_resize_from_web_api_;
+  std::optional<bool> resizable_from_web_api_;
 
   base::CallbackListSubscription paint_as_active_subscription_;
 
@@ -1467,6 +1471,8 @@ private:
   base::CallbackListSubscription vertical_tab_subscription_;
 
   base::CallbackListSubscription projects_panel_subscription_;
+
+  base::CallbackListSubscription on_locked_task_subscription_;
 
   // Bitmask of current combination of reparenting states, e.g. immersive and
   // ChromeOS tablet modes.

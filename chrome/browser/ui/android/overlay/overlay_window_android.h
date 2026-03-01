@@ -11,6 +11,7 @@
 #include "base/timer/timer.h"
 #include "base/unguessable_token.h"
 #include "content/public/browser/overlay_window.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/mojom/mediasession/media_session.mojom.h"
 #include "ui/android/window_android.h"
 #include "ui/android/window_android_observer.h"
@@ -51,7 +52,7 @@ class OverlayWindowAndroid : public content::VideoOverlayWindow,
   void CompositorViewCreated(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& compositor_view);
-  void OnViewSizeChanged(JNIEnv* env, jint width, jint height);
+  void OnViewSizeChanged(JNIEnv* env, int32_t width, int32_t height);
   void OnBackToTab(JNIEnv* env);
   void OnDismissal(JNIEnv* env);
 
@@ -116,7 +117,7 @@ class OverlayWindowAndroid : public content::VideoOverlayWindow,
   gfx::Size video_size_;
 
   PlaybackState playback_state_ = PlaybackState::kEndOfVideo;
-  std::unordered_set<int> visible_actions_;
+  absl::flat_hash_set<int> visible_actions_;
 
   bool microphone_muted_ = false;
   bool camera_on_ = false;

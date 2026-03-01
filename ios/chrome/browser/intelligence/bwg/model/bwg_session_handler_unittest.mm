@@ -51,7 +51,7 @@ class BWGSessionHandlerTest : public PlatformTest {
     // Set up mock handlers.
     mock_bwg_handler_ = OCMProtocolMock(@protocol(BWGCommands));
     mock_settings_handler_ = OCMProtocolMock(@protocol(SettingsCommands));
-    session_handler_.BWGHandler = mock_bwg_handler_;
+    session_handler_.geminiHandler = mock_bwg_handler_;
     session_handler_.settingsHandler = mock_settings_handler_;
 
     AddWebState();
@@ -225,7 +225,6 @@ TEST_F(BWGSessionHandlerTest, TestUnrealizedWebStates) {
   auto unrealized_web_state = std::make_unique<web::FakeWebState>();
   unrealized_web_state->SetBrowserState(profile_.get());
   unrealized_web_state->SetIsRealized(false);
-  BwgTabHelper::CreateForWebState(unrealized_web_state.get());
   web_state_list_->InsertWebState(std::move(unrealized_web_state),
                                   WebStateList::InsertionParams::Automatic());
 

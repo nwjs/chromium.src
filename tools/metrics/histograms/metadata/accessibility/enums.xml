@@ -173,6 +173,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="OS Enabled"/>
   <int value="3" label="User Disabled"/>
   <int value="4" label="Form Factor Enabled"/>
+  <int value="5" label="User Has Custom Zoom"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/browser_ui/accessibility/android/java/src/org/chromium/components/browser_ui/accessibility/PageZoomUma.java:AccessibilityPageZoomAppMenuEnabledState) -->
@@ -1762,6 +1763,8 @@ Unknown properties are collapsed to zero. -->
   <int value="61"
       label="Use a custom keyboard shortcut registered by an extension"/>
   <int value="62" label="Toggle multiselect"/>
+  <int value="63" label="Zoom in (Visual/Legacy)"/>
+  <int value="64" label="Zoom out (Visual/Legacy)"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/KeyboardShortcuts.java:KeyboardShortcutsSemanticMeaning, //tools/metrics/histograms/metadata/accessibility/histograms.xml:KeyboardShortcutsSemanticMeaning) -->
@@ -2138,6 +2141,21 @@ Unknown properties are collapsed to zero. -->
 
 <!-- LINT.ThenChange(//chrome/common/read_anything/read_anything.mojom:Colors) -->
 
+<!-- LINT.IfChange(ReadAnythingDistillationScheme) -->
+
+<enum name="ReadAnythingDistillationScheme">
+  <int value="0" label="HTTP/HTTPS (Success)"/>
+  <int value="1" label="File"/>
+  <int value="2" label="Internal (chrome://)"/>
+  <int value="3" label="About (about:blank)"/>
+  <int value="4" label="Data"/>
+  <int value="5" label="Chrome Extension"/>
+  <int value="6" label="Blob"/>
+  <int value="7" label="Other"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_page_handler.h:ReadAnythingDistillationScheme) -->
+
 <!-- LINT.IfChange(ReadAnythingDistillationStatus) -->
 
 <enum name="ReadAnythingDistillationStatus">
@@ -2227,11 +2245,17 @@ Unknown properties are collapsed to zero. -->
 
 <enum name="ReadAnythingLineFocus">
   <int value="0" label="Off"/>
-  <int value="1" label="One Line Window"/>
-  <int value="2" label="Three Line Window"/>
-  <int value="3" label="Five Line Window"/>
+  <int value="1" label="One Line Window (Deprecated)"/>
+  <int value="2" label="Three Line Window (Deprecated)"/>
+  <int value="3" label="Five Line Window (Deprecated)"/>
   <int value="4" label="Static Line"/>
   <int value="5" label="Cursor Line"/>
+  <int value="6" label="Small Static Window"/>
+  <int value="7" label="Medium Static Window"/>
+  <int value="8" label="Large Static Window"/>
+  <int value="9" label="Small Cursor Window"/>
+  <int value="10" label="Medium Cursor Window"/>
+  <int value="11" label="Large Cursor Window"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/common/read_anything/read_anything.mojom:LineFocus) -->
@@ -2298,7 +2322,9 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="Letter spacing change"/>
   <int value="5" label="Links enabled change"/>
   <int value="6" label="Images enabled change"/>
-  <int value="7" label="Line focus change"/>
+  <int value="7" label="Line focus change (Deprecated)"/>
+  <int value="8" label="Line focus style change"/>
+  <int value="9" label="Line focus movement change"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/shared/metrics_browser_proxy.ts:ReadAnythingSettingsChange) -->

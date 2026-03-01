@@ -4,7 +4,8 @@
 
 #include "components/js_injection/browser/js_to_browser_messaging.h"
 
-#include "base/containers/contains.h"
+#include <algorithm>
+
 #include "base/memory/raw_ptr.h"
 #include "components/back_forward_cache/back_forward_cache_disable.h"
 #include "components/js_injection/browser/web_message.h"
@@ -36,7 +37,7 @@ namespace {
 // this case we want to let developer to know that local files are not safe,
 // so we still pass "null".
 std::string GetOriginString(const url::Origin& source_origin) {
-  return base::Contains(url::GetLocalSchemes(), source_origin.scheme())
+  return std::ranges::contains(url::GetLocalSchemes(), source_origin.scheme())
              ? "null"
              : source_origin.Serialize();
 }
@@ -86,23 +87,37 @@ class JsToBrowserMessaging::ReplyProxyImpl : public WebMessageReplyProxy {
 
   // WebMessageReplyProxy:
   void PostWebMessage(blink::WebMessagePayload message) override {
-    if (document_.AsRenderFrameHostIfValid() &&
-        document_.AsRenderFrameHostIfValid()->GetLifecycleState() ==
-            content::RenderFrameHost::LifecycleState::kInBackForwardCache) {
+    if (MaybeEvictBFCache(back_forward_cache::DisabledReasonId::
+                              kPostMessageByWebViewClient)) {
       // If the document associated with the reply proxy is in BFCache, evict
       // the page from BFCache. This is because the page can't process the
-      // message while frozen due to BFCaching, and if we queue the message,
-      // the callers might not expect the message to be delayed for a long
-      // time (or even not sent at all).
-      content::BackForwardCache::DisableForRenderFrameHost(
-          document_.AsRenderFrameHostIfValid(),
-          back_forward_cache::DisabledReason(
-              back_forward_cache::DisabledReasonId::
-                  kPostMessageByWebViewClient));
+      // JS evaluation while frozen due to BFCaching, and if we queue the JS
+      // evaluation, the callers might not expect the message to be delayed for
+      // a long time (or even not sent at all).
       return;
     }
     EnsureBrowserToJsMessaging();
     java_to_js_messaging_->OnPostMessage(std::move(message));
+  }
+
+  void ExecuteJavaScript(const std::u16string& java_script,
+                         bool wants_result,
+                         ExecuteJavaScriptResultCallback callback) override {
+    if (MaybeEvictBFCache(back_forward_cache::DisabledReasonId::
+                              kPostMessageByWebViewClient)) {
+      // If the document associated with the reply proxy is in BFCache, evict
+      // the page from BFCache and return that the page was destroyed.
+      // If injection is important, the page back/forward navigation should
+      // trigger a reload for a new message proxy to use for JS injection.
+      if (wants_result) {
+        std::move(callback).Run(base::unexpected(
+            js_injection::mojom::JavaScriptExecutionError::kFrameDestroyed));
+      }
+      return;
+    }
+    EnsureBrowserToJsMessaging();
+    java_to_js_messaging_->OnExecuteJavaScript(java_script, wants_result,
+                                               std::move(callback));
   }
 
   void EnsureBrowserToJsMessaging() {
@@ -123,6 +138,18 @@ class JsToBrowserMessaging::ReplyProxyImpl : public WebMessageReplyProxy {
   content::WeakDocumentPtr document_;
   mojo::AssociatedRemote<mojom::BrowserToJsMessaging> java_to_js_messaging_;
   mojo::SharedAssociatedRemote<mojom::BrowserToJsMessagingFactory> factory_;
+
+  bool MaybeEvictBFCache(back_forward_cache::DisabledReasonId reason) {
+    if (document_.AsRenderFrameHostIfValid() &&
+        document_.AsRenderFrameHostIfValid()->GetLifecycleState() ==
+            content::RenderFrameHost::LifecycleState::kInBackForwardCache) {
+      content::BackForwardCache::DisableForRenderFrameHost(
+          document_.AsRenderFrameHostIfValid(),
+          back_forward_cache::DisabledReason(reason));
+      return true;
+    }
+    return false;
+  }
 };
 
 JsToBrowserMessaging::JsToBrowserMessaging(

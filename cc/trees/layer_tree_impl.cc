@@ -12,11 +12,9 @@
 #include <limits>
 #include <memory>
 #include <set>
-#include <unordered_set>
 #include <utility>
 
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/json/json_writer.h"
@@ -62,6 +60,7 @@
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/traced_value.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/quad_f.h"
@@ -496,16 +495,16 @@ void LayerTreeImpl::UpdateViewportContainerSizes() {
       std::max(0.0f, max_safe_area_inset_bottom() - bottom_content_offset);
   const float blink_saib = std::max(
       0.0f, max_safe_area_inset_bottom() - blink_bottom_content_offset);
-  const float transform_delta_by_safe_area_inset_bottom =
-      -(real_saib - blink_saib);
+  float transform_delta_by_safe_area_inset_bottom = -(real_saib - blink_saib);
 
-  const float scaled_transform_delta_by_safe_area_inset_bottom =
-      transform_delta_by_safe_area_inset_bottom / min_page_scale_factor();
+  if (min_page_scale_factor() > 0.f) {
+    transform_delta_by_safe_area_inset_bottom /= min_page_scale_factor();
+  }
 
   if (property_trees->transform_delta_by_safe_area_inset_bottom() !=
-      scaled_transform_delta_by_safe_area_inset_bottom) {
+      transform_delta_by_safe_area_inset_bottom) {
     property_trees->SetTransformDeltaBySafeAreaInsetBottom(
-        scaled_transform_delta_by_safe_area_inset_bottom);
+        transform_delta_by_safe_area_inset_bottom);
   }
 
   // Adjust the viewport layers by shrinking/expanding the container to account
@@ -1967,9 +1966,13 @@ void LayerTreeImpl::UnregisterLayer(LayerImpl* layer) {
   layer_id_map_.erase(layer->id());
 }
 
+void LayerTreeImpl::ReserveLayers(size_t count) {
+  layer_list_.reserve(count);
+}
+
 void LayerTreeImpl::AddLayer(std::unique_ptr<LayerImpl> layer) {
   DCHECK(layer);
-  DCHECK(!base::Contains(layer_list_, layer));
+  DCHECK(!std::ranges::contains(layer_list_, layer));
   layer_list_.push_back(std::move(layer));
   set_needs_update_draw_properties();
 }
@@ -2320,7 +2323,7 @@ void LayerTreeImpl::ProcessUIResourceRequestQueue() {
 }
 
 void LayerTreeImpl::RegisterPictureLayerImpl(PictureLayerImpl* layer) {
-  DCHECK(!base::Contains(picture_layers_, layer));
+  DCHECK(!std::ranges::contains(picture_layers_, layer));
   picture_layers_.push_back(layer);
 }
 
@@ -2869,7 +2872,7 @@ static void FindClosestMatchingLayerForAttribution(
     const gfx::PointF& screen_space_point,
     const LayerImpl* root_layer,
     FindClosestMatchingLayerState* state) {
-  std::unordered_set<ElementId, ElementIdHash> hit_visible_frame_element_ids;
+  absl::flat_hash_set<ElementId, ElementIdHash> hit_visible_frame_element_ids;
   // We want to iterate from front to back when hit testing.
   for (auto* layer : base::Reversed(*root_layer->layer_tree_impl())) {
     if (!layer->HitTestable())
@@ -3192,6 +3195,13 @@ bool LayerTreeImpl::HasViewTransitionSaveRequest() const {
     }
   }
   return false;
+}
+
+bool LayerTreeImpl::IsAnimatingHUDContents() const {
+  if (settings().trees_in_viz_in_viz_process) {
+    return is_animating_hud_contents_;
+  }
+  return hud_layer() && hud_layer()->IsAnimatingHUDContents();
 }
 
 base::flat_set<blink::ViewTransitionToken>

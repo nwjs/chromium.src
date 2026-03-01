@@ -708,16 +708,16 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_create_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_expected.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_expected.h",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call.cc",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call_init.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call_init.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_declaration.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_declaration.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_result_content.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_result_content.h",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error.cc",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error.h",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success.cc",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error_init.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error_init.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success_init.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success_init.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_message.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_message.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_message_content.h",
@@ -1068,8 +1068,6 @@ generated_dictionary_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_registration_options.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_registration_response_js_on.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_registration_response_js_on.h",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_related_application.cc",
-  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_related_application.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_remote_desktop_client_override.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_remote_desktop_client_override.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_request_device_options.cc",
@@ -2032,6 +2030,8 @@ generated_interface_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_param.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_param_map.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_param_map.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_playback_stats.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_playback_stats.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_playout_stats.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_playout_stats.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_audio_processing_event.cc",
@@ -2494,6 +2494,12 @@ generated_interface_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_params.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_call.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_success.h",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error.cc",
+  "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_language_model_tool_error.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_launch_params.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_launch_params.h",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_launch_queue.cc",
@@ -3402,6 +3408,15 @@ generated_union_sources_in_modules = [
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_workletanimationeffect_workletgroupeffect.cc",
   "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_union_workletanimationeffect_workletgroupeffect.h",
 ]
+
+# Installed App (getInstalledRelatedApps) is excluded on iOS because the
+# webapp infrastructure required for this API is not yet implemented.
+if (!is_ios) {
+  generated_dictionary_sources_in_modules += [
+    "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_related_application.cc",
+    "$root_gen_dir/third_party/blink/renderer/bindings/modules/v8/v8_related_application.h",
+  ]
+}
 
 # Direct Sockets
 # This uses target_os rather than current_os (which is what is_android is set

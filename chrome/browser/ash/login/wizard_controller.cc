@@ -79,6 +79,7 @@
 #include "chrome/browser/ash/login/screens/error_screen.h"
 #include "chrome/browser/ash/login/screens/family_link_notice_screen.h"
 #include "chrome/browser/ash/login/screens/fingerprint_setup_screen.h"
+#include "chrome/browser/ash/login/screens/fjord_fw_update_screen.h"
 #include "chrome/browser/ash/login/screens/fjord_station_setup_screen.h"
 #include "chrome/browser/ash/login/screens/fjord_touch_controller_screen.h"
 #include "chrome/browser/ash/login/screens/gaia_info_screen.h"
@@ -184,6 +185,7 @@
 #include "chrome/browser/ui/webui/ash/login/error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/family_link_notice_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/fingerprint_setup_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/fjord_fw_update_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/fjord_station_setup_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/fjord_touch_controller_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_info_screen_handler.h"
@@ -1038,6 +1040,10 @@ WizardController::CreateScreens() {
         oobe_ui->GetView<FjordStationSetupScreenHandler>()->AsWeakPtr(),
         base::BindRepeating(&WizardController::OnFjordStationSetupScreenExit,
                             weak_factory_.GetWeakPtr())));
+    append(std::make_unique<FjordFwUpdateScreen>(
+        oobe_ui->GetView<FjordFwUpdateScreenHandler>()->AsWeakPtr(),
+        base::BindRepeating(&WizardController::OnFjordFwUpdateScreenExit,
+                            weak_factory_.GetWeakPtr())));
   }
 
   return result;
@@ -1072,7 +1078,7 @@ void WizardController::OnOwnershipStatusCheckDone(
 
 void WizardController::ShowSignInFatalErrorScreen(
     SignInFatalErrorScreen::Error error,
-    base::Value::Dict params) {
+    base::DictValue params) {
   GetScreen<SignInFatalErrorScreen>()->SetErrorState(error, std::move(params));
   AdvanceToScreen(SignInFatalErrorView::kScreenId);
 }
@@ -1411,6 +1417,10 @@ void WizardController::ShowFjordStationSetupScreen() {
   SetCurrentScreen(GetScreen(FjordStationSetupScreenView::kScreenId));
 }
 
+void WizardController::ShowFjordFwUpdateScreen() {
+  SetCurrentScreen(GetScreen(FjordFwUpdateScreenView::kScreenId));
+}
+
 void WizardController::OnUserCreationScreenExit(
     UserCreationScreen::Result result) {
   OnScreenExit(UserCreationView::kScreenId,
@@ -1566,7 +1576,7 @@ void WizardController::OnGaiaScreenExit(GaiaScreen::Result result) {
               OobeMetricsHelper::OobeNotCompletedTrigger::kGaiaScreen);
       ShowSignInFatalErrorScreen(
           SignInFatalErrorScreen::Error::kOobeCompletionSkipped,
-          base::Value::Dict());
+          base::DictValue());
       break;
   }
 }
@@ -1664,7 +1674,7 @@ void WizardController::OnSamlConfirmPasswordScreenExit(
     case SamlConfirmPasswordScreen::Result::kTooManyAttempts:
       ShowSignInFatalErrorScreen(
           SignInFatalErrorScreen::Error::kScrapedPasswordVerificationFailure,
-          base::Value::Dict());
+          base::DictValue());
   }
 }
 
@@ -2976,25 +2986,46 @@ void WizardController::OnFjordStationSetupScreenExit() {
   NOTREACHED() << "Expected a kiosk app to be available";
 }
 
+void WizardController::OnFjordFwUpdateScreenExit() {
+  MaybeNotifyFjordOobeStateManager(fjord_oobe_state::proto::FjordOobeStateInfo::
+                                       FJORD_OOBE_STATE_READY_FOR_CALIBRATION);
+  OnScreenExit(FjordFwUpdateScreenView::kScreenId, kDefaultExitReason);
+  ShowFjordStationSetupScreen();
+}
+
 bool WizardController::ExitFjordTouchControllerScreen() {
+  // TODO(b/477337635): Update to match OnFjordFwUpdateScreenExit structure
   if (current_screen()->screen_id() ==
       FjordTouchControllerScreenView::kScreenId) {
     MaybeNotifyFjordOobeStateManager(
         fjord_oobe_state::proto::FjordOobeStateInfo::
             FJORD_OOBE_STATE_ENROLLMENT_DONE);
     OnScreenExit(FjordTouchControllerScreenView::kScreenId, kDefaultExitReason);
-    ShowFjordStationSetupScreen();
+    ShowFjordFwUpdateScreen();
     return true;
   }
-  // Return true if Station setup screen is showing because this means the TC
-  // setup screen was shown before this. This ensures that if the TC goes
-  // offline and online again, it can know if the TC setup screen was exited.
-  if (current_screen()->screen_id() == FjordStationSetupScreenView::kScreenId) {
+  // Return true if Station setup screen or FW update screen is showing because
+  // this means the TC setup screen was shown before this. This ensures that if
+  // the TC goes offline and online again, it can know if the TC setup screen
+  // was exited.
+  // TODO(b/477337635): Clean this up when TC10 moves to calling
+  // GetFjordOobeState().
+  if (current_screen()->screen_id() == FjordStationSetupScreenView::kScreenId ||
+      current_screen()->screen_id() == FjordFwUpdateScreenView::kScreenId) {
     return true;
   }
 
   LOG(ERROR) << "Can't exit: Fjord touch controller screen is not showing.";
   return false;
+}
+
+bool WizardController::ShowNextFjordOobeScreen(
+    fjord_oobe_state::proto::FjordOobeStateInfo::FjordOobeState new_state) {
+  if (new_state != fjord_oobe_state::proto::FjordOobeStateInfo::
+                       FJORD_OOBE_STATE_READY_FOR_CALIBRATION) {
+    return false;
+  }
+  return GetScreen<FjordFwUpdateScreen>()->ExitScreen();
 }
 
 void WizardController::OnOobeFlowFinished() {
@@ -3158,7 +3189,7 @@ void WizardController::PerformOOBECompletedActions(
       // Show a fatal error and do not mark OOBE as completed.
       ShowSignInFatalErrorScreen(
           SignInFatalErrorScreen::Error::kOobeCompletionSkipped,
-          base::Value::Dict());
+          base::DictValue());
       return;
     }
   }
@@ -3460,7 +3491,8 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
              screen_id == SamlConfirmPasswordView::kScreenId ||
              screen_id == LocalStateErrorScreenView::kScreenId ||
              screen_id == QuickStartView::kScreenId ||
-             screen_id == FjordStationSetupScreenView::kScreenId) {
+             screen_id == FjordStationSetupScreenView::kScreenId ||
+             screen_id == FjordFwUpdateScreenView::kScreenId) {
     SetCurrentScreen(GetScreen(screen_id));
   } else {
     NOTREACHED();
@@ -3816,7 +3848,7 @@ void WizardController::MaybeNotifyFjordOobeStateManager(
     return;
   }
 
-  state_manager->OnFjordOobeStateChanged(state);
+  state_manager->SetFjordOobeState(state);
 }
 
 }  // namespace ash

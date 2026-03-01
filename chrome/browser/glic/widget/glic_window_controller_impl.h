@@ -16,6 +16,7 @@
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
 #include "base/scoped_observation_traits.h"
+#include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
@@ -25,7 +26,6 @@
 #include "chrome/browser/glic/widget/glic_window_config.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/glic/widget/glic_window_event_observer.h"
-#include "chrome/browser/glic/widget/local_hotkey_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
@@ -81,7 +81,8 @@ class GlicWindowControllerImpl
   void Toggle(BrowserWindowInterface* browser,
               bool prevent_close,
               mojom::InvocationSource source,
-              std::optional<std::string> prompt_suggestion) override;
+              std::optional<std::string> prompt_suggestion,
+              bool auto_send) override;
   void ShowAfterSignIn(base::WeakPtr<Browser> browser) override;
   void FocusIfOpen() override;
   void Shutdown() override;
@@ -182,9 +183,10 @@ class GlicWindowControllerImpl
   GlicInstance* GetInstanceForTab(const tabs::TabInterface* tab) const override;
   void CreateNewConversationForTabs(
       const std::vector<tabs::TabInterface*>& tabs) override;
-  void MoveTabsToConversation(const std::vector<tabs::TabInterface*>& tabs,
-                              const std::string& conversation_id) override;
-  std::vector<ConversationInfo> GetRecentConversations(size_t limit) override;
+  void ShowInstanceForTabs(const std::vector<tabs::TabInterface*>& tabs,
+                           const InstanceId& instance_id) override;
+  std::vector<ConversationInfo> GetRecentlyActiveInstances(
+      size_t limit) override;
 
   // GlicInstance implementation
   Host& host() override;
@@ -209,11 +211,11 @@ class GlicWindowControllerImpl
  private:
   void CloseWithReason(views::Widget::ClosedReason reason);
   GlicView* GetGlicView() const;
-  void ToggleWhenNotAlwaysDetached(
-      Browser* new_attached_browser,
-      bool prevent_close,
-      mojom::InvocationSource source,
-      std::optional<std::string> prompt_suggestion);
+  void ToggleWhenNotAlwaysDetached(Browser* new_attached_browser,
+                                   bool prevent_close,
+                                   mojom::InvocationSource source,
+                                   std::optional<std::string> prompt_suggestion,
+                                   bool auto_send);
 
   // Sets the floating attributes of the glic window.
   //
@@ -235,13 +237,15 @@ class GlicWindowControllerImpl
   // attached to the browser. Otherwise glic will be detached.
   void Show(Browser* browser,
             mojom::InvocationSource source,
-            std::optional<std::string> prompt_suggestion);
+            std::optional<std::string> prompt_suggestion,
+            bool auto_send);
   // Performs necessary set up and initialization before creating GlicWidget or
   // GlicView. Must be called before it's shown.
   // Returns true if successful and view creation can continue.
   bool BeforeViewCreated(Browser* browser,
                          mojom::InvocationSource source,
-                         std::optional<std::string> prompt_suggestion);
+                         std::optional<std::string> prompt_suggestion,
+                         bool auto_send);
   // Additional set up and initialization that runs after Glic is shown.
   void AfterViewShown();
   void SetupAndShowGlicWidget(Browser* browser);
@@ -410,6 +414,9 @@ class GlicWindowControllerImpl
   // String to be auto-filled in the user input text box as the web client is
   // shown to the user.
   std::optional<std::string> prompt_suggestion_;
+
+  // Whether the suggested query should be auto-sent after being shown.
+  bool auto_send_ = false;
 
   std::optional<gfx::Point> previous_position_ = std::nullopt;
 

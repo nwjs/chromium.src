@@ -260,6 +260,7 @@ using ScopedTabGroupSyncObservation =
 }
 
 - (void)newTabButtonTapped:(id)sender {
+  CHECK(!IsChromeNextIaEnabled());
   // Ignore the tap if the current page is disabled for some reason, by policy
   // for instance. This is to avoid situations where the tap action from an
   // enabled page can make it to a disabled page by releasing the
@@ -343,6 +344,7 @@ using ScopedTabGroupSyncObservation =
     toolbarsConfiguration.newTabButton = YES;
     toolbarsConfiguration.searchButton = YES;
     toolbarsConfiguration.selectTabsButton = [self hasRegularTabs];
+    toolbarsConfiguration.closeOtherTabsButton = [self canCloseOtherTabs];
     toolbarsConfiguration.undoButton = [self canUndoCloseRegularOrInactiveTabs];
   }
 
@@ -429,6 +431,24 @@ using ScopedTabGroupSyncObservation =
 
 - (BOOL)canCloseTabs {
   return _tabsCloser && _tabsCloser->CanCloseTabs();
+}
+
+// Returns YES if "Close Other Tabs" should be enabled.
+- (BOOL)canCloseOtherTabs {
+  if (!IsCloseOtherTabsEnabled()) {
+    return NO;
+  }
+  if (!self.webStateList) {
+    return NO;
+  }
+  int activeIndex = self.webStateList->active_index();
+  if (activeIndex == WebStateList::kInvalidIndex) {
+    return NO;
+  }
+  if (self.webStateList->IsWebStatePinnedAt(activeIndex)) {
+    return self.webStateList->regular_tabs_count() > 0;
+  }
+  return self.webStateList->regular_tabs_count() > 1;
 }
 
 - (BOOL)canUndoCloseTabs {

@@ -11,7 +11,6 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.View;
 
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import org.chromium.base.metrics.RecordHistogram;
@@ -25,6 +24,7 @@ import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils.ErrorUiAction;
 import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
+import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -32,16 +32,10 @@ import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserActionableError;
 
 @NullMarked
-public class SyncErrorCardPreference extends Preference
+public class SyncErrorCardPreference extends ChromeBasePreference
         implements SyncService.SyncStateChangedListener, ProfileDataCache.Observer {
     /** Listener for the buttons in the error card. */
     public interface SyncErrorCardPreferenceListener {
-        /**
-         * Called to check if the preference should be hidden in case its created from signin
-         * screen.
-         */
-        boolean shouldSuppressSyncSetupIncomplete();
-
         /** Called when the user clicks the primary button. */
         void onSyncErrorCardPrimaryButtonClicked();
 
@@ -50,6 +44,9 @@ public class SyncErrorCardPreference extends Preference
          * UserActionableError.NEEDS_SETTINGS_CONFIRMATION} error.
          */
         void onSyncErrorCardSecondaryButtonClicked();
+
+        /** Called when the visibility of the error card changes. */
+        default void onSyncErrorCardVisibilityChanged() {}
     }
 
     private ProfileDataCache mProfileDataCache;
@@ -65,6 +62,11 @@ public class SyncErrorCardPreference extends Preference
         setLayoutResource(R.layout.sync_promo_view_settings);
         mSyncError = UserActionableError.NONE;
         setVisible(false);
+    }
+
+    @Override
+    public int getCustomBackgroundStyle() {
+        return BackgroundStyle.NONE;
     }
 
     /**
@@ -124,13 +126,16 @@ public class SyncErrorCardPreference extends Preference
         }
 
         mSyncError = SyncSettingsUtils.getSyncError(mProfile);
-        boolean suppressSyncSetupIncompleteFromSigninPage =
-                (mSyncError == UserActionableError.NEEDS_SETTINGS_CONFIRMATION)
-                        && mListener.shouldSuppressSyncSetupIncomplete();
-        if (mSyncError == UserActionableError.NONE || suppressSyncSetupIncompleteFromSigninPage) {
-            setVisible(false);
+        if (mSyncError == UserActionableError.NONE) {
+            if (isVisible()) {
+                setVisible(false);
+                mListener.onSyncErrorCardVisibilityChanged();
+            }
         } else {
-            setVisible(true);
+            if (!isVisible()) {
+                setVisible(true);
+                mListener.onSyncErrorCardVisibilityChanged();
+            }
             notifyChanged();
             RecordHistogram.recordEnumeratedHistogram(
                     "Sync.SyncErrorCard" + SyncSettingsUtils.getHistogramSuffixForError(mSyncError),

@@ -52,6 +52,10 @@ OmniboxController* TestBrowserWindow::TestLocationBar::GetOmniboxController() {
   return nullptr;
 }
 
+ChipController* TestBrowserWindow::TestLocationBar::GetChipController() {
+  return nullptr;
+}
+
 LocationBarTesting*
     TestBrowserWindow::TestLocationBar::GetLocationBarForTesting() {
   return nullptr;
@@ -68,6 +72,46 @@ content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
 std::optional<bubble_anchor_util::AnchorConfiguration>
 TestBrowserWindow::TestLocationBar::GetChipAnchor() {
   return {};
+}
+
+ui::TrackedElement* TestBrowserWindow::TestLocationBar::GetAnchorOrNull() {
+  return nullptr;
+}
+
+Browser* TestBrowserWindow::TestLocationBar::GetBrowser() {
+  return nullptr;
+}
+
+bool TestBrowserWindow::TestLocationBar::IsVisible() const {
+  return true;
+}
+
+bool TestBrowserWindow::TestLocationBar::IsDrawn() const {
+  return true;
+}
+
+bool TestBrowserWindow::TestLocationBar::IsTopLevelFullscreen() const {
+  return false;
+}
+
+bool TestBrowserWindow::TestLocationBar::IsEditingOrEmpty() const {
+  return false;
+}
+
+gfx::Rect TestBrowserWindow::TestLocationBar::Bounds() const {
+  return gfx::Rect();
+}
+
+gfx::Size TestBrowserWindow::TestLocationBar::MinimumSize() const {
+  return gfx::Size();
+}
+
+gfx::Size TestBrowserWindow::TestLocationBar::PreferredSize() const {
+  return gfx::Size();
+}
+
+bool TestBrowserWindow::TestLocationBar::HasSecurityStateChanged() {
+  return false;
 }
 
 // TestBrowserWindow ----------------------------------------------------------
@@ -228,10 +272,6 @@ LocationBar* TestBrowserWindow::GetLocationBar() const {
 
 autofill::AutofillBubbleHandler* TestBrowserWindow::GetAutofillBubbleHandler() {
   return &autofill_bubble_handler_;
-}
-
-ExtensionsContainer* TestBrowserWindow::GetExtensionsContainer() {
-  return nullptr;
 }
 
 content::KeyboardEventProcessingResult

@@ -417,20 +417,28 @@ void TailoredSecurityService::MaybeNotifySyncUser(bool is_enabled,
     return;
   }
 
-  if (is_enabled && IsEnhancedProtectionEnabled(*prefs())) {
+  // TODO(crbug.com/483786422): Update the preference wiring in relevant each
+  // generated.*pref class that acts whenever the settings bundle setting
+  // changes.
+  bool is_enhanced_protection_enabled =
+      base::FeatureList::IsEnabled(safe_browsing::kBundledSecuritySettings)
+          ? (GetSecurityBundleSetting(*prefs()) ==
+             SecuritySettingsBundleSetting::ENHANCED)
+          : IsEnhancedProtectionEnabled(*prefs());
+  if (is_enabled && is_enhanced_protection_enabled) {
     RecordEnabledNotificationResult(
         TailoredSecurityNotificationResult::kEnhancedProtectionAlreadyEnabled);
     SaveRetryState(TailoredSecurityRetryState::NO_RETRY_NEEDED);
     return;
   }
 
-  if (is_enabled && !IsEnhancedProtectionEnabled(*prefs())) {
+  if (is_enabled && !is_enhanced_protection_enabled) {
     for (auto& observer : observer_list_) {
       observer.OnSyncNotificationMessageRequest(true);
     }
   }
 
-  if (!is_enabled && IsEnhancedProtectionEnabled(*prefs()) &&
+  if (!is_enabled && is_enhanced_protection_enabled &&
       prefs()->GetBoolean(
           prefs::kEnhancedProtectionEnabledViaTailoredSecurity)) {
     for (auto& observer : observer_list_) {
@@ -457,7 +465,7 @@ void TailoredSecurityService::
   pending_tailored_security_requests_.erase(request);
 
   base::Time previous_update = last_updated_;
-  base::Value::Dict response_value = ReadResponse(request);
+  base::DictValue response_value = ReadResponse(request);
   std::optional<bool> history_recording_enabled =
       response_value.FindBool("history_recording_enabled");
 
@@ -487,7 +495,7 @@ void TailoredSecurityService::SetTailoredSecurityBitForTesting(
       CreateRequest(url, std::move(completion_callback), traffic_annotation);
 
   auto enable_tailored_security_service =
-      base::Value::Dict().Set("history_recording_enabled", is_enabled);
+      base::DictValue().Set("history_recording_enabled", is_enabled);
   request->SetPostData(
       base::WriteJson(enable_tailored_security_service).value_or(""));
 
@@ -497,8 +505,8 @@ void TailoredSecurityService::SetTailoredSecurityBitForTesting(
 }
 
 // static
-base::Value::Dict TailoredSecurityService::ReadResponse(Request* request) {
-  base::Value::Dict result;
+base::DictValue TailoredSecurityService::ReadResponse(Request* request) {
+  base::DictValue result;
   if (request->GetResponseCode() == net::HTTP_OK) {
     std::optional<base::Value> json_value = base::JSONReader::Read(
         request->GetResponseBody(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);

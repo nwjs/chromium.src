@@ -92,7 +92,26 @@ IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxMatchTest) {
 
 IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxTest) {
   set_test_loader_host(chrome::kChromeUINewTabPageHost);
-  RunTest("cr_components/searchbox/searchbox_test.js", "mocha.run()");
+  RunTest("cr_components/searchbox/searchbox_test.js",
+          "runMochaSuite('NewTabPageRealboxTest');");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxNextTest) {
+  set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  RunTest("cr_components/searchbox/searchbox_test.js",
+          "runMochaSuite('NewTabPageRealboxNextTest');");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxPlaceholderTest) {
+  set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  RunTest("cr_components/searchbox/placeholder_text_cycler_test.js",
+          "runMochaSuite('PlaceholderTextCyclerTest');");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxTabsTest) {
+  set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  RunTest("cr_components/searchbox/searchbox_test.js",
+          "runMochaSuite('NewTabPageRealboxTabsTest');");
 }
 
 IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxLensTest) {
@@ -276,6 +295,11 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ContextualEntrypointButton) {
           "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ContextualEntrypointAndMenu) {
+  RunTest("cr_components/composebox/contextual_entrypoint_and_menu_test.js",
+          "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ContextualActionMenu) {
   RunTest("cr_components/composebox/contextual_action_menu_test.js",
           "mocha.run()");
@@ -307,5 +331,10 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxFileCarousel) {
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest,
                        ComposeboxAudioWaveAnimation) {
   RunTest("cr_components/composebox/composebox_audio_animation_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxInputPlaceholder) {
+  RunTest("cr_components/composebox/composebox_input_placeholder_test.js",
           "mocha.run()");
 }

@@ -158,9 +158,7 @@ void TabScrubber::OnScrollEvent(ui::ScrollEvent* event) {
     return;
   }
 
-  BrowserView* browser_view =
-      BrowserView::GetBrowserViewForBrowser(&browser->GetBrowser());
-  if (browser_view->tab_strip_view()->IsAnimating()) {
+  if (tab_strip_ && tab_strip_->IsAnimatingInTabStrip()) {
     if (FinishScrub(false)) {
       event->SetHandled();
     }
@@ -178,6 +176,15 @@ void TabScrubber::OnScrollEvent(ui::ScrollEvent* event) {
 
   // The event's x_offset doesn't change in an RTL layout. Negative value means
   // left, positive means right.
+  BrowserView* browser_view =
+      BrowserView::GetBrowserViewForBrowser(&browser->GetBrowser());
+
+  if (browser_view->ShouldDrawVerticalTabStrip()) {
+    // TODO(crbug.com/484364227): TabScrubbing is not supported in VerticalTabs
+    // at this point in time.
+    return;
+  }
+
   float x_offset = event->x_offset();
   if (!scrubbing_) {
     BeginScrub(browser_view, x_offset);
@@ -277,12 +284,18 @@ void TabScrubber::BeginScrub(BrowserView* browser_view, float x_offset) {
   DCHECK(browser_view);
   DCHECK(browser_view->browser());
 
+  if (browser_view->ShouldDrawVerticalTabStrip()) {
+    // TODO(crbug.com/484364227): TabScrubbing is not supported in VerticalTabs
+    // at this point in time.
+    return;
+  }
+
   scrubbing_start_time_ = base::TimeTicks::Now();
   // TODO(crbug.com/465835455): Move TabScrubber into
   // HorizontalTabStripRegionView since the current implementation won't work
   // for Vertical Tabs.
   tab_strip_ = views::AsViewClass<TabStrip>(
-      browser_view->tab_strip_view()->GetViewByElementId(kTabStripElementId));
+      browser_view->tab_strip_view()->GetTabStripView());
   scrubbing_ = true;
   browser_ =
       BrowserController::GetInstance()->GetDelegate(browser_view->browser());

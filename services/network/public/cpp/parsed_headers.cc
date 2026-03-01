@@ -4,11 +4,11 @@
 
 #include "services/network/public/cpp/parsed_headers.h"
 
-#include <set>
+#include <algorithm>
 #include <string>
 #include <vector>
 
-#include "base/containers/contains.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "build/build_config.h"
 #include "net/base/features.h"
@@ -87,16 +87,12 @@ mojom::ParsedHeadersPtr PopulateParsedHeaders(
           .value_or(std::string());
   std::vector<std::string> clear_site_data_types =
       net::ClearSiteDataHeaderContents(clear_site_data_header);
-  std::set<std::string> clear_site_data_set(clear_site_data_types.begin(),
-                                            clear_site_data_types.end());
-  if (clear_site_data_set.find(net::kDatatypeCache) !=
-          clear_site_data_set.end() ||
-      clear_site_data_set.find(net::kDatatypeClientHints) !=
-          clear_site_data_set.end() ||
-      clear_site_data_set.find(net::kDatatypeCookies) !=
-          clear_site_data_set.end() ||
-      clear_site_data_set.find(net::kDatatypeWildcard) !=
-          clear_site_data_set.end()) {
+  base::flat_set<std::string> clear_site_data_set(
+      std::move(clear_site_data_types));
+  if (clear_site_data_set.contains(net::kDatatypeCache) ||
+      clear_site_data_set.contains(net::kDatatypeClientHints) ||
+      clear_site_data_set.contains(net::kDatatypeCookies) ||
+      clear_site_data_set.contains(net::kDatatypeWildcard)) {
     parsed_headers->client_hints_ignored_due_to_clear_site_data_header = true;
   }
   if (!features::ShouldBlockAcceptClientHintsFor(url::Origin::Create(url)) &&
@@ -125,13 +121,14 @@ mojom::ParsedHeadersPtr PopulateParsedHeaders(
   network::mojom::SupportsLoadingModePtr result =
       network::ParseSupportsLoadingMode(*headers);
   if (!result.is_null()) {
-    if (base::Contains(result->supported_modes,
-                       network::mojom::LoadingMode::kCredentialedPrerender)) {
+    if (std::ranges::contains(
+            result->supported_modes,
+            network::mojom::LoadingMode::kCredentialedPrerender)) {
       parsed_headers->supports_loading_mode.push_back(
           network::mojom::LoadingMode::kCredentialedPrerender);
     }
 
-    if (base::Contains(
+    if (std::ranges::contains(
             result->supported_modes,
             network::mojom::LoadingMode::kPrerenderCrossOriginFrames)) {
       parsed_headers->supports_loading_mode.push_back(

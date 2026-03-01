@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.settings;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,7 +24,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceHeaderFragmentCompat;
 import androidx.slidingpanelayout.widget.SlidingPaneLayout;
 
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -469,7 +470,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
     static class Title {
         Title(
                 String uuid,
-                ObservableSupplier<String> titleSupplier,
+                MonotonicObservableSupplier<String> titleSupplier,
                 int backStackCount,
                 @Nullable String mainMenuKey) {
             this.uuid = uuid;
@@ -480,7 +481,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
 
         public final String uuid;
 
-        public final ObservableSupplier<String> titleSupplier;
+        public final MonotonicObservableSupplier<String> titleSupplier;
 
         /** the number of back stack entries when the fragment started */
         public final int backStackCount;
@@ -563,7 +564,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
             }
 
             if (f instanceof EmbeddableSettingsPage page) {
-                ObservableSupplier<String> titleSupplier = page.getPageTitle();
+                MonotonicObservableSupplier<String> titleSupplier = page.getPageTitle();
                 String uuid = getUUID(f);
                 assert uuid != null;
                 int index = -1;
@@ -585,6 +586,17 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
                     for (int i = mTitles.size() - 1; i > index; --i) {
                         mTitles.remove(i);
                         updated = true;
+                    }
+                }
+                if (!updated) {
+                    // All the search results fragments share their |titleSupplier|. Replaces its
+                    // uuid to the latest one if the fragment is present at the end of the list.
+                    int pos = mTitles.size() - 1;
+                    Title result = mTitles.get(pos);
+                    if (titleSupplier == result.titleSupplier
+                            && !TextUtils.equals(uuid, result.uuid)) {
+                        mTitles.set(
+                                pos, new Title(uuid, titleSupplier, result.backStackCount, null));
                     }
                 }
             }

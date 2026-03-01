@@ -76,7 +76,7 @@
 #include "ui/ozone/public/ozone_platform.h"
 #endif
 
-#if BUILDFLAG(IS_OZONE_X11)
+#if BUILDFLAG(SUPPORTS_OZONE_X11)
 #include "ui/events/test/events_test_utils_x11.h"
 #endif
 
@@ -1062,7 +1062,7 @@ TEST_F(MenuControllerTest, EventTargeter) {
 }
 #endif  // defined(USE_AURA)
 
-#if BUILDFLAG(IS_OZONE_X11)
+#if BUILDFLAG(SUPPORTS_OZONE_X11)
 // Tests that touch event ids are released correctly. See crbug.com/439051 for
 // details. When the ids aren't managed correctly, we get stuck down touches.
 TEST_F(MenuControllerTest, TouchIdsReleasedCorrectly) {
@@ -1091,7 +1091,7 @@ TEST_F(MenuControllerTest, TouchIdsReleasedCorrectly) {
 
   GetRootWindow(owner())->RemovePreTargetHandler(&test_event_handler);
 }
-#endif  // BUILDFLAG(IS_OZONE_X11)
+#endif  // BUILDFLAG(SUPPORTS_OZONE_X11)
 
 // Tests that initial selected menu items are correct when items are enabled or
 // disabled.
@@ -1769,7 +1769,7 @@ TEST_F(MenuControllerTest, AsynchronousDragCompleteWithoutClose) {
 
   // TODO(crbug.com/375959961): For X11, the menu is closed on drag completion
   // because the native widget's state is not properly updated.
-  EXPECT_EQ(BUILDFLAG(IS_OZONE_X11) ? 1 : 0,
+  EXPECT_EQ(BUILDFLAG(SUPPORTS_OZONE_X11) ? 1 : 0,
             menu_controller_delegate()->on_menu_closed_called());
 }
 
@@ -2510,7 +2510,7 @@ TEST_F(MenuControllerTest, WidgetStateChangeCancelsMenu) {
 
 // TODO(pkasting): The test below fails most of the time on Wayland; not clear
 // it's important to support this case.
-#if BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(IS_OZONE_WAYLAND)
+#if BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
 class DesktopMenuControllerTest : public MenuControllerTest {
  public:
   // MenuControllerTest:
@@ -2528,7 +2528,7 @@ TEST_F(DesktopMenuControllerTest, RunWithoutWidgetDoesntCrash) {
   menu_controller()->Run(nullptr, nullptr, menu_item(), gfx::Rect(),
                          MenuAnchorPosition::kTopLeft);
 }
-#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(IS_OZONE_WAYLAND)
+#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA) && !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
 
 // Tests that if a MenuController is destroying during drag/drop, and another
 // MenuController becomes active, that the exiting of drag does not cause a
@@ -2576,7 +2576,7 @@ TEST_F(MenuControllerTest, RestoreCaptureAfterDrag) {
 
   // TODO(crbug.com/375959961): For X11, the menu is closed on drag completion
   // because the native widget's state is not properly updated.
-  EXPECT_NE(base_host->HasCapture(), BUILDFLAG(IS_OZONE_X11));
+  EXPECT_NE(base_host->HasCapture(), BUILDFLAG(SUPPORTS_OZONE_X11));
 }
 
 // Tests that capture is not restored to the submenu after a drag and drop where
@@ -3383,6 +3383,56 @@ TEST_F(MenuControllerTest, BrowserHotkeysCancelMenusAndAreRedispatched) {
   EXPECT_FALSE(showing());
   EXPECT_FALSE(press_f.handled());
   EXPECT_FALSE(press_f.stopped_propagation());
+}
+
+// This test verifies that releasing keys with modifiers does not close the
+// menu. This prevents the menu from flashing open and immediately closing when
+// users release keys after opening a menu with a keyboard shortcut containing
+// multiple modifiers.
+TEST_F(MenuControllerTest, KeyReleaseDoesNotCancelMenu) {
+  // Open the menu (simulating that it was opened by a keyboard shortcut).
+  menu_controller()->Run(owner(), nullptr, menu_item(), gfx::Rect(),
+                         MenuAnchorPosition::kTopLeft,
+                         ui::mojom::MenuSourceType::kKeyboard);
+  ASSERT_TRUE(showing());
+
+  // Simulate releasing a key while still holding modifiers (Cmd+Ctrl).
+  // This simulates the user releasing keys after opening the menu with a
+  // multi-modifier keyboard shortcut. This should NOT cancel the menu.
+  int options = ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN;
+  ui::KeyEvent release_key(ui::EventType::kKeyReleased, ui::VKEY_A, options);
+  menu_controller()->OnWillDispatchKeyEvent(&release_key);
+  EXPECT_TRUE(showing());
+
+  // Release Ctrl key while still holding Cmd.
+  // This should also NOT cancel the menu.
+  ui::KeyEvent release_ctrl(ui::EventType::kKeyReleased, ui::VKEY_CONTROL,
+                            ui::EF_COMMAND_DOWN);
+  menu_controller()->OnWillDispatchKeyEvent(&release_ctrl);
+  EXPECT_TRUE(showing());
+
+  // Release Cmd key.
+  // This should also NOT cancel the menu.
+  ui::KeyEvent release_cmd(ui::EventType::kKeyReleased, ui::VKEY_COMMAND, 0);
+  menu_controller()->OnWillDispatchKeyEvent(&release_cmd);
+  EXPECT_TRUE(showing());
+}
+
+// This test verifies that pressing a new accelerator while a menu is open
+// still closes the menu as expected.
+TEST_F(MenuControllerTest, KeyPressWithModifierCancelsMenu) {
+  // Open the menu.
+  menu_controller()->Run(owner(), nullptr, menu_item(), gfx::Rect(),
+                         MenuAnchorPosition::kTopLeft,
+                         ui::mojom::MenuSourceType::kKeyboard);
+  ASSERT_TRUE(showing());
+
+  // Press a key with a modifier - this SHOULD close the menu.
+  ui::KeyEvent press_key(ui::EventType::kKeyPressed, ui::VKEY_T,
+                         ui::EF_COMMAND_DOWN);
+  menu_controller()->OnWillDispatchKeyEvent(&press_key);
+  views::test::WaitForMenuClosureAnimation();
+  EXPECT_FALSE(showing());
 }
 #endif
 

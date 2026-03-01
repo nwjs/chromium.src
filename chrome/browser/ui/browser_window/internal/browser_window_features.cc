@@ -28,6 +28,7 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service_factory.h"
+#include "chrome/browser/skills/skills_ui_window_controller.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/breadcrumb_manager_browser_agent.h"
@@ -45,7 +46,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/browser_window/public/embedder_browser_window_features.h"
-#include "chrome/browser/ui/commerce/product_specifications_entry_point_controller.h"
+#include "chrome/browser/ui/context_highlight/context_highlight_window_feature.h"
 #include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/extensions/extension_installed_watcher.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/ui/promos/ios_promo_controller.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
+#include "chrome/browser/ui/tab_search_feature.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
@@ -114,6 +116,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_controller.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/browser/ui/views/upgrade_notification_controller.h"
 #include "chrome/browser/ui/views/user_education/impl/browser_user_education_interface_impl.h"
@@ -162,6 +165,10 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/views/frame/windows_taskbar_icon_updater.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #endif
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -262,19 +269,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
     if (search::IsInstantExtendedAPIEnabled()) {
       instant_controller_ = std::make_unique<BrowserInstantController>(
           profile, browser->GetTabStripModel());
-    }
-
-    if (profile->IsRegularProfile()) {
-      auto* shopping_service =
-          commerce::ShoppingServiceFactory::GetForBrowserContext(profile);
-      if (shopping_service && commerce::CanLoadProductSpecificationsFullPageUi(
-                                  shopping_service->GetAccountChecker())) {
-        product_specifications_entry_point_controller_ =
-            GetUserDataFactory()
-                .CreateInstance<
-                    commerce::ProductSpecificationsEntryPointController>(
-                    *browser, browser);
-      }
     }
 
     if (profile->IsRegularProfile() &&
@@ -429,13 +423,17 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
       browser->GetType() == BrowserWindowInterface::Type::TYPE_DEVTOOLS);
 #endif  // defined(USE_AURA)
 
-  if (features::kGlicActorUiBorderGlow.Get()) {
+  if (base::FeatureList::IsEnabled(features::kGlicActorUi) &&
+      features::kGlicActorUiBorderGlow.Get()) {
     actor_border_view_controller_ =
         std::make_unique<ActorBorderViewController>(browser);
   }
 
   browser_select_file_dialog_controller_ =
       std::make_unique<BrowserSelectFileDialogController>(profile);
+
+  context_highlight_window_feature_ =
+      std::make_unique<ContextHighlightWindowFeature>(*browser);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   profile_customization_bubble_sync_controller_ =
@@ -447,6 +445,12 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               session_restore_infobar::SessionRestoreInfobarController>(
               *browser, browser);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_CHROMEOS)
+  on_task_locked_controller_ =
+      GetUserDataFactory().CreateInstance<ash::boca::OnTaskLockedController>(
+          *browser, browser);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Initialize embedder features last.
   embedder_browser_window_features_ =
@@ -721,16 +725,17 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
             browser_,
             contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
                 browser_->GetProfile()));
-    contextual_tasks_side_panel_coordinator_ =
-        GetUserDataFactory()
-            .CreateInstance<
-                contextual_tasks::ContextualTasksSidePanelCoordinator>(
-                *browser_, browser_);
-
     contextual_tasks_entry_point_eligibility_manager_ =
         GetUserDataFactory()
             .CreateInstance<contextual_tasks::EntryPointEligibilityManager>(
                 *browser_, browser_);
+    contextual_tasks_side_panel_coordinator_ =
+        GetUserDataFactory()
+            .CreateInstance<
+                contextual_tasks::ContextualTasksSidePanelCoordinator>(
+                *browser_, browser_,
+                contextual_tasks_active_task_context_provider_.get(),
+                contextual_tasks_entry_point_eligibility_manager_.get());
 
     if (contextual_tasks::kShowEntryPoint.Get() ==
         contextual_tasks::EntryPointOption::kToolbarRevisit) {
@@ -761,9 +766,12 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
           BrowserElementsViews::From(browser_view->browser())
               ->GetViewAs<TabStripActionContainer>(
                   kTabStripActionContainerElementId),
+          BrowserElementsViews::From(browser_view->browser())
+              ->GetViewAs<ToolbarView>(ToolbarView::kToolbarElementId),
           glic_service);
 
-      if (features::kGlicActorUiTaskIcon.Get() &&
+      if (base::FeatureList::IsEnabled(features::kGlicActorUi) &&
+          features::kGlicActorUiTaskIcon.Get() &&
           browser_->GetProfile()->IsRegularProfile()) {
         // Will be referenced in GlicActorNudgeController and thus needs to be
         // instantiated first.
@@ -856,6 +864,9 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
   omnibox_popup_closer_ =
       std::make_unique<omnibox::OmniboxPopupCloser>(browser_view);
 
+  skills_ui_window_controller_ =
+      std::make_unique<skills::SkillsUiWindowController>(browser_);
+
   // Initialize post-BrowserView-dependent embedder features last.
   embedder_browser_window_features_->InitPostBrowserViewConstruction(
       browser_view);
@@ -886,6 +897,7 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
 #endif
 
   contextual_tasks_side_panel_coordinator_.reset();
+  contextual_tasks_entry_point_eligibility_manager_.reset();
 
 #if !BUILDFLAG(IS_CHROMEOS)
   if (download_toolbar_ui_controller_) {
@@ -978,6 +990,10 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   find_bar_owner_.reset();
 
   ai_mode_page_action_controller_.reset();
+
+  skills_ui_window_controller_.reset();
+
+  context_highlight_window_feature_.reset();
 }
 
 SidePanelUI* BrowserWindowFeatures::side_panel_ui() {

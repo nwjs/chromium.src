@@ -76,6 +76,8 @@ constexpr int kIphRelevance = 5000;
 int StarterPackRelevance(
     template_url_starter_pack_data::StarterPackId starter_pack_id) {
   switch (starter_pack_id) {
+    case template_url_starter_pack_data::StarterPackId::kNone:
+      break;
     case template_url_starter_pack_data::StarterPackId::kAiMode:
       return 1460;
     case template_url_starter_pack_data::StarterPackId::kGemini:
@@ -98,7 +100,7 @@ int StarterPackRelevance(
 // Returns description for starter pack suggestions.
 std::u16string StarterPackDescription(const AutocompleteInput& input,
                                       const TemplateURL& template_url) {
-  if (template_url.is_ask_starter_pack()) {
+  if (template_url.is_ask_type()) {
     return l10n_util::GetStringFUTF16(IDS_OMNIBOX_INSTANT_KEYWORD_ASK_TEXT,
                                       template_url.keyword(),
                                       template_url.short_name());
@@ -196,16 +198,18 @@ FeaturedSearchProvider::FeaturedSearchProvider(
 void FeaturedSearchProvider::Start(const AutocompleteInput& input,
                                    bool minimal_changes) {
   matches_.clear();
-  if (input.IsZeroSuggest())
+  if (input.IsZeroSuggest()) {
     iph_shown_in_omnibox_session_ = false;
+  }
 
   AutocompleteInput keyword_input = input;
   const TemplateURL* keyword_turl =
       AutocompleteInput::GetSubstitutingTemplateURLForInput(
           template_url_service_, &keyword_input);
   bool is_history_scope =
-      keyword_turl && keyword_turl->starter_pack_id() ==
-                          template_url_starter_pack_data::kHistory;
+      keyword_turl &&
+      keyword_turl->starter_pack_id() ==
+          template_url_starter_pack_data::StarterPackId::kHistory;
 
   if (show_iph_matches_) {
     if (is_history_scope) {
@@ -293,26 +297,31 @@ void FeaturedSearchProvider::AddFeaturedKeywordMatches(
   TemplateURLService::TemplateURLVector turls;
   template_url_service_->AddMatchingKeywords(input.text(), false, &turls);
   for (TemplateURL* turl : turls) {
-    if (turl->starter_pack_id() > 0 &&
+    if (turl->starter_pack_id() !=
+            template_url_starter_pack_data::StarterPackId::kNone &&
         turl->is_active() == TemplateURLData::ActiveStatus::kTrue) {
       // Skip @gemini if feature disabled.
-      if (turl->starter_pack_id() == template_url_starter_pack_data::kGemini &&
+      if (turl->starter_pack_id() ==
+              template_url_starter_pack_data::StarterPackId::kGemini &&
           !OmniboxFieldTrial::IsStarterPackExpansionEnabled()) {
         continue;
       }
       // Skip @page if feature disabled.
-      if (turl->starter_pack_id() == template_url_starter_pack_data::kPage &&
+      if (turl->starter_pack_id() ==
+              template_url_starter_pack_data::StarterPackId::kPage &&
           !omnibox_feature_configs::ContextualSearch::Get().starter_pack_page) {
         continue;
       }
       // Skip @aimode if feature disabled.
-      if (turl->starter_pack_id() == template_url_starter_pack_data::kAiMode &&
+      if (turl->starter_pack_id() ==
+              template_url_starter_pack_data::StarterPackId::kAiMode &&
           !OmniboxFieldTrial::IsAimStarterPackEnabled(
               client_->GetAimEligibilityService())) {
         continue;
       }
       // The history starter pack engine is disabled in incognito mode.
-      if (turl->starter_pack_id() == template_url_starter_pack_data::kHistory &&
+      if (turl->starter_pack_id() ==
+              template_url_starter_pack_data::StarterPackId::kHistory &&
           client_->IsOffTheRecord()) {
         continue;
       }
@@ -347,7 +356,8 @@ void FeaturedSearchProvider::AddStarterPackMatch(
 
   const std::u16string destination_url =
       template_url_starter_pack_data::GetDestinationUrlForStarterPackId(
-          template_url.starter_pack_id());
+          static_cast<template_url_starter_pack_data::StarterPackId>(
+              template_url.starter_pack_id()));
   match.fill_into_edit = template_url.keyword();
   if (match.fill_into_edit.starts_with(input.text())) {
     match.inline_autocompletion =
@@ -413,7 +423,7 @@ void FeaturedSearchProvider::AddFeaturedEnterpriseSearchMatch(
   match.destination_url = GURL(template_url.url());
   match.transition = ui::PAGE_TRANSITION_GENERATED;
   match.description = l10n_util::GetStringFUTF16(
-      IDS_OMNIBOX_INSTANT_KEYWORD_SEARCH_TEXT, template_url.keyword(),
+      IDS_OMNIBOX_INSTANT_KEYWORD_ASK_TEXT, template_url.keyword(),
       template_url.short_name());
   match.description_class = {
       {0, ACMatchClassification::NONE},
@@ -461,7 +471,7 @@ bool FeaturedSearchProvider::ShouldShowGeminiIPHMatch() const {
   // The @gemini IPH should no longer be shown once a user has successfully
   // used @gemini.
   TemplateURL* gemini_turl = template_url_service_->FindStarterPackTemplateURL(
-      template_url_starter_pack_data::kGemini);
+      template_url_starter_pack_data::StarterPackId::kGemini);
   if (gemini_turl && gemini_turl->usage_count() > 0) {
     return false;
   }

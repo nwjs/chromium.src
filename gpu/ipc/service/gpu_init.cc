@@ -11,7 +11,6 @@
 
 #include "base/base_paths.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -66,9 +65,14 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "gpu/config/gpu_driver_bug_workarounds.h"
+#include "services/on_device_model/ml_internal_buildflags.h"
 #include "ui/gl/direct_composition_support.h"
 #include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_surface_egl.h"
+
+#if BUILDFLAG(ENABLE_ML_INTERNAL)
+#include "services/webnn/public/mojom/features.mojom-features.h"  // nogncheck
+#endif
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -708,6 +712,18 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
         TRACE_EVENT("gpu,startup", "Load directml.dll");
         base::LoadNativeLibrary(module_path.Append(L"directml.dll"), nullptr);
       }
+
+#if BUILDFLAG(ENABLE_ML_INTERNAL)
+      if (base::FeatureList::IsEnabled(
+              webnn::mojom::features::kWebMachineLearningNeuralNetwork)) {
+        // Ensure that optimization_guide_internal.dll is loaded before the
+        // sandbox is initialized as this provides a GPU delegate used as a
+        // fallback when Windows ML is not available.
+        TRACE_EVENT("gpu,startup", "Load optimization_guide_internal.dll");
+        base::LoadNativeLibrary(
+            module_path.Append(L"optimization_guide_internal.dll"), nullptr);
+      }
+#endif
     }
 
     ResumeGpuWatchdog(watchdog_thread_.get());
@@ -827,6 +843,12 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 
   if (gl_use_swiftshader_) {
     AdjustInfoToSwiftShader();
+  }
+  if (gl_disabled) {
+    // GL is disabled in display compositor mode, typically due to repeated GPU
+    // crashes. Disable WebNN to ensure stability in this state.
+    gpu_feature_info_.status_values[GPU_FEATURE_TYPE_WEBNN] =
+        kGpuFeatureStatusDisabled;
   }
 
   if (kGpuFeatureStatusEnabled !=
@@ -1141,6 +1163,12 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 
   if (gl_use_swiftshader_) {
     AdjustInfoToSwiftShader();
+  }
+  if (gl_disabled) {
+    // GL is disabled in display compositor mode, typically due to repeated GPU
+    // crashes. Disable WebNN to ensure stability in this state.
+    gpu_feature_info_.status_values[GPU_FEATURE_TYPE_WEBNN] =
+        kGpuFeatureStatusDisabled;
   }
 
 #if BUILDFLAG(IS_OZONE)

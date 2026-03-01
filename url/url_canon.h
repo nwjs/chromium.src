@@ -63,11 +63,7 @@ class CanonOutputT {
 
   // Accessor for returning a character at a given position. The input offset
   // must be in the valid range.
-  inline T at(size_t offset) const { return UNSAFE_TODO(buffer_[offset]); }
-
-  // Sets the character at the given position. The given position MUST be less
-  // than the length().
-  inline void set(size_t offset, T ch) { UNSAFE_TODO(buffer_[offset]) = ch; }
+  inline T at(size_t offset) const { return view()[offset]; }
 
   // Returns the number of characters currently in the buffer.
   inline size_t length() const { return cur_len_; }
@@ -81,14 +77,14 @@ class CanonOutputT {
 
   // Returns the contents of the buffer as a string_view.
   std::basic_string_view<T> view() const {
-    return std::basic_string_view<T>(data(), length());
+    return std::basic_string_view<T>(buffer_, length());
   }
 
   // Called by the user of this class to get the output. The output will NOT
-  // be NULL-terminated. Call length() to get the
-  // length.
-  const T* data() const { return buffer_; }
-  T* data() { return buffer_; }
+  // be NULL-terminated. Call length() to get the length.
+  //
+  // This is unsafe, and we should use view() instead.
+  UNSAFE_BUFFER_USAGE const T* data() const { return buffer_; }
 
   // Shortens the URL to the new length. Used for "backing up" when processing
   // relative paths. This can also be used if an external function writes a lot
@@ -104,7 +100,8 @@ class CanonOutputT {
     // In VC2005, putting this common case first speeds up execution
     // dramatically because this branch is predicted as taken.
     if (cur_len_ < buffer_len_) {
-      UNSAFE_TODO(buffer_[cur_len_]) = ch;
+      // SAFETY: `cur_len_` was validated on the previous line.
+      UNSAFE_BUFFERS(buffer_[cur_len_]) = ch;
       cur_len_++;
       return;
     }
@@ -115,7 +112,8 @@ class CanonOutputT {
       return;
 
     // Actually do the insertion.
-    UNSAFE_TODO(buffer_[cur_len_]) = ch;
+    // SAFETY: Successful `Grow(1)` ensured `cur_len_` was valid.
+    UNSAFE_BUFFERS(buffer_[cur_len_]) = ch;
     cur_len_++;
   }
 
@@ -146,6 +144,12 @@ class CanonOutputT {
     Append(copy);
   }
 
+  // Returns a span for the whole buffer.
+  base::span<T> Span() {
+    // SAFETY: Resize() must ensure `buffer_` has `buffer_len_` size.
+    return UNSAFE_BUFFERS(base::span(buffer_, buffer_len_));
+  }
+
  protected:
   // Grows the given buffer so that it can fit at least |min_additional|
   // characters. Returns true if the buffer could be resized, false on OOM.
@@ -159,12 +163,6 @@ class CanonOutputT {
     } while (new_len < buffer_len_ + min_additional);
     Resize(new_len);
     return true;
-  }
-
-  // Returns a span for the whole buffer.
-  base::span<T> Span() {
-    // SAFETY: Resize() must ensure `buffer_` has `buffer_len_` size.
-    return UNSAFE_BUFFERS(base::span(buffer_, buffer_len_));
   }
 
   // RAW_PTR_EXCLUSION: Performance (based on analysis of sampling profiler
@@ -193,9 +191,10 @@ class RawCanonOutputT : public CanonOutputT<T> {
 
   void Resize(size_t sz) override {
     T* new_buf = new T[sz];
-    UNSAFE_TODO(
-        memcpy(new_buf, this->buffer_,
-               sizeof(T) * (this->cur_len_ < sz ? this->cur_len_ : sz)));
+    // SAFETY: The previous line ensured `new_buf` had `sz` size.
+    UNSAFE_BUFFERS(base::span(new_buf, sz))
+        .copy_prefix_from(
+            CanonOutputT<T>::Span().first(std::min(sz, this->cur_len_)));
     if (this->buffer_ != fixed_buffer_)
       delete[] this->buffer_;
     this->buffer_ = new_buf;
@@ -206,7 +205,7 @@ class RawCanonOutputT : public CanonOutputT<T> {
   T fixed_buffer_[fixed_capacity];
 };
 
-// Explicitely instantiate commonly used instatiations.
+// Explicitly instantiate commonly used instantiations.
 extern template class EXPORT_TEMPLATE_DECLARE(COMPONENT_EXPORT(URL))
     CanonOutputT<char>;
 extern template class EXPORT_TEMPLATE_DECLARE(COMPONENT_EXPORT(URL))
@@ -1037,7 +1036,7 @@ class Replacements {
     sources_.path = Placeholder();
     components_.path = Component();
   }
-  // Return the path part of the source string if the path component is alid.
+  // Return the path part of the source string if the path component is valid.
   std::optional<StringViewT> MaybePath() const {
     return components_.path.MaybeAsViewOn(sources_.path);
   }

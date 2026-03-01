@@ -62,8 +62,8 @@ class OfficeWebAppUnitTest : public WebAppTest {
       const GURL& install_url,
       const GURL& start_url,
       webapps::WebappInstallSource install_source) {
-    auto install_info =
-        std::make_unique<web_app::WebAppInstallInfo>(start_url, start_url);
+    auto install_info = std::make_unique<web_app::WebAppInstallInfo>(
+        webapps::ManifestId(start_url), start_url);
     install_info->install_url = install_url;
     install_info->title = u"Microsoft 365";
     return web_app::test::InstallWebApp(
@@ -130,7 +130,8 @@ TEST_F(OfficeWebAppUnitTest, ReplaceUnexpectedMicrosoft365App) {
                 /*start_url=*/GURL(kUnexpectedWebAppUrl),
                 webapps::WebappInstallSource::MICROSOFT_365_SETUP),
             kUnexpectedMicrosoft365AppId);
-  EXPECT_TRUE(registrar.IsInRegistrar(kUnexpectedMicrosoft365AppId));
+  EXPECT_TRUE(
+      registrar.GetInstallState(kUnexpectedMicrosoft365AppId).has_value());
 
   // Set the behaviour of `LoadUrl` to return `kUrlLoaded` for the Microsoft365
   // install URL (set the system to be online).
@@ -143,7 +144,7 @@ TEST_F(OfficeWebAppUnitTest, ReplaceUnexpectedMicrosoft365App) {
   InstallMicrosoft365(profile(), future.GetCallback());
 
   EXPECT_EQ(future.Get(), webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar.IsInRegistrar(ash::kMicrosoft365AppId));
+  EXPECT_TRUE(registrar.GetInstallState(ash::kMicrosoft365AppId).has_value());
   uninstall_observer.Wait();
 }
 
@@ -157,7 +158,8 @@ TEST_F(OfficeWebAppUnitTest, DoNotReplaceManuallyInstalledMicrosoft365App) {
                 /*start_url=*/GURL(kUnexpectedWebAppUrl),
                 webapps::WebappInstallSource::MENU_BROWSER_TAB),
             kUnexpectedMicrosoft365AppId);
-  EXPECT_TRUE(registrar.IsInRegistrar(kUnexpectedMicrosoft365AppId));
+  EXPECT_TRUE(
+      registrar.GetInstallState(kUnexpectedMicrosoft365AppId).has_value());
 
   // Set the behaviour of `LoadUrl` to return `kUrlLoaded` for the Microsoft365
   // install URL (set the system to be online).
@@ -173,9 +175,10 @@ TEST_F(OfficeWebAppUnitTest, DoNotReplaceManuallyInstalledMicrosoft365App) {
   task_environment()->RunUntilIdle();
 
   EXPECT_EQ(future.Get(), webapps::InstallResultCode::kSuccessNewInstall);
-  EXPECT_TRUE(registrar.IsInRegistrar(ash::kMicrosoft365AppId));
+  EXPECT_TRUE(registrar.GetInstallState(ash::kMicrosoft365AppId).has_value());
   // Manually installed app is not replaced.
-  EXPECT_TRUE(registrar.IsInRegistrar(kUnexpectedMicrosoft365AppId));
+  EXPECT_TRUE(
+      registrar.GetInstallState(kUnexpectedMicrosoft365AppId).has_value());
 }
 
 }  // namespace

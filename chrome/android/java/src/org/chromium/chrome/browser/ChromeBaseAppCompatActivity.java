@@ -42,12 +42,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureList;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -126,13 +125,13 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         int NONE = -1;
     }
 
-    private final SettableObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier =
-            ObservableSuppliers.createMonotonic();
+    private final SettableMonotonicObservableSupplier<ModalDialogManager>
+            mModalDialogManagerSupplier = ObservableSuppliers.createMonotonic();
     protected final OneshotSupplierImpl<SystemBarColorHelper> mSystemBarColorHelperSupplier =
             new OneshotSupplierImpl<>();
     // TODO(crbug.com/435269657): Update this and the ChromeActivity equivalent to OneShotSupplier
-    protected final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier =
-            new ObservableSupplierImpl<>();
+    protected final SettableMonotonicObservableSupplier<EdgeToEdgeController>
+            mEdgeToEdgeControllerSupplier = ObservableSuppliers.createMonotonic();
     // Manages activity results for this activity.
     private final ActivityResultTrackerImpl mActivityResultTracker =
             new ActivityResultTrackerImpl(
@@ -266,7 +265,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                     SemanticColorUtils.getDefaultBgColor(this));
         }
 
-        if (ChromeFeatureList.sNewTabPageCustomizationV2.isEnabled()) {
+        if (NtpCustomizationUtils.isNtpThemeCustomizationEnabled()) {
             mNtpThemeStateObserver = () -> recreate();
             NtpThemeStateProvider.getInstance().addObserver(mNtpThemeStateObserver);
         }
@@ -289,7 +288,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      * instance for that supplier, or creates a controller creator that will create and supply an
      * EdgeToEdgeController when all conditions are met for the device to draw edge-to-edge.
      */
-    public ObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
+    public MonotonicObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
         if (ChromeFeatureList.sEdgeToEdgeMonitorConfigurations.isEnabled()) {
             if (mEdgeToEdgeControllerCreator == null) {
                 mEdgeToEdgeControllerCreator =
@@ -443,7 +442,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     /**
      * Returns the supplier of {@link ModalDialogManager} that manages the display of modal dialogs.
      */
-    public ObservableSupplier<ModalDialogManager> getModalDialogManagerSupplier() {
+    public MonotonicObservableSupplier<ModalDialogManager> getModalDialogManagerSupplier() {
         return mModalDialogManagerSupplier;
     }
 

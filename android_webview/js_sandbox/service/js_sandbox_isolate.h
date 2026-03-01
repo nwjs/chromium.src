@@ -58,16 +58,16 @@ class JsSandboxIsolate {
                           const base::android::JavaRef<jobject>& j_callback);
   bool EvaluateJavascriptWithFd(
       JNIEnv* env,
-      const jint fd,
-      const jlong length,
-      const jlong offset,
+      const int32_t fd,
+      const int64_t length,
+      const int64_t offset,
       const base::android::JavaRef<jobject>& j_callback,
       const base::android::JavaRef<jobject>& pfd);
   void DestroyNative(JNIEnv* env);
   bool ProvideNamedData(JNIEnv* env,
                         const base::android::JavaRef<jstring>& jname,
-                        const jint fd,
-                        const jint length);
+                        const int32_t fd,
+                        const int32_t length);
   // May enable or disable inspection, as needed.
   void SetConsoleEnabled(JNIEnv* env, bool enable);
 

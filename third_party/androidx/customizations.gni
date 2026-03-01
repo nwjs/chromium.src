@@ -73,9 +73,6 @@ template("_androidx_prebuilt") {
     } else if (target_name == "androidx_mediarouter_mediarouter_java") {
       # https://crbug.com/1000382
       proguard_configs = [ "androidx_mediarouter.flags" ]
-    } else if (target_name == "androidx_biometric_biometric_java") {
-      # Temporary workaround until upstream flags fixed.
-      proguard_configs = [ "androidx_biometric.flags" ]
     } else if (target_name == "androidx_preference_preference_java") {
       proguard_configs = [ "androidx_preferences.flags" ]
 
@@ -129,8 +126,8 @@ template("_androidx_prebuilt") {
       ignore_proguard_configs = true
       proguard_configs = [ "androidx_xr.flags" ]
 
-      # We do not use the APIs that require the native code.
-      ignore_native_libraries = true
+      # ChromeXR uses APIs that require the native code.
+      extract_native_libraries = true
 
       # It adds:
       #   <uses-native-library android:name="libopenxr.google.so" android:required="false"/>

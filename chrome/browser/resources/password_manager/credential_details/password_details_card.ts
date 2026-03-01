@@ -20,18 +20,20 @@ import '../sharing/share_password_flow.js';
 import '../sharing/metrics_utils.js';
 import '../dialogs/move_single_password_dialog.js';
 
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {HelpBubbleMixin} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {htmlEscape} from 'chrome://resources/js/util.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {PasswordsMovedEvent, ValueCopiedEvent} from '../password_manager_app.js';
 import {PasswordManagerImpl, PasswordViewPageInteractions} from '../password_manager_proxy.js';
-import {PasswordSharingActions, recordPasswordSharingInteraction} from '../sharing/metrics_utils.js';
+import {MoveToAccountStoreTrigger, PasswordSharingActions, recordMoveToAccountStoreAccepted, recordPasswordSharingInteraction} from '../sharing/metrics_utils.js';
 import {ShowPasswordMixin} from '../show_password_mixin.js';
 import {UserUtilMixin} from '../user_utils_mixin.js';
 
@@ -89,6 +91,10 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
       },
       groupName: String,
       iconUrl: String,
+      movePasswordsSubtitle: {
+        type: String,
+        computed: 'computeMovePasswordsSubtitle_(accountEmail)',
+      },
       shouldRegisterSharingPromo: {
         type: Boolean,
         value: false,
@@ -103,6 +109,10 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
       showDeletePasswordDialog_: Boolean,
       showMovePasswordDialog_: Boolean,
 
+      showSingleClickUploadUi_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('passwordUploadUiUpdate'),
+      },
 
       showShareButton_: {
         type: Boolean,
@@ -126,12 +136,19 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
       },
 
       isUsingAccountStore: Boolean,
+      trigger_: {
+        type: Object,
+        value: () =>
+            MoveToAccountStoreTrigger
+                .EXPLICITLY_TRIGGERED_FOR_SINGLE_PASSWORD_IN_DETAILS_IN_SETTINGS,
+      },
     };
   }
 
   declare password: chrome.passwordsPrivate.PasswordUiEntry;
   declare groupName: string;
   declare iconUrl: string;
+  declare movePasswordsSubtitle: string;
   declare isUsingAccountStore: boolean;
   /* This is set by the parent element, to only show help buble on the first
    * card on the page. */
@@ -142,6 +159,8 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
   declare private showShareFlow_: boolean;
   declare private showShareButton_: boolean;
   declare private showMovePasswordDialog_: boolean;
+  declare private showSingleClickUploadUi_: boolean;
+  declare private trigger_: MoveToAccountStoreTrigger;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -261,6 +280,11 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
     return hasApps ? this.i18n('appsLabel') : this.i18n('sitesLabel');
   }
 
+  private computeMovePasswordsSubtitle_(): string {
+    return this.i18n(
+        'movePasswordsToAccountDetailsCardSubtitle', this.accountEmail);
+  }
+
   private computeShowShareButton_(): boolean {
     return !this.isFederated_() &&
         (this.isSyncingPasswords || this.isAccountStoreUser);
@@ -313,15 +337,34 @@ export class PasswordDetailsCardElement extends PasswordDetailsCardElementBase {
     return this.i18nAdvanced('moveSinglePassword');
   }
 
-  private movePasswordClicked_(e: Event): void {
+  private onMovePasswordClicked_(e: Event) {
+    assert(this.isAccountStoreUser);
     e.preventDefault();
-    this.showMovePasswordDialog_ = true;
+
+    if (!this.showSingleClickUploadUi_) {
+      this.showMovePasswordDialog_ = true;
+      return;
+    }
+
+    PasswordManagerImpl.getInstance().movePasswordsToAccount(
+        [this.password.id]);
+    this.dispatchEvent(new CustomEvent('passwords-moved', {
+      bubbles: true,
+      composed: true,
+      detail: {accountEmail: this.accountEmail, numberOfPasswords: 1},
+    }));
+    recordMoveToAccountStoreAccepted(this.trigger_);
   }
 
   private showMovePasswordEntry_(): boolean {
     return this.isUsingAccountStore &&
         this.password.storedIn ===
         chrome.passwordsPrivate.PasswordStoreSet.DEVICE;
+  }
+
+  private getUploadSinglePasswordId_(): string {
+    return this.showSingleClickUploadUi_ ? 'uploadSinglePasswordLarge' :
+                                           'uploadSinglePasswordSmall';
   }
 
   private onMovePasswordDialogClose_(): void {

@@ -13,12 +13,16 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/memory/raw_ref.h"
 #include "base/observer_list.h"
+#include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
-#include "chrome/browser/ui/tabs/tab_list_interface_observer.h"
 
 class TabAndroid;
 class TabModel;
 class TabAndroid;
+
+namespace base {
+class Token;
+}  // namespace base
 
 // Bridges calls between the C++ and the Java TabModelObservers. Functions in
 // this class do little more than translating between Java TabModelObserver
@@ -44,6 +48,8 @@ class TabModelObserverJniBridge {
 
   void WillCloseTab(JNIEnv* env, TabAndroid* tab);
 
+  void DidRemoveTabForClosure(JNIEnv* env, TabAndroid* tab);
+
   void OnFinishingTabClosure(JNIEnv* env, TabAndroid* tab, int source);
 
   void OnFinishingMultipleTabClosure(JNIEnv* env,
@@ -68,12 +74,23 @@ class TabModelObserverJniBridge {
 
   void AllTabsClosureCommitted(JNIEnv* env);
 
+  void AllTabsAreClosing(JNIEnv* env);
+
   void TabRemoved(JNIEnv* env, TabAndroid* tab);
+
+  void OnTabGroupCreated(JNIEnv* env, base::Token group_id);
+
+  void OnTabGroupRemoving(JNIEnv* env, base::Token group_id);
+
+  void OnTabGroupMoved(JNIEnv* env, base::Token group_id, int old_index);
+
+  void OnTabGroupVisualsChanged(JNIEnv* env, base::Token group_id);
 
   void AddObserver(TabModelObserver* observer);
   void AddTabListInterfaceObserver(TabListInterfaceObserver* observer);
   void RemoveObserver(TabModelObserver* observer);
   void RemoveTabListInterfaceObserver(TabListInterfaceObserver* observer);
+  void NotifyShutdown();
 
   bool has_observers() const {
     return !model_observers_.empty() || !interface_observers_.empty();

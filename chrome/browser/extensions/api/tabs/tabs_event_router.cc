@@ -12,6 +12,7 @@
 #include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/common/extensions/api/tabs.h"
 #include "components/favicon/content/content_favicon_driver.h"
@@ -28,8 +29,13 @@ namespace {
 
 constexpr char kAudibleKey[] = "audible";
 constexpr char kAutoDiscardableKey[] = "autoDiscardable";
+constexpr char kFromIndexKey[] = "fromIndex";
 constexpr char kMutedInfoKey[] = "mutedInfo";
+constexpr char kNewPositionKey[] = "newPosition";
+constexpr char kNewWindowIdKey[] = "newWindowId";
 constexpr char kPinnedKey[] = "pinned";
+constexpr char kTabIdKey[] = "tabId";
+constexpr char kToIndexKey[] = "toIndex";
 
 // Callback for the event dispatch system. Computes which tab properties have
 // changed. Builds an argument list with an entry for the changed properties and
@@ -42,8 +48,8 @@ bool WillDispatchTabUpdatedEvent(
     content::BrowserContext* browser_context,
     mojom::ContextType target_context,
     const Extension* extension,
-    const base::Value::Dict* listener_filter,
-    std::optional<base::Value::List>& event_args_out,
+    const base::DictValue* listener_filter,
+    std::optional<base::ListValue>& event_args_out,
     mojom::EventFilteringInfoPtr& event_filtering_info_out,
     bool* dispatch_separate_event_out) {
   auto scrub_tab_behavior = ExtensionTabUtil::GetScrubTabBehavior(
@@ -51,9 +57,9 @@ bool WillDispatchTabUpdatedEvent(
   api::tabs::Tab tab_object = ExtensionTabUtil::CreateTabObject(
       contents, scrub_tab_behavior, extension);
 
-  base::Value::Dict tab_value = tab_object.ToValue();
+  base::DictValue tab_value = tab_object.ToValue();
 
-  base::Value::Dict changed_properties;
+  base::DictValue changed_properties;
   for (const auto& property : changed_property_names) {
     if (const base::Value* value = tab_value.Find(property)) {
       changed_properties.Set(property, value->Clone());
@@ -74,14 +80,14 @@ bool WillDispatchTabCreatedEvent(
     content::BrowserContext* browser_context,
     mojom::ContextType target_context,
     const Extension* extension,
-    const base::Value::Dict* listener_filter,
-    std::optional<base::Value::List>& event_args_out,
+    const base::DictValue* listener_filter,
+    std::optional<base::ListValue>& event_args_out,
     mojom::EventFilteringInfoPtr& event_filtering_info_out,
     bool* dispatch_separate_event_out) {
   ExtensionTabUtil::ScrubTabBehavior scrub_tab_behavior =
       ExtensionTabUtil::GetScrubTabBehavior(extension, target_context,
                                             contents);
-  base::Value::Dict tab_value =
+  base::DictValue tab_value =
       ExtensionTabUtil::CreateTabObject(contents, scrub_tab_behavior, extension)
           .ToValue();
   tab_value.Set(tabs_constants::kSelectedKey, active);
@@ -194,13 +200,37 @@ void TabsEventRouter::TabEntry::OnPinnedStateChanged(tabs::TabInterface* tab,
 ////////////////////////////////////////////////////////////////////////////////
 // TabsEventRouter:
 
-TabsEventRouter::TabsEventRouter(Profile* profile)
-    : profile_(profile), platform_delegate_(*this, *profile) {
+TabsEventRouter::TabsEventRouter(Profile* profile) : profile_(profile) {
   performance_manager::PageLiveStateDecorator::AddAllPageObserver(this);
+
+  // We instantiate the platform delegate outside the member initialization
+  // list. Construction of the platform delegate might call back into this class
+  // (e.g. to add existing tabs to track), so we want to make sure all members
+  // are fully instantiated before those methods are called.
+  platform_delegate_.emplace(*this, *profile);
+
+  initialized_ = true;
 }
 
 TabsEventRouter::~TabsEventRouter() {
   performance_manager::PageLiveStateDecorator::RemoveAllPageObserver(this);
+}
+
+bool TabsEventRouter::ShouldTrackBrowser(BrowserWindowInterface& browser) {
+  return profile_->IsSameOrParent(browser.GetProfile()) &&
+         ExtensionTabUtil::BrowserSupportsTabs(&browser);
+}
+
+void TabsEventRouter::TrackTabList(TabListInterface& tab_list) {
+  tab_list_observations_.AddObservation(&tab_list);
+
+  // Bootstrap: monitor all pre-existing tabs in the tab list.
+  std::vector<tabs::TabInterface*> tabs = tab_list.GetAllTabs();
+  for (size_t i = 0u; i < tabs.size(); ++i) {
+    OnTabAdded(tabs[i], i);
+  }
+  // TODO(https://crbug.com/473593117): Do we also need to fire selection
+  // changed events? It looks like the non-Android BrowserTabStripTracker does.
 }
 
 void TabsEventRouter::RegisterForTabNotifications(
@@ -268,7 +298,7 @@ void TabsEventRouter::DispatchTabUpdatedEvent(
       events::TABS_ON_UPDATED, api::tabs::OnUpdated::kEventName,
       // The event arguments depend on the extension's permission. They are set
       // in WillDispatchTabUpdatedEvent().
-      base::Value::List(), profile);
+      base::ListValue(), profile);
   event->user_gesture = EventRouter::UserGestureState::kNotEnabled;
   event->will_dispatch_callback =
       base::BindRepeating(&WillDispatchTabUpdatedEvent, contents,
@@ -282,7 +312,7 @@ void TabsEventRouter::DispatchTabCreatedEvent(content::WebContents* contents,
       Profile::FromBrowserContext(contents->GetBrowserContext());
   auto event = std::make_unique<Event>(events::TABS_ON_CREATED,
                                        api::tabs::OnCreated::kEventName,
-                                       base::Value::List(), profile);
+                                       base::ListValue(), profile);
   event->user_gesture = EventRouter::UserGestureState::kNotEnabled;
   event->will_dispatch_callback =
       base::BindRepeating(&WillDispatchTabCreatedEvent, contents, active);
@@ -293,7 +323,7 @@ void TabsEventRouter::DispatchEvent(
     Profile* profile,
     events::HistogramValue histogram_value,
     const std::string& event_name,
-    base::Value::List args,
+    base::ListValue args,
     EventRouter::UserGestureState user_gesture) {
   EventRouter* event_router = EventRouter::Get(profile);
   if (!profile_->IsSameOrParent(profile) || !event_router) {
@@ -304,6 +334,106 @@ void TabsEventRouter::DispatchEvent(
                                        std::move(args), profile);
   event->user_gesture = user_gesture;
   event_router->BroadcastEvent(std::move(event));
+}
+
+void TabsEventRouter::OnTabAdded(tabs::TabInterface* tab, int index) {
+  content::WebContents* contents = tab->GetContents();
+  CHECK(contents);
+
+  // Check if we've ever seen this tab.
+  if (GetTabEntry(*contents)) {
+    // This is a known tab. Dispatch `onAttached`.
+    int tab_id = ExtensionTabUtil::GetTabId(contents);
+    base::ListValue args;
+    args.Append(tab_id);
+
+    base::DictValue object_args;
+    object_args.Set(kNewWindowIdKey,
+                    base::Value(ExtensionTabUtil::GetWindowIdOfTab(contents)));
+    object_args.Set(kNewPositionKey, base::Value(index));
+    args.Append(std::move(object_args));
+
+    Profile* profile =
+        Profile::FromBrowserContext(contents->GetBrowserContext());
+    DispatchEvent(profile, events::TABS_ON_ATTACHED,
+                  api::tabs::OnAttached::kEventName, std::move(args),
+                  EventRouter::UserGestureState::kUnknown);
+
+    return;
+  }
+
+  // We've never seen this tab. Begin tracking it.
+  RegisterForTabNotifications(*contents);
+
+  // If we're still initializing the event router, assume this is
+  // bootstrapping instead of a new tab.
+  if (!initialized_) {
+    return;
+  }
+
+  // Otherwise, dispatch the `onCreated` event.
+  DispatchTabCreatedEvent(contents, tab->IsActivated());
+}
+
+void TabsEventRouter::OnActiveTabChanged(tabs::TabInterface* tab) {
+  content::WebContents* tab_contents = tab->GetContents();
+  CHECK(tab_contents);
+
+  base::ListValue args;
+  int tab_id = ExtensionTabUtil::GetTabId(tab_contents);
+  args.Append(tab_id);
+
+  base::DictValue object_args;
+  object_args.Set(tabs_constants::kWindowIdKey,
+                  ExtensionTabUtil::GetWindowIdOfTab(tab_contents));
+  args.Append(object_args.Clone());
+
+  // The onActivated event replaced onActiveChanged and onSelectionChanged. The
+  // deprecated events take two arguments: tabId, {windowId}.
+  Profile* profile =
+      Profile::FromBrowserContext(tab_contents->GetBrowserContext());
+
+  DispatchEvent(profile, events::TABS_ON_SELECTION_CHANGED,
+                api::tabs::OnSelectionChanged::kEventName, args.Clone(),
+                EventRouter::UserGestureState::kUnknown);
+  DispatchEvent(profile, events::TABS_ON_ACTIVE_CHANGED,
+                api::tabs::OnActiveChanged::kEventName, std::move(args),
+                EventRouter::UserGestureState::kUnknown);
+
+  // The onActivated event takes one argument: {windowId, tabId}.
+  base::ListValue on_activated_args;
+  object_args.Set(kTabIdKey, tab_id);
+  on_activated_args.Append(std::move(object_args));
+  DispatchEvent(
+      profile, events::TABS_ON_ACTIVATED, api::tabs::OnActivated::kEventName,
+      std::move(on_activated_args), EventRouter::UserGestureState::kUnknown);
+}
+
+void TabsEventRouter::OnTabMoved(tabs::TabInterface* tab,
+                                 int from_index,
+                                 int to_index) {
+  CHECK(tab);
+  content::WebContents* web_contents = tab->GetContents();
+  CHECK(web_contents);
+
+  base::ListValue args;
+  args.Append(ExtensionTabUtil::GetTabId(web_contents));
+
+  base::DictValue object_args;
+  object_args.Set(tabs_constants::kWindowIdKey,
+                  ExtensionTabUtil::GetWindowIdOfTab(web_contents));
+  object_args.Set(kFromIndexKey, from_index);
+  object_args.Set(kToIndexKey, to_index);
+  args.Append(std::move(object_args));
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  DispatchEvent(profile, events::TABS_ON_MOVED, api::tabs::OnMoved::kEventName,
+                std::move(args), EventRouter::UserGestureState::kUnknown);
+}
+
+void TabsEventRouter::OnTabListDestroyed(TabListInterface& tab_list) {
+  tab_list_observations_.RemoveObservation(&tab_list);
 }
 
 void TabsEventRouter::OnZoomControllerDestroyed(

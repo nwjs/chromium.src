@@ -328,7 +328,7 @@ void V8ScriptValueDeserializer::MaskDeserializationTimings(
   // Deserialize the message in an empty isolate a random number of times
   // to mask whether the time of the original deserialization in the
   // target isolate.
-  int iterations = base::RandInt(4, 8);
+  int iterations = base::RandIntInclusive(4, 8);
 
   while (iterations--) {
     v8::ValueDeserializer deserializer(isolate, serialized->Data(),
@@ -607,7 +607,7 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
       size_t byte_length = 0;
       base::span<const uint8_t> pixel_data;
       if (!ReadUint64(&byte_length_64) ||
-          !base::MakeCheckedNum(byte_length_64).AssignIfValid(&byte_length) ||
+          !base::CheckedNumeric(byte_length_64).AssignIfValid(&byte_length) ||
           !ReadRawBytesToSpan(byte_length, &pixel_data)) {
         return nullptr;
       }

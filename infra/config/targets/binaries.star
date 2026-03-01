@@ -661,7 +661,6 @@ targets.binaries.script(
     resultdb = targets.resultdb(
         enable = True,
     ),
-    module_scheme = "pyunit",
 )
 
 targets.binaries.script(
@@ -679,7 +678,6 @@ targets.binaries.script(
     resultdb = targets.resultdb(
         enable = True,
     ),
-    module_scheme = "pyunit",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -898,6 +896,14 @@ targets.binaries.generated_script(
     module_scheme = "single",
 )
 
+targets.binaries.generated_script(
+    name = "cronet_python_unittests",
+    label = "//components/cronet/testing:cronet_python_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "pyunit",
+)
+
 targets.binaries.console_test_launcher(
     name = "cronet_smoketests_apk",
     label = "//components/cronet/android:cronet_smoketests_apk",
@@ -928,30 +934,6 @@ targets.binaries.console_test_launcher(
     # All references have been moved to starlark
     skip_usage_check = True,
     module_scheme = "junit",
-)
-
-targets.binaries.console_test_launcher(
-    name = "cronet_tests",
-    label = "//components/cronet:cronet_tests",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    module_scheme = "gtest",
-)
-
-targets.binaries.console_test_launcher(
-    name = "cronet_tests_android",
-    label = "//components/cronet/android:cronet_tests_android",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    module_scheme = "gtest",
-)
-
-targets.binaries.console_test_launcher(
-    name = "cronet_unittests",
-    label = "//components/cronet:cronet_unittests",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    module_scheme = "gtest",
 )
 
 targets.binaries.console_test_launcher(

@@ -9,6 +9,9 @@ namespace ios::provider {
 // Script to check whether PageContext should be detached from the request.
 constexpr const char16_t* kShouldDetachPageContextScript = u"return false;";
 
+void ConfigureWithStartupConfiguration(
+    GeminiStartupConfiguration* gemini_startup_configuration) {}
+
 void StartBwgOverlay(GeminiConfiguration* gemini_configuration) {}
 
 const std::u16string GetPageContextShouldDetachScript() {
@@ -44,10 +47,14 @@ GeminiSettingsAction* ActionForSettingsContext(GeminiSettingsContext context) {
 
 void UpdateOverlayOffsetWithOpacity(CGFloat offset, CGFloat opacity) {}
 
-void UpdateGeminiViewState(GeminiViewState view_state) {}
+void UpdateGeminiViewState(GeminiViewState view_state, bool animated) {}
 
 GeminiViewState GetCurrentGeminiViewState() {
   return GeminiViewState::kUnknown;
 }
+
+void RequestUIChange(GeminiUIElementType ui_element_type) {}
+
+void AttachImage(UIImage* image) {}
 
 }  // namespace ios::provider

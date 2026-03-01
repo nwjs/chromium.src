@@ -27,8 +27,10 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
+#include "third_party/blink/renderer/core/dom/events/event_path.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
+#include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/selection_controller.h"
@@ -46,6 +48,7 @@
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -150,6 +153,8 @@ bool HTMLLabelElement::IsInteractiveContent() const {
 }
 
 bool HTMLLabelElement::IsInInteractiveContent(Node* node) const {
+  DCHECK(!RuntimeEnabledFeatures::
+             LabelInteractiveContentCheckBeforeHandlerEnabled());
   if (!node || !IsShadowIncludingInclusiveAncestorOf(*node))
     return false;
   while (node && this != node) {
@@ -159,6 +164,23 @@ bool HTMLLabelElement::IsInInteractiveContent(Node* node) const {
     node = node->ParentOrShadowHostNode();
   }
   return false;
+}
+
+bool HTMLLabelElement::IsInInteractiveContent(Event& evt) const {
+  DCHECK(RuntimeEnabledFeatures::
+             LabelInteractiveContentCheckBeforeHandlerEnabled() &&
+         evt.HasEventPath());
+  for (auto& context : evt.GetEventPath().NodeEventContexts()) {
+    Node& node = context.GetNode();
+    if (&node == this) {
+      return false;
+    }
+    auto* html_element = DynamicTo<HTMLElement>(&node);
+    if (html_element && html_element->IsInteractiveContent()) {
+      return true;
+    }
+  }
+  NOTREACHED();
 }
 
 void HTMLLabelElement::DefaultEventHandler(Event& evt) {
@@ -179,8 +201,12 @@ void HTMLLabelElement::DefaultEventHandlerInternal(Event& evt) {
       if (element->IsShadowIncludingInclusiveAncestorOf(*target_node))
         return;
 
-      if (IsInInteractiveContent(target_node))
+      if (RuntimeEnabledFeatures::
+                  LabelInteractiveContentCheckBeforeHandlerEnabled()
+              ? IsInInteractiveContent(evt)
+              : IsInInteractiveContent(target_node)) {
         return;
+      }
     }
 
     //   Behaviour of label element is as follows:
@@ -259,6 +285,26 @@ bool HTMLLabelElement::WillRespondToMouseClickEvents() {
   }
 
   return HTMLElement::WillRespondToMouseClickEvents();
+}
+
+String HTMLLabelElement::TextContentExcludingLabelable() const {
+  StringBuilder builder;
+
+  const Node* node = NodeTraversal::Next(*this, /*stay_within=*/this);
+
+  while (node) {
+    if (auto* html_element = DynamicTo<HTMLElement>(node);
+        html_element && html_element->IsLabelable()) {
+      node = NodeTraversal::NextSkippingChildren(*node, /*stay_within=*/this);
+      continue;
+    }
+    if (auto* text_node = DynamicTo<Text>(node)) {
+      builder.Append(text_node->data());
+    }
+    node = NodeTraversal::Next(*node, /*stay_within=*/this);
+  }
+
+  return builder.ReleaseString();
 }
 
 void HTMLLabelElement::Focus(const FocusParams& params) {

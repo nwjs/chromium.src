@@ -27,6 +27,7 @@ suite('ContentController', () => {
   let listener: ContentListener;
   let receivedContentStateChange: boolean;
   let receivedNewPageDrawn: boolean;
+  let receivedContentChange: boolean;
 
   setup(() => {
     // Clearing the DOM should always be done first.
@@ -44,12 +45,16 @@ suite('ContentController', () => {
 
     receivedContentStateChange = false;
     receivedNewPageDrawn = false;
+    receivedContentChange = false;
     listener = {
       onContentStateChange() {
         receivedContentStateChange = true;
       },
       onNewPageDrawn() {
         receivedNewPageDrawn = true;
+      },
+      onContentChange() {
+        receivedContentChange = true;
       },
     };
     contentController.addListener(listener);
@@ -196,6 +201,18 @@ suite('ContentController', () => {
     assertTrue(contentController.isEmpty());
   });
 
+  test('onNodeWillBeDeleted notifies of new content', () => {
+    const id = 12;
+    chrome.readingMode.rootId = id;
+    const node = document.createTextNode('How it\'s done done done');
+    nodeStore.setDomNode(node, id);
+    contentController.setState(ContentType.HAS_CONTENT);
+
+    contentController.onNodeWillBeDeleted(id);
+
+    assertTrue(receivedContentChange);
+  });
+
   suite('updateContent', () => {
     const rootId = 29;
     let node: HTMLElement;
@@ -285,6 +302,16 @@ suite('ContentController', () => {
       contentController.updateContent();
 
       assertTrue(receivedNewPageDrawn);
+    });
+
+    test('notifies listeners of new content', () => {
+      readingMode.getHtmlTag = () => '';
+      readingMode.getTextContent = () => 'I go Rambo';
+      stubAnimationFrame();
+
+      contentController.updateContent();
+
+      assertTrue(receivedContentChange);
     });
 
     test('estimates words seen after draw', () => {
@@ -412,6 +439,45 @@ suite('ContentController', () => {
       assertFalse(!!root.getAttribute('href'));
     });
 
+    test('link visibility toggled toggles links with Readability', async () => {
+      const url = 'https://www.relsilicon.com/';
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      contentController.configureTrustedTypes();
+      const text = 'a link';
+      readingMode.htmlContent = `<a href="${url}">${text}</a>`;
+
+      const root = contentController.updateContent();
+      await microtasksFinished();
+      assertTrue(!!root);
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const shadowRoot = container.attachShadow({mode: 'open'});
+      const contentDiv = (root as DocumentFragment).querySelector('div');
+      assertTrue(!!contentDiv);
+      shadowRoot.append(...contentDiv.childNodes);
+
+      // Hide the links.
+      chrome.readingMode.linksEnabled = false;
+      contentController.updateLinks(shadowRoot);
+      let link = shadowRoot.querySelector('a');
+      assertFalse(!!link);
+      let span = shadowRoot.querySelector<HTMLElement>('span[data-link]');
+      assertTrue(!!span);
+      assertEquals(url, span.dataset['link']);
+      assertEquals(text, span.textContent);
+
+      // Show the links.
+      chrome.readingMode.linksEnabled = true;
+      contentController.updateLinks(shadowRoot);
+      span = shadowRoot.querySelector<HTMLElement>('span[data-link]');
+      assertFalse(!!span);
+      link = shadowRoot.querySelector('a');
+      assertTrue(!!link);
+      assertEquals(url, link.href);
+      assertEquals(text, link.textContent);
+    });
+
     test('builds an image as a <canvas> tag', () => {
       const altText = 'how it\'s done done done';
       chrome.readingMode.imagesEnabled = true;
@@ -476,6 +542,25 @@ suite('ContentController', () => {
       assertTrue(root instanceof HTMLDivElement);
       assertEquals(buttonText, root.textContent);
     });
+
+    test(
+        'builds a button as a <div> tag when Readability enabled', async () => {
+          chrome.readingMode.isReadabilityEnabled = true;
+          chrome.readingMode.activeDistillationMethod =
+              chrome.readingMode.distillationTypeReadability;
+          const buttonText = 'Buttons should be seen and not clicked';
+          contentController.configureTrustedTypes();
+          readingMode.htmlContent = `<button>${buttonText}</button>`;
+
+          const root = contentController.updateContent();
+          await microtasksFinished();
+
+          assertTrue(!!root);
+          assertFalse(!!(root as DocumentFragment).querySelector('button'));
+          const newDiv = (root as DocumentFragment).querySelector('div > div');
+          assertTrue(!!newDiv);
+          assertEquals(buttonText, newDiv.textContent);
+        });
 
     test('sets text direction', () => {
       const childId = 70;
@@ -793,6 +878,7 @@ suite('ContentController', () => {
       assertEquals('none', figure.style.display);
       assertTrue(nodeStore.areNodesAllHidden(
           [ReadAloudNode.createFromAxNode(textId)!]));
+      assertTrue(receivedContentChange);
     });
 
     test('shows images and clears hidden nodes when enabled', async () => {
@@ -810,6 +896,7 @@ suite('ContentController', () => {
       assertEquals('', figure.style.display);
       assertFalse(nodeStore.areNodesAllHidden(
           [ReadAloudNode.createFromAxNode(textId)!]));
+      assertTrue(receivedContentChange);
     });
   });
 });

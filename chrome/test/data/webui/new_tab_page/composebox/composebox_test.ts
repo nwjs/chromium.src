@@ -3,14 +3,14 @@
 // found in the LICENSE file.
 
 import type {SelectedFileInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {ComposeboxElement, ComposeboxProxyImpl} from 'chrome://new-tab-page/lazy_load.js';
+import {ComposeboxElement, ComposeboxProxyImpl, VoiceSearchAction} from 'chrome://new-tab-page/lazy_load.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
-import {FileUploadErrorType, FileUploadStatus, ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {FileUploadErrorType, FileUploadStatus, InputType, ToolMode as ComposeboxToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PageRemote as SearchboxPageRemote, TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
@@ -44,10 +44,59 @@ suite('NewTabPageComposeboxTest', () => {
   let searchboxCallbackRouterRemote: SearchboxPageRemote;
   let metrics: MetricsTracker;
 
+  const deepSearchHint = 'Research anything';
+  const imageGenHint = 'Describe your image';
+  const canvasHint = 'Create anything';
+  const defaultApiHint = loadTimeData.getString('searchboxComposePlaceholder');
+  const mockInputState: InputState = {
+    hintText: defaultApiHint,
+    toolConfigs: [
+      {
+        tool: ComposeboxToolMode.kDeepSearch,
+        hintText: deepSearchHint,
+        menuLabel: '',
+        chipLabel: '',
+        disableActiveModelSelection: false,
+        aimUrlParams: [],
+      },
+      {
+        tool: ComposeboxToolMode.kImageGen,
+        hintText: imageGenHint,
+        menuLabel: '',
+        chipLabel: '',
+        disableActiveModelSelection: false,
+        aimUrlParams: [],
+      },
+      {
+        tool: ComposeboxToolMode.kCanvas,
+        hintText: canvasHint,
+        menuLabel: '',
+        chipLabel: '',
+        disableActiveModelSelection: false,
+        aimUrlParams: [],
+      },
+    ],
+    modelConfigs: [],
+    allowedModels: [],
+    allowedTools: [],
+    allowedInputTypes: [],
+    activeModel: 0,
+    activeTool: 0,
+    disabledModels: [],
+    disabledTools: [],
+    disabledInputTypes: [],
+    inputTypeConfigs: [],
+    toolsSectionConfig: null,
+    modelSectionConfig: null,
+    maxInstances: {},
+    maxTotalInputs: 0,
+  };
+
   setup(() => {
      loadTimeData.overrideValues({
     'composeboxImageFileTypes': 'image/avif,image/bmp,image/jpeg,image/png,image/webp,image/heif,image/heic',
     'composeboxAttachmentFileTypes': '.pdf,application/pdf',
+    'contextualMenuUsePecApi': false,
   });
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     handler = installMock(
@@ -58,8 +107,8 @@ suite('NewTabPageComposeboxTest', () => {
     searchboxHandler = installMock(
         SearchboxPageHandlerRemote,
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
-    searchboxHandler.setResultFor('getRecentTabs', Promise.resolve({tabs: []}));
-    searchboxHandler.setResultFor('getInputState', Promise.resolve({
+    searchboxHandler.setPromiseResolveFor('getRecentTabs', {tabs: []});
+    searchboxHandler.setPromiseResolveFor('getInputState', {
       state: {
         allowedModels: [],
         allowedTools: [],
@@ -69,8 +118,16 @@ suite('NewTabPageComposeboxTest', () => {
         disabledModels: [],
         disabledTools: [],
         disabledInputTypes: [],
+        inputTypeConfigs: [],
+        toolConfigs: [],
+        modelConfigs: [],
+        toolsSectionConfig: null,
+        modelSectionConfig: null,
+        hintText: '',
+        maxInstances: {},
+        maxTotalInputs: 0,
       },
-    }));
+    });
     searchboxCallbackRouterRemote =
         ComposeboxProxyImpl.getInstance()
             .searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
@@ -134,8 +191,7 @@ suite('NewTabPageComposeboxTest', () => {
     // Assert no files.
     assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
 
-    searchboxHandler.setResultFor(ADD_FILE_CONTEXT_FN,
-                                  Promise.resolve({token: token}));
+    searchboxHandler.setPromiseResolveFor(ADD_FILE_CONTEXT_FN, token);
 
     // Act.
     const dataTransfer = new DataTransfer();
@@ -174,9 +230,8 @@ suite('NewTabPageComposeboxTest', () => {
   test('clear functionality', async () => {
     loadTimeData.overrideValues({composeboxShowSubmit: true});
     createComposeboxElement();
-    searchboxHandler.setResultFor(
-        ADD_FILE_CONTEXT_FN,
-        Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+    searchboxHandler.setPromiseResolveFor(
+        ADD_FILE_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
 
     // Check submit button disabled.
     assertStyle(composeboxElement.$.submitContainer, 'cursor', 'not-allowed');
@@ -214,6 +269,7 @@ suite('NewTabPageComposeboxTest', () => {
         eventToPromise('close-composebox', composeboxElement);
     $$<HTMLElement>(composeboxElement, '#cancelIcon')!.click();
     await whenCloseComposebox;
+    assertEquals(searchboxHandler.getCallCount('clearFiles'), 2);
   });
 
   test('upload image', async () => {
@@ -456,9 +512,8 @@ suite('NewTabPageComposeboxTest', () => {
 
   test('upload pdf', async () => {
     createComposeboxElement();
-    searchboxHandler.setResultFor(
-        ADD_FILE_CONTEXT_FN,
-        Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+    searchboxHandler.setPromiseResolveFor(
+        ADD_FILE_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
 
     // Assert no files.
     assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
@@ -507,8 +562,7 @@ suite('NewTabPageComposeboxTest', () => {
     let i = 0;
     searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
       i += 1;
-      return Promise.resolve(
-          {token: {low: BigInt(i + 1), high: BigInt(i + 2)}});
+      return Promise.resolve({low: BigInt(i + 1), high: BigInt(i + 2)});
     });
 
     // Arrange.
@@ -710,31 +764,35 @@ suite('NewTabPageComposeboxTest', () => {
     assertEquals(null, removeButton);
   });
 
-  test('image upload button clicks file input', async () => {
+  test('image upload button clicks file input', () => {
     loadTimeData.overrideValues({
       'composeboxShowContextMenu': false,
     });
     createComposeboxElement();
-    const imageUploadEventPromise = eventToPromise(
-        'click', composeboxElement.$.context.$.imageInput);
+    let clickCalled = false;
+    composeboxElement.$.context.$.imageInput.click = () => {
+      clickCalled = true;
+    };
     composeboxElement.$.context.$.imageUploadButton.click();
 
     // Assert.
-    await imageUploadEventPromise;
+    assertTrue(clickCalled);
   });
 
-  test('file upload button clicks file input', async () => {
+  test('file upload button clicks file input', () => {
     loadTimeData.overrideValues({
       'composeboxShowPdfUpload': true,
       'composeboxShowContextMenu': false,
     });
     createComposeboxElement();
-    const fileUploadClickEventPromise = eventToPromise(
-        'click', composeboxElement.$.context.$.fileInput);
+    let clickCalled = false;
+    composeboxElement.$.context.$.fileInput.click = () => {
+      clickCalled = true;
+    };
     composeboxElement.$.context.$.fileUploadButton.click();
 
     // Assert.
-    await fileUploadClickEventPromise;
+    assertTrue(clickCalled);
   });
 
   test('disabling file upload does not show fileUploadButton', async () => {
@@ -752,9 +810,9 @@ suite('NewTabPageComposeboxTest', () => {
     loadTimeData.overrideValues({'composeboxFileMaxCount': 1});
     loadTimeData.overrideValues({'composeboxShowPdfUpload': true});
     createComposeboxElement();
-    searchboxHandler.setResultFor(
+    searchboxHandler.setPromiseResolveFor(
         ADD_FILE_CONTEXT_FN,
-        Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+        {token: {low: BigInt(1), high: BigInt(2)}});
 
     // File upload buttons are not disabled when there are no files.
     assertFalse(composeboxElement.$.context.$.fileUploadButton.disabled);
@@ -785,11 +843,11 @@ suite('NewTabPageComposeboxTest', () => {
         createComposeboxElement();
         await microtasksFinished();
 
-        searchboxHandler.setResultFor(
+        searchboxHandler.setPromiseResolveFor(
             ADD_FILE_CONTEXT_FN,
-            Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+            {token: {low: BigInt(1), high: BigInt(2)}});
 
-        // Upload a PDF file. `inputsDisabled` should be true.
+        // Upload a PDF file. `uploadButtonDisabled` should be true.
         const pdfFile = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(pdfFile);
@@ -799,21 +857,21 @@ suite('NewTabPageComposeboxTest', () => {
 
         await searchboxHandler.whenCalled(ADD_FILE_CONTEXT_FN);
         await microtasksFinished();
-        assertTrue(composeboxElement.$.context['inputsDisabled_']);
+        assertTrue(composeboxElement.$.context['uploadButtonDisabled_']);
 
-        // Delete the file. `inputsDisabled` should be false.
+        // Delete the file. `uploadButtonDisabled` should be false.
         const deletedId = composeboxElement.$.context.$.carousel.files[0]!.uuid;
         composeboxElement.$.context.$.carousel.dispatchEvent(new CustomEvent(
             'delete-file',
             {detail: {uuid: deletedId}, bubbles: true, composed: true}));
         await microtasksFinished();
-        assertFalse(composeboxElement.$.context['inputsDisabled_']);
+        assertFalse(composeboxElement.$.context['uploadButtonDisabled_']);
         searchboxHandler.resetResolver(ADD_FILE_CONTEXT_FN);
-        searchboxHandler.setResultFor(
+        searchboxHandler.setPromiseResolveFor(
             ADD_FILE_CONTEXT_FN,
-            Promise.resolve({token: {low: BigInt(3), high: BigInt(4)}}));
+            {token: {low: BigInt(3), high: BigInt(4)}});
 
-        // Upload an image file. `inputsDisabled` should be false.
+        // Upload an image file. `uploadButtonDisabled` should be false.
         const imageFile = new File(['foo'], 'foo.png', {type: 'image/png'});
         const dataTransfer2 = new DataTransfer();
         dataTransfer2.items.add(imageFile);
@@ -824,23 +882,24 @@ suite('NewTabPageComposeboxTest', () => {
 
         await searchboxHandler.whenCalled(ADD_FILE_CONTEXT_FN);
         await microtasksFinished();
-        assertFalse(composeboxElement.$.context['inputsDisabled_']);
+        assertFalse(composeboxElement.$.context['uploadButtonDisabled_']);
 
-        // Enter create image mode. `inputsDisabled` should be true.
+        // Enter create image mode. `uploadButtonDisabled` should be true.
         composeboxElement.$.context['activeTool_'] =
             ComposeboxToolMode.kImageGen;
         await composeboxElement.$.context.updateComplete;
-        assertTrue(composeboxElement.$.context['inputsDisabled_']);
+        assertTrue(composeboxElement.$.context['uploadButtonDisabled_']);
 
-        // Exit create image mode. `inputsDisabled` should be false.
+        // Exit create image mode. `uploadButtonDisabled` should be false.
         composeboxElement.$.context['activeTool_'] =
             ComposeboxToolMode.kUnspecified;
         await composeboxElement.$.context.updateComplete;
-        assertFalse(composeboxElement.$.context['inputsDisabled_']);
+        assertFalse(composeboxElement.$.context['uploadButtonDisabled_']);
       });
 
   test('session abandoned on esc click', async () => {
     // Arrange.
+    loadTimeData.overrideValues({composeboxCloseByEscape: true});
     createComposeboxElement();
 
     composeboxElement.$.input.value = 'test';
@@ -856,6 +915,7 @@ suite('NewTabPageComposeboxTest', () => {
     await microtasksFinished();
     const event = await whenCloseComposebox;
     assertEquals(event.detail.composeboxText, 'test');
+    assertEquals(searchboxHandler.getCallCount('clearFiles'), 1);
   });
 
   test('escape key behavior with suggestions', async () => {
@@ -886,6 +946,7 @@ suite('NewTabPageComposeboxTest', () => {
         'keydown', {key: 'Escape', bubbles: true, composed: true}));
     await microtasksFinished();
 
+    assertEquals(searchboxHandler.getCallCount('clearFiles'), 1);
     assertFalse(closed);
     assertEquals('', composeboxElement.$.input.value);
 
@@ -897,6 +958,7 @@ suite('NewTabPageComposeboxTest', () => {
     composeboxElement.$.input.dispatchEvent(new KeyboardEvent(
         'keydown', {key: 'Escape', bubbles: true, composed: true}));
     await whenCloseComposebox;
+    assertEquals(searchboxHandler.getCallCount('clearFiles'), 2);
   });
 
   test('session abandoned on cancel button click', async () => {
@@ -913,6 +975,7 @@ suite('NewTabPageComposeboxTest', () => {
     cancelIcon.click();
     const event = await whenCloseComposebox;
     assertEquals(event.detail.composeboxText, '');
+    assertEquals(searchboxHandler.getCallCount('clearFiles'), 1);
   });
 
   test('submit button click leads to handler called', async () => {
@@ -1370,13 +1433,16 @@ suite('NewTabPageComposeboxTest', () => {
 
     // Enter create image mode.
     composeboxElement.$.context.dispatchEvent(
-        new CustomEvent('set-create-image-mode', {
-          detail: {inCreateImageMode: true},
+        new CustomEvent('set-tool-mode', {
+          detail: {tool: ComposeboxToolMode.kImageGen, enabled: true},
         }));
     await microtasksFinished();
-    assertEquals(handler.getCallCount('setCreateImageMode'), 1);
+    assertEquals(searchboxHandler.getCallCount('setActiveToolMode'), 1);
+    assertEquals(
+        ComposeboxToolMode.kImageGen,
+        searchboxHandler.getArgs('setActiveToolMode')[0]);
 
-    // Upload an image file. `inputsDisabled` should be false.
+    // Upload an image file. `uploadButtonDisabled` should be false.
     const id = generateZeroId();
     await uploadFileAndVerify(
         id, new File(['foo'], 'foo.jpg', {type: 'image/jpeg'}));
@@ -1384,9 +1450,10 @@ suite('NewTabPageComposeboxTest', () => {
         id, FileUploadStatus.kProcessingSuggestSignalsReady, null);
     await microtasksFinished();
 
-    // TODO(crbug.com/452957831): Create test browser proxy for the composebox
-    // handler so we can assert the parameters this function was called with.
-    assertEquals(handler.getCallCount('setCreateImageMode'), 2);
+    assertEquals(searchboxHandler.getCallCount('setActiveToolMode'), 2);
+    assertEquals(
+        ComposeboxToolMode.kImageGen,
+        searchboxHandler.getArgs('setActiveToolMode')[0]);
 
     // Deleting the image should call setCreateImageMode again but with
     // imagePresent false.
@@ -1401,7 +1468,10 @@ suite('NewTabPageComposeboxTest', () => {
         }));
 
     await microtasksFinished();
-    assertEquals(handler.getCallCount('setCreateImageMode'), 3);
+    assertEquals(searchboxHandler.getCallCount('setActiveToolMode'), 3);
+    assertEquals(
+        ComposeboxToolMode.kImageGen,
+        searchboxHandler.getArgs('setActiveToolMode')[0]);
   });
 
   test('arrow up/down moves selection / focus', async () => {
@@ -1478,6 +1548,72 @@ suite('NewTabPageComposeboxTest', () => {
     // Restore.
     loadTimeData.overrideValues({composeboxShowZps: false});
   });
+
+  test(
+      'arrow up/down enables submit for suggestion with no query', async () => {
+        loadTimeData.overrideValues({composeboxShowZps: true});
+        createComposeboxElement();
+        await microtasksFinished();
+
+        // Add zps input.
+        composeboxElement.$.input.value = '';
+        composeboxElement.$.input.dispatchEvent(new Event('input'));
+
+        const matches = [
+          createSearchMatchForTesting({fillIntoEdit: ''}),
+        ];
+        searchboxCallbackRouterRemote.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              matches: matches,
+            }));
+
+        assertTrue(await areMatchesShowing());
+
+        const matchEls =
+            composeboxElement.$.matches.shadowRoot.querySelectorAll(
+                'cr-composebox-match');
+        assertEquals(1, matchEls.length);
+
+        const arrowDownEvent = new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,  // So it propagates across shadow DOM boundary.
+          key: 'ArrowDown',
+        });
+
+        composeboxElement.$.input.dispatchEvent(arrowDownEvent);
+        await microtasksFinished();
+        assertTrue(arrowDownEvent.defaultPrevented);
+
+        // First match is selected
+        assertTrue(matchEls[0]!.hasAttribute(Attributes.SELECTED));
+        assertEquals('', composeboxElement.$.input.value);
+
+        // Assert submit is enabled.
+        const submitButton =
+            composeboxElement.shadowRoot.querySelector<HTMLElement>(
+                '#submitIcon');
+        assertTrue(!!submitButton);
+        assertFalse(submitButton.hasAttribute('disabled'));
+
+        // By pressing 'Enter' on the button.
+        const keydownEvent = (new KeyboardEvent('keydown', {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          key: 'Enter',
+        }));
+        matchEls[0]!.dispatchEvent(keydownEvent);
+        assertTrue(keydownEvent.defaultPrevented);
+
+        await microtasksFinished();
+
+        // Assert call occurs.
+        assertEquals(searchboxHandler.getCallCount('openAutocompleteMatch'), 1);
+
+        // Restore.
+        loadTimeData.overrideValues({composeboxShowZps: false});
+      });
 
   test('Selection is restored after selected match is removed', async () => {
     loadTimeData.overrideValues(
@@ -1809,7 +1945,7 @@ suite('NewTabPageComposeboxTest', () => {
     assertTrue(!!matchEl);
 
     const matchIndex = 0;
-    const destinationUrl = {url: 'http://google.com'};
+    const destinationUrl = 'http://google.com';
     matchEl.matchIndex = matchIndex;
     matchEl.match.destinationUrl = destinationUrl;
 
@@ -1869,67 +2005,112 @@ suite('NewTabPageComposeboxTest', () => {
     assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 3);
   });
 
-  test('placeholder text is updated when in deep search mode', async () => {
-    // Assert initial placeholder text.
-    assertEquals(
-        loadTimeData.getString('searchboxComposePlaceholder'),
-        composeboxElement.$.input.placeholder);
+  suite('placeholder text is updated from hint text in ToolConfig', () => {
 
-    // Deep search mode enabled.
-    composeboxElement.$.context.dispatchEvent(
-        new CustomEvent('set-deep-search-mode', {
-          detail: {inDeepSearchMode: true},
-        }));
-    await microtasksFinished();
-    assertEquals(
-        loadTimeData.getString('composeDeepSearchPlaceholder'),
-        composeboxElement.$.input.placeholder);
+    setup(async () => {
+      createComposeboxElement();
+      searchboxCallbackRouterRemote.onInputStateChanged(mockInputState);
+      await microtasksFinished();
+    });
 
-    // Deep search mode disabled.
-    composeboxElement.$.context.dispatchEvent(
-        new CustomEvent('set-deep-search-mode', {
-          detail: {inDeepSearchMode: false},
-        }));
-    await microtasksFinished();
-    assertEquals(
-        loadTimeData.getString('searchboxComposePlaceholder'),
-        composeboxElement.$.input.placeholder);
-  });
+    test(
+        'placeholder text is set to  default placeholder textinitially', () => {
+          assertEquals(
+              loadTimeData.getString('searchboxComposePlaceholder'),
+              composeboxElement.$.input.placeholder);
+        });
 
-  test('placeholder text is updated when in create image mode', async () => {
-    // Assert initial placeholder text.
-    assertEquals(
-        loadTimeData.getString('searchboxComposePlaceholder'),
-        composeboxElement.$.input.placeholder);
+    test(
+        'placeholder text is updated from ToolConfig when in Deep Search mode',
+        async () => {
+          await searchboxCallbackRouterRemote.onInputStateChanged(
+              mockInputState);
+          // Deep search mode enabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kDeepSearch, enabled: true},
+              }));
+          await microtasksFinished();
+          assertEquals(deepSearchHint, composeboxElement.$.input.placeholder);
 
-    // Create image mode enabled.
-    composeboxElement.$.context.dispatchEvent(
-        new CustomEvent('set-create-image-mode', {
-          detail: {inCreateImageMode: true},
-        }));
-    await microtasksFinished();
-    assertEquals(
-        loadTimeData.getString('composeCreateImagePlaceholder'),
-        composeboxElement.$.input.placeholder);
+          // Deep search mode disabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kDeepSearch, enabled: false},
+              }));
+          await microtasksFinished();
+          assertEquals(
+              loadTimeData.getString('searchboxComposePlaceholder'),
+              composeboxElement.$.input.placeholder);
+        });
 
-    // Create image mode disabled.
-    composeboxElement.$.context.dispatchEvent(
-        new CustomEvent('set-create-image-mode', {
-          detail: {inCreateImageMode: false},
-        }));
-    await microtasksFinished();
-    assertEquals(
-        loadTimeData.getString('searchboxComposePlaceholder'),
-        composeboxElement.$.input.placeholder);
+    test(
+        'placeholder text is updated from ToolConfig when in Create Image mode',
+        async () => {
+          await searchboxCallbackRouterRemote.onInputStateChanged(
+              mockInputState);
+          // Create image mode enabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kImageGen, enabled: true},
+              }));
+          await microtasksFinished();
+          assertEquals(imageGenHint, composeboxElement.$.input.placeholder);
+
+          // Create image mode disabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kImageGen, enabled: false},
+              }));
+          await microtasksFinished();
+          assertEquals(
+              loadTimeData.getString('searchboxComposePlaceholder'),
+              composeboxElement.$.input.placeholder);
+        });
+
+    test(
+        'placeholder text is updated from ToolConfig when in Canvas mode',
+        async () => {
+          await searchboxCallbackRouterRemote.onInputStateChanged(
+              mockInputState);
+          // Canvas mode enabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kCanvas, enabled: true},
+              }));
+          await microtasksFinished();
+          assertEquals(canvasHint, composeboxElement.$.input.placeholder);
+          // Canvas mode disabled.
+          composeboxElement.$.context.dispatchEvent(
+              new CustomEvent('set-tool-mode', {
+                bubbles: true,
+                composed: true,
+                detail: {tool: ComposeboxToolMode.kCanvas, enabled: false},
+              }));
+          await microtasksFinished();
+          assertEquals(
+              loadTimeData.getString('searchboxComposePlaceholder'),
+              composeboxElement.$.input.placeholder);
+        });
   });
 
   test('pasting valid files calls addFileContext', async () => {
     // Arrange.
     loadTimeData.overrideValues({'composeboxFileMaxCount': 5});
     createComposeboxElement();
-    searchboxHandler.setResultFor(
+    searchboxHandler.setPromiseResolveFor(
         ADD_FILE_CONTEXT_FN,
-        Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+        {token: {low: BigInt(1), high: BigInt(2)}});
 
     const pngFile = new File(['foo'], 'foo.png', {type: 'image/png'});
     const pdfFile = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
@@ -1966,8 +2147,18 @@ suite('NewTabPageComposeboxTest', () => {
 
   test('pasting too many files records metric and prevents paste', async () => {
     // Arrange.
-    loadTimeData.overrideValues({'composeboxFileMaxCount': 1});
+    const testInputState = {
+      ...mockInputState,
+      maxInstances: {
+        [InputType.kBrowserTab]: 1,
+        [InputType.kLensImage]: 1,
+        [InputType.kLensFile]: 1,
+      },
+      maxTotalInputs: 2,
+    };
     createComposeboxElement();
+    searchboxCallbackRouterRemote.onInputStateChanged(testInputState);
+    await microtasksFinished();
 
     searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
       return Promise.resolve({token: {low: BigInt(123), high: BigInt(0)}});
@@ -2073,10 +2264,8 @@ suite('NewTabPageComposeboxTest', () => {
       });
 
   test(
-      'pasting mixed files is processesed correctly ',
-      async () => {
+      'pasting mixed files is processed correctly ', async () => {
         // Arrange.
-        loadTimeData.overrideValues({'composeboxFileMaxCount': 5});
         createComposeboxElement();
         let i = 0;
         searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
@@ -2131,13 +2320,18 @@ suite('NewTabPageComposeboxTest', () => {
 
   test('uploading 6 valid files when limit is 5 uploads 5 and shows error', async () => {
     // Arrange.
-    loadTimeData.overrideValues({'composeboxFileMaxCount': 5});
+    const testInputState = {
+      ...mockInputState,
+      maxTotalInputs: 5,
+    };
     createComposeboxElement();
+    searchboxCallbackRouterRemote.onInputStateChanged(testInputState);
+    await microtasksFinished();
 
     let i = 0;
     searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
       i++;
-      return Promise.resolve({token: {low: BigInt(i), high: BigInt(0)}});
+      return Promise.resolve({low: BigInt(i), high: BigInt(0)});
     });
 
     const validFiles = Array.from({length: 6}, (_, i) =>
@@ -2178,8 +2372,18 @@ suite('NewTabPageComposeboxTest', () => {
 
   test('upload mixed files over limit prioritizes max files error and uploads valid ones', async () => {
     // Arrange.
-    loadTimeData.overrideValues({'composeboxFileMaxCount': 3});
-      createComposeboxElement();
+    const testInputState = {
+      ...mockInputState,
+      maxInstances: {
+        [InputType.kBrowserTab]: 1,
+        [InputType.kLensImage]: 3,
+        [InputType.kLensFile]: 1,
+      },
+      maxTotalInputs: 3,
+    };
+    createComposeboxElement();
+    searchboxCallbackRouterRemote.onInputStateChanged(testInputState);
+    await microtasksFinished();
 
     let i = 0;
       searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
@@ -2236,7 +2440,7 @@ suite('NewTabPageComposeboxTest', () => {
         let i = 0;
         searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
           i++;
-          return Promise.resolve({token: {low: BigInt(i), high: BigInt(0)}});
+          return Promise.resolve({low: BigInt(i), high: BigInt(0)});
         });
 
         const validFile = new File(['foo'], 'image.png', {type: 'image/png'});
@@ -2450,8 +2654,7 @@ suite('NewTabPageComposeboxTest', () => {
   });
 
   test(
-      'voice search result with auto-submit disabled updates input',
-      async () => {
+      '`autoSubmitVoiceSearchQuery` disabled updates input', async () => {
         // Set loadTimeData so that voice search does not auto submit.
         loadTimeData.overrideValues({
           autoSubmitVoiceSearchQuery: false,
@@ -2461,7 +2664,6 @@ suite('NewTabPageComposeboxTest', () => {
         });
         createComposeboxElement();
         await microtasksFinished();
-        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
         searchboxHandler.reset();
 
         const voiceQuery = 'hello';
@@ -2472,64 +2674,77 @@ suite('NewTabPageComposeboxTest', () => {
 
         // Assertions.
         assertEquals(composeboxElement.$.input.value, voiceQuery);
-        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
-        assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 1);
+        // Ensure the query isn't auto submitted.
+        assertEquals(searchboxHandler.getCallCount('submitQuery'), 0);
+        // Ensure autocomplete is queried since there's input in the composebox.
+        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+        assertEquals(
+            voiceQuery, searchboxHandler.getArgs('queryAutocomplete')[0][0]);
+
+        // Mock an autocomplete result so that submitQuery assertion passes.
+        const matches =
+            [createSearchMatchForTesting({allowedToBeDefaultMatch: true})];
+        searchboxCallbackRouterRemote.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              input: voiceQuery,
+              matches,
+            }));
+        await searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
         assertFalse(composeboxElement.$.input.hidden);
         assertEquals(
             composeboxElement.shadowRoot.activeElement,
             composeboxElement.$.input);
-        assertTrue((composeboxElement as any).submitEnabled_);
 
         // Simulate submit button click.
         composeboxElement.$.submitContainer.dispatchEvent(
             new FocusEvent('focusin'));
         composeboxElement.$.submitContainer.click();
-        await searchboxHandler.whenCalled('submitQuery');
+
+        // Since a match is selected, openAutocompleteMatch is called instead of
+        // submitQuery.
+        await searchboxHandler.whenCalled('openAutocompleteMatch');
         await microtasksFinished();
 
-        assertEquals(searchboxHandler.getCallCount('submitQuery'), 1);
-        assertEquals(searchboxHandler.getCallCount('openAutocompleteMatch'), 0);
-        const query = searchboxHandler.getArgs('submitQuery')[0][0];
-        assertEquals(query, voiceQuery);
+        assertEquals(searchboxHandler.getCallCount('submitQuery'), 0);
+        assertEquals(searchboxHandler.getCallCount('openAutocompleteMatch'), 1);
+        const [index] = searchboxHandler.getArgs('openAutocompleteMatch')[0];
+        assertEquals(index, 0);
       });
 
-  test('editing voice search result does not query autocomplete', async () => {
-    // Set loadTimeData so that voice search does not auto submit.
-    loadTimeData.overrideValues({
-      autoSubmitVoiceSearchQuery: false,
-      expandedComposeboxShowVoiceSearch: true,
-      steadyComposeboxShowVoiceSearch: true,
-      composeboxShowZps: true,  // For predictable queryAutocomplete count.
-    });
-    createComposeboxElement();
-    await microtasksFinished();
-    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
-    searchboxHandler.reset();
+  test(
+      '`autoSubmitVoiceSearchQuery` enabled submits w/o querying autocomplete',
+      async () => {
+        // Set loadTimeData so that voice search does auto submit.
+        loadTimeData.overrideValues({
+          autoSubmitVoiceSearchQuery: true,
+          expandedComposeboxShowVoiceSearch: true,
+          steadyComposeboxShowVoiceSearch: true,
+          composeboxShowZps: true,  // For predictable queryAutocomplete count.
+        });
+        createComposeboxElement();
+        await microtasksFinished();
+        searchboxHandler.reset();
 
-    const voiceQuery = 'hello';
-    composeboxElement.$.voiceSearch.dispatchEvent(new CustomEvent(
-        'voice-search-final-result',
-        {detail: voiceQuery, bubbles: true, composed: true}));
-    await microtasksFinished();
-    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
+        const voiceSearchActionPromise =
+            eventToPromise('voice-search-action', composeboxElement);
+        const voiceQuery = 'hello';
+        composeboxElement.$.voiceSearch.dispatchEvent(new CustomEvent(
+            'voice-search-final-result',
+            {detail: voiceQuery, bubbles: true, composed: true}));
 
-    // Simulate editing the voice search result.
-    composeboxElement.$.input.value = `${voiceQuery} and edited`;
-    composeboxElement.$.input.dispatchEvent(new Event('input'));
-    await microtasksFinished();
+        // Assert event fired.
+        const voiceSearchActionEvent = await voiceSearchActionPromise;
+        assertEquals(
+            VoiceSearchAction.QUERY_SUBMITTED,
+            voiceSearchActionEvent.detail.value);
+        await microtasksFinished();
 
-    // queryAutocomplete should not be called because the input might still have
-    // part or all of a voice search result.
-    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
-
-    // Clear the input.
-    composeboxElement.$.input.value = '';
-    composeboxElement.$.input.dispatchEvent(new Event('input'));
-    await microtasksFinished();
-
-    // Autocomplete can be queried again, since there's no voice search result in the input.
-    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
-  });
+        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 0);
+        assertEquals(searchboxHandler.getCallCount('submitQuery'), 1);
+        assertEquals(voiceQuery, searchboxHandler.getArgs('submitQuery')[0][0]);
+      });
 
   test('onInputStateChanged updates inputState', async () => {
     createComposeboxElement();
@@ -2542,6 +2757,14 @@ suite('NewTabPageComposeboxTest', () => {
       disabledModels: [],
       disabledTools: [],
       disabledInputTypes: [],
+      inputTypeConfigs: [],
+      toolConfigs: [],
+      modelConfigs: [],
+      toolsSectionConfig: null,
+      modelSectionConfig: null,
+      hintText: '',
+      maxInstances: {},
+      maxTotalInputs: 0,
     } as InputState;
     searchboxCallbackRouterRemote.onInputStateChanged(inputState);
     await microtasksFinished();
@@ -2569,9 +2792,8 @@ suite('NewTabPageComposeboxTest', () => {
 
     test('add tab context', async () => {
       createComposeboxElement();
-      searchboxHandler.setResultFor(
-          ADD_TAB_CONTEXT_FN,
-          Promise.resolve({token: {low: BigInt(1), high: BigInt(2)}}));
+      searchboxHandler.setPromiseResolveFor(
+          ADD_TAB_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
 
       // Assert no files.
       assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
@@ -2592,6 +2814,65 @@ suite('NewTabPageComposeboxTest', () => {
       assertEquals(files.length, 1);
       assertEquals(files[0]!.type, 'tab');
       assertEquals(files[0]!.name, sampleTabTitle);
+    });
+
+    test('add tab context fails', async () => {
+      createComposeboxElement();
+      // Set the promise to reject to simulate a failure.
+      searchboxHandler.setResultMapperFor(ADD_TAB_CONTEXT_FN, () => {
+        return Promise.reject(new Error('fail'));
+      });
+
+      // Assert no files.
+      assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
+
+      const contextMenuButton =
+          $$(composeboxElement.$.context, '#contextEntrypoint');
+      assertTrue(!!contextMenuButton);
+      const sampleTabTitle = 'Sample Tab';
+      let contextAdded = false;
+      const callback = (_file: any) => {
+        contextAdded = true;
+      };
+
+      contextMenuButton.dispatchEvent(new CustomEvent('add-tab-context', {
+        detail: {id: 1, title: sampleTabTitle, onContextAdded: callback},
+        bubbles: true,
+        composed: true,
+      }));
+
+      await searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
+      await microtasksFinished();
+
+      // Assert callback was not called and no files in carousel.
+      assertFalse(contextAdded);
+      assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
+    });
+
+    test('add file context fails', async () => {
+      loadTimeData.overrideValues({composeboxShowPdfUpload: true});
+      createComposeboxElement();
+      // Set the promise to reject to simulate a failure.
+      searchboxHandler.setResultMapperFor(ADD_FILE_CONTEXT_FN, () => {
+        return Promise.reject(new Error('fail'));
+      });
+
+      // Assert no files.
+      assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
+
+      // Act.
+      const dataTransfer = new DataTransfer();
+      const file = new File(['foo'], 'foo.pdf', {type: 'application/pdf'});
+      dataTransfer.items.add(file);
+      composeboxElement.$.context.$.fileInput.files = dataTransfer.files;
+      composeboxElement.$.context.$.fileInput.dispatchEvent(
+          new Event('change'));
+
+      await searchboxHandler.whenCalled(ADD_FILE_CONTEXT_FN);
+      await microtasksFinished();
+
+      // Assert no files in carousel.
+      assertFalse(!!$$<HTMLElement>(composeboxElement.$.context, '#carousel'));
     });
 
     test('setSearchContext sets input and queries autocomplete', async () => {
@@ -2631,14 +2912,14 @@ suite('NewTabPageComposeboxTest', () => {
         {
           tabId: 1,
           title: 'Sample Tab 1',
-          url: {url: 'https://example.com/1'},
+          url: 'https://example.com/1',
           showInRecentTabChip: true,
           lastActive: {internalValue: BigInt(1)},
         },
         {
           tabId: 2,
           title: 'Sample Tab 2',
-          url: {url: 'https://example.com/2'},
+          url: 'https://example.com/2',
           showInRecentTabChip: true,
           lastActive: {internalValue: BigInt(2)},
         },
@@ -2655,9 +2936,12 @@ suite('NewTabPageComposeboxTest', () => {
           contextElement.shadowRoot?.querySelector<HTMLElement>(
               '#contextEntrypoint');
       assertTrue(!!entrypointElement);
-      const entrypointButton =
+      const entrypointMenu =
           entrypointElement.shadowRoot?.querySelector<HTMLElement>(
-              '#entrypoint');
+              '#entrypointMenu');
+      assertTrue(!!entrypointMenu);
+      const entrypointButton =
+          entrypointMenu.shadowRoot?.querySelector<HTMLElement>('#entrypoint');
       assertTrue(!!entrypointButton);
       entrypointButton.click();
       await microtasksFinished();
@@ -2671,4 +2955,84 @@ suite('NewTabPageComposeboxTest', () => {
       assertEquals(searchboxHandler.getCallCount('getRecentTabs'), 2);
     });
   });
+
+  test('autocomplete queried when autochip removed', async () => {
+    createComposeboxElement();
+    await microtasksFinished();
+
+    // Autocomplete queried once on load.
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+    searchboxHandler.reset();
+    searchboxHandler.setPromiseResolveFor(
+        ADD_TAB_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
+
+    const tab = {
+      tabId: 1,
+      title: 'Tab 1',
+      url: 'https://example.com/1',
+      showInCurrentTabChip: true,
+      showInPreviousTabChip: false,
+      lastActive: {internalValue: BigInt(1)},
+    } as any as TabInfo;
+
+    // Add autochip.
+    searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(tab);
+    await microtasksFinished();
+
+    // Should have cleared matches.
+    assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 1);
+    searchboxHandler.reset();
+
+    // Remove autochip.
+    searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(null);
+    await microtasksFinished();
+
+    // Autocomplete should be queried again when an auto chip is removed.
+    assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 2);
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 2);
+  });
+
+  test('matches cleared when new autochip added', async () => {
+    createComposeboxElement();
+    await microtasksFinished();
+
+    searchboxHandler.reset();
+    searchboxHandler.setPromiseResolveFor(
+        ADD_TAB_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
+
+    const tab = {
+      tabId: 1,
+      title: 'Tab 1',
+      url: 'https://example.com/1',
+      showInCurrentTabChip: true,
+      showInPreviousTabChip: false,
+      lastActive: {internalValue: BigInt(1)},
+    } as any as TabInfo;
+
+    // Add valid autochip.
+    searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(tab);
+    await microtasksFinished();
+
+    // Should clear matches when a new autochip is added.
+    assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 1);
+  });
+
+  test(
+      'autocomplete not requeried if no autochip to start and updated with null',
+      async () => {
+        createComposeboxElement();
+        await microtasksFinished();
+
+        // Autocomplete queried once on load.
+        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+
+        // Remove autochip when none exists.
+        searchboxCallbackRouterRemote.updateAutoSuggestedTabContext(null);
+        await microtasksFinished();
+
+        // Autocomplete should not be queried again when there was no autochip
+        // to start, and an update comes with a null tab.
+        assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+        assertEquals(searchboxHandler.getCallCount('stopAutocomplete'), 0);
+      });
 });

@@ -48,6 +48,7 @@
 #include "chrome/grit/history_resources.h"
 #include "chrome/grit/history_resources_map.h"
 #include "components/grit/components_scaled_resources.h"
+#include "components/history/core/browser/features.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/history_clusters/core/config.h"
 #include "components/history_clusters/core/features.h"
@@ -69,6 +70,7 @@
 #include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
+#include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #endif
 
@@ -140,11 +142,18 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
 #if BUILDFLAG(ENABLE_GLIC)
   const bool is_glic_enabled =
       glic::GlicEnabling::ShouldShowSettingsPage(profile);
+  const bool is_glic_web_actuation_available =
+      glic::GlicEnabling::IsEnabledAndConsentForProfile(profile) &&
+      profile->GetPrefs()->GetBoolean(
+          glic::prefs::kGlicUserEnabledActuationOnWeb);
 #else
   const bool is_glic_enabled = false;
+  const bool is_glic_web_actuation_available = false;
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
   source->AddBoolean("isGlicEnabled", is_glic_enabled);
+  source->AddBoolean("isGlicWebActuationAvailable",
+                     is_glic_web_actuation_available);
 
 #if BUILDFLAG(IS_CHROMEOS)
   source->AddLocalizedString("turnOnSyncButton",
@@ -159,21 +168,21 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   source->AddString(
       "historySyncPromoBodySignedIn",
       l10n_util::GetStringFUTF16(IDS_HISTORY_SYNC_PROMO_BODY_SIGNED_IN,
-                                 base::UTF8ToUTF16(account_info.email)));
+                                 base::UTF8ToUTF16(account_info.GetEmail())));
   source->AddString(
       "turnOnSignedInSyncHistoryPromoBodySignInSyncOff",
       l10n_util::GetStringFUTF16(
           IDS_RECENT_TABS_SYNC_HISTORY_PROMO_BODY_SIGNED_IN_SYNC_OFF,
-          base::UTF8ToUTF16(account_info.email)));
-  source->AddString("accountName", account_info.full_name);
-  source->AddString("accountEmail", account_info.email);
+          base::UTF8ToUTF16(account_info.GetEmail())));
+  source->AddString("accountName", account_info.GetFullName().value_or(""));
+  source->AddString("accountEmail", account_info.GetEmail());
   if (!has_primary_account && !account_info.IsEmpty()) {
-    source->AddString("turnOnSyncButton",
-                      l10n_util::GetStringFUTF16(
-                          IDS_PROFILES_DICE_WEB_ONLY_SIGNIN_BUTTON,
-                          base::UTF8ToUTF16(!account_info.given_name.empty()
-                                                ? account_info.given_name
-                                                : account_info.email)));
+    source->AddString(
+        "turnOnSyncButton",
+        l10n_util::GetStringFUTF16(
+            IDS_PROFILES_DICE_WEB_ONLY_SIGNIN_BUTTON,
+            base::UTF8ToUTF16(account_info.GetGivenName().value_or(
+                account_info.GetEmail()))));
   } else {
     source->AddLocalizedString("turnOnSyncButton",
                                IDS_HISTORY_TURN_ON_SYNC_BUTTON);
@@ -211,6 +220,8 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
        IDS_HISTORY_EMBEDDIGNS_PROMO_SETTINGS_LINK_TEXT},
   };
   source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
+  source->AddBoolean("isBrowsingHistoryActorIntegrationM3Enabled",
+                     history::IsBrowsingHistoryActorIntegrationM3Enabled());
 
   // History clusters
   HistoryClustersUtil::PopulateSource(source, profile, /*in_side_panel=*/false);
@@ -320,7 +331,7 @@ void HistoryUI::UpdateDataSource() {
 
   Profile* profile = Profile::FromWebUI(web_ui());
 
-  base::Value::Dict update;
+  base::DictValue update;
 
   const bool is_managed = profile->GetPrefs()->IsManagedPreference(
       history_clusters::prefs::kVisible);

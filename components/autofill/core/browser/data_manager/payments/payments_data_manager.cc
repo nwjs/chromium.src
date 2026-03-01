@@ -9,7 +9,7 @@
 #include <variant>
 
 #include "base/android/device_info.h"
-#include "base/containers/contains.h"
+#include "base/containers/extend.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
@@ -51,7 +51,6 @@
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/webdata/common/web_data_service_consumer.h"
-
 
 namespace autofill {
 
@@ -479,8 +478,6 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
 }
 
 bool PaymentsDataManager::ShouldShowBnplSettings() const {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   // Check `kAutofillEnableBuyNowPayLater` only if the user has seen a BNPL
   // suggestion before, or there are already linked issuers present, to avoid
   // unnecessary feature flag checks. The linked issuer check is due to the fact
@@ -492,10 +489,6 @@ bool PaymentsDataManager::ShouldShowBnplSettings() const {
   return (IsAutofillHasSeenBnplPrefEnabled() ||
           !linked_bnpl_issuers_.empty()) &&
          base::FeatureList::IsEnabled(features::kAutofillEnableBuyNowPayLater);
-#else
-  return false;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 }
 
 CoreAccountInfo PaymentsDataManager::GetAccountInfoForPaymentsServer() const {
@@ -990,11 +983,8 @@ std::vector<BnplIssuer> PaymentsDataManager::GetBnplIssuers() const {
 
   std::vector<BnplIssuer> result;
   result.reserve(linked_bnpl_issuers_.size() + unlinked_bnpl_issuers_.size());
-  result.insert(result.end(), linked_bnpl_issuers_.begin(),
-                linked_bnpl_issuers_.end());
-  result.insert(result.end(), unlinked_bnpl_issuers_.begin(),
-                unlinked_bnpl_issuers_.end());
-
+  base::Extend(result, linked_bnpl_issuers_);
+  base::Extend(result, unlinked_bnpl_issuers_);
   return result;
 }
 
@@ -1014,14 +1004,10 @@ void PaymentsDataManager::SetPrefService(PrefService* pref_service) {
       base::BindRepeating(
           &PaymentsDataManager::OnAutofillPaymentsCardBenefitsPrefChange,
           base::Unretained(this)));
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   pref_registrar_.Add(
       prefs::kAutofillBnplEnabled,
       base::BindRepeating(&PaymentsDataManager::OnBnplEnabledPrefChange,
                           base::Unretained(this)));
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 }
 
 bool PaymentsDataManager::IsAutofillBnplPrefEnabled() const {
@@ -1088,8 +1074,6 @@ void PaymentsDataManager::SetAutofillHasSeenIban() {
   prefs::SetAutofillHasSeenIban(pref_service_);
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 bool PaymentsDataManager::IsAutofillHasSeenBnplPrefEnabled() const {
   return prefs::HasSeenBnpl(pref_service_);
 }
@@ -1097,8 +1081,6 @@ bool PaymentsDataManager::IsAutofillHasSeenBnplPrefEnabled() const {
 void PaymentsDataManager::SetAutofillHasSeenBnpl() {
   prefs::SetAutofillHasSeenBnpl(pref_service_);
 }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 bool PaymentsDataManager::IsAutofillAmountExtractionAiTermsSeenPrefEnabled()
     const {
@@ -1836,18 +1818,6 @@ bool PaymentsDataManager::ShouldSuggestServerPaymentMethods() const {
 
   CHECK(sync_service_);
 
-  // Check if the user is in sync transport mode for wallet data.
-  // TODO(crbug.com/40066949): Simplify once ConsentLevel::kSync and
-  // SyncService::IsSyncFeatureEnabled() are deleted from the codebase.
-  if (!sync_service_->IsSyncFeatureEnabled()) {
-    // For SyncTransport, only show server payment methods if the user has
-    // opted in to seeing them in the dropdown.
-    if (!IsUserOptedInWalletSyncTransport(
-            pref_service_, sync_service_->GetAccountInfo().account_id)) {
-      return false;
-    }
-  }
-
   // Server payment methods should be suggested if the sync service is active.
   return sync_service_->GetActiveDataTypes().Has(syncer::AUTOFILL_WALLET_DATA);
 }
@@ -2152,18 +2122,12 @@ bool PaymentsDataManager::AreEwalletAccountsSupported() const {
 }
 
 bool PaymentsDataManager::AreBnplIssuersSupported() const {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   return app_locale_ == "en-US" &&
          (GetCountryCodeForExperimentGroup() == "US" ||
           base::FeatureList::IsEnabled(
               features::kAutofillDisableBnplCountryCheckForTesting)) &&
          base::FeatureList::IsEnabled(
              features::kAutofillEnableBuyNowPayLaterSyncing);
-#else
-  return false;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 }
 
 bool PaymentsDataManager::ArePaymentInstrumentsSupported() const {
@@ -2188,8 +2152,6 @@ void PaymentsDataManager::ClearAllCreditCardBenefits() {
   credit_card_benefits_.clear();
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 void PaymentsDataManager::OnBnplEnabledPrefChange() {
   // On pref change to `false`, clearing BNPL issuers is implicitly handled by
   // `GetBnplIssuers()`, since it returns an empty vector when
@@ -2204,8 +2166,6 @@ void PaymentsDataManager::OnBnplEnabledPrefChange() {
 
   LogBnplPrefToggled(IsAutofillBnplPrefEnabled());
 }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 void PaymentsDataManager::ProcessCardArtUrlChanges() {
   if (!image_fetcher_) {
@@ -2323,9 +2283,10 @@ void PaymentsDataManager::CacheIfLinkedBnplPaymentInstrument(
   // Ensures the server does not return any duplicate issuers. Should never
   // happen, but servers should never be trusted and responses must be handled
   // gracefully.
-  if (base::Contains(linked_bnpl_issuers_,
-                     ConvertToBnplIssuerIdEnum(bnpl_issuer_details.issuer_id()),
-                     &BnplIssuer::issuer_id)) {
+  if (std::ranges::contains(
+          linked_bnpl_issuers_,
+          ConvertToBnplIssuerIdEnum(bnpl_issuer_details.issuer_id()),
+          &BnplIssuer::issuer_id)) {
     return;
   }
 
@@ -2441,9 +2402,9 @@ void PaymentsDataManager::CacheIfBnplPaymentInstrumentCreationOption(
   // Ensures the server does not return any duplicate issuers. Should never
   // happen, but servers should never be trusted and responses must be handled
   // gracefully.
-  if (base::Contains(unlinked_bnpl_issuers_,
-                     ConvertToBnplIssuerIdEnum(bnpl_issuer.issuer_id()),
-                     &BnplIssuer::issuer_id)) {
+  if (std::ranges::contains(unlinked_bnpl_issuers_,
+                            ConvertToBnplIssuerIdEnum(bnpl_issuer.issuer_id()),
+                            &BnplIssuer::issuer_id)) {
     return;
   }
 

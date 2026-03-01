@@ -18,7 +18,6 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/span.h"
 #include "base/debug/crash_logging.h"
 #include "base/pickle.h"
@@ -56,7 +55,7 @@ Origin Origin::Create(const GURL& url) {
     // It's SchemeHostPort's responsibility to filter out unrecognized schemes;
     // sanity check that this is happening.
     DCHECK(!tuple.IsValid() || url.IsStandard() ||
-           base::Contains(GetLocalSchemes(), url.scheme()) ||
+           std::ranges::contains(GetLocalSchemes(), url.scheme()) ||
            AllowNonStandardSchemesForAndroidWebView());
   }
 
@@ -186,7 +185,7 @@ bool Origin::CanBeDerivedFrom(const GURL& url) const {
   // For "no access" schemes, blink's SecurityOrigin will always create an
   // opaque unique one. However, about: scheme is also registered as such but
   // does not behave this way, therefore exclude it from this check.
-  if (base::Contains(url::GetNoAccessSchemes(), url.GetScheme()) &&
+  if (std::ranges::contains(url::GetNoAccessSchemes(), url.GetScheme()) &&
       !url.SchemeIs(kAboutScheme)) {
     // If |this| is not opaque, definitely return false as the expectation
     // is for opaque origin.
@@ -335,10 +334,8 @@ std::optional<std::string> Origin::SerializeWithNonceImpl() const {
     pickle.WriteUInt64(0);
   }
 
-  base::span<const uint8_t> UNSAFE_TODO(
-      data(static_cast<const uint8_t*>(pickle.data()), pickle.size()));
   // Base64 encode the data to make it nicer to play with.
-  return base::Base64Encode(data);
+  return base::Base64Encode(pickle.AsBytes());
 }
 
 // static
@@ -347,9 +344,8 @@ std::optional<Origin> Origin::Deserialize(std::string_view value) {
   if (!base::Base64Decode(value, &data))
     return std::nullopt;
 
-  base::Pickle pickle =
-      base::Pickle::WithUnownedBuffer(base::as_byte_span(data));
-  base::PickleIterator reader(pickle);
+  base::PickleIterator reader =
+      base::PickleIterator::WithData(base::as_byte_span(data));
 
   std::string pickled_url;
   if (!reader.ReadString(&pickled_url))

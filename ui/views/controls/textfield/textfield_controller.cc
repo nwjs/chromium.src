@@ -37,12 +37,26 @@ views::View::DropCallback TextfieldController::CreateDropCallback(
   return base::NullCallback();
 }
 
+bool TextfieldController::OnBeforeCutOrCopy(Textfield* sender,
+                                            std::u16string* copy_contents) {
+  // Default implementation does not intercept copy/cut. Controllers may
+  // override this to supply copy/cut contents and return true to bypass default
+  // clipboard write.
+  return false;
+}
+
 bool TextfieldController::OnBeforePaste(Textfield* sender,
                                         std::u16string* paste_contents) {
   // Default implementation does not intercept paste. Controllers may override
   // this to supply paste contents and return true to bypass default clipboard
   // read.
   return false;
+}
+
+std::unique_ptr<ui::ScopedClipboardWriter>
+TextfieldController::CreateClipboardWriter() {
+  return std::make_unique<ui::ScopedClipboardWriter>(
+      ui::ClipboardBuffer::kCopyPaste);
 }
 
 }  // namespace views

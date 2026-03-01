@@ -11,10 +11,12 @@
 #include <string>
 #include <string_view>
 
+#include "base/containers/span.h"
 #include "components/sessions/core/sessions_export.h"
 
 namespace base {
 class Pickle;
+class PickleIterator;
 }
 
 namespace sessions {
@@ -50,10 +52,11 @@ class SESSIONS_EXPORT SessionCommand {
   SessionCommand& operator=(const SessionCommand&) = delete;
 
   // The contents of the command.
-  char* contents() { return const_cast<char*>(contents_.c_str()); }
-  const char* contents() const { return contents_.c_str(); }
-  std::string_view contents_as_string_piece() const {
-    return std::string_view(contents_);
+  base::span<const uint8_t> contents() const {
+    return base::as_byte_span(contents_);
+  }
+  base::span<uint8_t> contents() {
+    return base::as_writable_byte_span(contents_);
   }
   // Identifier for the command.
   id_type id() const { return id_; }
@@ -69,8 +72,8 @@ class SESSIONS_EXPORT SessionCommand {
   // count is not equal to the size of data this command contains.
   bool GetPayload(void* dest, size_t count) const;
 
-  // Returns the contents as a pickle.
-  base::Pickle PayloadAsPickle() const;
+  // Returns an iterator for reading the payload.
+  base::PickleIterator PayloadAsPickle() const;
 
  private:
   const id_type id_;

@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win-arm64-dbg",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.win",
@@ -36,7 +36,7 @@
         {
           "bucket": "ci",
           "builder": "win-arm64-dbg",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         }
       ],
       "mirroring_builder_group_and_names": [

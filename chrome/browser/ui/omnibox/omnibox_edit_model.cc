@@ -87,6 +87,7 @@
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "third_party/omnibox_proto/model_mode.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -590,6 +591,7 @@ void OmniboxEditModel::SetInputInProgress(bool in_progress) {
 }
 
 void OmniboxEditModel::Revert() {
+  TRACE_EVENT("omnibox", "OmniboxEditModel::Revert");
   SetInputInProgress(false);
   input_.Clear();
   paste_state_ = PasteState::kNone;
@@ -1312,6 +1314,10 @@ void OmniboxEditModel::OnNavigationLikely(
       navigation_predictor);
 }
 
+void OmniboxEditModel::NotifyObserversCharTyped(base::TimeTicks timestamp) {
+  observers_.Notify(&Observer::OnCharTyped, timestamp);
+}
+
 void OmniboxEditModel::OnPopupDataChanged(
     const std::u16string& temporary_text,
     bool is_temporary_text,
@@ -1826,6 +1832,9 @@ std::u16string OmniboxEditModel::GetSuggestionGroupHeaderText(
     // is currently active.
     if (suggestion_group_id.value() == omnibox::GROUP_CONTEXTUAL_SEARCH &&
         (has_toolbelt_lens_action || has_lens_search_chip)) {
+      if (base::FeatureList::IsEnabled(omnibox::kHideContextualGroupHeaders)) {
+        return u"";
+      }
       // TODO(khalidpeer): Make direct use of `header_text` once we start
       //     receiving a non-empty contextual search header from the server.
       return header_text.empty()
@@ -2087,7 +2096,7 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
           match.associated_keyword, "");
       std::u16string replacement_string =
           turl ? turl->short_name() : match.contents;
-      bool ask_keyword = turl && turl->is_ask_starter_pack();
+      bool ask_keyword = turl && turl->is_ask_type();
       // For featured search engines, we also want to add the shortcut name.
       if (AutocompleteMatch::IsFeaturedSearchType(match.type)) {
         int message_id = ask_keyword ? IDS_ACC_ASK_KEYWORD_MODE_WITH_SHORTCUT
@@ -2194,6 +2203,8 @@ void OmniboxEditModel::UpdatePopupSelectionOnResultChanged() {
   if (!popup_view_) {
     return;
   }
+  TRACE_EVENT("omnibox",
+              "OmniboxEditModel::UpdatePopupSelectionOnResultChanged");
   rich_suggestion_bitmaps_.clear();
   const AutocompleteResult& result = autocomplete_controller()->result();
 
@@ -2215,6 +2226,7 @@ void OmniboxEditModel::OnPopupResultChanged() {
   if (!popup_view_) {
     return;
   }
+  TRACE_EVENT("omnibox", "OmniboxEditModel::OnPopupResultChanged");
   UpdatePopupSelectionOnResultChanged();
   observers_.Notify(&Observer::OnContentsChanged);
 }
@@ -2718,9 +2730,12 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
         base::TimeTicks::Now() - match_selection_timestamp);
     action->Execute(context);
     if (context.enter_starter_pack_id_ != 0 && template_url_service) {
+      template_url_starter_pack_data::StarterPackId starter_pack_id =
+          static_cast<template_url_starter_pack_data::StarterPackId>(
+              context.enter_starter_pack_id_);
       if (const TemplateURL* starter_pack_turl =
               template_url_service->FindStarterPackTemplateURL(
-                  context.enter_starter_pack_id_)) {
+                  starter_pack_id)) {
         EnterKeywordMode(
             OmniboxEventProto::TOOLBELT, starter_pack_turl,
             AutocompleteMatch::GetKeywordPlaceholder(

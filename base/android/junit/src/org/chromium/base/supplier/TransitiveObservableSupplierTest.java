@@ -39,9 +39,10 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testGetWithoutObservers() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier1 = new ObservableSupplierImpl<>();
+        SettableNullableObservableSupplier<NullableObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createNullable();
+        SettableNullableObservableSupplier<String> targetSupplier1 =
+                ObservableSuppliers.createNullable();
 
         NullableObservableSupplier<String> transitiveSupplier =
                 parentSupplier.createTransitiveNullable(obs -> obs);
@@ -71,10 +72,12 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testGetWithObserver() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier1 = new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier2 = new ObservableSupplierImpl<>();
+        SettableNullableObservableSupplier<NullableObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createNullable();
+        SettableNullableObservableSupplier<String> targetSupplier1 =
+                ObservableSuppliers.createNullable();
+        SettableMonotonicObservableSupplier<String> targetSupplier2 =
+                ObservableSuppliers.createMonotonic();
 
         NullableObservableSupplier<String> transitiveSupplier =
                 parentSupplier.createTransitiveNullable(obs -> obs);
@@ -112,9 +115,10 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testSameObserver() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier = new ObservableSupplierImpl<>();
+        SettableMonotonicObservableSupplier<MonotonicObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createMonotonic();
+        SettableMonotonicObservableSupplier<String> targetSupplier =
+                ObservableSuppliers.createMonotonic();
         parentSupplier.set(targetSupplier);
 
         NullableObservableSupplier<String> transitiveSupplier =
@@ -135,9 +139,10 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testAlreadyHasValueWhenObserverAdded() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier = new ObservableSupplierImpl<>();
+        SettableMonotonicObservableSupplier<MonotonicObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createMonotonic();
+        SettableMonotonicObservableSupplier<String> targetSupplier =
+                ObservableSuppliers.createMonotonic();
         parentSupplier.set(targetSupplier);
         targetSupplier.set("valueA");
 
@@ -153,9 +158,10 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testAddObserver_ShouldNotifyOnAdd() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier1 = new ObservableSupplierImpl<>();
+        SettableMonotonicObservableSupplier<MonotonicObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createMonotonic();
+        SettableMonotonicObservableSupplier<String> targetSupplier1 =
+                ObservableSuppliers.createMonotonic();
 
         NullableObservableSupplier<String> transitiveSupplier =
                 parentSupplier.createTransitiveNullable(obs -> obs);
@@ -177,9 +183,10 @@ public class TransitiveObservableSupplierTest {
 
     @Test
     public void testAddObserver_ShouldNotNotifyOnAdd() {
-        ObservableSupplierImpl<ObservableSupplier<String>> parentSupplier =
-                new ObservableSupplierImpl<>();
-        ObservableSupplierImpl<String> targetSupplier1 = new ObservableSupplierImpl<>();
+        SettableMonotonicObservableSupplier<MonotonicObservableSupplier<String>> parentSupplier =
+                ObservableSuppliers.createMonotonic();
+        SettableMonotonicObservableSupplier<String> targetSupplier1 =
+                ObservableSuppliers.createMonotonic();
 
         NullableObservableSupplier<String> transitiveSupplier =
                 parentSupplier.createTransitiveNullable(obs -> obs);
@@ -206,7 +213,7 @@ public class TransitiveObservableSupplierTest {
     public void testNonNull_noObservers() {
         NonNullObservableSupplier<String> nonNullSupplier =
                 ObservableSuppliers.createNonNull("nonNull");
-        SettableObservableSupplier<String> monotonicSupplier =
+        SettableMonotonicObservableSupplier<String> monotonicSupplier =
                 ObservableSuppliers.createMonotonic();
         SettableNullableObservableSupplier<String> nullableSupplier =
                 ObservableSuppliers.createNullable("nullable");
@@ -222,14 +229,14 @@ public class TransitiveObservableSupplierTest {
                 () ->
                         monotonicSupplier
                                 .createTransitiveMonotonic(
-                                        parent -> (ObservableSupplier<?>) nullableSupplier)
+                                        parent -> (MonotonicObservableSupplier<?>) nullableSupplier)
                                 .get());
 
-        SettableObservableSupplier<String> monotonicSupplier2 =
+        SettableMonotonicObservableSupplier<String> monotonicSupplier2 =
                 ObservableSuppliers.createMonotonic();
-        AtomicReference<ObservableSupplier<String>> retValue =
+        AtomicReference<MonotonicObservableSupplier<String>> retValue =
                 new AtomicReference<>(monotonicSupplier2);
-        ObservableSupplier<String> transMonotonic =
+        MonotonicObservableSupplier<String> transMonotonic =
                 monotonicSupplier.createTransitiveMonotonic(unused -> retValue.get());
         assertNull(transMonotonic.get());
         monotonicSupplier2.set("foo");
@@ -244,7 +251,7 @@ public class TransitiveObservableSupplierTest {
     public void testNonNull_withObservers() {
         NonNullObservableSupplier<String> nonNullSupplier =
                 ObservableSuppliers.createNonNull("nonNull");
-        SettableObservableSupplier<String> monotonicSupplier =
+        SettableMonotonicObservableSupplier<String> monotonicSupplier =
                 ObservableSuppliers.createMonotonic();
         SettableNullableObservableSupplier<String> nullableSupplier =
                 ObservableSuppliers.createNullable("nullable");
@@ -256,14 +263,14 @@ public class TransitiveObservableSupplierTest {
                 () ->
                         monotonicSupplier
                                 .createTransitiveMonotonic(
-                                        parent -> (ObservableSupplier<?>) nullableSupplier)
+                                        parent -> (MonotonicObservableSupplier<?>) nullableSupplier)
                                 .addObserver(CallbackUtils.emptyCallback()));
 
-        SettableObservableSupplier<String> monotonicSupplier2 =
+        SettableMonotonicObservableSupplier<String> monotonicSupplier2 =
                 ObservableSuppliers.createMonotonic();
-        AtomicReference<ObservableSupplier<String>> retValue =
+        AtomicReference<MonotonicObservableSupplier<String>> retValue =
                 new AtomicReference<>(monotonicSupplier2);
-        ObservableSupplier<String> transMonotonic =
+        MonotonicObservableSupplier<String> transMonotonic =
                 monotonicSupplier.createTransitiveMonotonic(unused -> retValue.get());
         assertNull(transMonotonic.addObserver(mOnChangeCallback));
         monotonicSupplier2.set("foo");
@@ -278,7 +285,7 @@ public class TransitiveObservableSupplierTest {
     public void testMonotonicDefaultValue() {
         NonNullObservableSupplier<String> nonNullSupplier =
                 ObservableSuppliers.createNonNull("nonNull");
-        SettableObservableSupplier<String> monotonicSupplier =
+        SettableMonotonicObservableSupplier<String> monotonicSupplier =
                 ObservableSuppliers.createMonotonic();
         SettableNullableObservableSupplier<String> nullableSupplier =
                 ObservableSuppliers.createNullable("nullable");

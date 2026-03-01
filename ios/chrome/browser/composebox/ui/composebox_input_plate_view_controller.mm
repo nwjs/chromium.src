@@ -20,6 +20,7 @@
 #import "build/branding_buildflags.h"
 #import "ios/chrome/browser/composebox/public/composebox_constants.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_plate_controls.h"
+#import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/ui/composebox_animation_context.h"
@@ -37,6 +38,7 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -53,8 +55,6 @@ NSString* const kItemCellReuseIdentifier = @"ComposeboxInputItemCell";
 /// The identifier for the main section of the collection view.
 NSString* const kMainSectionIdentifier = @"MainSection";
 
-/// The corner radius for the input plate container.
-const CGFloat kInputPlateCornerRadius = 24.0f;
 /// The shadow opacity for the input plate container.
 const float kInputPlateShadowOpacity = 0.2f;
 /// The shadow radius for the input plate container.
@@ -65,6 +65,8 @@ const CGFloat kCarouselItemSpacing = 6.0f;
 const CGFloat kCarouselHeight = 44.0f;
 /// The height of the AIM mode button.
 const CGFloat kAIMButtonHeight = 36.0f;
+/// The corner radius of the favicon in attach current tab action.
+const CGFloat kAttachCurrentTabIconRadius = 2.0f;
 /// The width of the AIM mode button.
 const CGFloat kAIMButtonBaseWidth = 108.0f;
 const CGFloat kXButtonWidthInButton = 14.0;
@@ -94,13 +96,17 @@ const NSDirectionalEdgeInsets kInputPlatePadding = {.leading = 8.0,
                                                     .trailing = 5.0};
 /// The spacing added after the Lens and Voice buttons in compact mode.
 const CGFloat kShortcutsTrailingPaddingCompact = 3.0f;
-/// The padding of the toolbar and carousel elements.
+/// The padding of the toolbar.
 ///
 /// Note: While padding is offset to visually align the clear button's visual
 /// bounding box, all other UI elements maintain symmetrical centering.
 const UIEdgeInsets kToolbarPadding = {.left = kInputPlatePadding.leading,
                                       .right = kInputPlatePadding.leading};
-const UIEdgeInsets kCarouselPadding = kToolbarPadding;
+/// The padding of the carousel. Same as
+/// `kInputPlateStackViewExpandedWithAttachmentsTopPadding` to keep symmetry.
+const UIEdgeInsets kCarouselPadding = {
+    .left = kInputPlateStackViewExpandedWithAttachmentsTopPadding,
+    .right = kInputPlateStackViewExpandedWithAttachmentsTopPadding};
 
 /// The font size for the AIM mode button title.
 const CGFloat kAIMButtonFontSize = 14.0f;
@@ -121,7 +127,7 @@ const CGFloat kSendButtonDisabledOpacity = 0.5;
 /// The fade view width.
 const CGFloat kFadeViewWidth = 30.0f;
 /// The margin for the close mode button.
-const CGFloat kCloseModeButtonMargin = 6;
+const CGFloat kCloseModeButtonMargin = 4;
 
 /// The size of the close icon in the context indicator buttons.
 const CGFloat kCloseIndicatorSize = 12.0f;
@@ -194,6 +200,10 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   UIView* _aimButtonXIndicator;
   /// The button to toggle Image Generation mode.
   UIButton* _imageGenerationButton;
+  /// The button to toggle Canvas mode.
+  UIButton* _canvasButton;
+  /// The button to toggle deep search mode.
+  UIButton* _deepSearchButton;
   /// The glow effect around the input plate container.
   UIView<GlowEffect>* _glowEffectView;
   /// The plus button.
@@ -206,10 +216,14 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   UIView* _leadingCarouselFadeView;
   /// The fade view for the carousel's trailing edge.
   UIView* _trailingCarouselFadeView;
+  __weak CAGradientLayer* _carouselLeadingGradientLayer;
+  __weak CAGradientLayer* _carouselTrailingGradientLayer;
   /// The carousel container.
   UIView* _carouselContainer;
   /// Controls that should be visible.
   ComposeboxInputPlateControls _visibleControls;
+  /// The current model choice.
+  ComposeboxModelOption _modelOption;
   /// Attach current tab action state.
   BOOL _attachCurrentTabActionHidden;
   /// Attach tabs actions state.
@@ -221,12 +235,20 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   /// Create image action state.
   BOOL _createImageActionsHidden;
   BOOL _createImageActionsDisabled;
+  /// Canvas action state.
+  BOOL _canvasActionsDisabled;
+  BOOL _canvasActionsHidden;
+  /// Deep search action state.
+  BOOL _deepSearchActionsDisabled;
+  BOOL _deepSearchActionsHidden;
   /// Camera action state.
   BOOL _cameraActionsDisabled;
   BOOL _cameraActionsHidden;
   /// Gallery action state.
   BOOL _galleryActionsDisabled;
   BOOL _galleryActionsHidden;
+  /// The allowed models.
+  std::unordered_set<ComposeboxModelOption> _allowedModels;
   /// Container for the omnibox.
   UIView* _omniboxContainer;
 
@@ -243,6 +265,15 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   /// Whether the image generation mode is enabled.
   BOOL _imageGenerationEnabled;
 
+  /// Whether the canvas mode is enabled.
+  BOOL _canvasEnabled;
+
+  /// Whether the deep search is enabled.
+  BOOL _deepSearchEnabled;
+
+  /// Whether the model picker is allowed.
+  BOOL _modelPickerAllowed;
+
   /// Whether items are being dragged within the input plate view.
   BOOL _dragSessionWithinInputPlate;
 
@@ -258,6 +289,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   if ((self = [super initWithNibName:nil bundle:nil])) {
     _omniboxContainer = [[UIView alloc] init];
     _theme = theme;
+    _canvasActionsHidden = YES;
   }
   return self;
 }
@@ -280,6 +312,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   _aimButton = [self createAIMButton];
   [self setupAIMButtonSizeConstraints];
   _imageGenerationButton = [self createImageGenerationButton];
+  _canvasButton = [self createCanvasButton];
+  _deepSearchButton = [self createDeepSearchButton];
   [self updatePlusButtonItems];
   [self setupCarouselContainer];
 
@@ -313,10 +347,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
   // Update the gradient layer's frame.
-  _trailingCarouselFadeView.layer.sublayers.firstObject.frame =
-      _trailingCarouselFadeView.bounds;
-  _leadingCarouselFadeView.layer.sublayers.firstObject.frame =
-      _leadingCarouselFadeView.bounds;
+  _carouselTrailingGradientLayer.frame = _trailingCarouselFadeView.bounds;
+  _carouselLeadingGradientLayer.frame = _leadingCarouselFadeView.bounds;
   if (self.compact) {
     _inputPlateContainerView.layer.cornerRadius =
         _inputPlateContainerView.frame.size.height / 2;
@@ -324,6 +356,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
         _inputPlateContainerView.layer.cornerRadius;
   }
   [self updateCarouselFade];
+  [self updatePreferredContentSize];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -475,6 +508,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self animateButton:_aimButton hidden:!(controls & kAIM)];
   [self animateButton:_sendButton hidden:!(controls & kSend)];
   [self animateButton:_imageGenerationButton hidden:!(controls & kCreateImage)];
+  [self animateButton:_canvasButton hidden:!(controls & kCanvas)];
+  [self animateButton:_deepSearchButton hidden:!(controls & kDeepSearch)];
   [self animateLeadingImageHidden:!(controls & kLeadingImage)];
 
   [self updateInputPlateStackViewPadding];
@@ -568,8 +603,40 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self triggerGlowEffect];
 }
 
+// Enables usage of canvas mode.
+- (void)setCanvasEnabled:(BOOL)enabled {
+  if (_canvasEnabled == enabled) {
+    return;
+  }
+  _canvasEnabled = enabled;
+  [self updatePlaceholderText];
+  [self updatePlusButtonItems];
+  [self triggerGlowEffect];
+}
+
+- (void)setDeepSearchEnabled:(BOOL)enabled {
+  if (_deepSearchEnabled == enabled) {
+    return;
+  }
+  _deepSearchEnabled = enabled;
+  [self updatePlaceholderText];
+  [self updatePlusButtonItems];
+  [self triggerGlowEffect];
+}
+
+- (void)allowModelPicker:(BOOL)allowed {
+  if (_modelPickerAllowed == allowed) {
+    return;
+  }
+  _modelPickerAllowed = allowed;
+  [self updatePlaceholderText];
+  [self updatePlusButtonItems];
+}
+
 - (void)setCurrentTabFavicon:(UIImage*)favicon {
-  _currentTabFavicon = favicon;
+  _currentTabFavicon =
+      favicon ? ImageWithCornerRadius(favicon, kAttachCurrentTabIconRadius)
+              : nil;
   [self updatePlusButtonItems];
 }
 
@@ -629,11 +696,37 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self updatePlusButtonItems];
 }
 
+// Hides the canvas actions in the plus menu.
+- (void)hideCanvasActions:(BOOL)hidden {
+  if (_canvasActionsHidden == hidden) {
+    return;
+  }
+  _canvasActionsHidden = hidden;
+  [self updatePlusButtonItems];
+}
+
+// Hides the deep search actions in the plus menu.
+- (void)hideDeepSearchActions:(BOOL)hidden {
+  if (_deepSearchActionsHidden == hidden) {
+    return;
+  }
+  _deepSearchActionsHidden = hidden;
+  [self updatePlusButtonItems];
+}
+
 - (void)hideCameraActions:(BOOL)hidden {
   if (_cameraActionsHidden == hidden) {
     return;
   }
   _cameraActionsHidden = hidden;
+  [self updatePlusButtonItems];
+}
+
+- (void)disableCanvasActions:(BOOL)disabled {
+  if (_canvasActionsDisabled == disabled) {
+    return;
+  }
+  _canvasActionsDisabled = disabled;
   [self updatePlusButtonItems];
 }
 
@@ -661,8 +754,23 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self updatePlusButtonItems];
 }
 
+- (void)setAllowedModels:
+    (std::unordered_set<ComposeboxModelOption>)allowedModels {
+  if (_allowedModels == allowedModels) {
+    return;
+  }
+  _allowedModels = allowedModels;
+  [self updatePlusButtonItems];
+}
+
 - (void)setRemainingAttachmentCapacity:(NSUInteger)capacity {
   _remainingAttachmentCapacity = capacity;
+}
+
+- (void)setModelOption:(ComposeboxModelOption)modelOption {
+  _modelOption = modelOption;
+  [self updatePlusButtonItems];
+  [self updateCreateImageTitle];
 }
 
 #pragma mark - Actions
@@ -684,6 +792,16 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
 - (void)imageGenerationButtonTapped {
   [self.delegate composeboxViewControllerDidTapImageGenerationButton:self];
+}
+
+// Called when the canvas button in the input plate is tapped.
+- (void)canvasButtonTapped {
+  [self.delegate composeboxViewControllerDidTapCanvasButton:self];
+}
+
+// Called when the deep search button in the input plate is tapped.
+- (void)deepSearchButtonTapped {
+  [self.delegate composeboxViewControllerDidTapDeepSearchButton:self];
 }
 
 - (void)plusButtonTouchDown {
@@ -785,20 +903,25 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self updateCarouselFade];
 }
 
-- (CAGradientLayer*)createGradientLayerForLeading:(BOOL)isLeading {
-  CAGradientLayer* gradientLayer = [CAGradientLayer layer];
+/// Updates carousel fading gradients colors.
+- (void)updateCarouselGradientAppearance {
+  // Update the gradient layer's color.
   UIColor* transparentColor =
       [_theme.inputPlateBackgroundColor colorWithAlphaComponent:0.0];
   UIColor* solidColor = _theme.inputPlateBackgroundColor;
 
-  if (isLeading) {
-    gradientLayer.colors =
-        @[ (id)solidColor.CGColor, (id)transparentColor.CGColor ];
-  } else {
-    gradientLayer.colors =
-        @[ (id)transparentColor.CGColor, (id)solidColor.CGColor ];
-  }
+  _carouselLeadingGradientLayer.colors =
+      @[ (id)solidColor.CGColor, (id)transparentColor.CGColor ];
+  _carouselTrailingGradientLayer.colors =
+      @[ (id)transparentColor.CGColor, (id)solidColor.CGColor ];
 
+  [_carouselLeadingGradientLayer setNeedsDisplay];
+  [_carouselTrailingGradientLayer setNeedsDisplay];
+}
+
+/// Returns a gradient layer for the carousel.
+- (CAGradientLayer*)createCarouselGradientLayer {
+  CAGradientLayer* gradientLayer = [CAGradientLayer layer];
   gradientLayer.startPoint = CGPointMake(0.0, 0.5);
   gradientLayer.endPoint = CGPointMake(1.0, 0.5);
   return gradientLayer;
@@ -850,9 +973,25 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                                             AiModeActivationSource::kToolMenu];
 }
 
-/// Notifies the delegate to handle image generation tapped from the tool menu.
+/// Notifies the delegate to handle canvas button tapped from the tool menu.
 - (void)handleImageGenTappedFromToolMenu {
   [self.delegate composeboxViewControllerDidTapImageGenerationButton:self];
+}
+
+/// Notifies the delegate to handle canvas tapped from the tool menu.
+- (void)handleCanvasTappedFromToolMenu {
+  [self.delegate composeboxViewControllerDidTapCanvasButton:self];
+}
+
+/// Notifies the delegate to handle deep search tapped from the tool menu.
+- (void)handleDeepSearchTappedFromToolMenu {
+  [self.delegate composeboxViewControllerDidTapDeepSearchButton:self];
+}
+
+/// Notifies the mutator to handle the selection of a new model option.
+- (void)handleModelChangeFromToolsMenuWithOption:
+    (ComposeboxModelOption)modelOption {
+  [self.mutator setModelOption:modelOption];
 }
 
 /// Updates the visibility of the leading/trailing fade views for the carousel.
@@ -914,7 +1053,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     return;
   }
 
-  if (_AIModeEnabled || _imageGenerationEnabled) {
+  if (_AIModeEnabled || _imageGenerationEnabled || _canvasEnabled) {
     // When turning on, ensure the glow is started. The view's state machine
     // will prevent it from restarting if it's already active.
     [_glowEffectView startGlow];
@@ -925,6 +1064,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)userInterfaceStyleChanged {
   [self updateAIMButtonAppearance];
   [self updateDepthShadowAppearance];
+  [self updateCarouselGradientAppearance];
 }
 
 /// Adjusts the shadow of the input plate based on UI style and theme.
@@ -993,6 +1133,14 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     [_editView
         setCustomPlaceholderText:l10n_util::GetNSString(
                                      IDS_IOS_COMPOSEBOX_IMAGE_GEN_PLACEHOLDER)];
+  } else if (_canvasEnabled) {
+    [_editView setCustomPlaceholderText:
+                   l10n_util::GetNSString(
+                       IDS_IOS_COMPOSEBOX_CANVAS_ENABLED_PLACEHOLDER)];
+  } else if (_deepSearchEnabled) {
+    [_editView setCustomPlaceholderText:
+                   l10n_util::GetNSString(
+                       IDS_IOS_COMPOSEBOX_DEEP_SEARCH_ENABLED_PLACEHOLDER)];
   } else {
     [_editView setCustomPlaceholderText:nil];
   }
@@ -1046,17 +1194,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 /// Creates the AI Mode button.
 - (UIButton*)createAIMButton {
   UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
-  button.configurationUpdateHandler = ^(UIButton* updatedButton) {
-    BOOL isHighlighted = updatedButton.state == UIControlStateHighlighted;
-    CGFloat scale = isHighlighted ? 0.95 : 1.0;
-    CGFloat alpha = isHighlighted ? 0.85 : 1.0;
-    [UIView animateWithDuration:0.1
-                     animations:^{
-                       updatedButton.alpha = alpha;
-                       updatedButton.transform =
-                           CGAffineTransformMakeScale(scale, scale);
-                     }];
-  };
+  button.configurationUpdateHandler =
+      [self configurationUpdateHandlerForModeIndicator];
   button.translatesAutoresizingMaskIntoConstraints = NO;
   [button addTarget:self
                 action:@selector(aimButtonTapped)
@@ -1238,8 +1377,9 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                                 forAxis:UILayoutConstraintAxisHorizontal];
   UIStackView* buttonsStackView =
       [[UIStackView alloc] initWithArrangedSubviews:@[
-        _plusButton, _aimButton, _imageGenerationButton, spacerView,
-        _sendButton, _micButton, _visualSearchButton
+        _plusButton, _aimButton, _imageGenerationButton, _canvasButton,
+        _deepSearchButton, spacerView, _sendButton, _micButton,
+        _visualSearchButton
       ]];
   buttonsStackView.translatesAutoresizingMaskIntoConstraints = NO;
   [buttonsStackView setCustomSpacing:kShortcutsSpacing afterView:_micButton];
@@ -1271,6 +1411,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                 [weakSelf.delegate
                     composeboxViewControllerDidTapGalleryButton:weakSelf];
               }];
+  galleryAction.accessibilityIdentifier =
+      kComposeboxGalleryActionAccessibilityIdentifier;
   UIAction* cameraAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CAMERA_ACTION)
                 image:DefaultSymbolWithPointSize(kSystemCameraSymbol,
@@ -1280,6 +1422,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                 [weakSelf.delegate
                     composeboxViewControllerDidTapCameraButton:weakSelf];
               }];
+  cameraAction.accessibilityIdentifier =
+      kComposeboxCameraActionAccessibilityIdentifier;
 
   UIAction* fileAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_FILES_ACTION)
@@ -1290,6 +1434,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                 [weakSelf.delegate
                     composeboxViewControllerDidTapFileButton:weakSelf];
               }];
+  fileAction.accessibilityIdentifier =
+      kComposeboxAttachFileActionAccessibilityIdentifier;
 
   UIAction* attachCurrentTabAction =
       [UIAction actionWithTitle:l10n_util::GetNSString(
@@ -1302,6 +1448,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                         handler:^(UIAction* action) {
                           [weakSelf.mutator attachCurrentTabContent];
                         }];
+  attachCurrentTabAction.accessibilityIdentifier =
+      kComposeboxAttachCurrentTabActionAccessibilityIdentifier;
 
   UIAction* selectTabsAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(
@@ -1312,6 +1460,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
               handler:^(UIAction* action) {
                 [weakSelf handleAttachTabs];
               }];
+  selectTabsAction.accessibilityIdentifier =
+      kComposeboxSelectTabsActionAccessibilityIdentifier;
 
   UIAction* aimAction = [UIAction
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_AIM_ACTION)
@@ -1329,15 +1479,14 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   }
 
   UIAction* createImageAction =
-      [UIAction actionWithTitle:l10n_util::GetNSString(
-                                    IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION)
+      [UIAction actionWithTitle:[self createImageActionTitle]
                           image:[self bananaIcon]
                      identifier:nil
                         handler:^(UIAction* action) {
                           [weakSelf handleImageGenTappedFromToolMenu];
                         }];
   createImageAction.accessibilityIdentifier =
-      kComposeboxCreateImageActionAccessibilityIdentifier;
+      kComposeboxImageGenerationActionAccessibilityIdentifier;
 
   if (_imageGenerationEnabled) {
     [createImageAction setState:UIMenuElementStateOn];
@@ -1405,17 +1554,118 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
                      galleryAction, fileAction
                    ]];
 
-  UIMenu* modeMenu = [UIMenu menuWithTitle:@""
-                                     image:nil
-                                identifier:nil
-                                   options:UIMenuOptionsDisplayInline
-                                  children:@[ aimAction, createImageAction ]];
+  UIAction* canvasAction = [UIAction
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CANVAS_ACTION)
+                image:CustomSymbolWithPointSize(kDocumentBadgeSpark,
+                                                kSymbolActionPointSize)
+           identifier:nil
+              handler:^(UIAction* action) {
+                [weakSelf handleCanvasTappedFromToolMenu];
+              }];
+  UIMenuElementAttributes canvasAttributes = 0;
+  if (_canvasActionsHidden) {
+    canvasAttributes |= UIMenuElementAttributesHidden;
+  }
+  if (_canvasActionsDisabled) {
+    canvasAttributes |= UIMenuElementAttributesDisabled;
+  }
+  canvasAction.attributes = canvasAttributes;
+
+  if (_canvasEnabled) {
+    [canvasAction setState:UIMenuElementStateOn];
+  }
+
+  // TODO(crbug.com/481280186): Replace icon once defined.
+  UIAction* deepSearchAction = [UIAction
+      actionWithTitle:l10n_util::GetNSString(
+                          IDS_IOS_COMPOSEBOX_DEEP_SEARCH_ACTION)
+                image:DefaultSymbolWithPointSize(kFindInPageActionSymbol,
+                                                 kSymbolActionPointSize)
+           identifier:nil
+              handler:^(UIAction* action) {
+                [weakSelf handleDeepSearchTappedFromToolMenu];
+              }];
+  UIMenuElementAttributes deepSearchAttributes = 0;
+  if (_deepSearchActionsHidden) {
+    deepSearchAttributes |= UIMenuElementAttributesHidden;
+  }
+  if (_deepSearchActionsDisabled) {
+    deepSearchAttributes |= UIMenuElementAttributesDisabled;
+  }
+  deepSearchAction.attributes = deepSearchAttributes;
+
+  if (_deepSearchEnabled) {
+    [deepSearchAction setState:UIMenuElementStateOn];
+  }
+
+  UIMenu* modeMenu = [UIMenu
+      menuWithTitle:@""
+              image:nil
+         identifier:nil
+            options:UIMenuOptionsDisplayInline
+           children:@[
+             aimAction, createImageAction, deepSearchAction, canvasAction
+           ]];
+
+  NSMutableArray<UIMenuElement*>* sections =
+      [[NSMutableArray alloc] initWithArray:@[ attachmentMenu, modeMenu ]];
+  if (_modelPickerAllowed) {
+    CHECK(ShowComposeboxAdditionalAdvancedTools());
+    UIAction* autoModelOption = [UIAction
+        actionWithTitle:l10n_util::GetNSString(
+                            IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_AUTO)
+                  image:DefaultSymbolWithPointSize(kSyncEnabledSymbol,
+                                                   kSymbolActionPointSize)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf handleModelChangeFromToolsMenuWithOption:
+                                ComposeboxModelOption::kAuto];
+                }];
+
+    if (_allowedModels.contains(ComposeboxModelOption::kAuto)) {
+      if (_modelOption == ComposeboxModelOption::kAuto) {
+        [autoModelOption setState:UIMenuElementStateOn];
+      }
+    } else {
+      autoModelOption.attributes |= UIMenuElementAttributesDisabled;
+    }
+
+    UIAction* thinkingModelOption = [UIAction
+        actionWithTitle:l10n_util::GetNSString(
+                            IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_THINKING)
+                  image:DefaultSymbolWithPointSize(kClockSymbol,
+                                                   kSymbolActionPointSize)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf handleModelChangeFromToolsMenuWithOption:
+                                ComposeboxModelOption::kThinking];
+                }];
+
+    if (_allowedModels.contains(ComposeboxModelOption::kThinking)) {
+      if (_modelOption == ComposeboxModelOption::kThinking) {
+        [thinkingModelOption setState:UIMenuElementStateOn];
+      }
+    } else {
+      thinkingModelOption.attributes |= UIMenuElementAttributesDisabled;
+    }
+
+    UIMenu* modelPickerMenu =
+        [UIMenu menuWithTitle:l10n_util::GetNSStringF(
+                                  IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_TITLE,
+                                  base::SysNSStringToUTF16(@"3"))
+                        image:nil
+                   identifier:nil
+                      options:UIMenuOptionsDisplayInline
+                     children:@[ autoModelOption, thinkingModelOption ]];
+
+    [sections addObject:modelPickerMenu];
+  }
 
   _plusButton.menu = [UIMenu
       menuWithTitle:IsComposeboxMenuTitleEnabled()
                         ? l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_TITLE)
                         : @""
-           children:@[ attachmentMenu, modeMenu ]];
+           children:sections];
   _plusButton.preferredMenuElementOrder =
       UIContextMenuConfigurationElementOrderFixed;
 }
@@ -1429,6 +1679,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   layout.minimumLineSpacing = kCarouselItemSpacing;
   _carouselView = [[UICollectionView alloc] initWithFrame:CGRectZero
                                      collectionViewLayout:layout];
+  _carouselView.accessibilityIdentifier =
+      kComposeboxCarouselAccessibilityIdentifier;
   _carouselView.translatesAutoresizingMaskIntoConstraints = NO;
   _carouselView.backgroundColor = UIColor.clearColor;
   [_carouselView registerClass:[ComposeboxInputItemCell class]
@@ -1462,12 +1714,13 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   _leadingCarouselFadeView.hidden = YES;
   [_carouselContainer addSubview:_leadingCarouselFadeView];
 
-  [_trailingCarouselFadeView.layer
-      insertSublayer:[self createGradientLayerForLeading:NO]
-             atIndex:0];
-  [_leadingCarouselFadeView.layer
-      insertSublayer:[self createGradientLayerForLeading:YES]
-             atIndex:0];
+  _carouselLeadingGradientLayer = [self createCarouselGradientLayer];
+  _carouselTrailingGradientLayer = [self createCarouselGradientLayer];
+
+  [_trailingCarouselFadeView.layer insertSublayer:_carouselTrailingGradientLayer
+                                          atIndex:0];
+  [_leadingCarouselFadeView.layer insertSublayer:_carouselLeadingGradientLayer
+                                         atIndex:0];
 
   [NSLayoutConstraint activateConstraints:@[
     [_trailingCarouselFadeView.trailingAnchor
@@ -1488,6 +1741,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
     [_leadingCarouselFadeView.widthAnchor
         constraintEqualToConstant:kFadeViewWidth],
   ]];
+  [self updateCarouselGradientAppearance];
 }
 
 /// Sets up the main container view for the input plate.
@@ -1596,18 +1850,31 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)updateInputPlateStackViewAnimated:(BOOL)animated {
   if (!animated) {
     [self updateInputPlateStackViewContent];
+    [self updatePreferredContentSize];
     return;
   }
 
+  __weak __typeof(self) weakSelf = self;
   [UIView animateWithDuration:kCompactModeAnimationDuration
-                        delay:0
-                      options:UIViewAnimationCurveEaseInOut
-                   animations:^{
-                     [self updateInputPlateStackViewContent];
-                     [self.inputPlateStackView layoutIfNeeded];
-                     [self.view layoutIfNeeded];
-                   }
-                   completion:nil];
+      delay:0
+      options:UIViewAnimationCurveEaseInOut
+      animations:^{
+        [self updateInputPlateStackViewContent];
+        [self.inputPlateStackView layoutIfNeeded];
+        [self.view layoutIfNeeded];
+      }
+      completion:^(BOOL complete) {
+        if (complete) {
+          [weakSelf updatePreferredContentSize];
+        }
+      }];
+}
+
+// Updates the preferred content size based on the input plate content height.
+- (void)updatePreferredContentSize {
+  CGFloat inputHeight = [self inputHeight];
+  self.preferredContentSize =
+      CGSizeMake(self.view.bounds.size.width, inputHeight);
 }
 
 /// Generates a banana icon image to be used in the UI.
@@ -1650,6 +1917,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 
 - (UIButton*)createImageGenerationButton {
   UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
+  button.configurationUpdateHandler =
+      [self configurationUpdateHandlerForModeIndicator];
   button.translatesAutoresizingMaskIntoConstraints = NO;
   button.accessibilityIdentifier =
       kComposeboxImageGenerationButtonAccessibilityIdentifier;
@@ -1659,8 +1928,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   button.layer.borderWidth = 0;
 
   UIButtonConfiguration* config =
-      [self modeIndicatorButtonConfigWithTitle:
-                l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION)
+      [self modeIndicatorButtonConfigWithTitle:[self createImageActionTitle]
                                          image:[self bananaIcon]];
   config.contentInsets = kImageGenerationButtonInsets;
   config.background.backgroundColor =
@@ -1674,6 +1942,123 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   return button;
 }
 
+// Uptates the create image nudge button title.
+- (void)updateCreateImageTitle {
+  UIButtonConfiguration* config = _imageGenerationButton.configuration;
+
+  NSString* createImageTitle = [self createImageActionTitle];
+  UIFont* font = [UIFont systemFontOfSize:kAIMButtonFontSize
+                                   weight:UIFontWeightMedium];
+  NSDictionary* attributes = @{NSFontAttributeName : font};
+
+  config.attributedTitle =
+      [[NSAttributedString alloc] initWithString:createImageTitle
+                                      attributes:attributes];
+
+  _imageGenerationButton.configuration = config;
+}
+
+- (NSString*)createImageActionTitle {
+  BOOL isPro = _modelOption == ComposeboxModelOption::kThinking;
+  return l10n_util::GetNSString(isPro
+                                    ? IDS_IOS_COMPOSEBOX_CREATE_IMAGE_PRO_ACTION
+                                    : IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION);
+}
+
+// Creates a new canvas button to be displayed in the input plate.
+- (UIButton*)createCanvasButton {
+  UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
+  button.configurationUpdateHandler =
+      [self configurationUpdateHandlerForModeIndicator];
+  button.translatesAutoresizingMaskIntoConstraints = NO;
+  [button addTarget:self
+                action:@selector(canvasButtonTapped)
+      forControlEvents:UIControlEventTouchUpInside];
+  button.layer.borderWidth = 0;
+
+  UIButtonConfiguration* config = [self
+      modeIndicatorButtonConfigWithTitle:l10n_util::GetNSString(
+                                             IDS_IOS_COMPOSEBOX_CANVAS_ACTION)
+                                   image:CustomSymbolWithPointSize(
+                                             kDocumentBadgeSpark,
+                                             kAIMButtonSymbolPointSize)];
+  NSDirectionalEdgeInsets insets = kModeIndicatorButtonInsets;
+  insets.trailing = kModeIndicatorButtonInsets.trailing + kXButtonWidthInButton;
+  config.contentInsets = insets;
+
+  config.background.backgroundColor = [_theme canvasButtonBackgroundColor];
+  config.baseForegroundColor = [_theme canvasButtonTextColor];
+  button.tintColor = [_theme canvasButtonTextColor];
+
+  button.configuration = config;
+
+  [NSLayoutConstraint activateConstraints:@[
+    [button.widthAnchor
+        constraintGreaterThanOrEqualToConstant:kAIMButtonBaseWidth +
+                                               kXButtonWidthInButton]
+  ]];
+
+  [self setupXMarkInButton:button];
+
+  return button;
+}
+
+// Creates a new deep search button to be displayed in the input plate.
+- (UIButton*)createDeepSearchButton {
+  UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
+  button.configurationUpdateHandler =
+      [self configurationUpdateHandlerForModeIndicator];
+  button.translatesAutoresizingMaskIntoConstraints = NO;
+  [button addTarget:self
+                action:@selector(deepSearchButtonTapped)
+      forControlEvents:UIControlEventTouchUpInside];
+  button.layer.borderWidth = 0;
+
+  // TODO(crbug.com/481280186): Replace icon once defined.
+  UIButtonConfiguration* config =
+      [self modeIndicatorButtonConfigWithTitle:
+                l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DEEP_SEARCH_ACTION)
+                                         image:DefaultSymbolWithPointSize(
+                                                   kFindInPageActionSymbol,
+                                                   kAIMButtonSymbolPointSize)];
+  NSDirectionalEdgeInsets insets = kModeIndicatorButtonInsets;
+  insets.trailing = kModeIndicatorButtonInsets.trailing + kXButtonWidthInButton;
+  config.contentInsets = insets;
+
+  config.background.backgroundColor = [_theme deepSearchButtonBackgroundColor];
+  config.baseForegroundColor = [_theme deepSearchButtonTextColor];
+  button.tintColor = [_theme deepSearchButtonTextColor];
+
+  button.configuration = config;
+
+  [NSLayoutConstraint activateConstraints:@[
+    [button.widthAnchor
+        constraintGreaterThanOrEqualToConstant:kAIMButtonBaseWidth +
+                                               kXButtonWidthInButton]
+  ]];
+
+  [self setupXMarkInButton:button];
+
+  return button;
+}
+
+// Returns the configuration update handler animating the button on tap.
+- (UIButtonConfigurationUpdateHandler)
+    configurationUpdateHandlerForModeIndicator {
+  return ^(UIButton* updatedButton) {
+    BOOL isHighlighted = updatedButton.state == UIControlStateHighlighted;
+    CGFloat scale = isHighlighted ? 0.95 : 1.0;
+    CGFloat alpha = isHighlighted ? 0.85 : 1.0;
+    [UIView animateWithDuration:0.1
+                     animations:^{
+                       updatedButton.alpha = alpha;
+                       updatedButton.transform =
+                           CGAffineTransformMakeScale(scale, scale);
+                     }];
+  };
+}
+
+/// Called when a drop session ends.
 - (void)dropSessionDidEnd:(id<UIDropSession>)session {
   CHECK(self.delegate);
 
@@ -1821,6 +2206,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   CHECK(self.mutator);
   CHECK(tabInfo);
   CHECK_EQ(tabInfo.incognito, _theme.incognito);
+
   web::WebState* webState =
       [self.delegate webStateForTabOnCurrentProfile:tabInfo];
 
@@ -1837,11 +2223,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   CHECK(
       [itemProvider hasItemConformingToTypeIdentifier:UTTypeImage.identifier]);
 
-  // TODO(crbug.com/475203545): Prevent duplicate items being added. The file
-  // picker and the drag-and-drop interfaces have different schemes for
-  // generating asset IDs. They should be common, in order to prevent the same
-  // file being added several times. This should be updated so that asset IDs
-  // generated during drag-and-drop match for the same image being dropped.
   [self.mutator processImageItemProvider:itemProvider
                                  assetID:[NSUUID UUID].UUIDString];
 }
@@ -1862,11 +2243,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)handleTextDrop:(NSString*)text error:(NSError*)error {
   CHECK(self.mutator);
 
-  if (!text) {
-    return;
-  }
-
-  if (error) {
+  if (error || !text) {
     return;
   }
 
@@ -1880,11 +2257,7 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 - (void)handlePDFDrop:(NSURL*)url error:(NSError*)error {
   CHECK(self.mutator);
 
-  if (!url) {
-    return;
-  }
-
-  if (error) {
+  if (error || !url) {
     return;
   }
 

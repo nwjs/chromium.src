@@ -4,6 +4,7 @@
 
 #include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 
@@ -39,6 +40,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/base/collaboration_id.h"
 #include "components/sync/base/data_type.h"
+#include "components/sync/base/features.h"
 #include "components/sync/model/data_type_controller_delegate.h"
 #include "components/sync/test/data_type_store_test_util.h"
 #include "components/sync/test/fake_data_type_controller.h"
@@ -202,9 +204,9 @@ class TabGroupSyncServiceImplTest : public testing::Test {
     pref_service_.registry()->RegisterBooleanPref(
         prefs::kDidEnableSharedTabGroupsInLastSession, true);
     pref_service_.registry()->RegisterDictionaryPref(prefs::kDeletedTabGroupIds,
-                                                     base::Value::Dict());
+                                                     base::DictValue());
     pref_service_.registry()->RegisterDictionaryPref(
-        prefs::kLocallyClosedRemoteTabGroupIds, base::Value::Dict());
+        prefs::kLocallyClosedRemoteTabGroupIds, base::DictValue());
     pref_service_.registry()->RegisterBooleanPref(
         prefs::kEligibleForVersionUpdatedMessage, false);
     pref_service_.registry()->RegisterBooleanPref(
@@ -481,7 +483,7 @@ TEST_F(TabGroupSyncServiceImplTest, GetDeletedGroupIdsUsingPrefs) {
 
   auto deleted_ids = tab_group_sync_service_->GetDeletedGroupIds();
   EXPECT_EQ(1u, deleted_ids.size());
-  EXPECT_TRUE(base::Contains(deleted_ids, local_group_id_1_));
+  EXPECT_TRUE(std::ranges::contains(deleted_ids, local_group_id_1_));
 
   // Now close out the group from tab model and notify service.
   // The entry should be cleaned up from prefs.
@@ -2785,9 +2787,12 @@ TEST_F(TabGroupSyncServiceImplTest, MetricsOnSignin) {
               IsEmpty());
 }
 
+// TODO(crbug.com/417950948): Remove this test once kSync is fully deprecated.
 TEST_F(TabGroupSyncServiceImplTest, MetricsOnSync) {
-  base::HistogramTester histograms;
+  base::test::ScopedFeatureList features;
+  features.InitAndDisableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
 
+  base::HistogramTester histograms;
   identity_test_environment_.MakePrimaryAccountAvailable(
       "account@gmail.com", signin::ConsentLevel::kSync);
 

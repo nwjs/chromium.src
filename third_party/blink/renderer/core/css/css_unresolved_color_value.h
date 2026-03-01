@@ -38,10 +38,6 @@ class CORE_EXPORT CSSUnresolvedColorValue : public CSSValue {
 
   String CustomCSSText() const;
 
-  const CSSValue* CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-      const CSSPropertyName& property_name,
-      wtf_size_t& property_value_index) const;
-
   void TraceAfterDispatch(blink::Visitor* visitor) const {
     visitor->Trace(channels_[0]);
     visitor->Trace(channels_[1]);
@@ -53,6 +49,8 @@ class CORE_EXPORT CSSUnresolvedColorValue : public CSSValue {
   bool Equals(const CSSUnresolvedColorValue& other) const;
 
   Color Resolve(const CSSLengthResolver& resolver) const;
+
+  bool HasRandomFunctions() const;
 
  private:
   const Color::ColorSpace color_space_;

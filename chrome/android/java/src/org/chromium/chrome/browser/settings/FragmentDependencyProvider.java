@@ -10,7 +10,7 @@ import android.os.Bundle;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -69,16 +69,16 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
     // Therefore we use suppliers to provide them once they become available.
     private final OneshotSupplier<SnackbarManager> mSnackbarManagerSupplier;
     private final OneshotSupplier<BottomSheetController> mBottomSheetControllerSupplier;
-    private final ObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
-    private final Supplier<SettingsSearchCoordinator> mSearchCoordinator;
+    private final MonotonicObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final @Nullable SettingsSearchCoordinator mSearchCoordinator;
 
     public FragmentDependencyProvider(
             Context context,
             Profile profile,
             OneshotSupplier<SnackbarManager> snackbarManagerSupplier,
             OneshotSupplier<BottomSheetController> bottomSheetControllerSupplier,
-            ObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
-            Supplier<SettingsSearchCoordinator> searchCoordinator) {
+            MonotonicObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
+            @Nullable SettingsSearchCoordinator searchCoordinator) {
         mContext = context;
         mProfile = profile;
         mSnackbarManagerSupplier = snackbarManagerSupplier;
@@ -108,8 +108,8 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
         if (fragment instanceof SearchViewProvider f) {
             f.setSearchViewObserver(
                     (open) -> {
-                        if (mSearchCoordinator != null && mSearchCoordinator.get() != null) {
-                            mSearchCoordinator.get().showSearchBar(!open);
+                        if (mSearchCoordinator != null) {
+                            mSearchCoordinator.showSearchBar(!open);
                         }
                     });
         }
@@ -163,7 +163,9 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
             sandboxFragment.setCookieSettingsIntentHelper(
                     (Context context) -> {
                         SiteSettingsHelper.showCategorySettings(
-                                context, SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
+                                context,
+                                SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
+                                /* addToBackStack= */ true);
                     });
         }
         if (fragment instanceof LanguageSettings) {

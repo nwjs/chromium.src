@@ -38,11 +38,11 @@ enum class PdfViewerContext {
 };
 
 // Gets all strings used by the PDF Viewer depending on the provided `context`.
-base::Value::Dict GetStrings(PdfViewerContext context);
+base::DictValue GetStrings(PdfViewerContext context);
 
 // Gets additional data used by the PDF Viewer UI. e.g. whether certain features
 // are enabled/disabled.
-base::Value::Dict GetAdditionalData(content::BrowserContext* context);
+base::DictValue GetAdditionalData(content::BrowserContext* context);
 
 // Returns the entries in `resources` that are relevant to `context`.
 // `context` must be `PdfViewerContext::kPdfViewer` or
@@ -59,6 +59,9 @@ bool MaybeDispatchSaveEvent(content::RenderFrameHost* embedder_host);
 // based on the fragment of that URL.
 void DispatchShouldUpdateViewportEvent(content::RenderFrameHost* embedder_host,
                                        const GURL& new_pdf_url);
+
+// Returns true if the glic summarize button should be shown.
+bool ShouldShowGlicSummarizeButton(content::BrowserContext* context);
 
 }  // namespace pdf_extension_util
 

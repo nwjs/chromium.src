@@ -38,28 +38,6 @@ namespace {
   return mojom::AppState::New(app_state);
 }
 
-[[nodiscard]] std::pair<std::string, mojom::PolicyValuePtr>
-MakeMojoPolicyValues(
-    const std::pair<std::string, updater::UpdateService::PolicyValue>&
-        policy_value) {
-  return std::make_pair(policy_value.first,
-                        mojom::PolicyValue::New(policy_value.second));
-}
-
-[[nodiscard]] std::pair<std::string,
-                        base::flat_map<std::string, mojom::PolicyValuePtr>>
-MakeMojoAppPolicyValues(
-    const std::pair<
-        std::string,
-        base::flat_map<std::string, updater::UpdateService::PolicyValue>>&
-        policy_values) {
-  base::flat_map<std::string, mojom::PolicyValuePtr> policies_mojom;
-  std::ranges::transform(policy_values.second,
-                         std::inserter(policies_mojom, policies_mojom.end()),
-                         &MakeMojoPolicyValues);
-  return std::make_pair(policy_values.first, std::move(policies_mojom));
-}
-
 [[nodiscard]] mojom::UpdateStatePtr MakeMojoUpdateState(
     const updater::UpdateService::UpdateState& update_state) {
   return mojom::UpdateState::New(update_state);
@@ -208,14 +186,9 @@ class UpdateServiceStubUntrusted : public mojom::UpdateService {
     impl_->GetUpdaterState(std::move(callback));
   }
 
-  void GetUpdaterPolicies(GetUpdaterPoliciesCallback callback) override {
+  void GetPoliciesJson(GetPoliciesJsonCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    impl_->GetUpdaterPolicies(std::move(callback));
-  }
-
-  void GetAppPolicies(GetAppPoliciesCallback callback) override {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    impl_->GetAppPolicies(std::move(callback));
+    impl_->GetPoliciesJson(std::move(callback));
   }
 
  private:
@@ -394,43 +367,11 @@ void UpdateServiceStub::GetUpdaterState(GetUpdaterStateCallback callback) {
           .Then(task_end_listener_));
 }
 
-void UpdateServiceStub::GetUpdaterPolicies(
-    GetUpdaterPoliciesCallback callback) {
+void UpdateServiceStub::GetPoliciesJson(GetPoliciesJsonCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   task_start_listener_.Run();
-  impl_->GetUpdaterPolicies(
-      base::BindOnce(
-          [](const base::flat_map<
-              std::string, updater::UpdateService::PolicyValue>& policies) {
-            base::flat_map<std::string, mojom::PolicyValuePtr> policies_mojom;
-            std::ranges::transform(
-                policies, std::inserter(policies_mojom, policies_mojom.end()),
-                &MakeMojoPolicyValues);
-            return policies_mojom;
-          })
-          .Then(std::move(callback))
-          .Then(task_end_listener_));
-}
-
-void UpdateServiceStub::GetAppPolicies(GetAppPoliciesCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  task_start_listener_.Run();
-  impl_->GetAppPolicies(
-      base::BindOnce(
-          [](const base::flat_map<
-              std::string,
-              base::flat_map<std::string, updater::UpdateService::PolicyValue>>&
-                 policies) {
-            base::flat_map<std::string,
-                           base::flat_map<std::string, mojom::PolicyValuePtr>>
-                policies_mojom;
-            std::ranges::transform(
-                policies, std::inserter(policies_mojom, policies_mojom.end()),
-                &MakeMojoAppPolicyValues);
-            return policies_mojom;
-          })
-          .Then(std::move(callback))
-          .Then(task_end_listener_));
+  impl_->GetPoliciesJson(
+      base::BindOnce(std::move(callback)).Then(task_end_listener_));
 }
 
 void UpdateServiceStub::CheckForUpdate(

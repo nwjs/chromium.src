@@ -59,6 +59,8 @@ struct BrowserViewLayoutViews {
   raw_ptr<HorizontalTabStripRegionView> horizontal_tab_strip_region_view =
       nullptr;
   raw_ptr<VerticalTabStripRegionView> vertical_tab_strip_region_view = nullptr;
+  raw_ptr<views::View> vertical_tab_strip_bottom_corner = nullptr;
+  raw_ptr<views::View> vertical_tab_strip_top_corner = nullptr;
   raw_ptr<ProjectsPanelView> projects_panel_container = nullptr;
   raw_ptr<views::View> toolbar = nullptr;
   raw_ptr<InfoBarContainerView> infobar_container = nullptr;
@@ -95,6 +97,10 @@ class BrowserViewLayout : public views::LayoutManager {
   // not specified). This value is used for the main browser window only, not
   // for popups.
   static constexpr int kMainBrowserContentsMinimumWidth = 500;
+
+  // The minimum width of the contents area itself. Applies even when side
+  // panels are open and prevents zero or negative contents sizes.
+  static constexpr int kContentsContainerMinimumWidth = 200;
 
   BrowserViewLayout(const BrowserViewLayout&) = delete;
   BrowserViewLayout& operator=(const BrowserViewLayout&) = delete;
@@ -142,16 +148,8 @@ class BrowserViewLayout : public views::LayoutManager {
   // Test-only methods.
 
   // Returns the minimum acceptable width for the browser web contents.
-  bool IsInfobarVisibleForTesting() const;
   void SetDelegateForTesting(
       std::unique_ptr<BrowserViewLayoutDelegate> delegate);
-
-  // DEPRECATED - do not call.
-  //
-  // TODO(https://crbug.com/454583671): Eliminate this in favor of something
-  // that actually returns the specific width needed by the test, or else find
-  // some other way to calculate this in the test itself.
-  virtual int GetMinWebContentsWidthForTesting() const = 0;
 
  protected:
   // |browser| may be null in tests.
@@ -172,9 +170,6 @@ class BrowserViewLayout : public views::LayoutManager {
   // Returns the current pref for vertical tabs by accessing the vertical
   // tab strip state controller
   bool ShouldDisplayVerticalTabs() const;
-
-  // Returns true if an infobar is showing.
-  bool IsInfobarVisible() const;
 
   // Updates bubbles, dialogs, and infobars.
   // Must be called *after* contents pane is laid out.

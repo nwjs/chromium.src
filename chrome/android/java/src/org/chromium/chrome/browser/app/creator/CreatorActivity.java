@@ -14,9 +14,8 @@ import android.view.MenuItem;
 
 import androidx.appcompat.widget.Toolbar;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -32,6 +31,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -53,9 +53,9 @@ public class CreatorActivity extends SnackbarActivity {
     private final ActivityTabProvider mActivityTabProvider = new ActivityTabProvider();
     private final ActivityLifecycleDispatcherImpl mLifecycleDispatcher =
             new ActivityLifecycleDispatcherImpl(this);
-    private final SettableObservableSupplier<ShareDelegate> mShareDelegateSupplier =
+    private final SettableMonotonicObservableSupplier<ShareDelegate> mShareDelegateSupplier =
             ObservableSuppliers.createMonotonic();
-    private final SettableObservableSupplier<ShareDelegate> mTabShareDelegateSupplier =
+    private final SettableMonotonicObservableSupplier<ShareDelegate> mTabShareDelegateSupplier =
             ObservableSuppliers.createMonotonic();
 
     private static class TabShareDelegateImpl extends ShareDelegateImpl {
@@ -64,8 +64,8 @@ public class CreatorActivity extends SnackbarActivity {
                 @Nullable BottomSheetController controller,
                 ActivityLifecycleDispatcherImpl lifecycleDispatcher,
                 ActivityTabProvider tabProvider,
-                ObservableSupplierImpl tabModelSelectorProvider,
-                Supplier profileSupplier,
+                Supplier<@Nullable TabModelSelector> tabModelSelectorProvider,
+                Supplier<@Nullable Profile> profileSupplier,
                 ShareSheetDelegate delegate,
                 boolean isCustomTab) {
             super(
@@ -124,7 +124,7 @@ public class CreatorActivity extends SnackbarActivity {
                         mBottomSheetController,
                         mLifecycleDispatcher,
                         mActivityTabProvider,
-                        /* tabModelSelectProvider */ new ObservableSupplierImpl<>(),
+                        /* tabModelSelectProvider */ ObservableSuppliers.createMonotonic(),
                         getProfileSupplier(),
                         new ShareDelegateImpl.ShareSheetDelegate(),
                         /* isCustomTab= */ false);
@@ -155,7 +155,7 @@ public class CreatorActivity extends SnackbarActivity {
                         mBottomSheetController,
                         mLifecycleDispatcher,
                         mActivityTabProvider,
-                        /* tabModelSelectProvider */ new ObservableSupplierImpl<>(),
+                        /* tabModelSelectProvider */ ObservableSuppliers.createMonotonic(),
                         getProfileSupplier(),
                         new ShareDelegateImpl.ShareSheetDelegate(),
                         /* isCustomTab= */ false,

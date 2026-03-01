@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -377,7 +376,7 @@ bool ScriptRunIterator::MergeSets() {
 
   // Neither is common or inherited. If current is a singleton,
   // just see if it exists in the next set. This is the common case.
-  bool have_priority = base::Contains(*next_set_, priority_script);
+  bool have_priority = std::ranges::contains(*next_set_, priority_script);
   if (current_set_it == current_end) {
     return have_priority;
   }
@@ -470,25 +469,6 @@ bool ScriptRunIterator::Fetch(wtf_size_t* pos, UChar32* ch) {
   }
 
   UNSAFE_TODO(U16_NEXT(text_, ahead_pos_, length_, ahead_character_));
-
-  if (Character::IsGcMark(ahead_character_) &&
-      RuntimeEnabledFeatures::ScriptRunIteratorCombiningMarksEnabled())
-      [[unlikely]] {
-    // A combining mark--whatever its Script property value--should inherit the
-    // script property value of its base character.
-    // https://www.unicode.org/reports/tr24/#Nonspacing_Marks
-    if (RuntimeEnabledFeatures::ScriptRunIteratorCombiningMarkAlwaysEnabled()) {
-      ahead_set_->resize(1);
-      ahead_set_->front() = USCRIPT_INHERITED;
-      return true;
-    } else if (!next_set_->empty() && next_set_->front() != USCRIPT_COMMON) {
-      // `USCRIPT_COMMON` could try looking for more context, but the script of
-      // the combining mark may be still useful, and is backward compatible.
-      // https://www.unicode.org/reports/tr24/#Common
-      *ahead_set_ = *next_set_;
-      return true;
-    }
-  }
 
   script_data_->GetScripts(ahead_character_, *ahead_set_);
   if (ahead_set_->empty()) {

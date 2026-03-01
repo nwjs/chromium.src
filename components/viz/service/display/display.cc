@@ -252,15 +252,25 @@ void Display::PresentationGroupTiming::AddPresentationHelper(
 
 void Display::PresentationGroupTiming::OnDraw(
     base::TimeTicks frame_time,
+    base::TimeDelta interval,
     base::TimeTicks draw_start_timestamp,
     base::flat_set<base::PlatformThreadId> animation_thread_ids,
     base::flat_set<base::PlatformThreadId> renderer_main_thread_ids,
-    HintSession::BoostType boost_type) {
+    HintSession::BoostType boost_type,
+    int64_t choreographer_vsync_id,
+    std::optional<PossibleDeadline> deadline,
+    std::optional<PossibleDeadline> preferred,
+    base::TimeTicks throttled_adjusted_frame_time) {
   frame_time_ = frame_time;
+  interval_ = interval;
   draw_start_timestamp_ = draw_start_timestamp;
   animation_thread_ids_ = std::move(animation_thread_ids);
   renderer_main_thread_ids_ = std::move(renderer_main_thread_ids);
   boost_type_ = boost_type;
+  choreographer_vsync_id_ = choreographer_vsync_id;
+  deadline_ = std::move(deadline);
+  preferred_ = std::move(preferred);
+  throttled_adjusted_frame_time_ = throttled_adjusted_frame_time;
 }
 
 void Display::PresentationGroupTiming::OnSwap(gfx::SwapTimings timings,
@@ -271,6 +281,19 @@ void Display::PresentationGroupTiming::OnSwap(gfx::SwapTimings timings,
     return;
 
   auto frame_latency = timings.swap_start - frame_time_;
+  if (throttled_adjusted_frame_time_ != base::TimeTicks() &&
+      base::FeatureList::IsEnabled(features::kEnableADPFIgnoreThrottledTime)) {
+    // Ignore the time spent between the swap throttled event and the next
+    // ScheduleBeginFrameDeadline.
+    // If frame rendering was throttled due to too many pending swaps,
+    // reporting a long frame duration (implying a heavy CPU workload) may
+    // mislead the system scheduler.
+    frame_latency = timings.swap_start - throttled_adjusted_frame_time_;
+    TRACE_EVENT_INSTANT(
+        "android.adpf", "AdjustFrameLatency", "delta_ms",
+        (throttled_adjusted_frame_time_ - frame_time_).InMillisecondsF(),
+        "latency_ms", frame_latency.InMillisecondsF());
+  }
   if (frame_latency < base::Seconds(0)) {
     LOG(ERROR) << "Frame latency is negative: "
                << frame_latency.InMillisecondsF() << " ms";
@@ -440,17 +463,24 @@ void Display::SetVisible(bool visible) {
 void Display::Resize(const gfx::Size& size) {
   disable_swap_until_resize_ = false;
 
-  if (size == current_surface_size_)
+  auto clamped_size_px = size;
+  auto max_texture_size = output_surface_->capabilities().max_texture_size;
+  if (max_texture_size > 0) {
+    clamped_size_px.SetToMin(gfx::Size(max_texture_size, max_texture_size));
+  }
+
+  if (clamped_size_px == current_surface_size_) {
     return;
+  }
 
   // This DCHECK should probably go at the top of the function, but mac
   // sometimes calls Resize() with 0x0 before it sets a real size. This will
   // early out before the DCHECK fails.
-  DCHECK(!size.IsEmpty());
+  DCHECK(!clamped_size_px.IsEmpty());
   TRACE_EVENT0("viz", "Display::Resize");
 
   swapped_since_resize_ = false;
-  current_surface_size_ = size;
+  current_surface_size_ = clamped_size_px;
 
   damage_tracker_->DisplayResized();
 }
@@ -844,8 +874,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
   AggregatedFrame frame;
   {
     FrameIntervalDecider::ScopedAggregate scoped_interval_decider(
-        frame_interval_decider_->WrapAggregate(*surface_manager_,
-                                               params.frame_time));
+        frame_interval_decider_->WrapAggregate(
+            *surface_manager_, params.begin_frame_args.frame_time));
     gfx::Rect target_damage_bounding_rect;
     if (output_surface_->capabilities().supports_target_damage)
       target_damage_bounding_rect = renderer_->GetTargetDamageBoundingRect();
@@ -1047,9 +1077,12 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     }
 
     presentation_group_timing.OnDraw(
-        params.frame_time, draw_timer->start_time(),
-        std::move(animation_thread_ids), std::move(renderer_main_thread_ids),
-        /*boost_type=*/HintSession::BoostType::kDefault);
+        params.begin_frame_args.frame_time, params.begin_frame_args.interval,
+        draw_timer->start_time(), std::move(animation_thread_ids),
+        std::move(renderer_main_thread_ids),
+        /*boost_type=*/HintSession::BoostType::kDefault,
+        params.choreographer_vsync_id.value_or(0), params.deadline,
+        params.preferred_deadline, params.throttled_adjusted_frame_time);
 
     bool has_interactive_frame = false;
     bool has_animated_frame = false;
@@ -1329,6 +1362,14 @@ void Display::DidReceivePresentationFeedback(
   }
 
   presentation_group_timing.OnPresent(copy_feedback);
+  if (scheduler_) {
+    scheduler_->OnPresentationFeedback(
+        copy_feedback, presentation_group_timing.choreographer_vsync_id(),
+        presentation_group_timing.frame_time(),
+        presentation_group_timing.interval(),
+        presentation_group_timing.deadline(),
+        presentation_group_timing.preferred());
+  }
   pending_presentation_group_timings_.pop_front();
 }
 

@@ -7,7 +7,6 @@
    "app_service_icon_url": "chrome://app-icon/jhmljbjakfnhibnakniigiigpdjbaplp/32",
    "app_size_in_bytes": null,
    "background_color": "none",
-   "borderless_url_patterns": [  ],
    "current_os_integration_states": {
    },
    "dark_mode_background_color": "none",
@@ -48,7 +47,6 @@
    "manifest_url": "",
    "note_taking_new_note_url": "",
    "parent_app_id": null,
-   "pending_migration_info": [  ],
    "protocol_handlers": [  ],
    "related_applications": [  ],
    "run_on_os_login_mode": "not run",

@@ -53,15 +53,14 @@ ScopedJavaLocalRef<jstring> FindInPageBridge::GetPreviousFindText(JNIEnv* env) {
 }
 
 void FindInPageBridge::RequestFindMatchRects(JNIEnv* env,
-                                             jint current_version) {
+                                             int32_t current_version) {
   find_in_page::FindTabHelper::FromWebContents(web_contents_)
       ->RequestFindMatchRects(current_version);
 }
 
-void FindInPageBridge::ActivateNearestFindResult(
-    JNIEnv* env,
-    jfloat x,
-    jfloat y) {
+void FindInPageBridge::ActivateNearestFindResult(JNIEnv* env,
+                                                 float x,
+                                                 float y) {
   find_in_page::FindTabHelper::FromWebContents(web_contents_)
       ->ActivateNearestFindResult(x, y);
 }
@@ -72,9 +71,10 @@ void FindInPageBridge::ActivateFindInPageResultForAccessibility(JNIEnv* env) {
 }
 
 // static
-static jlong JNI_FindInPageBridge_Init(JNIEnv* env,
-                                       const JavaRef<jobject>& self,
-                                       const JavaRef<jobject>& j_web_contents) {
+static int64_t JNI_FindInPageBridge_Init(
+    JNIEnv* env,
+    const JavaRef<jobject>& self,
+    const JavaRef<jobject>& j_web_contents) {
   FindInPageBridge* bridge = new FindInPageBridge(env, self, j_web_contents);
   return reinterpret_cast<intptr_t>(bridge);
 }

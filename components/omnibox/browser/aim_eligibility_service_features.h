@@ -35,6 +35,23 @@ BASE_DECLARE_FEATURE(kAimServerRequestOnIdentityChangeEnabled);
 extern const base::FeatureParam<bool> kRequestOnCookieJarChanges;
 extern const base::FeatureParam<bool> kRequestOnPrimaryAccountChanges;
 
+// If enabled, all composebox context menus will use the `SearchboxConfig` aka
+// PEC API response in the AIM eligibility response.
+BASE_DECLARE_FEATURE(kAimUsePecApi);
+
+// Configures whether to include the client locale in the AIM eligibility
+// request.
+BASE_DECLARE_FEATURE(kAimServerEligibilityIncludeClientLocale);
+
+enum class AimServerEligibilityIncludeClientLocaleMode {
+  kLegacyGet,
+  kGetWithLocale,
+  kPostWithProto,
+};
+
+extern const base::FeatureParam<AimServerEligibilityIncludeClientLocaleMode>
+    kAimServerEligibilityIncludeClientLocaleMode;
+
 }  // namespace omnibox
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_AIM_ELIGIBILITY_SERVICE_FEATURES_H_

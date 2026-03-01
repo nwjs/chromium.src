@@ -136,7 +136,7 @@ class ScopedBoostablePriorityImpl : public v8::ScopedBoostablePriority {
   bool BoostPriority() override {
     return scoped_boostable_priority_.BoostPriority(
         std::min(base::PlatformThread::GetCurrentThreadType(),
-                 base::ThreadType::kInteractive));
+                 base::ThreadType::kAudioProcessing));
   }
 
   void Reset() override { scoped_boostable_priority_.Reset(); }
@@ -262,13 +262,7 @@ int V8Platform::NumberOfWorkerThreads() {
   // V8Platform assumes the number of workers used by the scheduler for user
   // blocking tasks is an upper bound.
   const size_t num_foreground_workers =
-      base::ThreadPoolInstance::Get()
-          ->GetMaxConcurrentNonBlockedTasksWithTraitsDeprecated(
-              {base::TaskPriority::USER_BLOCKING});
-  DCHECK_GE(num_foreground_workers,
-            base::ThreadPoolInstance::Get()
-                ->GetMaxConcurrentNonBlockedTasksWithTraitsDeprecated(
-                    {base::TaskPriority::USER_VISIBLE}));
+      base::ThreadPoolInstance::Get()->GetMaxConcurrentForegroundTasks();
   return std::max(1, static_cast<int>(num_foreground_workers));
 }
 
@@ -354,12 +348,6 @@ v8::TracingController* V8Platform::GetTracingController() {
 }
 
 v8::Platform::StackTracePrinter V8Platform::GetStackTracePrinter() {
-#if BUILDFLAG(IS_WIN)
-  // Sandboxed processes in release builds cannot symbolize stacks.
-  if (!base::debug::InProcessStackDumpingEnabled()) {
-    return nullptr;
-  }
-#endif
   return PrintStackTrace;
 }
 

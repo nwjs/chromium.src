@@ -232,14 +232,13 @@ void LensComposeboxController::AddVisualSelectionContext(
 }
 
 void LensComposeboxController::ClearVisualSelectionContext() {
-  // If there is existing visual selection context, mark it as expired. There
+  // If there is existing visual selection context, mark it as replaced. There
   // should only be one visual selection context at a time. The UI should
   // appropriately remove the existing thumbnail.
   if (vsc_image_data_ && composebox_handler_) {
     composebox_handler_->OnContextualInputStatusChanged(
         vsc_image_data_->id,
-        composebox_query::mojom::FileUploadStatus::kUploadExpired,
-        std::nullopt);
+        contextual_search::FileUploadStatus::kUploadReplaced, std::nullopt);
   }
   vsc_image_data_.reset();
 }
@@ -303,9 +302,8 @@ lens::ClientToAimMessage LensComposeboxController::BuildSubmitQueryMessage(
   submit_query_message->mutable_payload()->set_query_text(query_text);
   submit_query_message->mutable_payload()->set_query_text_source(
       lens::QueryPayload::QUERY_TEXT_SOURCE_KEYBOARD_INPUT);
-  submit_query_message->mutable_payload()
-      ->mutable_additional_cgi_params()
-      ->insert(additional_query_params.begin(), additional_query_params.end());
+  submit_query_message->mutable_payload()->mutable_cgi_params()->insert(
+      additional_query_params.begin(), additional_query_params.end());
 
   // Populate the Lens related data from the active query flow.
   lens::LensImageQueryData* lens_image_query_data =

@@ -8,12 +8,11 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 
 BrowserListEnumerator::BrowserListEnumerator(bool enumerate_new_browser)
     : enumerate_new_browser_(enumerate_new_browser),
-      browsers_(BrowserList::GetInstance()->begin(),
-                BrowserList::GetInstance()->end()) {
+      browsers_(BrowserList::GetInstance()->deprecated_begin(),
+                BrowserList::GetInstance()->deprecated_end()) {
   BrowserList::GetInstance()->AddObserver(this);
 }
 
@@ -30,7 +29,7 @@ BrowserListEnumerator::~BrowserListEnumerator() {
 }
 
 void BrowserListEnumerator::OnBrowserAdded(Browser* browser) {
-  DCHECK(!base::Contains(browsers_, browser));
+  DCHECK(!std::ranges::contains(browsers_, browser));
   if (enumerate_new_browser_) {
     browsers_.push_back(browser);
   }
@@ -43,6 +42,14 @@ void BrowserListEnumerator::OnBrowserRemoved(Browser* browser) {
 Browser* BrowserListEnumerator::Next() {
   Browser* browser = browsers_.front();
   browsers_.erase(browsers_.begin());
-  DCHECK(base::Contains(*BrowserList::GetInstance(), browser));
+  bool found = false;
+  for (auto it = BrowserList::GetInstance()->deprecated_begin();
+       it != BrowserList::GetInstance()->deprecated_end(); ++it) {
+    if (*it == browser) {
+      found = true;
+      break;
+    }
+  }
+  DCHECK(found);
   return browser;
 }

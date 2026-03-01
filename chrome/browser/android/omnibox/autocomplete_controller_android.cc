@@ -152,7 +152,7 @@ AutocompleteControllerAndroid::AutocompleteControllerAndroid(
 void AutocompleteControllerAndroid::Start(
     JNIEnv* env,
     const JavaRef<jstring>& j_text,
-    jint j_cursor_pos,
+    int32_t j_cursor_pos,
     const JavaRef<jstring>& j_desired_tld,
     const JavaRef<jstring>& j_current_url,
     ::metrics::OmniboxEventProto::PageClassification page_classification,
@@ -346,13 +346,13 @@ void AutocompleteControllerAndroid::OnSuggestionSelected(
     JNIEnv* env,
     uintptr_t match_ptr,
     int suggestion_line,
-    const jint j_window_open_disposition,
+    const int32_t j_window_open_disposition,
     const JavaRef<jstring>& j_current_url,
     ::metrics::OmniboxEventProto::PageClassification page_classification,
-    jlong elapsed_time_since_first_modified,
-    jint completed_length,
+    int64_t elapsed_time_since_first_modified,
+    int32_t completed_length,
     const JavaRef<jobject>& j_web_contents,
-    jlong omnibox_action_ptr) {
+    int64_t omnibox_action_ptr) {
   std::u16string url = ConvertJavaStringToUTF16(env, j_current_url);
   const GURL current_url = GURL(url);
   const base::TimeTicks& now(base::TimeTicks::Now());
@@ -471,7 +471,7 @@ void AutocompleteControllerAndroid::DeleteMatch(JNIEnv* env,
 
 void AutocompleteControllerAndroid::DeleteMatchElement(JNIEnv* env,
                                                        uintptr_t match_ptr,
-                                                       jint element_index) {
+                                                       int32_t element_index) {
   const auto* match = reinterpret_cast<AutocompleteMatch*>(match_ptr);
   if (match->SupportsDeletion()) {
     autocomplete_controller_->DeleteMatchElement(*match, element_index);
@@ -482,7 +482,7 @@ ScopedJavaLocalRef<jobject> AutocompleteControllerAndroid::
     UpdateMatchDestinationURLWithAdditionalSearchboxStats(
         JNIEnv* env,
         uintptr_t match_ptr,
-        jlong elapsed_time_since_input_change) {
+        int64_t elapsed_time_since_input_change) {
   auto* match = reinterpret_cast<AutocompleteMatch*>(match_ptr);
   autocomplete_controller_
       ->UpdateMatchDestinationURLWithAdditionalSearchboxStats(
@@ -541,8 +541,8 @@ void AutocompleteControllerAndroid::SetVoiceMatches(
 
 void AutocompleteControllerAndroid::OnSuggestionDropdownHeightChanged(
     JNIEnv* env,
-    jint dropdown_height_with_keyboard_active_px,
-    jint suggestion_height_px) {
+    int32_t dropdown_height_with_keyboard_active_px,
+    int32_t suggestion_height_px) {
   if (suggestion_height_px == 0) {
     // Don't touch the group definitions.
     return;
@@ -564,10 +564,6 @@ void AutocompleteControllerAndroid::CreateNavigationObserver(
     JNIEnv* env,
     uintptr_t navigation_handle_ptr,
     uintptr_t match_ptr) {
-  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxShortcutsAndroid)) {
-    return;
-  }
-
   auto* navigation_handle =
       reinterpret_cast<content::NavigationHandle*>(navigation_handle_ptr);
   const auto& match = *reinterpret_cast<AutocompleteMatch*>(match_ptr);

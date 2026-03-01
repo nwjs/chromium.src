@@ -5,48 +5,38 @@
 /* #css_wrapper_metadata_start
  * #type=style-lit
  * #import=//resources/cr_elements/cr_icons_lit.css.js
+ * #import=./composebox_shared_style.css.js
  * #scheme=relative
- * #include=cr-icons-lit
+ * #include=cr-icons-lit composebox-shared-style
  * #css_wrapper_metadata_end */
 
 #carousel {
   box-sizing: border-box;
-  margin-bottom: 12px;
-  margin-top: 4px;
-  margin-inline-end: var(--context-carousel-inline-end-spacing, 50px);
-  margin-inline-start: var(--context-carousel-inline-start-spacing, 50px);
+  margin-bottom: var(--context-non-top-carousel-bottom-margin, 12px);
+  margin-top: var(--context-non-top-carousel-top-margin, 4px);
+  /* Prefer using margin, but from legacy var name, we should be using inset. */
+  inset-inline-start: var(--context-carousel-inline-start-spacing, 50px);
+  position: relative;
+  width: calc(100% - var(--context-carousel-inline-start-spacing, 50px) -
+      var(--context-carousel-inline-end-spacing, 50px));
 }
 
 #carousel.top {
-  margin-bottom: 0;
-  margin-top: 0;
+  margin-bottom: var(--context-top-carousel-bottom-margin, 0);
+  margin-top: var(--context-top-carousel-top-margin, 0);
   position: absolute;
-  top: 14px;
+  top: var(--context-carousel-top-position, 14px);
   width: auto;
-}
-
-.context-menu-container {
-  align-items: center;
-  cursor: text;
-  display: flex;
-  gap: 4px;
-  margin-bottom: var(--contextual-entrypoint-and-carousel-context-menu-container-margin-bottom);
-  min-height: var(--cr-icon-button-size);
-  padding-inline-start: var(--contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start, 4px);
-  flex-wrap: nowrap;
 }
 
 :host([is-omnibox-in-compact-mode_]) .context-menu-container {
   min-height: 0;
 }
 
-.context-menu-container > * {
-  flex-shrink: 0;
-}
-
 #contextEntrypoint {
   color: var(--color-searchbox-results-foreground);
-  padding-inline: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline, 8px);
+  padding-inline-start: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start, 8px);
+  padding-inline-end: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-end, 8px);
 }
 
 #toolChipsContainer {
@@ -59,38 +49,16 @@
   padding-inline-start: var(--text-input-inline-start-spacing);
 }
 
-.upload-button {
-  --cr-icon-button-focus-outline-color:
-      var(--color-searchbox-results-icon-focused-outline);
-  --cr-icon-button-icon-size: 24px;
-  --cr-icon-button-hover-background-color:
-      var(--color-searchbox-results-background-hovered);
-  --cr-icon-button-size: 48px;
-  color: var(--color-composebox-upload-button);
-  display: flex;
-  flex-wrap: nowrap;
+:host(:not([file-uploads-complete])) .upload-button {
+  cursor: not-allowed;
 }
 
-.context-menu-container:has(.contextual-chip) {
-  padding-bottom: var(--contextual-entrypoint-and-carousel-contextual-chip-padding-bottom);
-}
-
-:host([inputs-disabled_]) .upload-button {
+:host([upload-button-disabled_]) .upload-button {
   color: var(--color-composebox-upload-button-disabled);
 }
 
 #imageUploadButton {
   --cr-icon-button-margin-start: -12px;
-}
-
-.carousel-divider {
-  border-radius: 100px;
-  border-top: 1px solid
-    var(--color-composebox-file-carousel-divider);
-  margin-inline-end: 16px;
-  margin-inline-start: var(--text-input-inline-start-spacing);
-  margin-top: var(--contextual-entrypoint-and-carousel-carousel-divider-margin-top, 20px);
-  margin-bottom: var(--contextual-entrypoint-and-carousel-carousel-divider-margin-bottom, 10px);
 }
 
 #deepSearchButton {

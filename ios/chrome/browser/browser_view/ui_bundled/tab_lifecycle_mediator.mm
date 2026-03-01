@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/browser_view/ui_bundled/tab_lifecycle_mediator.h"
 
+#import "components/webauthn/ios/passkey_tab_helper.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/autofill_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
@@ -51,7 +52,6 @@
 #import "ios/chrome/browser/ssl/model/captive_portal_tab_helper.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_error_container.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
-#import "ios/chrome/browser/tabs/model/tabs_dependency_installer.h"
 #import "ios/chrome/browser/tabs/model/tabs_dependency_installer_bridge.h"
 #import "ios/chrome/browser/web/model/annotations/annotations_tab_helper.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
@@ -77,8 +77,7 @@
 
 - (instancetype)initWithBrowser:(Browser*)browser {
   if ((self = [super init])) {
-    _dependencyInstallerBridge.StartObserving(
-        self, browser, TabsDependencyInstaller::Policy::kOnlyRealized);
+    _dependencyInstallerBridge.StartObserving(self, browser);
     _browser = browser;
   }
   return self;
@@ -123,6 +122,13 @@
     passwordTabHelper->SetPasswordControllerDelegate(
         _passwordControllerDelegate);
     passwordTabHelper->SetDispatcher(_commandDispatcher);
+  }
+
+  webauthn::PasskeyTabHelper* passkeyTabHelper =
+      webauthn::PasskeyTabHelper::FromWebState(webState);
+  if (passkeyTabHelper) {
+    passkeyTabHelper->SetIOSPasskeyClientCommandsHandler(
+        HandlerForProtocol(_commandDispatcher, IOSPasskeyClientCommands));
   }
 
   AutofillBottomSheetTabHelper* bottomSheetTabHelper =
@@ -256,13 +262,6 @@
         HandlerForProtocol(_commandDispatcher, BWGCommands);
     BWGTabHelper->SetBwgCommandsHandler(BWGCommandsHandler);
 
-    // TODO(crbug.com/455903668): Remove this or refactor to
-    // `HandlerForProtocol`.
-    if (IsWebPageReportedImagesSheetEnabled()) {
-      BWGTabHelper->SetSnackbarCommandsHandler(
-          static_cast<id<SnackbarCommands>>(_commandDispatcher));
-    }
-
     if (IsAskGeminiChipEnabled()) {
       BWGTabHelper->SetLocationBarBadgeCommandsHandler(
           id<LocationBarBadgeCommands>(_commandDispatcher));
@@ -309,6 +308,12 @@
   if (passwordTabHelper) {
     passwordTabHelper->SetPasswordControllerDelegate(nil);
     passwordTabHelper->SetDispatcher(nil);
+  }
+
+  webauthn::PasskeyTabHelper* passkeyTabHelper =
+      webauthn::PasskeyTabHelper::FromWebState(webState);
+  if (passkeyTabHelper) {
+    passkeyTabHelper->SetIOSPasskeyClientCommandsHandler(nil);
   }
 
   AutofillBottomSheetTabHelper* bottomSheetTabHelper =
@@ -400,9 +405,6 @@
   BwgTabHelper* BWGTabHelper = BwgTabHelper::FromWebState(webState);
   if (BWGTabHelper) {
     BWGTabHelper->SetBwgCommandsHandler(nil);
-    if (IsWebPageReportedImagesSheetEnabled()) {
-      BWGTabHelper->SetSnackbarCommandsHandler(nil);
-    }
     if (IsAskGeminiChipEnabled()) {
       BWGTabHelper->SetLocationBarBadgeCommandsHandler(nil);
     }

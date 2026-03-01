@@ -37,7 +37,7 @@ class ChromeContentClient : public content::ContentClient {
 
   ChromeContentClient();
   ~ChromeContentClient() override;
-  void LoadNWAppAsExtension(base::Value::Dict* manifest,
+  void LoadNWAppAsExtension(base::DictValue* manifest,
                             const base::FilePath& path,
                             std::string* error) override;
 

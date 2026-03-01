@@ -12,13 +12,18 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_generator.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_metrics.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/tab_id_generator.h"
+#include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
+#include "chrome/common/pref_names.h"
+#include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/google/core/common/google_util.h"
 #include "components/search/ntp_features.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -119,6 +124,11 @@ ActionChipsHandler::ActionChipsHandler(
   // No need to call RemoveObserver later since TabStripModelObserver takes care
   // of it in its destructor.
   browser_window_interface->GetTabStripModel()->AddObserver(this);
+  pref_change_registrar_.Init(profile_->GetPrefs());
+  pref_change_registrar_.Add(
+      prefs::kNtpToolChipsVisible,
+      base::BindRepeating(&ActionChipsHandler::OnVisibilityChanged,
+                          weak_factory_.GetWeakPtr()));
 }
 
 ActionChipsHandler::~ActionChipsHandler() = default;
@@ -147,6 +157,25 @@ void ActionChipsHandler::StartActionChipsRetrieval() {
                      weak_factory_.GetWeakPtr(), std::move(start_time)));
 }
 
+void ActionChipsHandler::ActivateMetricsFunnel(const std::string& funnel_name) {
+  auto* controller = web_ui_->GetController();
+  NewTabPageUI* ntp_ui =
+      controller ? controller->GetAs<NewTabPageUI>() : nullptr;
+  if (!ntp_ui) {
+    return;
+  }
+
+  auto* session_handle = ntp_ui->GetOrCreateContextualSessionHandle();
+  if (!session_handle) {
+    return;
+  }
+
+  auto* metrics_recorder = session_handle->GetMetricsRecorder();
+  if (metrics_recorder) {
+    metrics_recorder->ActivateMetricsFunnel(funnel_name);
+  }
+}
+
 void ActionChipsHandler::SendActionChipsToUi(base::TimeTicks start_time,
                                              std::vector<ActionChipPtr> chips) {
   if (!page_.is_bound()) {
@@ -162,6 +191,7 @@ void ActionChipsHandler::SendActionChipsToUi(base::TimeTicks start_time,
 
   RecordActionChipsRetrievalLatencyMetrics(base::TimeTicks::Now() - start_time);
   RecordImpressionMetrics(chips);
+  action_chips::RecordActionChipsAnyShown(!chips.empty());
 
   page_->OnActionChipsChanged(std::move(chips));
 }
@@ -182,4 +212,11 @@ bool ActionChipsHandler::ShouldThrottleRetrieval(const GURL& current_url) {
   }
   last_processed_url_ = current_url;
   return false;
+}
+
+void ActionChipsHandler::OnVisibilityChanged() {
+  if (profile_->GetPrefs()->GetBoolean(prefs::kNtpToolChipsVisible)) {
+    last_processed_url_.reset();
+    StartActionChipsRetrieval();
+  }
 }

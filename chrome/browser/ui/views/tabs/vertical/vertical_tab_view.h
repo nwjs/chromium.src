@@ -5,16 +5,19 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TABS_VERTICAL_VERTICAL_TAB_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_TABS_VERTICAL_VERTICAL_TAB_VIEW_H_
 
+#include <optional>
 #include <vector>
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
-#include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
-#include "chrome/browser/ui/views/tabs/tab_context_menu_controller.h"
+#include "chrome/browser/ui/views/tabs/hover_card_anchor_target.h"
+#include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
+#include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
 #include "chrome/common/buildflags.h"
 #include "components/tabs/public/tab_interface.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/context_menu_controller.h"
@@ -38,12 +41,17 @@ class TabUnderlineView;
 }
 #endif
 
-// View for a vertical tabstrip's tab.
+// The view class for the tab. It is responsible for painting the
+// tab background and displaying the favicon, title, alert indicators and close
+// button. It handles data changed event and view hierarchy changes to updates
+// its states. The tab view implements its own layout and avoids using
+// FlexLayout for performance reasons.
 class VerticalTabView : public views::View,
                         public views::LayoutDelegate,
                         public views::MaskedTargeterDelegate,
                         public AlertIndicatorButton::Delegate,
-                        public views::ContextMenuController {
+                        public views::ContextMenuController,
+                        public HoverCardAnchorTarget {
   METADATA_HEADER(VerticalTabView, views::View)
 
  public:
@@ -55,14 +63,25 @@ class VerticalTabView : public views::View,
   void StepLoadingAnimation(const base::TimeDelta& elapsed_time);
   void UpdateHovered(bool hovered);
 
-  void OnTabDragOver();
+  std::optional<SkColor> GetBackgroundColor();
+  SkPath GetPath() const;
+
+  const TabCollectionNode* collection_node() const { return collection_node_; }
   const TabStyle* tab_style() { return tab_style_; }
-  const TabRendererData& tab_data() const { return tab_data_; }
-  TabCloseButton* close_button_for_testing() { return close_button_; }
   float radial_highlight_opacity() { return radial_highlight_opacity_; }
+
+  TabCloseButton* close_button_for_testing() { return close_button_; }
+  bool collapsed_for_testing() { return collapsed_; }
+
+  // HoverCardAnchorTarget:
+  bool IsActive() const override;
+  bool IsValid() const override;
+  const TabRendererData& data() const override;
+  views::BubbleBorder::Arrow GetAnchorPosition() const override;
 
  private:
   // views::View
+  void Layout(PassKey) override;
   bool OnKeyPressed(const ui::KeyEvent& event) override;
   bool OnKeyReleased(const ui::KeyEvent& event) override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
@@ -71,9 +90,12 @@ class VerticalTabView : public views::View,
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
   bool OnMouseDragged(const ui::MouseEvent& event) override;
+  void OnGestureEvent(ui::GestureEvent* event) override;
   void OnPaint(gfx::Canvas* canvas) override;
   void AddedToWidget() override;
   void RemovedFromWidget() override;
+  void OnFocus() override;
+  void OnBlur() override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
 
@@ -88,6 +110,9 @@ class VerticalTabView : public views::View,
   gfx::Rect GetChildBounds(const gfx::Rect& container,
                            const TabChildConfig& config,
                            const bool center) const;
+
+  // Calculates the visibilities of child views based on various states.
+  absl::flat_hash_map<views::View*, bool> CalculateChildVisibilities() const;
 
   // views::LayoutDelegate
   views::ProposedLayout CalculateProposedLayout(
@@ -110,26 +135,32 @@ class VerticalTabView : public views::View,
 
   void ResetCollectionNode();
 
+  void UpdateAccessibleName();
+  void OnAXNameChanged(ax::mojom::StringAttribute attribute,
+                       const std::optional<std::string>& name);
   void OnDataChanged();
+  void SetSelection(bool selected);
+  void UpdateTabData(tabs::TabInterface* tab);
 
+  void UpdateTitle();
   void UpdateBorder();
-
-  void UpdateAlertIndicatorVisibility();
-  void UpdateCloseButtonVisibility();
-
   void UpdateColors();
   void UpdateContrastRatioValues();
 
   void CloseButtonPressed(const ui::Event& event);
+  void RecordMousePressedInTab();
+
+  void UpdateHoverCard(HoverCardAnchorTarget* target,
+                       int hover_card_update_type);
 
   bool IsHoverAnimationActive() const;
   double GetHoverAnimationValue() const;
   float GetHoverOpacity() const;
 
-  SkPath GetPath() const;
-
   bool IsFrameActive() const;
   TabStyle::TabSelectionState GetSelectionState() const;
+
+  bool IsDragging() const;
 
   const tabs::TabInterface* GetTabInterface() const;
 
@@ -157,6 +188,9 @@ class VerticalTabView : public views::View,
   bool selected_ = false;
   bool hovered_ = false;
   bool split_ = false;
+  // |collapsed_| represents whether the VerticalTabView itself is collapsed,
+  // which is not the same as if the VerticalTabStripView is collapsed.
+  bool collapsed_ = false;
   bool pinned_ = false;
   bool shift_pressed_on_mouse_down_ = false;
 
@@ -164,6 +198,8 @@ class VerticalTabView : public views::View,
   float hover_opacity_min_;
   float hover_opacity_max_;
   float radial_highlight_opacity_;
+
+  base::CallbackListSubscription ax_name_changed_subscription_;
 
   base::WeakPtrFactory<VerticalTabView> weak_ptr_factory_{this};
 };

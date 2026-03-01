@@ -5,6 +5,8 @@
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {GlicRequestHeaderInjector} from '/shared/glic_request_headers.js';
+import {createWebView, isFullWebView} from '/shared/web_view_type.js';
+import type {WebViewType} from '/shared/web_view_type.js';
 import type {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
 
 import type {BrowserProxyImpl} from './browser_proxy.js';
@@ -113,7 +115,7 @@ type ChromeEventFunctionType<T> =
 // Creates and manages the <webview> element, and the GlicApiHost which
 // communicates with it.
 export class WebviewController {
-  webview: chrome.webviewTag.WebView;
+  webview: WebViewType;
   private host?: GlicApiHost;
   private communicator?: GlicApiCommunicator;
   private hostSubscriber?: Subscriber;
@@ -122,7 +124,7 @@ export class WebviewController {
   private webClientState =
       ObservableValue.withValue(WebClientState.UNINITIALIZED);
   private oneMinuteTimer = new OneShotTimer(1000 * 60);
-  private glicRequestHeaderInjector: GlicRequestHeaderInjector;
+  private glicRequestHeaderInjector?: GlicRequestHeaderInjector;
 
   constructor(
       private readonly container: HTMLElement,
@@ -131,26 +133,31 @@ export class WebviewController {
       private hostEmbedder: ApiHostEmbedder,
       private persistentState: WebviewPersistentState,
   ) {
-    this.webview =
-        document.createElement('webview') as chrome.webviewTag.WebView;
+    this.webview = createWebView();
 
-    this.glicRequestHeaderInjector = new GlicRequestHeaderInjector(
-        this.webview, loadTimeData.getString('chromeVersion'),
-        loadTimeData.getString('chromeChannel'),
-        loadTimeData.getString('glicHeaderRequestTypes'));
+    if (isFullWebView(this.webview)) {
+      this.glicRequestHeaderInjector = new GlicRequestHeaderInjector(
+          this.webview, loadTimeData.getString('chromeVersion'),
+          loadTimeData.getString('chromeChannel'),
+          loadTimeData.getString('glicHeaderRequestTypes'));
 
-    // Intercept all main frame requests, and block them if they are not allowed
-    // origins.
-    const onBeforeRequest = this.onBeforeRequest.bind(this);
-    this.webview.request.onBeforeRequest.addListener(
-        onBeforeRequest, {
-          types: [ResourceType.MAIN_FRAME],
-          urls: ['<all_urls>'],
-        },
-        ['blocking']);
-    this.onDestroy.push(() => {
-      this.webview.request.onBeforeRequest.removeListener(onBeforeRequest);
-    });
+      // Intercept all main frame requests, and block them if they are not
+      // allowed origins.
+      const onBeforeRequest = this.onBeforeRequest.bind(this);
+      this.webview.request.onBeforeRequest.addListener(
+          onBeforeRequest, {
+            types: [ResourceType.MAIN_FRAME],
+            urls: ['<all_urls>'],
+          },
+          ['blocking']);
+      this.onDestroy.push(() => {
+        // Need to check the type again as this function runs in a different
+        // scope.
+        if (isFullWebView(this.webview)) {
+          this.webview.request.onBeforeRequest.removeListener(onBeforeRequest);
+        }
+      });
+    }
 
     this.webview.id = 'guestFrame';
     this.webview.setAttribute('partition', 'persist:glicpart');
@@ -167,7 +174,7 @@ export class WebviewController {
         this.webview, 'permissionrequest', this.onPermissionRequest.bind(this));
     this.eventTracker.add(
         this.webview, 'unresponsive', this.onUnresponsive.bind(this));
-    this.eventTracker.add(this.webview, 'exit', this.onExit.bind(this) as any);
+    this.eventTracker.add(this.webview, 'exit', this.onExit.bind(this));
 
     this.webview.src = this.persistentState.useLoadUrl();
 
@@ -186,7 +193,10 @@ export class WebviewController {
   }
 
   destroy() {
-    this.glicRequestHeaderInjector.destroy();
+    if (this.glicRequestHeaderInjector !== undefined) {
+      this.glicRequestHeaderInjector.destroy();
+      this.glicRequestHeaderInjector = undefined;
+    }
     this.oneMinuteTimer.reset();
     if (this.host) {
       chrome.metricsPrivate.recordEnumerationValue(
@@ -233,7 +243,7 @@ export class WebviewController {
     }
   }
 
-  private onLoadCommit(e: any): void {
+  private onLoadCommit(e: chrome.webviewTag.LoadCommitEvent): void {
     this.loadCommit(e.url, e.isTopLevel);
   }
 
@@ -241,11 +251,12 @@ export class WebviewController {
     this.webview.focus();
   }
 
-  private onNewWindow(e: Event): void {
-    this.onNewWindowEvent(e as chrome.webviewTag.NewWindowEvent);
+  private onNewWindow(e: chrome.webviewTag.NewWindowEvent): void {
+    this.onNewWindowEvent(e);
   }
 
-  private async onPermissionRequest(e: any): Promise<void> {
+  private async onPermissionRequest(
+      e: chrome.webviewTag.PermissionRequestEvent): Promise<void> {
     e.preventDefault();
     if (!this.host) {
       e.request.deny();
@@ -279,19 +290,18 @@ export class WebviewController {
     this.delegate.webviewUnresponsive();
   }
 
-  private onExit: ChromeEventFunctionType<typeof chrome.webviewTag.exit> =
-      (event) => {
-        chrome.metricsPrivate.recordEnumerationValue(
-            'Glic.Session.WebClientCrash.ExitReason',
-            webviewExitReasonStringToEnum(event.reason),
-            Object.keys(WEBVIEW_EXIT_REASON_MAP).length);
-        if (event.reason !== 'normal') {
-          this.destroyHost(WebClientState.ERROR);
-          chrome.metricsPrivate.recordUserAction('GlicSessionWebClientCrash');
-          console.warn(`webview exit. processID: ${event.processID}, reason: ${
-              event.reason}`);
-        }
-      };
+  private onExit(event: chrome.webviewTag.ExitEvent): void {
+    chrome.metricsPrivate.recordEnumerationValue(
+        'Glic.Session.WebClientCrash.ExitReason',
+        webviewExitReasonStringToEnum(event.reason),
+        Object.keys(WEBVIEW_EXIT_REASON_MAP).length);
+    if (event.reason !== 'normal') {
+      this.destroyHost(WebClientState.ERROR);
+      chrome.metricsPrivate.recordUserAction('GlicSessionWebClientCrash');
+      console.warn(`webview exit. processId: ${event.processId}, reason: ${
+          event.reason}`);
+    }
+  }
 
   private loadCommit(url: string, isTopLevel: boolean) {
     if (!isTopLevel) {
@@ -321,7 +331,7 @@ export class WebviewController {
         this.webClientState.assignAndSignal(state);
       });
     }
-    this.browserProxy.pageHandler.webviewCommitted({url});
+    this.browserProxy.pageHandler.webviewCommitted(url);
 
     if (!this.host) {
       this.delegate.webviewPageCommit('loadError');

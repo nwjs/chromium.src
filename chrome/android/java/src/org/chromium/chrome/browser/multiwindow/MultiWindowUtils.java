@@ -7,7 +7,7 @@ package org.chromium.chrome.browser.multiwindow;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.os.Build.VERSION.SDK_INT_FULL;
 
-import static org.chromium.chrome.browser.multiwindow.MultiInstanceManagerApi31.getInstanceCountForManageWindowsMenu;
+import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tabwindow.TabWindowManager.INVALID_WINDOW_ID;
 
 import android.app.Activity;
@@ -58,10 +58,10 @@ import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.InstanceAllocationType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SupportedProfileType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.SupportedProfileType;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -174,7 +174,8 @@ public class MultiWindowUtils implements ActivityStateListener {
         String className = ChromeTabbedActivity.class.getCanonicalName();
         ComponentName comp = new ComponentName(packageName, className);
         try {
-            int launchMode = context.getPackageManager().getActivityInfo(comp, 0).launchMode;
+            ActivityInfo info = context.getPackageManager().getActivityInfo(comp, 0);
+            int launchMode = info == null ? ActivityInfo.LAUNCH_MULTIPLE : info.launchMode;
             boolean isSingleInstancePerTaskConfigured =
                     launchMode == ActivityInfo.LAUNCH_SINGLE_INSTANCE_PER_TASK;
             sIsMultiInstanceApi31Enabled = isSingleInstancePerTaskConfigured;
@@ -280,8 +281,15 @@ public class MultiWindowUtils implements ActivityStateListener {
             return false;
         }
         if (instanceSwitcherEnabled() && isMultiInstanceApi31Enabled()) {
-            // Moving tabs should be possible to any other instance.
-            return getInstanceCountWithFallback(PersistedInstanceType.ANY) > 1;
+            @PersistedInstanceType int instanceType = PersistedInstanceType.ACTIVE;
+            if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
+                if (tabModelSelector.isIncognitoBrandedModelSelected()) {
+                    return getIncognitoInstanceCount(/* activeOnly= */ true) > 1;
+                } else {
+                    instanceType |= PersistedInstanceType.REGULAR;
+                }
+            }
+            return getInstanceCountWithFallback(instanceType) > 1;
         } else {
             return isOpenInOtherWindowSupported(activity);
         }
@@ -329,7 +337,8 @@ public class MultiWindowUtils implements ActivityStateListener {
     public boolean hasAtMostOneTabGroupWithHomepageEnabled(
             TabModelSelector tabModelSelector, TabGroupModelFilter tabGroupModelFilter) {
         int numOfTabs = tabModelSelector.getTotalTabCount();
-        Tab firstTab = tabModelSelector.getCurrentTabModelSupplier().get().getTabAt(0);
+        Tab firstTab =
+                assumeNonNull(tabModelSelector.getCurrentTabModelSupplier().get()).getTabAt(0);
         if (firstTab == null) return true;
         int numOfTabsInGroup = tabGroupModelFilter.getTabCountForGroup(firstTab.getTabGroupId());
 
@@ -487,12 +496,15 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
-     * Returns the number of restorable Chrome instances of a given type.
+     * Returns the number of restorable Chrome instances of a given type that are not marked for
+     * deletion.
      *
      * @param type The {@link PersistedInstanceType} of instances to count.
-     * @return The number of restorable Chrome instances; an instance is considered restorable if it
-     *     has tabs or is associated with a live task. If Robust Window Management is not enabled,
-     *     the type is ignored and all instances, both active and inactive, are counted.
+     * @return The number of restorable Chrome instances not marked for deletion; an instance is
+     *     considered restorable if it has tabs or is associated with a live task. An instance
+     *     marked for deletion is restorable, but not usable unless restored. If Robust Window
+     *     Management is not enabled, the type is ignored and all instances, both active and
+     *     inactive, are counted.
      */
     // TODO (crbug.com/456833895): Remove restorable instance check post-launch.
     public static int getInstanceCountWithFallback(@PersistedInstanceType int type) {
@@ -505,7 +517,8 @@ public class MultiWindowUtils implements ActivityStateListener {
         Set<Integer> ids = MultiInstanceManagerApi31.getPersistedInstanceIds(type);
         int count = 0;
         for (Integer id : ids) {
-            if (isRestorableInstance(id)) {
+            if (isRestorableInstance(id)
+                    && !MultiInstancePersistentStore.readMarkedForDeletion(id)) {
                 count++;
             }
         }
@@ -548,7 +561,7 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @return Whether the app menu 'Manage windows' should be shown.
      */
     public static boolean shouldShowManageWindowsMenu() {
-        return getInstanceCountForManageWindowsMenu() > 1;
+        return getInstanceCountWithFallback(PersistedInstanceType.ANY) > 1;
     }
 
     static boolean isRestorableInstance(int index) {

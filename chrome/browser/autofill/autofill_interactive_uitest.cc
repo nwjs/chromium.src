@@ -1282,7 +1282,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, OnSelectOptionFromDatalist) {
 
 // Test that an <input> field with a <datalist> has a working drop down even if
 // it was dynamically changed to <input type="password"> temporarily. This is a
-// regression test for crbug.com/918351.
+// regression test for crbug.com/41433560.
 IN_PROC_BROWSER_TEST_F(
     AutofillInteractiveTest,
     OnSelectOptionFromDatalistTurningToPasswordFieldAndBack) {
@@ -1309,8 +1309,8 @@ IN_PROC_BROWSER_TEST_F(
       content::ExecJs(GetWebContents(),
                       "document.getElementById('firstname').type = 'search';"));
 
-  // Regression test for crbug.com/918351 whether the datalist becomes available
-  // again.
+  // Regression test for crbug.com/41433560 whether the datalist becomes
+  // available again.
   ASSERT_TRUE(AutofillFlow(GetElementById("firstname"), this,
                            {.num_profile_suggestions = 0, .target_index = 1}));
   // Pressing the down arrow preselects the first item. Pressing it again
@@ -2058,61 +2058,9 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
   // TODO(isherman): verify entire form.
 }
 
-// Test latency time on form submit with lots of stored Autofill profiles.
-// This test verifies when a profile is selected from the Autofill dictionary
-// that consists of thousands of profiles, the form does not hang after being
-// submitted.
-// Flakily times out creating 1500 profiles: http://crbug.com/281527
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
-                       DISABLED_FormFillLatencyAfterSubmit) {
-  std::vector<std::string> cities;
-  cities.push_back("San Jose");
-  cities.push_back("San Francisco");
-  cities.push_back("Sacramento");
-  cities.push_back("Los Angeles");
-
-  std::vector<std::string> streets;
-  streets.push_back("St");
-  streets.push_back("Ave");
-  streets.push_back("Ln");
-  streets.push_back("Ct");
-
-  constexpr int kNumProfiles = 1500;
-  for (int i = 0; i < kNumProfiles; i++) {
-    AutofillProfile profile(AddressCountryCode("US"));
-    std::u16string name(base::NumberToString16(i));
-    std::u16string email(name + u"@example.com");
-    std::u16string street =
-        ASCIIToUTF16(base::NumberToString(base::RandInt(0, 10000)) + " " +
-                     streets[base::RandInt(0, streets.size() - 1)]);
-    std::u16string city =
-        ASCIIToUTF16(cities[base::RandInt(0, cities.size() - 1)]);
-    std::u16string zip(base::NumberToString16(base::RandInt(0, 10000)));
-    profile.SetRawInfo(NAME_FIRST, name);
-    profile.SetRawInfo(EMAIL_ADDRESS, email);
-    profile.SetRawInfo(ADDRESS_HOME_LINE1, street);
-    profile.SetRawInfo(ADDRESS_HOME_CITY, city);
-    profile.SetRawInfo(ADDRESS_HOME_STATE, u"CA");
-    profile.SetRawInfo(ADDRESS_HOME_ZIP, zip);
-    AddTestProfile(browser()->profile(), profile);
-  }
-
-  GURL url = embedded_test_server()->GetURL(
-      "/autofill/latency_after_submit_test.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  ASSERT_TRUE(AutofillFlow(GetElementById("NAME_FIRST"), this));
-
-  content::LoadStopObserver load_stop_observer(GetWebContents());
-
-  ASSERT_TRUE(content::ExecJs(GetWebContents(),
-                              "document.getElementById('testform').submit();"));
-  // This will ensure the test didn't hang.
-  load_stop_observer.Wait();
-}
-
 // Test that Chrome doesn't crash when autocomplete is disabled while the user
 // is interacting with the form.  This is a regression test for
-// http://crbug.com/160476
+// http://crbug.com/40293849
 IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
                        DisableAutocompleteWhileFilling) {
   CreateTestProfile();
@@ -3240,7 +3188,7 @@ class AutofillInteractiveTestChromeVox
   void TearDownOnMainThread() override {
     chromevox_test_utils_.reset();
     // Unload the ChromeVox extension so the browser doesn't try to respond to
-    // in-flight requests during test shutdown. https://crbug.com/923090
+    // in-flight requests during test shutdown. https://crbug.com/41436231
     ash::AccessibilityManager::Get()->EnableSpokenFeedback(false);
     AutomationManagerAura::GetInstance()->Disable();
     AutofillInteractiveTestBase::TearDownOnMainThread();

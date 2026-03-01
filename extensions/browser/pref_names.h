@@ -73,7 +73,7 @@ inline constexpr char kExtensionManagement[] = "extensions.management";
 inline constexpr char kExtensionUnpublishedAvailability[] =
     "extensions.unpublished_availability";
 
-// A allowlist of extension ids the user can install: exceptions from the
+// An allowlist of extension ids the user can install: exceptions from the
 // following denylist.
 inline constexpr char kInstallAllowList[] = "extensions.install.allowlist";
 
@@ -155,6 +155,8 @@ inline constexpr char kGlobalShortcutsUuid[] =
     "extensions.global_shortcuts.uuid";
 
 // Boolean that specifies whether ExtensionInstallCloudPolicyChecks is enabled.
+// This pref is used by both the profile and the browser, it can be found in the
+// local state as well as the profile prefs.
 inline constexpr char kExtensionInstallCloudPolicyChecksEnabled[] =
     "extensions.install.cloud_policy_checks_enabled";
 

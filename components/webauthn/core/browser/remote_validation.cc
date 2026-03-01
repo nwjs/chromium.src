@@ -8,7 +8,6 @@
 #include <string>
 #include <string_view>
 
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
@@ -86,8 +85,7 @@ std::unique_ptr<RemoteValidation> RemoteValidation::Create(
   url::CanonicalizeHostVerbose(relying_party_id,
                                url::Component(0, relying_party_id.size()),
                                &canon_output, &host_info);
-  const std::string_view canonicalized_domain(canon_output.data(),
-                                              canon_output.length());
+  const std::string_view canonicalized_domain = canon_output.view();
   if (host_info.family != url::CanonHostInfo::Family::NEUTRAL ||
       !net::IsCanonicalizedHostCompliant(canonicalized_domain)) {
     // The RP ID must look like a hostname, e.g. not an IP address.
@@ -140,7 +138,7 @@ ValidationStatus RemoteValidation::ValidateWellKnownJSON(
     return ValidationStatus::kJsonParseError;
   }
 
-  const base::Value::List* origins = result->FindList("origins");
+  const base::ListValue* origins = result->FindList("origins");
   if (!origins) {
     return ValidationStatus::kJsonParseError;
   }
@@ -171,7 +169,7 @@ ValidationStatus RemoteValidation::ValidateWellKnownJSON(
     }
 
     const std::string etld_plus_1_label = domain.substr(0, dot_index);
-    if (!base::Contains(labels_seen, etld_plus_1_label)) {
+    if (!labels_seen.contains(etld_plus_1_label)) {
       if (labels_seen.size() >= kMaxLabels) {
         hit_limits = true;
         continue;

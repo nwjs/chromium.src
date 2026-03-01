@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/current_channel_logo.h"
 
+#include "base/check_is_test.h"
+#include "base/logging.h"
 #include "base/version_info/channel.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/grit/theme_resources.h"

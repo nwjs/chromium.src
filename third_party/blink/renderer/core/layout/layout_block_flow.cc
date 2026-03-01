@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/paint/text_overflow_post_layout_snapshot.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/clear_collection_scope.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -126,17 +127,6 @@ bool LayoutBlockFlow::CanContainFirstFormattedLine() const {
   // https://drafts.csswg.org/css-text-3/#text-indent-property
   return !IsAnonymousBlockFlow() || !PreviousSibling() || IsFlexItem() ||
          IsGridItem();
-}
-
-void LayoutBlockFlow::WillBeDestroyed() {
-  NOT_DESTROYED();
-  // Make sure to destroy anonymous children first while they are still
-  // connected to the rest of the tree, so that they will properly dirty line
-  // boxes that they are removed from. Effects that do :before/:after only on
-  // hover could crash otherwise.
-  Children()->DestroyLeftoverChildren();
-
-  LayoutBlock::WillBeDestroyed();
 }
 
 void LayoutBlockFlow::AddChildBeforeDescendant(
@@ -337,10 +327,13 @@ void LayoutBlockFlow::RemoveChild(LayoutObject* old_child) {
       // We removed a LayoutBR from `this`. If this still contains LayoutTexts,
       // we move them to the next anonymous block. Then, remove `this` from the
       // parent.
-      if (auto* next_anonymous = To<LayoutBlockFlow>(NextSibling())) {
-        CHECK(next_anonymous->IsAnonymous());
-        MoveAllChildrenTo(next_anonymous, next_anonymous->FirstChild(),
-                          /* full_remove_insert */ true);
+      if (auto* next_block_flow = To<LayoutBlockFlow>(NextSibling())) {
+        // `next_block_flow` might be a non-anonymous block-flow for InsertHTML
+        // TestRendering.
+        if (next_block_flow->IsAnonymous()) {
+          MoveAllChildrenTo(next_block_flow, next_block_flow->FirstChild(),
+                            /* full_remove_insert */ true);
+        }
       }
     }
     if (!FirstChild()) {
@@ -366,6 +359,14 @@ void LayoutBlockFlow::RemoveChild(LayoutObject* old_child) {
     // inline without the need for anonymous blocks, then do that.
     MakeChildrenInlineIfPossible();
   }
+
+  if (RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled()) {
+    if (!FirstChild() && IsMergeableAnonymousBlock(this)) {
+      // If we don't have any children, and this was created as an anonymous
+      // block, remove this object as we aren't needed anymore.
+      Destroy();
+    }
+  }
 }
 
 bool LayoutBlockFlow::CanMergeWith(const LayoutBoxModelObject& other) const {
@@ -380,6 +381,8 @@ bool LayoutBlockFlow::CanMergeWith(const LayoutBoxModelObject& other) const {
 
 void LayoutBlockFlow::ChildBecameFloatingOrOutOfFlow(LayoutBox* child) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled());
+
   if (IsAnonymousBlockFlow()) {
     if (auto* parent_inline = DynamicTo<LayoutInline>(Parent())) {
       // The child used to be an in-flow block-in-inline, which requires an
@@ -605,7 +608,6 @@ void LayoutBlockFlow::MakeChildrenNonInline(LayoutObject* insertion_point) {
   // This means that we cannot coalesce inlines before |insertionPoint| with
   // inlines following |insertionPoint|, because the new child is going to be
   // inserted in between the inlines, splitting them.
-  DCHECK(!IsInline() || IsAtomicInlineLevel());
   DCHECK(!insertion_point || insertion_point->Parent() == this);
 
   SetChildrenInline(false);
@@ -640,6 +642,7 @@ void LayoutBlockFlow::MakeChildrenNonInline(LayoutObject* insertion_point) {
 
 void LayoutBlockFlow::ChildBecameNonInline(LayoutObject*) {
   NOT_DESTROYED();
+  DCHECK(!RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled());
   MakeChildrenNonInline();
   auto* parent_layout_block = DynamicTo<LayoutBlock>(Parent());
   if (IsAnonymousBlockFlow() && parent_layout_block) {
@@ -658,8 +661,23 @@ bool LayoutBlockFlow::ShouldTruncateOverflowingText() const {
     }
     object_to_check = parent;
   }
-  return object_to_check->HasNonVisibleOverflow() &&
-         !object_to_check->StyleRef().TextOverflow().IsClip();
+  if (!object_to_check->HasNonVisibleOverflow() ||
+      object_to_check->StyleRef().TextOverflow().IsClip()) {
+    return false;
+  }
+  if (RuntimeEnabledFeatures::DisableEllipsisWhenScrolledEnabled()) {
+    if (const auto* box = DynamicTo<LayoutBox>(object_to_check)) {
+      if (auto* scrollable_area = box->GetScrollableArea()) {
+        auto* snapshot = scrollable_area->GetTextOverflowPostLayoutSnapshot();
+        if (!snapshot) {
+          snapshot = MakeGarbageCollected<TextOverflowPostLayoutSnapshot>(
+              *scrollable_area);
+        }
+        return !snapshot->IsScrolled();
+      }
+    }
+  }
+  return true;
 }
 
 Node* LayoutBlockFlow::NodeForHitTest() const {
@@ -673,30 +691,6 @@ Node* LayoutBlockFlow::NodeForHitTest() const {
     return Parent()->NodeForHitTest();
   }
   return LayoutBlock::NodeForHitTest();
-}
-
-bool LayoutBlockFlow::HitTestChildren(HitTestResult& result,
-                                      const HitTestLocation& hit_test_location,
-                                      const PhysicalOffset& accumulated_offset,
-                                      HitTestPhase phase) {
-  NOT_DESTROYED();
-  PhysicalOffset scrolled_offset = accumulated_offset;
-  if (IsScrollContainer())
-    scrolled_offset -= PhysicalOffset(PixelSnappedScrolledContentOffset());
-
-  // TODO(1229581): Layout objects that don't allow fragment traversal for paint
-  // and hit-testing (see CanTraversePhysicalFragments()) still end up here. We
-  // may even end up here if ChildrenInline(). That's just the initial state of
-  // a block, though. As soon as a non-fragment-traversale object gets children,
-  // they will be blocks, and *they* will be fragment-traversable.
-  DCHECK(!ChildrenInline() || !FirstChild());
-  if (!ChildrenInline() &&
-      LayoutBlock::HitTestChildren(result, hit_test_location,
-                                   accumulated_offset, phase)) {
-    return true;
-  }
-
-  return false;
 }
 
 void LayoutBlockFlow::AddOutlineRects(
@@ -859,7 +853,7 @@ PositionWithAffinity LayoutBlockFlow::PositionForPoint(
   DCHECK_GE(GetDocument().Lifecycle().GetState(),
             DocumentLifecycle::kPrePaintClean);
 
-  if (IsAtomicInlineLevel()) {
+  if (IsInline()) {
     PositionWithAffinity position =
         PositionForPointIfOutsideAtomicInlineLevel(point);
     if (!position.IsNull())

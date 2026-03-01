@@ -20,6 +20,7 @@
 <translation id="1432724887402139994">{SECONDS,plural, =1{1 منٹ پہلے}other{# منٹ پہلے}}</translation>
 <translation id="1450753235335490080"><ph name="CONTENT_TYPE" /> کا اشتراک نہیں کیا جا سکتا</translation>
 <translation id="1523230076022876491">{MONTHS,plural, =1{1 ماہ پہلے}other{# ماہ پہلے}}</translation>
+<translation id="1591017414891297549">پیش منظر</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 منٹ اور }other{# منٹ اور }}</translation>
 <translation id="1643823602425662293">اطلاع</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -45,7 +46,7 @@
 <translation id="2168039046890040389">صفحہ اوپر</translation>
 <translation id="2190355936436201913">(خالی)</translation>
 <translation id="2192232475740621500">کم کثافت کا استعمال کریں</translation>
-<translation id="2267918077332197517">اس سائٹ سے تمام اطلاعات کو مسدود کریں</translation>
+<translation id="2267918077332197517">اس سائٹ سے تمام اطلاعات کو بلاک کریں</translation>
 <translation id="2283117145434822734">F6</translation>
 <translation id="2289052229480071835">اپنی اسکرین پر ٹچ اہداف کو تھپتھپائیں۔</translation>
 <translation id="2295140143284145483">سروے</translation>
@@ -169,7 +170,7 @@
 <translation id="6394627529324717982">کوما</translation>
 <translation id="6397363302884558537">بولنا بند کریں</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{1 سیکنڈ پہلے}other{# سیکنڈ پہلے}}</translation>
-<translation id="6430678249303439055">اس ایپ سے تمام اطلاعات کو مسدود کریں</translation>
+<translation id="6430678249303439055">اس ایپ سے تمام اطلاعات کو بلاک کریں</translation>
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 سیکنڈ پہلے}other{# سیکنڈ پہلے}}</translation>
 <translation id="6503257047630241175">‏RTF مواد</translation>
 <translation id="6539092367496845964">کچھ غلط ہو گیا۔ بعد میں دوبارہ کوشش کریں۔</translation>
@@ -232,6 +233,7 @@
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s</translation>
 <translation id="8725488761726303204">+<ph name="NUMBER" /> مزید</translation>
 <translation id="8730621377337864115">ہوگیا</translation>
+<translation id="8741385002816058621">یہ پیش منظر میں ایک خصوصیت ہے</translation>
 <translation id="8772073294905169192">{HOURS,plural, =1{1h}other{#h}}</translation>
 <translation id="8798099450830957504">ڈیفالٹ</translation>
 <translation id="8841375032071747811">'پیچھے' بٹن</translation>

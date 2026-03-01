@@ -389,10 +389,11 @@ bool HTMLMediaElement::IsHLSURL(const KURL& url) {
   if (url.IsNull() || url.IsEmpty())
     return false;
 
-  if (!url.IsLocalFile() && !url.ProtocolIs("http") && !url.ProtocolIs("https"))
+  if (!url.IsLocalFile() && !url.ProtocolIsInHTTPFamily()) {
     return false;
+  }
 
-  return url.GetPath().ToString().EndsWith(".m3u8");
+  return url.GetPath().ends_with(".m3u8");
 }
 
 // static
@@ -4517,6 +4518,15 @@ void HTMLMediaElement::MediaSourceOpened(
 
 bool HTMLMediaElement::IsInteractiveContent() const {
   return FastHasAttribute(html_names::kControlsAttr);
+}
+
+FocusgroupFlags HTMLMediaElement::NativeArrowKeyAxes() const {
+  // Media elements with controls use arrow keys for scrubbing (left/right)
+  // and volume adjustment (up/down).
+  if (ShouldShowControls()) {
+    return FocusgroupFlags::kInline | FocusgroupFlags::kBlock;
+  }
+  return HTMLElement::NativeArrowKeyAxes();
 }
 
 void HTMLMediaElement::BindMediaPlayerReceiver(

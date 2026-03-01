@@ -97,11 +97,7 @@ TEST_F(HTMLTextAreaElementTest, ValueWithHardLineBreaks) {
   inner_editor->appendChild(Text::Create(doc, "90"));
   inner_editor->appendChild(doc.CreateRawElement(html_names::kBrTag));
   RunDocumentLifecycle();
-  if (RuntimeEnabledFeatures::TextareaLineEndingsAsBrEnabled()) {
-    EXPECT_EQ("1234\n5678\n90\n", textarea.ValueWithHardLineBreaks());
-  } else {
-    EXPECT_EQ("1234\n5678\n90", textarea.ValueWithHardLineBreaks());
-  }
+  EXPECT_EQ("1234\n5678\n90\n", textarea.ValueWithHardLineBreaks());
 }
 
 TEST_F(HTMLTextAreaElementTest, ValueWithHardLineBreaksRtl) {
@@ -147,6 +143,19 @@ TEST_F(HTMLTextAreaElementTest, DefaultToolTip) {
   EXPECT_EQ(String(), textarea.DefaultToolTip());
 }
 
+TEST_F(HTMLTextAreaElementTest, DefaultToolTipWithFormNoValidate) {
+  LoadAhem();
+
+  SetBodyContent(R"HTML(
+    <form novalidate>
+      <textarea id=test required></textarea>
+    </form>
+  )HTML");
+  HTMLTextAreaElement& textarea = TestElement();
+
+  EXPECT_EQ(String(), textarea.DefaultToolTip());
+}
+
 TEST_F(HTMLTextAreaElementTest, PlaceholderBreakAfterUndo) {
   Document& doc = GetDocument();
   SetBodyContent("<textarea id=test>foo\n</textarea>");
@@ -180,7 +189,7 @@ TEST_F(HTMLTextAreaElementTest, ClearWithInsertText) {
   textarea.Focus();
   textarea.select();
   const auto* inner_editor =
-      To<LayoutBlockFlow>(textarea.GetLayoutBox()->FirstChildBox());
+      To<LayoutBlockFlow>(textarea.GetLayoutBox()->SlowFirstChild());
   ASSERT_TRUE(inner_editor);
 
   GetDocument().execCommand("insertText", false, "", ASSERT_NO_EXCEPTION);
@@ -196,7 +205,7 @@ TEST_F(HTMLTextAreaElementTest, RemoveLastLineWithInsertText) {
   textarea.Focus();
   textarea.SetSelectionRange(2, 3);
   const auto* inner_editor =
-      To<LayoutBlockFlow>(textarea.GetLayoutBox()->FirstChildBox());
+      To<LayoutBlockFlow>(textarea.GetLayoutBox()->SlowFirstChild());
   ASSERT_TRUE(inner_editor);
 
   GetDocument().execCommand("insertText", false, "", ASSERT_NO_EXCEPTION);

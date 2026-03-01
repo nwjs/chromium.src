@@ -67,6 +67,23 @@ enum class EngineInstallationState {
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/accessibility/enums.xml:ReadAnythingExtensionInstallationState)
 
+// LINT.IfChange(ReadAnythingDistillationScheme)
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ReadAnythingDistillationScheme {
+  kHttpOrHttps = 0,
+  kFile = 1,
+  kInternal = 2,
+  kAbout = 3,
+  kData = 4,
+  kExtension = 5,
+  kBlob = 6,
+  kOther = 7,
+  kMaxValue = kOther,
+};
+
+// LINT.ThenChange(/tools/metrics/histograms/metadata/accessibility/enums.xml:ReadAnythingDistillationScheme)
+
 ///////////////////////////////////////////////////////////////////////////////
 // ReadAnythingWebContentsObserver
 //
@@ -202,6 +219,9 @@ class ReadAnythingUntrustedPageHandler :
   bool immersive_read_anything_pin_state() {
     return immersive_read_anything_pin_state_;
   }
+  void OnDistillationStateChanged(
+      read_anything::mojom::ReadAnythingDistillationState new_state) override;
+
   // PinnedToolbarModel::Observer
   void OnActionsChanged() override;
 
@@ -299,6 +319,7 @@ class ReadAnythingUntrustedPageHandler :
   void SetUpPdfObserver();
 
   void OnGetPresentationState();
+  ReadAnythingController* GetReadAnythingController();
 
   // Called when reading_mode_hidden_ack_timer_ times out without hearing back
   // from the page_.
@@ -329,6 +350,10 @@ class ReadAnythingUntrustedPageHandler :
   // Called if IsReadAnythingWithReadabilityEnabled is enabled. Triggers
   // DomDistiller Distillation for the current page.
   void RequestDomDistillerDistillation(content::WebContents* contents);
+
+  // Called if IsReadAnythingWithReadabilityEnabled is enabled. Records
+  // the current url scheme in ReadAnything.DistillationScheme.
+  void RecordDistillationSchemeHistogram(const GURL& url) const;
 
   // Called by the DistillerDelegate with the result of a DomDistiller
   // distillation.
@@ -429,6 +454,9 @@ class ReadAnythingUntrustedPageHandler :
   // Hold DOM distiller distillation results.
   std::optional<std::string> dom_distiller_title_;
   std::optional<std::string> dom_distiller_content_;
+
+  read_anything::mojom::ReadAnythingDistillationState distillation_state_ =
+      read_anything::mojom::ReadAnythingDistillationState::kUndefined;
 
   base::WeakPtrFactory<ReadAnythingUntrustedPageHandler> weak_factory_{this};
 };

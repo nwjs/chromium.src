@@ -130,6 +130,8 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
   }
   void SetAutofillState(WebAutofillState = WebAutofillState::kAutofilled);
 
+  bool MatchesToolSubmitActivePseudoClass() const;
+
   bool IsAutocompleteEmailUrlOrPassword() const;
 
   const AtomicString& autocapitalize() const final;
@@ -150,6 +152,8 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
   int32_t GetAxId() const;
 
   bool MatchesValidityPseudoClasses() const override;
+
+  String GetWebMCPParameterName() const;
 
  protected:
   HTMLFormControlElement(const QualifiedName& tag_name, Document&);

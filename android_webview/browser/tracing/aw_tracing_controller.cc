@@ -65,8 +65,8 @@ class AwTraceDataEndpoint
 
 namespace android_webview {
 
-static jlong JNI_AwTracingController_Init(JNIEnv* env,
-                                          const JavaRef<jobject>& obj) {
+static int64_t JNI_AwTracingController_Init(JNIEnv* env,
+                                            const JavaRef<jobject>& obj) {
   AwTracingController* controller = new AwTracingController(env, obj);
   return reinterpret_cast<intptr_t>(controller);
 }
@@ -79,7 +79,7 @@ AwTracingController::~AwTracingController() {}
 
 bool AwTracingController::Start(JNIEnv* env,
                                 std::string& categories,
-                                jint jmode) {
+                                int32_t jmode) {
   base::trace_event::TraceConfig trace_config(
       categories, static_cast<base::trace_event::TraceRecordMode>(jmode));
 

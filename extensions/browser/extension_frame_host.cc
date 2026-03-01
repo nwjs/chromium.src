@@ -205,7 +205,7 @@ void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      RequestSyncCallback callback) {
   content::RenderFrameHost* render_frame_host =
       receivers_.GetCurrentTargetFrame();
-  base::Value::List list_value;
+  base::ListValue list_value;
   bool success = false;
   std::string error;
   ExtensionWebContentsObserver::GetForWebContents(web_contents_)
@@ -218,9 +218,9 @@ void ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
 
 bool ExtensionFrameHost::RequestSync(mojom::RequestParamsPtr params,
                                      bool* success,
-                                     base::Value::List* response,
+                                     base::ListValue* response,
                                      std::string* error) {
-  base::Value::List* list_value = response;
+  base::ListValue* list_value = response;
   //  if (!response->GetAsList(list_value))
   //  return false;
   content::RenderFrameHost* render_frame_host =

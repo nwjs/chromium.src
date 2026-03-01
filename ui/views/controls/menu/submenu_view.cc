@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/numerics/safe_conversions.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -88,6 +87,12 @@ MenuItemView* SubmenuView::GetMenuItemAt(size_t index) {
   return menu_items[index];
 }
 
+const MenuItemView* SubmenuView::GetMenuItemAt(size_t index) const {
+  const auto menu_items = GetMenuItems();
+  CHECK_LT(index, menu_items.size());
+  return menu_items[index];
+}
+
 int SubmenuView::GetPreferredItemHeight() const {
   EmptyMenuMenuItem menu_item(parent_menu_item_);
   menu_item.set_controller(parent_menu_item_->GetMenuController());
@@ -113,8 +118,9 @@ void SubmenuView::UpdateMenuPartSizes() {
       std::ranges::any_of(menu_items, &MenuItemView::HasSubmenu)) {
     trailing_padding_ +=
         config.arrow_size +
-        (base::Contains(menu_items, MenuItemView::Type::kActionableSubMenu,
-                        &MenuItemView::GetType)
+        (std::ranges::contains(menu_items,
+                               MenuItemView::Type::kActionableSubMenu,
+                               &MenuItemView::GetType)
              ? config.actionable_submenu_arrow_to_edge_padding
              : config.arrow_to_edge_padding);
   }
@@ -472,9 +478,10 @@ void SubmenuView::SetSelectedRow(std::optional<size_t> row) {
 }
 
 std::u16string SubmenuView::GetTextForRow(size_t row) {
+  MenuItemView* const menu_item_view = GetMenuItemAt(row);
   return MenuItemView::GetAccessibleNameForMenuItem(
-      GetMenuItemAt(row)->title(), std::u16string(),
-      GetMenuItemAt(row)->ShouldShowNewBadge());
+      menu_item_view->title(), std::u16string(),
+      menu_item_view->new_badge_type());
 }
 
 bool SubmenuView::IsShowing() const {
@@ -495,7 +502,11 @@ void SubmenuView::ShowAt(const MenuHost::InitParams& init_params) {
 
     MenuHost::InitParams new_init_params = init_params;
     new_init_params.contents_view = scroll_view_container_.get();
+    base::WeakPtr<SubmenuView> weak_ptr = weak_ptr_factory_.GetWeakPtr();
     host_->InitMenuHost(new_init_params);
+    if (!weak_ptr) {
+      return;
+    }
   }
 
   // Only fire kMenuStart when a top level menu is being shown to notify that
@@ -634,6 +645,11 @@ MenuScrollViewContainer* SubmenuView::GetScrollViewContainer() {
 }
 
 MenuItemView* SubmenuView::GetLastItem() {
+  const auto menu_items = GetMenuItems();
+  return menu_items.empty() ? nullptr : menu_items.back();
+}
+
+const MenuItemView* SubmenuView::GetLastItem() const {
   const auto menu_items = GetMenuItems();
   return menu_items.empty() ? nullptr : menu_items.back();
 }

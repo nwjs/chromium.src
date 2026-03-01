@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/css/css_property_name.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -52,20 +53,20 @@ bool MathMLElement::IsPresentationAttribute(const QualifiedName& name) const {
 
 namespace {
 
-bool ParseScriptLevel(const AtomicString& attributeValue,
-                      unsigned& scriptLevel,
+bool ParseScriptLevel(const AtomicString& attribute_value,
+                      unsigned& script_level,
                       bool& add) {
-  String value = attributeValue;
-  if (value.StartsWith("+") || value.StartsWith("-")) {
+  StringView value = attribute_value;
+  if (value.starts_with('+') || value.starts_with('-')) {
     add = true;
-    value = value.Right(1);
+    value = value.substr(value.length() - 1, 1);
   }
 
   return VisitCharacters(value, [&](auto chars) {
     NumberParsingResult result;
     constexpr auto kOptions =
         NumberParsingOptions().SetAcceptMinusZeroForUnsigned();
-    scriptLevel = CharactersToUInt(chars, kOptions, &result);
+    script_level = CharactersToUInt(chars, kOptions, &result);
     return result == NumberParsingResult::kSuccess;
   });
 }
@@ -93,15 +94,15 @@ void MathMLElement::CollectStyleForPresentationAttribute(
     AddPropertyToPresentationAttributeStyle(style, CSSPropertyID::kColor,
                                             value);
   } else if (name == mathml_names::kScriptlevelAttr) {
-    unsigned scriptLevel = 0;
+    unsigned script_level = 0;
     bool add = false;
-    if (ParseScriptLevel(value, scriptLevel, add)) {
+    if (ParseScriptLevel(value, script_level, add)) {
       if (add) {
         AddPropertyToPresentationAttributeStyle(
             style, CSSPropertyID::kMathDepth, StrCat({"add(", value, ")"}));
       } else {
         AddPropertyToPresentationAttributeStyle(
-            style, CSSPropertyID::kMathDepth, scriptLevel,
+            style, CSSPropertyID::kMathDepth, script_level,
             CSSPrimitiveValue::UnitType::kNumber);
       }
     }
@@ -148,10 +149,15 @@ const CSSPrimitiveValue* MathMLElement::ParseMathLength(
   if (!FastHasAttribute(attr_name))
     return nullptr;
   auto value = FastGetAttribute(attr_name);
+  // TODO(crbug.com/476061189) We are using attribute name as property name for
+  // caching property-dependent random() values. This behaviour is not
+  // specified.
+  CSSParserLocalContext local_context = CSSParserLocalContext(
+      CSSPropertyName(AtomicString(attr_name.ToString())));
   const CSSPrimitiveValue* parsed_value = CSSParser::ParseLengthPercentage(
       value,
       StrictCSSParserContext(GetExecutionContext()->GetSecureContextMode()),
-      value_range);
+      local_context, value_range);
   if (!parsed_value || parsed_value->IsCalculated() ||
       (parsed_value->IsPercentage() &&
        allow_percentages == AllowPercentages::kNo)) {

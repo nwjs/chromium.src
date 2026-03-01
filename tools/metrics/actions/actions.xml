@@ -381,6 +381,8 @@ should be able to be added at any place in this file.
       summary="For FocusHelpBubbleScreenReaderPromo feature."/>
   <variant name="_FollowWhileBrowsing"
       summary="For Follow While-Browsing IPH feature."/>
+  <variant name="_FuseboxAttachment"
+      summary="For engagement with Fusebox attachments."/>
   <variant name="_GenericAlwaysTriggerHelpUiFeature"
       summary="For generic always show help UI feature."/>
   <variant name="_GlicPromo" summary="For Glic feature."/>
@@ -479,6 +481,8 @@ should be able to be added at any place in this file.
       summary="For iOSPasswordPromoDesktop feature"/>
   <variant name="_iOSPaymentPromoDesktop"
       summary="For iOSPaymentPromoDesktop feature"/>
+  <variant name="_iOSPinMostVisitedSiteFeature"
+      summary="For iOSPinMostVisitedSiteFeature feature"/>
   <variant name="_iOSPostDefaultAbandonmentPromo"
       summary="For iOSPostDefaultAbandonmentPromo feature"/>
   <variant name="_iOSPromoAllTabs"
@@ -678,6 +682,8 @@ should be able to be added at any place in this file.
       summary="For the RequestDesktopSiteWindowSetting feature."/>
   <variant name="_RestoreTabsOnFRE"
       summary="For the RestoreTabsOnFRE feature."/>
+  <variant name="_ResumptionRail"
+      summary="For Resumption Rail feature entrypoint."/>
   <variant name="_RtlGestureNavigation"
       summary="For the gesture navigation in RTL mode."/>
   <variant name="_SharedHighlightingBuilder"
@@ -841,6 +847,7 @@ should be able to be added at any place in this file.
 
 <variants name="UserEducation_WhatsNew_Module_Type">
   <variant name="" summary="aggregated"/>
+  <variant name=".archive" summary="What's New archive"/>
   <variant name=".FamilyLink" summary="Family Link"/>
   <variant name=".GANslate" summary="GANslate"/>
   <variant name=".GeminiShortcut" summary="Gemini Shortcut"/>
@@ -3807,6 +3814,15 @@ should be able to be added at any place in this file.
   <description>User navigated to the Android in-app history page.</description>
 </action>
 
+<action name="Android.BookmarkPage.CopyLink">
+  <owner>wylieb@google.com</owner>
+  <owner>hocheung@chromium.org</owner>
+  <description>
+    User copied a bookmark link on the native Android bookmark page by clicking
+    &quot;copy link&quot; from the per-row overflow menu (non-selection mode).
+  </description>
+</action>
+
 <action name="Android.BookmarkPage.ReadingList.MarkAsRead">
   <owner>wylieb@google.com</owner>
   <owner>chrome-collections@google.com</owner>
@@ -4110,6 +4126,36 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user taps on the &quot;Apply&quot; button in the
     cross-device settings import snackbar.
+  </description>
+</action>
+
+<action name="Android.CrossDeviceSettingImport.OmniboxPosition.Apply">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded when the user taps on the &quot;Apply&quot; button in the
+    cross-device settings import snackbar, to apply the bottom/top omnibox
+    position setting only.
+  </description>
+</action>
+
+<action name="Android.CrossDeviceSettingImport.OmniboxPosition.Redo">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded when the user taps on the &quot;Redo&quot; button in the
+    cross-device settings import snackbar, to redo applying the bottom/top
+    omnibox position setting only.
+  </description>
+</action>
+
+<action name="Android.CrossDeviceSettingImport.OmniboxPosition.Undo">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded when the user taps on the &quot;Undo&quot; button in the
+    cross-device settings import snackbar, to undo applying the bottom/top
+    omnibox position setting only.
   </description>
 </action>
 
@@ -4745,6 +4791,48 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.Settings.Opened">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>User opened Settings activity.</description>
+</action>
+
+<action name="Android.Settings.Search.NoMatchFound">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>
+    Settings search found no match to the entered query.
+  </description>
+</action>
+
+<action name="Android.Settings.Search.Performed">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>User entered a new query for search.</description>
+</action>
+
+<action name="Android.Settings.Search.ResultClicked">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>
+    User clicked the search result to open the corresponding entry.
+  </description>
+</action>
+
+<action name="Android.Settings.Search.UiOpened">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>User tapped search bar UI.</description>
+</action>
+
+<action name="Android.Settings.Search.UiOpenedPerSession">
+  <owner>adelm@google.com</owner>
+  <owner>jinsukkim@chromium.org</owner>
+  <description>
+    Same as above, but recorded only once since user opens Settings.
+  </description>
+</action>
+
 <action name="Android.Survey.ShowSurveyInfoBar">
   <obsolete>
     Deprecated 12/2022 as part of survey message launch cleanup.
@@ -4767,6 +4855,21 @@ should be able to be added at any place in this file.
   <description>
     User tapped 'Name window' on the tab strip context menu to name a Chrome
     window.
+  </description>
+</action>
+
+<action name="Android.TabStripMenu.NewTab">
+  <owner>mklw@google.com</owner>
+  <description>
+    User tapped 'New tab' on the tab strip context menu to open a New tab.
+  </description>
+</action>
+
+<action name="Android.TabStripMenu.ReopenClosedEntry">
+  <owner>mklw@google.com</owner>
+  <description>
+    User tapped 'Reopen closed entry' on the tab strip context menu to reopen
+    the last closed entry.
   </description>
 </action>
 
@@ -4861,7 +4964,7 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="AndroidWebView.APICall.{ApiName}">
+<action name="AndroidWebView.ApiCall.{ApiName}">
   <owner>abhijithnair@chromium.org</owner>
   <owner>android_webview/OWNERS</owner>
   <description>
@@ -5365,6 +5468,12 @@ should be able to be added at any place in this file.
         summary="WebView instance method `showFindDialog`"/>
     <variant name="WebViewInstanceStopLoading"
         summary="WebView instance method `stopLoading`"/>
+    <variant name="WebViewInstanceWebViewChromiumConstructor"
+        summary="WebViewChromium constructor"/>
+    <variant name="WebViewInstanceWebViewChromiumInit"
+        summary="WebViewChromium init"/>
+    <variant name="WebViewInstanceWebViewChromiumInitForReal"
+        summary="WebViewChromium initForReal"/>
     <variant name="WebViewInstanceZoomBy"
         summary="WebView instance method `zoomBy`"/>
     <variant name="WebViewInstanceZoomIn"
@@ -8964,6 +9073,14 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="CloseTab_Active">
+  <owner>dpenning@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User clicked the close tab button; the tab was active.
+  </description>
+</action>
+
 <action name="CloseTab_AudioIndicator">
   <owner>miu@chromium.org</owner>
   <description>
@@ -8976,6 +9093,14 @@ should be able to be added at any place in this file.
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
     User clicked the close tab button; the tab was the last tab in a split.
+  </description>
+</action>
+
+<action name="CloseTab_Inactive">
+  <owner>dpenning@google.com</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User clicked the close tab button; the tab was inactive.
   </description>
 </action>
 
@@ -10829,6 +10954,26 @@ should be able to be added at any place in this file.
   </token>
 </action>
 
+<action
+    name="ContextualTasks.BackButton.UserAction.NavigatedFromSidePanelToFullTab">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    The user navigated from the contextual tasks side panel back to the full tab
+    using the back button.
+  </description>
+</action>
+
+<action
+    name="ContextualTasks.Composebox.UserAction.AddedActiveTabAfterDeletingAutoSuggestion">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    The user readded the active tab after deleting the auto-suggested tab
+    context in the composebox.
+  </description>
+</action>
+
 <action name="ContextualTasks.TabChange.UserAction{ActionType}">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
@@ -10869,6 +11014,8 @@ should be able to be added at any place in this file.
     <variant name=".OpenMyActivity"
         summary="The user opened the My Activity page."/>
     <variant name=".OpenNewThread" summary="The user opened a new thread."/>
+    <variant name=".OpenSourcesMenu"
+        summary="The user opened the sources menu."/>
     <variant name=".OpenThreadHistory"
         summary="The user opened the thread history."/>
     <variant name=".TabFromSourcesMenuClicked"
@@ -12315,6 +12462,14 @@ should be able to be added at any place in this file.
   <owner>chrome-reader-mode-team@google.com</owner>
   <description>
     User changes the front scaling in distilled page preferences.
+  </description>
+</action>
+
+<action name="DomDistiller.Android.LinksEnabledChanged">
+  <owner>wylieb@google.com</owner>
+  <owner>chrome-reader-mode-team@google.com</owner>
+  <description>
+    User changes the links enabled setting in distilled page preferences.
   </description>
 </action>
 
@@ -15926,6 +16081,30 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="HistoryPage_ShowActorOnlyEnabled">
+  <owner>hkamila@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User enabled the 'Auto browse' (agent-initiated) filter on chrome://history.
+  </description>
+</action>
+
+<action name="HistoryPage_ShowAllEnabled">
+  <owner>hkamila@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User changed from a filtered view to showing all the history items.
+  </description>
+</action>
+
+<action name="HistoryPage_ShowUserOnlyEnabled">
+  <owner>hkamila@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    User enabled the 'You' (user-initiated) filter on chrome://history.
+  </description>
+</action>
+
 <action name="HistoryPage_SideBarFooterGeminiAppsActivityClick">
   <owner>lamzin@google.com</owner>
   <owner>rainhard@chromium.org</owner>
@@ -18464,6 +18643,26 @@ should be able to be added at any place in this file.
     Recorded when a user drags and drops an item into the Composebox. The item
     type is recorded in the Omnibox.MobileFusebox.DragAndDrop histogram.
   </description>
+</action>
+
+<action name="IOS.Omnibox.MobileFusebox.Action.LensSearch">
+  <owner>stkhapugin@chromium.org</owner>
+  <owner>christianxu@google.com</owner>
+  <description>Recorded when user taps Lens button in Fusebox.</description>
+</action>
+
+<action name="IOS.Omnibox.MobileFusebox.Action.QRScanner">
+  <owner>stkhapugin@chromium.org</owner>
+  <owner>christianxu@google.com</owner>
+  <description>
+    Recorded when user taps QR Scanner button in Fusebox.
+  </description>
+</action>
+
+<action name="IOS.Omnibox.MobileFusebox.Action.VoiceSearch">
+  <owner>stkhapugin@chromium.org</owner>
+  <owner>christianxu@google.com</owner>
+  <description>Recorded when user taps Voice button in Fusebox.</description>
 </action>
 
 <action name="IOS.OpenIn">
@@ -26741,6 +26940,100 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiCameraFlowBegan">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>The Gemini camera flow began.</description>
+</action>
+
+<action name="MobileGeminiCameraFlowCameraPickerCancelled">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user cancelled the camera picker in the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowCameraPickerFinishedWithImage">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user finished using the camera picker in the Gemini camera flow and an
+    image was included in the camera picker's result.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowCameraPickerFinishedWithoutImage">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user finished using the camera picker in the Gemini camera flow but no
+    image was included in the camera picker's result.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowCameraPickerPresented">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The camera picker was presented in the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowGeminiCameraPermissionAlertAllow">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped &quot;Allow&quot; on the Gemini camera permission alert in
+    the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowGeminiCameraPermissionAlertDontAllow">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped &quot;Don't Allow&quot; on the Gemini camera permission
+    alert in the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowGoToOSSettingsAlertGoToSettings">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped &quot;Go to Settings&quot; on the alert directing users to
+    OS camera settings in the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowGoToOSSettingsAlertNoThanks">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped &quot;No thanks&quot; on the alert directing users to OS
+    camera settings in the Gemini camera flow.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowOSCameraAuthorizationRequestDenied">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The OS-level camera authorization request in the Gemini camera flow was
+    denied.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraFlowOSCameraAuthorizationRequestGranted">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The OS-level camera authorization request in the Gemini camera flow was
+    granted.
+  </description>
+</action>
+
 <action name="MobileGeminiCameraSettingsBack">
   <owner>joepeplowski@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -26755,6 +27048,24 @@ should be able to be added at any place in this file.
   <owner>bling-alchemy-eng@google.com</owner>
   <description>
     Reported when Gemini Camera Settings UI was dismissed. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraSettingsGeminiCameraPermissionToggledOff">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user toggles the Gemini camera permission setting off from
+    the Gemini Camera Settings UI.
+  </description>
+</action>
+
+<action name="MobileGeminiCameraSettingsGeminiCameraPermissionToggledOn">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the user toggles the Gemini camera permission setting on from
+    the Gemini Camera Settings UI.
   </description>
 </action>
 
@@ -26817,6 +27128,27 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiFloatyCollapsedToDismissed">
+  <owner>joemerramos@google.com</owner>
+  <description>
+    The user dismissed the Gemini floaty from a collapsed state. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiFloatyCollapsedToExpanded">
+  <owner>joemerramos@google.com</owner>
+  <description>
+    The user expanded the Gemini view from a collapsed state. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiFloatyExpandedToCollapsed">
+  <owner>joemerramos@google.com</owner>
+  <description>
+    The user collapsed the Gemini view from an expanded state. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiFREConsentAccept">
   <owner>kanouche@google.com</owner>
   <owner>bling-alchemy@google.com</owner>
@@ -26863,6 +27195,15 @@ should be able to be added at any place in this file.
   <description>Reported when the BWG FRE was shown. iOS only.</description>
 </action>
 
+<action name="MobileGeminiImageActionButtonTapped">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped one of the buttons associated with an image that was
+    provided in a response from Gemini.
+  </description>
+</action>
+
 <action name="MobileGeminiImageRemixContextMenuEntryPointShown">
   <owner>joepeplowski@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -26885,6 +27226,14 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user taps on the Gemini Image Remix IPH or its anchor to
     trigger the feature.
+  </description>
+</action>
+
+<action name="MobileGeminiInputPlateAttachmentOptionTapped">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    The user tapped one of the attachment options in the input plate in Gemini.
   </description>
 </action>
 
@@ -27706,6 +28055,11 @@ should be able to be added at any place in this file.
 <action name="MobileMenuDataSaverOpened">
   <owner>megjablon@chromium.org</owner>
   <description>User opened the data saver item in the app menu.</description>
+</action>
+
+<action name="MobileMenuDefaultBrowserPromo">
+  <owner>eleanorlee@google.com</owner>
+  <description>MobileMenuDefaultBrowserPromo</description>
 </action>
 
 <action name="MobileMenuDeleteFromReadingList">
@@ -30423,7 +30777,11 @@ should be able to be added at any place in this file.
 <action name="MobileTabGridDone">
   <owner>edchin@chromium.org</owner>
   <owner>marq@chromium.org</owner>
-  <description>User tapped the 'Done' button in the iOS tab grid.</description>
+  <description>
+    User tapped the 'Done' button in the iOS tab grid. The UI of the bar changed
+    from a toolbar UI to an an appbar UI, which may affect usage. This change
+    happened when the flag ChromeNextIa was enabled.
+  </description>
 </action>
 
 <action name="MobileTabGridEndedWithoutReordering">
@@ -31180,6 +31538,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileToolbarAssistant">
+  <owner>gambard@chromium.org</owner>
+  <owner>meridian@google.com</owner>
+  <description>
+    The user tapped on the Assistant button in the toolbar.
+  </description>
+</action>
+
 <action name="MobileToolbarBack">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -31312,7 +31678,9 @@ should be able to be added at any place in this file.
   <owner>gambard@chromium.org</owner>
   <owner>stkhapugin@chromium.org</owner>
   <description>
-    User pressed the NewTab shortcut on the toolbar. iOS only.
+    User pressed the NewTab shortcut on the toolbar. iOS only. The UI of the bar
+    changed from a toolbar UI to an an appbar UI, which may affect usage. This
+    change happened when the flag ChromeNextIa was enabled.
   </description>
 </action>
 
@@ -31452,8 +31820,12 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileToolbarShowStackView">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>gambard@chromiumorg</owner>
+  <description>
+    User tapped on the toolbar button to show the TabGrid. On iOS the UI of the
+    bar changed from a toolbar UI to an an appbar UI, which may affect usage.
+    This change happened when the flag ChromeNextIa was enabled.
+  </description>
 </action>
 
 <action name="MobileToolbarShowTabGridMenu">
@@ -38386,6 +38758,15 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="ReportUnsafeSite">
+  <owner>nwokedi@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <description>
+    Recorded when a user selects the &quot;Report an unsafe site...&quot; option
+    from the app menu.
+  </description>
+</action>
+
 <action name="ResetProfile">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -38706,6 +39087,26 @@ should be able to be added at any place in this file.
   <description>
     User clicks the enhanced protection expand arrow in the Safe Browsing
     setting page.
+  </description>
+</action>
+
+<action name="SafeBrowsing.Settings.SafeBrowsingRowClicked">
+  <obsolete>Renamed to Settings.SafeBrowsingRowExpanded.</obsolete>
+  <owner>yawfrempong@google.com</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>
+    User clicks the safe browsing row expand arrow in the
+    chrome://settings/security page.
+  </description>
+</action>
+
+<action name="SafeBrowsing.Settings.SafeBrowsingRowExpanded">
+  <owner>yawfrempong@google.com</owner>
+  <owner>chrome-safebrowsing-alerts@google.com</owner>
+  <description>
+    User clicks the safe browsing row expand arrow in the
+    chrome://settings/security page. This user action is the same as
+    SafeBrowsing.Settings.SafeBrowsingRowClicked but with improved naming.
   </description>
 </action>
 
@@ -41475,6 +41876,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.TrackingProtection.SiteExceptionAdded">
+  <obsolete>Deprecated 01/2026 because the project was discontinued.</obsolete>
   <owner>fmacintosh@google.com</owner>
   <owner>koilos@google.com</owner>
   <description>
@@ -41484,6 +41886,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.TrackingProtection.SiteExceptionRemoved">
+  <obsolete>Deprecated 01/2026 because the project was discontinued.</obsolete>
   <owner>fmacintosh@google.com</owner>
   <owner>koilos@google.com</owner>
   <description>
@@ -41547,6 +41950,160 @@ should be able to be added at any place in this file.
   <owner>sczs@chromium.org</owner>
   <description>
     Reported when user navigates to Voice Search Settings. iOS only.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.CategoryClick.CONTACT_INFO">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Contact info category link in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.CategoryClick.IDENTITY_DOCS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Identity docs category link in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.CategoryClick.PASSWORD_MANAGER">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Password Manager category link in the Your saved info
+    page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.CategoryClick.PAYMENTS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Payments category link in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.CategoryClick.TRAVEL">
+  <owner>ireneuszszulc@google.com</owner>
+  <owner>chrome-autofill-team@google.com</owner>
+  <description>
+    User clicks on the Travel category link in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.ADDRESSES">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Addresses data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.CREDIT_CARDS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Credit cards data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.DRIVERS_LICENSES">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Drivers licenses data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.FLIGHT_RESERVATIONS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Flight reservations data chip in the Your saved info
+    page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.IBANS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the IBANs data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.LOYALTY_CARDS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Loyalty cards data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.NATIONAL_ID_CARDS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the National ID cards data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.PASSKEYS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Passkeys data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.PASSPORTS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Passports data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.PASSWORDS">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Passwords data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.PAY_OVER_TIME">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Pay over time data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.TRAVEL_INFO">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Travel info data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.ChipClick.VEHICLES">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Vehicles data chip in the Your saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_ACCOUNT">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Google Account related service link in the Your saved
+    info page.
+  </description>
+</action>
+
+<action
+    name="Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_PASSWORD_MANAGER">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Google Password Manager related service link in the Your
+    saved info page.
+  </description>
+</action>
+
+<action name="Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_WALLET">
+  <owner>jsobiech@google.com</owner>
+  <description>
+    User clicks on the Google Wallet related service link in the Your saved info
+    page.
   </description>
 </action>
 
@@ -43688,6 +44245,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Impression_FromDevicesPage" not_user_triggered="true">
+  <obsolete>No longer recorded.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded when showing sign in entry in the chrome://devices page.
@@ -43713,6 +44271,7 @@ should be able to be added at any place in this file.
 
 <action name="Signin_Impression_FromGoogleServicesSettings"
     not_user_triggered="true">
+  <obsolete>No longer recorded.</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <description>
@@ -43721,6 +44280,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Impression_FromKaleidoscope">
+  <obsolete>No longer recorded.</obsolete>
   <owner>beccahughes@chromium.org</owner>
   <owner>steimel@chromium.org</owner>
   <owner>media-dev@chromium.org</owner>
@@ -43753,6 +44313,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Impression_FromNTP" not_user_triggered="true">
+  <obsolete>No longer recorded.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded when showing sign in entry in the new tab page.
@@ -43896,6 +44457,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Impression_FromTabSwitcher" not_user_triggered="true">
+  <obsolete>No longer recorded.</obsolete>
   <owner>bzanotti@chromium.org</owner>
   <description>
     Recorded when showing sign in entry in the tab switcher.
@@ -44289,13 +44851,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="Signin_Show_UntrustedSigninPrompt">
-  <owner>gogerald@chromium.org</owner>
-  <description>
-    Recorded when showing untrusted sign in confirmation dialog.
-  </description>
-</action>
-
 <action name="Signin_Signin_AbortAdvancedSyncSettings">
   <owner>tangltom@chromium.org</owner>
   <description>
@@ -44528,6 +45083,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromDevicesPage">
+  <obsolete>No longer recorded.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -44573,6 +45129,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromEnterpriseSignoutSheet">
+  <obsolete>No longer recorded.</obsolete>
   <owner>ewannpv@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <description>
@@ -44624,6 +45181,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromGoogleServicesSettings">
+  <obsolete>No longer recorded.</obsolete>
   <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
   <description>
@@ -44704,6 +45262,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromNTP">
+  <obsolete>Removed 01/2026.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -44753,6 +45312,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromNtpIdentityDisc">
+  <obsolete>No longer recorded.</obsolete>
   <owner>treib@chromium.org</owner>
   <description>
     Recorded on signin start from access point
@@ -44926,6 +45486,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromSupervisedUser">
+  <obsolete>No longer recorded.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -44943,6 +45504,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromTabSwitcher">
+  <obsolete>No longer recorded.</obsolete>
   <owner>bzanotti@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -45003,6 +45565,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_ShowAdvancedSyncSettings">
+  <obsolete>Deprecated 2026/01</obsolete>
   <owner>triploblastic@chromium.org</owner>
   <owner>bsazonov@chromium.org</owner>
   <description>
@@ -46312,6 +46875,158 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="SplitViewCreated_BookmarkContextMenu">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    bookmark context menu item.
+  </description>
+</action>
+
+<action name="SplitViewCreated_DragAndDropLink">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by dragging and
+    dropping a link.
+  </description>
+</action>
+
+<action name="SplitViewCreated_DragAndDropTab">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by dragging and
+    dropping a tab.
+  </description>
+</action>
+
+<action name="SplitViewCreated_DuplicateSplit">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by duplicating an
+    existing Split View.
+  </description>
+</action>
+
+<action name="SplitViewCreated_ExtensionsApi">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser via the extensions
+    API which is used to create Split Views from the bookmarks side panel.
+  </description>
+</action>
+
+<action name="SplitViewCreated_KeyboardShortcut">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by triggering the
+    keyboard shortcut.
+  </description>
+</action>
+
+<action name="SplitViewCreated_LinkContextMenu">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    link context menu item.
+  </description>
+</action>
+
+<action name="SplitViewCreated_NewTabButton">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    new tab button context menu item.
+  </description>
+</action>
+
+<action name="SplitViewCreated_TabContextMenu">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    tab context menu item.
+  </description>
+</action>
+
+<action name="SplitViewCreated_ToolbarButton">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    toolbar button.
+  </description>
+</action>
+
+<action name="SplitViewCreated_WhatsNew">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when a Split View was created within the browser by clicking the
+    What's New page button.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_CloseEndTab">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Close right view&quot; Split View menu item was
+    clicked.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_CloseSpecifiedTab">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Close this view&quot; Split View menu item was
+    clicked.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_CloseStartTab">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Close left view&quot; Split View menu item was
+    clicked.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_ExitSplit">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Separate views&quot; Split View menu item was
+    clicked.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_ReversePosition">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Reverse&quot; Split View menu item was clicked.
+  </description>
+</action>
+
+<action name="SplitViewMenuClicked_SendFeedback">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the &quot;Send feedback&quot; Split View menu item was
+    clicked.
+  </description>
+</action>
+
 <action name="SSL.DisplayedInsecureContent" not_user_triggered="true">
   <obsolete>Deprecated 02/2017</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
@@ -47412,9 +48127,10 @@ should be able to be added at any place in this file.
 <action name="Suggestions.Button.AddItem">
   <owner>ckitagawa@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
+  <owner>ginnyhuang@chromium.org</owner>
   <description>
-    Android: Recorded when user clicks the &quot;Add new&quot; button to open
-    the &quot;Add shortcut&quot; dialog (disregarding what happens thereafter).
+    Mobile: Recorded when user clicks the &quot;Add new&quot; button to open the
+    &quot;Add shortcut&quot; dialog (disregarding what happens thereafter).
   </description>
 </action>
 
@@ -47533,8 +48249,9 @@ should be able to be added at any place in this file.
 <action name="Suggestions.Drag.ReorderItem">
   <owner>ckitagawa@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
+  <owner>ginnyhuang@chromium.org</owner>
   <description>
-    Android: Recorded user using drag-and-drop to rearrange Custom Tiles in the
+    Mobile: Recorded user using drag-and-drop to rearrange Custom Tiles in the
     Most Visited Tiles area on the NTP, disregarding cancelled actions
     (including dragging tile back to its original position).
   </description>
@@ -47595,12 +48312,22 @@ should be able to be added at any place in this file.
   <description>User removed a suggested site.</description>
 </action>
 
+<action name="Suggestions.SnackBar.UndoPinItem">
+  <owner>ginnyhuang@chromium.org</owner>
+  <description>
+    iOS: Recorded when user clicks the &quot;Undo&quot; link in the &quot;Item
+    removed&quot; SnackBar that appears on pinning a Custom Tile.
+  </description>
+</action>
+
 <action name="Suggestions.SnackBar.UndoUnpinItem">
   <owner>ckitagawa@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
+  <owner>ginnyhuang@chromium.org</owner>
   <description>
-    Android: Recorded when user clicks the &quot;Undo&quot; link in the
+    Mobile: Recorded when user clicks the &quot;Undo&quot; link in the
     &quot;Item removed&quot; SnackBar that appears on unpinning a Custom Tile.
+    (iOS support added on M146)
   </description>
 </action>
 
@@ -47897,6 +48624,24 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user switches tabs with a mouse click. This user action is
     only recorded on platforms which use the Views toolkit.
+  </description>
+</action>
+
+<action name="SwitchToHorizontalTabStrip">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to horizontal tab strip mode. This user
+    action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode. This user action
+    only applies to Desktop.
   </description>
 </action>
 
@@ -50014,6 +50759,9 @@ should be able to be added at any place in this file.
     <variant name=".MoveToGroup"
         summary="Recorded when the 'Move to group' option in the context menu
                  is selected."/>
+    <variant name=".MuteSite"
+        summary="Recorded when the 'Mute site' option in the context menu is
+                 selected."/>
     <variant name=".PinTab"
         summary="Recorded when the 'Pin Tab' option in the context menu is
                  selected."/>
@@ -50023,6 +50771,9 @@ should be able to be added at any place in this file.
     <variant name=".ShareTab"
         summary="Recorded when the 'Share' option in the context menu is
                  selected."/>
+    <variant name=".UnmuteSite"
+        summary="Recorded when the 'Unmute site' option in the context menu
+                 is selected."/>
     <variant name=".UnpinTab"
         summary="Recorded when the 'Unpin Tab' option in the context menu is
                  selected."/>

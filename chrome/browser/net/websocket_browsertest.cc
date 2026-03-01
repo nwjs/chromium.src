@@ -47,6 +47,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -81,6 +82,7 @@ using testing::Not;
 
 constexpr char kHostA[] = "a.test";
 constexpr char kHostB[] = "b.test";
+constexpr char kHostLocal[] = "b.local";
 
 class WebSocketBrowserTest : public InProcessBrowserTest {
  public:
@@ -171,13 +173,14 @@ class WebSocketBrowserTest : public InProcessBrowserTest {
     process->GetStoragePartition()->GetNetworkContext()->CreateWebSocket(
         url, requested_protocols, site_for_cookies,
         net::StorageAccessApiStatus::kNone, isolation_info,
-        std::move(additional_headers), process->GetDeprecatedID(), origin,
-        network::mojom::ClientSecurityState::New(),
+        std::move(additional_headers), ToOriginatingProcess(process->GetID()),
+        origin, network::mojom::ClientSecurityState::New(),
         network::mojom::kWebSocketOptionNone,
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS),
         std::move(handshake_client),
         process->GetStoragePartition()->CreateURLLoaderNetworkObserverForFrame(
-            process->GetDeprecatedID(), frame->GetRoutingID()),
+            content::GlobalRenderFrameHostId(process->GetID(),
+                                             frame->GetRoutingID())),
         /*auth_handler=*/mojo::NullRemote(), std::move(header_client),
         /*throttling_profile_id=*/std::nullopt);
   }
@@ -308,6 +311,18 @@ class LocalNetworkAccessWebSocketsBrowserTest
               resource);
   }
 
+  // For checking that mixed content checks are bypassed properly.
+  //
+  // Note the usage of kHostLocal, as that's the only method of signaling to the
+  // mixed content checker that the websocket connection might be LNA as the
+  // WebSocket API doesn't have the fetch API's targetAddressSpace option.
+  void ConnectToInsecureLNAWebSocket(const std::string& resource) {
+    ConnectTo(kHostB,
+              net::test_server::GetWebSocketURL(ws_server_, kHostLocal,
+                                                "/echo-with-no-extension"),
+              resource);
+  }
+
  protected:
   void SetUp() override {
     // Some builders run with field_trial disabled, need to enable
@@ -332,6 +347,8 @@ class LocalNetworkAccessWebSocketsBrowserTest
     wss_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
     // Launch a secure WebSocket server.
     ASSERT_TRUE(wss_server_.Start());
+
+    ASSERT_TRUE(ws_server_.Start());
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -364,6 +381,20 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAInsecureWebSocketConnectionHasPermission) {
+  bubble_factory()->set_response_type(ACCEPT_ALL);
+  ConnectToInsecureLNAWebSocket("/websocket/connect_to_as_public_address.html");
+  EXPECT_EQ("PASS", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAInsecureWebSocketDeniedPermission) {
+  bubble_factory()->set_response_type(DENY_ALL);
+  ConnectToInsecureLNAWebSocket("/websocket/connect_to_as_public_address.html");
+  EXPECT_EQ("FAIL", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
                        LNAWorkerWebSocketConnectionHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToLNAWebSocket(
@@ -375,6 +406,22 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
                        LNAWorkerWebSocketConnectionDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToLNAWebSocket(
+      "/websocket/connect_to_using_worker_as_public_address.html");
+  EXPECT_EQ("FAIL", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAWorkerInsecureWebSocketConnectionHasPermission) {
+  bubble_factory()->set_response_type(ACCEPT_ALL);
+  ConnectToInsecureLNAWebSocket(
+      "/websocket/connect_to_using_worker_as_public_address.html");
+  EXPECT_EQ("PASS", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAWorkerInsecureWebSocketConnectionDeniedPermission) {
+  bubble_factory()->set_response_type(DENY_ALL);
+  ConnectToInsecureLNAWebSocket(
       "/websocket/connect_to_using_worker_as_public_address.html");
   EXPECT_EQ("FAIL", WaitAndGetTitle());
 }
@@ -418,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsPolicyBrowserTest,
   // policy.
   policy::PolicyMap policies;
   SetPolicy(&policies, policy::key::kLocalNetworkAccessAllowedForUrls,
-            base::Value(base::Value::List().Append("*")));
+            base::Value(base::ListValue().Append("*")));
   UpdateProviderPolicy(policies);
 
   ConnectToLNAWebSocket(
@@ -439,7 +486,7 @@ IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsPolicyBrowserTest,
   // policy.
   policy::PolicyMap policies;
   SetPolicy(&policies, policy::key::kLocalNetworkAccessAllowedForUrls,
-            base::Value(base::Value::List().Append("*")));
+            base::Value(base::ListValue().Append("*")));
   UpdateProviderPolicy(policies);
 
   ConnectToLNAWebSocket(

@@ -8,9 +8,13 @@
 #include <memory>
 
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/pdf/pdf_pref_names.h"
 #include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -18,8 +22,10 @@
 #include "chrome/common/pref_names.h"
 #include "components/pdf/common/constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
 #include "pdf/buildflags.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
@@ -46,9 +52,8 @@ namespace SetPdfPluginAttributes =
 namespace SetPdfDocumentTitle = api::pdf_viewer_private::SetPdfDocumentTitle;
 
 // Check if the current URL is allowed based on a list of allowlisted domains.
-bool IsUrlAllowedToEmbedLocalFiles(
-    const GURL& current_url,
-    const base::Value::List& allowlisted_domains) {
+bool IsUrlAllowedToEmbedLocalFiles(const GURL& current_url,
+                                   const base::ListValue& allowlisted_domains) {
   if (!current_url.is_valid() || !current_url.SchemeIs(url::kHttpsScheme)) {
     return false;
   }
@@ -274,6 +279,49 @@ PdfViewerPrivateSetPdfPluginAttributesFunction::Run() {
   stream->set_pdf_plugin_attributes(mime_handler::PdfPluginAttributes::New(
       /*background_color=*/attributes.background_color,
       /*allow_javascript=*/attributes.allow_javascript));
+  return RespondNow(NoArguments());
+}
+
+PdfViewerPrivateGlicSummarizeFunction::PdfViewerPrivateGlicSummarizeFunction() =
+    default;
+
+PdfViewerPrivateGlicSummarizeFunction::
+    ~PdfViewerPrivateGlicSummarizeFunction() = default;
+
+ExtensionFunction::ResponseAction PdfViewerPrivateGlicSummarizeFunction::Run() {
+  bool success = false;
+  auto cleanup = absl::MakeCleanup([&success] {
+    base::UmaHistogramBoolean("PDF.GlicSummarizeButtonClicked", success);
+  });
+
+  content::WebContents* contents = GetSenderWebContents();
+  if (!contents) {
+    return RespondNow(Error("No web contents."));
+  }
+
+  tabs::TabInterface* tab_interface =
+      tabs::TabInterface::MaybeGetFromContents(contents);
+  if (!tab_interface) {
+    return RespondNow(Error("No tab."));
+  }
+
+  if (!glic::GlicEnabling::IsEnabledForProfile(
+          Profile::FromBrowserContext(contents->GetBrowserContext()))) {
+    return RespondNow(Error("Glic is not enabled."));
+  }
+
+  glic::GlicKeyedService* glic_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(
+          contents->GetBrowserContext());
+  CHECK(glic_service);
+
+  glic_service->ToggleUI(tab_interface->GetBrowserWindowInterface(),
+                         /*prevent_close=*/true,
+                         glic::mojom::InvocationSource::kPdfSummarizeButton,
+                         /*prompt_suggestion=*/"summarize the pdf",
+                         /*auto_send=*/true);
+
+  success = true;
   return RespondNow(NoArguments());
 }
 

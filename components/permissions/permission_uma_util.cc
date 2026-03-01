@@ -24,6 +24,7 @@
 #include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/permissions/constants.h"
 #include "components/permissions/permission_actions_history.h"
@@ -580,39 +581,6 @@ int ConvertCrowdDenyVersionToInt(const std::optional<base::Version>& version) {
   return short_version;
 }
 
-AutoDSEPermissionRevertTransition GetAutoDSEPermissionRevertedTransition(
-    ContentSetting backed_up_setting,
-    ContentSetting effective_setting,
-    ContentSetting end_state_setting) {
-  if (backed_up_setting == CONTENT_SETTING_ASK &&
-      effective_setting == CONTENT_SETTING_ALLOW &&
-      end_state_setting == CONTENT_SETTING_ASK) {
-    return AutoDSEPermissionRevertTransition::NO_DECISION_ASK;
-  } else if (backed_up_setting == CONTENT_SETTING_ALLOW &&
-             effective_setting == CONTENT_SETTING_ALLOW &&
-             end_state_setting == CONTENT_SETTING_ALLOW) {
-    return AutoDSEPermissionRevertTransition::PRESERVE_ALLOW;
-  } else if (backed_up_setting == CONTENT_SETTING_BLOCK &&
-             effective_setting == CONTENT_SETTING_ALLOW &&
-             end_state_setting == CONTENT_SETTING_ASK) {
-    return AutoDSEPermissionRevertTransition::CONFLICT_ASK;
-  } else if (backed_up_setting == CONTENT_SETTING_ASK &&
-             effective_setting == CONTENT_SETTING_BLOCK &&
-             end_state_setting == CONTENT_SETTING_BLOCK) {
-    return AutoDSEPermissionRevertTransition::PRESERVE_BLOCK_ASK;
-  } else if (backed_up_setting == CONTENT_SETTING_ALLOW &&
-             effective_setting == CONTENT_SETTING_BLOCK &&
-             end_state_setting == CONTENT_SETTING_BLOCK) {
-    return AutoDSEPermissionRevertTransition::PRESERVE_BLOCK_ALLOW;
-  } else if (backed_up_setting == CONTENT_SETTING_BLOCK &&
-             effective_setting == CONTENT_SETTING_BLOCK &&
-             end_state_setting == CONTENT_SETTING_BLOCK) {
-    return AutoDSEPermissionRevertTransition::PRESERVE_BLOCK_BLOCK;
-  } else {
-    return AutoDSEPermissionRevertTransition::INVALID_END_STATE;
-  }
-}
-
 void RecordTopLevelPermissionsHeaderPolicy(
     ContentSettingsType content_settings_type,
     const std::string& histogram,
@@ -1098,6 +1066,7 @@ void PermissionUmaUtil::PermissionPromptResolved(
     const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     content::BrowserContext* browser_context,
     PermissionAction permission_action,
+    const PromptOptions& prompt_options,
     base::TimeDelta time_to_action,
     PermissionPromptDisposition ui_disposition,
     std::optional<PermissionPromptDispositionReason> ui_reason,
@@ -1157,7 +1126,7 @@ void PermissionUmaUtil::PermissionPromptResolved(
         content::RenderFrameHost::FromID(request->get_requesting_frame_id()),
         predicted_grant_likelihood, permission_request_relevance,
         permission_ai_relevance_model, prediction_decision_held_back,
-        request->prompt_options(), initial_geolocation_accuracy_selection,
+        prompt_options, initial_geolocation_accuracy_selection,
         request->get_ukm_source_id());
 
     std::string priorDismissPrefix = base::StrCat(
@@ -1198,8 +1167,8 @@ void PermissionUmaUtil::PermissionPromptResolved(
 
   if (requests.size() == 1 &&
       requests[0]->request_type() == RequestType::kGeolocation) {
-    if (const auto* geolocation_options = std::get_if<GeolocationPromptOptions>(
-            &requests[0]->prompt_options())) {
+    if (const auto* geolocation_options =
+            std::get_if<GeolocationPromptOptions>(&prompt_options)) {
       base::UmaHistogramEnumeration(
           base::StrCat(
               {"Permissions.Prompt.Geolocation.", action_string, ".Accuracy"}),
@@ -1700,22 +1669,6 @@ void PermissionUmaUtil::RecordTimeElapsedBetweenGrantAndRevoke(
 }
 
 // static
-void PermissionUmaUtil::RecordAutoDSEPermissionReverted(
-    ContentSettingsType permission_type,
-    ContentSetting backed_up_setting,
-    ContentSetting effective_setting,
-    ContentSetting end_state_setting) {
-  std::string permission_string =
-      GetPermissionRequestString(PermissionUtil::GetUmaValueForRequestType(
-          ContentSettingsTypeToRequestType(permission_type)));
-  auto transition = GetAutoDSEPermissionRevertedTransition(
-      backed_up_setting, effective_setting, end_state_setting);
-  base::UmaHistogramEnumeration(
-      "Permissions.DSE.AutoPermissionRevertTransition." + permission_string,
-      transition);
-}
-
-// static
 void PermissionUmaUtil::RecordDSEEffectiveSetting(
     ContentSettingsType permission_type,
     ContentSetting setting) {
@@ -1788,15 +1741,14 @@ std::string PermissionUmaUtil::GetPredictionModelString(
       return "PredictionService";
     case PredictionModelType::kOnDeviceCpssV1Model:
       return "OnDevicePredictionService";
-    case PredictionModelType::kOnDeviceAiV1Model:
-      return "AIv1";
     case PredictionModelType::kOnDeviceAiV3Model:
       return "AIv3";
     case PredictionModelType::kOnDeviceAiV4Model:
       return "AIv4";
-    default:
+    case PredictionModelType::kUnknown:
       NOTREACHED();
   }
+  NOTREACHED();
 }
 
 // static
@@ -1849,22 +1801,23 @@ void PermissionUmaUtil::RecordPageInfoPermissionChangeWithin1m(
 }
 
 // static
-void PermissionUmaUtil::RecordPageInfoPermissionChange(
+void PermissionUmaUtil::RecordPageInfoCameraMicPermissionChange(
     ContentSettingsType type,
     ContentSetting setting_before,
     ContentSetting setting_after,
-    bool suppress_reload_page_bar) {
-  DCHECK(IsRequestablePermissionType(type));
+    bool is_subscribed_to_permission_change_event) {
   // Currently only Camera and Mic are supported.
-  DCHECK(type == ContentSettingsType::MEDIASTREAM_MIC ||
-         type == ContentSettingsType::MEDIASTREAM_CAMERA);
+  if (type != ContentSettingsType::MEDIASTREAM_MIC &&
+      type != ContentSettingsType::MEDIASTREAM_CAMERA) {
+    return;
+  }
   std::string permission_type =
       GetPermissionRequestString(PermissionUtil::GetUmaValueForRequestType(
           ContentSettingsTypeToRequestType(type)));
   std::string histogram_name =
       "Permissions.PageInfo.Changed." + permission_type;
 
-  if (suppress_reload_page_bar) {
+  if (is_subscribed_to_permission_change_event) {
     histogram_name = histogram_name + ".ReloadInfobarNotShown";
   } else {
     histogram_name = histogram_name + ".ReloadInfobarShown";
@@ -1899,9 +1852,46 @@ void PermissionUmaUtil::RecordPageInfoPermissionChange(
 }
 
 // static
+void PermissionUmaUtil::RecordPageInfoPermissionChange(
+    ContentSettingsType type,
+    ContentSetting setting_before,
+    ContentSetting setting_after,
+    bool is_subscribed_to_permission_change_event) {
+  // This method supports only media permissions and permissions that have the
+  // quiet UI.
+  if (type != ContentSettingsType::MEDIASTREAM_MIC &&
+      type != ContentSettingsType::MEDIASTREAM_CAMERA &&
+      type != ContentSettingsType::NOTIFICATIONS &&
+      type != ContentSettingsType::GEOLOCATION) {
+    return;
+  }
+  std::string permission_type =
+      GetPermissionRequestString(PermissionUtil::GetUmaValueForRequestType(
+          ContentSettingsTypeToRequestType(type)));
+  std::string histogram_name =
+      base::StrCat({"Permissions.PageInfo.Changed.", permission_type,
+                    ".OnStatusChangeListener"});
+
+  base::UmaHistogramBoolean(histogram_name,
+                            is_subscribed_to_permission_change_event);
+}
+
+// static
 void PermissionUmaUtil::RecordPageReloadInfoBarShown(bool shown) {
   base::UmaHistogramBoolean(
       "Permissions.QuietPrompt.Preignore.PageReloadInfoBar", shown);
+}
+
+// static
+void PermissionUmaUtil::RecordOnPermissionStatusChangedEventSubscribed(
+    RequestType type,
+    bool subscribed) {
+  std::string permission_type = GetPermissionRequestString(
+      PermissionUtil::GetUmaValueForRequestType(type));
+  std::string histogram_name =
+      base::StrCat({"Permissions.PredictionService.", permission_type,
+                    ".OnStatusChangeListener"});
+  base::UmaHistogramBoolean(histogram_name, subscribed);
 }
 
 // static
@@ -1978,6 +1968,8 @@ std::string PermissionUmaUtil::GetPromptDispositionReasonString(
       return "SafeBrowsingVerdict";
     case PermissionPromptDispositionReason::USER_PREFERENCE_IN_SETTINGS:
       return "UserPreferenceInSettings";
+    case PermissionPromptDispositionReason::LACK_OF_GESTURE:
+      return "LackOfGesture";
   }
 
   NOTREACHED();
@@ -2181,10 +2173,7 @@ void PermissionUmaUtil::RecordTopLevelPermissionsHeaderPolicyOnNavigation(
     content::RenderFrameHost* render_frame_host) {
   DCHECK(render_frame_host);
   const ContentSettingsType kContentSettingsTypesForMetrics[] = {
-      base::FeatureList::IsEnabled(
-          content_settings::features::kApproximateGeolocationPermission)
-          ? ContentSettingsType::GEOLOCATION_WITH_OPTIONS
-          : ContentSettingsType::GEOLOCATION,
+      content_settings::GeolocationContentSettingsType(),
       ContentSettingsType::MEDIASTREAM_CAMERA,
       ContentSettingsType::MEDIASTREAM_MIC};
 
@@ -2256,7 +2245,7 @@ PermissionUmaUtil::GetDaysSinceUnusedSitePermissionRevocation(
   if (!stored_value.is_dict()) {
     return std::nullopt;
   }
-  base::Value::List* permission_type_list =
+  base::ListValue* permission_type_list =
       stored_value.GetDict().FindList(permissions::kRevokedKey);
   if (!permission_type_list) {
     return std::nullopt;
@@ -2320,8 +2309,6 @@ void PermissionUmaUtil::RecordPermissionRequestRelevance(
     PermissionRequestRelevance permission_request_relevance,
     PredictionModelType model_type) {
   switch (model_type) {
-    case permissions::PredictionModelType::kOnDeviceAiV1Model:
-      [[fallthrough]];
     case permissions::PredictionModelType::kOnDeviceAiV3Model:
       [[fallthrough]];
     case permissions::PredictionModelType::kOnDeviceAiV4Model: {
@@ -2370,7 +2357,7 @@ void PermissionUmaUtil::RecordBrowserAlwaysActiveWhilePrompting(
 // static
 void PermissionUmaUtil::RecordActionBrowserAlwaysActive(
     RequestTypeForUma request_type,
-    std::string permission_action,
+    std::string_view permission_action,
     bool always_active) {
   std::string histogram_name = base::StrCat(
       {"Permissions.Prompt.", GetPermissionRequestString(request_type), ".",
@@ -2403,9 +2390,8 @@ void PermissionUmaUtil::RecordPredictionModelInquireTime(
 void PermissionUmaUtil::RecordRenderedTextAcquireSuccessForAivX(
     PredictionModelType model_type,
     bool success) {
-  // Only AIv1 and AIv4 models use the rendered text as input.
-  DCHECK(model_type == PredictionModelType::kOnDeviceAiV1Model ||
-         model_type == PredictionModelType::kOnDeviceAiV4Model);
+  // Only AIv4 models use the rendered text as input.
+  DCHECK(model_type == PredictionModelType::kOnDeviceAiV4Model);
 
   std::string success_histogram_name =
       base::StrCat({"Permissions.", GetPredictionModelString(model_type),

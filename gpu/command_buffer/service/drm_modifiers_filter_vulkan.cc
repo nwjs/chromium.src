@@ -38,9 +38,7 @@ void PopulateVkDrmFormatsAndModifiers(
     base::flat_map<uint32_t, std::vector<uint64_t>>&
         drm_formats_and_modifiers) {
 #if BUILDFLAG(IS_CHROMEOS)
-  for (int i = 0; i <= static_cast<int>(gfx::BufferFormat::LAST); i++) {
-    viz::SharedImageFormat si_format =
-        viz::GetSharedImageFormat(static_cast<gfx::BufferFormat>(i));
+  for (auto si_format : ui::kDrmSharedImageFormats) {
     VkFormat vulkan_format = ToTextureVkFormat(si_format);
     int fourcc_format = ui::GetFourCCFormatFromSharedImageFormat(si_format);
     if (vulkan_format == VK_FORMAT_UNDEFINED || fourcc_format == 0) {
@@ -73,7 +71,6 @@ DrmModifiersFilterVulkan::~DrmModifiersFilterVulkan() = default;
 std::vector<uint64_t> DrmModifiersFilterVulkan::Filter(
     viz::SharedImageFormat format,
     const std::vector<uint64_t>& modifiers) {
-  CHECK(viz::HasEquivalentBufferFormat(format));
   VkFormat vulkan_format = ToTextureVkFormat(format);
   gpu::VulkanInstance* instance = vulkan_implementation_->GetVulkanInstance();
   CHECK(instance->vulkan_info().physical_devices.size() > 0);

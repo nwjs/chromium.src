@@ -20,6 +20,7 @@
 #include "base/no_destructor.h"
 #include "base/supports_user_data.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
@@ -29,7 +30,6 @@
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/dice_signed_in_profile_creator.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_startup_tracker.h"
@@ -144,7 +144,7 @@ void TurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(
     return;
   }
   LoginUIServiceFactory::GetForProfile(browser->profile())
-      ->DisplayLoginResult(browser, error, /*from_profile_picker=*/false);
+      ->DisplayLoginResult(browser->GetFeatures(), error);
 }
 
 TurnSyncOnHelper::TurnSyncOnHelper(
@@ -450,12 +450,6 @@ void TurnSyncOnHelper::OnNewSignedInProfileCreated(
 void TurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
   auto* primary_account_mutator = identity_manager_->GetPrimaryAccountMutator();
 
-  // Signin.
-  if (auto* signin_manager = SigninManagerFactory::GetForProfile(profile_)) {
-    // `signin_manager` is null in tests.
-    account_change_blocker_ =
-        signin_manager->CreateAccountSelectionInProgressHandle();
-  }
   primary_account_mutator->SetPrimaryAccount(account_info_.account_id,
                                              signin::ConsentLevel::kSignin,
                                              signin_access_point_);
@@ -495,6 +489,10 @@ void TurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
     sync_startup_state_observer_ = SyncServiceStartupStateObserver::
         MaybeCreateSyncServiceStateObserverForAccountWithClouldPolicies(
             sync_service, profile_, account_info_,
+            // Note that `startup_delay` is not taken into account, as
+            // this call will produce a legacy observer implementation which
+            // does not uses this argument.
+            /*startup_delay=*/base::Seconds(0),
             base::BindOnce(&TurnSyncOnHelper::ShowSyncConfirmationUI,
                            weak_pointer_factory_.GetWeakPtr()));
     if (sync_startup_state_observer_) {
@@ -610,7 +608,6 @@ void TurnSyncOnHelper::FinishSyncSetupAndDelete(
 void TurnSyncOnHelper::SwitchToProfile(Profile* new_profile) {
   // The sync setup process shouldn't have been started if the user still had
   // the option to switch profiles, or it should have been properly cleaned up.
-  DCHECK(!account_change_blocker_);
   DCHECK(!sync_blocker_);
   DCHECK(!sync_startup_state_observer_);
 

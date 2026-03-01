@@ -20,6 +20,7 @@
 #include "components/lens/lens_overlay_request_id_generator.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/lens_server_proto/added_inputs.pb.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_cluster_info.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
@@ -99,6 +100,8 @@ class ComposeboxQueryController
   const contextual_search::FileInfo* GetFileInfo(
       const base::UnguessableToken& file_token) override;
   std::vector<const contextual_search::FileInfo*> GetFileInfoList() override;
+  std::optional<base::UnguessableToken> FindTokenForInjectedInput(
+      const std::string& id) override;
   base::WeakPtr<ContextualSearchContextController> AsWeakPtr() override;
 
   // Returns a request id to use for the viewport image upload request for the
@@ -106,6 +109,14 @@ class ComposeboxQueryController
   // different from the request id.
   virtual lens::LensOverlayRequestId GetRequestIdForViewportImage(
       const base::UnguessableToken& file_token);
+
+  // Creates the AddedInputs proto for the given file tokens.
+  lens::AddedInputs CreateAddedInputs(
+      const std::vector<base::UnguessableToken>& file_tokens);
+
+  // Returns the string representation of the mime type, for use in calculating
+  // the AddedInputs proto.
+  static std::optional<std::string> MimeTypeToString(lens::MimeType mime_type);
 
   // Enum for testing to track the state of the query controller.
   enum class QueryControllerState {
@@ -149,8 +160,8 @@ class ComposeboxQueryController
     FileInfo();
     ~FileInfo() override;
 
-    // Gets a pointer to the request ID for this request for testing.
-    lens::LensOverlayRequestId GetRequestIdForTesting() const {
+    // Gets the request ID for this request for testing.
+    std::optional<lens::LensOverlayRequestId> GetRequestIdForTesting() const {
       return request_id;
     }
 

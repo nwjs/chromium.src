@@ -15,23 +15,23 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
-#include "chrome/browser/page_content_annotations/page_content_extraction_service.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
-#include "chrome/browser/page_content_annotations/page_content_extraction_types.h"
-#include "chrome/browser/passage_embeddings/page_embeddings_service.h"
 #include "chrome/browser/passage_embeddings/page_embeddings_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
+#include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
+#include "components/page_content_annotations/core/page_content_extraction_types.h"
 #include "components/page_content_annotations/core/test_page_content_annotator.h"
-#include "components/passage_embeddings/passage_embeddings_features.h"
-#include "components/passage_embeddings/passage_embeddings_test_util.h"
+#include "components/passage_embeddings/content/page_embeddings_service.h"
+#include "components/passage_embeddings/core/passage_embeddings_features.h"
+#include "components/passage_embeddings/core/passage_embeddings_test_util.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -113,7 +113,7 @@ class MockPageEmbeddingsService
               (content::WebContents * web_contents),
               (const override));
 
-  MOCK_METHOD(void, ProcessAllEmbeddings, (), (override));
+  MOCK_METHOD(void, ProcessEmbeddingsOnDemand, (), (override));
 
   MOCK_METHOD(void,
               AddObserver,
@@ -129,14 +129,13 @@ class MockPageContentExtractionService
     : public page_content_annotations::PageContentExtractionService {
  public:
   MockPageContentExtractionService()
-      : PageContentExtractionService(nullptr, base::FilePath()) {}
+      : PageContentExtractionService(nullptr, base::FilePath(), nullptr) {}
   ~MockPageContentExtractionService() override = default;
 
-  MOCK_METHOD(
-      std::optional<page_content_annotations::ExtractedPageContentResult>,
-      GetExtractedPageContentAndEligibilityForPage,
-      (content::Page & page),
-      (override));
+  MOCK_METHOD(std::optional<bool>,
+              GetServerUploadEligibilityForPage,
+              (content::Page & page),
+              (override));
 };
 
 class ContextualTasksContextServiceTest : public InProcessBrowserTest {
@@ -433,11 +432,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksContextServiceTest,
   NotifyEmbedderMetadata();
 
   EXPECT_CALL(*page_embeddings_service(), GetEmbeddings(_)).Times(0);
-  page_content_annotations::ExtractedPageContentResult result;
-  result.is_eligible_for_server_upload = false;
   EXPECT_CALL(*page_content_extraction_service(),
-              GetExtractedPageContentAndEligibilityForPage)
-      .WillOnce(Return(result));
+              GetServerUploadEligibilityForPage)
+      .WillOnce(Return(false));
 
   base::test::TestFuture<std::vector<content::WebContents*>> future;
   service()->GetRelevantTabsForQuery(

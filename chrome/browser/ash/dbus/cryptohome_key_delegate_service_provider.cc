@@ -4,19 +4,19 @@
 
 #include "chrome/browser/ash/dbus/cryptohome_key_delegate_service_provider.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "base/containers/contains.h"
+#include "base/check_deref.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service_factory.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/cryptohome/key.pb.h"
@@ -150,7 +150,7 @@ void HandleSignatureKeyChallenge(
                                                  "Key is unavailable"));
     return;
   }
-  if (!base::Contains(supported_ssl_algorithms, ssl_algorithm)) {
+  if (!std::ranges::contains(supported_ssl_algorithms, ssl_algorithm)) {
     std::move(response_sender)
         .Run(dbus::ErrorResponse::FromMethodCall(method_call, DBUS_ERROR_FAILED,
                                                  "Unsupported algorithm"));
@@ -167,8 +167,9 @@ void HandleSignatureKeyChallenge(
 
 }  // namespace
 
-CryptohomeKeyDelegateServiceProvider::CryptohomeKeyDelegateServiceProvider() =
-    default;
+CryptohomeKeyDelegateServiceProvider::CryptohomeKeyDelegateServiceProvider(
+    PrefService* local_state)
+    : local_state_(CHECK_DEREF(local_state)) {}
 
 CryptohomeKeyDelegateServiceProvider::~CryptohomeKeyDelegateServiceProvider() =
     default;
@@ -201,7 +202,7 @@ void CryptohomeKeyDelegateServiceProvider::HandleChallengeKey(
             "Unable to parse AccountIdentifier from request"));
     return;
   }
-  user_manager::KnownUser known_user(g_browser_process->local_state());
+  user_manager::KnownUser known_user(&local_state_.get());
   user_manager::CryptohomeId cryptohome_id(account_identifier.account_id());
   const AccountId account_id =
       known_user.GetAccountIdByCryptohomeId(cryptohome_id);

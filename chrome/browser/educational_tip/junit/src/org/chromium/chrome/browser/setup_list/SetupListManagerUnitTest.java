@@ -29,6 +29,7 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.ui.shadows.ShadowAppCompatResources;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Test relating to {@link SetupListManager} */
@@ -54,10 +55,11 @@ public class SetupListManagerUnitTest {
     @Test
     @SmallTest
     @Features.DisableFeatures(ChromeFeatureList.ANDROID_SETUP_LIST)
-    public void testIsSetupListActive_ReturnsFalseWhenFeatureDisabled() {
+    public void testSetupList_ReturnFalseWhenFeatureDisabled() {
         // Re-create instance after feature flag is disabled.
         SetupListManager.setInstanceForTesting(new SetupListManager());
         assertFalse(SetupListManager.getInstance().isSetupListActive());
+        assertFalse(SetupListManager.getInstance().shouldShowTwoCellLayout());
         assertFalse(
                 mSharedPreferencesManager.contains(
                         ChromePreferenceKeys.SETUP_LIST_FIRST_SHOWN_TIMESTAMP));
@@ -65,11 +67,12 @@ public class SetupListManagerUnitTest {
 
     @Test
     @SmallTest
-    public void testIsSetupListActive_ReturnsFalseDuringFirstRun() {
+    public void testSetupList_ReturnFalseDuringFirstRun() {
         FirstRunStatus.setFirstRunTriggeredForTesting(true);
         // Re-create instance after FirstRunStatus is set.
         SetupListManager.setInstanceForTesting(new SetupListManager());
         assertFalse(SetupListManager.getInstance().isSetupListActive());
+        assertFalse(SetupListManager.getInstance().shouldShowTwoCellLayout());
         assertFalse(
                 mSharedPreferencesManager.contains(
                         ChromePreferenceKeys.SETUP_LIST_FIRST_SHOWN_TIMESTAMP));
@@ -86,6 +89,7 @@ public class SetupListManagerUnitTest {
         // Re-create instance.
         SetupListManager.setInstanceForTesting(new SetupListManager());
         assertTrue(SetupListManager.getInstance().isSetupListActive());
+        assertFalse(SetupListManager.getInstance().shouldShowTwoCellLayout());
         // Check that the timestamp is now set.
         assertTrue(
                 mSharedPreferencesManager.contains(
@@ -112,6 +116,34 @@ public class SetupListManagerUnitTest {
 
     @Test
     @SmallTest
+    public void testTwoCellLayout_InActiveWithinThreeDays() {
+        mSharedPreferencesManager.writeLong(
+                ChromePreferenceKeys.SETUP_LIST_FIRST_SHOWN_TIMESTAMP,
+                TimeUtils.currentTimeMillis());
+        mFakeTime.advanceMillis(
+                SetupListManager.TWO_CELL_LAYOUT_ACTIVE_WINDOW_MILLIS - ONE_MINUTE_IN_MILLIS);
+        // Re-create instance after time is advanced.
+        SetupListManager.setInstanceForTesting(new SetupListManager());
+        assertTrue(SetupListManager.getInstance().isSetupListActive());
+        assertFalse(SetupListManager.getInstance().shouldShowTwoCellLayout());
+    }
+
+    @Test
+    @SmallTest
+    public void testTwoCellLayout_ActiveAfterThreeDays() {
+        mSharedPreferencesManager.writeLong(
+                ChromePreferenceKeys.SETUP_LIST_FIRST_SHOWN_TIMESTAMP,
+                TimeUtils.currentTimeMillis());
+        mFakeTime.advanceMillis(
+                SetupListManager.TWO_CELL_LAYOUT_ACTIVE_WINDOW_MILLIS + ONE_MINUTE_IN_MILLIS);
+        // Re-create instance after time is advanced.
+        SetupListManager.setInstanceForTesting(new SetupListManager());
+        assertTrue(SetupListManager.getInstance().isSetupListActive());
+        assertTrue(SetupListManager.getInstance().shouldShowTwoCellLayout());
+    }
+
+    @Test
+    @SmallTest
     public void testIsSetupListActive_ReturnsFalseOutsideActiveWindow() {
         // Set the timestamp to be outside the active window.
         mSharedPreferencesManager.writeLong(
@@ -122,5 +154,51 @@ public class SetupListManagerUnitTest {
         // Re-create instance after time is advanced.
         SetupListManager.setInstanceForTesting(new SetupListManager());
         assertFalse(SetupListManager.getInstance().isSetupListActive());
+        assertFalse(SetupListManager.getInstance().shouldShowTwoCellLayout());
+    }
+
+    @Test
+    @SmallTest
+    public void testGetRankedModuleTypes_ReordersOnCompletion() {
+        SetupListManager.setInstanceForTesting(new SetupListManager());
+        List<Integer> rankedModules = SetupListManager.getInstance().getRankedModuleTypes();
+
+        // Initially, pick the first item.
+        int firstModuleType = rankedModules.get(0);
+        String prefKey = SetupListModuleUtils.getCompletionKeyForModule(firstModuleType);
+
+        // Mark the first item as completed.
+        mSharedPreferencesManager.writeBoolean(prefKey, true);
+
+        // Notify manager of the change.
+        SetupListManager.getInstance().onSharedPreferenceChanged(null, prefKey);
+
+        rankedModules = SetupListManager.getInstance().getRankedModuleTypes();
+
+        // The first item should now be at the end of the list.
+        assertEquals(firstModuleType, (int) rankedModules.get(rankedModules.size() - 1));
+    }
+
+    @Test
+    @SmallTest
+    public void testGetManualRank_UpdatesDynamically() {
+        SetupListManager.setInstanceForTesting(new SetupListManager());
+        List<Integer> rankedModules = SetupListManager.getInstance().getRankedModuleTypes();
+
+        // Initially, pick the first item.
+        int firstModuleType = rankedModules.get(0);
+        String prefKey = SetupListModuleUtils.getCompletionKeyForModule(firstModuleType);
+
+        // Its rank should be 0.
+        assertEquals(0, (int) SetupListManager.getInstance().getManualRank(firstModuleType));
+
+        // Complete the first item.
+        mSharedPreferencesManager.writeBoolean(prefKey, true);
+        SetupListManager.getInstance().onSharedPreferenceChanged(null, prefKey);
+
+        // Now its rank should be at the end.
+        int expectedRank = SetupListManager.getInstance().getRankedModuleTypes().size() - 1;
+        assertEquals(
+                expectedRank, (int) SetupListManager.getInstance().getManualRank(firstModuleType));
     }
 }

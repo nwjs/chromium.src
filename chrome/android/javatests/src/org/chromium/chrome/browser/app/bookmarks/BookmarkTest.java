@@ -75,7 +75,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -99,7 +99,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkManagerTestingDelegate;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkModelObserver;
 import org.chromium.chrome.browser.bookmarks.BookmarkPage;
-import org.chromium.chrome.browser.bookmarks.BookmarkPromoHeader;
 import org.chromium.chrome.browser.bookmarks.BookmarkToolbar;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
@@ -162,7 +161,6 @@ import java.util.stream.IntStream;
 /** Tests for the bookmark manager. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@EnableFeatures({ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP})
 @ImportantFormFactors(DeviceFormFactor.ONLY_TABLET)
 // TODO(crbug.com/40899175): Investigate batching.
 @DoNotBatch(reason = "BookmarkTest has behaviours and thus can't be batched.")
@@ -508,7 +506,6 @@ public class BookmarkTest {
     @Test
     @MediumTest
     public void testSearchBookmarks() throws Exception {
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
@@ -523,7 +520,7 @@ public class BookmarkTest {
         final boolean isTablet =
                 DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivityTestRule.getActivity());
         if (isTablet) {
-            onView(withId(R.id.row_search_text)).perform(replaceText("Google"));
+            BookmarkTestUtil.getSearchBoxViewInteraction().perform(replaceText("Google"));
         } else {
             enterSearch();
             assertEquals(BookmarkUiMode.SEARCHING, mDelegate.getCurrentUiMode());
@@ -552,7 +549,8 @@ public class BookmarkTest {
                 });
 
         if (isTablet) {
-            onView(withId(R.id.row_search_text)).perform(replaceText("Non-existent page"));
+            BookmarkTestUtil.getSearchBoxViewInteraction()
+                    .perform(replaceText("Non-existent page"));
         } else {
             searchBookmarks("Non-existent page");
         }
@@ -562,7 +560,7 @@ public class BookmarkTest {
                 getBookmarkCount());
 
         if (isTablet) {
-            onView(withId(R.id.row_search_text)).perform(replaceText(""));
+            BookmarkTestUtil.getSearchBoxViewInteraction().perform(replaceText(""));
         } else {
             exitSearch();
         }
@@ -575,7 +573,6 @@ public class BookmarkTest {
     @MediumTest
     @Restriction({DeviceFormFactor.PHONE})
     public void testSearchBookmarks_pressBack() throws Exception {
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
@@ -647,7 +644,6 @@ public class BookmarkTest {
     @EnableFeatures(ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES)
     @Restriction({DeviceFormFactor.PHONE})
     public void testSearchBookmarks_pressEscape() throws Exception {
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
         openBookmarkManager();
@@ -706,10 +702,10 @@ public class BookmarkTest {
         // Verify initial state.
         assertEquals(
                 "Should be in folder view.", BookmarkUiMode.FOLDER, mDelegate.getCurrentUiMode());
-        onView(withId(R.id.row_search_text)).check(matches(withText("")));
+        BookmarkTestUtil.getSearchBoxViewInteraction().check(matches(withText("")));
 
         // Action 1: User types in the search bar.
-        onView(withId(R.id.row_search_text)).perform(replaceText("Google"));
+        BookmarkTestUtil.getSearchBoxViewInteraction().perform(replaceText("Google"));
         RecyclerViewTestUtils.waitForStableMvcRecyclerView(mItemsContainer);
 
         // Verification 1: Search results are shown.
@@ -720,7 +716,7 @@ public class BookmarkTest {
         pressEscapeKey();
 
         // Verification 2: The search text is cleared, and the folder contents are restored.
-        onView(withId(R.id.row_search_text)).check(matches(withText("")));
+        BookmarkTestUtil.getSearchBoxViewInteraction().check(matches(withText("")));
         assertEquals("Clearing search should show all items in the folder.", 1, getBookmarkCount());
         assertEquals(
                 "Should still be in folder mode.",
@@ -740,8 +736,8 @@ public class BookmarkTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481444847
     public void testSearchBookmarks_Delete() throws Exception {
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         BookmarkId testFolder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, testFolder);
         openBookmarkManager();
@@ -756,7 +752,8 @@ public class BookmarkTest {
         assertEquals("Wrong number of items before starting search.", 1, getBookmarkCount());
 
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivityTestRule.getActivity())) {
-            onView(withId(R.id.row_search_text)).perform(replaceText(TEST_PAGE_TITLE_GOOGLE));
+            BookmarkTestUtil.getSearchBoxViewInteraction()
+                    .perform(replaceText(TEST_PAGE_TITLE_GOOGLE));
         } else {
             enterSearch();
             assertEquals(
@@ -796,14 +793,13 @@ public class BookmarkTest {
     @Test
     @MediumTest
     public void testSearchBookmarks_DeleteFolderWithChildrenInResults() throws Exception {
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         BookmarkId testFolder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, testFolder);
         openBookmarkManager();
 
         // Start searching, enter a query.
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivityTestRule.getActivity())) {
-            onView(withId(R.id.row_search_text)).perform(replaceText("test"));
+            BookmarkTestUtil.getSearchBoxViewInteraction().perform(replaceText("test"));
         } else {
             runOnUiThreadBlocking(mDelegate::openSearchUi);
             assertEquals(
@@ -869,7 +865,6 @@ public class BookmarkTest {
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testStopSpinnerOnEmptyFolder() throws Exception {
         // Cannot have a promo if we're going to have 0 elements in RecyclerView.
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
 
         // Force BookmarkModel to be loaded so we can get a folder id later.
         loadBookmarkModel();
@@ -912,7 +907,6 @@ public class BookmarkTest {
         addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_TITLE_A, mTestUrlA);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -950,7 +944,6 @@ public class BookmarkTest {
         addFolder(TEST_FOLDER_TITLE);
         addFolder(TEST_TITLE_A);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1011,7 +1004,6 @@ public class BookmarkTest {
         expected.add(aId);
         expected.add(googleId);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1093,7 +1085,6 @@ public class BookmarkTest {
         expected.add(aId);
         expected.add(testId);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1162,7 +1153,6 @@ public class BookmarkTest {
         expected.add(testId);
         expected.add(aId);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1208,7 +1198,6 @@ public class BookmarkTest {
     public void testPromoDraggability() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1232,7 +1221,6 @@ public class BookmarkTest {
         addBookmark("a", mTestUrlA);
         addFolder(TEST_FOLDER_TITLE);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1250,7 +1238,6 @@ public class BookmarkTest {
     public void testCannotSelectPromo() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
 
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
 
         View promo = getNthBookmarkViewHolder(1).itemView;
@@ -1268,7 +1255,6 @@ public class BookmarkTest {
     public void testMoveUpMenuItem() throws Exception {
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
         addFolder(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
 
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
@@ -1293,7 +1279,6 @@ public class BookmarkTest {
     public void testMoveDownMenuItem() throws Exception {
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
         addFolder(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1316,7 +1301,6 @@ public class BookmarkTest {
     public void testMoveDownGoneForBottomElement() throws Exception {
         addBookmarkWithPartner(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
         addFolderWithPartner(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1335,7 +1319,6 @@ public class BookmarkTest {
     public void testMoveUpGoneForTopElement() throws Exception {
         addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestUrlA);
         addFolder(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1373,7 +1356,6 @@ public class BookmarkTest {
     @MediumTest
     public void testMoveButtonsGoneWithOneBookmark() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1394,7 +1376,6 @@ public class BookmarkTest {
     public void testTopLevelFolders() throws Exception {
         // NOTE: Hide promos to ensure top level-folders will fit the viewport.
         SigninPromoCoordinator.disablePromoForTesting();
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
         onViewWaiting(allOf(withText("Mobile bookmarks"), isDisplayed()));
         onViewWaiting(allOf(withText("Reading list"), isDisplayed()));
@@ -1458,7 +1439,6 @@ public class BookmarkTest {
     @DisabledTest(message = "Flaky, see crbug.com/335891831")
     public void testShowInFolder_NoScroll() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
         BookmarkTestUtil.openMobileBookmarks(mItemsContainer, mDelegate, mBookmarkModel);
 
@@ -1502,7 +1482,6 @@ public class BookmarkTest {
         addFolder("C");
         addFolder("D");
         addFolder("E"); // Index 1
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
 
         // Enter search mode.
@@ -1534,7 +1513,6 @@ public class BookmarkTest {
     public void testShowInFolder_OpenOtherFolder() throws Exception {
         BookmarkId testId = addFolder(TEST_FOLDER_TITLE);
         runOnUiThreadBlocking(() -> mBookmarkModel.addBookmark(testId, 0, TEST_TITLE_A, mTestUrlA));
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(true);
         openBookmarkManager();
 
         // Enter search mode.
@@ -1580,7 +1558,6 @@ public class BookmarkTest {
     public void testAddBookmarkInBackgroundWithSelection() throws Exception {
         BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
 
         // Open the new folder where these bookmarks were created.
@@ -1617,7 +1594,6 @@ public class BookmarkTest {
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
         BookmarkId googleId = addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
         addBookmark(TEST_TITLE_A, mTestUrlA, folder);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
 
         // Open the new folder where these bookmarks were created.
@@ -1658,7 +1634,6 @@ public class BookmarkTest {
         addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
         BookmarkId googleId = addBookmark(TEST_PAGE_TITLE_GOOGLE, mTestPage, folder);
         addBookmark(TEST_TITLE_A, mTestUrlA, folder);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
 
         // Open the new folder where these bookmarks were created.
@@ -1699,7 +1674,6 @@ public class BookmarkTest {
     public void testUpdateSelectedBookmarkInBackground() throws Exception {
         BookmarkId folder = addFolder(TEST_FOLDER_TITLE);
         BookmarkId id = addBookmark(TEST_PAGE_TITLE_FOO, mTestPageFoo, folder);
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
 
         // Open the new folder where these bookmarks were created.
@@ -1887,7 +1861,6 @@ public class BookmarkTest {
                 () -> {
                     mBookmarkModel.setPowerBookmarkMeta(id, meta.build());
                 });
-        BookmarkPromoHeader.forcePromoVisibilityForTesting(false);
         openBookmarkManager();
         BookmarkTestUtil.waitForBookmarkModelLoaded();
         onView(withText("Tracked products")).check(matches(not(isDisplayed())));
@@ -1901,7 +1874,7 @@ public class BookmarkTest {
         RecyclerView recyclerView = mBookmarkManagerCoordinator.getRecyclerViewForTesting();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ObservableSupplier<EdgeToEdgeController> supplier =
+                    MonotonicObservableSupplier<EdgeToEdgeController> supplier =
                             mBookmarkActivity.getEdgeToEdgeSupplier();
                     EdgeToEdgeController edgeToEdgeController =
                             supplier == null ? null : supplier.get();
@@ -1935,7 +1908,7 @@ public class BookmarkTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ScrollView scrollView = editActivity.getScrollViewForTesting();
-                    ObservableSupplier<EdgeToEdgeController> supplier =
+                    MonotonicObservableSupplier<EdgeToEdgeController> supplier =
                             editActivity.getEdgeToEdgeSupplier();
                     EdgeToEdgeController edgeToEdgeController =
                             supplier == null ? null : supplier.get();
@@ -2046,11 +2019,13 @@ public class BookmarkTest {
     }
 
     private boolean isViewHolderPassivelyDraggable(ViewHolder viewHolder) {
-        return ThreadUtils.runOnUiThreadBlocking(() -> mAdapter.isPassivelyDraggable(viewHolder));
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> mAdapter.getDragTouchHandlerForTest().isPassivelyDraggable(viewHolder));
     }
 
     private boolean isViewHoldersActivelyDraggable(ViewHolder viewHolder) {
-        return ThreadUtils.runOnUiThreadBlocking(() -> mAdapter.isActivelyDraggable(viewHolder));
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> mAdapter.getDragTouchHandlerForTest().isActivelyDraggable(viewHolder));
     }
 
     private BookmarkManagerTestingDelegate getTestingDelegate() {
@@ -2058,7 +2033,7 @@ public class BookmarkTest {
     }
 
     private void enterSearch() throws Exception {
-        onView(withId(R.id.row_search_text)).perform(click());
+        BookmarkTestUtil.getSearchBoxViewInteraction().perform(click());
         CriteriaHelper.pollUiThread(
                 () -> {
                     return mDelegate.getCurrentUiMode() == BookmarkUiMode.SEARCHING;

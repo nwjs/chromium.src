@@ -130,7 +130,8 @@ void OpenXrCompositionLayer::DestroySwapchain(gpu::SharedImageInterface* sii) {
   // that may exist.
   for (OpenXrSwapchainInfo& info : GetSwapchainImages()) {
     if (sii && info.shared_image && info.sync_token.HasData()) {
-      sii->DestroySharedImage(info.sync_token, std::move(info.shared_image));
+      info.shared_image->UpdateDestructionSyncToken(info.sync_token);
+      info.shared_image.reset();
     }
     info.Clear();
   }
@@ -217,6 +218,10 @@ const gfx::Rect OpenXrCompositionLayer::GetSubImageViewport(
     XrEyeVisibility eye) const {
   gfx::Rect info{0, 0, static_cast<int>(read_only_data().texture_width),
                  static_cast<int>(read_only_data().texture_height)};
+
+  // When force_mono_presentation is true, the eye will be
+  // XR_EYE_VISIBILITY_BOTH, and we will still respect the layout and only use
+  // the left eye's viewport.
   if (read_only_data().layout ==
       device::mojom::XRLayerLayout::kStereoLeftRight) {
     info.set_width(info.width() / 2);
@@ -238,6 +243,12 @@ std::vector<XrEyeVisibility> OpenXrCompositionLayer::GetXrEyesForComposition()
   if (type_ == Type::kProjection) {
     // Projection layer uses view configurations for eyes. See
     // OpenXrGraphicsBinding::GetProjectionViews().
+    return {XR_EYE_VISIBILITY_BOTH};
+  }
+
+  if (mutable_data().force_mono_presentation) {
+    // force_mono_presentation forces the right eye to use the same
+    // layer configuration as the left eye.
     return {XR_EYE_VISIBILITY_BOTH};
   }
 

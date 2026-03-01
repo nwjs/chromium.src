@@ -342,7 +342,6 @@
 <translation id="2201071101391734388">Foto reciente <ph name="INDEX" /> de <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Contraer Google Tasks</translation>
 <translation id="2208323208084708176">Modo de escritorio unificado</translation>
-<translation id="2210311543574621570">Verás el portapapeles cuando mantengas presionadas las teclas Ctrl + V. Para desactivar esta combinación de teclas, inhabilita la función experimental #clipboard-history-longpress en chrome://flags.</translation>
 <translation id="2215920961700443347">No hay Internet. Conéctate a Internet y vuelve a intentarlo.</translation>
 <translation id="2222841058024245321">Escritorio 7</translation>
 <translation id="2223384056430485343">En una pantalla dividida</translation>
@@ -1402,7 +1401,7 @@ No hay dispositivos conectados.</translation>
 <translation id="5648021990716966815">Conector para micrófono</translation>
 <translation id="5652575806481723716"><ph name="FOCUSED_APP_NAME" /> requiere tu atención.</translation>
 <translation id="5662075790140998213">Escritorio 10</translation>
-<translation id="5662709761327382534">Grabar con el micrófono: <ph name="CURRENT_STATE" />; presiona Intro para cambiar el estado a <ph name="NEW_STATE" /></translation>
+<translation id="5662709761327382534">Grabar micrófono: <ph name="CURRENT_STATE" />; presiona Intro para cambiar el estado a <ph name="NEW_STATE" /></translation>
 <translation id="5662919923378083468"><ph name="ACTION_DESCRIPTION" />, <ph name="SHORTCUT_HINT" /></translation>
 <translation id="5669267381087807207">Activando</translation>
 <translation id="5672890847723042801">Utilidades</translation>
@@ -1525,7 +1524,7 @@ No hay dispositivos conectados.</translation>
 <translation id="6030495522958826102">El menú se movió a la esquina inferior izquierda de la pantalla.</translation>
 <translation id="6030608926359652298">Personaliza tu panel táctil</translation>
 <translation id="6032620807120418574">Haz clic en cualquier parte para grabar la pantalla completa</translation>
-<translation id="6040071906258664830">Grabar con el micrófono: <ph name="STATE" /></translation>
+<translation id="6040071906258664830">Grabar micrófono: <ph name="STATE" /></translation>
 <translation id="6040143037577758943">Cerrar</translation>
 <translation id="6043212731627905357">Este monitor no es compatible con tu dispositivo <ph name="DEVICE_TYPE" />.</translation>
 <translation id="6043994281159824495">Salir ahora</translation>
@@ -2196,7 +2195,6 @@ Para apagarlo, vuelve a mantener presionado el botón de encendido.</translation
 <translation id="8241650983304689286">Agregar pestaña a la nueva vista dividida</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, intensidad de la señal: <ph name="SIGNAL_STRENGTH" />, nivel de batería del teléfono: <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Mostrar todo el contenido de Google Drive</translation>
-<translation id="8257510091797044096">Configura el dispositivo</translation>
 <translation id="8261506727792406068">Borrar</translation>
 <translation id="8262312463845990408">Activar o desactivar la reproducción</translation>
 <translation id="8268302343625273732">Ver todas las tareas en Google Classroom</translation>

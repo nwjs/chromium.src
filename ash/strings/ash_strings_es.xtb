@@ -342,7 +342,6 @@
 <translation id="2201071101391734388">Foto reciente <ph name="INDEX" /> de <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Contraer Google Tasks</translation>
 <translation id="2208323208084708176">Modo Escritorio unificado</translation>
-<translation id="2210311543574621570">Para ver el portapapeles, mantén pulsadas las teclas Ctrl + V. Puedes desactivar esta combinación de teclas inhabilitando la marca #clipboard-history-longpress en chrome://flags.</translation>
 <translation id="2215920961700443347">No hay conexión a Internet. Conéctate a Internet y vuelve a intentarlo.</translation>
 <translation id="2222841058024245321">Escritorio 7</translation>
 <translation id="2223384056430485343">En una pantalla dividida</translation>
@@ -1001,7 +1000,7 @@ Algunas funciones están limitadas para aumentar la duración de la batería.</t
 <translation id="4356872429719185452">Muestra detalles del punto de acceso. El punto de acceso se está activando.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Grabando</translation>
 <translation id="4368227575116094370">Crear hoja de cálculo de Google</translation>
-<translation id="4371348193907997655">Configuración de envío</translation>
+<translation id="4371348193907997655">Ajustes de Cast</translation>
 <translation id="4371834685492830207">El PIN solo puede contener caracteres válidos</translation>
 <translation id="4375482231364171368">Buscar en la barra de direcciones</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />; intensidad de la señal: <ph name="SIGNAL_STRENGTH" /> %</translation>
@@ -2196,7 +2195,6 @@ Para apagarlo, mantén pulsado de nuevo el botón de encendido del dispositivo.<
 <translation id="8241650983304689286">Añadir pestaña a la nueva vista dividida</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, intensidad de la señal: <ph name="SIGNAL_STRENGTH" />, batería del teléfono: <ph name="BATTERY_STATUS" /></translation>
 <translation id="825129991941217170">Mostrar todo el contenido de Google Drive</translation>
-<translation id="8257510091797044096">Configurar tu dispositivo</translation>
 <translation id="8261506727792406068">Eliminar</translation>
 <translation id="8262312463845990408">Reproducir/Pausar</translation>
 <translation id="8268302343625273732">Ver todas las tareas en Google Classroom</translation>

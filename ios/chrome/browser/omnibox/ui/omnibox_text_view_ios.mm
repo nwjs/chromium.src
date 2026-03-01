@@ -49,7 +49,7 @@ namespace {
 const CGFloat kMinVerticalInset = 8.0;
 
 /// The placeholder leading padding.
-const CGFloat kPlaceholderLeadingPadding = 4.0;
+const CGFloat kPlaceholderLeadingPadding = 5.0;
 
 /// The vertical offset added to the text view. This is to align with the
 /// OmniboxTextFieldIOS that OmniboxTextViewIOS replaces.
@@ -474,20 +474,15 @@ const CGFloat kVerticalOffset = 1;
                 forKey:NSBackgroundColorAttributeName];
   self.typingAttributes = attributes;
 
-  if (self.clearingPreEditText) {
-    // Clear pre-edit text manually instead of relying on clearsOnInsertion.
-    // clearsOnInsertion calls selectAll: which can can crash when called on
-    // begin editing (crbug.com/479185287).
-    self.attributedText = [[NSAttributedString alloc] init];
-  } else {
+  if (!self.clearingPreEditText) {
     // Also apply the attributes to the whole text.
     NSMutableAttributedString* attributedText =
         [self.attributedText mutableCopy];
     [attributedText addAttributes:attributes
                             range:NSMakeRange(0, self.attributedText.length)];
     self.attributedText = attributedText;
+    [self.heightDelegate textViewContentChanged:self];
   }
-  [self.heightDelegate textViewContentChanged:self];
 }
 
 #pragma mark - UITextView
@@ -1176,6 +1171,7 @@ const CGFloat kVerticalOffset = 1;
   self.placeholderLabel.font = self.font;
   [self setAttributedText:self.attributedText];
   [self updateOmniboxTypingAttributes];
+  [self.heightDelegate textViewContentChanged:self];
 }
 
 - (void)updateTextContainerInset {

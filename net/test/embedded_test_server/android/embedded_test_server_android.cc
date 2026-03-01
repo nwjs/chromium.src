@@ -62,7 +62,7 @@ EmbeddedTestServerAndroid::~EmbeddedTestServerAndroid() {
   Java_EmbeddedTestServerImpl_clearNativePtr(env, weak_java_server_.get(env));
 }
 
-bool EmbeddedTestServerAndroid::Start(JNIEnv* env, jint port) {
+bool EmbeddedTestServerAndroid::Start(JNIEnv* env, int32_t port) {
   return test_server_.Start(static_cast<int>(port));
 }
 
@@ -135,7 +135,7 @@ void EmbeddedTestServerAndroid::AddDefaultHandlers(
 }
 
 void EmbeddedTestServerAndroid::SetSSLConfig(JNIEnv* jenv,
-                                             jint jserver_certificate) {
+                                             int32_t jserver_certificate) {
   test_server_.SetSSLConfig(
       static_cast<EmbeddedTestServer::ServerCertificate>(jserver_certificate));
 }
@@ -144,7 +144,7 @@ typedef std::unique_ptr<HttpResponse> (*HandleRequestPtr)(
     const HttpRequest& request);
 
 void EmbeddedTestServerAndroid::RegisterRequestHandler(JNIEnv* env,
-                                                       jlong handler) {
+                                                       int64_t handler) {
   HandleRequestPtr handler_ptr = reinterpret_cast<HandleRequestPtr>(handler);
   test_server_.RegisterRequestHandler(base::BindRepeating(handler_ptr));
 }

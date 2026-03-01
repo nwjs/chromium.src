@@ -17,11 +17,6 @@ namespace default_browser {
 
 namespace {
 
-std::string GetHistogramName(const std::string& suffix,
-                             const std::string& metric_type) {
-  return base::JoinString({"DefaultBrowser", suffix, metric_type}, ".");
-}
-
 std::string SetterTypeToString(DefaultBrowserSetterType setter_type) {
   switch (setter_type) {
     case DefaultBrowserSetterType::kShellIntegration:
@@ -38,9 +33,27 @@ std::string UiEntrypointTypeToString(
       return "SettingsPage";
     case DefaultBrowserEntrypointType::kStartupInfobar:
       return "InfoBar";
+    case DefaultBrowserEntrypointType::kChangeDetectedNotification:
+      return "ChangeDetectedNotification";
     default:
       NOTREACHED();
   }
+}
+
+std::string GetEntrypointHistogramName(
+    DefaultBrowserEntrypointType entrypoint_type,
+    DefaultBrowserSetterType setter_type,
+    const std::string& metric_type) {
+  return base::JoinString(
+      {"DefaultBrowser", UiEntrypointTypeToString(entrypoint_type),
+       SetterTypeToString(setter_type), metric_type},
+      ".");
+}
+
+std::string GetSetterHistogramName(DefaultBrowserSetterType setter_type,
+                                   const std::string& metric_type) {
+  return base::JoinString(
+      {"DefaultBrowser", SetterTypeToString(setter_type), metric_type}, ".");
 }
 
 }  // namespace
@@ -87,19 +100,20 @@ void DefaultBrowserController::OnSetterExecutionComplete(
 
 void DefaultBrowserController::IncrementShownMetric() {
   base::UmaHistogramCounts100(
-      GetHistogramName(UiEntrypointTypeToString(ui_entrypoint_), "Shown"), 1);
+      GetEntrypointHistogramName(ui_entrypoint_, GetSetterType(), "Shown"), 1);
 }
 
 void DefaultBrowserController::RecordInteractionMetric(
     DefaultBrowserInteractionType interaction) {
   base::UmaHistogramEnumeration(
-      GetHistogramName(UiEntrypointTypeToString(ui_entrypoint_), "Interaction"),
+      GetEntrypointHistogramName(ui_entrypoint_, GetSetterType(),
+                                 "Interaction"),
       interaction);
 }
 
 void DefaultBrowserController::RecordResultMetric(bool success) {
-  base::UmaHistogramBoolean(
-      GetHistogramName(SetterTypeToString(GetSetterType()), "Result"), success);
+  base::UmaHistogramBoolean(GetSetterHistogramName(GetSetterType(), "Result"),
+                            success);
 }
 
 }  // namespace default_browser

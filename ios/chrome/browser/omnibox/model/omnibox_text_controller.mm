@@ -114,14 +114,12 @@ const char kOmniboxFocusResultedInNavigation[] =
 
   [textInput.view becomeFirstResponder];
 
-  if (_presentationContext == OmniboxPresentationContext::kComposebox) {
-    if (textInput.isPreEditing) {
-      // Reset the pre-edit state to ensure the caret is not visible.
-      [textInput exitPreEditState];
-      [textInput enterPreEditState];
-    } else {
-      [self setCaretPos:textInput.text.length];
-    }
+  if (_presentationContext == OmniboxPresentationContext::kComposebox &&
+      _omniboxTextModel && _omniboxTextModel->user_input_in_progress) {
+    // In composebox, the omnibox is refocused after using the camera
+    // attachment. If user has existing input, set the caret to the end of the
+    // text. Otherwise, skip setting the caret position crbug.com/475977756.
+    [self setCaretPos:textInput.text.length];
   }
 
   // Ensures that the accessibility system focuses the text input instead of
@@ -545,6 +543,10 @@ const char kOmniboxFocusResultedInNavigation[] =
     }
   }
 
+  // Don't enter pre-edit if the user has already input text.
+  BOOL userInputInProgress =
+      IsComposeboxIOSEnabled() && _omniboxTextModel->user_input_in_progress;
+
   // If the omnibox is displaying a URL and the popup is not showing, set the
   // input into pre-editing state.  If the omnibox is displaying search terms,
   // leave the default behavior of positioning the cursor at the end of the
@@ -553,7 +555,8 @@ const char kOmniboxFocusResultedInNavigation[] =
   // behavior should not be invoked. When `is_lens_overlay_` is true, the
   // omnibox only display search terms.
   if (!popupOpenBeforeEdit &&
-      _presentationContext != OmniboxPresentationContext::kLensOverlay) {
+      _presentationContext != OmniboxPresentationContext::kLensOverlay &&
+      !userInputInProgress) {
     [textInput enterPreEditState];
   }
 
@@ -573,7 +576,16 @@ const char kOmniboxFocusResultedInNavigation[] =
 
   if ([textInput isPreEditing]) {
     [textInput setClearingPreEditText:YES];
-    [textInput exitPreEditState];
+    if (IsComposeboxIOSEnabled() &&
+        _presentationContext == OmniboxPresentationContext::kComposebox) {
+      // Clear pre-edit text manually instead of relying on clearsOnInsertion.
+      // clearsOnInsertion calls selectAll: which can can crash when called on
+      // begin editing (crbug.com/479185287).
+      [self removePreEditText];
+    } else {
+      [textInput exitPreEditState];
+    }
+
     // Reset `range` to be of zero-length at location zero, as the input will be
     // now cleared.
     range = NSMakeRange(0, 0);

@@ -92,9 +92,7 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
 #if BUILDFLAG(IS_ANDROID)
   void UpdateRefreshRate(float refresh_rate) override;
   void SetAdaptiveRefreshRateInfo(
-      bool has_support,
-      float suggested_high,
-      float device_scale_factor) override;
+      mojom::AdaptiveRefreshRateInfoPtr info) override;
   void PreserveChildSurfaceControls() override;
   void SetSwapCompletionCallbackEnabled(bool enable) override;
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -222,9 +220,9 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
   base::TimeDelta display_frame_interval_ = BeginFrameArgs::DefaultInterval();
   base::TimeDelta preferred_frame_interval_;
 
-#if BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE_X11)
+#if BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
   gfx::Size last_swap_pixel_size_;
-#endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(IS_OZONE_X11)
+#endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
 
 #if BUILDFLAG(IS_APPLE)
   gfx::CALayerParams last_ca_layer_params_;
@@ -241,6 +239,8 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
   bool supports_adaptive_refresh_rate_ = false;
   base::TimeDelta suggested_frame_interval_high_;
   float device_scale_factor_ = 1.0f;
+  std::vector<mojom::FrameRateVelocityPoint>
+      adaptive_refresh_rate_velocity_points_;
 #endif
 
   // Map which retains the exact supported refresh rates, keyed by their

@@ -27,7 +27,7 @@ MidiInputPortAndroid::~MidiInputPortAndroid() {
 bool MidiInputPortAndroid::Open() {
   JNIEnv* env = jni_zero::AttachCurrentThread();
   return Java_MidiInputPortAndroid_open(env, raw_port_,
-                                        reinterpret_cast<jlong>(this));
+                                        reinterpret_cast<int64_t>(this));
 }
 
 void MidiInputPortAndroid::Close() {
@@ -37,9 +37,9 @@ void MidiInputPortAndroid::Close() {
 
 void MidiInputPortAndroid::OnData(JNIEnv* env,
                                   const JavaRef<jbyteArray>& data,
-                                  jint offset,
-                                  jint size,
-                                  jlong timestamp) {
+                                  int32_t offset,
+                                  int32_t size,
+                                  int64_t timestamp) {
   std::vector<uint8_t> bytes;
   base::android::JavaByteArrayToByteVector(env, data, &bytes);
 

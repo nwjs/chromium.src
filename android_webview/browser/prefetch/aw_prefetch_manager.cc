@@ -7,6 +7,8 @@
 
 #include <optional>
 
+#include "android_webview/browser/metrics/aw_metrics_service_accessor.h"
+#include "android_webview/browser/metrics/aw_metrics_service_client.h"
 #include "android_webview/browser/prefetch/aw_preloading_utils.h"
 #include "android_webview/common/aw_features.h"
 #include "base/android/jni_string.h"
@@ -128,6 +130,11 @@ int AwPrefetchManager::StartPrefetchRequest(
   }
   std::optional<net::HttpNoVarySearchData> expected_no_vary_search =
       GetExpectedNoVarySearchFromPrefetchParameters(env, prefetch_params);
+
+  std::optional<int> variations_id =
+      GetVariationsIdFromPrefetchParameters(env, prefetch_params);
+  SetOrClearExternalPrefetchExperiment(variations_id);
+
   std::unique_ptr<content::PrefetchRequestStatusListener>
       request_status_listener =
           std::make_unique<AwPrefetchRequestStatusListener>(java_obj_, callback,
@@ -179,7 +186,7 @@ int AwPrefetchManager::StartPrefetchRequest(
   return NO_PREFETCH_KEY;
 }
 
-void AwPrefetchManager::CancelPrefetch(JNIEnv* env, jint prefetch_key) {
+void AwPrefetchManager::CancelPrefetch(JNIEnv* env, int32_t prefetch_key) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   TRACE_EVENT0("android_webview", "AwPrefetchManager::CancelPrefetch");
   if (prefetch_key == NO_PREFETCH_KEY) {
@@ -193,13 +200,27 @@ void AwPrefetchManager::CancelPrefetch(JNIEnv* env, jint prefetch_key) {
   }
 }
 
+void AwPrefetchManager::SetOrClearExternalPrefetchExperiment(
+    std::optional<int> variations_id) {
+  std::vector<int> experiment_ids;
+  if (variations_id.has_value()) {
+    experiment_ids.push_back(variations_id.value());
+  }
+
+  // Always invoke registration to ensure the metrics state is synchronized
+  // with the current request. Providing an empty ID list is necessary to
+  // clear state from previous requests if the current one lacks a
+  // Variations ID.
+  AwMetricsServiceAccessor::RegisterExternalExperiment(experiment_ids);
+}
+
 bool AwPrefetchManager::GetIsPrefetchInCacheForTesting(JNIEnv* env,
-                                                       jint prefetch_key) {
+                                                       int32_t prefetch_key) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   return all_prefetches_map_.find(prefetch_key) != all_prefetches_map_.end();
 }
 
-static jint JNI_AwPrefetchManager_GetNoPrefetchKey(JNIEnv* env) {
+static int32_t JNI_AwPrefetchManager_GetNoPrefetchKey(JNIEnv* env) {
   return NO_PREFETCH_KEY;
 }
 

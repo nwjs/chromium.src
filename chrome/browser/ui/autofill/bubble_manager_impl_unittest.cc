@@ -94,6 +94,7 @@ class MockBubbleController : public BubbleControllerBase {
   MOCK_METHOD(void, HideBubble, (bool), (override));
   MOCK_METHOD(void, OnBubbleDiscarded, (), (override));
   MOCK_METHOD(bool, CanBeReshown, (), (const, override));
+  MOCK_METHOD(bool, ShouldReshowOnTabVisible, (), (const, override));
   MOCK_METHOD(BubbleType, GetBubbleType, (), (const, override));
   MOCK_METHOD(bool, IsShowingBubble, (), (const, override));
   MOCK_METHOD(bool, IsMouseHovered, (), (const, override));
@@ -124,6 +125,7 @@ class BubbleManagerImplTest : public ::testing::Test {
         std::make_unique<MockBubbleController>();
     controller->SetBubbleType(bubble_type);
     ON_CALL(*controller, CanBeReshown).WillByDefault(Return(can_be_reshown));
+    ON_CALL(*controller, ShouldReshowOnTabVisible).WillByDefault(Return(true));
     return controller;
   }
 
@@ -948,6 +950,31 @@ TEST_F(BubbleManagerImplTest,
   EXPECT_FALSE(confirmation_controller->IsShowingBubble());
 }
 
+// Test that a queued bubble is discarded if it becomes invalid while waiting in
+// the queue.
+TEST_F(BubbleManagerImplTest, ProcessPendingBubbles_DiscardInvalidBubble) {
+  std::unique_ptr<MockBubbleController> active_controller =
+      CreateController(BubbleType::kSaveUpdateCard);
+  std::unique_ptr<MockBubbleController> queued_controller =
+      CreateController(BubbleType::kSaveUpdateAddress);
+
+  EXPECT_CALL(*active_controller, ShowBubble());
+  bubble_manager().RequestShowController(*active_controller,
+                                         /*force_show=*/false);
+  ASSERT_TRUE(active_controller->IsShowingBubble());
+  EXPECT_CALL(*queued_controller, ShowBubble()).Times(0);
+  bubble_manager().RequestShowController(*queued_controller,
+                                         /*force_show=*/false);
+
+  // The queued bubble becomes invalid.
+  EXPECT_CALL(*queued_controller, CanBeReshown()).WillRepeatedly(Return(false));
+
+  EXPECT_CALL(*queued_controller, ShowBubble()).Times(0);
+  EXPECT_CALL(*queued_controller, OnBubbleDiscarded());
+  bubble_manager().OnBubbleHiddenByController(*active_controller,
+                                              /*show_next_bubble=*/true);
+}
+
 // Tests that if the web contents is deactivated, the show bubble request leads
 // to bubble getting added to the queue.
 TEST_F(BubbleManagerImplTest, TabDeactivated_ShowAddsToQueue) {
@@ -1022,6 +1049,21 @@ TEST_F(BubbleManagerImplTest,
       password_controller->GetBubbleType()));
   EXPECT_FALSE(bubble_manager().HasConflictingPendingBubble(
       password_controller->GetBubbleType()));
+}
+
+// Tests that bubble is not shown again when tab becomes visible if the
+// controller returns false for `ShouldReshowOnTabVisible`.
+TEST_F(BubbleManagerImplTest, TabHide_BubbleNotQueuedIfReshowFalse) {
+  auto controller = CreateController(BubbleType::kSaveUpdateAddress);
+  bubble_manager().RequestShowController(*controller, false);
+
+  EXPECT_CALL(*controller, ShouldReshowOnTabVisible()).WillOnce(Return(false));
+
+  tab_interface()->Deactivate();
+  tab_interface()->Activate();
+
+  // Expect bubble NOT to be reshown.
+  EXPECT_FALSE(controller->IsShowingBubble());
 }
 
 }  // namespace autofill

@@ -52,11 +52,6 @@ std::atomic_bool g_is_reduce_ppms_enabled{false};
 
 // Alphabetical:
 
-// When enabled, the compositor threads (including GPU) will be boosted to
-// kInteractive when not in input or loading scenarios.
-BASE_FEATURE(kBoostCompositorThreadsPriorityWhenIdle,
-             FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls caching within BASE_FEATURE_PARAM(). This is feature-controlled
 // so that ScopedFeatureList can disable it to turn off caching.
 BASE_FEATURE(kFeatureParamWithCache, FEATURE_ENABLED_BY_DEFAULT);
@@ -86,7 +81,7 @@ BASE_FEATURE_PARAM(int,
                    "LowMemoryDeviceThresholdMB",
                    LOW_MEMORY_DEVICE_THRESHOLD_MB);
 
-BASE_FEATURE(kReducePPMs, FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReducePPMs, FEATURE_ENABLED_BY_DEFAULT);
 
 // Apply base::ScopedBestEffortExecutionFence to registered task queues as well
 // as the thread pool.

@@ -7,7 +7,7 @@
 #include "base/rand_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
@@ -28,9 +28,11 @@
 #include "components/lens/lens_url_utils.h"
 #include "components/lens/ref_counted_lens_overlay_client_logs.h"
 #include "components/omnibox/browser/lens_suggest_inputs_utils.h"
+#include "components/omnibox/common/logger.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "net/base/url_util.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
+#include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 
 namespace {
 std::vector<lens::ContextualInput> ConvertPageContentToContextualInput(
@@ -89,25 +91,36 @@ void LensQueryFlowRouter::StartQueryFlow(
     // remove the observer before creating a new session handle.
     file_upload_status_observation_.Reset();
 
+    // The page content should only be uploaded if the overlay was not opened by
+    // the contextual tasks composebox.
+    bool should_upload_page_content =
+        lens_search_controller_->invocation_source() !=
+        lens::LensOverlayInvocationSource::kContextualTasksComposebox;
+
     if (!GetContextualSearchSessionHandle()) {
       pending_session_handle_ = CreateContextualSearchSessionHandle();
       pending_session_handle_->NotifySessionStarted();
+      // Add observer to listen for file upload status changes. This is only
+      // needed when a new session handle is created as part of this flow as
+      // the response is not used by the overlay otherwise.
+      file_upload_status_observation_.Observe(
+          GetContextualSearchSessionHandle()->GetController());
     }
-
-    // Add observer to listen for file upload status changes.
-    file_upload_status_observation_.Observe(
-        GetContextualSearchSessionHandle()->GetController());
 
     // If permissions have been granted, start uploading the current viewport
     // and page content. If not, store as a callback to be run later.
-    auto upload_task =
-        base::BindOnce(&LensQueryFlowRouter::UploadContextualInputData,
-                       weak_factory_.GetWeakPtr(),
-                       CreateContextualInputData(
-                           screenshot, page_url, page_title,
-                           std::move(significant_region_boxes),
-                           underlying_page_contents, primary_content_type,
-                           pdf_current_page, ui_scale_factor, invocation_time));
+    auto upload_task = base::BindOnce(
+        &LensQueryFlowRouter::UploadContextualInputData,
+        weak_factory_.GetWeakPtr(),
+        CreateContextualInputData(
+            screenshot, should_upload_page_content ? page_url : GURL(),
+            should_upload_page_content ? page_title : std::nullopt,
+            std::move(significant_region_boxes),
+            should_upload_page_content ? underlying_page_contents
+                                       : base::span<const PageContent>(),
+            should_upload_page_content ? primary_content_type
+                                       : lens::MimeType::kUnknown,
+            pdf_current_page, ui_scale_factor, invocation_time));
 
     if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
         !lens::DidUserGrantLensOverlayNeededPermissions(
@@ -148,14 +161,14 @@ void LensQueryFlowRouter::SendTaskCompletionGen204IfEnabled(
     }
     auto* file_info = session_handle->GetController()->GetFileInfo(
         overlay_tab_context_file_token_.value());
-    if (!file_info) {
+    if (!file_info || !file_info->request_id.has_value()) {
       return;
     }
 
     gen204_controller()->SendTaskCompletionGen204IfEnabled(
-        /*encoded_analytics_id=*/file_info->request_id.analytics_id(),
+        /*encoded_analytics_id=*/file_info->request_id->analytics_id(),
         user_action,
-        /*request_id=*/file_info->request_id);
+        /*request_id=*/file_info->request_id.value());
     return;
   }
   lens_overlay_query_controller()->SendTaskCompletionGen204IfEnabled(
@@ -172,7 +185,7 @@ void LensQueryFlowRouter::SendSemanticEventGen204IfEnabled(
     }
     auto* file_info = session_handle->GetController()->GetFileInfo(
         overlay_tab_context_file_token_.value());
-    if (!file_info) {
+    if (!file_info || !file_info->request_id.has_value()) {
       return;
     }
 
@@ -199,6 +212,11 @@ LensQueryFlowRouter::GetSuggestInputs() {
 
   return std::make_optional(
       lens_overlay_query_controller()->GetLensSuggestInputs());
+}
+
+std::optional<base::UnguessableToken>
+LensQueryFlowRouter::overlay_tab_context_file_token() const {
+  return overlay_tab_context_file_token_;
 }
 
 void LensQueryFlowRouter::SetSuggestInputsReadyCallback(
@@ -431,6 +449,10 @@ void LensQueryFlowRouter::OpenContextualTasksPanel(GURL url) {
     return;
   }
 
+  // Log the URL the debug omnibox webui page. Do this first so it makes
+  // chronological sense in the logs.
+  OMNIBOX_LOG("lens_results_nav") << url.spec();
+
   // Show the side panel. This will create a new task and associate it with the
   // active tab.
   contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
@@ -538,6 +560,10 @@ LensQueryFlowRouter::CreateSearchUrlRequestInfoFromInteraction(
 
   request_info->additional_params = additional_search_query_params;
   request_info->invocation_source = invocation_source;
+  // TODO(crbug.com/483805922): Create individual AIM entry points for each
+  // Lens invocation source.
+  request_info->aim_entry_point =
+      omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT;
 
   if (region) {
     auto client_logs =
@@ -564,14 +590,13 @@ LensQueryFlowRouter::GetContextualSearchSessionHandle() const {
     return pending_session_handle_.get();
   }
 
-  auto* coordinator =
-      contextual_tasks::ContextualTasksSidePanelCoordinator::From(
-          browser_window_interface());
-  if (!coordinator || !coordinator->IsSidePanelOpenForContextualTask()) {
+  auto* controller = contextual_tasks::ContextualTasksPanelController::From(
+      browser_window_interface());
+  if (!controller || !controller->IsPanelOpenForContextualTask()) {
     return nullptr;
   }
 
-  return coordinator->GetContextualSearchSessionHandleForSidePanel();
+  return controller->GetContextualSearchSessionHandleForPanel();
 }
 
 }  // namespace lens

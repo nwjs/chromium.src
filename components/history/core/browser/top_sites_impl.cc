@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
@@ -231,7 +230,7 @@ bool TopSitesImpl::IsBlocked(const GURL& url) {
 
 void TopSitesImpl::ClearBlockedUrls() {
   DCHECK(thread_checker_.CalledOnValidThread());
-  pref_service_->SetDict(kBlockedUrlsPrefsKey, base::Value::Dict());
+  pref_service_->SetDict(kBlockedUrlsPrefsKey, base::DictValue());
   ResetThreadSafeCache();
   NotifyTopSitesChanged(TopSitesObserver::ChangeReason::BLOCKED_URLS);
 }
@@ -364,8 +363,8 @@ bool TopSitesImpl::AddPrepopulatedPages(MostVisitedURLList* urls) const {
   for (const auto& prepopulated_page : prepopulated_pages_) {
     if (urls->size() >= kTopSitesNumber)
       break;
-    if (!base::Contains(*urls, prepopulated_page.most_visited.url,
-                        &MostVisitedURL::url)) {
+    if (!std::ranges::contains(*urls, prepopulated_page.most_visited.url,
+                               &MostVisitedURL::url)) {
       urls->push_back(prepopulated_page.most_visited);
       added = true;
     }

@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/parser/css_nesting_type.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_observer.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_save_point.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
@@ -32,6 +33,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
 
 namespace blink {
 
@@ -975,14 +977,28 @@ PseudoId CSSSelectorParser::ParsePseudoElement(const String& selector_string,
         return kPseudoIdInvalid;
       }
 
+      // Lowercase for case-insensitive matching. CSS pseudo-elements are
+      // case-insensitive, and escape sequences like `:bef\oRE` may produce
+      // mixed-case names after tokenization.
+      AtomicString selector_name = AtomicString::LowerASCII(
+          selector_name_token.Value().ToAtomicString());
       CSSSelector::PseudoType pseudo_type = ParsePseudoType(
-          selector_name_token.Value().ToAtomicString(),
+          selector_name,
           /*has_arguments=*/false, parent ? &parent->GetDocument() : nullptr);
 
       PseudoId pseudo_id = CSSSelector::GetPseudoId(pseudo_type);
       if (pseudo_id == kPseudoIdBefore || pseudo_id == kPseudoIdAfter ||
           pseudo_id == kPseudoIdFirstLetter ||
           pseudo_id == kPseudoIdFirstLine) {
+        // Count usage of legacy pseudo-element syntax without colons (e.g.,
+        // getComputedStyle(el, "before") instead of getComputedStyle(el,
+        // ":before")). This is used to assess compat risk before potentially
+        // changing behavior per CSSOM spec.
+        if (num_colons == 0 && parent) {
+          UseCounter::Count(
+              parent->GetDocument(),
+              WebFeature::kGetComputedStylePseudoElementWithoutColon);
+        }
         return pseudo_id;
       }
 
@@ -1149,7 +1165,8 @@ bool IsPseudoClassValidAfterPseudoElement(
     case CSSSelector::kPseudoSearchText:
       return pseudo_class == CSSSelector::kPseudoCurrent;
     case CSSSelector::kPseudoScrollMarkerGroup:
-      return pseudo_class == CSSSelector::kPseudoFocusWithin;
+      return pseudo_class == CSSSelector::kPseudoFocusWithin ||
+             pseudo_class == CSSSelector::kPseudoHover;
     case CSSSelector::kPseudoScrollMarker:
       return pseudo_class == CSSSelector::kPseudoTargetCurrent ||
              pseudo_class == CSSSelector::kPseudoTargetBefore ||
@@ -1759,13 +1776,15 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
         name_and_classes->push_back(CSSSelector::UniversalSelectorAtom());
       }
 
+      CSSParserLocalContext local_context =
+          CSSParserLocalContext::CreateWithoutPropertyForSelectors();
       if (name_and_classes->empty()) {
         const CSSParserToken& ident = stream.Peek();
         if (ident.GetType() == kDelimiterToken && ident.Delimiter() == '*') {
           name_and_classes->push_back(CSSSelector::UniversalSelectorAtom());
           stream.Consume();
         } else if (auto* custom_ident = css_parsing_utils::ConsumeCustomIdent(
-                       stream, *context_)) {
+                       stream, *context_, local_context)) {
           name_and_classes->push_back(custom_ident->Value());
         } else {
           return false;
@@ -1782,7 +1801,8 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
         }
 
         CSSCustomIdentValue* custom_ident =
-            css_parsing_utils::ConsumeCustomIdent(stream, *context_);
+            css_parsing_utils::ConsumeCustomIdent(stream, *context_,
+                                                  local_context);
         if (!custom_ident) {
           return false;
         }
@@ -2145,9 +2165,9 @@ bool CSSSelectorParser::ConsumeANPlusB(CSSParserTokenStream& stream,
   }
 
   if (n_string.length() > 2) {
-    bool valid;
-    result.second = n_string.Substring(1).ToIntStrict(&valid);
-    return valid;
+    auto parsed = StringToIntStrict(n_string.Substring(1));
+    result.second = parsed.value_or(0);
+    return parsed.has_value();
   }
 
   NumericSign sign = n_string.length() == 1 ? kNoSign : kMinusSign;

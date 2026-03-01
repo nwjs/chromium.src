@@ -19,6 +19,7 @@
 #include "components/unexportable_keys/features.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/webui_util.h"
 
 bool UnexportableKeysInternalsUIConfig::IsWebUIEnabled(
@@ -28,19 +29,19 @@ bool UnexportableKeysInternalsUIConfig::IsWebUIEnabled(
 }
 
 UnexportableKeysInternalsUI::UnexportableKeysInternalsUI(content::WebUI* web_ui)
-    : content::WebUIController(web_ui) {
+    : ui::MojoWebUIController(web_ui) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       Profile::FromWebUI(web_ui),
       chrome::kChromeUIUnexportableKeysInternalsHost);
   webui::SetupWebUIDataSource(
       source, kUnexportableKeysInternalsResources,
       IDR_UNEXPORTABLE_KEYS_INTERNALS_UNEXPORTABLE_KEYS_INTERNALS_HTML);
-  source->AddString("message", "Hello, World!");
 }
 
 void UnexportableKeysInternalsUI::BindInterface(
     mojo::PendingReceiver<
         unexportable_keys_internals::mojom::PageHandlerFactory> receiver) {
+  page_factory_receiver_.reset();
   page_factory_receiver_.Bind(std::move(receiver));
 }
 
@@ -48,7 +49,6 @@ void UnexportableKeysInternalsUI::CreateUnexportableKeysInternalsHandler(
     mojo::PendingRemote<unexportable_keys_internals::mojom::Page> page,
     mojo::PendingReceiver<unexportable_keys_internals::mojom::PageHandler>
         receiver) {
-  CHECK(!page_handler_);
   page_handler_ = std::make_unique<UnexportableKeysInternalsHandler>(
       std::move(receiver), std::move(page),
       UnexportableKeyServiceFactory::CreateForGarbageCollection(

@@ -180,7 +180,7 @@ class TestWebContents : public WebContentsImpl, public WebContentsTester {
 
   TestRenderFrameHost* GetSpeculativePrimaryMainFrame();
 
-  FrameTreeNodeId AddPrerender(const GURL& url) override;
+  PrerenderHostId AddPrerender(const GURL& url) override;
   TestRenderFrameHost* AddPrerenderAndCommitNavigation(
       const GURL& url) override;
   std::unique_ptr<NavigationSimulator> AddPrerenderAndStartNavigation(
@@ -212,6 +212,17 @@ class TestWebContents : public WebContentsImpl, public WebContentsTester {
 
   void OnIgnoredUIEvent() override;
   bool GetIgnoredUIEventCalled() const;
+
+  void GetRenderWidgetHostAtPointAsynchronously(
+      RenderWidgetHostViewBase* root_view,
+      const gfx::PointF& point,
+      base::OnceCallback<void(base::WeakPtr<RenderWidgetHostViewBase>,
+                              std::optional<gfx::PointF>)> callback) override;
+
+  void SetDeferGetRenderWidgetHostAtPoint(bool defer) {
+    defer_get_render_widget_host_at_point_ = defer;
+  }
+  void TriggerGetRenderWidgetHostAtPointAsynchronouslyCallback();
 
  protected:
   // The deprecated WebContentsTester still needs to subclass this.
@@ -278,6 +289,9 @@ class TestWebContents : public WebContentsImpl, public WebContentsTester {
       media_capture_raw_device_ids_opened_;
   std::optional<int> playing_video_count_;
   bool ignored_ui_event_called_ = false;
+
+  bool defer_get_render_widget_host_at_point_ = false;
+  base::OnceClosure deferred_get_render_widget_host_at_point_callback_;
 };
 
 }  // namespace content

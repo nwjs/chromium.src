@@ -344,11 +344,6 @@ public class UrlBar extends AutocompleteEditText {
     @Override
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public void onFocusChanged(boolean focused, int direction, Rect previouslyFocusedRect) {
-        // Reset scroll position of the multiline input field.
-        if (!focused) {
-            bringPointIntoView(0);
-        }
-
         mFocused = focused;
 
         if (!mFocused) mFocusEventEmitted = false;
@@ -886,7 +881,7 @@ public class UrlBar extends AutocompleteEditText {
                 && currentTextSize == mPreviousScrollFontSize
                 && currentIsRtl == mPreviousScrollWasRtl
                 && isVisibleTextTheSame(text)) {
-            scrollTo(mPreviousScrollResultXPosition, getScrollY());
+            scrollTo(mPreviousScrollResultXPosition, 0);
 
             return;
         }
@@ -941,7 +936,22 @@ public class UrlBar extends AutocompleteEditText {
             float width = layout.getPaint().measureText(text.toString());
             scrollPos = Math.max(0, endPointX - measuredWidth + width);
         }
-        scrollTo((int) scrollPos, getScrollY());
+        scrollTo((int) scrollPos, 0);
+    }
+
+    @Override
+    public void setSelection(int start, int end) {
+        // TODO(crbug.com/483451424): This is needed to address a regression in M146 that has since
+        // been addressed in M147. The change resolving the regression may not meet the quality bar
+        // to be cherrypicked to M146.
+        // The problem is linked to `setSelection` being still exposed in M146 via
+        // UrlBarCoordinator. Anyone calling setSelection makes certain assumptions about the
+        // contents of the Omnibox (specifically - the length of the text) which may or may not
+        // hold true. The logic below ensures that bounds passed by caller are not exceeded.
+        int textLength = getText().length();
+        if (start > textLength) start = textLength;
+        if (end > textLength) end = textLength;
+        super.setSelection(start, end);
     }
 
     /**
@@ -1123,7 +1133,7 @@ public class UrlBar extends AutocompleteEditText {
                 scrollPos = endPointX + measuredWidth;
             }
         }
-        scrollTo((int) scrollPos, getScrollY());
+        scrollTo((int) scrollPos, 0);
     }
 
     @Override

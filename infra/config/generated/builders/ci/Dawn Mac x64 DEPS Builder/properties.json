@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Dawn Mac x64 DEPS Builder",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.dawn",
@@ -35,7 +35,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Dawn Mac x64 DEPS Release (AMD)",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.dawn",
@@ -56,7 +56,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Dawn Mac x64 DEPS Builder",
-                "project": "chromium-m145"
+                "project": "chromium-m146"
               },
               "run_tests_serially": true
             }
@@ -65,7 +65,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Dawn Mac x64 DEPS Release (Intel)",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.dawn",
@@ -86,7 +86,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Dawn Mac x64 DEPS Builder",
-                "project": "chromium-m145"
+                "project": "chromium-m146"
               },
               "run_tests_serially": true
             }
@@ -97,19 +97,19 @@
         {
           "bucket": "ci",
           "builder": "Dawn Mac x64 DEPS Builder",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "Dawn Mac x64 DEPS Release (AMD)",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         },
         {
           "bucket": "ci",
           "builder": "Dawn Mac x64 DEPS Release (Intel)",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         }
       ],
       "mirroring_builder_group_and_names": [
@@ -140,7 +140,7 @@
     ]
   },
   "builder_group": "chromium.dawn",
-  "dawn_ref": "refs/heads/chromium/7632",
+  "dawn_ref": "refs/heads/chromium/7680",
   "gardener_rotations": [
     "chrome_browser_release"
   ],

@@ -428,12 +428,17 @@ void BodyStreamBuffer::CloseAndLockAndDisturb(ExceptionState& exception_state) {
 
   cached_metadata_handler_ = nullptr;
 
+  // TODO(477424489): These CHECKs are to pinpoint a cause for a
+  // CHECK(!isolate->HasPendingException()) being hit within LockAndDisturb()
+  // and can be removed once the bug is fixed.
+  CHECK(!script_state_->GetIsolate()->HasPendingException(),
+        base::NotFatalUntil::M148);
+
   if (IsStreamReadable()) {
     // Note that the stream cannot be "draining", because it doesn't have
     // the internal buffer.
     Close(exception_state);
   }
-
   stream_->LockAndDisturb(script_state_);
 }
 

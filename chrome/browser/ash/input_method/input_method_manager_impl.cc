@@ -16,7 +16,6 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/hash/hash.h"
@@ -36,7 +35,6 @@
 #include "chrome/browser/ash/input_method/input_method_persistence.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
-#include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/ui/ash/input_method/assistive_delegate.h"
 #include "chrome/browser/ui/ash/input_method/input_method_menu_item.h"
 #include "chrome/browser/ui/ash/input_method/input_method_menu_manager.h"
@@ -47,6 +45,7 @@
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/user_manager.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/icu/source/common/unicode/uloc.h"
 #include "third_party/icu/source/i18n/unicode/coll.h"
 #include "ui/base/ime/ash/component_extension_ime_manager.h"
@@ -294,7 +293,7 @@ void InputMethodManagerImpl::StateImpl::EnableLoginLayouts(
   for (const auto& candidate : candidates) {
     // Not efficient, but should be fine, as the two vectors are very
     // short (2-5 items).
-    if (!base::Contains(layouts, candidate) &&
+    if (!std::ranges::contains(layouts, candidate) &&
         manager_->IsLoginKeyboard(candidate) &&
         IsInputMethodAllowed(candidate)) {
       layouts.push_back(candidate);
@@ -340,7 +339,7 @@ void InputMethodManagerImpl::StateImpl::EnableOobeInputMethods(
   for (const auto& candidate : candidates) {
     // Not efficient, but should be fine, as the two vectors are very
     // short (2-5 items).
-    if (!base::Contains(resulting_input_methods, candidate) &&
+    if (!std::ranges::contains(resulting_input_methods, candidate) &&
         manager_->util_.IsOobeAllowlisted(candidate) &&
         IsInputMethodAllowed(candidate)) {
       resulting_input_methods.push_back(candidate);
@@ -374,7 +373,7 @@ void InputMethodManagerImpl::StateImpl::FinalizeInputMethodsEnabling(
 }
 
 void InputMethodManagerImpl::StateImpl::DisableNonLockScreenLayouts() {
-  std::set<std::string> added_ids;
+  absl::flat_hash_set<std::string> added_ids;
 
   const std::vector<std::string>& hardware_keyboard_ids =
       manager_->util_.GetHardwareLoginInputMethodIds();
@@ -385,7 +384,7 @@ void InputMethodManagerImpl::StateImpl::DisableNonLockScreenLayouts() {
     // extension ones. We need to keep all IMEs to support inputting on inline
     // reply on a notification if notifications on lock screen is enabled.
     if (!manager_->IsLoginKeyboard(input_method_id) ||
-        added_ids.count(input_method_id)) {
+        added_ids.contains(input_method_id)) {
       continue;
     }
     new_enabled_input_method_ids.push_back(input_method_id);
@@ -396,11 +395,10 @@ void InputMethodManagerImpl::StateImpl::DisableNonLockScreenLayouts() {
   // |enabled_input_method_ids_| so that the user can always use the hardware
   // keyboard on the screen locker.
   for (const auto& hardware_keyboard_id : hardware_keyboard_ids) {
-    if (added_ids.count(hardware_keyboard_id)) {
+    if (!added_ids.insert(hardware_keyboard_id).second) {
       continue;
     }
     new_enabled_input_method_ids.push_back(hardware_keyboard_id);
-    added_ids.insert(hardware_keyboard_id);
   }
 
   enabled_input_method_ids_.swap(new_enabled_input_method_ids);
@@ -424,7 +422,7 @@ bool InputMethodManagerImpl::StateImpl::EnableInputMethodImpl(
     return false;
   }
 
-  if (!base::Contains(*new_enabled_input_method_ids, input_method_id)) {
+  if (!std::ranges::contains(*new_enabled_input_method_ids, input_method_id)) {
     new_enabled_input_method_ids->push_back(input_method_id);
   }
 
@@ -524,9 +522,9 @@ bool InputMethodManagerImpl::StateImpl::IsInputMethodAllowed(
     return true;
   }
 
-  return base::Contains(allowed_keyboard_layout_input_method_ids_,
-                        input_method_id) ||
-         base::Contains(
+  return std::ranges::contains(allowed_keyboard_layout_input_method_ids_,
+                               input_method_id) ||
+         std::ranges::contains(
              allowed_keyboard_layout_input_method_ids_,
              manager_->util_.GetMigratedInputMethod(input_method_id));
 }
@@ -628,8 +626,8 @@ void InputMethodManagerImpl::StateImpl::AddInputMethodExtension(
   for (const auto& descriptor : descriptors) {
     const std::string& id = descriptor.id();
     available_input_methods_[id] = descriptor;
-    if (base::Contains(enabled_extension_imes_, id)) {
-      if (!base::Contains(enabled_input_method_ids_, id)) {
+    if (std::ranges::contains(enabled_extension_imes_, id)) {
+      if (!std::ranges::contains(enabled_input_method_ids_, id)) {
         enabled_input_method_ids_.push_back(id);
       } else {
         DVLOG(1) << "AddInputMethodExtension: already added: " << id << ", "
@@ -727,7 +725,7 @@ void InputMethodManagerImpl::StateImpl::SetEnabledExtensionImes(
 
     bool currently_enabled =
         currently_enabled_iter != enabled_input_method_ids_.end();
-    bool enabled = base::Contains(enabled_extension_imes_, entry.first);
+    bool enabled = std::ranges::contains(enabled_extension_imes_, entry.first);
 
     if (currently_enabled && !enabled) {
       enabled_input_method_ids_.erase(currently_enabled_iter);
@@ -891,7 +889,7 @@ InputMethodDescriptor InputMethodManagerImpl::StateImpl::GetCurrentInputMethod()
 
 bool InputMethodManagerImpl::StateImpl::InputMethodIsEnabled(
     const std::string& input_method_id) const {
-  return base::Contains(enabled_input_method_ids_, input_method_id);
+  return std::ranges::contains(enabled_input_method_ids_, input_method_id);
 }
 
 void InputMethodManagerImpl::StateImpl::EnableInputView() {
@@ -1094,9 +1092,8 @@ InputMethodManagerImpl::InputMethodManagerImpl(
 
   // We should not use ALL_BROWSERS_CLOSING here since logout might be cancelled
   // by JavaScript after ALL_BROWSERS_CLOSING is sent (crosbug.com/11055).
-  on_app_terminating_subscription_ =
-      browser_shutdown::AddAppTerminatingCallback(base::BindOnce(
-          &InputMethodManagerImpl::OnAppTerminating, base::Unretained(this)));
+  session_termination_observation_.Observe(
+      ash::SessionTerminationManager::Get());
 }
 
 InputMethodManagerImpl::~InputMethodManagerImpl() {
@@ -1343,6 +1340,8 @@ void InputMethodManagerImpl::SetCandidateWindowControllerForTesting(
 }
 
 void InputMethodManagerImpl::OnAppTerminating() {
+  session_termination_observation_.Reset();
+
   if (candidate_window_controller_.get()) {
     candidate_window_controller_.reset();
   }

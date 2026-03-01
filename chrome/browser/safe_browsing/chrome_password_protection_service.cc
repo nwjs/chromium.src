@@ -8,7 +8,6 @@
 #include <memory>
 #include <string>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -212,7 +211,7 @@ void OpenUrl(content::WebContents* current_web_contents,
 
 int64_t GetNavigationIDFromPrefsByOrigin(PrefService* prefs,
                                          const Origin& origin) {
-  const base::Value::Dict& unhandled_sync_password_reuses =
+  const base::DictValue& unhandled_sync_password_reuses =
       prefs->GetDict(prefs::kSafeBrowsingUnhandledGaiaPasswordReuses);
 
   const base::Value* navigation_id_value =
@@ -715,15 +714,33 @@ void ChromePasswordProtectionService::MaybeFinishCollectingThreatDetails(
   if (!trigger_manager_)
     return;
 
-  // Since we don't keep track the threat details in progress, it is safe to
-  // ignore the result of |FinishCollectingThreatDetails()|. TriggerManager will
-  // take care of whether report should be sent.
-  trigger_manager_->FinishCollectingThreatDetails(
-      safe_browsing::TriggerType::GAIA_PASSWORD_REUSE,
-      GetWebContentsKey(web_contents), base::Milliseconds(0), did_proceed,
-      /*num_visits=*/0,
-      TriggerManager::GetDataCollectionPermissions(*profile_->GetPrefs(),
-                                                   web_contents));
+  // Get the num_visits for the URL from the history service. If the value is
+  // not able to be retrieved, set it to 0.
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(profile_,
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  if (history_service) {
+    history_service->GetVisibleVisitCountToHost(
+        web_contents->GetLastCommittedURL(),
+        base::BindOnce(
+            &ChromePasswordProtectionService::OnGetVisibleVisitCountToHost,
+            weak_ptr_factory_.GetWeakPtr(),
+            safe_browsing::TriggerType::GAIA_PASSWORD_REUSE,
+            GetWebContentsKey(web_contents), base::Milliseconds(0), did_proceed,
+            TriggerManager::GetDataCollectionPermissions(*profile_->GetPrefs(),
+                                                         web_contents)),
+        &task_tracker_);
+  } else {
+    // Since we don't keep track the threat details in progress, it is safe to
+    // ignore the result of |FinishCollectingThreatDetails()|. TriggerManager
+    // will take care of whether report should be sent.
+    trigger_manager_->FinishCollectingThreatDetails(
+        safe_browsing::TriggerType::GAIA_PASSWORD_REUSE,
+        GetWebContentsKey(web_contents), base::Milliseconds(0), did_proceed,
+        /*num_visits=*/0,
+        TriggerManager::GetDataCollectionPermissions(*profile_->GetPrefs(),
+                                                     web_contents));
+  }
 }
 
 void ChromePasswordProtectionService::MaybeLogPasswordReuseDetectedEvent(
@@ -984,7 +1001,7 @@ void ChromePasswordProtectionService::OnGaiaPasswordChanged(
     const std::string& username,
     bool is_other_gaia_password) {
   profile_->GetPrefs()->SetDict(prefs::kSafeBrowsingUnhandledGaiaPasswordReuses,
-                                base::Value::Dict());
+                                base::DictValue());
   if (!is_other_gaia_password)
     MaybeLogPasswordCapture(/*did_log_in=*/true);
   for (auto& observer : observer_list_)
@@ -1468,9 +1485,9 @@ void ChromePasswordProtectionService::MaybeLogPasswordCapture(bool did_log_in) {
 
   // Set a timer to log it again in 24-28 days. Spread it to avoid hammering the
   // backend with fixed cycle after this code lands in Stable.
-  base::TimeDelta delay =
-      base::Days((kPasswordCaptureEventLogFreqDaysMin +
-                  base::RandInt(0, kPasswordCaptureEventLogFreqDaysExtra)));
+  base::TimeDelta delay = base::Days(
+      (kPasswordCaptureEventLogFreqDaysMin +
+       base::RandIntInclusive(0, kPasswordCaptureEventLogFreqDaysExtra)));
   SetLogPasswordCaptureTimer(delay);
 
   // Write the deadline to a pref to carry over restarts.
@@ -1760,8 +1777,8 @@ bool ChromePasswordProtectionService::IsInExcludedCountry() {
       g_browser_process->variations_service();
   if (!variations_service)
     return false;
-  return base::Contains(GetExcludedCountries(),
-                        variations_service->GetLatestCountry());
+  return std::ranges::contains(GetExcludedCountries(),
+                               variations_service->GetLatestCountry());
 }
 
 void ChromePasswordProtectionService::
@@ -2056,6 +2073,20 @@ ChromePasswordProtectionService::GetStoreForReusedCredential(
                  password_manager::PasswordForm::Store::kAccountStore
              ? GetAccountPasswordStore()
              : GetProfilePasswordStore();
+}
+
+void ChromePasswordProtectionService::OnGetVisibleVisitCountToHost(
+    const TriggerType trigger_type,
+    WebContentsKey web_contents_key,
+    const base::TimeDelta& delay,
+    bool did_proceed,
+    const TriggerManager::DataCollectionPermissions&
+        data_collection_permissions,
+    history::VisibleVisitCountToHostResult result) {
+  int visit_count = result.success && result.count ? result.count : 0;
+  trigger_manager_->FinishCollectingThreatDetails(
+      trigger_type, web_contents_key, delay, did_proceed, visit_count,
+      data_collection_permissions);
 }
 
 }  // namespace safe_browsing

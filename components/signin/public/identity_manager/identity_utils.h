@@ -29,25 +29,6 @@ bool IsUsernameAllowedByPattern(std::string_view username,
 bool IsUsernameAllowedByPatternFromPrefs(const PrefService* prefs,
                                          const std::string& username);
 
-// Returns true:
-// - if BUILDFLAG(ENABLE_DICE_SUPPORT) is enabled.
-// - The user is signed in to the browser implicitly by signing in on the
-//   web.
-// It will return false if the feature is enabled and the user is either signed
-// out or signed in explicitly.
-
-bool IsImplicitBrowserSigninOrExplicitDisabled(
-    const IdentityManager* identity_manager,
-    const PrefService* prefs);
-
-// Returns true if the Google account cookies are automatically rebuilt after
-// being cleared from settings, when the user is signed in.
-// Note: this can return true even if the user is not signed in. This function
-// reflects whether the cookie setting has this new behavior (as opposed to the
-// old behavior where cookies were never rebuilt).
-bool AreGoogleCookiesRebuiltAfterClearingWhenSignedIn(IdentityManager& manager,
-                                                      PrefService& prefs);
-
 // Returns all accounts for which Chrome should keep account-keyed preferences.
 // These are the accounts in the cookie (signed in or signed out) plus the
 // primary account.

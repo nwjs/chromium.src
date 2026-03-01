@@ -22,6 +22,16 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<histogram name="Input.Blink.DispatchEvent.Type" enum="WebInputEventType"
+    expires_after="2027-07-23">
+  <owner>lizeb@chromium.org</owner>
+  <owner>input-dev@chromium.org</owner>
+  <summary>
+    The type of input event being dispatched in WidgetInputHandlerManager.
+    Subsampled at 10%.
+  </summary>
+</histogram>
+
 <histogram name="Input.Digitizer.MaxTouchPoints.{PointerDigitizerType}"
     units="maximum allowed touch points" expires_after="2027-01-01">
   <owner>kouhei@chromium.org</owner>
@@ -122,7 +132,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Input.ToolType.Android" units="tool type"
-    expires_after="2026-05-03">
+    expires_after="2026-08-02">
   <owner>alexmitra@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
@@ -659,21 +669,6 @@ chromium-metrics-reviews@google.com.
     This records when a candidate generation response is returned from the multi
     word suggestion engine and the response contains some candidates. This is
     recorded exactly once per response.
-  </summary>
-</histogram>
-
-<histogram name="InputMethod.Assistive.MultiWord.CouldPossiblyShowSuggestion"
-    enum="IMEAssistiveMultiWordSuggestionType" expires_after="2024-11-01">
-  <owner>curtismcmullan@google.com</owner>
-  <owner>essential-inputs-team@google.com</owner>
-  <summary>
-    DEPRECATED, please see
-    InputMethod.Assistive.MultiWord.SuggestionOpportunity. This histogram
-    records when the current text context could possibly show a suggestion. This
-    does not necessarily mean a suggestion was shown, only that the current text
-    context fulfills all constraints needed to trigger an attempt to generate
-    and display suggestions. It is recorded exactly once per surrounding text
-    update.
   </summary>
 </histogram>
 

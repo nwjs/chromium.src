@@ -40,8 +40,6 @@ class UpdateService : public base::RefCountedThreadSafe<UpdateService> {
   using Priority = mojom::UpdateService::Priority;
   using AppState = mojom::AppState;
   using UpdaterState = mojom::UpdaterState;
-  using PolicyValue = mojom::PolicyValue;
-  using PolicySource = mojom::PolicyValue::PolicySource;
 
   // Returns the version of the active updater. The version object is invalid
   // if an error (including timeout) occurs.
@@ -178,17 +176,9 @@ class UpdateService : public base::RefCountedThreadSafe<UpdateService> {
   virtual void GetUpdaterState(
       base::OnceCallback<void(const UpdaterState&)> callback) = 0;
 
-  // Gets the current policies for the updater.
-  virtual void GetUpdaterPolicies(
-      base::OnceCallback<void(const base::flat_map<std::string, PolicyValue>&)>
-          callback) = 0;
-
-  // Gets the current policies for apps.
-  virtual void GetAppPolicies(
-      base::OnceCallback<
-          void(const base::flat_map<std::string,
-                                    base::flat_map<std::string, PolicyValue>>&)>
-          callback) = 0;
+  // Gets the current policies for the updater and apps in a JSON string.
+  virtual void GetPoliciesJson(
+      base::OnceCallback<void(const std::string&)> callback) = 0;
 
  protected:
   friend class base::RefCountedThreadSafe<UpdateService>;

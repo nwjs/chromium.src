@@ -4,9 +4,9 @@
 
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_comparator.h"
 
+#include <algorithm>
 #include <string_view>
 
-#include "base/containers/contains.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -701,9 +701,10 @@ TEST_F(AutofillProfileComparatorTest, MergeAddressesOneIsAccountNameEmail) {
   const AutofillProfile address_profile = CreateProfileWithAddress(
       "Hänsel-Str 33", "", "München", "", "80636", "DE");
 
-  AccountInfo info;
-  info.full_name = "test name";
-  info.email = "testaccount@domain.net";
+  AccountInfo info =
+      AccountInfo::Builder(GaiaId("dummy"), "testaccount@domain.net")
+          .SetFullName("test name")
+          .Build();
   const AutofillProfile account_name_email_profile{info};
 
   MergeAddressesAndExpect(address_profile, account_name_email_profile,
@@ -1017,8 +1018,9 @@ TEST_P(NonMergeableSettingVisibleTypesTest, DifferingTypesLegacy) {
   for (FieldType t : a.GetUserVisibleTypes()) {
     // If a type of the same `FieldTypeGroup` was already set, ignore it, to
     // avoid constructing conflicting substructures.
-    if (!base::Contains(type_differences.differing_types,
-                        GroupTypeOfFieldType(t), &GroupTypeOfFieldType)) {
+    if (!std::ranges::contains(type_differences.differing_types,
+                               GroupTypeOfFieldType(t),
+                               &GroupTypeOfFieldType)) {
       a.SetRawInfo(t, u"same");
       b.SetRawInfo(t, u"same");
     }

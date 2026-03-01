@@ -262,6 +262,10 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/themes/theme_service_factory.h"
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 using bookmarks::BookmarkModel;
 using content::BrowserThread;
 using content::DownloadManagerDelegate;
@@ -661,7 +665,8 @@ void ProfileImpl::LoadPrefsForNormalStartup(bool async_prefs) {
       profile_policy_connector_->policy_service(),
       g_browser_process->browser_policy_connector(),
       std::move(pref_validation_delegate), GetIOTaskRunner(), key_.get(), path_,
-      async_prefs, g_browser_process->os_crypt_async());
+      async_prefs, g_browser_process->os_crypt_async(),
+      g_browser_process->device_parental_controls());
   key_->SetPrefs(prefs_.get());
 }
 
@@ -1092,6 +1097,9 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
   CHECK(!ProfilePasswordStoreFactory::HasStore(this));
   CHECK(!AccountPasswordStoreFactory::HasStore(this));
   CHECK(!ReadingListModelFactory::HasModel(this));
+#if !BUILDFLAG(IS_ANDROID)
+  CHECK(!ThemeServiceFactory::GetForProfileIfExists(this));
+#endif  // !BUILDFLAG(IS_ANDROID)
   browser_sync::MaybeMigrateSyncingUserToSignedIn(GetPath(), GetPrefs());
 
 #if BUILDFLAG(IS_CHROMEOS)

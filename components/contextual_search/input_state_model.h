@@ -13,10 +13,10 @@
 #include "base/memory/raw_ref.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/omnibox/common/input_state.h"
-#include "third_party/omnibox_proto/aim_input_types.pb.h"
-#include "third_party/omnibox_proto/aim_models.pb.h"
-#include "third_party/omnibox_proto/aim_tools.pb.h"
+#include "third_party/omnibox_proto/input_type.pb.h"
+#include "third_party/omnibox_proto/model_mode.pb.h"
 #include "third_party/omnibox_proto/searchbox_config.pb.h"
+#include "third_party/omnibox_proto/tool_mode.pb.h"
 
 class PrefService;
 namespace contextual_search {
@@ -37,7 +37,8 @@ class InputStateModel {
   // info.
   explicit InputStateModel(
       contextual_search::ContextualSearchSessionHandle& session_handle,
-      const SearchboxConfig& config);
+      const SearchboxConfig& config,
+      bool is_off_the_record);
   InputStateModel(
       const InputStateModel& other,
       contextual_search::ContextualSearchSessionHandle& new_session_handle);
@@ -87,9 +88,6 @@ class InputStateModel {
   // Helper method to update `disabled_input_types` based on `rule_set_`.
   void UpdateDisabledInputTypes();
 
-  // Gets the input type limits based on the current state.
-  std::map<omnibox::InputType, int> GetInputTypeLimits();
-
   // Helper to check if search content sharing is enabled based on the
   // user preference from enterprise policy.
   bool IsSearchContentSharingEnabled() const;
@@ -101,6 +99,7 @@ class InputStateModel {
   base::RepeatingCallbackList<void(const InputState&)> subscribers_;
 
   raw_ptr<const PrefService> pref_service_ = nullptr;
+  const bool is_off_the_record_;
 };
 
 }  // namespace contextual_search

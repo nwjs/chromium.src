@@ -21,7 +21,6 @@
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
-#include "base/containers/contains.h"
 #include "base/file_version_info.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
@@ -1561,7 +1560,7 @@ void ExpectProcessLauncherLaunchCmdLineSucceeds(UpdaterScope scope) {
 void ExpectLegacyAppCommandWebSucceeds(UpdaterScope scope,
                                        const std::string& app_id,
                                        const std::string& command_id,
-                                       const base::Value::List& parameters,
+                                       const base::ListValue& parameters,
                                        int expected_exit_code) {
   const size_t kMaxParameters = 9;
   ASSERT_LE(parameters.size(), kMaxParameters);
@@ -1725,7 +1724,7 @@ void LegacyInstallApp(UpdaterScope scope,
 }
 
 void InvokeTestServiceFunction(const std::string& function_name,
-                               const base::Value::Dict& arguments) {
+                               const base::DictValue& arguments) {
   std::string arguments_json_string;
   EXPECT_TRUE(base::JSONWriter::Write(arguments, &arguments_json_string));
 
@@ -2003,16 +2002,16 @@ void CloseInstallCompleteDialog(const std::u16string& bundle_name,
           base::win::EnumerateChildWindows(
               ::GetDesktopWindow(), base::BindLambdaForTesting([&](HWND hwnd) {
                 if (!base::win::IsSystemDialog(hwnd) ||
-                    !base::Contains(base::win::GetWindowTextString(hwnd),
-                                    window_title)) {
+                    !base::win::GetWindowTextString(hwnd).contains(
+                        window_title)) {
                   return false;
                 }
                 // Enumerate the child windows to search for
                 // `child_window_text_to_find`. If found, close the dialog.
                 base::win::EnumerateChildWindows(
                     hwnd, base::BindLambdaForTesting([&](HWND hwnd) {
-                      if (!base::Contains(base::win::GetWindowTextString(hwnd),
-                                          child_window_text_to_find)) {
+                      if (!base::win::GetWindowTextString(hwnd).contains(
+                              child_window_text_to_find)) {
                         return false;
                       }
                       const HWND parent_hwnd = ::GetParent(hwnd);
@@ -2234,7 +2233,7 @@ base::CommandLine MakeElevated(base::CommandLine command_line) {
   return command_line;
 }
 
-void SetPlatformPolicies(const base::Value::Dict& values) {
+void SetPlatformPolicies(const base::DictValue& values) {
   base::win::RegKey policy_key;
   ASSERT_EQ(ERROR_SUCCESS,
             policy_key.Create(HKEY_LOCAL_MACHINE, UPDATER_POLICIES_KEY,

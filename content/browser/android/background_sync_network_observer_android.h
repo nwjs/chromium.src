@@ -42,7 +42,8 @@ class BackgroundSyncNetworkObserverAndroid
                        BackgroundSyncNetworkObserverAndroid::Observer> {
    public:
     static scoped_refptr<BackgroundSyncNetworkObserverAndroid::Observer> Create(
-        base::RepeatingCallback<void(network::mojom::ConnectionType)> callback);
+        base::RepeatingCallback<
+            void(net::NetworkChangeNotifier::ConnectionType)> callback);
 
     Observer(const Observer&) = delete;
     Observer& operator=(const Observer&) = delete;
@@ -53,18 +54,20 @@ class BackgroundSyncNetworkObserverAndroid
     // connection type changes. This updates the current connection type seen by
     // this class and calls the |network_changed_callback| provided to the
     // constructor with the new connection type.
-    void NotifyConnectionTypeChanged(JNIEnv* env, jint new_connection_type);
+    void NotifyConnectionTypeChanged(JNIEnv* env, int32_t new_connection_type);
 
    private:
     friend class base::RefCounted<
         BackgroundSyncNetworkObserverAndroid::Observer>;
 
     explicit Observer(
-        base::RepeatingCallback<void(network::mojom::ConnectionType)> callback);
+        base::RepeatingCallback<
+            void(net::NetworkChangeNotifier::ConnectionType)> callback);
     ~Observer();
 
     // This callback is run whenever the connection type changes.
-    base::RepeatingCallback<void(network::mojom::ConnectionType)> callback_;
+    base::RepeatingCallback<void(net::NetworkChangeNotifier::ConnectionType)>
+        callback_;
     base::android::ScopedJavaGlobalRef<jobject> j_observer_;
   };
 

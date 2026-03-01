@@ -157,6 +157,7 @@ declare global {
         FLIGHT_RESERVATION_DEPARTURE_AIRPORT,
         FLIGHT_RESERVATION_ARRIVAL_AIRPORT,
         FLIGHT_RESERVATION_DEPARTURE_DATE,
+        ADDRESS_HOME_ZIP_AND_CITY,
       }
 
       export enum AddressRecordType {
@@ -273,6 +274,8 @@ declare global {
         attributeInstances: AttributeInstance[];
         guid: string;
         nickname: string;
+        shouldAuthenticateToView?: boolean;
+        storedInWallet?: boolean;
       }
 
       export interface EntityInstanceWithLabels {
@@ -312,6 +315,9 @@ declare global {
       export function getPayOverTimeIssuerList():
           Promise<PayOverTimeIssuerEntry[]>;
       export function authenticateUserAndFlipMandatoryAuthToggle(): void;
+      export function authenticateUserBeforeViewingEntityData():
+          Promise<boolean>;
+      export function toggleAutofillAiReauthRequirement(): void;
       export function getLocalCard(guid: string): Promise<CreditCardEntry|null>;
       export function checkIfDeviceAuthAvailable(): Promise<boolean>;
       export function bulkDeleteAllCvcs(): void;
@@ -325,6 +331,8 @@ declare global {
           Promise<EntityInstance>;
       export function getWritableEntityTypes(): Promise<EntityType[]>;
       export function getAllAttributeTypesForEntityTypeName(
+          entityTypeName: number): Promise<AttributeType[]>;
+      export function getRequiredAttributeTypesForEntityTypeName(
           entityTypeName: number): Promise<AttributeType[]>;
       export function getAutofillAiOptInStatus(): Promise<boolean>;
       export function setAutofillAiOptInStatus(optedIn: boolean):

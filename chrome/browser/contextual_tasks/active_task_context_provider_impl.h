@@ -13,6 +13,7 @@
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
+#include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -22,8 +23,10 @@ class BrowserWindowInterface;
 namespace contextual_tasks {
 class ContextualTask;
 struct ContextualTaskContext;
+class ContextualTasksPanelController;
 
 class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
+                                      public TabListInterfaceObserver,
                                       public ContextualTasksService::Observer,
                                       public content::WebContentsObserver {
  public:
@@ -38,8 +41,9 @@ class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
 
   // ActiveTaskContextProvider implementation.
   void RefreshContext() override;
-  void SetSessionHandleGetter(
-      SessionHandleGetter session_handle_getter) override;
+  void SetContextualTasksPanelController(
+      ContextualTasksPanelController* contextual_tasks_panel_controller)
+      override;
   void AddObserver(ActiveTaskContextProvider::Observer* observer) override;
   void RemoveObserver(ActiveTaskContextProvider::Observer* observer) override;
 
@@ -57,18 +61,18 @@ class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
   void PrimaryPageChanged(content::Page& page) override;
 
  private:
+  // TabListInterfaceObserver overrides:
+  void OnActiveTabChanged(tabs::TabInterface* tab) override;
+
   // Callback for when GetContextForTask() completes.
   void OnGetContextForTask(int callback_id,
                            std::unique_ptr<ContextualTaskContext> context);
 
   void ResetStateAndNotifyObservers();
-  void OnActiveTabChanged(BrowserWindowInterface* browser_window_interface);
 
   raw_ptr<BrowserWindowInterface> browser_window_;
   raw_ptr<ContextualTasksService> contextual_tasks_service_;
-
-  // Obtains session handle and task ID info about current tab.
-  std::optional<SessionHandleGetter> session_handle_getter_;
+  raw_ptr<ContextualTasksPanelController> contextual_tasks_panel_controller_;
 
   // The task associated with the currently active tab.
   std::optional<base::Uuid> active_task_id_;
@@ -83,8 +87,8 @@ class ActiveTaskContextProviderImpl : public ActiveTaskContextProvider,
                           ContextualTasksService::Observer>
       contextual_tasks_service_observation_{this};
 
-  // Subscription for tab switch events.
-  base::CallbackListSubscription active_tab_change_subscription_;
+  ui::ScopedUnownedUserData<ActiveTaskContextProvider>
+      scoped_unowned_user_data_;
 
   base::WeakPtrFactory<ActiveTaskContextProviderImpl> weak_ptr_factory_{this};
 };

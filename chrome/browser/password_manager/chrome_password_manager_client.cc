@@ -1924,7 +1924,8 @@ void ChromePasswordManagerClient::ResourceLoadComplete(
 void ChromePasswordManagerClient::OnFieldTypesDetermined(
     autofill::AutofillManager& manager,
     autofill::FormGlobalId form_id,
-    FieldTypeSource source) {
+    FieldTypeSource source,
+    bool small_forms_were_parsed) {
   PropagatePredictionsToPasswordManager(manager, form_id, source);
 }
 

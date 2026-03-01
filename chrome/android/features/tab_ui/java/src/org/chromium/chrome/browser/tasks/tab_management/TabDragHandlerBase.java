@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.build.NullUtil.assertNonNull;
-import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tabwindow.TabWindowManager.INVALID_WINDOW_ID;
 
 import android.app.Activity;
@@ -19,9 +18,11 @@ import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.Token;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.NullableObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
@@ -40,7 +41,6 @@ import org.chromium.chrome.browser.tabmodel.TabGroupMetadataExtractor;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
-import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.dragdrop.DragDropGlobalState;
@@ -64,14 +64,14 @@ public abstract class TabDragHandlerBase
     protected final MultiInstanceManager mMultiInstanceManager;
     protected final DragAndDropDelegate mDragAndDropDelegate;
     protected final Supplier<Boolean> mIsAppInDesktopWindowSupplier;
-    protected @Nullable ObservableSupplier<Boolean> mFullSpaceModeSupplier;
+    protected @Nullable MonotonicObservableSupplier<Boolean> mFullSpaceModeSupplier;
     protected @Nullable Callback<Boolean> mFullSpaceModeObserver;
     private @Nullable TabModelSelector mTabModelSelector;
-    private @Nullable ObservableSupplier<@Nullable TabGroupModelFilter>
+    private @Nullable NullableObservableSupplier<TabGroupModelFilter>
             mCurrentTabGroupModelFilterSupplier;
     private @Nullable View mDragSourceView;
-    private final ObservableSupplierImpl<Boolean> mDragInProgressSupplier =
-            new ObservableSupplierImpl<>(/* initialValue= */ false);
+    private final SettableNonNullObservableSupplier<Boolean> mDragInProgressSupplier =
+            ObservableSuppliers.createNonNull(false);
 
     /**
      * Prepares the tab container view to listen to the drag events and data drop after the drag is
@@ -122,7 +122,7 @@ public abstract class TabDragHandlerBase
         return mTabModelSelector;
     }
 
-    protected ObservableSupplier<@Nullable TabGroupModelFilter>
+    protected NullableObservableSupplier<TabGroupModelFilter>
             getCurrentTabGroupModelFilterSupplier() {
         assert mCurrentTabGroupModelFilterSupplier != null;
         return mCurrentTabGroupModelFilterSupplier;
@@ -384,11 +384,7 @@ public abstract class TabDragHandlerBase
                     didCloseWindow, isTabGroupDrop, isMultiTabDrop);
         } else if (MultiWindowUtils.getInstanceCountWithFallback(PersistedInstanceType.ACTIVE)
                 >= MultiWindowUtils.getMaxInstances()) {
-            assumeNonNull(mTabModelSelector);
-            assumeNonNull(mTabModelSelector.getCurrentTab());
-            var windowAndroid = mTabModelSelector.getCurrentTab().getWindowAndroid();
-            mMultiInstanceManager.showInstanceCreationLimitMessage(
-                    MessageDispatcherProvider.from(windowAndroid));
+            mMultiInstanceManager.showInstanceCreationLimitMessage();
             ChromeDragDropUtils.recordTabOrGroupDragToCreateInstanceFailureCount();
             DragDropMetricUtils.recordDragDropResult(
                     DragDropResult.IGNORED_MAX_INSTANCES,
@@ -432,7 +428,7 @@ public abstract class TabDragHandlerBase
     }
 
     @Override
-    public @Nullable Boolean handleEscPress() {
+    public Boolean handleEscPress() {
         return cancelDrag() == BackPressResult.SUCCESS;
     }
 
@@ -442,7 +438,15 @@ public abstract class TabDragHandlerBase
         return mDragInProgressSupplier;
     }
 
-    private @BackPressResult int cancelDrag() {
+    protected void onInternalDragStarted() {
+        mDragInProgressSupplier.set(true);
+    }
+
+    protected void onInternalDragEnded() {
+        mDragInProgressSupplier.set(false);
+    }
+
+    protected @BackPressResult int cancelDrag() {
         if (mDragSourceView != null) {
             mDragSourceView.cancelDragAndDrop();
             return BackPressResult.SUCCESS;

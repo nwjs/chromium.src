@@ -30,12 +30,6 @@ inline constexpr char kArticlesForYouEnabled[] = "suggestions.articles_enabled";
 // Boolean which indicates if the omnibox should be at the bottom of the screen.
 inline constexpr char kBottomOmnibox[] = "ios.bottom_omnibox";
 
-// Boolean which indicates if the default value of `kBottomOmnibox` is bottom.
-// This saves the default value of the bottom omnibox setting to present the
-// omnibox consistently.
-inline constexpr char kBottomOmniboxByDefault[] =
-    "ios.bottom_omnibox_by_default";
-
 // Boolean that is true when Browser Lockdown Mode is enabled.
 inline constexpr char kBrowserLockdownModeEnabled[] =
     "ios.browser_lockdown_mode_enabled";
@@ -828,6 +822,11 @@ inline constexpr char kNextSSORecallTime[] = "ios.next_sso_recall_time";
 // 0 means Gemini is enabled (default), and 1 means it's disabled.
 inline constexpr char kGeminiEnabledByPolicy[] = "ios.gemini_enabled_by_policy";
 
+// An integer determining the enabled status of Gen Ai by policy.
+// 0 or 1 means all covered generative AI features are enabled, while 2 means
+// that they are disabled.
+inline constexpr char kGenAiEnabledByPolicy[] = "ios.gen_ai_enabled_by_policy";
+
 // A boolean specifying whether the user has ever been eligible for AI Hub.
 inline constexpr char kAIHubEligibilityTriggered[] =
     "ios.ai_hub_eligibility_triggered";
@@ -881,6 +880,10 @@ inline constexpr char kCrossPlatformPromosActiveDays[] =
 // recent than 28 days ago.
 inline constexpr char kCrossPlatformPromosIOS16thActiveDay[] =
     "cross_platform_promos.ios_16th_active_day";
+
+// A time pref to remember the last time the "active day" feature engagement
+// tracker event was fired.
+inline constexpr char kLastRecordedActiveDay[] = "ios.last_recorded_active_day";
 
 }  // namespace prefs
 

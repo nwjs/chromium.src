@@ -22,15 +22,22 @@ generate_jni("generate_jni") {
 generate_jar_jni("system_jni") {
   classes = [
     "android/os/Process.class",
+    "java/lang/Boolean.class",
+    "java/lang/Integer.class",
+    "java/lang/Long.class",
+    "java/lang/Runnable.class",
     "java/util/Arrays.class",
     "java/util/Collection.class",
     "java/util/List.class",
     "java/util/Map.class",
-    "java/lang/Integer.class",
-    "java/lang/Long.class",
-    "java/lang/Boolean.class",
   ]
   visibility = [ ":*" ]
+}
+
+generate_jar_jni("system_jni_unchecked_exceptions") {
+  classes = [ "java/nio/ByteBuffer.class" ]
+  visibility = [ ":*" ]
+  unchecked_exceptions = true
 }
 
 # This is the public target that we intend others to use.
@@ -78,6 +85,7 @@ component("jni_zero") {
   deps = [
     ":generate_jni($default_toolchain)",
     ":system_jni($default_toolchain)",
+    ":system_jni_unchecked_exceptions($default_toolchain)",
   ]
 }
 

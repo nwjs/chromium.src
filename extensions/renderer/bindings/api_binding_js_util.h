@@ -62,7 +62,7 @@ class APIBindingJSUtil final : public gin::Wrappable<APIBindingJSUtil> {
                    v8::Local<v8::Value> options,
                    bool sync = false,
                    bool* success = nullptr,
-                   base::Value::List* response = nullptr,
+                   base::ListValue* response = nullptr,
                    std::string* error = nullptr);
 
   // A handler to register an argument massager for a specific event.

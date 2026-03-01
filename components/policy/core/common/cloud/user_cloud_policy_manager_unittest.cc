@@ -56,11 +56,14 @@ class UserCloudPolicyManagerTest : public testing::Test {
   }
 
   void CreateManager() {
-    store_ = new MockUserCloudPolicyStore();
+    store_ =
+        new MockUserCloudPolicyStore(dm_protocol::GetChromeUserPolicyType());
     EXPECT_CALL(*store_, Load());
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-    extension_install_store_ = new MockUserCloudPolicyStore();
-    EXPECT_CALL(*extension_install_store_, Load());
+    extension_install_store_ = new MockUserCloudPolicyStore(
+        dm_protocol::kChromeExtensionInstallUserCloudPolicyType);
+    // Never allowed unless explicitly initialized.
+    EXPECT_CALL(*extension_install_store_, Load()).Times(0);
 #endif
     const auto task_runner = task_environment_.GetMainThreadTaskRunner();
     manager_ = std::make_unique<UserCloudPolicyManager>(

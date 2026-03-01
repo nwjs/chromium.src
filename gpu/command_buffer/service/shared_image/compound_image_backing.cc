@@ -109,6 +109,9 @@ SharedImageUsageSet GetUsageFromAccessStream(SharedImageAccessStream stream) {
       // always need it for WebNN, the two other(*_TENSOR_READ/WRITE) are for
       // additional functionality in webnn (upload/readback of the tensor).
       return SHARED_IMAGE_USAGE_WEBNN_SHARED_TENSOR;
+    case SharedImageAccessStream::kVulkan:
+      return SHARED_IMAGE_USAGE_RASTER_READ | SHARED_IMAGE_USAGE_RASTER_WRITE |
+             SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_DISPLAY_WRITE;
     case SharedImageAccessStream::kMemory:
       // Below usage set ensures that only SharedMemoryImageBacking will be able
       // to support this stream.
@@ -548,13 +551,116 @@ class WrappedMemoryCompoundImageRepresentation
   std::unique_ptr<MemoryImageRepresentation> wrapped_;
 };
 
+class WrappedVideoCompoundImageRepresentation
+    : public VideoImageRepresentation {
+ public:
+  WrappedVideoCompoundImageRepresentation(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      MemoryTypeTracker* tracker,
+      std::unique_ptr<VideoImageRepresentation> wrapped)
+      : VideoImageRepresentation(manager, backing, tracker),
+        wrapped_(std::move(wrapped)) {
+    CHECK(wrapped_);
+  }
+
+  CompoundImageBacking* compound_backing() {
+    return static_cast<CompoundImageBacking*>(backing());
+  }
+
+  bool BeginWriteAccess() override {
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(),
+                                          AccessMode::kWrite);
+    return wrapped_->BeginWriteAccess();
+  }
+  void EndWriteAccess() override {
+    wrapped_->EndWriteAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(),
+                                        AccessMode::kWrite);
+  }
+  bool BeginReadAccess() override {
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(),
+                                          AccessMode::kRead);
+    return wrapped_->BeginReadAccess();
+  }
+  void EndReadAccess() override {
+    wrapped_->EndReadAccess();
+    compound_backing()->NotifyEndAccess(wrapped_->backing(), AccessMode::kRead);
+  }
+#if BUILDFLAG(IS_WIN)
+  D3D11TextureAndArrayIndex GetD3D11Texture() const override {
+    return wrapped_->GetD3D11Texture();
+  }
+#endif
+#if BUILDFLAG(IS_ANDROID)
+  AHardwareBuffer* GetAHardwareBuffer() const override {
+    return wrapped_->GetAHardwareBuffer();
+  }
+#endif
+
+ private:
+  std::unique_ptr<VideoImageRepresentation> wrapped_;
+};
+
+#if BUILDFLAG(ENABLE_VULKAN)
+class WrappedVulkanCompoundImageRepresentation
+    : public VulkanImageRepresentation {
+ public:
+  WrappedVulkanCompoundImageRepresentation(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      MemoryTypeTracker* tracker,
+      gpu::VulkanDeviceQueue* vulkan_device_queue,
+      gpu::VulkanImplementation& vulkan_impl,
+      std::unique_ptr<VulkanImageRepresentation> wrapped)
+      : VulkanImageRepresentation(manager,
+                                  backing,
+                                  tracker,
+                                  nullptr,
+                                  vulkan_device_queue,
+                                  vulkan_impl),
+        wrapped_(std::move(wrapped)) {
+    DCHECK(wrapped_);
+  }
+
+  CompoundImageBacking* compound_backing() {
+    return static_cast<CompoundImageBacking*>(backing());
+  }
+
+  bool BeginAccess(AccessMode access_mode,
+                   std::vector<VkSemaphore>& begin_semaphores,
+                   std::vector<VkSemaphore>& end_semaphores) override {
+    compound_backing()->NotifyBeginAccess(wrapped_->backing(), access_mode);
+    if (!wrapped_->BeginAccess(access_mode, begin_semaphores, end_semaphores)) {
+      return false;
+    }
+    return true;
+  }
+
+  void EndAccess(bool is_read_only, VkSemaphore end_semaphore) override {
+    wrapped_->EndAccess(is_read_only, end_semaphore);
+    compound_backing()->NotifyEndAccess(
+        wrapped_->backing(),
+        is_read_only ? AccessMode::kRead : AccessMode::kWrite);
+  }
+
+  gpu::VulkanImage& GetVulkanImage() override {
+    return wrapped_->GetVulkanImage();
+  }
+
+ private:
+  std::unique_ptr<VulkanImageRepresentation> wrapped_;
+};
+
+#endif
+
 // static
-bool CompoundImageBacking::IsValidSharedMemoryBufferFormat(
+bool CompoundImageBacking::IsValidSharedMemoryFormat(
     const gfx::Size& size,
     viz::SharedImageFormat format) {
-  if (format.PrefersExternalSampler() ||
-      !viz::HasEquivalentBufferFormat(format)) {
-    DVLOG(1) << "Not a valid format: " << format.ToString();
+  if (format.PrefersExternalSampler()) {
+    DVLOG(1) << "Unsupported external sampler for format: "
+             << format.ToString();
     return false;
   }
 
@@ -606,7 +712,7 @@ std::unique_ptr<SharedImageBacking> CompoundImageBacking::Create(
     SkAlphaType alpha_type,
     SharedImageUsageSet usage,
     std::string debug_label) {
-  if (!IsValidSharedMemoryBufferFormat(size, format)) {
+  if (!IsValidSharedMemoryFormat(size, format)) {
     return nullptr;
   }
 
@@ -646,7 +752,7 @@ std::unique_ptr<SharedImageBacking> CompoundImageBacking::Create(
     SharedImageUsageSet usage,
     std::string debug_label,
     gfx::BufferUsage buffer_usage) {
-  if (!IsValidSharedMemoryBufferFormat(size, format)) {
+  if (!IsValidSharedMemoryFormat(size, format)) {
     return nullptr;
   }
 
@@ -709,7 +815,7 @@ CompoundImageBacking::CreateSharedMemoryForTesting(
     SkAlphaType alpha_type,
     SharedImageUsageSet usage,
     std::string debug_label) {
-  DCHECK(IsValidSharedMemoryBufferFormat(size, format));
+  DCHECK(IsValidSharedMemoryFormat(size, format));
 
   auto shm_backing = SharedMemoryImageBackingFactory().CreateSharedImage(
       mailbox, format, size, color_space, surface_origin, alpha_type,
@@ -741,7 +847,7 @@ CompoundImageBacking::CreateSharedMemoryForTesting(
     SharedImageUsageSet usage,
     std::string debug_label,
     gfx::BufferUsage buffer_usage) {
-  DCHECK(IsValidSharedMemoryBufferFormat(size, format));
+  DCHECK(IsValidSharedMemoryFormat(size, format));
 
   auto shm_backing = SharedMemoryImageBackingFactory().CreateSharedImage(
       mailbox, format, kNullSurfaceHandle, size, color_space, surface_origin,
@@ -839,12 +945,21 @@ CompoundImageBacking::CompoundImageBacking(
       copy_manager_(std::move(copy_manager)) {
   // Create the element from the backing.
   ElementHolder element;
-  if (backing->GetType() == SharedImageBackingType::kSharedMemory) {
-    element.access_streams = kMemoryStreamSet;
-  } else {
-    element.access_streams =
-        base::Difference(AccessStreamSet::All(), kMemoryStreamSet);
-  }
+
+  // We set the inner backing to support all streams so that we forward all
+  // Produce calls to it. This is necessary because:
+  // 1. The inner backing might support more than we assume (e.g. SharedMemory
+  // supporting Overlay).
+  // 2. We want to delegate the decision of "is this supported?" to the inner
+  // backing. For example, if ProduceMemory is called on a GPU backing, we want
+  // to forward it so the backing can return nullptr (unsupported), rather than
+  // CompoundImageBacking logging an error because it thinks no backing exists
+  // for that stream.
+  // 3. This matches current behavior where we just have one backing handling
+  // everything.
+  // Future work for dynamic backing allocation will need a way to identify
+  // backing support for specific streams based on usage.
+  element.access_streams = AccessStreamSet::All();
 
   // |backing| may have a cleared rect set (e.g. from initial pixel data).
   // Propagate this to the CompoundImageBacking to keep them in sync.
@@ -928,6 +1043,15 @@ void CompoundImageBacking::NotifyEndAccess(SharedImageBacking* backing,
     auto cleared_rect = backing->ClearedRect();
     if (cleared_rect != ClearedRect()) {
       ClearTrackingSharedImageBacking::SetClearedRect(cleared_rect);
+    }
+  }
+}
+
+void CompoundImageBacking::OnContextLost() {
+  ClearTrackingSharedImageBacking::OnContextLost();
+  for (const auto& element : elements_) {
+    if (element.backing) {
+      element.backing->OnContextLost();
     }
   }
 }
@@ -1231,6 +1355,48 @@ std::unique_ptr<MemoryImageRepresentation> CompoundImageBacking::ProduceMemory(
       manager, this, tracker, std::move(real_rep));
 }
 
+std::unique_ptr<VideoImageRepresentation> CompoundImageBacking::ProduceVideo(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker,
+    VideoDevice device) {
+  auto* backing = GetOrAllocateBacking(SharedImageAccessStream::kGL);
+  if (!backing) {
+    return nullptr;
+  }
+
+  auto real_rep = backing->ProduceVideo(manager, tracker, device);
+  if (!real_rep) {
+    return nullptr;
+  }
+
+  return std::make_unique<WrappedVideoCompoundImageRepresentation>(
+      manager, this, tracker, std::move(real_rep));
+}
+
+#if BUILDFLAG(ENABLE_VULKAN)
+std::unique_ptr<VulkanImageRepresentation> CompoundImageBacking::ProduceVulkan(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker,
+    gpu::VulkanDeviceQueue* vulkan_device_queue,
+    gpu::VulkanImplementation& vulkan_impl,
+    bool needs_detiling) {
+  auto* backing = GetOrAllocateBacking(SharedImageAccessStream::kVulkan);
+  if (!backing) {
+    return nullptr;
+  }
+
+  auto real_rep = backing->ProduceVulkan(manager, tracker, vulkan_device_queue,
+                                         vulkan_impl, needs_detiling);
+  if (!real_rep) {
+    return nullptr;
+  }
+
+  return std::make_unique<WrappedVulkanCompoundImageRepresentation>(
+      manager, this, tracker, vulkan_device_queue, vulkan_impl,
+      std::move(real_rep));
+}
+#endif
+
 base::trace_event::MemoryAllocatorDump* CompoundImageBacking::OnMemoryDump(
     const std::string& dump_name,
     base::trace_event::MemoryAllocatorDumpGuid client_guid,
@@ -1479,6 +1645,9 @@ GPU_GLES2_EXPORT std::ostream& operator<<(
       break;
     case gpu::SharedImageAccessStream::kWebNNTensor:
       os << "kWebNNTensor";
+      break;
+    case gpu::SharedImageAccessStream::kVulkan:
+      os << "kVulkan";
       break;
   }
   return os;

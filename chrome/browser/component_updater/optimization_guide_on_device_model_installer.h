@@ -7,6 +7,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "components/component_updater/component_installer.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 
 namespace optimization_guide {
@@ -28,17 +29,17 @@ class OptimizationGuideOnDeviceModelInstallerPolicy
   ~OptimizationGuideOnDeviceModelInstallerPolicy() override;
 
   // Overrides for ComponentInstallerPolicy.
-  bool VerifyInstallation(const base::Value::Dict& manifest,
+  bool VerifyInstallation(const base::DictValue& manifest,
                           const base::FilePath& install_dir) const override;
   bool SupportsGroupPolicyEnabledComponentUpdates() const override;
   bool RequiresNetworkEncryption() const override;
   update_client::CrxInstaller::Result OnCustomInstall(
-      const base::Value::Dict& manifest,
+      const base::DictValue& manifest,
       const base::FilePath& install_dir) override;
   void OnCustomUninstall() override;
   void ComponentReady(const base::Version& version,
                       const base::FilePath& install_dir,
-                      base::Value::Dict manifest) override;
+                      base::DictValue manifest) override;
   base::FilePath GetRelativeInstallDir() const override;
   void GetHash(std::vector<uint8_t>* hash) const override;
   std::string GetName() const override;
@@ -46,7 +47,7 @@ class OptimizationGuideOnDeviceModelInstallerPolicy
   bool AllowCachedCopies() const override;
   bool AllowUpdatesOnMeteredConnections() const override;
   static const std::string GetOnDeviceModelExtensionId();
-  static void UpdateOnDemand();
+  static void UpdateOnDemand(OnDemandUpdater::Priority priority);
 
  private:
   // The on-device state manager should be accessed in the UI thread.

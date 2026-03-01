@@ -202,7 +202,7 @@ class NET_EXPORT ConfiguredProxyResolutionService
   bool IsReady() const;
 
   // ProxyResolutionService
-  base::Value::Dict GetProxyNetLogValues() override;
+  base::DictValue GetProxyNetLogValues() override;
 
   // ProxyResolutionService
   [[nodiscard]] bool CastToConfiguredProxyResolutionService(

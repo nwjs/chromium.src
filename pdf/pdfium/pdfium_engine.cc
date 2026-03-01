@@ -18,7 +18,6 @@
 #include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
@@ -98,6 +97,7 @@
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "v8/include/v8.h"
@@ -1267,11 +1267,10 @@ void PDFiumEngine::RemoveTextFragments() {
 void PDFiumEngine::SearchForFragment(
     const std::u16string& term,
     int char_to_start_searching_from,
-    int last_char_index_to_search,
     int page_to_search,
     AddSearchResultCallback add_result_callback) {
   SearchUsingICU(term, /*case_sensitive=*/false, /*first_search=*/false,
-                 char_to_start_searching_from, last_char_index_to_search,
+                 char_to_start_searching_from, /*last_char_index_to_search=*/-1,
                  page_to_search, page_to_search,
                  std::move(add_result_callback));
 }
@@ -2795,16 +2794,16 @@ int PDFiumEngine::GetNumberOfPages() const {
   return pages_.size();
 }
 
-base::Value::List PDFiumEngine::GetBookmarks() {
-  base::Value::Dict dict = TraverseBookmarks(nullptr, 0);
+base::ListValue PDFiumEngine::GetBookmarks() {
+  base::DictValue dict = TraverseBookmarks(nullptr, 0);
   // The root bookmark contains no useful information.
-  base::Value::List* children = dict.FindList("children");
+  base::ListValue* children = dict.FindList("children");
   return std::move(*children);
 }
 
-base::Value::Dict PDFiumEngine::TraverseBookmarks(FPDF_BOOKMARK bookmark,
-                                                  unsigned int depth) {
-  base::Value::Dict dict;
+base::DictValue PDFiumEngine::TraverseBookmarks(FPDF_BOOKMARK bookmark,
+                                                unsigned int depth) {
+  base::DictValue dict;
   std::u16string title = CallPDFiumWideStringBufferApi(
       base::BindRepeating(&FPDFBookmark_GetTitle, bookmark),
       /*check_expected_size=*/true);
@@ -2843,7 +2842,7 @@ base::Value::Dict PDFiumEngine::TraverseBookmarks(FPDF_BOOKMARK bookmark,
     }
   }
 
-  base::Value::List children;
+  base::ListValue children;
 
   // Don't trust PDFium to handle circular bookmarks.
   constexpr unsigned int kMaxDepth = 128;
@@ -3438,7 +3437,7 @@ void PDFiumEngine::CalculateVisiblePages() {
 bool PDFiumEngine::IsPageVisible(int page_index) const {
   // CalculateVisiblePages() must have been called first to populate
   // `visible_pages_`. Otherwise, this will always return false.
-  return base::Contains(visible_pages_, page_index);
+  return std::ranges::contains(visible_pages_, page_index);
 }
 
 void PDFiumEngine::ScrollToPage(int page) {
@@ -3463,7 +3462,7 @@ bool PDFiumEngine::CheckPageAvailable(uint32_t index,
 
   FX_DOWNLOADHINTS& download_hints = document_->download_hints();
   if (!FPDFAvail_IsPageAvail(fpdf_availability(), index, &download_hints)) {
-    if (!base::Contains(*pending, index)) {
+    if (!std::ranges::contains(*pending, index)) {
       pending->push_back(index);
     }
     return false;
@@ -3913,6 +3912,13 @@ void PDFiumEngine::Highlight(const RegionData& region,
                              SkColor color,
                              std::vector<gfx::Rect>& highlighted_rects) const {
   gfx::Rect new_rect = rect;
+  // `rect` has been found to be able to be outside the addressable bounds of
+  // `region` (see crbug.com/476663015 and duplicates), so intersect it with the
+  // addressable region. Taking `row_pixels == region.stride/4` works because
+  // the bitmap format is always some form of BGRx.
+  new_rect.Intersect(
+      gfx::Rect(region.stride / 4, region.buffer.size() / region.stride));
+
   for (const auto& highlighted : highlighted_rects) {
     new_rect.Subtract(highlighted);
   }

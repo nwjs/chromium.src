@@ -10,8 +10,8 @@
 #include "base/check_op.h"
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_collection.h"
-#include "components/tabs/public/split_tab_visual_data.h"
 #include "components/tabs/public/tab_group_tab_collection.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
@@ -22,7 +22,7 @@ using content::WebContents;
 TabStripModelChange::RemovedTab::RemovedTab(
     tabs::TabInterface* tab,
     int index,
-    RemoveReason remove_reason,
+    TabRemovedReason remove_reason,
     tabs::TabInterface::DetachReason tab_detach_reason,
     std::optional<SessionID> session_id)
     : tab(tab),
@@ -366,9 +366,6 @@ void TabStripModelObserver::OnTabPinnedStateChanged(tabs::TabInterface* tab,
 void TabStripModelObserver::OnTabBlockedStateChanged(tabs::TabInterface* tab,
                                                      int index) {}
 
-void TabStripModelObserver::OnTabNeedsAttentionChanged(int index,
-                                                       bool attention) {}
-
 void TabStripModelObserver::TabGroupedStateChanged(
     TabStripModel* tab_strip_model,
     std::optional<tab_groups::TabGroupId> old_group,
@@ -381,10 +378,6 @@ void TabStripModelObserver::OnTabGroupChanged(const TabGroupChange& change) {}
 void TabStripModelObserver::OnTabGroupFocusChanged(
     std::optional<tab_groups::TabGroupId> new_focused_group_id,
     std::optional<tab_groups::TabGroupId> old_focused_group_id) {}
-
-void TabStripModelObserver::OnTabGroupNeedsAttentionChanged(
-    const tab_groups::TabGroupId& group,
-    bool attention) {}
 
 void TabStripModelObserver::OnTabGroupAdded(
     const tab_groups::TabGroupId& group_id) {}

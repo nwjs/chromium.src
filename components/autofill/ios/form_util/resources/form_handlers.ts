@@ -13,7 +13,7 @@ import {isAutofillableElement} from '//components/autofill/ios/form_util/resourc
 import * as fillUtil from '//components/autofill/ios/form_util/resources/fill_util.js';
 import {formSubmitted, reportFormSubmissionError, wasEditedByUser} from '//components/autofill/ios/form_util/resources/fill_web_form.js';
 import {getFieldIdentifier, getFormIdentifier, reportDetectedFormSubmission} from '//components/autofill/ios/form_util/resources/form_utils.js';
-import {CrWebApi, gCrWeb, gCrWebLegacy} from '//ios/web/public/js_messaging/resources/gcrweb.js';
+import {CrWebApi, gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {sendWebKitMessage} from '//ios/web/public/js_messaging/resources/utils.js';
 
 /**
@@ -45,12 +45,6 @@ let messageToSend: object|null = null;
  * The last HTML element that had focus.
  */
 let lastFocusedElement: Element|null = null;
-
-/**
- * The original implementation of HTMLFormElement.submit that will be called by
- * the hook.
- */
-let formSubmitOriginalFunction: Function|null = null;
 
 /**
  * The number of messages scheduled to be sent to browser.
@@ -314,31 +308,6 @@ function attachListeners(): void {
    * `formActivity` handler, but need to be attached under the same conditions.
    */
   window.addEventListener('message', processInboundMessage);
-
-  // Per specification, SubmitEvent is not triggered when calling
-  // form.submit(). Hook the method to call the handler in that case.
-  if (formSubmitOriginalFunction === null) {
-    formSubmitOriginalFunction = HTMLFormElement.prototype.submit;
-    HTMLFormElement.prototype.submit = function() {
-      reportDetectedFormSubmission(
-          /*isProgrammatic=*/ true, /*handler=*/ NATIVE_MESSAGE_HANDLER);
-      if (!autofillFormFeaturesApi.getFunction('isAutofillIsolatedContentWorldEnabled')()) {
-        // If an error happens in formSubmitted, this will cancel the form
-        // submission which can lead to usability issue for the user.
-        // Put the formSubmitted in a try catch to ensure the original function
-        // is always called.
-
-        try {
-          formSubmitted(
-              this,
-              /* messageHandler= */ NATIVE_MESSAGE_HANDLER,
-              /* programmaticSubmission= */ true);
-        } catch (e) {
-        }
-      }
-      formSubmitOriginalFunction!.call(this);
-    };
-  }
 }
 
 // Attach the listeners immediately to try to catch early actions of the user.
@@ -459,8 +428,8 @@ function trackFormMutations(delay: number): void {
           removedFormMessage = {
             'command': 'form.removal',
             'frameID': gCrWeb.getFrameId(),
-            'removedFormIDs': gCrWebLegacy.stringify(filteredFormIDs),
-            'removedFieldIDs': gCrWebLegacy.stringify(removedFormlessFieldsIds),
+            'removedFormIDs': fillUtil.stringify(filteredFormIDs),
+            'removedFieldIDs': fillUtil.stringify(removedFormlessFieldsIds),
           };
           continue;
         }
@@ -471,7 +440,7 @@ function trackFormMutations(delay: number): void {
         removedFormMessage = {
           'command': 'form.removal',
           'frameID': gCrWeb.getFrameId(),
-          'removedFieldIDs': gCrWebLegacy.stringify(removedFormlessFieldsIds),
+          'removedFieldIDs': fillUtil.stringify(removedFormlessFieldsIds),
         };
         continue;
       } else if (formlessFieldsWereRemoved) {
@@ -509,8 +478,8 @@ function trackFormMutations(delay: number): void {
   formMutationObserver.observe(document, {childList: true, subtree: true});
 }
 
-const formHandlersApi = new CrWebApi();
+const formHandlersApi = new CrWebApi('formHandlers');
 
 formHandlersApi.addFunction('trackFormMutations', trackFormMutations);
 
-gCrWeb.registerApi('formHandlers', formHandlersApi);
+gCrWeb.registerApi(formHandlersApi);

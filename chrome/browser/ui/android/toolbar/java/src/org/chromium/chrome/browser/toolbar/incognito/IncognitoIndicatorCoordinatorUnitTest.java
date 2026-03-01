@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.util.DisplayMetrics;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.ViewTreeObserver;
 
@@ -40,6 +41,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
@@ -53,7 +55,7 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 /** Unit tests for {@link IncognitoIndicatorCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@EnableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
+@EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
 public class IncognitoIndicatorCoordinatorUnitTest {
     private static final int BUTTON_WIDTH = 40;
 
@@ -78,12 +80,18 @@ public class IncognitoIndicatorCoordinatorUnitTest {
     @Before
     public void setUp() {
         mActivityScenario.getScenario().onActivity(activity -> mActivity = spy(activity));
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
         when(mParentToolbar.findViewById(eq(R.id.incognito_indicator_stub)))
                 .thenReturn(mIncognitoIndicatorStub);
         when(mIncognitoIndicatorStub.inflate()).thenReturn(mIncognitoIndicatorView);
         when(mIncognitoIndicatorView.getRootView()).thenReturn(mIncognitoIndicatorView);
         when(mIncognitoIndicatorView.getViewTreeObserver()).thenReturn(mViewTreeObserver);
         when(mIncognitoIndicatorView.getResources()).thenReturn(mResources);
+        when(mIncognitoIndicatorView.getLayoutParams())
+                .thenReturn(
+                        new ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT));
         when(mParentToolbar.getContext()).thenReturn(mContext);
         when(mContext.getResources()).thenReturn(mResources);
         when(mResources.getDisplayMetrics()).thenReturn(new DisplayMetrics());
@@ -146,7 +154,7 @@ public class IncognitoIndicatorCoordinatorUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.TOOLBAR_TABLET_RESIZE_REFACTOR)
-    @DisableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
+    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testUpdateVisibility_TabStripMigrationDisabled() {
         assertEquals(0, mCoordinator.updateVisibility(300));
         assertNull("Indicator should not be inflated.", mCoordinator.getIncognitoIndicatorView());

@@ -1761,6 +1761,49 @@ The following C++23 language features are allowed in the Chromium codebase.
 [Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/V6YD6hOjnE8)
 ***
 
+### if consteval <sup>[allowed]</sup>
+
+```c++
+if consteval {
+  ...
+}
+```
+
+**Description:** consteval if statement. This removes some gotchas with
+[std::is_constant_evaluated()](https://en.cppreference.com/w/cpp/types/is_constant_evaluated.html#Notes),
+which needs to be used with a runtime if (rather than constexpr if) to be
+meaningful.
+
+**Documentation:**
+[if statement](https://en.cppreference.com/w/cpp/language/if)
+
+**Notes:**
+*** promo
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/1e90vNHYVFc)
+***
+
+### Static operators () and [] <sup>[allowed]</sup>
+
+```
+struct FooHash {
+  // Does not take an implicit pointer to `this`, which would have been useless.
+  static size_t operator()(const Foo& foo) {
+    return ...;
+  }
+};
+```
+
+**Description:** Static operators () and []
+
+**Documentation:**
+[Operator overloading](https://en.cppreference.com/w/cpp/language/operators.html)
+
+**Notes:**
+*** promo
+Avoids unnecessary `this` argument for functors, improving performance.
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/_-d7yyX8EeU).
+***
+
 ## C++23 Allowed Library Features {#library-allowlist-23}
 
 The following C++23 library features are allowed in the Chromium codebase.
@@ -1797,6 +1840,55 @@ auto x = std::byteswap(y);
 [Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/U2zUF-xOj6A/m/ZiRRZdr7AwAJ)
 ***
 
+### Various new ranges algorithms <sup>[allowed]</sup>
+
+```c++
+std::ranges::contains, std::ranges::contains_subrange
+std::ranges::starts_with
+std::ranges::ends_with
+std::ranges::find_last, std::ranges::find_last_if, std::ranges::find_last_if_not
+std::ranges::iota
+std::ranges::fold_left
+std::ranges::fold_left_with_iter
+// The ones below are pending libc++ implementation as of 01/2026.
+std::ranges::shift_left, std::ranges::shift_right
+std::ranges::fold_left_first
+std::ranges::fold_right
+std::ranges::fold_right_last
+std::ranges::fold_left_first_with_iter
+```
+
+**Description:** Various new ranges algorithms
+
+**Documentation:**
+[`<algorithm>`](https://en.cppreference.com/w/cpp/header/algorithm.html)
+
+**Notes:**
+*** promo
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/wZg3s5m6rOE).
+Migration of base::Contains() tracked [here](https://crbug.com/470391351).
+***
+
+### Constructing containers with std::from_range <sup>[allowed]</sup>
+
+```c++
+std::set<int> a_very_long_container_name = {1, 2, 3};
+std::vector<int> old_way(
+  a_very_long_container_name.begin(), a_very_long_container_name.end());
+std::vector<int> new_way(std::from_range, a_very_long_container_name);
+```
+
+**Description:** More concise conversion from one container type to another.
+
+**Documentation:**
+[std::from_range](https://en.cppreference.com/w/cpp/ranges/from_range.html)
+
+**Notes:**
+*** promo
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ZzSLYf6-KwQ).
+See also std::ranges::to which offers something similar.
+***
+
 ### std::to_underlying <sup>[allowed]</sup>
 
 ```c++
@@ -1813,50 +1905,27 @@ auto x = std::to_underlying(enum_val);
 Migration from `base::to_underlying` is tracked in https://crbug.com/470039537.
 ***
 
+### Monadic operations for std::optional <sup>[allowed]</sup>
+
+```c++
+opt.and_then(f).transform(g).or_else(h);
+```
+
+**Description:** `and_then`, `transform`, `or_else` member functions.
+
+**Documentation:**
+[std::optional](https://en.cppreference.com/w/cpp/utility/optional)
+
+**Notes:**
+*** promo
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/7V8Oe67I6WE).
+***
+
 ## C++23 TBD Language Features {#core-review-23}
 
 The following C++23 language features are not allowed in the Chromium codebase.
 See the top of this page on how to propose moving a feature from this list into
 the allowed or banned sections.
-
-### if consteval <sup>[tbd]</sup>
-
-```c++
-if consteval {
-  ...
-}
-```
-
-**Description:** consteval if statement.
-
-**Documentation:**
-[if statement](https://en.cppreference.com/w/cpp/language/if)
-
-**Notes:**
-*** promo
-None
-***
-
-### Static operators () and [] <sup>[tbd]</sup>
-
-```
-struct FooHash {
-  // Does not take an implicit pointer to `this`, which would have been useless.
-  static size_t operator()(const Foo& foo) {
-    return ...;
-  }
-};
-```
-
-**Description:** Static operators () and []
-
-**Documentation:**
-[Operator overloading](https://en.cppreference.com/w/cpp/language/operators.html)
-
-**Notes:**
-*** promo
-Avoids unnecessary `this` argument for functors, improving performance.
-***
 
 ### Explicit object parameter <sup>[tbd]</sup>
 
@@ -1983,71 +2052,6 @@ None
 The following C++23 library features are not allowed in the Chromium codebase.
 See the top of this page on how to propose moving a feature from this list into
 the allowed or banned sections.
-
-### Various new ranges algorithms <sup>[tbd]</sup>
-
-```c++
-std::ranges::contains, std::ranges::contains_subrange
-std::ranges::starts_with
-std::ranges::ends_with
-std::ranges::find_last, std::ranges::find_last_if, std::ranges::find_last_if_not
-std::ranges::iota
-std::ranges::fold_left
-std::ranges::fold_left_with_iter
-// The ones below are pending libc++ implementation as of 01/2026.
-std::ranges::shift_left, std::ranges::shift_right
-std::ranges::fold_left_first
-std::ranges::fold_right
-std::ranges::fold_right_last
-std::ranges::fold_left_first_with_iter
-```
-
-**Description:** Various new ranges algorithms
-
-**Documentation:**
-[`<algorithm>`](https://en.cppreference.com/w/cpp/header/algorithm.html)
-
-**Notes:**
-*** promo
-The majority of uses of base::Contains() can now be converted to .contains() or
-std::ranges::contains(), so we might want to migrate away from it
-([thread](https://groups.google.com/a/chromium.org/g/cxx/c/yiaBrakhcrQ)).
-***
-
-### Constructing containers with std::from_range <sup>[tbd]</sup>
-
-```c++
-std::set<int> a_very_long_container_name = {1, 2, 3};
-std::vector<int> old_way(
-  a_very_long_container_name.begin(), a_very_long_container_name.end());
-std::vector<int> new_way(std::from_range, a_very_long_container_name);
-```
-
-**Description:** More concise conversion from one container type to another.
-
-**Documentation:**
-[std::from_range](https://en.cppreference.com/w/cpp/ranges/from_range.html)
-
-**Notes:**
-*** promo
-See also std::ranges::to which offers something similar.
-***
-
-### Monadic operations for std::optional <sup>[tbd]</sup>
-
-```c++
-opt.and_then(f).transform(g).or_else(h);
-```
-
-**Description:** `and_then`, `transform`, `or_else` member functions.
-
-**Documentation:**
-[std::optional](https://en.cppreference.com/w/cpp/utility/optional)
-
-**Notes:**
-*** promo
-None
-***
 
 ### std::expected <sup>[tbd]</sup>
 

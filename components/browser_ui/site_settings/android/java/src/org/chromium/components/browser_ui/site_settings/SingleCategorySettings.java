@@ -17,6 +17,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -47,9 +48,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
-import org.chromium.base.supplier.SettableObservableSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -130,21 +131,21 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 SiteAddedCallback,
                 OnPreferenceTreeClickListener,
                 FragmentSettingsNavigation,
-                TriStateCookieSettingsPreference.OnCookiesDetailsRequested,
+                CookieSettingsPreference.OnCookiesDetailsRequested,
                 CustomDividerFragment,
                 SearchViewProvider,
                 WebsitePreference.OnStorageAccessWebsiteDetailsRequested {
     @IntDef({
         GlobalToggleLayout.BINARY_TOGGLE,
         GlobalToggleLayout.TRI_STATE_TOGGLE,
-        GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE,
+        GlobalToggleLayout.COOKIE_TOGGLE,
         GlobalToggleLayout.BINARY_RADIO_BUTTON
     })
     @Retention(RetentionPolicy.SOURCE)
     private @interface GlobalToggleLayout {
         int BINARY_TOGGLE = 0;
         int TRI_STATE_TOGGLE = 1;
-        int TRI_STATE_COOKIE_TOGGLE = 2;
+        int COOKIE_TOGGLE = 2;
         int BINARY_RADIO_BUTTON = 3;
     }
 
@@ -203,17 +204,20 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
     private @Nullable Set<String> mSelectedDomains;
 
-    private final SettableObservableSupplier<String> mPageTitle =
+    private final Handler mSearchHandler = new Handler();
+    private @Nullable Runnable mSearchRunnable;
+
+    private final SettableMonotonicObservableSupplier<String> mPageTitle =
             ObservableSuppliers.createMonotonic();
     private @MonotonicNonNull SearchViewProvider.Observer mSearchViewObserver;
 
     @Override
     public void onCookiesDetailsRequested(@CookieControlsMode int cookieSettingsState) {
         Bundle fragmentArgs = new Bundle();
-        fragmentArgs.putInt(RwsCookieSettings.EXTRA_COOKIE_PAGE_STATE, cookieSettingsState);
+        fragmentArgs.putInt(CookieSettings.EXTRA_COOKIE_PAGE_STATE, cookieSettingsState);
 
         mSettingsNavigation.startSettings(
-                getActivity(), RwsCookieSettings.class, fragmentArgs, /* addToBackStack= */ true);
+                getActivity(), CookieSettings.class, fragmentArgs, /* addToBackStack= */ true);
     }
 
     @Override
@@ -247,7 +251,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     public static final String BINARY_TOGGLE_KEY = "binary_toggle";
     public static final String BINARY_RADIO_BUTTON_KEY = "binary_radio_button";
     public static final String TRI_STATE_TOGGLE_KEY = "tri_state_toggle";
-    public static final String TRI_STATE_COOKIE_TOGGLE = "tri_state_cookie_toggle";
+    public static final String COOKIE_TOGGLE = "cookie_toggle";
 
     // Keys for category-specific preferences (toggle, link, button etc.), dynamically shown.
     public static final String NOTIFICATIONS_VIBRATE_TOGGLE_KEY = "notifications_vibrate";
@@ -292,7 +296,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             } else {
                 addChosenObjects(sites);
             }
-            notifyPreferencesUpdated();
+            updateContainment();
         }
 
         private Collection<Website> applyFilters(Collection<Website> sites) {
@@ -512,7 +516,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
         int contentType = mCategory.getContentSettingsType();
         if (mCategory.getType() == SiteSettingsCategory.Type.THIRD_PARTY_COOKIES) {
-            mGlobalToggleLayout = GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE;
+            mGlobalToggleLayout = GlobalToggleLayout.COOKIE_TOGGLE;
         } else if (WebsitePreferenceBridge.requiresTriStateContentSetting(contentType)) {
             mGlobalToggleLayout = GlobalToggleLayout.TRI_STATE_TOGGLE;
         } else if (getSiteSettingsDelegate().isPermissionSiteSettingsRadioButtonFeatureEnabled()
@@ -571,7 +575,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     }
 
     @Override
-    public ObservableSupplier<String> getPageTitle() {
+    public MonotonicObservableSupplier<String> getPageTitle() {
         return mPageTitle;
     }
 
@@ -597,7 +601,13 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                                     ? query != null && !query.isEmpty()
                                     : !mSearch.equals(query);
                     mSearch = query;
-                    if (queryHasChanged) getInfoForOrigins();
+                    if (queryHasChanged) {
+                        if (mSearchRunnable != null) {
+                            mSearchHandler.removeCallbacks(mSearchRunnable);
+                        }
+                        mSearchRunnable = () -> getInfoForOrigins();
+                        mSearchHandler.postDelayed(mSearchRunnable, 200);
+                    }
                 });
 
         if (getSiteSettingsDelegate().isHelpAndFeedbackEnabled()) {
@@ -725,7 +735,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             WebsitePreferenceBridge.setDefaultContentSetting(
                     browserContextHandle, mCategory.getContentSettingsType(), setting);
             getInfoForOrigins();
-        } else if (TRI_STATE_COOKIE_TOGGLE.equals(preference.getKey())) {
+        } else if (COOKIE_TOGGLE.equals(preference.getKey())) {
             setThirdPartyCookieSettingsPreference((int) newValue);
             getInfoForOrigins();
         } else if (NOTIFICATIONS_VIBRATE_TOGGLE_KEY.equals(preference.getKey())) {
@@ -907,7 +917,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         BrowserContextHandle browserContextHandle = getBrowserContextHandle();
         int setting = ContentSetting.DEFAULT;
         switch (mGlobalToggleLayout) {
-            case GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE:
+            case GlobalToggleLayout.COOKIE_TOGGLE:
                 setting =
                         getCookieControlsMode() == CookieControlsMode.OFF
                                 ? ContentSetting.BLOCK
@@ -1193,10 +1203,10 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 TriStateSiteSettingsPreference triStateToggle =
                         getPreferenceScreen().findPreference(TRI_STATE_TOGGLE_KEY);
                 return (triStateToggle.getCheckedSetting() == ContentSetting.BLOCK);
-            case GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE:
-                TriStateCookieSettingsPreference triStateCookieToggle =
-                        getPreferenceScreen().findPreference(TRI_STATE_COOKIE_TOGGLE);
-                Integer state = assumeNonNull(triStateCookieToggle.getState());
+            case GlobalToggleLayout.COOKIE_TOGGLE:
+                CookieSettingsPreference cookieToggle =
+                        getPreferenceScreen().findPreference(COOKIE_TOGGLE);
+                Integer state = assumeNonNull(cookieToggle.getState());
                 return state != CookieControlsMode.OFF;
             case GlobalToggleLayout.BINARY_TOGGLE:
                 ChromeSwitchPreference binaryToggle =
@@ -1293,8 +1303,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 screen.findPreference(BINARY_RADIO_BUTTON_KEY);
         TriStateSiteSettingsPreference triStateToggle =
                 screen.findPreference(TRI_STATE_TOGGLE_KEY);
-        TriStateCookieSettingsPreference triStateCookieToggle =
-                screen.findPreference(TRI_STATE_COOKIE_TOGGLE);
+        CookieSettingsPreference cookieToggle = screen.findPreference(COOKIE_TOGGLE);
         Preference notificationsVibrate =
                 screen.findPreference(NOTIFICATIONS_VIBRATE_TOGGLE_KEY);
         mNotificationsQuietUiPref =
@@ -1320,8 +1329,8 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         if (mGlobalToggleLayout != GlobalToggleLayout.TRI_STATE_TOGGLE) {
             screen.removePreference(triStateToggle);
         }
-        if (mGlobalToggleLayout != GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE) {
-            screen.removePreference(triStateCookieToggle);
+        if (mGlobalToggleLayout != GlobalToggleLayout.COOKIE_TOGGLE) {
+            screen.removePreference(cookieToggle);
         }
         switch (mGlobalToggleLayout) {
             case GlobalToggleLayout.BINARY_TOGGLE:
@@ -1333,8 +1342,8 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
             case GlobalToggleLayout.TRI_STATE_TOGGLE:
                 configureTriStateToggle(triStateToggle, contentType);
                 break;
-            case GlobalToggleLayout.TRI_STATE_COOKIE_TOGGLE:
-                configureTriStateCookieToggle(triStateCookieToggle);
+            case GlobalToggleLayout.COOKIE_TOGGLE:
+                configureCookieToggle(cookieToggle);
                 break;
         }
 
@@ -1560,17 +1569,15 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         toggleMessage.setIcon(mCategory.getDisabledInAndroidIcon(getContext()));
     }
 
-    private void configureTriStateCookieToggle(
-            TriStateCookieSettingsPreference triStateCookieToggle) {
-        triStateCookieToggle.setOnPreferenceChangeListener(this);
-        triStateCookieToggle.setCookiesDetailsRequestedListener(this);
-        TriStateCookieSettingsPreference.Params params =
-                new TriStateCookieSettingsPreference.Params();
+    private void configureCookieToggle(CookieSettingsPreference cookieToggle) {
+        cookieToggle.setOnPreferenceChangeListener(this);
+        cookieToggle.setCookiesDetailsRequestedListener(this);
+        CookieSettingsPreference.Params params = new CookieSettingsPreference.Params();
         params.cookieControlsMode = getCookieControlsMode();
         params.cookieControlsModeEnforced = mCategory.isManaged();
         params.isRelatedWebsiteSetsDataAccessEnabled =
                 getSiteSettingsDelegate().isRelatedWebsiteSetsDataAccessEnabled();
-        triStateCookieToggle.setState(params);
+        cookieToggle.setState(params);
     }
 
     private int getCookieControlsMode() {
@@ -2023,11 +2030,13 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
     @Override
     public void onDestroy() {
         super.onDestroy();
+        mSearchHandler.removeCallbacksAndMessages(null);
         if (mSearchViewObserver != null) mSearchViewObserver.onUpdated(false);
     }
 
-    // TODO(crbug.com/444470792): Determine what pieces of logic are dynamic and need handling.
+    // A collection of many categories, and only one of them is chosen for display.
+    // Do not index this. The enclosing fragment should decide what to index.
     public static final BaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new BaseSearchIndexProvider(
-                    SingleCategorySettings.class.getName(), R.xml.website_preferences);
+                    SingleCategorySettings.class.getName(), BaseSearchIndexProvider.INDEX_OPT_OUT);
 }

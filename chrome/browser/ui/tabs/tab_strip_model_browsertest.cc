@@ -40,8 +40,8 @@
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
 #include "components/saved_tab_groups/public/features.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
-#include "components/tabs/public/split_tab_visual_data.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
@@ -296,7 +296,7 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest,
       }
     }
 
-    std::optional<TabStripModelChange::RemoveReason> remove_reason() const {
+    std::optional<TabRemovedReason> remove_reason() const {
       return remove_reason_;
     }
     std::optional<tabs::TabInterface::DetachReason> tab_detach_reason() const {
@@ -304,7 +304,7 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest,
     }
 
    private:
-    std::optional<TabStripModelChange::RemoveReason> remove_reason_;
+    std::optional<TabRemovedReason> remove_reason_;
     std::optional<tabs::TabInterface::DetachReason> tab_detach_reason_;
   };
 
@@ -327,7 +327,7 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest,
                   tabs::TabInterface::DetachReason::kDelete));
   std::unique_ptr<content::WebContents> extracted_contents =
       tab_strip_model->DetachWebContentsAtForInsertion(1);
-  EXPECT_EQ(TabStripModelChange::RemoveReason::kInsertedIntoOtherTabStrip,
+  EXPECT_EQ(TabRemovedReason::kInsertedIntoOtherTabStrip,
             removed_observer.remove_reason());
   EXPECT_EQ(tabs::TabInterface::DetachReason::kDelete,
             removed_observer.tab_detach_reason());

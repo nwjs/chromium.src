@@ -58,7 +58,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.EngineLifetime" units="ms" expires_after="2026-05-10">
+<histogram name="PDF.EngineLifetime" units="ms" expires_after="2026-07-12">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -68,7 +68,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2026-05-10">
+<histogram name="PDF.FirstPaintTime" units="ms" expires_after="2026-07-12">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -80,13 +80,43 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2026-05-10">
+<histogram name="PDF.FormType" enum="PDFFormTypes" expires_after="2026-07-12">
   <owner>dhoss@chromium.org</owner>
   <owner>kmoon@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
     Tracks what types of forms are present in PDF document, logged when the
     document finishes loading.
+  </summary>
+</histogram>
+
+<histogram name="PDF.GlicEnabled" enum="Boolean" expires_after="2027-01-01">
+  <owner>erikchen@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Emitted once each time a pdf (not print preview) is loaded. The boolean
+    indicates whether glic was enabled for the profile.
+  </summary>
+</histogram>
+
+<histogram name="PDF.GlicSummarizeButtonClicked" enum="Boolean"
+    expires_after="2027-01-01">
+  <owner>erikchen@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Emitted once each time the glic summarize button is clicked. Records true on
+    success and false on any failure.
+  </summary>
+</histogram>
+
+<histogram name="PDF.GlicSummarizeButtonEnabled" enum="Boolean"
+    expires_after="2027-01-01">
+  <owner>erikchen@chromium.org</owner>
+  <owner>thestig@chromium.org</owner>
+  <summary>
+    Emitted once each time a pdf (not print preview) is loaded. The boolean
+    indicates whether the summarize button was enabled for the profile. Note
+    that embedded pdfs if too small may still not show the summarize button.
   </summary>
 </histogram>
 
@@ -253,7 +283,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2026-05-10">
+<histogram name="PDF.PageHasText" enum="Boolean" expires_after="2026-07-12">
   <owner>rhalavati@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -271,7 +301,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.RenderAndPaintTime" units="ms" expires_after="2026-05-24">
+<histogram name="PDF.RenderAndPaintTime" units="ms" expires_after="2026-07-26">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -282,7 +312,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.RenderAndPaintVisiblePagesTime" units="ms"
-    expires_after="2026-05-24">
+    expires_after="2026-07-26">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -292,7 +322,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.RenderPaintAndFlushTime" units="ms"
-    expires_after="2026-05-24">
+    expires_after="2026-07-26">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -437,7 +467,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.Version" enum="PDFVersion" expires_after="2026-05-24">
+<histogram name="PDF.Version" enum="PDFVersion" expires_after="2026-07-26">
   <owner>dhoss@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>Tracks versions of documents opened in the PDF viewer.</summary>

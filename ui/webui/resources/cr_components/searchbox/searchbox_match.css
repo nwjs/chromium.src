@@ -72,7 +72,7 @@
 }
 
 :host-context([has-secondary-side]):host-context([can-show-secondary-side]) .container:not(.actions) {
-  margin-inline-end: 0px;
+  margin-inline-end: 0;
 }
 
 .container:not(.actions):hover {
@@ -102,8 +102,8 @@
   flex-grow: 1;
   flex-shrink: 0;
   padding-bottom: 0;
-  padding-inline-end: 0px;
-  padding-inline-start: 0px;
+  padding-inline-end: 0;
+  padding-inline-start: 0;
   padding-top: 0;
   display: none;
 }
@@ -170,7 +170,7 @@
   display: flex;
   flex-grow: 0;
   overflow: hidden;
-  padding-inline-end: 8px;
+  padding-inline-end: var(--cr-searchbox-match-text-padding-inline-end, 8px);
   padding-inline-start: var(--cr-searchbox-match-text-padding-inline-start, 8px);
   white-space: nowrap;
 <if expr="is_win">
@@ -201,6 +201,12 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   white-space: normal;
+}
+
+:host([is-lens-searchbox_]) #suggestion {
+  /* The above "display: -webkit-box" doesn't get inherited properly, so
+     force to display inline to ensure the text clamps correctly. */
+  display: inline;
 }
 
 :host([has-action]) #text-container {

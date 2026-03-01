@@ -344,7 +344,6 @@
     <activity  # DIFF-ANCHOR: e86e2b49
         android:name="org.chromium.chrome.browser.notifications.NotificationIntentInterceptor$TrampolineActivity"
         android:autoRemoveFromRecents="true"
-        android:documentLaunchMode="always"
         android:excludeFromRecents="true"
         android:exported="false"
         android:noHistory="true"
@@ -353,7 +352,6 @@
     <activity  # DIFF-ANCHOR: 7ff74272
         android:name="org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerImpl$DismissNotificationChromeActivity"
         android:autoRemoveFromRecents="true"
-        android:documentLaunchMode="always"
         android:excludeFromRecents="true"
         android:exported="false"
         android:noHistory="true"
@@ -362,7 +360,6 @@
     <activity  # DIFF-ANCHOR: 71702606
         android:name="org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerImpl$TrampolineActivity"
         android:autoRemoveFromRecents="true"
-        android:documentLaunchMode="always"
         android:excludeFromRecents="true"
         android:exported="false"
         android:noHistory="true"
@@ -622,12 +619,6 @@
         <data android:scheme="googlechrome"/>
         <data android:scheme="http"/>
         <data android:scheme="https"/>
-      </intent-filter>  # DIFF-ANCHOR: 13c9b0a8
-      <intent-filter>  # DIFF-ANCHOR: 13c9b0a8
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <data android:mimeType="application/pdf"/>
-        <data android:scheme="content"/>
       </intent-filter>  # DIFF-ANCHOR: 13c9b0a8
       <intent-filter>  # DIFF-ANCHOR: 13c9b0a8
         <action android:name="android.intent.action.VIEW"/>
@@ -1033,6 +1024,5 @@
     <uses-library android:name="android.ext.adservices" android:required="false"/>
     <uses-library android:name="androidx.window.extensions" android:required="false"/>
     <uses-library android:name="androidx.window.sidecar" android:required="false"/>
-    <uses-library android:name="com.android.extensions.xr" android:required="false"/>
   </application>
 </manifest>

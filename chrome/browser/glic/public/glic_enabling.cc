@@ -29,7 +29,6 @@
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -66,7 +65,7 @@ namespace glic {
 
 // Comma separated list of countries to enable GLIC, by default, if country
 // filtering is enabled.
-constexpr char kDefaultEnabledCountries[] = "us,au,ca,nz";
+constexpr char kDefaultEnabledCountries[] = "us,ca";
 
 // Feature flag kGlicLocaleFiltering controls whether locale filtering is
 // applied client side. Two finch params are used to control this, both are a
@@ -210,6 +209,11 @@ std::string GlicGlobalEnabling::Delegate::GetLocale() {
       startup_data->chrome_feature_list_creator()->actual_locale());
 }
 
+GlicEnabling::ProfileEnablement::ProfileEnablement() = default;
+GlicEnabling::ProfileEnablement::ProfileEnablement(ProfileEnablement&&) =
+    default;
+GlicEnabling::ProfileEnablement::~ProfileEnablement() = default;
+
 GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
     Profile* profile) {
   ProfileEnablement result;
@@ -245,9 +249,15 @@ GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
                 signin::ConsentLevel::kSignin));
 
     // Not having a primary account is considered ineligible, as is kUnknown
-    // for the required account capability.
+    // for the required account capability (checked further below).
     if (primary_account.IsEmpty()) {
       result.primary_account_not_capable = true;
+    } else {
+      // Check if the profile is currently paused.
+      if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+              primary_account.account_id)) {
+        result.primary_account_not_fully_signed_in = true;
+      }
     }
 
     // Check account capabilities.
@@ -257,27 +267,20 @@ GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
     // fallback to can_use_model_execution_features().
     signin::Tribool capability_value =
         primary_account.capabilities.can_use_model_execution_features();
-#if !BUILDFLAG(IS_ANDROID)  // TODO: Re-enable after crrev.com/c/7281467
     if (base::FeatureList::IsEnabled(
             switches::kGlicEligibilitySeparateAccountCapability) &&
         (CanUseGeminiInChrome(primary_account.capabilities) !=
          signin::Tribool::kUnknown)) {
       capability_value = CanUseGeminiInChrome(primary_account.capabilities);
     }
-#endif
     result.primary_account_not_capable =
         (capability_value != signin::Tribool::kTrue);
 
     // If the feature is overridden by a field trial, and the user's eligibility
     // is known and different for the two capabilities, add them to a synthetic
     // trial.
-    base::FieldTrial* field_trial =
-#if BUILDFLAG(IS_ANDROID)
-        nullptr;
-#else  // TODO: Re-enable after crrev.com/c/7281467
-        base::FeatureList::GetFieldTrial(
-            switches::kGlicEligibilitySeparateAccountCapability);
-#endif
+    base::FieldTrial* field_trial = base::FeatureList::GetFieldTrial(
+        switches::kGlicEligibilitySeparateAccountCapability);
     if (field_trial &&
         (CanUseGeminiInChrome(primary_account.capabilities) !=
          signin::Tribool::kUnknown) &&
@@ -337,22 +340,27 @@ GlicGlobalEnabling::GlicGlobalEnabling(Delegate& delegate) {
 GlicGlobalEnabling::~GlicGlobalEnabling() = default;
 
 bool GlicGlobalEnabling::IsEnabledByFlags() {
+  // It is important that this value not change at runtime in production. Any
+  // future updates to this function must maintain that property.
   bool is_enabled = base::FeatureList::IsEnabled(features::kGlic) &&
-                    features::HasTabSearchToolbarButton() &&
                     locale_enablement_.value_or(true) &&
                     country_enablement_.value_or(true);
 #if BUILDFLAG(IS_CHROMEOS)
-  constexpr base::ByteCount kMinimumMemoryThreshold = base::GiB(8);
+  static const bool supported_system_requirements = [] {
+    constexpr base::ByteCount kMinimumMemoryThreshold = base::GiB(8);
 
-  // TODO(b:468055370): Remove the bypassing once the glic is fully launched.
-  const bool bypass_cbx_requirement =
-      base::FeatureList::IsEnabled(
-          chromeos::features::kGlicEnableFor8GbDevices) &&
-      base::SysInfo::AmountOfPhysicalMemory() >= kMinimumMemoryThreshold;
+    // TODO(b:468055370): Remove the bypassing once the glic is fully launched.
+    const bool bypass_cbx_requirement =
+        base::FeatureList::IsEnabled(
+            chromeos::features::kGlicEnableFor8GbDevices) &&
+        base::SysInfo::AmountOfPhysicalMemory() >= kMinimumMemoryThreshold;
 
-  is_enabled = is_enabled && (bypass_cbx_requirement ||
-                              base::FeatureList::IsEnabled(
-                                  chromeos::features::kFeatureManagementGlic));
+    return (bypass_cbx_requirement ||
+            base::FeatureList::IsEnabled(
+                chromeos::features::kFeatureManagementGlic));
+  }();
+
+  is_enabled = is_enabled && supported_system_requirements;
 #endif  // BUILDFLAG(IS_CHROMEOS)
   return is_enabled;
 }
@@ -446,17 +454,10 @@ mojom::ProfileReadyState GlicEnabling::GetProfileReadyState(Profile* profile) {
     return mojom::ProfileReadyState::kReady;
   }
 
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
-
-  // Check that profile is not currently paused.
-  CoreAccountInfo core_account_info =
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
-  if (core_account_info.IsEmpty()) {
+  if (enablement.primary_account_not_capable) {
     return mojom::ProfileReadyState::kUnknownError;
   }
-  if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-          core_account_info.account_id)) {
+  if (enablement.primary_account_not_fully_signed_in) {
     return mojom::ProfileReadyState::kSignInRequired;
   }
   return mojom::ProfileReadyState::kReady;
@@ -507,7 +508,11 @@ bool GlicEnabling::IsMultiInstanceEnabledByFlags() {
 
 bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
   if (!IsEnabledForProfile(profile) ||
-      !base::FeatureList::IsEnabled(features::kGlicShareImage)) {
+      !base::FeatureList::IsEnabled(features::kGlicShareImage) ||
+      // TODO(b:482429737): Live requires the same capability needed for share
+      // image. In future, this should be a separate bit on the
+      // ProfileEnablement struct.
+      !EnablementForProfile(profile).EligibleForLive()) {
     return false;
   }
 

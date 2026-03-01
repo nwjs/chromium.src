@@ -191,7 +191,7 @@ bool ContentBrowserClient::
         BrowserContext* browser_context,
         const GURL& site_instance_original_url) {
   DCHECK(browser_context);
-  return true;
+  return false;
 }
 
 bool ContentBrowserClient::ShouldAllowProcessPerSiteForMultipleMainFrames(
@@ -228,10 +228,6 @@ bool ContentBrowserClient::ShouldLockProcessToSite(
   DCHECK(browser_context);
   if (nw::PinningRenderer())
     return false;
-  return true;
-}
-
-bool ContentBrowserClient::ShouldEnforceNewCanCommitUrlChecks() {
   return true;
 }
 
@@ -336,11 +332,11 @@ size_t ContentBrowserClient::GetProcessCountToIgnoreForLimit() {
   return 0;
 }
 
-std::optional<network::ParsedPermissionsPolicy>
+std::optional<std::vector<blink::mojom::IsolatedAppPermissionPolicyEntryPtr>>
 ContentBrowserClient::GetPermissionsPolicyForIsolatedWebApp(
-    WebContents* web_contents,
-    const url::Origin& app_origin) {
-  return network::ParsedPermissionsPolicy();
+    BrowserContext* browser_context,
+    const url::Origin& iwa_origin) {
+  return std::nullopt;
 }
 
 bool ContentBrowserClient::ShouldTryToUseExistingProcessHost(
@@ -1099,6 +1095,13 @@ bool ContentBrowserClient::ShouldRestrictCoreSharingOnRenderer() {
   return false;
 }
 
+std::optional<std::wstring>
+ContentBrowserClient::GetWindowsSecurityAttributeName() const {
+  // Embedders should override this method and return the name of the security
+  // attribute previously assigned to the browser's process token.
+  return std::nullopt;
+}
+
 #endif  // BUILDFLAG(IS_WIN)
 
 std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
@@ -1240,8 +1243,8 @@ ContentBrowserClient::GetNetworkContextsParentDirectory() {
   return {};
 }
 
-base::Value::Dict ContentBrowserClient::GetNetLogConstants() {
-  return base::Value::Dict();
+base::DictValue ContentBrowserClient::GetNetLogConstants() {
+  return base::DictValue();
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1593,6 +1596,12 @@ void ContentBrowserClient::IsClipboardCopyAllowedByPolicy(
   std::move(callback).Run(metadata.format_type, data, std::nullopt);
 }
 
+bool ContentBrowserClient::IsDragAllowedByPolicy(
+    const ClipboardEndpoint& source,
+    const DropData& drop_data) {
+  return true;
+}
+
 #if BUILDFLAG(ENABLE_VR)
 XrIntegrationClient* ContentBrowserClient::GetXrIntegrationClient() {
   return nullptr;
@@ -1616,11 +1625,11 @@ void ContentBrowserClient::GrantAdditionalRequestPrivilegesToWorkerProcess(
     int child_id,
     const GURL& script_url) {}
 
-ContentBrowserClient::PrivateNetworkRequestPolicyOverride
-ContentBrowserClient::ShouldOverridePrivateNetworkRequestPolicy(
+ContentBrowserClient::LocalNetworkAccessRequestPolicyOverride
+ContentBrowserClient::ShouldOverrideLocalNetworkAccessRequestPolicy(
     BrowserContext* browser_context,
     const url::Origin& origin) {
-  return PrivateNetworkRequestPolicyOverride::kDefault;
+  return LocalNetworkAccessRequestPolicyOverride::kDefault;
 }
 
 bool ContentBrowserClient::IsJitDisabledForSite(BrowserContext* browser_context,
@@ -1764,12 +1773,6 @@ bool ContentBrowserClient::AreIsolatedWebAppsEnabled(
   // The whole logic of the IWAs lives in //chrome. So IWAs should be
   // enabled at that layer.
   return false;
-}
-
-bool ContentBrowserClient::IsThirdPartyStoragePartitioningAllowed(
-    content::BrowserContext*,
-    const url::Origin&) {
-  return true;
 }
 
 bool ContentBrowserClient::AreDeprecatedAutomaticBeaconCredentialsAllowed(
@@ -1982,13 +1985,14 @@ bool ContentBrowserClient::IsRendererProcessPriorityEnabled() {
   return true;
 }
 
-std::unique_ptr<KeepAliveRequestTracker>
+std::vector<std::unique_ptr<KeepAliveRequestTracker>>
 ContentBrowserClient::MaybeCreateKeepAliveRequestTracker(
     const network::ResourceRequest& request,
     std::optional<ukm::SourceId> ukm_source_id,
+    content::BrowserContext* browser_context,
     KeepAliveRequestTracker::IsContextDetachedCallback
         is_context_detached_callback) {
-  return nullptr;
+  return {};
 }
 
 std::optional<std::vector<std::u16string>>
@@ -2032,6 +2036,18 @@ std::optional<bool> ContentBrowserClient::GetOverrideValueForStaticStorageQuota(
 }
 std::string ContentBrowserClient::GetDnsTxtResolverUrlPrefix() {
   return std::string();
+}
+
+bool ContentBrowserClient::ShouldAllowPrefetchRedirection(
+    content::BrowserContext& browser_context,
+    const GURL& url,
+    const std::string& embedder_histogram_suffix) {
+  return true;
+}
+
+bool ContentBrowserClient::OriginSupportsConcreteCrossOriginIsolation(
+    const url::Origin& origin) {
+  return true;
 }
 
 }  // namespace content

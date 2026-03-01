@@ -24,9 +24,6 @@ if (is_ios) {
 buildflag_header("media_buildflags") {
   header = "media_buildflags.h"
 
-  enable_passthrough_audio_codecs =
-      enable_platform_dts_audio && (is_win || is_linux)
-
   flags = [
     "ALLOW_OOP_VIDEO_DECODER=$allow_oop_video_decoder",
     "ALLOW_HOSTING_OOP_VIDEO_DECODER=$allow_hosting_oop_video_decoder",
@@ -44,7 +41,6 @@ buildflag_header("media_buildflags") {
     "ENABLE_FFMPEG_VIDEO_DECODERS=$enable_ffmpeg_video_decoders",
     "ENABLE_PLATFORM_HEVC=$enable_platform_hevc",
     "ENABLE_HEVC_PARSER_AND_HW_DECODER=$enable_hevc_parser_and_hw_decoder",
-    "ENABLE_PLATFORM_VVC=$enable_platform_vvc",
     "ENABLE_HLS_DEMUXER=$enable_hls_demuxer",
     "ENABLE_LIBAOM=$enable_libaom",
     "ENABLE_LIBRARY_CDMS=$enable_library_cdms",

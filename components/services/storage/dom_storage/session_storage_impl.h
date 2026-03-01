@@ -64,9 +64,8 @@ class SessionStorageImpl : public base::trace_event::MemoryDumpProvider,
   using DestructSessionStorageCallback =
       base::OnceCallback<void(SessionStorageImpl*)>;
   SessionStorageImpl(
-      const base::FilePath& partition_directory,
+      const base::FilePath& storage_partition_directory,
       BackingMode backing_option,
-      std::string database_name,
       DestructSessionStorageCallback destruct_callback,
       mojo::PendingReceiver<mojom::SessionStorageControl> receiver);
 
@@ -103,11 +102,7 @@ class SessionStorageImpl : public base::trace_event::MemoryDumpProvider,
   bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
                     base::trace_event::ProcessMemoryDump* pmd) override;
 
-  const base::FilePath& GetStoragePath() const { return partition_directory_; }
-
-  void PretendToConnectForTesting();
-
-  AsyncDomStorageDatabase* DatabaseForTesting() { return database_.get(); }
+  const base::FilePath& GetStoragePartitionDirectory() const;
 
   void FlushAreaForTesting(const std::string& namespace_id,
                            const blink::StorageKey& storage_key);
@@ -133,6 +128,10 @@ class SessionStorageImpl : public base::trace_event::MemoryDumpProvider,
 
  private:
   friend class DOMStorageBrowserTest;
+
+  // Constructs an absolute path to the database using
+  // `storage_partition_directory_`.
+  base::FilePath GetDatabasePath() const;
 
   scoped_refptr<DomStorageDatabase::SharedMapLocator> RegisterNewAreaMap(
       const std::string& namespace_id,
@@ -191,7 +190,6 @@ class SessionStorageImpl : public base::trace_event::MemoryDumpProvider,
   SessionStorageMetadata metadata_;
 
   BackingMode backing_mode_;
-  std::string database_name_;
 
   enum ConnectionState {
     NO_CONNECTION,
@@ -199,7 +197,11 @@ class SessionStorageImpl : public base::trace_event::MemoryDumpProvider,
     CONNECTION_FINISHED,
   } connection_state_ = NO_CONNECTION;
 
-  const base::FilePath partition_directory_;
+  // The profile data directory, which is an ancestor of the database path.
+  // Empty for in-memory databases. When not empty, the owner of
+  // `SessionStorageImpl` uses this path as an ID for the `SessionStorageImpl`
+  // instance.
+  const base::FilePath storage_partition_directory_;
 
   base::trace_event::MemoryAllocatorDumpGuid memory_dump_id_;
 

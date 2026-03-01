@@ -239,6 +239,7 @@ public class AutoPictureInPictureTabHelperTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481445841
     public void testBackToTabFromAutoPip() throws TimeoutException {
         WebContents webContents = loadUrlAndInitializeForTest(AUTO_PIP_VIDEO_PAGE);
         assertTrue(
@@ -436,6 +437,7 @@ public class AutoPictureInPictureTabHelperTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481445841
     public void testQuickDismissalIncrementsDismissCount() throws TimeoutException {
         WebContents webContents = loadUrlAndInitializeForTest(AUTO_PIP_VIDEO_PAGE);
         String url = mActivityTestRule.getTestServer().getURL(AUTO_PIP_VIDEO_PAGE);
@@ -466,6 +468,7 @@ public class AutoPictureInPictureTabHelperTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481445841
     public void testSwitchingBackToTabDoesNotIncrementDismissCount() throws TimeoutException {
         WebContents webContents = loadUrlAndInitializeForTest(AUTO_PIP_VIDEO_PAGE);
         String url = mActivityTestRule.getTestServer().getURL(AUTO_PIP_VIDEO_PAGE);
@@ -497,6 +500,7 @@ public class AutoPictureInPictureTabHelperTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481445841
     public void testClosingAfterTimerExpiresDoesNotIncrementDismissCount() throws TimeoutException {
         WebContents webContents = loadUrlAndInitializeForTest(AUTO_PIP_VIDEO_PAGE);
         String url = mActivityTestRule.getTestServer().getURL(AUTO_PIP_VIDEO_PAGE);
@@ -587,6 +591,13 @@ public class AutoPictureInPictureTabHelperTest {
         // Start playing the video.
         DOMUtils.playMedia(webContents, VIDEO_ID);
         DOMUtils.waitForMediaPlay(webContents, VIDEO_ID);
+
+        // Wait for the video to be audible.
+        CriteriaHelper.pollInstrumentationThread(
+                () -> AutoPictureInPictureTabHelperTestUtils.isCurrentlyAudible(webContents),
+                "Video did not become audible.",
+                PIP_TIMEOUT_MS,
+                CriteriaHelper.DEFAULT_POLLING_INTERVAL);
     }
 
     /**

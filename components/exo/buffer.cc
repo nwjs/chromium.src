@@ -501,7 +501,6 @@ std::unique_ptr<Buffer> Buffer::CreateBufferFromGMBHandle(
     bool use_zero_copy,
     bool is_overlay_candidate,
     bool y_invert) {
-  CHECK(viz::HasEquivalentBufferFormat(format));
   UMA_HISTOGRAM_ENUMERATION("Graphics.Exo.Buffer.SharedImageFormat",
                             viz::GetSharedImageFormatUMA(format));
   // If format is true multiplanar format, we prefer external sampler on
@@ -523,7 +522,6 @@ std::unique_ptr<Buffer> Buffer::CreateBuffer(
     gpu::SurfaceHandle surface_handle,
     base::WaitableEvent* shutdown_event,
     bool is_overlay_candidate) {
-  CHECK(viz::HasEquivalentBufferFormat(format));
   // If format is true multiplanar format, we prefer external sampler on
   // ChromeOS.
   if (format.is_multi_plane()) {
@@ -561,10 +559,6 @@ std::unique_ptr<Buffer> Buffer::CreateBuffer(
                  buffer_size, buffer_usage, kDefaultQueryType,
                  kDefaultUseZeroCopy, is_overlay_candidate, kDefaultYInvert));
 
-  // Destroy the |shared_image| as it will no longer be used. Note that the
-  // underlying handle is already cloned above and will not be destroyed by
-  // destroying the |shared_image|.
-  sii->DestroySharedImage(gpu::SyncToken(), std::move(shared_image));
   return buffer;
 }
 
@@ -841,8 +835,6 @@ SkBitmap Buffer::CreateBitmap() {
   bitmap.setImmutable();
   mapping.reset();
 
-  // Destroy this shared image as we no longer need it.
-  sii->DestroySharedImage(gpu::SyncToken(), std::move(shared_image));
   return bitmap;
 }
 

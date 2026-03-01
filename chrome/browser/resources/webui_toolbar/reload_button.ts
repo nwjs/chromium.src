@@ -7,15 +7,18 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/icons.html.js';
 import '/strings.m.js';
 
+import {assertNotReached, assertNotReachedCase} from '//resources/js/assert.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
-import {BrowserProxyImpl, ClickDispositionFlag} from './browser_proxy.js';
+import {BrowserProxyImpl, ClickDispositionFlag, ContextMenuState, ContextMenuType, DevToolsState, NavigationState} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {MetricsRecorder} from './metrics_recorder.js';
 import {getCss} from './reload_button.css.js';
 import {getHtml} from './reload_button.html.js';
+import {getContextMenuPosition} from './toolbar_button.js';
 
 // go/keep-sorted start
 const RELOAD_BUTTON_ACC_NAME_RELOAD = 'reloadButtonAccNameReload';
@@ -40,18 +43,36 @@ export class ReloadButtonAppElement extends CrLitElement {
     this.browserProxy_ = BrowserProxyImpl.getInstance();
     this.metricsRecorder_ = new MetricsRecorder(this.browserProxy_);
     const callbackRouter = this.browserProxy_.callbackRouter;
-    callbackRouter.setReloadButtonState.addListener(
-        (isLoading: boolean, isMenuEnabled: boolean) => {
+    callbackRouter.onNavigationStatusChanged.addListener(
+        (state: NavigationState) => {
+          const isLoading = state === NavigationState.kLoading;
           this.metricsRecorder_.onChangeVisibleMode(
               MetricsRecorder.getVisibleMode(this.isLoading_),
               MetricsRecorder.getVisibleMode(isLoading));
           this.isLoading_ = isLoading;
-          this.isMenuEnabled_ = isMenuEnabled;
-          this.tooltip_ = loadTimeData.getString(
-              isLoading ?
-                  RELOAD_BUTTON_TOOLTIP_STOP :
-                  (isMenuEnabled ? RELOAD_BUTTON_TOOLTIP_RELOAD_WITH_MENU :
-                                   RELOAD_BUTTON_TOOLTIP_RELOAD));
+          this.updateTooltip_();
+        });
+    callbackRouter.onDevToolsStatusChanged.addListener(
+        (state: DevToolsState) => {
+          this.isMenuEnabled_ = state === DevToolsState.kConnected;
+          this.updateTooltip_();
+        });
+    callbackRouter.onContextMenuStateChanged.addListener(
+        (menuType: ContextMenuType, state: ContextMenuState) => {
+          if (menuType === ContextMenuType.kReload) {
+            switch (state) {
+              case ContextMenuState.kVisible:
+                this.isMenuOpen = true;
+                break;
+              case ContextMenuState.kHidden:
+                this.isMenuOpen = false;
+                break;
+              case ContextMenuState.kUnspecified:
+                assertNotReached();
+              default:
+                assertNotReachedCase(state);
+            }
+          }
         });
     ColorChangeUpdater.forDocument().start();
   }
@@ -71,11 +92,13 @@ export class ReloadButtonAppElement extends CrLitElement {
   static override get properties() {
     return {
       isLoading_: {state: true, type: Boolean},
+      isMenuOpen: {type: Boolean, reflect: true},
       tooltip_: {state: true, type: String},
     };
   }
 
   protected accessor isLoading_: boolean = false;
+  protected accessor isMenuOpen: boolean = false;
   protected accessor tooltip_: string =
       loadTimeData.getString(RELOAD_BUTTON_TOOLTIP_RELOAD);
   protected accName_: string =
@@ -83,6 +106,14 @@ export class ReloadButtonAppElement extends CrLitElement {
   private isLongPressed_: boolean = false;
   private longPressTimer_: number = 0;
   protected isMenuEnabled_: boolean = false;
+
+  private updateTooltip_() {
+    this.tooltip_ = loadTimeData.getString(
+        this.isLoading_ ?
+            RELOAD_BUTTON_TOOLTIP_STOP :
+            (this.isMenuEnabled_ ? RELOAD_BUTTON_TOOLTIP_RELOAD_WITH_MENU :
+                                   RELOAD_BUTTON_TOOLTIP_RELOAD));
+  }
 
   /**
    * Sets up event listeners and the PerformanceObserver when the element is
@@ -131,7 +162,8 @@ export class ReloadButtonAppElement extends CrLitElement {
       this.isLongPressed_ = true;
       if (this.isMenuEnabled_) {
         BrowserProxyImpl.getInstance().handler.showContextMenu(
-            e.offsetX, e.offsetY);
+            ContextMenuType.kReload, this.contextMenuPosition(),
+            MenuSourceType.kLongPress);
       }
     }, LONG_PRESS_TIMER_THRESHOLD_MS);
   }
@@ -184,7 +216,7 @@ export class ReloadButtonAppElement extends CrLitElement {
     }
 
     // Handle the visible state changes only for left-click.
-    if (e.button === BUTTON_LEFT) {
+    if (e.button === BUTTON_LEFT && !e.metaKey) {
       this.metricsRecorder_.onChangeVisibleMode(
           MetricsRecorder.getVisibleMode(this.isLoading_),
           MetricsRecorder.getVisibleMode(!this.isLoading_));
@@ -193,18 +225,31 @@ export class ReloadButtonAppElement extends CrLitElement {
     clearTimeout(this.longPressTimer_);
 
     if (this.isLoading_) {
-      BrowserProxyImpl.getInstance().handler.stopReload();
+      BrowserProxyImpl.getInstance().handler.stopLoad();
     } else {
       // If the shift or ctrl key is pressed, we should reload with cache
-      // ignored.
-      BrowserProxyImpl.getInstance().handler.reload(
-          /*ignore_cache=*/ e.shiftKey || e.ctrlKey, this.generateFlags(e));
+      // bypassed.
+      BrowserProxyImpl.getInstance().handler.reloadFromClick(
+          /*bypass_cache=*/ e.shiftKey || e.ctrlKey, this.generateFlags(e));
     }
 
-    if (e.button === BUTTON_LEFT) {
+    if (e.button === BUTTON_LEFT && !e.metaKey) {
       // Update the renderer in advance to avoid the delay.
       this.isLoading_ = !this.isLoading_;
     }
+  }
+
+  protected onContextMenu_(e: PointerEvent) {
+    if (this.isMenuEnabled_) {
+      BrowserProxyImpl.getInstance().handler.showContextMenu(
+          ContextMenuType.kReload, this.contextMenuPosition(),
+          MenuSourceType.kMouse);
+    }
+    e.preventDefault();
+  }
+
+  protected contextMenuPosition() {
+    return getContextMenuPosition(this);
   }
 }
 

@@ -11,11 +11,21 @@
 
 class UrlLoadingBrowserAgent;
 
+@class CommandDispatcher;
+@protocol GeminiViewStateDelegate;
+
 // The handler for opening links for BWG.
 @interface BWGLinkOpeningHandler : NSObject <BWGLinkOpeningDelegate>
 
+// Delegate for view state changes.
+@property(nonatomic, weak) id<GeminiViewStateDelegate> geminiViewStateDelegate;
+
 // Initialize the handler with a URL loading browser agent.
+// In order to prevent a crash, we pass the 'CommandDispatcher' directly instead
+// of a command handler. This is because command handlers fail the protocol
+// conformance test at startup time, which is when this initializer get called.
 - (instancetype)initWithURLLoader:(UrlLoadingBrowserAgent*)URLLoadingAgent
+                       dispatcher:(CommandDispatcher*)dispatcher
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 

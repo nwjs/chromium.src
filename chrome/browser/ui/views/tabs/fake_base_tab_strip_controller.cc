@@ -4,9 +4,9 @@
 
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 
+#include <algorithm>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -136,14 +136,14 @@ void FakeBaseTabStripController::RemoveTabFromGroup(int model_index) {
 void FakeBaseTabStripController::MoveTabIntoGroup(
     int index,
     std::optional<tab_groups::TabGroupId> new_group) {
-  bool group_exists = base::Contains(tab_groups_, new_group);
+  bool group_exists = std::ranges::contains(tab_groups_, new_group);
   std::optional<tab_groups::TabGroupId> old_group = tab_groups_[index];
 
   tab_groups_[index] = new_group;
 
   if (tab_strip_ && old_group.has_value()) {
     tab_strip_->AddTabToGroup(std::nullopt, index);
-    if (!base::Contains(tab_groups_, old_group)) {
+    if (!std::ranges::contains(tab_groups_, old_group)) {
       tab_strip_->OnGroupClosed(old_group.value());
     } else {
       tab_strip_->OnGroupContentsChanged(old_group.value());
@@ -281,21 +281,8 @@ void FakeBaseTabStripController::OnStartedDragging() {}
 
 void FakeBaseTabStripController::OnStoppedDragging() {}
 
-void FakeBaseTabStripController::OnKeyboardFocusedTabChanged(
-    std::optional<int> index) {}
-
-bool FakeBaseTabStripController::IsFrameCondensed() const {
-  return false;
-}
-
-bool FakeBaseTabStripController::EverHasVisibleBackgroundTabShapes() const {
-  return false;
-}
-
-std::optional<int> FakeBaseTabStripController::GetCustomBackgroundId(
-    BrowserFrameActiveState active_state) const {
-  return std::nullopt;
-}
+void FakeBaseTabStripController::TabKeyboardFocusChangedTo(
+    const tabs::TabInterface* tab) {}
 
 std::u16string FakeBaseTabStripController::GetAccessibleTabName(
     const Tab* tab) const {
@@ -316,21 +303,6 @@ BrowserWindowInterface*
 FakeBaseTabStripController::GetBrowserWindowInterface() {
   return nullptr;
 }
-
-bool FakeBaseTabStripController::CanShowModalUI() const {
-  return false;
-}
-
-std::unique_ptr<ScopedTabStripModalUI>
-FakeBaseTabStripController::ShowModalUI() {
-  return nullptr;
-}
-
-#if BUILDFLAG(IS_CHROMEOS)
-bool FakeBaseTabStripController::IsLockedForOnTask() {
-  return on_task_locked_;
-}
-#endif
 
 void FakeBaseTabStripController::SetActiveIndex(int new_index) {
   DCHECK(IsValidIndex(new_index));

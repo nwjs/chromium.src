@@ -168,8 +168,7 @@ WebDataServiceWrapper::WebDataServiceWrapper(
   profile_database_->AddTable(
       std::make_unique<plus_addresses::PlusAddressTable>());
 #if !BUILDFLAG(IS_IOS)
-  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard) &&
-      base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)) {
+  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
     profile_database_->AddTable(std::make_unique<autofill::ValuablesTable>());
   }
 #endif
@@ -218,8 +217,7 @@ WebDataServiceWrapper::WebDataServiceWrapper(
   profile_autofill_web_data_->GetAutofillBackend(
       base::BindOnce(&InitWalletUsageDataSyncBridgeOnDBSequence, db_task_runner,
                      profile_autofill_web_data_));
-  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard) &&
-      base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)) {
+  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard)) {
     profile_autofill_web_data_->GetAutofillBackend(
         base::BindOnce(&InitValuableSyncBridgeOnDBSequence, db_task_runner,
                        profile_autofill_web_data_));
@@ -251,12 +249,6 @@ WebDataServiceWrapper::WebDataServiceWrapper(
       std::make_unique<autofill::AutofillSyncMetadataTable>());
   account_database_->AddTable(
       std::make_unique<autofill::PaymentsAutofillTable>());
-#if !BUILDFLAG(IS_IOS)
-  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard) &&
-      !base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)) {
-    account_database_->AddTable(std::make_unique<autofill::ValuablesTable>());
-  }
-#endif
   account_database_->LoadDatabase(os_crypt);
 
   account_autofill_web_data_ =
@@ -271,12 +263,6 @@ WebDataServiceWrapper::WebDataServiceWrapper(
       base::BindOnce(&InitWalletOfferSyncBridgeOnDBSequence, db_task_runner,
                      account_autofill_web_data_));
 #if !BUILDFLAG(IS_IOS)
-  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillLoyaltyCard) &&
-      !base::FeatureList::IsEnabled(syncer::kSyncMoveValuablesToProfileDb)) {
-    account_autofill_web_data_->GetAutofillBackend(
-        base::BindOnce(&InitValuableSyncBridgeOnDBSequence, db_task_runner,
-                       account_autofill_web_data_));
-  }
   account_autofill_web_data_->GetAutofillBackend(
       base::BindOnce(&InitWalletUsageDataSyncBridgeOnDBSequence, db_task_runner,
                      account_autofill_web_data_));

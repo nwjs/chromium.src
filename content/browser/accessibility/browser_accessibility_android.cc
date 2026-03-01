@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "base/check_deref.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -593,9 +592,19 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
     return false;
   }
 
-  // Otherwise, the interesting nodes are leaf nodes with non-whitespace accessible name.
-  return IsLeaf() && !base::ContainsOnlyChars(GetAccessibleNameUTF16(),
-                                               base::kWhitespaceUTF16);
+  // Otherwise, the interesting nodes are leaf nodes with non-whitespace
+  // accessible name or text content.
+
+  // First, we determine whether we have a nonempty, nonwhitespace name.
+  bool has_nonwhitespace_name = !base::ContainsOnlyChars(
+      GetString16Attribute(ax::mojom::StringAttribute::kName),
+      base::kWhitespaceUTF16);
+
+  // And, whether we have nonempty, nonwhitespace text.
+  bool has_nonwhitespace_text =
+      !base::ContainsOnlyChars(GetTextContentUTF16(), base::kWhitespaceUTF16);
+
+  return IsLeaf() && (has_nonwhitespace_name || has_nonwhitespace_text);
 }
 
 BrowserAccessibilityAndroid*
@@ -757,7 +766,7 @@ bool BrowserAccessibilityAndroid::IsChildOfLeaf() const {
 }
 
 bool BrowserAccessibilityAndroid::IsLeaf() const {
-  if (base::Contains(GetLeafMap(), this)) {
+  if (GetLeafMap().contains(this)) {
     return GetLeafMap()[this];
   }
 
@@ -956,8 +965,8 @@ void BrowserAccessibilityAndroid::AccumulateSubstringTextContentUTF16(
     return;
   }
 
-  if (ComputeAndroidNameTo() == AndroidNameTo::kText &&
-      !is_non_atomic_text_field) {
+  AndroidNameTo name_to = ComputeAndroidNameTo();
+  if (name_to == AndroidNameTo::kText && !is_non_atomic_text_field) {
     text = GetNameAsString16();
   }
 
@@ -1002,12 +1011,22 @@ void BrowserAccessibilityAndroid::AccumulateSubstringTextContentUTF16(
     }
   }
 
+  // Compute whether this node's name attribute should override its text. This
+  // is used in the below block to determine whether we should proceed with
+  // surfacing text at all. Name overrides text when we've mapped name to
+  // Android's content description, it is non-empty, and this node's role
+  // supports name overriding child text contents.
+  bool name_overrides_text =
+      ui::SupportsNamingWithChildContent(GetRole()) &&
+      name_to == AndroidNameTo::kContentDescription &&
+      !GetStringAttribute(ax::mojom::StringAttribute::kName).empty();
+
   // This is called from IsLeaf, so don't call PlatformChildCount
   // from within this!
   // Only for roles that do not support naming with child content, we loop
   // through the children, in order to populate the visual content (use Android
   // text API), in addition to populating the aria label information.
-  if (text.empty() && !ui::SupportsNamingWithChildContent(GetRole()) &&
+  if (text.empty() && !name_overrides_text &&
       ((HasOnlyTextChildren() && !HasListMarkerChild()) ||
        (IsFocusable() && HasOnlyTextAndImageChildren()))) {
     for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
@@ -1023,9 +1042,11 @@ void BrowserAccessibilityAndroid::AccumulateSubstringTextContentUTF16(
     text = std::move(value);
   }
 
+  // Append the URL/filename only if we don't already have an accessible name.
   if (text.empty() &&
       (ui::IsLink(GetRole()) || ui::IsImageOrVideo(GetRole())) &&
-      !HasExplicitlyEmptyName()) {
+      !HasExplicitlyEmptyName() &&
+      ComputeAndroidNameTo() == AndroidNameTo::kText) {
     std::u16string url = GetString16Attribute(ax::mojom::StringAttribute::kUrl);
     text = ui::AXUrlBaseText(url);
   }
@@ -1181,35 +1202,6 @@ std::u16string BrowserAccessibilityAndroid::GetSupplementalDescription() const {
   }
 
   return u"";
-}
-
-std::u16string BrowserAccessibilityAndroid::GetAccessibleNameUTF16() const {
-  // 1. The primary source for an accessible name is the direct text content.
-  // If it's available, we use it immediately.
-  std::u16string name = GetTextContentUTF16();
-  if (!name.empty()) {
-    return name;
-  }
-
-  // 2. If text content is empty, check if the name is *supposed* to map to the
-  // text property anyway. If so, it means the accessible name is intentionally
-  // empty, and we should not check any fallback sources.
-  if (ComputeAndroidNameTo() == AndroidNameTo::kText) {
-    return {};  // Return an empty string.
-  }
-
-  // 3. If the name doesn't map to the text property (e.g., it comes from an
-  //    attribute like `aria-label`), we check a chain of fallback sources in
-  //    order of priority.
-  name = GetContainerTitle();
-  if (name.empty()) {
-    name = GetContentDescription();
-  }
-  if (name.empty()) {
-    name = GetSupplementalDescription();
-  }
-
-  return name;
 }
 
 std::u16string BrowserAccessibilityAndroid::GetMultiselectableStateDescription()
@@ -2273,10 +2265,10 @@ void BrowserAccessibilityAndroid::GetWordBoundaries(
   for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
     BrowserAccessibilityAndroid* child =
         static_cast<BrowserAccessibilityAndroid*>(it.get());
-    concatenated_text += child->GetAccessibleNameUTF16();
+    concatenated_text += child->GetTextContentUTF16();
   }
 
-  std::u16string text = GetAccessibleNameUTF16();
+  std::u16string text = GetTextContentUTF16();
   if (text.empty() || concatenated_text == text) {
     // Great - this node is just the concatenation of its children, so
     // we can get the word boundaries recursively.
@@ -2662,12 +2654,15 @@ BrowserAccessibilityAndroid::ComputeAndroidNameTo() const {
       }
       break;
     case ax::mojom::NameFrom::kRelatedElement:
-      // TODO(crbug.com/447426033): Map all kRelatedElement accessible names for
-      // android.
       if (::features::IsAccessibilityLabeledByEnabled() &&
           GetData().HasIntListAttribute(
               ax::mojom::IntListAttribute::kLabelledbyIds)) {
         name_to_cache_ = AndroidNameTo::kLabeledBy;
+      } else if (base::FeatureList::IsEnabled(
+                     features::
+                         kAccessibilityPopulateSupplementalDescriptionApi)) {
+        // Fallback to supplemental description when labeledBy cannot be used.
+        name_to_cache_ = AndroidNameTo::kSupplementalDescription;
       } else {
         name_to_cache_ = AndroidNameTo::kText;
       }

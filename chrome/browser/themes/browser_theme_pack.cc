@@ -16,7 +16,6 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/heap_array.h"
@@ -1145,7 +1144,7 @@ void BrowserThemePack::AddColorMixers(ui::ColorProvider* provider,
                                       const ui::ColorProviderKey& key) const {
   ui::ColorMixer& mixer = provider->AddMixer();
 
-  // TODO(http://crbug.com/878664): Enable for all cases.
+  // TODO(http://crbug.com/41410580): Enable for all cases.
   mixer[kColorToolbarBackgroundSubtleEmphasis] = ui::BlendForMinContrast(
       kColorToolbar, kColorToolbar, ChooseOmniboxBgBlendTarget(),
       kMinOmniboxToolbarContrast);
@@ -1423,7 +1422,7 @@ void BrowserThemePack::SetHeaderId(const Extension* extension) {
       memcpy(header_->theme_id, id.c_str(), crx_file::id_util::kIdSize));
 }
 
-void BrowserThemePack::SetTintsFromJSON(const base::Value::Dict* tints_value) {
+void BrowserThemePack::SetTintsFromJSON(const base::DictValue* tints_value) {
   DCHECK(tints_);
 
   if (!tints_value) {
@@ -1437,7 +1436,7 @@ void BrowserThemePack::SetTintsFromJSON(const base::Value::Dict* tints_value) {
       continue;
     }
 
-    const base::Value::List& tint_list = value.GetList();
+    const base::ListValue& tint_list = value.GetList();
     if (tint_list.size() != 3) {
       continue;
     }
@@ -1470,8 +1469,7 @@ void BrowserThemePack::SetTintsFromJSON(const base::Value::Dict* tints_value) {
   }
 }
 
-void BrowserThemePack::SetColorsFromJSON(
-    const base::Value::Dict* colors_value) {
+void BrowserThemePack::SetColorsFromJSON(const base::DictValue* colors_value) {
   DCHECK(colors_);
 
   std::map<int, SkColor> temp_colors;
@@ -1489,14 +1487,14 @@ void BrowserThemePack::SetColorsFromJSON(
   }
 }
 
-void BrowserThemePack::ReadColorsFromJSON(const base::Value::Dict& colors_value,
+void BrowserThemePack::ReadColorsFromJSON(const base::DictValue& colors_value,
                                           std::map<int, SkColor>* temp_colors) {
   // Parse the incoming data from |colors_value| into an intermediary structure.
   for (const auto [key, value] : colors_value) {
     if (!value.is_list()) {
       continue;
     }
-    const base::Value::List& color_list = value.GetList();
+    const base::ListValue& color_list = value.GetList();
     if (!(color_list.size() == 3 || color_list.size() == 4)) {
       continue;
     }
@@ -1553,7 +1551,7 @@ void BrowserThemePack::ReadColorsFromJSON(const base::Value::Dict& colors_value,
 }
 
 void BrowserThemePack::SetDisplayPropertiesFromJSON(
-    const base::Value::Dict* display_properties_value) {
+    const base::DictValue* display_properties_value) {
   DCHECK(display_properties_);
 
   if (!display_properties_value) {
@@ -1623,7 +1621,7 @@ void BrowserThemePack::ParseImageNamesFromJSON(
 }
 
 void BrowserThemePack::SetTabGroupColorPaletteShadesFromJSON(
-    const base::Value::Dict* tab_group_color_palette_value) {
+    const base::DictValue* tab_group_color_palette_value) {
   size_t count = 0;
   for (const auto [key, value] : *tab_group_color_palette_value) {
     if (!value.is_int()) {
@@ -1675,7 +1673,7 @@ bool BrowserThemePack::LoadRawBitmapsTo(const FilePathMap& file_paths,
     PersistentID prs_id = entry.first;
     // Some images need to go directly into |image_memory_|. No modification is
     // necessary or desirable.
-    const bool is_copyable = base::Contains(kPreloadIDs, prs_id);
+    const bool is_copyable = std::ranges::contains(kPreloadIDs, prs_id);
     gfx::ImageSkia image_skia;
     for (int pass = 0; pass < 2; ++pass) {
       // Two passes: In the first pass, we process only scale factor

@@ -4,8 +4,8 @@
 
 package org.chromium.base;
 
-import android.app.ActivityManager;
 import android.app.ActivityManager.AppTask;
+import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Context.BindServiceFlags;
 import android.content.ServiceConnection;
@@ -13,10 +13,10 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
+import android.os.OutcomeReceiver;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Display;
-import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.Window;
 import android.view.accessibility.AccessibilityEvent;
@@ -26,9 +26,11 @@ import android.webkit.WebViewDelegate;
 
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 
+import org.chromium.base.serial.SerialManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /** Interface to call unreleased Android APIs that are guarded by aconfig flags. */
@@ -51,16 +53,6 @@ public interface AconfigFlaggedApiDelegate {
 
     static void setInstanceForTesting(AconfigFlaggedApiDelegate testInstance) {
         ServiceLoaderUtil.setInstanceForTesting(AconfigFlaggedApiDelegate.class, testInstance);
-    }
-
-    /**
-     * Calls the {@link android.app.ActivityManager#isTaskMoveAllowedOnDisplay} method if supported,
-     * otherwise returns false.
-     *
-     * @param am {@link android.app.ActivityManager} on which the method should be called.
-     */
-    default boolean isTaskMoveAllowedOnDisplay(ActivityManager am, int displayId) {
-        return false;
     }
 
     /**
@@ -209,32 +201,6 @@ public interface AconfigFlaggedApiDelegate {
     }
 
     /**
-     * Calls {@link android.view.View#requestRectangleOnScreen(Rect, boolean, int)} if supported,
-     * with focus type of {@link android.view.View#RECTANGLE_ON_SCREEN_REQUEST_SOURCE_INPUT_FOCUS}.
-     *
-     * @param view view on which the method should be called
-     * @param boundsInView the rect to request on screen, in coordinates relative to {@code view}
-     * @return whether the Android API was invoked
-     */
-    default boolean requestInputFocusOnScreen(View view, Rect boundsInView) {
-        // TODO(crbug.com/450540343) inline internal delegate into callsites when API 36.1 releases.
-        return false;
-    }
-
-    /**
-     * Calls {@link View#requestRectangleOnScreen(Rect, boolean, int)} if supported, with focus type
-     * of {@link View#RECTANGLE_ON_SCREEN_REQUEST_SOURCE_TEXT_CURSOR}.
-     *
-     * @param view view on which the method should be called
-     * @param boundsInView the rect to request on screen, in coordinates relative to {@code view}
-     * @return whether the Android API was invoked
-     */
-    default boolean requestTextCursorOnScreen(View view, Rect boundsInView) {
-        // TODO(crbug.com/450540343) inline internal delegate into callsites when API 36.1 releases.
-        return false;
-    }
-
-    /**
      * Checks if the Selection Action Menu Client is available, based on the API level and Aconfig
      * flags. If the client is available, this method returns it wrapped in a {@code
      * SelectionActionMenuClientWrapper}. This does not check if the client has been overridden and
@@ -302,11 +268,37 @@ public interface AconfigFlaggedApiDelegate {
     default void clearSelection(AccessibilityNodeInfoCompat info) {}
 
     /**
-     * @return Id of
-     *     androidx.core.view.accessibility.AccessibilityNodeInfo.AccessibilityActionCompat.ACTION_SET_EXTENDED_SELECTION
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#getSelection()} if
+     * supported.
+     *
+     * @param info The node for which the selection is queried.
+     * @return Null if selection is empty or feature is not available, otherwise a pair of two
+     *     integers, representing startVirtualDescendantId and startOffset for the selection.
      */
-    default @Nullable Integer getActionSetExtendedSelectionId() {
+    default @Nullable Pair<Integer, Integer> getExtendedSelectionStart(
+            AccessibilityNodeInfoCompat info) {
         return null;
+    }
+
+    /**
+     * Calls {@link android.view.accessibility.AccessibilityNodeInfoCompat#getSelection()} if
+     * supported.
+     *
+     * @param info The node for which the selection is queried.
+     * @return Null if selection is empty or feature is not available, otherwise a pair of two
+     *     integers, representing endVirtualDescendantId and endOffset for the selection.
+     */
+    default @Nullable Pair<Integer, Integer> getExtendedSelectionEnd(
+            AccessibilityNodeInfoCompat info) {
+        return null;
+    }
+
+    /**
+     * @return True if requirements for processing ACTION_SET_EXTENDED_SELECTION are supported by
+     *     the platform.
+     */
+    default boolean isActionSetExtendedSelectionSupported() {
+        return false;
     }
 
     /**
@@ -315,8 +307,7 @@ public interface AconfigFlaggedApiDelegate {
      *
      * @param arguments Arguments sent with the ACTION_SET_EXTENDED_SELECTION action.
      * @return Null if selection is empty or feature is not available, otherwise a pair of two
-     *     integers, representing startVirtualDescendentId and startOffset for the selection start
-     *     node.
+     *     integers, representing startVirtualDescendantId and startOffset for the selection.
      */
     default @Nullable Pair<Integer, Integer> getActionSetExtendedSelectionStartArgument(
             Bundle arguments) {
@@ -329,7 +320,7 @@ public interface AconfigFlaggedApiDelegate {
      *
      * @param arguments Arguments sent with the ACTION_SET_EXTENDED_SELECTION action.
      * @return Null if selection is empty or feature is not available, otherwise a pair of two
-     *     integers, representing startVirtualDescendentId and startOffset for the selection end
+     *     integers, representing startVirtualDescendantId and startOffset for the selection end
      *     node.
      */
     default @Nullable Pair<Integer, Integer> getActionSetExtendedSelectionEndArgument(
@@ -372,5 +363,93 @@ public interface AconfigFlaggedApiDelegate {
     /** Whether the feature to split the Android setting 'Show passwords' is enabled. */
     default boolean isShowPasswordsSplitEnabled() {
         return false;
+    }
+
+    /**
+     * Constructs {@link WebAppQueryRequest} and calls {@link
+     * android.content.pm.webapp.WebAppManager#query(@NonNull WebAppQueryRequest
+     * request, @NonNull @CallbackExecutor Executor executor, @NonNull IntConsumer callback)} with
+     * it if supported.
+     *
+     * @param title The title of the web app to query.
+     * @return A promise fulfilled with true if the TWA is installed, false otherwise.
+     */
+    default Promise<Boolean> isInstalled(String title) {
+        return Promise.fulfilled(false);
+    }
+
+    static class FrameRateVelocityPoint {
+        private final float mFramePerSecond;
+        private final float mDpPerSecond;
+
+        public FrameRateVelocityPoint(float framePerSecond, float dpPerSecond) {
+            mFramePerSecond = framePerSecond;
+            mDpPerSecond = dpPerSecond;
+        }
+
+        public float getFramePerSecond() {
+            return mFramePerSecond;
+        }
+
+        public float getDpPerSecond() {
+            return mDpPerSecond;
+        }
+    }
+
+    /** Calls Display.getFrameRateVelocityMapping if supported; returns null otherwise. */
+    default @Nullable List<FrameRateVelocityPoint> getFrameRateVelocityMapping(Display display) {
+        return null;
+    }
+
+    /**
+     * Takes an {@link android.app.ActivityOptions} object, copies it, applies {@link
+     * android.app.ActivityOptions#setMovableTaskRequired(boolean)} with {@code true} to the copy
+     * and returns it, if the Android SDK available on the device contains the {@link
+     * android.app.ActivityOptions#setMovableTaskRequired(boolean)} method.
+     *
+     * <p>If the Android SDK available on the device does not contain the {@link
+     * android.app.ActivityOptions#setMovableTaskRequired(boolean)}, returns {@code null}.
+     *
+     * @param activityOptions The {@link android.app.ActivityOptions} object to copy and modify.
+     */
+    default @Nullable ActivityOptions setMovableTaskRequired(ActivityOptions activityOptions) {
+        return null;
+    }
+
+    /**
+     * Checks whether an exception is of type {@link
+     * android.app.InfeasibleActivityOptionsException}, if the Android SDK available on the device
+     * contains this class's definition.
+     *
+     * <p>If the Android SDK available on the device does not contain the {@link
+     * android.app.InfeasibleActivityOptionsException} class's definition, returns {@code false}.
+     *
+     * @param e The {@link Exception} to be checked.
+     */
+    default boolean isInfeasibleActivityOptionsException(Exception e) {
+        return false;
+    }
+
+    /**
+     * Calls the {@link android.app.ActivityManager.AppTask#requestWindowingLayer(AppTask,
+     * AppTask.WINDOWING_LAYER_PINNED, Executor, OutcomeReceiver<Integer, Exception>)} method.
+     *
+     * @param appTask {@link android.app.ActivityManager.AppTask} on which the method should be
+     *     called.
+     * @param executor {@link java.util.concurrent.Executor} The executor specifying the thread on
+     *     which the callbacks will be invoked.
+     * @return A promise fulfilled if going into pinned windowing layer is successful, rejected
+     *     otherwise with {@link UnsupportedOperationException} if not supported or with the
+     *     exception received from the API call.
+     */
+    default Promise<Void> requestPinnedWindowingLayer(AppTask appTask, Executor executor) {
+        Promise<Void> promise = new Promise<>();
+        promise.reject(new UnsupportedOperationException("Not supported"));
+        return promise;
+    }
+
+    /** Gets an Android SerialManager wrapped in an intermediary object. */
+    default @Nullable SerialManager getSerialManager() {
+        return null;
     }
 }

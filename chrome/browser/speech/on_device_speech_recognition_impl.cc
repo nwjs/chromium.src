@@ -4,6 +4,8 @@
 
 #include "chrome/browser/speech/on_device_speech_recognition_impl.h"
 
+#include <algorithm>
+
 #include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -38,7 +40,7 @@ const char kEnglishLanguageCodeKey[] = "en-US";
 // Returns a boolean indicating whether the language is enabled.
 bool IsLanguageInstallable(std::string_view language_code,
                            bool is_soda_binary_installed) {
-  return base::Contains(
+  return std::ranges::contains(
       speech::SodaInstaller::GetInstance()->GetLiveCaptionEnabledLanguages(),
       language_code);
 }
@@ -348,11 +350,11 @@ void OnDeviceSpeechRecognitionImpl::SetOnDeviceLanguageDownloaded(
 
   // Initialize a list to store data, if none exists.
   if (!on_device_languages_downloaded_value.is_dict()) {
-    on_device_languages_downloaded_value = base::Value(base::Value::Dict());
+    on_device_languages_downloaded_value = base::Value(base::DictValue());
   }
 
   // Update or initialize the list of targets for the source language.
-  base::Value::List* on_device_languages_downloaded_list =
+  base::ListValue* on_device_languages_downloaded_list =
       on_device_languages_downloaded_value.GetDict().EnsureList(
           kOnDeviceLanguagesDownloadedKey);
   if (!on_device_languages_downloaded_list->contains(language)) {

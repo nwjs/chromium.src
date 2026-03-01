@@ -49,11 +49,10 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.MaxAndroidSdkLevel;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.external_intents.ExternalNavigationHandler.IncognitoDialogDelegate;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResult;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResultType;
-import org.chromium.components.external_intents.ExternalNavigationHandler.QueryIntentActivitiesSupplier;
-import org.chromium.components.external_intents.ExternalNavigationHandler.ResolveActivitySupplier;
 import org.chromium.components.external_intents.ExternalNavigationParams.AsyncActionTakenParams;
 import org.chromium.components.external_intents.ExternalNavigationParams.AsyncActionTakenParams.AsyncActionTakenType;
 import org.chromium.content_public.browser.WebContents;
@@ -3683,6 +3682,17 @@ public class ExternalNavigationHandlerTest {
         public boolean shouldSelfNavigationLaunchAsMultipleTask(ExternalNavigationParams params) {
             return false;
         }
+
+        @Override
+        public boolean shouldSetAppForCurrentPage() {
+            return false;
+        }
+
+        @Override
+        public void setAppForCurrentPage(@Nullable ResolveInfo resolveInfo, Runnable openInApp) {}
+
+        @Override
+        public void clearAppForCurrentPage() {}
 
         public void reset() {
             startIncognitoIntentCalled = false;

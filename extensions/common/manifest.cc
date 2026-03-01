@@ -4,12 +4,11 @@
 
 #include "extensions/common/manifest.h"
 
+#include <algorithm>
 #include <string_view>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/check.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
@@ -100,7 +99,7 @@ int GetLocationRank(ManifestLocation location) {
   return rank;
 }
 
-int GetManifestVersion(const base::Value::Dict& manifest_value,
+int GetManifestVersion(const base::DictValue& manifest_value,
                        Manifest::Type type) {
   // Platform apps were launched after manifest version 2 was the preferred
   // version, so they default to that.
@@ -112,17 +111,17 @@ int GetManifestVersion(const base::Value::Dict& manifest_value,
 class AvailableValuesFilter {
  public:
   // Filters `manifest.values()` removing any unavailable keys.
-  static base::Value::Dict Filter(const Manifest& manifest) {
+  static base::DictValue Filter(const Manifest& manifest) {
     return FilterInternal(manifest, *manifest.value(), "");
   }
 
  private:
-  // Returns a base::Value::Dict corresponding to |input_dict| for the given
+  // Returns a base::DictValue corresponding to |input_dict| for the given
   // |manifest|, with all unavailable keys removed.
-  static base::Value::Dict FilterInternal(const Manifest& manifest,
-                                          const base::Value::Dict& input_dict,
-                                          std::string current_path) {
-    base::Value::Dict output_dict;
+  static base::DictValue FilterInternal(const Manifest& manifest,
+                                        const base::DictValue& input_dict,
+                                        std::string current_path) {
+    base::DictValue output_dict;
     DCHECK(CanAccessFeature(manifest, current_path));
 
     for (auto it : input_dict) {
@@ -207,9 +206,8 @@ ManifestLocation Manifest::GetHigherPriorityLocation(ManifestLocation loc1,
 }
 
 // static
-Manifest::Type Manifest::GetTypeFromManifestValue(
-    const base::Value::Dict& value,
-    bool for_login_screen) {
+Manifest::Type Manifest::GetTypeFromManifestValue(const base::DictValue& value,
+                                                  bool for_login_screen) {
   Type type = Type::kUnknown;
   if (value.Find(keys::kTheme)) {
     type = Type::kTheme;
@@ -234,9 +232,8 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
   if (value.Find(keys::kNWJSInternalFlag)) {
     type = Type::kNwjsApp;
   }else if (value.Find(keys::kPermissions)) {
-    const base::Value::List& perm = value.Find(keys::kPermissions)->GetList();
-    base::Value node("node");
-    if (base::Contains(perm, node))
+    const base::ListValue& perm = value.Find(keys::kPermissions)->GetList();
+    if (perm.contains("node"))
       type = Type::kNwjsApp;
   }
   DCHECK_NE(type, Type::kUnknown);
@@ -266,7 +263,7 @@ bool Manifest::ShouldAlwaysLoadExtension(ManifestLocation location,
 // static
 std::unique_ptr<Manifest> Manifest::CreateManifestForLoginScreen(
     ManifestLocation location,
-    base::Value::Dict value,
+    base::DictValue value,
     ExtensionId extension_id) {
   CHECK(IsPolicyLocation(location));
   // Use base::WrapUnique + new because the constructor is private.
@@ -275,12 +272,12 @@ std::unique_ptr<Manifest> Manifest::CreateManifestForLoginScreen(
 }
 
 Manifest::Manifest(ManifestLocation location,
-                   base::Value::Dict value,
+                   base::DictValue value,
                    ExtensionId extension_id)
     : Manifest(location, std::move(value), std::move(extension_id), false) {}
 
 Manifest::Manifest(ManifestLocation location,
-                   base::Value::Dict value,
+                   base::DictValue value,
                    ExtensionId extension_id,
                    bool for_login_screen)
     : extension_id_(std::move(extension_id)),
@@ -320,7 +317,7 @@ void Manifest::ValidateManifest(std::vector<InstallWarning>* warnings) const {
     if (!manifest_feature_provider->GetFeature(item.first)) {
       // There are a set of keys that are not handled by Chrome, but that we
       // explicitly allow. Don't add a warning for those keys.
-      if (base::Contains(keys::kIgnoredUnrecognizedKeys, item.first)) {
+      if (std::ranges::contains(keys::kIgnoredUnrecognizedKeys, item.first)) {
         continue;
       }
 
@@ -359,7 +356,7 @@ const std::string* Manifest::FindStringPath(std::string_view path) const {
   return available_values_.FindStringByDottedPath(path);
 }
 
-const base::Value::Dict* Manifest::FindDictPath(std::string_view path) const {
+const base::DictValue* Manifest::FindDictPath(std::string_view path) const {
   return available_values_.FindDictByDottedPath(path);
 }
 

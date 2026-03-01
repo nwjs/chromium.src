@@ -18,13 +18,13 @@
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
 #include "chrome/browser/extensions/data_deleter.h"
 #include "chrome/browser/extensions/extension_allowlist.h"
-#include "chrome/browser/extensions/extension_assets_manager.h"
 #include "chrome/browser/extensions/extension_disabled_ui.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_special_storage_policy.h"
 #include "chrome/browser/extensions/external_install_manager.h"
 #include "chrome/browser/extensions/install_verifier_factory.h"
 #include "chrome/browser/extensions/installed_loader.h"
+#include "chrome/browser/extensions/managed_installation_mode.h"
 #include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/profiles/profile.h"
@@ -33,6 +33,7 @@
 #include "components/favicon_base/favicon_url_parser.h"
 #include "extensions/browser/delayed_install_manager.h"
 #include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_assets_manager.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
@@ -47,6 +48,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/crash_keys.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/mojom/manifest.mojom-shared.h"
@@ -353,7 +355,7 @@ void ChromeExtensionRegistrarDelegate::OnExtensionInstalled(
     const Extension* extension,
     const syncer::StringOrdinal& page_ordinal,
     int install_flags,
-    base::Value::Dict ruleset_install_prefs) {
+    base::DictValue ruleset_install_prefs) {
   const std::string& id = extension->id();
   base::flat_set<int> disable_reasons =
       extension_registrar_->GetDisableReasonsOnInstalled(extension);
@@ -487,7 +489,7 @@ void ChromeExtensionRegistrarDelegate::OnExtensionInstalled(
 
 void ChromeExtensionRegistrarDelegate::CheckPermissionsIncrease(
     const Extension* extension,
-    bool is_extension_loaded) {
+    bool is_extension_installed) {
   PermissionsUpdater(profile_).InitializePermissions(extension);
 
   // We keep track of all permissions the user has granted each extension.
@@ -514,36 +516,43 @@ void ChromeExtensionRegistrarDelegate::CheckPermissionsIncrease(
 
   // Silently grant all active permissions to pre-installed apps and apps
   // installed in kiosk mode.
+  // Newly-installed external extensions will already trigger a separate prompt
+  // for the user, so their initial permissions are not treated as an increase.
+  bool is_new_external_extension =
+      !is_extension_installed &&
+      Manifest::IsExternalLocation(extension->location());
   bool auto_grant_permission =
       extension->was_installed_by_default() ||
-      ExtensionsBrowserClient::Get()->IsRunningInForcedAppMode();
+      ExtensionsBrowserClient::Get()->IsRunningInForcedAppMode() ||
+      is_new_external_extension;
   if (auto_grant_permission) {
     PermissionsUpdater(profile_).GrantActivePermissions(extension);
   }
 
   bool is_privilege_increase = false;
-  // We only need to compare the granted permissions to the current permissions
-  // if the extension has not been auto-granted its permissions above and is
-  // installed internally.
-  if (extension->location() == ManifestLocation::kInternal &&
-      !auto_grant_permission) {
+
+  // Identify extensions from inherently trusted locations.
+  bool is_trusted_location =
+      Manifest::IsComponentLocation(extension->location()) ||
+      Manifest::IsPolicyLocation(extension->location()) ||
+      Manifest::IsUnpackedLocation(extension->location());
+
+  // Verify privilege increases for non-trusted and non-auto-granted extensions.
+  if (!is_trusted_location && !auto_grant_permission) {
     // Add all the recognized permissions if the granted permissions list
-    // hasn't been initialized yet.
+    // hasn't been initialized yet. Compare requested permissions against the
+    // existing granted set to detect a privilege increase.
     std::unique_ptr<const PermissionSet> granted_permissions =
         extension_prefs_->GetGrantedPermissions(extension->id());
     CHECK(granted_permissions.get());
-    // We check the union of both granted permissions and runtime granted
-    // permissions as it is possible for permissions which were withheld during
-    // installation to have never entered the granted set, but to have later
-    // been granted as runtime permissions.
     std::unique_ptr<const PermissionSet> runtime_granted_permissions =
         extension_prefs_->GetRuntimeGrantedPermissions(extension->id());
     std::unique_ptr<const PermissionSet> total_permissions =
         PermissionSet::CreateUnion(*granted_permissions,
                                    *runtime_granted_permissions);
 
-    // Here, we check if an extension's privileges have increased in a manner
-    // that requires the user's approval. This could occur because the browser
+    // Check if an extension's privileges have increased in a manner that
+    // requires the user's approval. This could occur because the browser
     // upgraded and recognized additional privileges, or an extension upgrades
     // to a version that requires additional privileges.
     is_privilege_increase =
@@ -606,7 +615,8 @@ void ChromeExtensionRegistrarDelegate::UninstallExtensionOnFileThread(
     const base::FilePath& extension_dir_to_delete,
     const base::FilePath& profile_dir) {
   ExtensionAssetsManager* assets_manager =
-      ExtensionAssetsManager::GetInstance();
+      ExtensionsBrowserClient::Get()->GetAssetsManager();
+
   assets_manager->UninstallExtension(id, profile_user_name,
                                      extensions_install_dir,
                                      extension_dir_to_delete, profile_dir);

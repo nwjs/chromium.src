@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "chromeos-octopus-rel",
-              "project": "chromium-m145"
+              "project": "chromium-m146"
             },
             "builder_spec": {
               "builder_group": "chromium.chromiumos",
@@ -46,7 +46,7 @@
         {
           "bucket": "ci",
           "builder": "chromeos-octopus-rel",
-          "project": "chromium-m145"
+          "project": "chromium-m146"
         }
       ],
       "retry_failed_shards": false,
@@ -61,6 +61,7 @@
     "enable_cloud_monitoring": true,
     "enable_cloud_trace": true,
     "experiments": [],
+    "keep_going": 3,
     "output_local_strategy": "minimum",
     "profile_mode": "cloud",
     "project": "rbe-chromium-untrusted",

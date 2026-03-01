@@ -1187,6 +1187,21 @@ void Layer::SetCaptureBounds(viz::RegionCaptureBounds bounds) {
   SetSubtreePropertyChanged();
 }
 
+void Layer::SetTrackedElementBounds(TrackedElementBounds bounds) {
+  DCHECK(IsPropertyChangeAllowed());
+  const auto& rare_inputs = inputs_.Read(*this).rare_inputs;
+  if (!rare_inputs && bounds.empty()) {
+    return;
+  }
+  if (rare_inputs && rare_inputs->tracked_element_bounds == bounds) {
+    return;
+  }
+  EnsureRareInputs().tracked_element_bounds = std::move(bounds);
+  SetPropertyTreesNeedRebuild();
+  SetNeedsCommit();
+  SetSubtreePropertyChanged();
+}
+
 void Layer::SetWheelEventRegion(Region wheel_event_region) {
   DCHECK(IsPropertyChangeAllowed());
   const auto& rare_inputs = inputs_.Read(*this).rare_inputs;
@@ -1211,6 +1226,19 @@ void Layer::SetXrHitTestOrder(std::vector<ElementId> xr_hit_test_order) {
   EnsureRareInputs().xr_hit_test_order = std::move(xr_hit_test_order);
 }
 #endif
+
+void Layer::SetCanvasChildId(ElementId id) {
+  DCHECK(IsPropertyChangeAllowed());
+  const auto& rare_inputs = inputs_.Read(*this).rare_inputs;
+  if (!rare_inputs && !id) {
+    return;
+  }
+  if (rare_inputs && rare_inputs->canvas_child_id == id) {
+    return;
+  }
+  EnsureRareInputs().canvas_child_id = id;
+  SetNeedsCommit();
+}
 
 RenderSurfaceReason Layer::GetRenderSurfaceReason() const {
   if (!IsAttached())
@@ -1478,7 +1506,9 @@ void Layer::PushDirtyPropertiesTo(LayerImpl* layer,
     layer->SetBounds(inputs.bounds);
 
     layer->SetOffsetToTransformParent(offset_to_transform_parent_.Read(*this));
-    layer->SetDrawsContent(draws_content());
+    bool has_canvas_child_id =
+        inputs.rare_inputs && inputs.rare_inputs->canvas_child_id;
+    layer->SetDrawsContent(draws_content() && !has_canvas_child_id);
     layer->SetHitTestOpaqueness(inputs.hit_test_opaqueness);
     // subtree_property_changed_ is propagated to all descendants while building
     // property trees. So, it is enough to check it only for the current layer.
@@ -1518,6 +1548,8 @@ void Layer::PushDirtyPropertiesTo(LayerImpl* layer,
       layer->SetNonCompositedScrollHitTestRects(
           inputs.rare_inputs->non_composited_scroll_hit_test_rects);
       layer->SetCaptureBounds(inputs.rare_inputs->capture_bounds);
+      layer->SetTrackedElementBounds(
+          inputs.rare_inputs->tracked_element_bounds);
       layer->SetWheelEventHandlerRegion(inputs.rare_inputs->wheel_event_region);
     } else {
       layer->ResetRareProperties();

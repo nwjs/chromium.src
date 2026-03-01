@@ -64,7 +64,7 @@ OptimizationGuideOnDeviceModelInstallerPolicy::
     ~OptimizationGuideOnDeviceModelInstallerPolicy() = default;
 
 bool OptimizationGuideOnDeviceModelInstallerPolicy::VerifyInstallation(
-    const base::Value::Dict& manifest,
+    const base::DictValue& manifest,
     const base::FilePath& install_dir) const {
   return OnDeviceModelComponentStateManager::VerifyInstallation(install_dir,
                                                                 manifest);
@@ -84,7 +84,7 @@ bool OptimizationGuideOnDeviceModelInstallerPolicy::RequiresNetworkEncryption()
 
 update_client::CrxInstaller::Result
 OptimizationGuideOnDeviceModelInstallerPolicy::OnCustomInstall(
-    const base::Value::Dict& manifest,
+    const base::DictValue& manifest,
     const base::FilePath& install_dir) {
   return update_client::CrxInstaller::Result(update_client::InstallError::NONE);
 }
@@ -99,7 +99,7 @@ void OptimizationGuideOnDeviceModelInstallerPolicy::OnCustomUninstall() {
 void OptimizationGuideOnDeviceModelInstallerPolicy::ComponentReady(
     const base::Version& version,
     const base::FilePath& install_dir,
-    base::Value::Dict manifest) {
+    base::DictValue manifest) {
   if (state_manager_) {
     state_manager_->SetReady(version, install_dir, manifest);
   }
@@ -154,10 +154,10 @@ OptimizationGuideOnDeviceModelInstallerPolicy::GetOnDeviceModelExtensionId() {
 }
 
 // static
-void OptimizationGuideOnDeviceModelInstallerPolicy::UpdateOnDemand() {
+void OptimizationGuideOnDeviceModelInstallerPolicy::UpdateOnDemand(
+    OnDemandUpdater::Priority priority) {
   g_browser_process->component_updater()->GetOnDemandUpdater().OnDemandUpdate(
-      GetOnDeviceModelExtensionId(),
-      component_updater::OnDemandUpdater::Priority::FOREGROUND,
+      GetOnDeviceModelExtensionId(), priority,
       base::BindOnce([](update_client::Error error) {
         if (error != update_client::Error::NONE &&
             error != update_client::Error::UPDATE_IN_PROGRESS) {
@@ -176,13 +176,9 @@ void RegisterOptimizationGuideOnDeviceModelComponent(
   auto register_callback = base::BindOnce(
       [](base::WeakPtr<OnDeviceModelComponentStateManager> state_manager,
          ComponentUpdateService* cus) {
-        if (!IsOnDeviceModelAlreadyInstalled(cus)) {
-          // If we don't have ANY usable model, trigger an on-demand update
-          // so that we can get one more quickly.
-          OptimizationGuideOnDeviceModelInstallerPolicy::UpdateOnDemand();
-        }
         if (state_manager) {
-          state_manager->InstallerRegistered();
+          state_manager->InstallerRegistered(
+              IsOnDeviceModelAlreadyInstalled(cus));
         }
       },
       state_manager->GetWeakPtr(), cus);

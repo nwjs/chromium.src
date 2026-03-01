@@ -4,6 +4,7 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 
+#include "base/test/scoped_feature_list.h"
 #include "base/uuid.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
@@ -11,6 +12,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -64,6 +66,10 @@ class MockTaskInfoDelegate : public TaskInfoDelegate {
     title_ = title;
   }
 
+  void SetAimUrl(const GURL& url) override { url_ = url; }
+
+  GURL GetAimUrl() override { return url_; }
+
   bool IsShownInTab() override { return is_shown_in_tab_; }
 
   void SetIsShownInTab(bool is_shown_in_tab) {
@@ -89,6 +95,7 @@ class MockTaskInfoDelegate : public TaskInfoDelegate {
   std::optional<std::string> thread_id_;
   std::optional<std::string> turn_id_;
   std::optional<std::string> title_;
+  GURL url_;
   bool is_shown_in_tab_ = false;
   MockBrowserWindowInterface mock_browser_window_interface_;
 };
@@ -121,6 +128,10 @@ class MockContextualTasksUiService : public ContextualTasksUiService {
                bool is_shown_in_tab),
               (override));
   MOCK_METHOD(GURL, GetDefaultAiPageUrl, (), (override));
+  MOCK_METHOD(GURL,
+              GetDefaultAiPageUrlForTask,
+              (const base::Uuid& task_id),
+              (override));
   MOCK_METHOD(bool, IsAiUrl, (const GURL& url), (override));
 };
 
@@ -569,6 +580,7 @@ TEST_F(ContextualTasksUiTest, TaskDetailsUpdated) {
   EXPECT_EQ(delegate.GetTaskId(), task_id);
   EXPECT_EQ(delegate.GetThreadId(), thread_id);
   EXPECT_EQ(delegate.GetThreadTurnId(), turn_id);
+  EXPECT_EQ(delegate.GetAimUrl(), url);
 
   // Fake an updated turn
   GURL url2(kAiPageUrl);
@@ -585,6 +597,7 @@ TEST_F(ContextualTasksUiTest, TaskDetailsUpdated) {
   EXPECT_EQ(delegate.GetTaskId(), task_id);
   EXPECT_EQ(delegate.GetThreadId(), thread_id);
   EXPECT_EQ(delegate.GetThreadTurnId(), turn_id2);
+  EXPECT_EQ(delegate.GetAimUrl(), url2);
   observer.reset();
 }
 
@@ -743,6 +756,56 @@ TEST_F(ContextualTasksUiTest, Transition_QueryToZeroToQuery) {
   auto handle_query2 = CreateMockNavigationHandle(query_url);
   handle_query2->set_has_committed(true);
   observer->DidFinishNavigation(handle_query2.get());
+}
+
+TEST_F(ContextualTasksUiTest, OnZeroStateChange_FeatureEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      contextual_tasks::kEnableNotifyZeroStateRenderedCapability);
+
+  testing::NiceMock<MockTaskInfoDelegate> delegate;
+  SetupMockDelegate(&delegate, std::nullopt, std::nullopt, std::nullopt);
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL zero_state_url("https://www.google.com/search?udm=50");
+
+  // Case 1: Same document navigation.
+  // Expect OnZeroStateChange to NOT be called.
+  // Expect task creation to happen because IsSameDocument condition in the task creation block allows it.
+  {
+    EXPECT_CALL(delegate, OnZeroStateChange(_)).Times(0);
+
+    base::Uuid task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+    ContextualTask task(task_id);
+    EXPECT_CALL(*contextual_tasks_service_, CreateTask())
+        .WillOnce(Return(task));
+    EXPECT_CALL(delegate, PrepareForTaskChange()).Times(1);
+    EXPECT_CALL(*service_for_nav_, OnTaskChanged(_, _, task_id, _)).Times(1);
+
+    auto handle = CreateMockNavigationHandle(zero_state_url);
+    handle->set_has_committed(true);
+    handle->set_is_same_document(true);
+    observer->DidFinishNavigation(handle.get());
+  }
+
+  // Case 2: Cross document navigation.
+  // Expect OnZeroStateChange to BE called.
+  // Expect task creation to be SKIPPED because !IsSameDocument is false.
+  {
+    EXPECT_CALL(delegate, OnZeroStateChange(true)).Times(1);
+
+    EXPECT_CALL(*contextual_tasks_service_, CreateTask()).Times(0);
+    EXPECT_CALL(delegate, PrepareForTaskChange()).Times(0);
+
+    // Using a different URL to trigger logic (URL change check).
+    GURL zero_state_url_2("https://www.google.com/search?udm=50&other=1");
+    auto handle = CreateMockNavigationHandle(zero_state_url_2);
+    handle->set_has_committed(true);
+    handle->set_is_same_document(false);
+    observer->DidFinishNavigation(handle.get());
+  }
 }
 
 }  // namespace contextual_tasks

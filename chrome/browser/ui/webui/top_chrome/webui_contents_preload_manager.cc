@@ -4,12 +4,12 @@
 
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -70,7 +70,7 @@ class FixedCandidateSelector : public webui::PreloadCandidateSelector {
 
   // webui::PreloadCandidateSelector:
   void Init(const std::vector<GURL>& preloadable_urls) override {
-    DCHECK(base::Contains(preloadable_urls, webui_url_));
+    DCHECK(std::ranges::contains(preloadable_urls, webui_url_));
   }
   std::optional<GURL> GetURLToPreload(
       const webui::PreloadContext& context) const override {
@@ -399,8 +399,10 @@ void WebUIContentsPreloadManager::SetPreloadedContents(
     webui_controller_embedder_stub_->AttachTo(preloaded_web_contents_.get());
     profile_observation_.Observe(Profile::FromBrowserContext(
         preloaded_web_contents_->GetBrowserContext()));
-    WebUIContentsPreloadState::FromWebContents(preloaded_web_contents_.get())
-        ->preloaded = true;
+    auto* preload_state = WebUIContentsPreloadState::FromWebContents(
+        preloaded_web_contents_.get());
+    preload_state->preloaded = true;
+    preload_state->pending_request = true;
   }
 }
 
@@ -458,6 +460,7 @@ RequestResult WebUIContentsPreloadManager::Request(
       WebUIContentsPreloadState::FromWebContents(web_contents_ret.get());
   CHECK(preload_state);
   preload_state->request_time = request_time;
+  preload_state->pending_request = false;
   // Non-preloaded WebUIs are logged by WebUIMainFrameObserver.
   if (preload_state->preloaded) {
     webui::LogWebUIShown(web_contents_ret->GetSiteInstance()->GetSiteURL());

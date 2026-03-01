@@ -26,12 +26,15 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_HTML_FORM_ELEMENT_H_
 
 #include "base/functional/callback.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/radio_button_group_scope.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/loader/form_submission.h"
+#include "third_party/blink/renderer/core/script_tools/model_context.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
+#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 
 namespace blink {
 
@@ -157,13 +160,19 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   void UseCountPropertyAccess(v8::Local<v8::Name>&,
                               const v8::PropertyCallbackInfo<v8::Value>&);
 
+  bool IsActiveToolSubmitButton(const HTMLFormControlElement* element) const;
+  bool MatchesToolFormActivePseudoClass() const;
+
  private:
+  friend class HTMLFormMcpToolTest;
+
   InsertionNotificationRequest InsertedInto(ContainerNode&) override;
   void RemovedFrom(ContainerNode&) override;
   void FinishParsingChildren() override;
 
   void HandleLocalEvents(Event&) override;
 
+  void AttributeChanged(const AttributeModificationParams&) override;
   void ParseAttribute(const AttributeModificationParams&) override;
   bool IsURLAttribute(const Attribute&) const override;
   bool HasLegalLinkAttribute(const QualifiedName&) const override;
@@ -213,6 +222,9 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   void RemoveFromPastNamesMap(HTMLElement&);
   bool PastNamesEmpty() const;
 
+  bool IsValidWebMCPForm() const;
+  void UpdateMcpDefinitionsIfNeeded();
+
   using PastNamesMap = GCedHeapHashMap<AtomicString, Member<Element>>;
 
   FormSubmission::Attributes attributes_;
@@ -229,6 +241,66 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   HeapVector<Member<HTMLImageElement>> image_elements_;
 
   base::OnceClosure cancel_last_submission_;
+
+  using McpToolCallbackResult =
+      base::expected<blink::String, blink::WebDocument::ScriptToolError>;
+  class CORE_EXPORT HTMLFormMcpTool final
+      : public GarbageCollected<HTMLFormMcpTool>,
+        public DeclarativeWebMCPTool {
+   public:
+    HTMLFormMcpTool() = delete;
+    HTMLFormMcpTool(const HTMLFormMcpTool&) = delete;
+    HTMLFormMcpTool& operator=(const HTMLFormMcpTool&) = delete;
+    HTMLFormMcpTool(HTMLFormElement& form,
+                    String tool_name,
+                    String tool_description)
+        : tool_name_(tool_name),
+          tool_description_(tool_description),
+          form_(form) {
+      CHECK(!tool_name.IsNull() && !tool_description.IsNull());
+    }
+    String ComputeInputSchema() override;
+    void ExecuteTool(
+        String input_arguments,
+        base::OnceCallback<void(McpToolCallbackResult)> done_callback) override;
+    // Fill form controls with data as provided by `input_arguments`.
+    //
+    // If no error is returned, then all specified tool parameters (form
+    // controls) were filled successfully. Otherwise, the state of all form
+    // controls are left unchanged.
+    std::optional<WebDocument::ScriptToolError> FillFormControls(
+        const String& input_arguments,
+        bool require_submit_button,
+        HTMLFormControlElement** submit_button);
+    String ToolName() const { return tool_name_; }
+    String ToolDescription() const { return tool_description_; }
+    bool IsValidTool() const { return !tool_name_.IsNull(); }
+    bool CurrentlyRunning() const {
+      return IsValidTool() && is_currently_running_;
+    }
+    HTMLFormControlElement* ActiveToolSubmitButton() const {
+      CHECK(is_currently_running_);
+      return active_submit_button_;
+    }
+    void CallDoneCallback(McpToolCallbackResult result);
+    void Trace(Visitor* visitor) const override;
+
+   private:
+    bool is_currently_running_ = false;
+    String tool_name_;
+    String tool_description_;
+    Member<HTMLFormElement> form_;
+    Member<HTMLFormControlElement> active_submit_button_;
+    base::OnceCallback<void(McpToolCallbackResult)> done_callback_;
+  };
+
+  void HandleWebMcpToolResponse(HTMLFormMcpTool* tool,
+                                bool resolved,
+                                ScriptState* script_state,
+                                ScriptValue value);
+
+  // Used only for (experimental) declarative WebMCP.
+  Member<HTMLFormMcpTool> active_webmcp_tool_;
 
   bool is_submitting_ = false;
   bool in_user_js_submit_event_ = false;

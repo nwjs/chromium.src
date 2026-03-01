@@ -22,10 +22,10 @@
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
-#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "components/crx_file/crx_verifier.h"
@@ -875,6 +875,19 @@ content::WebContents* ExtensionBrowserTest::PlatformOpenURLOffTheRecord(
   Browser* otr_browser = OpenURLOffTheRecord(profile, url);
   return otr_browser->tab_strip_model()->GetActiveWebContents();
 #endif
+}
+
+BrowserWindowInterface* ExtensionBrowserTest::CreateBrowserWindowWithType(
+    BrowserWindowInterface::Type type) {
+  BrowserWindowCreateParams create_params = BrowserWindowCreateParams(
+      type, *GetProfile(), /*from_user_gesture=*/false);
+  if (type == BrowserWindowInterface::Type::TYPE_APP) {
+    // Apps must have an app name.
+    create_params.app_name = "app_name";
+  }
+  base::test::TestFuture<BrowserWindowInterface*> future;
+  CreateBrowserWindow(std::move(create_params), future.GetCallback());
+  return future.Get();
 }
 
 BrowserWindowInterface* ExtensionBrowserTest::CreateIncognitoBrowserWindow() {

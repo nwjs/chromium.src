@@ -135,8 +135,12 @@ bool StandardManagementPolicyProvider::UserMayLoad(
     case Manifest::TYPE_LOGIN_SCREEN_EXTENSION:
     case Manifest::TYPE_CHROMEOS_SYSTEM_EXTENSION: {
       if (!settings_->IsAllowedManifestType(extension->GetType(),
-                                            extension->id()))
-        return ReturnLoadError(extension, error);
+                                            extension->id())) {
+        if (error) {
+          *error = GetLoadErrorMessage(extension);
+        }
+        return false;
+      }
       break;
     }
     case Manifest::NUM_LOAD_TYPES:
@@ -147,7 +151,10 @@ bool StandardManagementPolicyProvider::UserMayLoad(
       settings_->GetInstallationMode(extension);
   if (installation_mode == ManagedInstallationMode::kBlocked ||
       installation_mode == ManagedInstallationMode::kRemoved) {
-    return ReturnLoadError(extension, error);
+    if (error) {
+      *error = GetLoadErrorMessage(extension);
+    }
+    return false;
   }
 
   if (!settings_->IsAllowedManifestVersion(extension)) {
@@ -162,16 +169,20 @@ bool StandardManagementPolicyProvider::UserMayLoad(
   return true;
 }
 
-bool StandardManagementPolicyProvider::UserMayInstall(
-    const Extension* extension,
-    std::u16string* error) const {
+void StandardManagementPolicyProvider::UserMayInstall(
+    scoped_refptr<const Extension> extension,
+    base::OnceCallback<void(ManagementPolicy::Decision)> callback) const {
+  std::u16string error;
+
   ManagedInstallationMode installation_mode =
-      settings_->GetInstallationMode(extension);
+      settings_->GetInstallationMode(extension.get());
 
   // Force-installed extensions cannot be overwritten manually.
   if (!Manifest::IsPolicyLocation(extension->location()) &&
       installation_mode == ManagedInstallationMode::kForced) {
-    return ReturnLoadError(extension, error);
+    error = GetLoadErrorMessage(extension.get());
+    std::move(callback).Run({false, error});
+    return;
   }
 
   // Check if the extension would be force-disabled once it's installed. If it
@@ -179,12 +190,14 @@ bool StandardManagementPolicyProvider::UserMayInstall(
   auto* mv2_experiment_manager = ManifestV2ExperimentManager::Get(profile_);
   if (mv2_experiment_manager &&
       mv2_experiment_manager->ShouldBlockExtensionEnable(*extension)) {
-    *error =
+    error =
         l10n_util::GetStringUTF16(IDS_EXTENSIONS_CANT_INSTALL_MV2_EXTENSION);
-    return false;
+    std::move(callback).Run({false, error});
+    return;
   }
 
-  return UserMayLoad(extension, error);
+  bool may_load = UserMayLoad(extension.get(), &error);
+  std::move(callback).Run({may_load, error});
 }
 
 bool StandardManagementPolicyProvider::UserMayModifySettings(
@@ -285,17 +298,12 @@ bool StandardManagementPolicyProvider::ShouldForceUninstall(
   return false;
 }
 
-bool StandardManagementPolicyProvider::ReturnLoadError(
-    const extensions::Extension* extension,
-    std::u16string* error) const {
-  if (error) {
-    *error = l10n_util::GetStringFUTF16(
-        IDS_EXTENSION_CANT_INSTALL_POLICY_BLOCKED,
-        base::UTF8ToUTF16(extension->name()),
-        base::UTF8ToUTF16(extension->id()),
-        base::UTF8ToUTF16(settings_->BlockedInstallMessage(extension->id())));
-  }
-  return false;
+std::u16string StandardManagementPolicyProvider::GetLoadErrorMessage(
+    const extensions::Extension* extension) const {
+  return l10n_util::GetStringFUTF16(
+      IDS_EXTENSION_CANT_INSTALL_POLICY_BLOCKED,
+      base::UTF8ToUTF16(extension->name()), base::UTF8ToUTF16(extension->id()),
+      base::UTF8ToUTF16(settings_->BlockedInstallMessage(extension->id())));
 }
 
 }  // namespace extensions

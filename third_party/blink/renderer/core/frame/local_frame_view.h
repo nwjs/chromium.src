@@ -299,7 +299,7 @@ class CORE_EXPORT LocalFrameView final
    public:
     LocalFrameView* view_ = nullptr;
     bool is_fixed_to_frame_size_ = false;
-    int height_ = 0;
+    gfx::Size saved_layout_size_;
   };
 
   std::optional<NaturalSizingInfo> GetNaturalDimensions() const override;
@@ -1060,6 +1060,11 @@ class CORE_EXPORT LocalFrameView final
   void ForAllNonThrottledLocalFrameViews(
       base::FunctionRef<void(LocalFrameView&)>,
       TraversalOrder = kPreOrder);
+  // Same as above, but the callback returns a boolean. If the callback returns
+  // false, the iteration will not continue into the subtree of the current
+  // frame. This only supports PreOrder traversal.
+  void ForAllNonThrottledLocalFrameViews(
+      base::FunctionRef<bool(LocalFrameView&)>);
   void ForAllThrottledLocalFrameViews(base::FunctionRef<void(LocalFrameView&)>);
 
   void ForAllRemoteFrameViews(base::FunctionRef<void(RemoteFrameView&)>);
@@ -1177,7 +1182,7 @@ class CORE_EXPORT LocalFrameView final
 
   Member<PaginationState> pagination_state_;
   gfx::Size layout_size_;
-  std::optional<int> layout_height_for_natural_size_;
+  std::optional<gfx::Size> layout_size_for_natural_size_;
   bool layout_size_fixed_to_frame_size_;
 
   bool needs_update_geometries_;
@@ -1193,7 +1198,7 @@ class CORE_EXPORT LocalFrameView final
   // TODO(bokan): This is unneeded when root-layer-scrolls is turned on.
   // crbug.com/417782.
   gfx::Size layout_overflow_size_;
-  std::optional<float> natural_height_;
+  std::optional<gfx::Size> natural_size_;
 
   bool root_layer_did_scroll_;
 

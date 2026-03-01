@@ -110,6 +110,7 @@
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/policy/core/browser/policy_data_utils.h"
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sampling_profiler/process_type.h"
 #include "components/sampling_profiler/thread_profiler.h"
@@ -135,6 +136,7 @@
 #include "net/base/net_module.h"
 #include "pdf/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
@@ -185,7 +187,6 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
-#include "base/process/process.h"
 #include "base/task/task_traits.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/hardware_data_usage_controller.h"
@@ -421,7 +422,7 @@ StartupProfileInfo CreateInitialProfile(
     // profile. Don't clear it if the user launched a web app, in order to not
     // break any subsequent multi-profile session restore.
     g_browser_process->local_state()->SetList(prefs::kProfilesLastActive,
-                                              base::Value::List());
+                                              base::ListValue());
   }
 
   StartupProfileInfo profile_info;
@@ -1254,7 +1255,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
      BUILDFLAG(IS_ANDROID))
   // Create directory for user-level Native Messaging manifest files. This
   // makes it less likely that the directory will be created by third-party
-  // software with incorrect owner or permission. See crbug.com/725513 .
+  // software with incorrect owner or permission. See crbug.com/41321051 .
   base::FilePath user_native_messaging_dir;
   CHECK(base::PathService::Get(chrome::DIR_USER_NATIVE_MESSAGING,
                                &user_native_messaging_dir));
@@ -1323,6 +1324,17 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 
   if (local_state->GetBoolean(prefs::kEnableUnsafeSwiftShader)) {
     command_line->AppendSwitch(switches::kEnableUnsafeSwiftShader);
+  }
+
+  // Add Local Network Access switches as dictated by policy.
+  // We need to set the switch for LNA permissions policy here since it can be
+  // referenced in any process. The ChromeContentBrowserClient will take care
+  // of child processes.
+  if (local_state->GetBoolean(
+          policy::policy_prefs::
+              kLocalNetworkAccessPermissionsPolicyDefaultEnabled)) {
+    command_line->AppendSwitch(
+        network::switches::kLocalNetworkAccessPermissionsPolicyDefaultEnabled);
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1656,6 +1668,16 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   InitializeWinParentalControls();
 #endif
 
+  // Should be done before starting metrics recording.
+#if BUILDFLAG(IS_LINUX)
+  // On Linux, the EULA dialog requires Views, so it is shown here rather than
+  // when applying the first-run prefs.
+  if (first_run::IsChromeFirstRun() && master_prefs_->eula_required &&
+      !headless::IsHeadlessMode() && !first_run::ShowEulaDialog()) {
+    return CHROME_RESULT_CODE_EULA_REFUSED;
+  }
+#endif
+
   // Now that the file thread has been started, start metrics.
   StartMetricsRecording();
 
@@ -1796,6 +1818,13 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // TODO(rlp): Do this on a separate thread. See http://crbug.com/99075.
   browser_process_->profile_manager()->AutoloadProfiles();
 #endif
+
+  // The initial profile load is complete. From this point, profiles are
+  // intended to be loaded asynchronously. Ideally, profiles should be loaded
+  // asynchronously even before this call, but this would require significant
+  // changes because there is no main loop yet.
+  browser_process_->profile_manager()->UnblockAsyncLoading();
+
   // Post-profile init ---------------------------------------------------------
 
 #if 0
@@ -2066,16 +2095,6 @@ void ChromeBrowserMainParts::OnFirstIdle() {
 #if BUILDFLAG(IS_ANDROID)
   sharing::ShareHistory::CreateForProfile(
       ProfileManager::GetPrimaryUserProfile());
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // If OneGroupPerRenderer feature is enabled, post a task to clean any left
-  // over cgroups due to any unclean exits.
-  if (base::FeatureList::IsEnabled(base::kOneGroupPerRenderer)) {
-    base::ThreadPool::PostTask(
-        FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-        base::BindOnce(&base::Process::CleanUpStaleProcessStates));
-  }
 #endif
 }
 

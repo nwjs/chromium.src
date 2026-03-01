@@ -35,6 +35,7 @@ public final class SearchIndexProviderRegistry {
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.chrome.browser.contextualsearch.ContextualSearchSettingsFragment
                             .SEARCH_INDEX_DATA_PROVIDER,
+                    org.chromium.chrome.browser.glic.GlicSettings.SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.chrome.browser.privacy.settings.DoNotTrackSettings
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.chrome.browser.homepage.settings.HomepageSettings
@@ -73,7 +74,7 @@ public final class SearchIndexProviderRegistry {
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.components.page_info.PageInfoCookiesSettings
                             .SEARCH_INDEX_DATA_PROVIDER,
-                    org.chromium.components.browser_ui.site_settings.RwsCookieSettings
+                    org.chromium.components.browser_ui.site_settings.CookieSettings
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.components.browser_ui.site_settings.SingleCategorySettings
                             .SEARCH_INDEX_DATA_PROVIDER,
@@ -128,6 +129,8 @@ public final class SearchIndexProviderRegistry {
                     org.chromium.chrome.browser.tasks.tab_management.TabsSettings
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.chrome.browser.sync.settings.ManageSyncSettings
+                            .SEARCH_INDEX_DATA_PROVIDER,
+                    org.chromium.chrome.browser.sync.settings.SignInPreference
                             .SEARCH_INDEX_DATA_PROVIDER,
                     org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment
                             .SEARCH_INDEX_DATA_PROVIDER,

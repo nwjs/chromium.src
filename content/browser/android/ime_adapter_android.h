@@ -55,7 +55,7 @@ class CONTENT_EXPORT ImeAdapterAndroid : public RenderWidgetHostConnector {
                     const base::android::JavaRef<jobject>& original_key_event,
                     int type,
                     int modifiers,
-                    jlong time_ms,
+                    int64_t time_ms,
                     int key_code,
                     int scan_code,
                     bool is_system_key,
@@ -85,7 +85,7 @@ class CONTENT_EXPORT ImeAdapterAndroid : public RenderWidgetHostConnector {
   void RequestCursorUpdate(JNIEnv*, bool immediateRequest, bool monitorRequest);
   bool RequestTextInputStateUpdate(JNIEnv*);
   void HandleStylusWritingGestureAction(JNIEnv*,
-                                        const jint,
+                                        const int32_t,
                                         const base::android::JavaRef<jobject>&);
 
   void OnStylusWritingGestureActionCompleted(
@@ -127,12 +127,16 @@ class CONTENT_EXPORT ImeAdapterAndroid : public RenderWidgetHostConnector {
   void UpdateState(const ui::mojom::TextInputState& state);
   void UpdateOnTouchDown();
 
-  void AdvanceFocusForIME(JNIEnv*, jint);
+  void AdvanceFocusForIME(JNIEnv*, int32_t);
 
   base::android::ScopedJavaLocalRef<jobjectArray> GetSupportedMimeTypes(
       JNIEnv*);
 
   void PerformSpellCheck(JNIEnv* env);
+
+  void AppendAutocorrectUnderlineSpan(JNIEnv* env, int32_t start, int32_t end);
+
+  void ClearAllAutocorrectUnderlineSpans(JNIEnv* env);
 
  private:
   RenderWidgetHostImpl* GetFocusedWidget();

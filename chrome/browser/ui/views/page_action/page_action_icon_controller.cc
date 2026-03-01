@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/immediate_crash.h"
@@ -28,7 +27,6 @@
 #include "chrome/browser/ui/views/commerce/discounts_icon_view.h"
 #include "chrome/browser/ui/views/commerce/price_insights_icon_view.h"
 #include "chrome/browser/ui/views/commerce/price_tracking_icon_view.h"
-#include "chrome/browser/ui/views/commerce/product_specifications_icon_view.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/ai_mode_page_action_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
@@ -191,12 +189,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
       case PageActionIconType::kPriceTracking:
         add_page_action_icon(
             type, std::make_unique<PriceTrackingIconView>(
-                      params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-        break;
-      case PageActionIconType::kProductSpecifications:
-        add_page_action_icon(
-            type, std::make_unique<ProductSpecificationsIconView>(
                       params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate, params.browser));
         break;
@@ -372,7 +364,8 @@ void PageActionIconController::OnPageActionIconViewShown(
   }
   std::vector<raw_ptr<PageActionIconView, VectorExperimental>>
       excluded_actions_on_page = page_actions_excluded_from_logging_[url];
-  if (!view->ephemeral() || base::Contains(excluded_actions_on_page, view)) {
+  if (!view->ephemeral() ||
+      std::ranges::contains(excluded_actions_on_page, view)) {
     return;
   }
   RecordOverallMetrics();
@@ -445,7 +438,7 @@ void PageActionIconController::RecordMetricsOnURLChange(GURL url) {
   RecordOverallMetrics();
   for (auto icon_item : page_action_icon_views_) {
     if (!icon_item.second->ephemeral() || !icon_item.second->GetVisible() ||
-        base::Contains(excluded_actions_on_page, icon_item.second)) {
+        std::ranges::contains(excluded_actions_on_page, icon_item.second)) {
       continue;
     }
     RecordIndividualMetrics(icon_item.first, icon_item.second);

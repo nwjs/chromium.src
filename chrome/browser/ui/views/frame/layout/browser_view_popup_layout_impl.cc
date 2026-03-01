@@ -8,6 +8,10 @@
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "ui/views/controls/separator.h"
 
+namespace {
+const int kMenuHeight = 25;
+}
+
 BrowserViewPopupLayoutImpl::BrowserViewPopupLayoutImpl(
     std::unique_ptr<BrowserViewLayoutDelegate> delegate,
     Browser* browser,
@@ -42,12 +46,14 @@ gfx::Size BrowserViewPopupLayoutImpl::GetMinimumSize(
           ? views::Separator::kThickness
           : 0;
 
+  const int menubar_height = views().menu_bar ? kMenuHeight : 0;
+
   constexpr gfx::Size kMinContentsSize(1, 1);
 
   return gfx::Size(std::max({kMinContentsSize.width(), caption_size.width(),
                              toolbar_size.width()}),
                    kMinContentsSize.height() + caption_size.height() +
-                       toolbar_size.height() + separator_height);
+                       toolbar_size.height() + separator_height + menubar_height);
 }
 
 BrowserViewPopupLayoutImpl::ProposedLayout
@@ -77,6 +83,16 @@ BrowserViewPopupLayoutImpl::CalculateProposedLayout(
     // else down.
     params.SetTop(std::max(params.visual_client_area.y(),
                            top_container_layout.bounds.bottom()));
+  }
+
+  if (views().menu_bar) {
+    gfx::Rect menu_bounds(
+        params.visual_client_area.x(),
+        params.visual_client_area.y(),
+        params.visual_client_area.width(),
+        kMenuHeight);
+    params.SetTop(menu_bounds.bottom());
+    layout.AddChild(views().menu_bar, menu_bounds);
   }
 
   // Lay out infobar container if present.

@@ -13,6 +13,7 @@
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/feature_list.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/supports_user_data.h"
 #include "components/feature_engagement/internal/tracker_impl.h"
@@ -87,14 +88,15 @@ class TrackerImplAndroid : public base::SupportsUserData::Data {
   virtual bool HasEverTriggered(JNIEnv* env,
                                 const base::android::JavaRef<jstring>& jfeature,
                                 const bool j_from_window);
-  virtual jint GetTriggerState(JNIEnv* env,
-                               const base::android::JavaRef<jstring>& jfeature);
+  virtual int32_t GetTriggerState(
+      JNIEnv* env,
+      const base::android::JavaRef<jstring>& jfeature);
   virtual void Dismissed(JNIEnv* env,
                          const base::android::JavaRef<jstring>& jfeature);
   virtual void DismissedWithSnooze(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jfeature,
-      const jint snooze_action);
+      const int32_t snooze_action);
   virtual base::android::ScopedJavaLocalRef<jobject> AcquireDisplayLock(
       JNIEnv* env);
   virtual void SetPriorityNotification(
@@ -103,16 +105,14 @@ class TrackerImplAndroid : public base::SupportsUserData::Data {
   virtual base::android::ScopedJavaLocalRef<jstring>
   GetPendingPriorityNotification(JNIEnv* env);
   virtual void RegisterPriorityNotificationHandler(
-      JNIEnv* env,
-      const base::android::JavaRef<jstring>& jfeature,
-      const base::android::JavaRef<jobject>& jcallback);
+      const std::string& feature,
+      base::OnceClosure&& callback);
   virtual void UnregisterPriorityNotificationHandler(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jfeature);
   virtual bool IsInitialized(JNIEnv* env);
   virtual void AddOnInitializedCallback(
-      JNIEnv* env,
-      const base::android::JavaRef<jobject>& j_callback_obj);
+      base::OnceCallback<void(bool)> callback);
 
  private:
   // A map from the feature name to the base::Feature, to ensure that the Java

@@ -1,10 +1,11 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="pt-BR">
+<translation id="1035560095760914532">Mova o Chrome para a parte inferior da tela e agilize seu acesso</translation>
 <translation id="1076643793026027628">O Chrome abre automaticamente os links anônimos do YouTube na navegação anônima.</translation>
 <translation id="1081114897601629648">As senhas a seguir não foram importadas para o Gerenciador de Senhas do Google porque não atendem aos requisitos.</translation>
 <translation id="1086486568852410168">Pesquisar com o Lens</translation>
-<translation id="1088490543924960890">Comece a salvar chaves de acesso com o Gerenciador de senhas do Google</translation>
+<translation id="1088490543924960890">Comece a salvar chaves de acesso com o Gerenciador de Senhas do Google</translation>
 <translation id="1143896152279775643">A senha será salva no Gerenciador de senhas do Google da conta <ph name="EMAIL" />.</translation>
 <translation id="1146503048444965320">Abrir nova guia no Chrome</translation>
 <translation id="1158134713295836892">Gemini no Chrome</translation>
@@ -86,6 +87,8 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="2767464022270041271">Nenhuma senha salva. O Gerenciador de senhas do Google pode verificar suas senhas quando você as salva.</translation>
 <translation id="2788811701191021538">Abre a página de configurações de formas de pagamento do Chrome.</translation>
 <translation id="2876628302275096482">Saiba mais sobre <ph name="BEGIN_LINK" />como o Chrome mantém a privacidade dos seus dados<ph name="END_LINK" /></translation>
+<translation id="288992067439702510">Você atingiu o limite de <ph name="LIMIT" /> favoritos no Google Chrome. Exclua alguns dos favoritos na sua Conta do Google para poder salvar novos. Se você sair agora, os favoritos que não foram salvos serão excluídos.</translation>
+<translation id="2901621928549457170">Abra o Chrome em instantes no seu iPad</translation>
 <translation id="2922914028977213693">Toque aqui para aproveitar o Chrome ao máximo no iPad.</translation>
 <translation id="292371311537977079">Configurações do Chrome</translation>
 <translation id="2923827943290349720">Bloquear guias anônimas ao fechar o Chrome</translation>
@@ -170,6 +173,8 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="5119391094379141756">Selecione o Chrome</translation>
 <translation id="5123188916260706415">Pesquisar com a voz no Chrome</translation>
 <translation id="5162467219239570114">O Chrome está desatualizado. Se nenhuma atualização está disponível na <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, é possível que seu dispositivo não seja mais compatível com novas versões do Chrome.</translation>
+<translation id="5172049865623113551">Abra o Chrome em instantes no seu iPhone</translation>
+<translation id="5179095426828744632">Acesse o Chrome com mais rapidez pelo Dock</translation>
 <translation id="5184329579814168207">Abrir no Google Chrome</translation>
 <translation id="5190139289262548459">Sua organização, <ph name="DOMAIN" />, gerencia a conta em que você fez login e a forma como o Chrome é usado.</translation>
 <translation id="5209238444239954363">Não foi possível verificar se há atualizações. Tente novamente mais tarde.</translation>
@@ -275,13 +280,13 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="7284245284340063465">Se você esquecer a senha longa ou quiser mudar essa configuração, <ph name="BEGIN_LINK" />exclua os dados do Chrome na sua conta<ph name="END_LINK" />.</translation>
 <translation id="7296102444587051536">Chrome para iOS</translation>
 <translation id="7299681342915173313">Agora você pode usar o Chrome sempre que toca em links em e-mails, documentos e outros apps</translation>
-<translation id="7334364820047587268">Você já tem senhas dessas contas no Gerenciador de Senhas do Google. Se decidir importar uma das senhas abaixo, ela vai substituir a atual.</translation>
+<translation id="7334364820047587268">Você já tem senhas destas contas no Gerenciador de Senhas do Google. Se decidir importar uma das senhas abaixo, ela vai substituir a atual.</translation>
 <translation id="7344094882820374540">Aproveite a segurança mais avançada do Chrome em sites perigosos</translation>
 <translation id="7349129508108954623">Permita que o Chrome use o Google Maps para fornecer rotas e informações locais sobre os endereços detectados.</translation>
 <translation id="7371674917547846460">Receba dicas úteis sobre o Chrome e muito mais.</translation>
 <translation id="7394108421562933108">Maps no Chrome</translation>
 <translation id="7400722733683201933">Sobre o Google Chrome</translation>
-<translation id="7444830584401232881">A chave de acesso será salva no Gerenciador de senhas do Google da conta <ph name="USER_EMAIL" /></translation>
+<translation id="7444830584401232881">A chave de acesso será salva no Gerenciador de Senhas do Google da conta <ph name="USER_EMAIL" /></translation>
 <translation id="7466693328838535498">Na caixa "Widgets da Pesquisa", digite "Chrome".</translation>
 <translation id="7477056987201678345">Excluindo dados do Chrome…</translation>
 <translation id="7492574581995589075">Sua organização desativou a capacidade de usar e salvar dados do Chrome na Conta do Google. Novos favoritos, senhas e outros itens serão salvos apenas neste dispositivo.</translation>
@@ -304,7 +309,6 @@ Para conferir mais configurações que usam dados para melhorar sua experiência
 <translation id="7787205077729386167">Abra as configurações do Chrome no iOS, toque em "App de navegador padrão" e selecione o Chrome.</translation>
 <translation id="778855399387580014">Inicie uma pesquisa em uma nova guia do Chrome.</translation>
 <translation id="7792140019572081272">O Chrome protege seus dados sensíveis com o Face ID.</translation>
-<translation id="7825648984449922731">Edite imagens com o Gemini no Chrome</translation>
 <translation id="7855730255114109580">O Google Chrome está atualizado</translation>
 <translation id="787226752901403048">Faça login no Chrome para compartilhar e participar de grupos de guias e trabalhar em conjunto</translation>
 <translation id="7897703007638178753">Conferir guias recentes do Chrome</translation>
@@ -369,6 +373,6 @@ Seus dados foram criptografados com a senha longa em <ph name="TIME" />. Digite-
 <translation id="948597495737267756">Abre a página de histórico do Chrome.</translation>
 <translation id="954347330803595209">Importe seus dados para usar senhas, histórico, favoritos e cartões de crédito no Chrome</translation>
 <translation id="97300214378190234">Use o Chrome sempre que abrir links em outros apps.</translation>
-<translation id="997929539742564806">Preencha automaticamente suas senhas e chaves de acesso do Chrome para fazer login em apps e sites com rapidez</translation>
+<translation id="997929539742564806">Preencha automaticamente suas senhas e chaves de acesso do Chrome para fazer login em apps e sites com rapidez.</translation>
 <translation id="998677222109959694">Gerenciar as configurações do Chrome</translation>
 </translationbundle>

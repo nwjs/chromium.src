@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/containers/fixed_flat_set.h"
 #include "base/containers/to_vector.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -59,6 +60,7 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_id.h"
+#include "ui/gfx/image/image_skia_operations.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/resources/grit/ui_resources.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -98,8 +100,27 @@ size_t SubmenuIndexOf(const MenuItemView* parent, const views::View* child) {
 ui::ImageModel GetFaviconForNode(BookmarkModel* model,
                                  const BookmarkNode* node) {
   const gfx::Image& image = model->GetFavicon(node);
-  return image.IsEmpty() ? favicon::GetDefaultFaviconModel()
-                         : ui::ImageModel::FromImage(image);
+  if (image.IsEmpty()) {
+    return favicon::GetDefaultFaviconModel();
+  }
+
+  // Only URL nodes reach here. Folders would have returned empty above.
+  DCHECK(node->is_url());
+  if (favicon::ShouldThemifyFavicon(node->url())) {
+    gfx::ImageSkia favicon_skia = *image.ToImageSkia();
+    return ui::ImageModel::FromImageGenerator(
+        base::BindRepeating(
+            [](const gfx::ImageSkia& favicon,
+               const ui::ColorProvider* provider) {
+              SkColor favicon_color = provider->GetColor(ui::kColorMenuIcon);
+              return gfx::ImageSkiaOperations::CreateColorMask(favicon,
+                                                               favicon_color);
+            },
+            favicon_skia),
+        image.Size());
+  }
+
+  return ui::ImageModel::FromImage(image);
 }
 
 // The current behavior is that the menu gets closed (see MenuController) after
@@ -190,10 +211,10 @@ class BookmarkModelDropObserver : public BookmarkMergedSurfaceServiceObserver {
 };
 
 int IsInvalidDragOrDropCommand(int command_id) {
-  std::unordered_set<int> invalid_command_ids = {
-      IDC_SHOW_BOOKMARK_SIDE_PANEL, IDC_BOOKMARK_BAR_OPEN_ALL,
-      IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP};
-  return invalid_command_ids.contains(command_id);
+  static constexpr auto kInvalidCommandIds = base::MakeFixedFlatSet<int>(
+      {IDC_SHOW_BOOKMARK_SIDE_PANEL, IDC_BOOKMARK_BAR_OPEN_ALL,
+       IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP});
+  return kInvalidCommandIds.contains(command_id);
 }
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOpenAllCommandSeperator);
@@ -885,6 +906,21 @@ void BookmarkMenuDelegate::DidRemoveBookmarks() {
 
   std::vector<raw_ref<MenuItemView>> updated_menus =
       GetAndUpdateStaleMenuArtifacts();
+
+  // Update "open all" commands. Only the root menu (menu_) can have these
+  // commands since they're only added to direct children of the bookmark bar.
+  if (menu_ &&
+      base::FeatureList::IsEnabled(features::kTabGroupMenuImprovements)) {
+    const auto iter = menu_id_to_node_map_.find(menu_->GetCommand());
+    if (iter != menu_id_to_node_map_.end()) {
+      if (const BookmarkParentFolder* folder =
+              iter->second.GetIfBookmarkFolder()) {
+        UpdateOpenAllCommands(menu_, *folder);
+        updated_menus.emplace_back(*menu_);
+      }
+    }
+  }
+
   for (raw_ref<MenuItemView> updated_menu : updated_menus) {
     updated_menu->ChildrenChanged();
   }

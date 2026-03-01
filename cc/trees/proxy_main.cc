@@ -795,6 +795,12 @@ void ProxyMain::SetShouldThrottleFrameRate(bool flag) {
                                 base::Unretained(proxy_impl_.get()), flag));
 }
 
+void ProxyMain::SetRequestHighFramerate(bool flag) {
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&ProxyImpl::SetRequestHighFramerate,
+                                base::Unretained(proxy_impl_.get()), flag));
+}
+
 bool ProxyMain::IsDeferringCommits() const {
   DCHECK(IsMainThread());
   return paint_holding_reason_.has_value();
@@ -802,10 +808,8 @@ bool ProxyMain::IsDeferringCommits() const {
 
 bool ProxyMain::CommitRequested() const {
   DCHECK(IsMainThread());
-  // TODO(skyostil): Split this into something like CommitRequested() and
-  // CommitInProgress().
   return current_pipeline_stage_ != NO_PIPELINE_STAGE ||
-         max_requested_pipeline_stage_ >= COMMIT_PIPELINE_STAGE;
+         max_requested_pipeline_stage_ == COMMIT_PIPELINE_STAGE;
 }
 
 void ProxyMain::Start() {

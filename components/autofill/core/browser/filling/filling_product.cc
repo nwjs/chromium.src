@@ -111,6 +111,8 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
       return FillingProduct::kNone;
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kManageAutofillAi:
+    case SuggestionType::kManageAutofillAiIdentityDocs:
+    case SuggestionType::kManageAutofillAiTravel:
       return FillingProduct::kAutofillAi;
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kLoyaltyCardEntry:
@@ -128,11 +130,11 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-static jint JNI_FillingProductBridge_GetFillingProductFromSuggestionType(
+static int32_t JNI_FillingProductBridge_GetFillingProductFromSuggestionType(
     JNIEnv* env,
-    jint type) {
+    int32_t type) {
   SuggestionType suggestion_type = static_cast<SuggestionType>(type);
-  return static_cast<jint>(
+  return static_cast<int32_t>(
       GetFillingProductFromSuggestionType(suggestion_type));
 }
 #endif  // BUILDFLAG(IS_ANDROID)

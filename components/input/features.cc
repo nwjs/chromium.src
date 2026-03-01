@@ -24,18 +24,13 @@ const base::FeatureParam<bool> kTransferSequencesWithAbnormalDownTime{
 const base::FeatureParam<bool> kForwardEventsSeenOnBrowserToViz{
     &features::kInputOnViz,
     /*name=*/"forward_events_seen_on_browser_to_viz", false};
+
+BASE_FEATURE(kInputVizardSpeculativeTransfer,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kDispatchSingleEventIfNoPrediction,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLogBubblingTouchscreenGesturesForDebug,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
 
 // Flag guard for fix for crbug.com/346629231.
 BASE_FEATURE(kIgnoreBubblingCollisionIfSourceDevicesMismatch,

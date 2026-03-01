@@ -1410,7 +1410,6 @@
 <translation id="7177485034254901881">此 <ph name="DEVICE_TYPE" /> 由 <ph name="MANAGER" /> 管理。管理员可能会远程配置此设备。</translation>
 <translation id="7180611975245234373">刷新</translation>
 <translation id="7180865173735832675">自定义</translation>
-<translation id="7182063559013288142">智能热点</translation>
 <translation id="7184043045742675738">点击任意键自定义您的按钮。使用鼠标或箭头键调整键的位置。</translation>
 <translation id="7187669805838282391">在周三</translation>
 <translation id="7205318498545665455">选择麦克风</translation>
@@ -1545,7 +1544,7 @@
 <translation id="779591286616261875">发送新报告</translation>
 <translation id="7799817062559422778">浅色模式</translation>
 <translation id="7802764839223122985">缺少按键。<ph name="REASSIGN_INSTRUCTION" /></translation>
-<translation id="780301667611848630">不用了，谢谢</translation>
+<translation id="780301667611848630">不用了</translation>
 <translation id="7805768142964895445">状态</translation>
 <translation id="7811024689617730980">选择自动重置日期，范围为 1（含）到 31 日（含）</translation>
 <translation id="7813073042185856802">山</translation>

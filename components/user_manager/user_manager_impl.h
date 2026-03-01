@@ -233,7 +233,6 @@ class USER_MANAGER_EXPORT UserManagerImpl : public UserManager {
   void NotifyUserProfileImageUpdated(
       const User& user,
       const gfx::ImageSkia& profile_image) override;
-  void NotifyUsersSignInConstraintsChanged() override;
   void NotifyUserAffiliationUpdated(const User& user) override;
   void NotifyUserToBeRemoved(const AccountId& account_id) override;
   void NotifyUserRemoved(const AccountId& account_id,
@@ -259,7 +258,7 @@ class USER_MANAGER_EXPORT UserManagerImpl : public UserManager {
   // Helper function that converts users from |users_list| to |users_vector| and
   // |users_set|. Duplicates and users already present in |existing_users| are
   // skipped.
-  void ParseUserList(const base::Value::List& users_list,
+  void ParseUserList(const base::ListValue& users_list,
                      const std::set<AccountId>& existing_users,
                      std::vector<AccountId>* users_vector,
                      std::set<AccountId>* users_set);

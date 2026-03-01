@@ -8,8 +8,10 @@ import type {EditPasswordDialogElement, PasswordDetailsCardElement} from 'chrome
 import {Page, PasswordManagerImpl, PasswordViewPageInteractions, Router, SyncBrowserProxyImpl} from 'chrome://password-manager/password_manager.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
+import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
-import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isChildVisible, isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
@@ -34,13 +36,17 @@ async function createCardElement(
 suite('PasswordDetailsCardTest', function() {
   let passwordManager: TestPasswordManagerProxy;
   let syncProxy: TestSyncBrowserProxy;
+  let metrics: MetricsTracker;
 
   setup(function() {
+    loadTimeData.overrideValues({'passwordUploadUiUpdate': true});
+
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     passwordManager = new TestPasswordManagerProxy();
     PasswordManagerImpl.setInstance(passwordManager);
     syncProxy = new TestSyncBrowserProxy();
     SyncBrowserProxyImpl.setInstance(syncProxy);
+    metrics = fakeMetricsPrivate();
     Router.getInstance().navigateTo(Page.PASSWORDS);
     return flushTasks();
   });
@@ -128,6 +134,8 @@ suite('PasswordDetailsCardTest', function() {
   });
 
   test('show/hide password', async function() {
+    const refresh_suffix =
+        loadTimeData.getBoolean('passwordUploadUiUpdate') ? '-refresh' : '';
     const password = createPasswordEntry(
         {id: 1, url: 'test.com', username: 'vik', password: 'password69'});
 
@@ -139,7 +147,8 @@ suite('PasswordDetailsCardTest', function() {
     assertEquals('password', card.$.passwordValue.type);
     assertTrue(card.$.showPasswordButton.hasAttribute('class'));
     assertEquals(
-        'icon-visibility', card.$.showPasswordButton.getAttribute('class'));
+        'icon-visibility' + refresh_suffix,
+        card.$.showPasswordButton.getAttribute('class'));
 
     card.$.showPasswordButton.click();
     assertEquals(
@@ -152,7 +161,8 @@ suite('PasswordDetailsCardTest', function() {
     assertEquals('text', card.$.passwordValue.type);
     assertTrue(card.$.showPasswordButton.hasAttribute('class'));
     assertEquals(
-        'icon-visibility-off', card.$.showPasswordButton.getAttribute('class'));
+        'icon-visibility-off' + refresh_suffix,
+        card.$.showPasswordButton.getAttribute('class'));
   });
 
   test('clicking edit button opens an edit dialog', async function() {
@@ -376,7 +386,7 @@ suite('PasswordDetailsCardTest', function() {
       isSyncingPasswords: false,
     };
 
-    passwordManager.data.isAccountStorageEnabled = true;
+    passwordManager.data.isAccountStorageActive = true;
 
     const card = await createCardElement();
 
@@ -434,33 +444,6 @@ suite('PasswordDetailsCardTest', function() {
   });
   // </if>
 
-  test(
-      'clicking save password in account opens move password dialog',
-      async function() {
-        passwordManager.data.isAccountStorageEnabled = true;
-        syncProxy.syncInfo = {
-          isSyncingPasswords: false,
-        };
-
-        const card = await createCardElement();
-        card.isUsingAccountStore = true;
-        await flushTasks();
-
-        const movePasswordLabel = card.shadowRoot!.querySelector<HTMLElement>(
-            '.move-password-container div');
-        assertTrue(!!movePasswordLabel);
-        assertTrue(isVisible(movePasswordLabel));
-
-        movePasswordLabel.click();
-        await flushTasks();
-
-        const moveDialog =
-            card.shadowRoot!.querySelector('move-single-password-dialog');
-        assertTrue(!!moveDialog);
-        const dialog = moveDialog.shadowRoot!.querySelector('#dialog');
-        assertTrue(!!dialog);
-      });
-
   test('Password value is hidden if object was changed', async function() {
     const password1 = createPasswordEntry(
         {id: 1, url: 'test.com', username: 'vik', password: 'password69'});
@@ -476,4 +459,106 @@ suite('PasswordDetailsCardTest', function() {
     card.password = password2;
     assertFalse(card.isPasswordVisible);
   });
+
+  test('Move password container content displayed properly', async function() {
+    const card = await createCardElement();
+    card.isUsingAccountStore = true;
+    await flushTasks();
+
+    assertTrue(isChildVisible(card, '.move-password-container'));
+    assertTrue(isChildVisible(card, '#uploadSinglePasswordLarge'));
+    assertTrue(isChildVisible(card, '#uploadPasswordButton'));
+
+    assertFalse(isChildVisible(card, '#uploadSinglePasswordSmall'));
+    assertFalse(isChildVisible(card, '#movePasswordLink'));
+  });
+
+  test(
+      'clicking save password in account moves password directly',
+      async function() {
+        passwordManager.data.isAccountStorageActive = true;
+        syncProxy.syncInfo = {
+          isSyncingPasswords: false,
+        };
+
+        const card = await createCardElement();
+        card.isUsingAccountStore = true;
+        await flushTasks();
+
+        const movePasswordButton = card.shadowRoot!.querySelector<HTMLElement>(
+            '#uploadPasswordButton');
+        assertTrue(!!movePasswordButton);
+        movePasswordButton.click();
+        await flushTasks();
+
+        const movedIds =
+            await passwordManager.whenCalled('movePasswordsToAccount');
+        assertEquals(1, movedIds.length);
+
+        assertEquals(
+            1,
+            metrics.count(
+                'PasswordManager.AccountStorage.' +
+                'MoveToAccountStoreFlowAccepted2'));
+      });
+});
+
+suite('PasswordDetailsCardWithoutUploadUiUpdateTest', function() {
+  let passwordManager: TestPasswordManagerProxy;
+  let syncProxy: TestSyncBrowserProxy;
+  let card: PasswordDetailsCardElement;
+  let metrics: MetricsTracker;
+
+  setup(async function() {
+    loadTimeData.overrideValues({'passwordUploadUiUpdate': false});
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    passwordManager = new TestPasswordManagerProxy();
+    PasswordManagerImpl.setInstance(passwordManager);
+    syncProxy = new TestSyncBrowserProxy();
+    SyncBrowserProxyImpl.setInstance(syncProxy);
+    Router.getInstance().navigateTo(Page.PASSWORDS);
+    metrics = fakeMetricsPrivate();
+
+    passwordManager.data.isAccountStorageActive = true;
+    syncProxy.syncInfo = {
+      isSyncingPasswords: false,
+    };
+    card = await createCardElement();
+    card.isUsingAccountStore = true;
+    return flushTasks();
+  });
+
+  test('Move password container content displayed properly', function() {
+    assertTrue(isChildVisible(card, '.move-password-container'));
+    assertTrue(isChildVisible(card, '#uploadSinglePasswordSmall'));
+    assertTrue(isChildVisible(card, '#movePasswordLink'));
+
+    assertFalse(isChildVisible(card, '#uploadSinglePasswordLarge'));
+    assertFalse(isChildVisible(card, '#uploadPasswordButton'));
+  });
+
+  test(
+      'clicking save password in account opens move password dialog',
+      async function() {
+        const movePasswordLabel = card.shadowRoot!.querySelector<HTMLElement>(
+            '.move-password-container div');
+        assertTrue(!!movePasswordLabel);
+        assertTrue(isVisible(movePasswordLabel));
+
+        movePasswordLabel.click();
+        await flushTasks();
+
+        const moveDialog =
+            card.shadowRoot!.querySelector('move-single-password-dialog');
+        assertTrue(!!moveDialog);
+        const dialog = moveDialog.shadowRoot!.querySelector('#dialog');
+        assertTrue(!!dialog);
+
+        assertEquals(
+            1,
+            metrics.count(
+                'PasswordManager.AccountStorage.' +
+                'MoveToAccountStoreFlowOffered'));
+      });
 });

@@ -7,14 +7,12 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
-#include "ui/base/base_window.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 DEFINE_USER_DATA(InitialWebUIManager);
 
 InitialWebUIManager::InitialWebUIManager(BrowserWindowInterface* browser)
-    : window_(browser->GetWindow()),
-      is_initial_web_ui_pending_(features::IsWebUIReloadButtonEnabled()),
+    : is_initial_web_ui_pending_(features::IsWebUIToolbarEnabled()),
       scoped_data_holder_(browser->GetUnownedUserDataHost(), *this) {}
 
 InitialWebUIManager::~InitialWebUIManager() = default;
@@ -24,27 +22,26 @@ InitialWebUIManager* InitialWebUIManager::From(
   return Get(browser_window_interface->GetUnownedUserDataHost());
 }
 
-bool InitialWebUIManager::ShouldDeferShow() {
+bool InitialWebUIManager::RequestDeferShow(base::OnceClosure callback) {
   if (!features::kWebUIReloadButtonDeferBrowserViewShow.Get()) {
     return false;
   }
   if (is_initial_web_ui_pending_) {
     is_show_pending_ = true;
+    web_ui_ready_callback_ = std::move(callback);
     return true;
   }
   return false;
 }
 
-void InitialWebUIManager::OnWebUIToolbarLoaded() {
-  is_initial_web_ui_pending_ = false;
-  MaybeShowBrowserWindow();
+bool InitialWebUIManager::IsShowPending() const {
+  return is_show_pending_;
 }
 
-void InitialWebUIManager::MaybeShowBrowserWindow() {
-  if (is_show_pending_ && !is_initial_web_ui_pending_) {
-    is_show_pending_ = false;
-    if (window_) {
-      window_->Show();
-    }
+void InitialWebUIManager::OnWebUIToolbarLoaded() {
+  is_initial_web_ui_pending_ = false;
+  is_show_pending_ = false;
+  if (web_ui_ready_callback_) {
+    std::move(web_ui_ready_callback_).Run();
   }
 }

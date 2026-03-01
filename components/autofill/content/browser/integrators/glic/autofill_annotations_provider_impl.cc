@@ -219,6 +219,7 @@ AutofillFieldRedactionReason GetRedactionReason(FieldType field_type) {
     case autofill::ADDRESS_HOME_HOUSE_NUMBER_AND_APT:
     case autofill::ADDRESS_HOME_APT:
     case autofill::ADDRESS_HOME_APT_TYPE:
+    case autofill::ADDRESS_HOME_ZIP_AND_CITY:
     case autofill::ADDRESS_HOME_ZIP_PREFIX:
     case autofill::ADDRESS_HOME_ZIP_SUFFIX:
     case autofill::PHONE_HOME_NUMBER:
@@ -303,6 +304,21 @@ AutofillFieldRedactionReason GetRedactionReason(
   return AutofillFieldRedactionReason::kNoRedactionNeeded;
 }
 
+std::string CoarseFieldTypeToString(proto::CoarseAutofillFieldType type) {
+  switch (type) {
+    case proto::COARSE_AUTOFILL_FIELD_TYPE_UNSUPPORTED:
+      return "COARSE_AUTOFILL_FIELD_TYPE_UNSUPPORTED";
+    case proto::COARSE_AUTOFILL_FIELD_TYPE_ADDRESS:
+      return "COARSE_AUTOFILL_FIELD_TYPE_ADDRESS";
+    case proto::COARSE_AUTOFILL_FIELD_TYPE_CREDIT_CARD:
+      return "COARSE_AUTOFILL_FIELD_TYPE_CREDIT_CARD";
+    default:
+      // Covers future extensions to the proto - if you see this logged please
+      // add a case above!
+      return "Unknown CoarseAutofillFieldType value";
+  }
+}
+
 }  // namespace
 
 AutofillAnnotationsProviderImpl::~AutofillAnnotationsProviderImpl() = default;
@@ -319,10 +335,20 @@ AutofillAnnotationsProviderImpl::GetAutofillFieldData(
   const FormStructure* form =
       GetAutofillForm(render_frame_host, field_global_id);
   if (!form) {
+    // This vlog is very spammy, as we are called for every form control that
+    // APC encounters.
+    VLOG(3) << "GetAutofillFieldData - No form found for DOM node "
+            << dom_node_id << " in render frame host for "
+            << render_frame_host.GetLastCommittedOrigin();
     return std::nullopt;
   }
   const AutofillField* field = form->GetFieldById(field_global_id);
   if (!field) {
+    // This vlog is very spammy, as we are called for every form control that
+    // APC encounters.
+    VLOG(3) << "GetAutofillFieldData - No field found for DOM node "
+            << dom_node_id << " in render frame host for "
+            << render_frame_host.GetLastCommittedOrigin();
     return std::nullopt;
   }
 
@@ -333,6 +359,8 @@ AutofillAnnotationsProviderImpl::GetAutofillFieldData(
           form->global_id(), field->section().ToString());
 
   const DenseSet<FormType>& form_types = field->Type().GetFormTypes();
+  const FieldTypeSet& field_types = field->Type().GetTypes();
+
   metadata.coarse_field_type = [&] {
     if (form_types.contains(FormType::kAddressForm)) {
       return proto::COARSE_AUTOFILL_FIELD_TYPE_ADDRESS;
@@ -343,7 +371,14 @@ AutofillAnnotationsProviderImpl::GetAutofillFieldData(
     return proto::COARSE_AUTOFILL_FIELD_TYPE_UNSUPPORTED;
   }();
 
-  metadata.redaction_reason = GetRedactionReason(field->Type().GetTypes());
+  metadata.redaction_reason = GetRedactionReason(field_types);
+
+  VLOG(2) << "GetAutofillFieldData - DOM node " << dom_node_id << " ("
+          << field->name() << ") in " << field->origin()
+          << " has form_types: " << form_types
+          << ", field_types: " << field_types << ", coarse_field_type: "
+          << CoarseFieldTypeToString(metadata.coarse_field_type)
+          << ", redaction_reason: " << metadata.redaction_reason;
 
   return metadata;
 }
@@ -356,22 +391,37 @@ AutofillAvailability AutofillAnnotationsProviderImpl::GetAutofillAvailability(
       ContentAutofillDriver::GetForRenderFrameHost(
           web_contents.GetPrimaryMainFrame());
   if (!autofill_driver) {
+    VLOG(2) << "GetAutofillAvailability - no autofill driver for "
+            << render_frame_host.GetLastCommittedOrigin();
     return {};
   }
 
   AutofillClient& client = autofill_driver->GetAutofillClient();
   if (!client.HasPersonalDataManager()) {
+    VLOG(2) << "GetAutofillAvailability - no personal data manager for "
+            << render_frame_host.GetLastCommittedOrigin();
     return {};
   }
   const PersonalDataManager& pdm = client.GetPersonalDataManager();
 
+  const bool address_autofill_enabled = client.IsAutofillProfileEnabled();
+  const bool has_address_profiles =
+      !pdm.address_data_manager().GetProfiles().empty();
+  const bool payment_autofill_enabled =
+      client.GetPaymentsAutofillClient()->IsAutofillPaymentMethodsEnabled();
+  const bool has_credit_cards =
+      !pdm.payments_data_manager().GetCreditCards().empty();
+
+  VLOG(2) << "GetAutofillAvailability - url: "
+          << render_frame_host.GetLastCommittedOrigin()
+          << ", address_autofill_enabled: " << address_autofill_enabled
+          << ", has_address_profiles: " << has_address_profiles
+          << ", payment_autofill_enabled: " << payment_autofill_enabled
+          << ", has_credit_cards: " << has_credit_cards;
+
   return AutofillAvailability{
-      .has_fillable_address = client.IsAutofillProfileEnabled() &&
-                              !pdm.address_data_manager().GetProfiles().empty(),
-      .has_fillable_credit_card =
-          client.GetPaymentsAutofillClient()
-              ->IsAutofillPaymentMethodsEnabled() &&
-          !pdm.payments_data_manager().GetCreditCards().empty(),
+      .has_fillable_address = address_autofill_enabled && has_address_profiles,
+      .has_fillable_credit_card = payment_autofill_enabled && has_credit_cards,
   };
 }
 

@@ -31,6 +31,9 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
+    // Ensure clean state for prefs.
+    settingsPrefs.set('prefs.autofill.profile_enabled.value', true);
+
     entityDataManager = new TestEntityDataManagerProxy();
     EntityDataManagerProxyImpl.setInstance(entityDataManager);
 
@@ -96,12 +99,16 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
 
   async function createEntriesList(
       eligibleUser: boolean = true,
-      autofillAiIgnoresWhetherAddressFillingIsEnabled: boolean =
+      autofillAiIgnoresWhetherAddressFillingIsEnabled: boolean = false,
+      autofillAiAvailableByDefault: boolean = false,
+      canEnableOrDisableAutofillAi: boolean =
           false): Promise<SettingsAutofillAiEntriesListElement> {
     loadTimeData.overrideValues({
       userEligibleForAutofillAi: eligibleUser,
       AutofillAiIgnoresWhetherAddressFillingIsEnabled:
           autofillAiIgnoresWhetherAddressFillingIsEnabled,
+      autofillAiAvailableByDefault: autofillAiAvailableByDefault,
+      canEnableOrDisableAutofillAi: canEnableOrDisableAutofillAi,
     });
     const entriesList: SettingsAutofillAiEntriesListElement =
         document.createElement('settings-autofill-ai-entries-list');
@@ -140,6 +147,47 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
             isVisible(entriesList.shadowRoot!.querySelector('#entries')));
       }));
 
+  test(
+      'AddButtonEnabledByDefaultWhenAutofillAiIsAvailableByDefault',
+      async function() {
+        const entriesList = await createEntriesList(
+            /*eligibleUser=*/ false,
+            /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+            /*autofillAiAvailableByDefault=*/ true,
+            /*canEnableOrDisableAutofillAi=*/ true);
+
+        // The user is not opted-in to enhanced Autofill (model calls and mqls
+        // logging), yet they can still add entities.
+        updateOptInStatus(false, entriesList);
+        await flushTasks();
+
+        const addButton =
+            entriesList.shadowRoot!.querySelector<CrButtonElement>(
+                '#addEntityInstance');
+        assertTrue(!!addButton);
+        assertEquals(addButton.disabled, false);
+
+        assertTrue(
+            isVisible(entriesList.shadowRoot!.querySelector('#entries')));
+      });
+
+  // canEnableOrDisableAutofillAi can be false in the case where
+  // the extensions API disables the feature. In this scenario even if
+  // autofillAiAvailableByDefault is true the feature will still disabled.
+  test('CannotUseAutofillAiDisablesTheFeature', async function() {
+    const entriesList = await createEntriesList(
+        /*eligibleUser=*/ false,
+        /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+        /*autofillAiAvailableByDefault=*/ true,
+        /*canEnableOrDisableAutofillAi=*/ false);
+    updateOptInStatus(false, entriesList);
+    await flushTasks();
+    const addButton = entriesList.shadowRoot!.querySelector<CrButtonElement>(
+        '#addEntityInstance');
+    assertTrue(!!addButton);
+    assertTrue(addButton.disabled);
+  });
+
   test('DisablingClassicAutofillPrefDisablesTheFeature', async function() {
     const entriesList = await createEntriesList();
     updateOptInStatus(true, entriesList);
@@ -156,6 +204,31 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
     await flushTasks();
     assertTrue(addButton.disabled);
   });
+
+  // TODO(crbug.com/440488776): Rename this test once feature is launched.
+  test(
+      'DisablingClassicAutofillPrefDisablesTheFeatureEvenWhenAvailableByDefault',
+      async function() {
+        const entriesList = await createEntriesList(
+            /*eligibleUser=*/ false,
+            /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+            /*autofillAiAvailableByDefault=*/ true,
+            /*canEnableOrDisableAutofillAi=*/ true);
+        await flushTasks();
+
+        const addButton =
+            entriesList.shadowRoot!.querySelector<CrButtonElement>(
+                '#addEntityInstance');
+        assertTrue(!!addButton);
+        assertFalse(addButton.disabled);
+
+        // Check that when the autofill pref is off, the add button becomes
+        // disabled, which essentially means the feature is off.
+        entriesList.setPrefValue('autofill.profile_enabled', false);
+        await flushTasks();
+
+        assertTrue(addButton.disabled);
+      });
 
   test(
       'DisablingClassicAutofillPrefDoesNotDisabledTheFeatureIfOverrideBehaviourIsEnabled',
@@ -226,7 +299,9 @@ suite('AutofillAiEntriesListUiTest', function() {
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    loadTimeData.overrideValues({userEligibleForAutofillAi: true});
+    loadTimeData.overrideValues({
+      userEligibleForAutofillAi: true,
+    });
 
     entityDataManager = new TestEntityDataManagerProxy();
     EntityDataManagerProxyImpl.setInstance(entityDataManager);
@@ -260,6 +335,7 @@ suite('AutofillAiEntriesListUiTest', function() {
       ],
       guid: 'd70b5bb7-49a6-4276-b4b7-b014dacdc9e6',
       nickname: 'My license',
+      shouldAuthenticateToView: false,
     };
     // Initially not sorted. The production code should sort them
     // alphabetically and put entities with Wallet storage last.
@@ -329,6 +405,12 @@ suite('AutofillAiEntriesListUiTest', function() {
     settingsPrefs.set(
         `prefs.${AiEnterpriseFeaturePrefName.AUTOFILL_AI}.value`,
         ModelExecutionEnterprisePolicyValue.ALLOW);
+    settingsPrefs.set(
+        'prefs.autofill.autofill_ai.reauth_before_viewing_sensitive_data', {
+          key: 'autofill.autofill_ai.reauth_before_viewing_sensitive_data',
+          type: chrome.settingsPrivate.PrefType.BOOLEAN,
+          value: false,
+        });
   });
 
   teardown(function() {
@@ -371,18 +453,17 @@ suite('AutofillAiEntriesListUiTest', function() {
         continue;
       }
 
-      const iconButton = item.querySelector('cr-icon-button')!;
+      const iconButton = item.querySelector<HTMLElement>('cr-icon-button')!;
       // Only the Vehicle entity (Toyota) is stored in Wallet.
       if (!item.textContent.includes('Toyota')) {
         const labels = item.querySelectorAll<HTMLElement>('.ellipses');
-        assertTrue(
-            iconButton.getAttribute('title')!.includes(loadTimeData.getStringF(
-                'autofillAiMoreActionsForEntityInstance', labels[0]!.innerText,
-                labels[1]!.innerText)));
+        assertTrue(iconButton.title.includes(loadTimeData.getStringF(
+            'autofillAiMoreActionsForEntityInstance', labels[0]!.innerText,
+            labels[1]!.innerText)));
       } else {
         assertEquals(
             loadTimeData.getString('remoteWalletPassesLinkLabel'),
-            iconButton.getAttribute('title'));
+            iconButton.title);
       }
     }
   });

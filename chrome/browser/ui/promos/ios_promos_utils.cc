@@ -64,7 +64,7 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
   switch (promo_type) {
     case PromoType::kPassword:
       IOSPromoBubble::ShowPromoBubble(
-          {toolbar_button_provider->GetAnchorView(
+          {toolbar_button_provider->GetBubbleAnchor(
               kActionShowPasswordsBubbleOrPage)},
           toolbar_button_provider->GetPageActionView(
               kActionShowPasswordsBubbleOrPage),
@@ -72,7 +72,7 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
       break;
     case PromoType::kAddress: {
       IOSPromoBubble::ShowPromoBubble(
-          {toolbar_button_provider->GetAnchorView(
+          {toolbar_button_provider->GetBubbleAnchor(
               kActionShowAddressesBubbleOrPage)},
           toolbar_button_provider->GetPageActionView(
               kActionShowAddressesBubbleOrPage),
@@ -90,7 +90,7 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
       }
       CHECK(icon_view);
 
-      IOSPromoBubble::ShowPromoBubble({toolbar_button_provider->GetAnchorView(
+      IOSPromoBubble::ShowPromoBubble({toolbar_button_provider->GetBubbleAnchor(
                                           kActionShowPaymentsBubbleOrPage)},
                                       icon_view, profile, PromoType::kPayment,
                                       bubble_type);
@@ -109,11 +109,25 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
                            ? views::BubbleBorder::LEFT_CENTER
                            : views::BubbleBorder::RIGHT_CENTER;
       } else {
-        anchor.view = browser_view->toolbar()->app_menu_button();
+        anchor.anchor_base = browser_view->toolbar()->app_menu_button();
       }
       IOSPromoBubble::ShowPromoBubble(anchor,
                                       /*highlighted_button=*/nullptr, profile,
                                       PromoType::kLens, bubble_type);
+      break;
+    }
+    case PromoType::kTabGroups: {
+      IOSPromoBubble::ShowPromoBubble(
+          {toolbar_button_provider->GetAvatarToolbarButton()},
+          /*highlighted_button=*/nullptr, profile, PromoType::kTabGroups,
+          bubble_type);
+      break;
+    }
+    case PromoType::kPriceTracking: {
+      IOSPromoBubble::ShowPromoBubble(
+          {toolbar_button_provider->GetBubbleAnchor(kActionBookmarkThisTab)},
+          /*highlighted_button=*/nullptr, profile, PromoType::kPriceTracking,
+          bubble_type);
       break;
     }
   }

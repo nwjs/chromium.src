@@ -15,12 +15,25 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chromeos/ash/experiences/camera/camera_save_handler.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/browser_context.h"
+
+namespace {
+
+const std::string& GetPathFromPref(content::BrowserContext* context) {
+  auto* prefs = Profile::FromBrowserContext(context)->GetPrefs();
+  CHECK(prefs);
+  const auto* pref = prefs->FindPreference(ash::prefs::kCameraSaveLocation);
+  return pref->GetValue()->GetString();
+}
+
+}  // namespace
 
 ChromeCameraSaveDelegate::ChromeCameraSaveDelegate(
     content::BrowserContext* context)
     : context_(context),
       destination_(policy::local_user_files::GetCameraDestination(
-          Profile::FromBrowserContext(context_))) {}
+          Profile::FromBrowserContext(context_))),
+      path_from_pref_(GetPathFromPref(context_)) {}
 
 ChromeCameraSaveDelegate::~ChromeCameraSaveDelegate() = default;
 
@@ -46,17 +59,10 @@ base::FilePath ChromeCameraSaveDelegate::GetGoogleDriveRoot() const {
   return policy::local_user_files::GetGoogleDriveRoot();
 }
 
-std::string ChromeCameraSaveDelegate::GetPathFromPref() const {
-  auto* prefs = Profile::FromBrowserContext(context_)->GetPrefs();
-  CHECK(prefs);
-  const auto* pref = prefs->FindPreference(ash::prefs::kCameraSaveLocation);
-  return pref->GetValue()->GetString();
-}
-
 base::FilePath ChromeCameraSaveDelegate::GetFinalPathRelativeToRoot() const {
   // The first component is expected to be the root folder variable, e.g.
   // "${microsoft_onedrive}".
-  auto components = base::FilePath(GetPathFromPref()).GetComponents();
+  auto components = base::FilePath(path_from_pref_).GetComponents();
 
   if (components.size() <= 1) {
     // No subfolder specified.
@@ -84,7 +90,8 @@ void ChromeCameraSaveDelegate::PerformUpload(
     int64_t file_size,
     const gfx::Image& thumbnail,
     base::RepeatingCallback<void(int64_t)> progress_callback,
-    base::OnceCallback<void(bool)> done_callback) {
+    base::OnceCallback<void(bool, std::optional<base::FilePath>)>
+        done_callback) {
   CHECK(is_onedrive() || is_google_drive());
   Profile* profile = Profile::FromBrowserContext(context_);
   std::string file_name = upload_from_path.BaseName().AsUTF8Unsafe();
@@ -169,7 +176,6 @@ void ChromeCameraSaveDelegate::OpenFileInImageEditor(
 void ChromeCameraSaveDelegate::DeleteFileOnOneDrive(
     const base::FilePath& file_path,
     base::OnceCallback<void(bool)> callback) {
-  CHECK(GetOneDriveUploadFolder().IsParent(file_path));
   ash::cloud_upload::OdfsFileDeleter::Delete(file_path, std::move(callback));
 }
 
@@ -180,8 +186,8 @@ void ChromeCameraSaveDelegate::OpenCameraApp() {
 
 void ChromeCameraSaveDelegate::OnOnedriveUploadDone(
     const std::string& file_name,
-    base::OnceCallback<void(bool)> callback,
-    storage::FileSystemURL,
+    base::OnceCallback<void(bool, std::optional<base::FilePath>)> callback,
+    storage::FileSystemURL uploaded_file_url,
     std::optional<ash::cloud_upload::OdfsSkyvaultUploader::UploadError> error,
     base::FilePath /*upload_root_path*/) {
   if (!onedrive_uploaders_.erase(file_name)) {
@@ -189,17 +195,17 @@ void ChromeCameraSaveDelegate::OnOnedriveUploadDone(
     // callback.
     return;
   }
-  std::move(callback).Run(!error);
+  std::move(callback).Run(!error, uploaded_file_url.path() /* uploaded_path */);
 }
 
 void ChromeCameraSaveDelegate::OnGoogleDriveUploadDone(
     const std::string& file_name,
-    base::OnceCallback<void(bool)> callback,
+    base::OnceCallback<void(bool, std::optional<base::FilePath>)> callback,
     bool success) {
   if (!google_drive_uploaders_.erase(file_name)) {
     // Uploads have been cancelled by the user. So don't invoke the done
     // callback.
     return;
   }
-  std::move(callback).Run(success);
+  std::move(callback).Run(success, std::nullopt /* uploaded_path */);
 }

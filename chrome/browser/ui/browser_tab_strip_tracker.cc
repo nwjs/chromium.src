@@ -77,4 +77,3 @@ void BrowserTabStripTracker::OnBrowserRemoved(Browser* browser) {
   // observer is not in the ObserverList (i.e. if |browser| is not tracked).
   browser->GetTabStripModel()->RemoveObserver(tab_strip_model_observer_);
 }
-

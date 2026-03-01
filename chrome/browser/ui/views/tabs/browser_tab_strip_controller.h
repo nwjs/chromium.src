@@ -14,7 +14,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
-#include "chrome/browser/ui/views/tabs/tab_context_menu_controller.h"
+#include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -52,13 +52,12 @@ class BrowserTabStripController : public TabStripController,
   ~BrowserTabStripController() override;
 
   void InitFromModel(TabStrip* tabstrip);
+  void Reset();
 
   // TabStripController implementation:
   ui::ListSelectionModel GetSelectionModel() const override;
 
   int GetCount() const override;
-  bool CanShowModalUI() const override;
-  std::unique_ptr<ScopedTabStripModalUI> ShowModalUI() override;
   bool IsValidIndex(int model_index) const override;
   bool IsActiveTab(int model_index) const override;
   std::optional<int> GetActiveIndex() const override;
@@ -93,7 +92,7 @@ class BrowserTabStripController : public TabStripController,
   void CreateNewTab(NewTabTypes context) override;
   void OnStartedDragging() override;
   void OnStoppedDragging() override;
-  void OnKeyboardFocusedTabChanged(std::optional<int> index) override;
+  void TabKeyboardFocusChangedTo(const tabs::TabInterface* tab) override;
   std::u16string GetGroupTitle(
       const tab_groups::TabGroupId& group_id) const override;
   std::u16string GetGroupContentString(
@@ -113,15 +112,8 @@ class BrowserTabStripController : public TabStripController,
       const tab_groups::TabGroupId& group) const override;
   gfx::Range ListTabsInGroup(
       const tab_groups::TabGroupId& group_id) const override;
-  bool IsFrameCondensed() const override;
-  bool EverHasVisibleBackgroundTabShapes() const override;
-  std::optional<int> GetCustomBackgroundId(
-      BrowserFrameActiveState active_state) const override;
   std::u16string GetAccessibleTabName(const Tab* tab) const override;
   BrowserWindowInterface* GetBrowserWindowInterface() override;
-#if BUILDFLAG(IS_CHROMEOS)
-  bool IsLockedForOnTask() override;
-#endif
 
   // Test-specific methods.
   void CloseContextMenuForTesting();
@@ -147,13 +139,10 @@ class BrowserTabStripController : public TabStripController,
                               std::optional<tab_groups::TabGroupId> new_group,
                               tabs::TabInterface* tab,
                               int index) override;
-  void OnTabNeedsAttentionChanged(int index, bool attention) override;
-  void OnTabGroupNeedsAttentionChanged(const tab_groups::TabGroupId& group,
-                                       bool attention) override;
   void OnSplitTabChanged(const SplitTabChange& change) override;
   void OnTabGroupFocusChanged(
-      std::optional<tab_groups::TabGroupId> new_group_id,
-      std::optional<tab_groups::TabGroupId> old_group_id) override;
+      std::optional<tab_groups::TabGroupId> new_focused_group_id,
+      std::optional<tab_groups::TabGroupId> old_focused_group_id) override;
 
   BrowserFrameView* GetFrameView();
   const BrowserFrameView* GetFrameView() const;
@@ -197,11 +186,7 @@ class BrowserTabStripController : public TabStripController,
   // tabs.
   std::unique_ptr<ImmersiveRevealedLock> immersive_reveal_lock_;
 
-  PrefChangeRegistrar local_state_registrar_;
-
   std::unique_ptr<TabMenuModelFactory> menu_model_factory_;
-
-  bool should_show_discard_indicator_ = true;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_BROWSER_TAB_STRIP_CONTROLLER_H_

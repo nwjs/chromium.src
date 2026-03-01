@@ -31,6 +31,10 @@ BASE_DECLARE_FEATURE(kContextualTasksContextMenu);
 // Enables context menu settings for contextual tasks.
 BASE_DECLARE_FEATURE(kContextualTasksSuggestionsEnabled);
 
+// Enables tab auto-chip for contextual tasks. When disabled, no suggested
+// chips will be shown in the composebox automatically.
+BASE_DECLARE_FEATURE(kContextualTasksTabAutoSuggestionChipEnabled);
+
 // Force the application locale to US and the gl query parameter to us.
 BASE_DECLARE_FEATURE(kContextualTasksForceCountryCodeUS);
 
@@ -42,6 +46,10 @@ BASE_DECLARE_FEATURE(
 // Enables use of silk api to notify zero state rendered instead of the url
 // param.
 BASE_DECLARE_FEATURE(kEnableNotifyZeroStateRenderedCapability);
+
+// Replace the overflow menu in the side panel with an explicit button to move
+// the thread to a new tab.
+BASE_DECLARE_FEATURE(kContextualTasksExpandButton);
 
 // Enum denoting which entry point can show when enabled.
 enum class EntryPointOption {
@@ -103,6 +111,11 @@ extern const base::FeatureParam<std::string> kContextualTasksHelpUrl;
 extern const base::FeatureParam<std::string>
     kContextualTasksOnboardingTooltipHelpUrl;
 
+// Enables suggestions rendered on contextual tasks side, instead of from AIM
+// webpage.
+extern const base::FeatureParam<bool>
+    kContextualTasksEnableNativeZeroStateSuggestions;
+
 // The maximum number of times the onboarding tooltip can be shown to the user
 // in a single session before it no longer shows up.
 extern int GetContextualTasksShowOnboardingTooltipSessionImpressionCap();
@@ -132,6 +145,10 @@ extern bool GetIsProtectedPageErrorEnabled();
 
 // Returns if the ghost loader is enabled.
 extern bool GetIsGhostLoaderEnabled();
+
+// Returns if basic mode should be forced when the thread history is opened
+// before the handshake is complete.
+extern bool ShouldForceBasicModeIfOpeningThreadHistory();
 
 // Returns the base URL for the AI page.
 extern std::string GetContextualTasksAiPageUrl();
@@ -173,9 +190,23 @@ extern std::string GetContextualTasksHelpUrl();
 // Returns whether smart compose is enabled for Contextual Tasks.
 extern bool GetEnableContextualTasksSmartCompose();
 
+// Returns whether native (cobrowsing instead of AIM webpage)
+// zero state suggestions are enabled for Contextual Tasks.
+extern bool GetEnableNativeZeroStateSuggestions();
+
 // Returns whether the kSearchResultsOAuth2Scope should be used instead of the
 // kChromeSyncOAuth2Scope.
 extern bool ShouldUseSearchResultsScope();
+
+// Returns whether the z-order of the composebox should be changed in basic mode.
+extern bool ShouldEnableBasicModeZOrder();
+
+// Returns whether the cookie sync should be enabled.
+extern bool ShouldEnableCookieSync();
+
+// Returns whether the input plate can be locked and unlocked by a message
+// from AIM.
+extern bool ShouldEnableLockAndUnlockInputCapability();
 
 namespace flag_descriptions {
 
@@ -185,6 +216,8 @@ extern const char kContextualTasksContextLibraryName[];
 extern const char kContextualTasksContextLibraryDescription[];
 extern const char kContextualTasksContextName[];
 extern const char kContextualTasksContextDescription[];
+extern const char kContextualTasksExpandButtonName[];
+extern const char kContextualTasksExpandButtonDescription[];
 extern const char kContextualTasksSuggestionsEnabledName[];
 extern const char kContextualTasksSuggestionsEnabledDescription[];
 

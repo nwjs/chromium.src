@@ -28,13 +28,13 @@ class ComputedStyle;
 class CSSNumericLiteralValue;
 class CSSStyleValue;
 class CSSValue;
+class FlowTolerance;
 class FontFamily;
 class PositionArea;
 class StyleColor;
 class StyleIntrinsicLength;
 class StylePropertyShorthand;
 class StyleTimeline;
-class ItemTolerance;
 
 enum class CSSGapDecorationPropertyDirection : int;
 
@@ -76,8 +76,8 @@ class CORE_EXPORT ComputedStyleUtils {
                                                     CSSValuePhase value_phase);
   static const CSSValue* ValueForFillSize(const FillSize&,
                                           const ComputedStyle&);
-  static const CSSValue* BackgroundImageOrMaskSize(const ComputedStyle&,
-                                                   const FillLayer&);
+  static const CSSValue* BackgroundSizeOrMaskSize(const ComputedStyle&,
+                                                  const FillLayer&);
   static const CSSValueList* CreatePositionListForLayer(const CSSProperty&,
                                                         const FillLayer&,
                                                         const ComputedStyle&);
@@ -166,11 +166,11 @@ class CORE_EXPORT ComputedStyleUtils {
                                          const ComputedStyle&,
                                          bool force_computed_value = false);
   static CSSValue* ValueForGridPosition(const GridPosition&);
-  static CSSValue* ValueForItemTolerance(const ItemTolerance&,
+  static CSSValue* ValueForFlowTolerance(const FlowTolerance&,
                                          const ComputedStyle&);
   static CSSValue* ValueForGridLanesDirection(const GridLanesDirection&,
                                               const ComputedStyle&);
-  static gfx::SizeF UsedBoxSize(const LayoutObject&);
+  static std::optional<gfx::SizeF> UsedBoxSize(const LayoutObject&);
   static CSSValue* RenderTextDecorationFlagsToCSSValue(TextDecorationLine);
   static CSSValue* ValueForTextDecorationStyle(ETextDecorationStyle);
   static CSSValue* ValueForTextDecorationSkipInk(ETextDecorationSkipInk);
@@ -235,10 +235,10 @@ class CORE_EXPORT ComputedStyleUtils {
       const EAnimationTriggerBehavior);
   static CSSValue* ValueForAnimationTriggerBehaviorList(
       const Vector<EAnimationTriggerBehavior>& behavior_list);
-  static CSSValue* ValueForTimelineTriggerEntryRangeStartList(
+  static CSSValue* ValueForTimelineTriggerActivationRangeStartList(
       const CSSAnimationData* animation_data,
       const ComputedStyle& style);
-  static CSSValue* ValueForTimelineTriggerEntryRangeEndList(
+  static CSSValue* ValueForTimelineTriggerActivationRangeEndList(
       const CSSAnimationData* animation_data,
       const ComputedStyle& style);
   static CSSValue* ValueForTimelineTriggerActiveRangeStartList(
@@ -347,7 +347,6 @@ class CORE_EXPORT ComputedStyleUtils {
   static CSSValue* ValueForWebkitColumnBreakBetween(EBreakBetween);
   static CSSValue* ValueForPageBreakInside(EBreakInside);
   static CSSValue* ValueForWebkitColumnBreakInside(EBreakInside);
-  static bool WidthOrHeightShouldReturnUsedValue(const LayoutObject*);
   static CSSValueList* ValuesForShorthandProperty(const StylePropertyShorthand&,
                                                   const ComputedStyle&,
                                                   const LayoutObject*,

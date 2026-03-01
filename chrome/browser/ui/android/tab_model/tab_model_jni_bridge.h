@@ -38,7 +38,7 @@ class TabModelJniBridge : public TabModel {
                     const jni_zero::JavaRef<jobject>& jobj,
                     Profile* profile,
                     chrome::android::ActivityType activity_type,
-                    bool is_archived_tab_model);
+                    TabModelType tab_model_type);
   void Destroy(JNIEnv* env);
 
   TabModelJniBridge(const TabModelJniBridge&) = delete;
@@ -59,7 +59,7 @@ class TabModelJniBridge : public TabModel {
                                       long android_browser_window_ptr,
                                       int new_index);
   void SetMuteSetting(JNIEnv* env, std::vector<TabAndroid*> tabs, bool mute);
-  jint GetSessionIdForTesting(JNIEnv* env);
+  int32_t GetSessionIdForTesting(JNIEnv* env);
   chrome::android::ActivityType GetActivityTypeForTesting(JNIEnv* env);
 
   // TabModel::
@@ -117,6 +117,7 @@ class TabModelJniBridge : public TabModel {
   void ActivateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* OpenTab(const GURL& url, int index) override;
   void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
+  tabs::TabInterface* GetOpenerForTab(tabs::TabHandle target) override;
   void DiscardTab(tabs::TabHandle tab) override;
   tabs::TabInterface* DuplicateTab(tabs::TabHandle tab) override;
   tabs::TabInterface* GetTab(int index) override;
@@ -149,6 +150,8 @@ class TabModelJniBridge : public TabModel {
   void MoveTabGroupToWindow(tab_groups::TabGroupId group_id,
                             SessionID destination_window_id,
                             int destination_index) override;
+  bool IsThisTabListEditable() override;
+  bool IsClosingAllTabs() override;
 
   // Returns a corresponding Java Class object.
   static jclass GetClazz(JNIEnv* env);
@@ -173,7 +176,7 @@ class TabModelJniBridge : public TabModel {
   bool is_archived_tab_model_;
   // Cannot use a conventional member variable because this is initialized after
   // the constructor.
-  std::unique_ptr<ui::ScopedUnownedUserData<TabModel>>
+  std::unique_ptr<ui::ScopedUnownedUserData<TabListInterface>>
       scoped_unowned_user_data_;
 };
 

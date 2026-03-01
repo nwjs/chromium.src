@@ -4,10 +4,10 @@
 
 #include "chrome/browser/autofill/android/save_update_address_profile_prompt_controller.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/notimplemented.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -55,6 +55,10 @@ SaveUpdateAddressProfilePromptController::
     const std::string& locale = g_browser_process->GetApplicationLocale();
     differences_for_ui_ =
         GetProfileDifferenceForUi(original_profile_.value(), profile_, locale);
+    // TODO(crbug.com/481234059): Convert this to CHECK after investigation.
+    // Based of hypothesis in crbug.com/477044258, `GetProfileDifferenceForUi`
+    // is returning empty.
+    DUMP_WILL_BE_CHECK(!differences_for_ui_.empty());
     std::tie(old_diff_, new_diff_) = GetDiffFromOldToNewProfile();
   }
   DCHECK(prompt_view_);
@@ -240,7 +244,7 @@ std::u16string SaveUpdateAddressProfilePromptController::GetPhoneNumber()
 std::u16string SaveUpdateAddressProfilePromptController::GetSubtitle() const {
   DCHECK(original_profile_);
   const std::string locale = g_browser_process->GetApplicationLocale();
-  bool address_updated = base::Contains(
+  bool address_updated = std::ranges::contains(
       differences_for_ui_, ADDRESS_HOME_ADDRESS, &ProfileValueDifference::type);
   return GetProfileDescription(
       original_profile_.value(), locale,

@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/test_fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_mediator.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
@@ -44,7 +45,6 @@ namespace {
 const CGFloat kPromoMaxImpressionCount = 3;
 
 const std::string kFirstProfileName = "FirstProfile";
-const std::string kSecondProfileName = "SecondProfile";
 
 std::unique_ptr<KeyedService> CreateTestTracker(ProfileIOS* context) {
   return std::make_unique<
@@ -73,6 +73,7 @@ class GeminiFirstRunCoordinatorTest : public PlatformTest {
     browser_list_ = BrowserListFactory::GetForProfile(profile);
     browser_list_->AddBrowser(browser_.get());
     TestFullscreenController::CreateForBrowser(browser_.get());
+    GeminiBrowserAgent::CreateForBrowser(browser_.get());
 
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
     mock_bwg_command_handler_ = OCMProtocolMock(@protocol(BWGCommands));
@@ -241,47 +242,4 @@ TEST_F(GeminiFirstRunCoordinatorTest, AIHubIPHNotTriggered) {
   [coordinator_ stop];
 
   EXPECT_OCMOCK_VERIFY(mock_help_command_handler_);
-}
-
-// Tests that the other Gemini floaty instances are dismissed before when
-// starting a new one.
-TEST_F(GeminiFirstRunCoordinatorTest, DismissOtherWindows) {
-  // Build second profile.
-  TestProfileIOS::Builder second_builder;
-  second_builder.SetName(kSecondProfileName);
-  ProfileIOS* second_profile =
-      profile_manager_.AddProfileWithBuilder(std::move(second_builder));
-  std::unique_ptr<TestBrowser> second_browser_ =
-      std::make_unique<TestBrowser>(second_profile);
-  BrowserListFactory::GetForProfile(second_profile)
-      ->AddBrowser(second_browser_.get());
-
-  id second_bwg_handler = OCMProtocolMock(@protocol(BWGCommands));
-  [second_browser_->GetCommandDispatcher()
-      startDispatchingToTarget:second_bwg_handler
-                   forProtocol:@protocol(BWGCommands)];
-
-  OCMExpect([second_bwg_handler
-      dismissGeminiFlowWithCompletion:[OCMArg checkWithBlock:^BOOL(
-                                                  ProceduralBlock block) {
-        if (block) {
-          block();
-        }
-        return YES;
-      }]]);
-
-  StartCoordinatorWithEntryPoint(gemini::EntryPoint::Promo);
-
-  // Emulate starting the floaty from the first window.
-  OCMStub([mock_bwg_command_handler_
-      dismissGeminiFlowWithCompletion:[OCMArg checkWithBlock:^(
-                                                  ProceduralBlock block) {
-        if (block) {
-          block();
-        }
-        return YES;
-      }]]);
-
-  EXPECT_OCMOCK_VERIFY(mock_bwg_command_handler_);
-  EXPECT_OCMOCK_VERIFY(second_bwg_handler);
 }

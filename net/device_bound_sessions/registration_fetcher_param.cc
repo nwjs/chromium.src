@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "base/base64url.h"
-#include "base/containers/contains.h"
 #include "base/logging.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_split.h"
@@ -190,7 +189,7 @@ std::vector<RegistrationFetcherParam> RegistrationFetcherParam::CreateIfValid(
   }
 
   SchemefulSite site(request_url);
-  if (base::Contains(restricted_sites, site) &&
+  if (std::ranges::contains(restricted_sites, site) &&
       !base::FeatureList::IsEnabled(
           features::kDeviceBoundSessionsForRestrictedSites)) {
     return params;
@@ -207,7 +206,7 @@ std::vector<RegistrationFetcherParam> RegistrationFetcherParam::CreateIfValid(
       std::optional<RegistrationFetcherParam> fetcher_param =
           ParseItem(request_url, item);
       if (fetcher_param) {
-        if (base::Contains(restricted_sites, site) &&
+        if (std::ranges::contains(restricted_sites, site) &&
             !net::features::
                  kDeviceBoundSessionsForRestrictedSitesExperimentIdParam.Get()
                      .empty()) {

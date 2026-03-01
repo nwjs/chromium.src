@@ -19,7 +19,6 @@
 
 #include "base/byte_count.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -117,7 +116,7 @@ std::map<std::wstring, std::wstring> GetShortNameModules() {
     base::FilePath module_path(path);
     base::FilePath name = module_path.BaseName();
     if (name.RemoveExtension().value().size() > 8 ||
-        name.Extension().size() > 4 || !base::Contains(name.value(), L"~")) {
+        name.Extension().size() > 4 || !name.value().contains(L"~")) {
       continue;
     }
     base::FilePath fname = base::MakeLongFilePath(module_path);
@@ -513,6 +512,18 @@ ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
     if (const auto result = config->SetDelayedProcessMitigations(mitigations);
         result != SBOX_ALL_OK) {
       return result;
+    }
+  }
+
+  if (const auto security_attribute_name = delegate->GetSecurityAttributeName();
+      security_attribute_name.has_value()) {
+    const auto token = base::win::AccessToken::FromCurrentProcess();
+    // Only pass the name to the sandbox config if the attribute is present on
+    // the current process token, otherwise the restricted token cannot be
+    // created. This can happen if the browser is not running isolated.
+    if (token &&
+        token->GetSecurityAttribute(*security_attribute_name).has_value()) {
+      config->SetSecurityAttributeName(*security_attribute_name);
     }
   }
 

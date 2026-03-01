@@ -5,6 +5,7 @@
 package org.chromium.ui.base;
 
 import android.content.Intent;
+import android.os.Bundle;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
@@ -12,6 +13,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContract;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 
 /**
  * Manages activity results, ensuring results are not lost if the calling activity is destroyed and
@@ -76,25 +78,69 @@ public interface ActivityResultTracker {
     }
 
     /**
-     * Registers a callback to handle the result of the activity started with the given {@String
-     * key}. Must be called before starting the new activity. A same key should not be used twice to
-     * register different callbacks.
+     * Listener for activity results.
      *
-     * <p>The callback needs to be registered again after the base activity's recreation, to receive
-     * any result that may have been returned before the activity was recreated. The callback will
-     * be invoked with the given result immediately if such pending result exists.
-     *
-     * @param key A key to identify the activity to be started.
-     * @param callback The callback to be invoked with the result returned by the started activity.
+     * <p>The listener is identified by a restoration key, which is used to restore the listener
+     * after the base activity's recreation.
      */
-    void register(String key, ActivityResultCallback<ActivityResult> callback);
+    interface ResultListener {
+
+        /**
+         * Called when an activity returns a result.
+         *
+         * @param result The result returned by the activity.
+         * @param savedInstanceData The optional bundle containing data saved before starting the
+         *     activity.
+         */
+        void onActivityResult(ActivityResult result, @Nullable Bundle savedInstanceData);
+
+        /**
+         * Returns a key that identifies this listener across activity recreation. It's preferable
+         * to not reuse the same key for different instances that co-exist, otherwise, if in-flight
+         * activity returns after the base activity is recreated, an arbitrary listener using the
+         * given restoration key will be chosen to handle the returned result.
+         *
+         * <p>This key is used to capture and cache started activity's result after the base
+         * activity's recreation.
+         */
+        String getRestorationKey();
+    }
+
+    /**
+     * Registers a listener to handle the result of the activity started with the given listener.
+     * Must be called before using starting the new activity.
+     *
+     * <p>The listener needs to be registered again after the base activity's recreation, to receive
+     * any result that may have been returned before the activity was recreated. The callback will
+     * be invoked with the given result immediately if such pending result is cached.
+     *
+     * @param listener The {@link ResultListener} to be registered.
+     */
+    void register(ResultListener listener);
+
+    /**
+     * Unregisters the listener if it has been registered previously. This should be called when
+     * leaving the UI registering the listener initially (e.g. recent tabs page). This way, when the
+     * UI is opened again in the same activity, a new ip-to-date listener can be registered with the
+     * same key.
+     *
+     * <p>Note that if the UI is closed due to activity recreation, the key should have been saved
+     * in the instance state earlier during onSaveInstanceState(), as MVC destruction happens during
+     * onDestroy() usually, so the pending result should be caught after the base activity's
+     * recreation.
+     *
+     * @param listener the ResultListener to be unregistered.
+     */
+    void unregister(ResultListener listener);
 
     /**
      * Starts an activity for result. The result handling callback must be registered before calling
      * this method.
      *
-     * @param key The key that was used to register the launcher.
+     * @param listener The listener to be notified when the result is returned.
      * @param intent The intent to start the activity.
+     * @param savedInstanceData The optional bundle containing data to be saved and restored across
+     *     activity recreation.
      */
-    void startActivity(String key, Intent intent);
+    void startActivity(ResultListener listener, Intent intent, @Nullable Bundle savedInstanceData);
 }

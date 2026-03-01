@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/autocomplete/chrome_aim_eligibility_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -33,7 +34,9 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
+#include "net/base/url_util.h"
 #include "net/dns/mock_host_resolver.h"
+#include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 
 namespace {
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
@@ -171,6 +174,17 @@ class ContextualTasksButtonInteractiveTestBase : public InteractiveBrowserTest {
     return Do([&]() { identity_test_env()->ClearPrimaryAccount(); });
   }
 
+  content::WebContents* GetSidePanelWebContents() {
+    auto* controller =
+        contextual_tasks::ContextualTasksPanelController::From(browser());
+    return controller->GetActiveWebContents();
+  }
+
+  contextual_tasks::ContextualTasksUiService* GetUiService() {
+    return contextual_tasks::ContextualTasksUiServiceFactory::
+        GetForBrowserContext(browser()->profile());
+  }
+
  private:
   base::CallbackListSubscription subscription_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
@@ -184,8 +198,7 @@ class ContextualTasksButtonInteractiveTest
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kPageActionsMigration, {}},
          {contextual_tasks::kContextualTasks,
-          {{"ContextualTasksEntryPoint", "toolbar-permanent"}}},
-         {features::kTabbedBrowserUseNewLayout, {}}},
+          {{"ContextualTasksEntryPoint", "toolbar-permanent"}}}},
         {});
     InteractiveBrowserTest::SetUp();
   }
@@ -241,6 +254,32 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksButtonInteractiveTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksButtonInteractiveTest,
+                       ToggleToolbarSidePanelWithAepParam) {
+  RunTestSequence(
+      SignIntoEligibleAccount(),
+      EnsurePresent(ContextualTasksButton::kContextualTasksToolbarButton),
+      PressButton(ContextualTasksButton::kContextualTasksToolbarButton),
+      WaitForShow(kSidePanelElementId),
+      CheckResult(
+          [&] {
+            auto* controller =
+                contextual_tasks::ContextualTasksPanelController::From(
+                    browser());
+            std::optional<contextual_tasks::ContextualTask> task =
+                controller->GetCurrentTask();
+            if (!task) {
+              return std::string();
+            }
+            return base::NumberToString(
+                static_cast<int>(GetUiService()->GetInitialEntryPointForTask(
+                    task->GetTaskId())));
+          },
+          base::NumberToString(
+              static_cast<int>(omnibox::ChromeAimEntryPoint::
+                                   DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON))));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksButtonInteractiveTest,
                        VisiblityUpdatesOnAimPolicyChange) {
   RunTestSequence(
       SignIntoEligibleAccount(),
@@ -277,8 +316,7 @@ class ContextualTasksEphemeralButtonInteractiveTest
   void SetUp() override {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{contextual_tasks::kContextualTasks,
-          {{"ContextualTasksEntryPoint", "toolbar-revisit"}}},
-         {features::kTabbedBrowserUseNewLayout, {}}},
+          {{"ContextualTasksEntryPoint", "toolbar-revisit"}}}},
         {});
     InteractiveBrowserTest::SetUp();
   }
@@ -332,8 +370,7 @@ class ContextualTasksEphemeralButtonInteractiveTest
   // in a contextual task.
   auto SimulateOpeningContextualTaskSidePanel() {
     return Do([&] {
-      contextual_tasks::ContextualTasksSidePanelCoordinator::From(browser())
-          ->Show();
+      contextual_tasks::ContextualTasksPanelController::From(browser())->Show();
     });
   }
 
@@ -341,7 +378,7 @@ class ContextualTasksEphemeralButtonInteractiveTest
   // close button in the contextual task side panel.
   auto SimulateClosingContextualTaskSidePanel() {
     return Do([&] {
-      contextual_tasks::ContextualTasksSidePanelCoordinator::From(browser())
+      contextual_tasks::ContextualTasksPanelController::From(browser())
           ->Close();
     });
   }

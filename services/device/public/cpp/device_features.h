@@ -19,8 +19,6 @@ namespace features {
 
 // The features should be documented alongside the definition of their values
 // in the .cc file.
-DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(
-    kComputePressureBreakCalibrationMitigation);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kGenericSensorExtraClasses);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kSerialPortConnected);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kWebUsbBlocklist);
@@ -34,10 +32,6 @@ extern const DEVICE_FEATURES_EXPORT base::FeatureParam<int>
     kWinSystemLocationPermissionPollingParam;
 #endif  // BUILDFLAG(IS_WIN)
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kLocationProviderManager);
-
-#if BUILDFLAG(IS_CHROMEOS)
-DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kUsbDeviceLinuxOpenCrashKey);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(

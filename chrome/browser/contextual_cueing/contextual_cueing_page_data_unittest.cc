@@ -8,12 +8,14 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_enums.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/web_contents_tester.h"
+#include "ui/base/l10n/l10n_util.h"
 
 namespace contextual_cueing {
 
@@ -29,12 +31,14 @@ class ContextualCueingPageDataTest : public ChromeRenderViewHostTestHarness {
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
+#if BUILDFLAG(ENABLE_PDF)
   void InvokePdfPageCountReceived(size_t page_count) {
     auto* page_data =
         ContextualCueingPageData::GetForPage(web_contents_->GetPrimaryPage());
     page_data->OnPdfPageCountReceived(
         pdf::mojom::PdfListener::GetPdfBytesStatus::kSuccess, {}, page_count);
   }
+#endif
 
  protected:
   std::unique_ptr<content::WebContents> web_contents_;
@@ -53,7 +57,9 @@ TEST_F(ContextualCueingPageDataTest, Basic) {
                                           std::move(metadata),
                                           future.GetCallback());
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ("basic label", future.Get().value().cue_label);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_GLIC_BUTTON_ENTRYPOINT_ASK_ABOUT_THIS_PAGE_LABEL),
+            future.Get().value().cue_label);
   EXPECT_FALSE(future.Get().value().is_dynamic);
 }
 
@@ -104,6 +110,7 @@ TEST_F(ContextualCueingPageDataTest, NonPdfPageFails) {
             contextual_cueing::NudgeDecision::kClientConditionsUnmet);
 }
 
+#if BUILDFLAG(ENABLE_PDF)
 TEST_F(ContextualCueingPageDataTest, PdfPageCountFails) {
   content::WebContentsTester::For(web_contents_.get())
       ->SetMainFrameMimeType(pdf::kPDFMimeType);
@@ -156,7 +163,9 @@ TEST_F(ContextualCueingPageDataTest, PdfPageCountPasses) {
   InvokePdfPageCountReceived(4);
 
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ("pdf label", future.Get().value().cue_label);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_GLIC_BUTTON_ENTRYPOINT_ASK_ABOUT_THIS_PAGE_LABEL),
+            future.Get().value().cue_label);
   EXPECT_FALSE(future.Get().value().is_dynamic);
 }
 
@@ -186,9 +195,12 @@ TEST_F(ContextualCueingPageDataTest, BasicAndPdfPageCountCondition) {
                                           std::move(metadata),
                                           future.GetCallback());
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ("basic label", future.Get().value().cue_label);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_GLIC_BUTTON_ENTRYPOINT_ASK_ABOUT_THIS_PAGE_LABEL),
+            future.Get().value().cue_label);
   EXPECT_FALSE(future.Get().value().is_dynamic);
 }
+#endif
 
 class ContextualCueingPageDataTestDynamicCue
     : public ContextualCueingPageDataTest {
@@ -232,7 +244,9 @@ TEST_F(ContextualCueingPageDataTestDynamicCue, DynamicCueNotAvailable) {
                                           std::move(metadata),
                                           future.GetCallback());
   ASSERT_TRUE(future.Wait());
-  EXPECT_EQ("basic label", future.Get().value().cue_label);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_GLIC_BUTTON_ENTRYPOINT_ASK_ABOUT_THIS_PAGE_LABEL),
+            future.Get().value().cue_label);
   EXPECT_FALSE(future.Get().value().is_dynamic);
 }
 

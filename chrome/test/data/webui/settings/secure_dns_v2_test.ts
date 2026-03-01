@@ -177,15 +177,11 @@ suite('SettingsSecureDnsV2', function() {
     await testBrowserProxy.whenCalled('getSecureDnsSetting');
     await flushTasks();
 
-    // Access toggle
-    secureDnsToggle =
-        testElement.shadowRoot!.querySelector('#secureDnsToggle')!;
-    assertTrue(!!secureDnsToggle);
+    secureDnsToggle = testElement.$.featureRow;
 
-    // Access expand button
-    const expandButton = secureDnsToggle.$.expandButton;
 
     // Expand the row.
+    const expandButton = secureDnsToggle.$.expandButton;
     expandButton.click();
     await flushTasks();
     assertTrue(isVisible(secureDnsToggle));
@@ -286,6 +282,39 @@ suite('SettingsSecureDnsV2', function() {
     assertEquals(SecureDnsV2ResolverType.CUSTOM, customRadioButton.name);
   });
 
+  test('SecureDnsToggleOffResetsSelection', async function() {
+    // Start with "Custom" (Secure) mode selected.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.SECURE,
+      config: 'https://custom.dns',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+
+    const toggleButton =
+        secureDnsToggle.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#toggleButton');
+    assertTrue(!!toggleButton);
+    assertTrue(toggleButton.checked);
+
+    const customRadioButton = testElement.$.customRadioButton;
+    assertTrue(customRadioButton.checked);
+
+    // Turn the toggle OFF.
+    toggleButton.click();
+    await flushTasks();
+    assertFalse(toggleButton.checked);
+
+    // Verify that the selection has reset to "Automatic".
+    assertFalse(customRadioButton.checked);
+    const automaticRadioButton = testElement.$.automaticRadioButton;
+    assertTrue(automaticRadioButton.checked);
+
+    // Verify the underlying pref is OFF.
+    assertEquals(
+        SecureDnsMode.OFF, testElement.getPref('dns_over_https.mode').value);
+  });
+
   test('SecureDnsWarningIcon', async function() {
     webUIListenerCallback('secure-dns-setting-changed', {
       mode: SecureDnsMode.AUTOMATIC,
@@ -323,6 +352,39 @@ suite('SettingsSecureDnsV2', function() {
         secureDnsToggle.iconVisible,
         'The icon should not be visible, a policy set Secure DNS to OFF');
     // TODO(crbug.com/441316657): Add a check for the policy indicator icon.
+  });
+
+  test('SecureDnsWarningIconWithManagementMode', async function() {
+    // Initial state: OFF, no override. Icon should be visible.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.OFF,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+    assertTrue(secureDnsToggle.iconVisible, 'The icon should be visible');
+
+    // Switch to OFF with DISABLED_MANAGED.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.OFF,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.DISABLED_MANAGED,
+    });
+    await flushTasks();
+    assertFalse(
+        secureDnsToggle.iconVisible,
+        'The icon should not be visible when disabled in managed environment');
+
+    // Switch to OFF with DISABLED_PARENTAL_CONTROLS.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.OFF,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.DISABLED_PARENTAL_CONTROLS,
+    });
+    await flushTasks();
+    assertFalse(
+        secureDnsToggle.iconVisible,
+        'The icon should not be visible when disabled with parental controls');
   });
 
   test('RadioButtonsDisabledWhenEnforced', async function() {
@@ -373,5 +435,70 @@ suite('SettingsSecureDnsV2', function() {
     assertFalse(testElement.$.automaticRadioButton.disabled);
     assertFalse(testElement.$.fallbackRadioButton.disabled);
     assertFalse(testElement.$.customRadioButton.disabled);
+  });
+
+  test('SecureDnsFeatureStateStrings', async function() {
+    // Collapse row to see feature state string.
+    secureDnsToggle.$.expandButton.click();
+    await flushTasks();
+
+    const stateOff = loadTimeData.getString('securityFeatureRowStateOff');
+    const stateStandard =
+        loadTimeData.getString('securityFeatureRowStateStandard');
+    const stateEnhanced =
+        loadTimeData.getString('securityFeatureRowStateEnhanced');
+    const stateEnhancedCustom =
+        loadTimeData.getString('securityFeatureRowStateEnhancedCustom');
+
+    // Off toggle.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.OFF,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+
+    let label = secureDnsToggle.shadowRoot!.querySelector('#stateLabel');
+    assertTrue(!!label);
+    assertEquals(stateOff, label.textContent.trim());
+
+    // Standard Radio Button.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.AUTOMATIC,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+
+    label = secureDnsToggle.shadowRoot!.querySelector('#stateLabel');
+    assertTrue(!!label);
+    assertEquals(stateStandard, label.textContent.trim());
+
+    // Fallback Radio Button.
+    testElement.setPrefValue(
+        'dns_over_https.automatic_mode_fallback_to_doh', true);
+
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.AUTOMATIC,
+      config: '',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+
+    label = secureDnsToggle.shadowRoot!.querySelector('#stateLabel');
+    assertTrue(!!label);
+    assertEquals(stateEnhanced, label.textContent.trim());
+
+    // Custom Radio Button.
+    webUIListenerCallback('secure-dns-setting-changed', {
+      mode: SecureDnsMode.SECURE,
+      config: 'https://custom.dns',
+      managementMode: SecureDnsUiManagementMode.NO_OVERRIDE,
+    });
+    await flushTasks();
+
+    label = secureDnsToggle.shadowRoot!.querySelector('#stateLabel');
+    assertTrue(!!label);
+    assertEquals(stateEnhancedCustom, label.textContent.trim());
   });
 });

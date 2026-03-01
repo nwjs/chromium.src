@@ -507,33 +507,30 @@ TestWebContents::GetPictureInPictureOptions() const {
   return WebContentsImpl::GetPictureInPictureOptions();
 }
 
-FrameTreeNodeId TestWebContents::AddPrerender(const GURL& url) {
+PrerenderHostId TestWebContents::AddPrerender(const GURL& url) {
   DCHECK(!base::FeatureList::IsEnabled(
       blink::features::kPrerender2MemoryControls));
 
   TestRenderFrameHost* rfhi = GetPrimaryMainFrame();
-  PrerenderHostId prerender_host_id =
-      GetPrerenderHostRegistry()->CreateAndStartHost(PrerenderAttributes(
-          url, PreloadingTriggerType::kSpeculationRule,
-          /*embedder_histogram_suffix=*/"", SpeculationRulesParams(),
-          Referrer(),
-          /*no_vary_search_hint=*/std::nullopt, rfhi, GetWeakPtr(),
-          ui::PAGE_TRANSITION_LINK,
-          /*should_warm_up_compositor=*/false,
-          /*should_prepare_paint_tree=*/false,
-          blink::mojom::SpeculationAction::kPrerender,
-          /*url_match_predicate=*/{},
-          /*prerender_navigation_handle_callback=*/{},
-          PreloadPipelineInfoImpl::Create(
-              /*planned_max_preloading_type=*/PreloadingType::kPrerender),
-          /*allow_reuse=*/false,
-          /*form_submission=*/false));
-  return PrerenderHost::GetFrameTreeNodeIdForId(prerender_host_id);
+  return GetPrerenderHostRegistry()->CreateAndStartHost(PrerenderAttributes(
+      url, PreloadingTriggerType::kSpeculationRule,
+      /*embedder_histogram_suffix=*/"", SpeculationRulesParams(), Referrer(),
+      /*no_vary_search_hint=*/std::nullopt, rfhi, GetWeakPtr(),
+      ui::PAGE_TRANSITION_LINK,
+      /*should_warm_up_compositor=*/false,
+      /*should_prepare_paint_tree=*/false,
+      blink::mojom::SpeculationAction::kPrerender,
+      /*url_match_predicate=*/{},
+      /*prerender_navigation_handle_callback=*/{},
+      PreloadPipelineInfoImpl::Create(
+          /*planned_max_preloading_type=*/PreloadingType::kPrerender),
+      /*allow_reuse=*/false,
+      /*form_submission=*/false));
 }
 
 TestRenderFrameHost* TestWebContents::AddPrerenderAndCommitNavigation(
     const GURL& url) {
-  FrameTreeNodeId host_id = AddPrerender(url);
+  PrerenderHostId host_id = AddPrerender(url);
   DCHECK(host_id);
 
   PrerenderHost* host =
@@ -550,7 +547,7 @@ TestRenderFrameHost* TestWebContents::AddPrerenderAndCommitNavigation(
 
 std::unique_ptr<NavigationSimulator>
 TestWebContents::AddPrerenderAndStartNavigation(const GURL& url) {
-  FrameTreeNodeId host_id = AddPrerender(url);
+  PrerenderHostId host_id = AddPrerender(url);
   DCHECK(host_id);
 
   PrerenderHost* host =
@@ -566,10 +563,10 @@ void TestWebContents::ActivatePrerenderedPage(const GURL& url) {
   PrerenderHostRegistry* registry = GetPrerenderHostRegistry();
   PrerenderHost* prerender_host = registry->FindHostByUrlForTesting(url);
   DCHECK(prerender_host);
-  FrameTreeNodeId prerender_host_id = prerender_host->frame_tree_node_id();
 
   // Activate the prerendered page.
-  test::PrerenderHostObserver prerender_host_observer(*this, prerender_host_id);
+  test::PrerenderHostObserver prerender_host_observer(
+      *this, prerender_host->prerender_host_id());
   std::unique_ptr<NavigationSimulatorImpl> navigation =
       NavigationSimulatorImpl::CreateRendererInitiated(url,
                                                        GetPrimaryMainFrame());
@@ -590,10 +587,10 @@ void TestWebContents::ActivatePrerenderedPageFromAddressBar(const GURL& url) {
   PrerenderHostRegistry* registry = GetPrerenderHostRegistry();
   PrerenderHost* prerender_host = registry->FindHostByUrlForTesting(url);
   DCHECK(prerender_host);
-  FrameTreeNodeId prerender_host_id = prerender_host->frame_tree_node_id();
 
   // Activate the prerendered page by navigation initiated by the address bar.
-  test::PrerenderHostObserver prerender_host_observer(*this, prerender_host_id);
+  test::PrerenderHostObserver prerender_host_observer(
+      *this, prerender_host->prerender_host_id());
   std::unique_ptr<NavigationSimulatorImpl> navigation =
       NavigationSimulatorImpl::CreateBrowserInitiated(url, this);
   navigation->SetTransition(ui::PageTransitionFromInt(
@@ -654,6 +651,48 @@ void TestWebContents::OnIgnoredUIEvent() {
 
 bool TestWebContents::GetIgnoredUIEventCalled() const {
   return ignored_ui_event_called_;
+}
+
+void TestWebContents::GetRenderWidgetHostAtPointAsynchronously(
+    RenderWidgetHostViewBase* root_view,
+    const gfx::PointF& point,
+    base::OnceCallback<void(base::WeakPtr<RenderWidgetHostViewBase>,
+                            std::optional<gfx::PointF>)> callback) {
+  // If defer flag is disabled, call base implementation synchronously.
+  if (!defer_get_render_widget_host_at_point_) {
+    WebContentsImpl::GetRenderWidgetHostAtPointAsynchronously(
+        root_view, point, std::move(callback));
+    return;
+  }
+
+  // Post as a deferred task to better test race conditions.
+  // This ensures the base implementation is only called after RunUntilIdle.
+  auto weak_this = GetWeakPtr();
+  auto weak_root_view = root_view->GetWeakPtr();
+
+  auto task = base::BindOnce(
+      [](base::WeakPtr<WebContents> web_contents,
+         base::WeakPtr<RenderWidgetHostViewBase> view, gfx::PointF pt,
+         base::OnceCallback<void(base::WeakPtr<RenderWidgetHostViewBase>,
+                                 std::optional<gfx::PointF>)> cb) {
+        auto* impl = static_cast<WebContentsImpl*>(web_contents.get());
+        if (impl && view) {
+          impl->WebContentsImpl::GetRenderWidgetHostAtPointAsynchronously(
+              view.get(), pt, std::move(cb));
+        }
+      },
+      weak_this, weak_root_view, point, std::move(callback));
+
+  deferred_get_render_widget_host_at_point_callback_ = std::move(task);
+}
+
+void TestWebContents::
+    TriggerGetRenderWidgetHostAtPointAsynchronouslyCallback() {
+  if (deferred_get_render_widget_host_at_point_callback_) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        std::move(deferred_get_render_widget_host_at_point_callback_));
+  }
 }
 
 }  // namespace content

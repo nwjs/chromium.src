@@ -4,6 +4,7 @@
 
 import("//build/config/chromebox_for_meetings/buildflags.gni")
 import("//build/config/chromeos/ui_mode.gni")
+import("//build/config/cuttlefish/buildflags.gni")
 
 assert(is_chromeos)
 
@@ -27,8 +28,6 @@ static_library("dbus") {
     "drive_file_stream_service_provider.h",
     "encrypted_reporting_service_provider.cc",
     "encrypted_reporting_service_provider.h",
-    "fjord_oobe_service_provider.cc",
-    "fjord_oobe_service_provider.h",
     "fusebox_service_provider.cc",
     "fusebox_service_provider.h",
     "kiosk_info_service_provider.cc",
@@ -53,6 +52,13 @@ static_library("dbus") {
     "virtual_file_request_service_provider.h",
   ]
 
+  if (is_cuttlefish) {
+    sources += [
+      "fjord_oobe_service_provider.cc",
+      "fjord_oobe_service_provider.h",
+    ]
+  }
+
   public_deps = [
     "//base",
     "//chrome/browser:browser_public_dependencies",
@@ -73,7 +79,6 @@ static_library("dbus") {
     "//ash/constants",
     "//ash/webui/shimless_rma",
     "//build/config/chromebox_for_meetings:buildflags",
-    "//chrome/browser:browser_process",
     "//chrome/browser/ash/app_mode",
     "//chrome/browser/ash/arc/fileapi",
     "//chrome/browser/ash/arc/session",
@@ -194,6 +199,13 @@ static_library("dbus") {
       "//chromeos/ash/components/dbus/chromebox_for_meetings",
     ]
   }
+
+  if (is_cuttlefish) {
+    deps += [
+      "//chrome/browser/ash/login/fjord_oobe",
+      "//chrome/browser/ash/login/fjord_oobe/proto",
+    ]
+  }
 }
 
 action("dbus_service_files") {
@@ -302,6 +314,7 @@ source_set("browser_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser",
+    "//chrome/browser:browser_process",
     "//chrome/browser/ash/certificate_provider",
     "//chrome/browser/ash/certificate_provider:test_support",
     "//chrome/browser/ash/login:test_support",

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
@@ -36,7 +37,8 @@ class AutofillAiSaveUpdateEntityFlowManager {
 
   explicit AutofillAiSaveUpdateEntityFlowManager(
       content::WebContents* web_contents,
-      AutofillMessageController* autofill_message_controller);
+      AutofillMessageController* autofill_message_controller,
+      std::string app_locale);
   AutofillAiSaveUpdateEntityFlowManager(
       const AutofillAiSaveUpdateEntityFlowManager&) = delete;
   AutofillAiSaveUpdateEntityFlowManager& operator=(
@@ -46,21 +48,21 @@ class AutofillAiSaveUpdateEntityFlowManager {
   // Triggers a confirmation flow for saving or updating an Autofill AI entity.
   // If another flow is in progress, the incoming offer will be auto-declined.
   void OfferSave(
-      const EntityInstance& entity,
+      EntityInstance entity,
       std::optional<EntityInstance> old_entity,
-      AutofillClient::EntityImportPromptResultCallback prompt_closed_callback);
+      AutofillClient::EntityImportPromptResultCallback prompt_result_callback);
 
  private:
-  void OnMessagePrimaryAction(const EntityInstance& entity);
+  void OnMessagePrimaryAction(EntityInstance entity,
+                              std::optional<EntityInstance> old_entity);
 
   void OnMessageDismissed(messages::DismissReason dismiss_reason);
 
   std::unique_ptr<AutofillMessageModel> CreateMessageModel(
-      const EntityInstance& entity,
-      bool is_save_prompt);
+      EntityInstance entity,
+      std::optional<EntityInstance> old_entity);
 
-  void RunPromptClosedCallback(
-      AutofillClient::AutofillAiBubbleClosedReason decision);
+  void RunPromptClosedCallback(AutofillClient::AutofillAiBubbleResult result);
 
   raw_ptr<content::WebContents> web_contents_;
   raw_ref<AutofillMessageController> autofill_message_controller_;
@@ -69,7 +71,9 @@ class AutofillAiSaveUpdateEntityFlowManager {
 
   // Callback to notify the data provider about the user decision for the save
   // or update prompt.
-  AutofillClient::EntityImportPromptResultCallback prompt_closed_callback_;
+  AutofillClient::EntityImportPromptResultCallback prompt_result_callback_;
+
+  const std::string app_locale_;
 
   base::WeakPtrFactory<AutofillAiSaveUpdateEntityFlowManager> weak_ptr_factory_{
       this};

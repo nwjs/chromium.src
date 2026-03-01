@@ -13,7 +13,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -87,32 +86,34 @@ class VideoFrameHandleReleaserImpl final
   // mojom::MojoVideoFrameHandleReleaser implementation
   void ReleaseVideoFrame(
       const base::UnguessableToken& release_token,
-      const std::optional<gpu::SyncToken>& release_sync_token) final {
+      std::optional<gpu::SharedImageExportResult> release_export_result) final {
     DVLOG(3) << __func__ << "(" << release_token.ToString() << ")";
-    TRACE_EVENT2("media", "VideoFrameHandleReleaserImpl::ReleaseVideoFrame",
-                 "release_token", release_token.ToString(),
-                 "release_sync_token",
-                 release_sync_token
-                     ? (release_sync_token->ToDebugString() + ", has_data: " +
-                        (release_sync_token->HasData() ? "true" : "false"))
-                     : "null");
+    TRACE_EVENT2(
+        "media", "VideoFrameHandleReleaserImpl::ReleaseVideoFrame",
+        "release_token", release_token.ToString(), "release_export_result",
+        release_export_result
+            ? (release_export_result->ToDebugString() + ", has_data: " +
+               (release_export_result->HasData() ? "true" : "false"))
+            : "null");
     auto it = video_frames_.find(release_token);
     if (it == video_frames_.end()) {
       mojo::ReportBadMessage("Unknown |release_token|.");
       return;
     }
     if (it->second->HasReleaseMailboxCB()) {
-      if (!release_sync_token) {
+      if (!release_export_result) {
         mojo::ReportBadMessage(
             "A SyncToken is required to release frames that have a callback "
             "for releasing mailboxes.");
         return;
       }
-      // An empty *|release_sync_token| can be taken as a signal that the
+      // An empty |release_sync_token| can be taken as a signal that the
       // about-to-be-released VideoFrame was never used by the client.
       // Therefore, we should let that frame retain whatever SyncToken it has.
-      if (release_sync_token->HasData()) {
-        SimpleSyncTokenClient client(*release_sync_token);
+      gpu::SyncToken release_sync_token = it->second->shared_image()->EndExport(
+          std::move(*release_export_result));
+      if (release_sync_token.HasData()) {
+        SimpleSyncTokenClient client(release_sync_token);
         it->second->UpdateReleaseSyncToken(&client);
       }
     }
@@ -262,6 +263,9 @@ void MojoVideoDecoderService::Initialize(const VideoDecoderConfig& config,
   // to system instability. Note: This will break decoding entirely for codecs
   // which don't have software fallback, so we use a conservative limit. Most
   // platforms will self-limit and never reach this limit.
+  //
+  // UMA data as of Feb 2026 shows 99% of users have <= 24 active decoders
+  // across all platforms, so if needed this limit could be reduced.
   if (!config.is_encrypted() && g_num_active_mvd_instances >= 128) {
     OnDecoderInitialized(DecoderStatus::Codes::kTooManyDecoders);
     return;
@@ -353,8 +357,6 @@ void MojoVideoDecoderService::Decode(mojom::DecoderBufferPtr buffer,
   if (!is_active_instance_) {
     is_active_instance_ = true;
     g_num_active_mvd_instances++;
-    base::UmaHistogramExactLinear("Media.MojoVideoDecoder.ActiveInstances",
-                                  g_num_active_mvd_instances, 64);
     base::debug::SetCrashKeyString(
         GetNumVideoDecodersCrashKeyString(),
         base::NumberToString(g_num_active_mvd_instances));

@@ -69,6 +69,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -311,11 +312,7 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
       initiator_frame_has_download_sandbox_flag,
       initiator_frame_is_ad);
 
-  params->initiator_activation_and_ad_status =
-      GetNavigationInitiatorActivationAndAdStatus(request.HasUserGesture(),
-                                                  initiator_frame_is_ad,
-                                                  is_ad_script_in_stack);
-
+  params->started_by_ad = initiator_frame_is_ad || is_ad_script_in_stack;
   params->is_container_initiated = frame_request.IsContainerInitiated();
   params->has_rel_opener = frame_request.GetWindowFeatures().explicit_opener;
 
@@ -1036,13 +1033,12 @@ bool RemoteFrame::SynchronizeVisualProperties(
 
 void RemoteFrame::RecordSentVisualProperties() {
   sent_visual_properties_ = pending_visual_properties_;
-  TRACE_EVENT_WITH_FLOW2(
+  TRACE_EVENT(
       TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
       "RemoteFrame::SynchronizeVisualProperties Send Message",
-      TRACE_ID_GLOBAL(
+      perfetto::Flow::Global(
           pending_visual_properties_.local_surface_id.submission_trace_id()),
-      TRACE_EVENT_FLAG_FLOW_OUT, "message",
-      "FrameHostMsg_SynchronizeVisualProperties", "local_surface_id",
+      "message", "FrameHostMsg_SynchronizeVisualProperties", "local_surface_id",
       pending_visual_properties_.local_surface_id.ToString());
 }
 

@@ -4,10 +4,11 @@
 
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate_android.h"
 
+#include <algorithm>
+
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -179,7 +180,7 @@ bool ProfileOAuth2TokenServiceDelegateAndroid::RefreshTokenIsAvailable(
       << "ProfileOAuth2TokenServiceDelegateAndroid::RefreshTokenIsAvailable"
       << " account= " << account_id;
   std::vector<CoreAccountId> accounts = GetValidAccounts();
-  return base::Contains(accounts, account_id);
+  return std::ranges::contains(accounts, account_id);
 }
 
 std::vector<CoreAccountId>
@@ -325,7 +326,7 @@ void ProfileOAuth2TokenServiceDelegateAndroid::UpdateAccountList(
     if (signed_in_id.has_value() && prev_id == *signed_in_id) {
       continue;
     }
-    if (!base::Contains(curr_ids, prev_id)) {
+    if (!std::ranges::contains(curr_ids, prev_id)) {
       DVLOG(1) << "ProfileOAuth2TokenServiceDelegateAndroid::UpdateAccountList:"
                << "revoked=" << prev_id;
       revoked_ids->push_back(prev_id);
@@ -346,14 +347,6 @@ void ProfileOAuth2TokenServiceDelegateAndroid::UpdateAccountList(
              << "refreshed=" << curr_id;
     refreshed_ids->push_back(curr_id);
   }
-}
-
-void ProfileOAuth2TokenServiceDelegateAndroid::UpdateAuthErrorFromJava(
-    JNIEnv* env,
-    CoreAccountId& core_account_id,
-    GoogleServiceAuthError& auth_error,
-    bool fire_auth_error_changed) {
-  UpdateAuthError(core_account_id, auth_error, fire_auth_error_changed);
 }
 
 void ProfileOAuth2TokenServiceDelegateAndroid::FireRefreshTokensLoaded() {
@@ -414,9 +407,9 @@ namespace signin {
 static void JNI_ProfileOAuth2TokenServiceDelegate_OnOAuth2TokenFetched(
     JNIEnv* env,
     const JavaRef<jstring>& authToken,
-    const jlong expiration_time_secs,
-    GoogleServiceAuthError& authError,
-    jlong nativeCallback) {
+    const int64_t expiration_time_secs,
+    const GoogleServiceAuthError& authError,
+    int64_t nativeCallback) {
   std::string token;
   if (authToken) {
     token = ConvertJavaStringToUTF8(env, authToken);

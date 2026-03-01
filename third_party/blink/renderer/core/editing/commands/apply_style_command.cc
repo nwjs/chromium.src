@@ -470,7 +470,13 @@ void ApplyStyleCommand::ApplyRelativeFontStyleChange(
       // style this text node. To make this possible, add a style span to
       // surround this text node.
       auto* span = MakeGarbageCollected<HTMLSpanElement>(GetDocument());
-      SurroundNodeRangeWithElement(node, node, span, editing_state);
+      // Prevent merging the span with adjacent siblings, to ensure the DOM
+      // structure and traversal order do not change.
+      SurroundNodeRangeWithElement(
+          node, node, span, editing_state,
+          RuntimeEnabledFeatures::AvoidMergingStyledSpanWithSiblingsEnabled()
+              ? kDoNotMergeSiblings
+              : kMergeSiblings);
       if (editing_state->IsAborted())
         return;
       element = span;
@@ -1368,14 +1374,42 @@ void ApplyStyleCommand::ApplyInlineStyleToPushDown(
   AddInlineStyleIfNeeded(new_inline_style, node, node, editing_state);
 }
 
+// Removes CSS properties that affect the container/box area rather than just
+// text content.
+void ApplyStyleCommand::FilterContainerLevelStyles(EditingStyle* style) {
+  if (!style || !style->Style()) {
+    return;
+  }
+
+  // CSS properties that create visual effects on the container/box rather than
+  // on text content. These should be excluded when removing inline styles from
+  // block elements.
+  // Note: This list only contains limited styles which have been found to cause
+  // unexpected behavior during `ApplyStyleCommand` execution.
+  static const CSSProperty* kContainerLevelProperties[] = {
+      &CSSProperty::Get(CSSPropertyID::kBackground),
+      &CSSProperty::Get(CSSPropertyID::kBackgroundColor)};
+
+  style->Style()->RemovePropertiesInSet(kContainerLevelProperties);
+}
+
 void ApplyStyleCommand::PushDownInlineStyleAroundNode(
     EditingStyle* style,
     Node* target_node,
     EditingState* editing_state) {
   HTMLElement* highest_ancestor =
       HighestAncestorWithConflictingInlineStyle(style, target_node);
-  if (!highest_ancestor)
+  if (!highest_ancestor) {
     return;
+  }
+
+  EditingStyle* filtered_style = style->Copy();
+
+  // CSS properties that affect the container/box area rather than just text
+  // should not be pushed down to children for block elements.
+  if (RuntimeEnabledFeatures::FilterContainerLevelStylesEnabled()) {
+    FilterContainerLevelStyles(filtered_style);
+  }
 
   // The outer loop is traversing the tree vertically from highestAncestor to
   // targetNode
@@ -1397,8 +1431,9 @@ void ApplyStyleCommand::PushDownInlineStyleAroundNode(
 
     EditingStyle* style_to_push_down = MakeGarbageCollected<EditingStyle>();
     if (auto* html_element = DynamicTo<HTMLElement>(current)) {
-      RemoveInlineStyleFromElement(style, html_element, editing_state,
-                                   kRemoveIfNeeded, style_to_push_down);
+      RemoveInlineStyleFromElement(
+          IsEnclosingBlock(html_element) ? filtered_style : style, html_element,
+          editing_state, kRemoveIfNeeded, style_to_push_down);
       if (editing_state->IsAborted())
         return;
     }
@@ -1512,6 +1547,10 @@ void ApplyStyleCommand::RemoveInlineStyle(EditingStyle* style,
   Position s = start;
   Position e = end;
   Node* node = start.AnchorNode();
+  EditingStyle* filtered_style = style->Copy();
+  if (RuntimeEnabledFeatures::FilterContainerLevelStylesEnabled()) {
+    FilterContainerLevelStyles(filtered_style);
+  }
   while (node) {
     Node* next_to_process = nullptr;
     if (!EditingIgnoresContent(*node))
@@ -1529,8 +1568,11 @@ void ApplyStyleCommand::RemoveInlineStyle(EditingStyle* style,
         child_node = elem->firstChild();
       }
 
-      RemoveInlineStyleFromElement(style, elem, editing_state, kRemoveIfNeeded,
-                                   style_to_push_down);
+      // CSS properties that affect the container/box area rather than just text
+      // should not be removed from block elements.
+      RemoveInlineStyleFromElement(
+          IsEnclosingBlock(elem) ? filtered_style : style, elem, editing_state,
+          kRemoveIfNeeded, style_to_push_down);
       if (editing_state->IsAborted())
         return;
       if (!elem->isConnected()) {
@@ -1806,7 +1848,8 @@ void ApplyStyleCommand::SurroundNodeRangeWithElement(
     Node* passed_start_node,
     Node* end_node,
     Element* element_to_insert,
-    EditingState* editing_state) {
+    EditingState* editing_state,
+    MergeSiblings merge_siblings) {
   DCHECK(passed_start_node);
   DCHECK(end_node);
   DCHECK(element_to_insert);
@@ -1831,6 +1874,10 @@ void ApplyStyleCommand::SurroundNodeRangeWithElement(
     if (node == end_node)
       break;
     node = next;
+  }
+
+  if (merge_siblings == kDoNotMergeSiblings) {
+    return;
   }
 
   Node* next_sibling = element->nextSibling();

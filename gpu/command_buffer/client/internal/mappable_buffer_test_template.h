@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <algorithm>
 #include <memory>
 
 #include "base/compiler_specific.h"
@@ -122,7 +123,7 @@ class MappableBufferTest : public testing::Test {
     // TODO(329211602): Currently only wayland has a valid
     // IsNativePixmapConfigSupported(). We should implement that in X11 and
     // other platforms.
-    if (ui::OzonePlatform::GetPlatformNameForTest() == "wayland") {
+    if (ui::OzonePlatform::RunningOnWaylandForTest()) {
       run_gpu_test_ = true;
     }
 #endif
@@ -321,8 +322,8 @@ TYPED_TEST_P(MappableBufferTest, Map) {
   // Use a multiple of 4 for both dimensions to support compressed formats.
   const gfx::Size kBufferSize(4, 4);
 
-  if (!base::Contains(TestFixture::usages(),
-                      gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
+  if (!std::ranges::contains(TestFixture::usages(),
+                             gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
     GTEST_SKIP();
   }
 
@@ -389,8 +390,8 @@ TYPED_TEST_P(MappableBufferTest, PersistentMap) {
   // Use a multiple of 4 for both dimensions to support compressed formats.
   const gfx::Size kBufferSize(4, 4);
 
-  if (!base::Contains(TestFixture::usages(),
-                      gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
+  if (!std::ranges::contains(TestFixture::usages(),
+                             gfx::BufferUsage::GPU_READ_CPU_READ_WRITE)) {
     GTEST_SKIP();
   }
 

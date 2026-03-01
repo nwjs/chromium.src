@@ -14,13 +14,13 @@
 #include "base/values.h"
 #include "components/prefs/pref_store.h"
 #include "components/prefs/pref_value_map.h"
-#include "components/supervised_user/core/browser/supervised_user_content_filters_service.h"
+#include "components/supervised_user/core/browser/device_parental_controls.h"
 #include "components/supervised_user/core/common/supervised_users.h"
 
 class PrefValueMap;
 
 namespace supervised_user {
-class SupervisedUserSettingsService;
+class FamilyLinkSettingsService;
 
 // Writes default values to `pref_values` as used within the
 // SupervisedUserPrefStore. In this context "default" doesn't indicate the
@@ -31,74 +31,79 @@ void SetSupervisedUserPrefStoreDefaults(PrefValueMap& pref_values);
 }  // namespace supervised_user
 
 // A PrefStore that gets its values from supervised user settings via the
-// SupervisedUserSettingsService passed in at construction.
+// FamilyLinkSettingsService passed in at construction.
 class SupervisedUserPrefStore : public PrefStore {
  public:
   // Construct a pref store that needs to be manually initialized with Init().
-  // Used on iOS since the iOS SupervisedUserSettingsService depends on the
+  // Used on iOS since the iOS FamilyLinkSettingsService depends on the
   // creation of the pref service and of this pref store.
   SupervisedUserPrefStore();
 
-  // Construct the pref store on platforms with the settings service available.
-  explicit SupervisedUserPrefStore(
-      supervised_user::SupervisedUserSettingsService*
-          supervised_user_settings_service,
-      supervised_user::SupervisedUserContentFiltersService*
-          supervised_user_content_filters_service);
+  // Construct the pref store with the settings service and device parental
+  // controls available.
+  SupervisedUserPrefStore(
+      supervised_user::FamilyLinkSettingsService* family_link_settings_service,
+      supervised_user::DeviceParentalControls& device_parental_controls);
 
   // Subscribe to the settings service.
-  void Init(supervised_user::SupervisedUserSettingsService*
-                supervised_user_settings_service,
-            supervised_user::SupervisedUserContentFiltersService*
-                supervised_user_content_filters_service);
+  void Init(
+      supervised_user::FamilyLinkSettingsService* family_link_settings_service,
+      supervised_user::DeviceParentalControls& device_parental_controls);
 
   // PrefStore overrides:
   bool GetValue(std::string_view key, const base::Value** value) const override;
-  base::Value::Dict GetValues() const override;
+  base::DictValue GetValues() const override;
   void AddObserver(PrefStore::Observer* observer) override;
   void RemoveObserver(PrefStore::Observer* observer) override;
   bool HasObservers() const override;
   bool IsInitializationComplete() const override;
 
-  void OnNewSettingsAvailable(const base::Value::Dict& settings);
+  void OnNewSettingsAvailable(const base::DictValue& settings);
 
  private:
+  // Local representation of last received the device parental controls state.
+  struct DeviceParentalControlsState {
+    bool is_web_filtering_enabled = false;
+    bool is_incognito_mode_disabled = false;
+    bool is_safe_search_forced = false;
+    bool is_enabled = false;
+  };
+
   ~SupervisedUserPrefStore() override;
 
   void OnSettingsServiceShutdown();
+
+  void OnDeviceParentalControlsChanged(
+      const supervised_user::DeviceParentalControls& device_parental_controls);
 
   // Merges the supervised user settings and android parental controls state
   // into a single pref value map. Non-empty `family_link_settings_` will
   // ignore android_parental_controls_state (for now).
   void RecreatePreferences();
 
-  void OnNewContentFiltersStateAvailable(
-      supervised_user::SupervisedUserContentFiltersService::State state);
-
   // Notifies observers about changes in the prefs_ compared to the diff_base,
   // which must own a valid pointer.
   void NotifyObserversAboutChanges(std::unique_ptr<PrefValueMap> diff_base);
 
-  base::CallbackListSubscription user_settings_subscription_;
+  base::CallbackListSubscription family_link_settings_subscription_;
 
-  base::CallbackListSubscription content_filter_settings_subscription_;
+  base::CallbackListSubscription device_parental_controls_subscription_;
 
   base::CallbackListSubscription shutdown_subscription_;
 
   std::unique_ptr<PrefValueMap> prefs_;
 
-  base::WeakPtr<const supervised_user::SupervisedUserSettingsService>
-      settings_service_;
+  base::WeakPtr<const supervised_user::FamilyLinkSettingsService>
+      family_link_settings_service_;
 
   base::ObserverList<PrefStore::Observer, true> observers_;
 
   // Last received family link settings.
-  std::optional<base::Value::Dict> family_link_settings_;
+  std::optional<base::DictValue> family_link_settings_;
 
-  // Last received (Android) device parental controls settings. Default value is
+  // Last received device parental controls settings. Default value is
   // semantically equivalent to no value.
-  supervised_user::SupervisedUserContentFiltersService::State
-      device_parental_controls_state_;
+  DeviceParentalControlsState device_parental_controls_state_;
 
   base::WeakPtrFactory<SupervisedUserPrefStore> weak_factory_{this};
 };

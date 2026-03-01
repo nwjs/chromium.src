@@ -23,7 +23,7 @@
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_view_controller.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
-#import "ios/chrome/browser/main/ui_bundled/bvc_container_view_controller.h"
+#import "ios/chrome/browser/main/ui/browser_layout_view_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller_testing.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -140,15 +140,15 @@ UIViewController* GetActiveViewController() {
 
   // The active view controller is either the TabGridViewController or its
   // presented BVC. The BVC is itself contained inside of a
-  // BVCContainerViewController.
+  // BrowserLayoutViewController.
   UIViewController* active_view_controller =
       main_view_controller.presentedViewController
           ? main_view_controller.presentedViewController
           : main_view_controller;
   if ([active_view_controller
-          isKindOfClass:[BVCContainerViewController class]]) {
+          isKindOfClass:[BrowserLayoutViewController class]]) {
     active_view_controller =
-        base::apple::ObjCCastStrict<BVCContainerViewController>(
+        base::apple::ObjCCastStrict<BrowserLayoutViewController>(
             active_view_controller)
             .currentBVC;
   }
@@ -244,23 +244,6 @@ bool IsCrashpadEnabled() {
 
 bool IsCrashpadReportingEnabled() {
   return crash_helper::common::UserEnabledUploading();
-}
-
-void OpenChromeFromExternalApp(const GURL& url) {
-  UIScene* scene =
-      [[UIApplication sharedApplication].connectedScenes anyObject];
-  [scene.delegate sceneWillResignActive:scene];
-
-  // FakeUIOpenURLContext cannot be instanciated, but it is just needed
-  // for carrying the properties over to the scene delegate.
-  FakeUIOpenURLContext* context = [FakeUIOpenURLContext alloc];
-  context.URL = net::NSURLWithGURL(url);
-
-  NSSet<UIOpenURLContext*>* URLContexts =
-      [[NSSet alloc] initWithArray:@[ context ]];
-
-  [scene.delegate scene:scene openURLContexts:URLContexts];
-  [scene.delegate sceneDidBecomeActive:scene];
 }
 
 bool PurgeCachedWebViewPages() {

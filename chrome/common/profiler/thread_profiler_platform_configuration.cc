@@ -133,8 +133,9 @@ bool DefaultPlatformConfiguration::IsEnabledForThread(
 bool DefaultPlatformConfiguration::IsSupportedForChannel(
     std::optional<version_info::Channel> release_channel) const {
   // The profiler is always supported for local builds and the CQ.
-  if (!release_channel)
+  if (!release_channel) {
     return true;
+  }
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (browser_test_mode_enabled()) {
@@ -210,8 +211,13 @@ AndroidPlatformConfiguration::AndroidPlatformConfiguration(
 ThreadProfilerPlatformConfiguration::RelativePopulations
 AndroidPlatformConfiguration::GetEnableRates(
     std::optional<version_info::Channel> release_channel) const {
-  // Always enable profiling in local/CQ builds or browser test mode.
-  if (!release_channel.has_value() || browser_test_mode_enabled()) {
+  // For now, until http://crbug.com/485225932 is solved, we disable for
+  // local/CQ builds.
+  if (!release_channel.has_value()) {
+    return RelativePopulations{100.0, 0.0, 0.0};
+  }
+  // Always enable profiling in browser test mode.
+  if (browser_test_mode_enabled()) {
     return RelativePopulations{0.0, 100.0, 0.0};
   }
 
@@ -276,7 +282,8 @@ AndroidPlatformConfiguration::ChooseEnabledProcess() const {
   }
   DCHECK_EQ(100, total_weight);
 
-  int chosen = base::RandInt(0, total_weight - 1);  // Max is inclusive.
+  int chosen =
+      base::RandIntInclusive(0, total_weight - 1);  // Max is inclusive.
   int cumulative_weight = 0;
   for (const auto& process_enable_weight : process_enable_weights) {
     if (chosen >= cumulative_weight &&

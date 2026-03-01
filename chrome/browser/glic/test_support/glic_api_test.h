@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_GLIC_TEST_SUPPORT_GLIC_API_TEST_H_
 #define CHROME_BROWSER_GLIC_TEST_SUPPORT_GLIC_API_TEST_H_
 
+#include <algorithm>
 #include <type_traits>
 
 #include "base/json/json_writer.h"
@@ -147,7 +148,7 @@ class GlicApiTestBase : public T {
         base::BindRepeating(&GlicApiTestBase::OnEmbeddedTestServerHttpRequest,
                             base::Unretained(this)));
 
-    T::add_mock_glic_query_param(
+    T::AddMockGlicQueryParam(
         "test",
         ::testing::UnitTest::GetInstance()->current_test_info()->name());
 
@@ -170,7 +171,7 @@ class GlicApiTestBase : public T {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         ::switches::kGlicHostLogging);
     T::SetGlicPagePath("/glic/browser_tests/test.html");
-    T::add_mock_glic_query_param("testsrc", js_source_path);
+    T::AddMockGlicQueryParam("testsrc", js_source_path);
   }
 
   ~GlicApiTestBase() override = default;
@@ -179,14 +180,14 @@ class GlicApiTestBase : public T {
     T::host_resolver()->AddRule("a.com", "127.0.0.1");
     T::host_resolver()->AddRule("b.com", "127.0.0.1");
     T::DisableWarming();
-    NonInteractiveGlicTest::SetUpOnMainThread();
+    T::SetUpOnMainThread();
   }
 
   void TearDownOnMainThread() override {
     if (!next_step_required_.empty()) {
       FAIL() << "Test not finished: call ContinueJsTest()";
     }
-    NonInteractiveGlicTest::TearDownOnMainThread();
+    T::TearDownOnMainThread();
   }
 
   GlicKeyedService* GetService() {
@@ -306,7 +307,7 @@ class GlicApiTestBase : public T {
 
     ASSERT_THAT(result, content::EvalJsResult::IsOk());
     if (result.is_dict()) {
-      const base::Value::Dict& dict = result.ExtractDict();
+      const base::DictValue& dict = result.ExtractDict();
       auto* id = dict.Find("id");
       if (id && id->is_string() && id->GetString() == "next-step") {
         step_data_ = dict.Find("payload")->Clone();
@@ -343,8 +344,8 @@ class GlicApiTestBase : public T {
     }
     for (int i = 0; i < unit_test->total_test_suite_count(); ++i) {
       const auto* test_suite = unit_test->GetTestSuite(i);
-      if (!base::Contains(gunit_test_suite_names,
-                          std::string(test_suite->name()))) {
+      if (!std::ranges::contains(gunit_test_suite_names,
+                                 std::string(test_suite->name()))) {
         continue;
       }
       for (int j = 0; j < test_suite->total_test_count(); ++j) {

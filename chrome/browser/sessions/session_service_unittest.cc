@@ -46,11 +46,11 @@
 #include "components/sessions/core/session_command.h"
 #include "components/sessions/core/session_id.h"
 #include "components/sessions/core/session_types.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
-#include "components/tabs/public/split_tab_id.h"
-#include "components/tabs/public/split_tab_visual_data.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/web_contents_tester.h"
@@ -1361,8 +1361,7 @@ TEST_F(SessionServiceTest, Workspace) {
                                                 window_workspace);
   for (const auto& command : pending_commands) {
     if (command->id() == workspace_command->id() &&
-        command->contents_as_string_piece() ==
-            workspace_command->contents_as_string_piece()) {
+        command->contents() == workspace_command->contents()) {
       found_workspace_command = true;
       break;
     }
@@ -1390,8 +1389,7 @@ TEST_F(SessionServiceTest, WorkspaceSavedOnOpened) {
                                                 workspace);
   for (const auto& command : pending_commands) {
     if (command->id() == workspace_command->id() &&
-        command->contents_as_string_piece() ==
-            workspace_command->contents_as_string_piece()) {
+        command->contents() == workspace_command->contents()) {
       found_workspace_command = true;
       break;
     }
@@ -1421,8 +1419,7 @@ TEST_F(SessionServiceTest, VisibleOnAllWorkspaces) {
           /*visible_on_all_workspaces=*/true);
   for (const auto& command : pending_commands) {
     if (command->id() == visible_on_all_workspaces_command->id() &&
-        command->contents_as_string_piece() ==
-            visible_on_all_workspaces_command->contents_as_string_piece()) {
+        command->contents() == visible_on_all_workspaces_command->contents()) {
       found_visible_on_all_workspaces_command = true;
       break;
     }
@@ -1452,8 +1449,7 @@ TEST_F(SessionServiceTest, PinnedAfterReset) {
 
   for (const auto& command : pending_commands) {
     if (command->id() == pinned_command->id() &&
-        command->contents_as_string_piece() ==
-            pinned_command->contents_as_string_piece()) {
+        command->contents() == pinned_command->contents()) {
       found_pinned_command = true;
       break;
     }

@@ -305,8 +305,6 @@ EnumTraits<media::mojom::VideoCaptureBufferType,
   switch (input) {
     case media::VideoCaptureBufferType::kSharedMemory:
       return media::mojom::VideoCaptureBufferType::kSharedMemory;
-    case media::VideoCaptureBufferType::kMailboxHolder:
-      return media::mojom::VideoCaptureBufferType::kMailboxHolder;
     case media::VideoCaptureBufferType::kGpuMemoryBuffer:
       return media::mojom::VideoCaptureBufferType::kGpuMemoryBuffer;
     case media::VideoCaptureBufferType::kSharedImage:
@@ -323,12 +321,6 @@ bool EnumTraits<media::mojom::VideoCaptureBufferType,
   switch (input) {
     case media::mojom::VideoCaptureBufferType::kSharedMemory:
       *output = media::VideoCaptureBufferType::kSharedMemory;
-      return true;
-    case media::mojom::VideoCaptureBufferType::
-        kSharedMemoryViaRawFileDescriptor_DEPRECATED:
-      NOTREACHED();
-    case media::mojom::VideoCaptureBufferType::kMailboxHolder:
-      *output = media::VideoCaptureBufferType::kMailboxHolder;
       return true;
     case media::mojom::VideoCaptureBufferType::kGpuMemoryBuffer:
       *output = media::VideoCaptureBufferType::kGpuMemoryBuffer;
@@ -2057,11 +2049,7 @@ bool StructTraits<media::mojom::VideoCaptureFeedbackDataView,
   output->max_pixels = data.max_pixels();
   output->resource_utilization = data.resource_utilization();
   output->require_mapped_frame = data.require_mapped_frame();
-
-  // Only need to set the frame_id if it's valid; otherwise it is default
-  // initialized to nullopt.
-  if (data.has_frame_id())
-    output->frame_id = data.frame_id();
+  output->frame_id = data.frame_id();
   return true;
 }
 

@@ -14,11 +14,11 @@
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
-#include "chrome/browser/autofill/strike_database_factory.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/facilitated_payments/ui/android/facilitated_payments_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/strike_database/strike_database_factory.h"
 #include "chrome/browser/ui/autofill/risk_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
@@ -192,7 +192,7 @@ ChromeFacilitatedPaymentsClient::GetStrikeDatabase() {
     return nullptr;
   }
 
-  return autofill::StrikeDatabaseFactory::GetForProfile(profile);
+  return StrikeDatabaseFactory::GetForProfile(profile);
 }
 
 void ChromeFacilitatedPaymentsClient::InitPixAccountLinkingFlow(
@@ -222,6 +222,11 @@ void ChromeFacilitatedPaymentsClient::RegisterAllowlists() {
     if (base::FeatureList::IsEnabled(payments::facilitated::kEwalletPayments)) {
       optimization_guide_decider_->RegisterOptimizationTypes(
           {optimization_guide::proto::EWALLET_MERCHANT_ALLOWLIST});
+    }
+    if (base::FeatureList::IsEnabled(
+            payments::facilitated::kEnableIframeForPix)) {
+      optimization_guide_decider_->RegisterOptimizationTypes(
+          {optimization_guide::proto::PIX_PSP_ALLOWLIST});
     }
     optimization_guide_decider_->RegisterOptimizationTypes(
         {optimization_guide::proto::A2A_MERCHANT_ALLOWLIST});

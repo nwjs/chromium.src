@@ -63,20 +63,13 @@ BASE_DECLARE_FEATURE(kUseFeedEligibilityService);
 // enables customizable most visited tiles when enabled.
 BASE_DECLARE_FEATURE(kMostVisitedTilesCustomizationIOS);
 
+// Feature flag to enable the NTP background image cache.
+BASE_DECLARE_FEATURE(kEnableNTPBackgroundImageCache);
+
 // Feature flag to make the height of the NTP Logo and Doodle consistent.
 BASE_DECLARE_FEATURE(kConsistentLogoDoodleHeight);
 
 #pragma mark - Feature parameters
-
-// A parameter to indicate whether Reconstructed Templates is enabled for static
-// resource serving.
-// TODO(crbug.com/40246814): Remove this.
-extern const char kDiscoverFeedSRSReconstructedTemplatesEnabled[];
-
-// A parameter to indicate whether Preload Templates is enabled for static
-// resource serving.
-// TODO(crbug.com/40246814): Remove this.
-extern const char kDiscoverFeedSRSPreloadTemplatesEnabled[];
 
 // A parameter value for the feed's refresh threshold when the feed has already
 // been seen by the user.
@@ -131,6 +124,9 @@ bool ShouldEnlargeNTPFakeboxForMIA();
 
 // Whether customized most visited tiles is enabled on Chrome on iOS.
 bool IsContentSuggestionsCustomizable();
+
+// Whether the NTP background image cache is enabled.
+bool IsNTPBackgroundImageCacheEnabled();
 
 // Whether the NTP Logo and Doodle should have a consistent height.
 bool IsConsistentLogoDoodleHeightEnabled();

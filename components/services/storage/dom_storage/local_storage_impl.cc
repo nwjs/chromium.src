@@ -61,10 +61,6 @@ const unsigned kMaxLocalStorageAreaCount = 50;
 const size_t kMaxLocalStorageCacheSize = 20 * 1024 * 1024;
 #endif
 
-void SuccessResponse(base::OnceClosure callback, bool success) {
-  std::move(callback).Run();
-}
-
 void IgnoreStatus(base::OnceClosure callback, DbStatus status) {
   std::move(callback).Run();
 }
@@ -191,12 +187,11 @@ class LocalStorageImpl::StorageAreaHolder final
 };
 
 LocalStorageImpl::LocalStorageImpl(
-    const base::FilePath& storage_root,
+    const base::FilePath& storage_partition_directory,
     DestructLocalStorageCallback destruct_callback,
     mojo::PendingReceiver<mojom::LocalStorageControl> receiver)
     : destruct_callback_(std::move(destruct_callback)),
-      directory_(storage_root.empty() ? storage_root
-                                      : storage_root.Append(kLocalStoragePath)),
+      storage_partition_directory_(storage_partition_directory),
       memory_dump_id_(base::StringPrintf("LocalStorage/0x%" PRIXPTR,
                                          reinterpret_cast<uintptr_t>(this))) {
   base::trace_event::MemoryDumpManager::GetInstance()
@@ -247,8 +242,7 @@ void LocalStorageImpl::DeleteStorage(const blink::StorageKey& storage_key,
     // event and we only care about observing its completion, for which the
     // reply alone is sufficient.
     found->second->storage_area()->DeleteAll(
-        "\n", /*new_observer=*/mojo::NullRemote(),
-        base::BindOnce(&SuccessResponse, std::move(callback)));
+        "\n", /*new_observer=*/mojo::NullRemote(), std::move(callback));
     found->second->storage_area()->ScheduleImmediateCommit();
   } else if (database_) {
     std::vector<DomStorageDatabase::MapLocator> maps_to_delete;
@@ -303,6 +297,11 @@ void LocalStorageImpl::FlushStorageKeyForTesting(
   if (it == areas_.end())
     return;
   it->second->storage_area()->ScheduleImmediateCommit();
+}
+
+base::FilePath LocalStorageImpl::GetDatabasePath() const {
+  return DomStorageDatabase::GetPath(StorageType::kLocalStorage,
+                                     storage_partition_directory_);
 }
 
 void LocalStorageImpl::ShutDown() {
@@ -422,11 +421,8 @@ bool LocalStorageImpl::OnMemoryDump(
   return true;
 }
 
-base::FilePath LocalStorageImpl::GetStoragePath() const {
-  if (directory_.empty()) {
-    return directory_;
-  }
-  return directory_.DirName();
+const base::FilePath& LocalStorageImpl::GetStoragePartitionDirectory() const {
+  return storage_partition_directory_;
 }
 
 void LocalStorageImpl::SetDatabaseOpenCallbackForTesting(
@@ -475,12 +471,12 @@ void LocalStorageImpl::PurgeAllStorageAreas() {
 void LocalStorageImpl::InitiateConnection(bool in_memory_only) {
   DCHECK_EQ(connection_state_, CONNECTION_IN_PROGRESS);
 
-  if (!directory_.empty() && directory_.IsAbsolute() && !in_memory_only) {
+  if (!storage_partition_directory_.empty() &&
+      storage_partition_directory_.IsAbsolute() && !in_memory_only) {
     // We were given a subdirectory to write to, so use a disk-backed database.
     in_memory_ = false;
     database_ = AsyncDomStorageDatabase::Open(
-        StorageType::kLocalStorage, directory_, kLocalStorageLeveldbName,
-        memory_dump_id_,
+        StorageType::kLocalStorage, GetDatabasePath(), memory_dump_id_,
         base::BindOnce(&LocalStorageImpl::OnDatabaseOpened,
                        weak_ptr_factory_.GetWeakPtr()));
     return;
@@ -490,7 +486,7 @@ void LocalStorageImpl::InitiateConnection(bool in_memory_only) {
   in_memory_ = true;
   database_ = AsyncDomStorageDatabase::Open(
       StorageType::kLocalStorage,
-      /*directory=*/base::FilePath(), "local-storage", memory_dump_id_,
+      /*database_path=*/base::FilePath(), memory_dump_id_,
       base::BindOnce(&LocalStorageImpl::OnDatabaseOpened,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -562,9 +558,7 @@ void LocalStorageImpl::DeleteAndRecreateDatabase() {
   // Destroy database, and try again.
   if (!in_memory_) {
     DomStorageDatabaseFactory::Destroy(
-        directory_, kLocalStorageLeveldbName,
-        AsyncDomStorageDatabase::GetTaskRunnerForDb(directory_,
-                                                    kLocalStorageLeveldbName),
+        GetDatabasePath(),
         base::BindOnce(&LocalStorageImpl::OnDBDestroyed,
                        weak_ptr_factory_.GetWeakPtr(), recreate_in_memory));
   } else {
@@ -735,7 +729,7 @@ void LocalStorageImpl::OnGotMetaDataToDeleteStaleStorageAreas(
     }
 
     if ((base::Time::Now() - accessed_or_modified_time) >=
-        base::Days(LocalStorageLevelDB::kStaleBucketCutoffInDays)) {
+        base::Days(kLocalStorageStaleBucketCutoffInDays)) {
       // If the storage area has not been accessed or modified within 400 days
       // it can be cleared.
       stale_storage_keys.push_back(storage_key);

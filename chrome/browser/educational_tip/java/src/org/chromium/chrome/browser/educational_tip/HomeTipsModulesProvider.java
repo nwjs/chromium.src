@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.educational_tip;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipModuleTwoCellBuilder;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.setup_list.SetupListModuleUtils;
@@ -20,8 +21,13 @@ import java.util.Collection;
 @NullMarked
 public class HomeTipsModulesProvider {
     /**
-     * Registers the appropriate set of modules (either Setup List or Educational Tips) with the
-     * ModuleRegistry.
+     * Registers module builders with the ModuleRegistry based on the Setup List state.
+     *
+     * <p>If the Setup List is active ({@link SetupListModuleUtils#isSetupListActive()}), this
+     * method registers either {@link EducationalTipModuleTwoCellBuilder} or {@link
+     * EducationalTipModuleBuilder} instances, depending on {@link
+     * SetupListModuleUtils#shouldShowTwoCellLayout()}. Otherwise, it registers builders for the
+     * default educational tips.
      *
      * @param actionDelegate The instance of {@link EducationTipModuleActionDelegate}.
      * @param moduleRegistry The instance of {@link ModuleRegistry}.
@@ -29,19 +35,38 @@ public class HomeTipsModulesProvider {
     public static void registerTipModules(
             EducationTipModuleActionDelegate actionDelegate, ModuleRegistry moduleRegistry) {
         boolean isSetupListActive = SetupListModuleUtils.isSetupListActive();
-        Collection<Integer> modulesToRegister = getModuleTypesToRegister(isSetupListActive);
+        boolean showTwoCell = SetupListModuleUtils.shouldShowTwoCellLayout();
 
+        Collection<Integer> modulesToRegister =
+                getModuleTypesToRegister(isSetupListActive, showTwoCell);
         for (@ModuleType int moduleType : modulesToRegister) {
-            EducationalTipModuleBuilder moduleBuilder =
-                    new EducationalTipModuleBuilder(moduleType, actionDelegate);
-            moduleRegistry.registerModule(moduleType, moduleBuilder);
+            if (showTwoCell) {
+                moduleRegistry.registerModule(
+                        moduleType,
+                        new EducationalTipModuleTwoCellBuilder(moduleType, actionDelegate));
+            } else {
+                moduleRegistry.registerModule(
+                        moduleType, new EducationalTipModuleBuilder(moduleType, actionDelegate));
+            }
         }
     }
 
+    /**
+     * Returns the collection of ModuleTypes to be registered based on whether the Setup List is
+     * active and whether the two-cell layout should be shown.
+     *
+     * @param isSetupListActive Whether the Setup List feature is currently active.
+     * @param showTwoCell Whether the two-cell layout should be used for the Setup List.
+     * @return A collection of {@link ModuleType} integers.
+     */
     @VisibleForTesting
-    static Collection<Integer> getModuleTypesToRegister(boolean isSetupListActive) {
+    static Collection<Integer> getModuleTypesToRegister(
+            boolean isSetupListActive, boolean showTwoCell) {
         if (isSetupListActive) {
             // If the "Set Up List" feature is active, return its ranked modules.
+            if (showTwoCell) {
+                return SetupListModuleUtils.getTwoCellContainerModuleTypes();
+            }
             return SetupListModuleUtils.getRankedModuleTypes();
         } else {
             // Fall back to returning the default Educational Tip modules.

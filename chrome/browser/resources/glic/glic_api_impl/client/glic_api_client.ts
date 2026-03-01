@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {AdditionalContext, AnnotatedPageData, CancelActionsResult, CaptureRegionErrorReason, CaptureRegionResult, ChromeVersion, ConversationInfo, CreateActorTabOptions, CreateSkillRequest, CreateTabOptions, DraggableArea, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, GlicBrowserHostJournal, GlicBrowserHostMetrics, GlicHostRegistry, GlicWebClient, Journal, NavigationConfirmationRequest, Observable, ObservableValue, OnResponseStoppedDetails, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, PinCandidate, PinTabsOptions, Platform, ResizeWindowOptions, ResumeActorTaskResult, Screenshot, ScrollToParams, SelectAutofillSuggestionsDialogRequest, SelectCredentialDialogRequest, Skill, SkillPreview, SkillSource, TabContextOptions, TabContextResult, TabData, TaskOptions, UnpinTabsOptions, UpdateSkillRequest, UserConfirmationDialogRequest, UserProfileInfo, ViewChangedNotification, ViewChangeRequest, WebClientMode, ZeroStateSuggestions, ZeroStateSuggestionsOptions, ZeroStateSuggestionsV2} from '../../glic_api/glic_api.js';
+import type {AdditionalContext, AnnotatedPageData, CancelActionsResult, CaptureRegionErrorReason, CaptureRegionResult, ChromeVersion, ConversationInfo, CreateActorTabOptions, CreateSkillRequest, CreateTabOptions, DraggableArea, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, GlicBrowserHostJournal, GlicBrowserHostMetrics, GlicHostRegistry, GlicWebClient, Journal, NavigationConfirmationRequest, Observable, ObservableValue, OnResponseStoppedDetails, OpenPanelInfo, OpenSettingsOptions, PageMetadata, PanelOpeningData, PanelState, PdfDocumentData, PinCandidate, PinTabsOptions, Platform, ResizeWindowOptions, ResumeActorTaskResult, Screenshot, ScrollToParams, SelectAutofillSuggestionsDialogRequest, SelectCredentialDialogRequest, Skill, SkillPreview, TabContextOptions, TabContextResult, TabData, TaskOptions, UnpinTabsOptions, UpdateSkillRequest, UserConfirmationDialogRequest, UserProfileInfo, ViewChangedNotification, ViewChangeRequest, WebClientMode, ZeroStateSuggestions, ZeroStateSuggestionsOptions, ZeroStateSuggestionsV2} from '../../glic_api/glic_api.js';
 import {ActorTaskPauseReason, ActorTaskState, ActorTaskStopReason, HostCapability} from '../../glic_api/glic_api.js';
 import {ObservableValue as ObservableValueImpl, Subject} from '../../observable.js';
 
@@ -57,6 +57,7 @@ type WebClientMessageHandlerInterface = {
 class WebClientMessageHandler implements WebClientMessageHandlerInterface {
   private cachedPinnedTabs: TabData[]|undefined = undefined;
   private cachedSkillPreviews: SkillPreview[] = [];
+  private cachedContextualSkillPreviews: SkillPreview[] = [];
   private cachedSkillPrompts = new Map<string, string>();
 
   constructor(
@@ -211,7 +212,14 @@ class WebClientMessageHandler implements WebClientMessageHandlerInterface {
   }): void {
     this.cachedSkillPrompts.clear();
     this.cachedSkillPreviews = payload.skillPreviews;
-    this.host.skillPreviews.assignAndSignal(this.cachedSkillPreviews);
+    this.host.skillPreviews.assignAndSignal(this.combineSkillPreviews());
+  }
+
+  glicWebClientNotifyContextualSkillPreviewsChanged(payload: {
+    contextualSkillPreviews: SkillPreview[],
+  }): void {
+    this.cachedContextualSkillPreviews = payload.contextualSkillPreviews;
+    this.host.skillPreviews.assignAndSignal(this.combineSkillPreviews());
   }
 
   glicWebClientNotifySkillPreviewChanged(payload: {skillPreview: SkillPreview}):
@@ -235,7 +243,24 @@ class WebClientMessageHandler implements WebClientMessageHandlerInterface {
     }
 
     // Signal the change to the host.
-    this.host.skillPreviews.assignAndSignal(this.cachedSkillPreviews);
+    this.host.skillPreviews.assignAndSignal(this.combineSkillPreviews());
+  }
+
+  glicWebClientNotifySkillDeleted(payload: {
+    skillId: string,
+  }): void {
+    const skillId = payload.skillId;
+    this.cachedSkillPrompts.delete(skillId);
+    const index = this.cachedSkillPreviews.findIndex(
+        (cachedSkillPreview) => cachedSkillPreview.id === skillId);
+    if (index !== -1) {
+      // SkillPreview with the same ID exists, remove it.
+      this.cachedSkillPreviews = [
+        ...this.cachedSkillPreviews.slice(0, index),
+        ...this.cachedSkillPreviews.slice(index + 1),
+      ];
+    }
+    this.host.skillPreviews.assignAndSignal(this.combineSkillPreviews());
   }
 
   glicWebClientNotifySkillToInvokeChanged(payload: {skill: Skill}): void {
@@ -482,6 +507,10 @@ class WebClientMessageHandler implements WebClientMessageHandlerInterface {
       this.cachedSkillPrompts.set(preview.id, skill.prompt);
     }
   }
+
+  combineSkillPreviews() {
+    return [...this.cachedContextualSkillPreviews, ...this.cachedSkillPreviews];
+  }
 }
 
 class GlicBrowserHostImpl implements GlicBrowserHost {
@@ -513,6 +542,8 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
   private journalHost: GlicBrowserHostJournalImpl;
   private metrics: GlicBrowserHostMetricsImpl;
   private manuallyResizing = ObservableValueImpl.withValue<boolean>(false);
+  private cachedUserProfile?: Promise<UserProfileInfo>;
+  private enableCachedGetUserProfileInfo?: boolean;
   pinnedTabs = ObservableValueImpl.withNoValue<TabData[]>();
   skillPreviews = ObservableValueImpl.withNoValue<SkillPreview[]>();
   skillToInvoke = ObservableValueImpl.withNoValue<Skill>();
@@ -608,6 +639,7 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     this.canAttachPanelValue.assignAndSignal(state.canAttach);
     this.chromeVersion = state.chromeVersion;
     this.platform = state.platform;
+    this.enableCachedGetUserProfileInfo = state.enableCachedGetUserProfileInfo;
     this.panelActiveValue.assignAndSignal(state.panelIsActive);
     this.isBrowserOpenValue.assignAndSignal(state.browserIsOpen);
     this.osHotkeyState.assignAndSignal({hotkey: state.hotkey});
@@ -630,17 +662,10 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
       this.getModelQualityClientId = undefined;
     }
 
-    if (state.enableSkills) {
-      if (state.skillPreviews) {
-        this.skillPreviews.assignAndSignal(
-            state.skillPreviews.map(s => ({
-                                      ...s,
-                                      source: s.source as number as SkillSource,
-                                    })));
-      }
-    } else {
+    if (!state.enableSkills) {
       this.createSkill = undefined;
       this.updateSkill = undefined;
+      this.showManageSkillsUi = undefined;
       this.getSkill = undefined;
     }
 
@@ -1080,6 +1105,11 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
   }
 
   async getUserProfileInfo?(): Promise<UserProfileInfo> {
+    return this.enableCachedGetUserProfileInfo ? this.fetchUserProfileCached() :
+                                                 this.fetchUserProfileDirect();
+  }
+
+  private async fetchUserProfileDirect(): Promise<UserProfileInfo> {
     const {profileInfo} = await this.sender.requestWithResponse(
         'glicBrowserGetUserProfileInfo', undefined);
     if (!profileInfo) {
@@ -1089,6 +1119,54 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     return replaceProperties(
         profileInfo,
         {avatarIcon: async () => avatarIcon && rgbaImageToBlob(avatarIcon)});
+  }
+
+  private async fetchUserProfileCached(): Promise<UserProfileInfo> {
+    if (this.cachedUserProfile) {
+      return this.cachedUserProfile;
+    }
+
+    this.cachedUserProfile = (async () => {
+      try {
+        const {profileInfo} = await this.sender.requestWithResponse(
+            'glicBrowserGetUserProfileInfo', undefined);
+
+        if (!profileInfo) {
+          throw new Error('getUserProfileInfo failed');
+        }
+
+        let blobPromise: Promise<Blob|undefined>|undefined;
+        return replaceProperties(profileInfo, {
+          avatarIcon: () => {
+            if (blobPromise) {
+              return blobPromise;
+            }
+            if (!profileInfo.avatarIcon) {
+              blobPromise = Promise.resolve(undefined);
+              return blobPromise;
+            }
+
+            blobPromise = rgbaImageToBlob(profileInfo.avatarIcon)
+                              .then((blob) => {
+                                // Clear memory after conversion
+                                profileInfo.avatarIcon = undefined;
+                                return blob;
+                              })
+                              .catch((e) => {
+                                console.error('Avatar conversion failed:', e);
+                                return undefined;
+                              });
+
+            return blobPromise;
+          },
+        });
+      } catch (e) {
+        this.cachedUserProfile = undefined;
+        throw e;
+      }
+    })();
+
+    return this.cachedUserProfile;
   }
 
   async refreshSignInCookies(): Promise<void> {
@@ -1172,6 +1250,10 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     }
   }
 
+  showManageSkillsUi?(): void {
+    this.sender.requestNoResponse('glicBrowserShowManageSkillsUi', undefined);
+  }
+
   async getSkill?(id: string): Promise<Skill> {
     const result =
         await this.sender.requestWithResponse('glicBrowserGetSkill', {id});
@@ -1182,7 +1264,7 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     return result.skill;
   }
 
-  getSkills?(): ObservableValue<SkillPreview[]> {
+  getSkillPreviews?(): ObservableValue<SkillPreview[]> {
     return this.skillPreviews;
   }
 
@@ -1251,6 +1333,7 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
   }
 
   maybeRefreshUserStatus?(): void {
+    this.cachedUserProfile = undefined;
     this.sender.requestNoResponse(
         'glicBrowserMaybeRefreshUserStatus', undefined);
   }
@@ -1440,10 +1523,6 @@ class GlicBrowserHostMetricsImpl implements GlicBrowserHostMetrics {
   onTurnCompleted?(model: number, duration: number): void {
     this.sender.requestNoResponse(
         'glicBrowserOnTurnCompleted', {model, duration});
-  }
-
-  onModelChanged?(model: number): void {
-    this.sender.requestNoResponse('glicBrowserOnModelChanged', {model});
   }
 
   onRecordUseCounter?(counter: number): void {
@@ -1639,7 +1718,7 @@ async function rgbaImageToBlob(image: RgbaImage): Promise<Blob> {
     throw Error('unsupported colorType');
   }
   // Note that for either alphaType, we swap bytes from BGRA to RGBA order.
-  const pixelData = new Uint8ClampedArray(image.dataRGBA);
+  const pixelData = new Uint8ClampedArray(image.dataRGBA.slice(0));
   if (image.alphaType === ImageAlphaType.PREMUL) {
     for (let i = 0; i + 3 < pixelData.length; i += 4) {
       const alphaInt = pixelData[i + 3]!;

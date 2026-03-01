@@ -15,11 +15,16 @@
 
 class TabCollectionNode;
 class VerticalTabDragHandler;
+class VerticalTabGroupView;
 
-// Container for the vertical tabstrip's unpinned tabs.
-class VerticalUnpinnedTabContainerView : public views::View,
-                                         public views::LayoutDelegate,
-                                         public VerticalDraggedTabsContainer {
+// The view class that represents the unpinned tab region for the
+// vertical tab strip. It manages the layout of the all the unpinned tabs and
+// serves as the drag target for unpinned tabs which aren't grouped.
+class VerticalUnpinnedTabContainerView
+    : public views::View,
+      public views::LayoutDelegate,
+      public VerticalDraggedTabsContainer,
+      public TabCollectionAnimatingLayoutManager::Delegate {
   METADATA_HEADER(VerticalUnpinnedTabContainerView, views::View)
 
  public:
@@ -34,11 +39,31 @@ class VerticalUnpinnedTabContainerView : public views::View,
   views::ProposedLayout CalculateProposedLayout(
       const views::SizeBounds& size_bounds) const override;
 
+  // views::View:
+  gfx::Size GetMinimumSize() const override;
+
+  // TabCollectionAnimatingLayoutManager::Delegate:
+  bool IsViewDragging(const views::View& child_view) const override;
+  bool ShouldSnapToTarget(const views::View& child_view) const override;
+
+  // VerticalDraggedTabsContainer:
+  VerticalDraggedTabsContainer& GetTabDragTarget(
+      const gfx::Point& point_in_screen) override;
+
  private:
   // VerticalDraggedTabsContainer:
   VerticalTabDragHandler& GetDragHandler() override;
+  const VerticalTabDragHandler& GetDragHandler() const override;
+  bool IsTabStripCollapsed() const override;
+  views::ScrollView* GetScrollViewForContainer() const override;
   void UpdateLayoutForDrag() override;
-  void HandleTabDragInContainer(const gfx::Point point_in_container) override;
+  void HandleTabDragInContainer(const gfx::Rect& dragged_tab_bounds) override;
+
+  // Returns whether a drag that is currently being handled by the given
+  // `group_view` should continue being handled by it.
+  bool ShouldDragRemainInGroup(const VerticalTabGroupView& group_view,
+                               const gfx::Rect& proposed_group_bounds,
+                               const gfx::Point& point_in_screen) const;
 
   void ResetCollectionNode();
 

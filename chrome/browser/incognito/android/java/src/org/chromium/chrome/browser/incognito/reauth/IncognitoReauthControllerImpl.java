@@ -15,8 +15,9 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -152,7 +153,7 @@ public class IncognitoReauthControllerImpl
 
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final TabModelSelector mTabModelSelector;
-    private final ObservableSupplier<Profile> mProfileObservableSupplier;
+    private final MonotonicObservableSupplier<Profile> mProfileObservableSupplier;
     private final IncognitoReauthCoordinatorFactory mIncognitoReauthCoordinatorFactory;
     private final int mTaskId;
     private final boolean mIsTabbedActivity;
@@ -213,7 +214,7 @@ public class IncognitoReauthControllerImpl
             TabModelSelector tabModelSelector,
             ActivityLifecycleDispatcher dispatcher,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderOneshotSupplier,
-            ObservableSupplier<Profile> profileSupplier,
+            MonotonicObservableSupplier<Profile> profileSupplier,
             IncognitoReauthCoordinatorFactory incognitoReauthCoordinatorFactory,
             Supplier<Boolean> incognitoReauthPendingOnRestoreSupplier,
             int taskId) {
@@ -280,6 +281,14 @@ public class IncognitoReauthControllerImpl
             mIncognitoReauthCoordinator.destroy();
             mIncognitoReauthCoordinator = null;
         }
+    }
+
+    /** Returns whether an app update has happened. */
+    public static boolean isFromUpdate(@Nullable PersistableBundle persistableBundle) {
+        if (persistableBundle == null) return false;
+
+        return BuildConfig.VERSION_CODE
+                != persistableBundle.getLong(PREVIOUS_VERSION_CODE, BuildConfig.VERSION_CODE);
     }
 
     /** Override from {@link IncognitoReauthController}. */

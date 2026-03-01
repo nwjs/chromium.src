@@ -30,7 +30,7 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
   void SetUserSelectedDefaultSearchProvider(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jkeyword,
-      jint choice_made_location);
+      int32_t choice_made_location);
   bool IsLoaded(JNIEnv* env) const;
   bool IsDefaultSearchManaged(JNIEnv* env);
   bool IsSearchByImageAvailable(JNIEnv* env);
@@ -64,6 +64,8 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
   int GetSearchEngineTypeFromTemplateUrl(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jkeyword);
+  std::u16string GetFullNameFromTemplateUrl(JNIEnv* env,
+                                            const std::u16string& keyword);
 
   // Adds a search engine, set by Play API. Sets it as DSE if possible.
   // Returns true if search engine was successfully added, false if search
@@ -90,7 +92,7 @@ class TemplateUrlServiceAndroid : public TemplateURLServiceObserver {
   base::android::ScopedJavaLocalRef<jstring> AddSearchEngineForTesting(
       JNIEnv* env,
       const base::android::JavaRef<jstring>& jkeyword,
-      jint age_in_days);
+      int32_t age_in_days);
 
   // Finds the search engine whose keyword matches |jkeyword| and sets its
   // last_visited time as the current time.

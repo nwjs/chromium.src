@@ -52,6 +52,12 @@
 - (void)showWelcomeBackPromo {
 }
 
+- (void)showHomeBackgroundCustomizationPromo {
+}
+
+- (void)showDockingPromo {
+}
+
 @end
 
 class DefaultBrowserRemindMeLaterPromoDisplayHandlerTest : public PlatformTest {
@@ -66,7 +72,7 @@ TEST_F(DefaultBrowserRemindMeLaterPromoDisplayHandlerTest, TestConfig) {
   PromoConfig config = [handler config];
   EXPECT_EQ(promos_manager::Promo::DefaultBrowserRemindMeLater,
             config.identifier);
-  EXPECT_EQ(&feature_engagement::kIPHiOSPromoDefaultBrowserReminderFeature,
+  EXPECT_EQ(feature_engagement::kIPHiOSPromoDefaultBrowserReminderFeature,
             config.feature_engagement_feature);
 }
 

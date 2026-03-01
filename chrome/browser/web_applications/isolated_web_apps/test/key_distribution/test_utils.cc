@@ -65,9 +65,10 @@ void KeyDistributionComponent::KeyDistributionComponent::
 }
 
 KeyDistributionComponentBuilder::KeyDistributionComponentBuilder(
-    const base::Version& component_version)
+    const base::Version& component_version,
+    bool is_preloaded)
     : component_(/*version=*/component_version,
-                 /*is_preloaded=*/false,
+                 /*is_preloaded=*/is_preloaded,
                  /*data=*/IwaKeyDistribution{}) {}
 
 KeyDistributionComponentBuilder::~KeyDistributionComponentBuilder() = default;
@@ -75,11 +76,9 @@ KeyDistributionComponentBuilder::~KeyDistributionComponentBuilder() = default;
 KeyDistributionComponentBuilder&
 KeyDistributionComponentBuilder::AddToKeyRotations(
     const web_package::SignedWebBundleId& web_bundle_id,
-    std::optional<base::span<const uint8_t>> expected_key) & {
+    base::span<const uint8_t> expected_key) & {
   IwaKeyRotations::KeyRotationInfo kr_info_proto;
-  if (expected_key.has_value()) {
-    kr_info_proto.set_expected_key(base::Base64Encode(*expected_key));
-  }
+  kr_info_proto.set_expected_key(base::Base64Encode(expected_key));
   (*component_.component_data.mutable_key_rotation_data()
         ->mutable_key_rotations())[web_bundle_id.id()] =
       std::move(kr_info_proto);
@@ -89,7 +88,7 @@ KeyDistributionComponentBuilder::AddToKeyRotations(
 KeyDistributionComponentBuilder&&
 KeyDistributionComponentBuilder::AddToKeyRotations(
     const web_package::SignedWebBundleId& web_bundle_id,
-    std::optional<base::span<const uint8_t>> expected_key) && {
+    base::span<const uint8_t> expected_key) && {
   return std::move(AddToKeyRotations(web_bundle_id, std::move(expected_key)));
 }
 
@@ -236,7 +235,7 @@ InstallIwaKeyDistributionComponent(const base::Version& version,
   // existing component on disk.
   CHECK(base::WriteFile(
       install_dir.Append(FILE_PATH_LITERAL("manifest.json")),
-      *base::WriteJson(base::Value::Dict()
+      *base::WriteJson(base::DictValue()
                            .Set("manifest_version", 1)
                            .Set("name", Installer::kManifestName)
                            .Set("version", version.GetString()))));

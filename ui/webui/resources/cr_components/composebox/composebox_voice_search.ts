@@ -299,6 +299,7 @@ export class ComposeboxVoiceSearchElement extends
   private resetState_() {
     this.state_ = State.UNINITIALIZED;
     this.finalResult_ = '';
+    this.transcript_ = '';
     this.interimResult_ = '';
     this.error_ = null;
     this.errorMessage_ = '';
@@ -312,7 +313,7 @@ export class ComposeboxVoiceSearchElement extends
     e.preventDefault();
     const href = (e.currentTarget as HTMLAnchorElement).href;
     if (href) {
-      this.pageHandler_.navigateUrl({url: href});
+      this.pageHandler_.navigateUrl(href);
     }
     /* Do not record metric by setting canceled-by-user
      * param to false in this event:

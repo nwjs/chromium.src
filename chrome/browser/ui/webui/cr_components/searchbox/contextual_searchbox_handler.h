@@ -18,7 +18,6 @@
 #include "base/unguessable_token.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_search_type_converters.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_omnibox_client.h"
 #include "components/contextual_search/contextual_search_context_controller.h"
@@ -31,9 +30,9 @@
 #include "components/omnibox/composebox/composebox_query.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "third_party/omnibox_proto/aim_models.pb.h"
-#include "third_party/omnibox_proto/aim_tools.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "third_party/omnibox_proto/model_mode.pb.h"
+#include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 class Profile;
@@ -109,10 +108,10 @@ class ContextualSearchboxHandler
                       AddFileContextCallback callback) override;
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
-                     AddTabContextCallback) override;
+                     AddTabContextCallback callback) override;
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override;
-  void ClearFiles() override;
+  void ClearFiles(bool should_block_auto_suggested_tabs) override;
   void SubmitQuery(const std::string& query_text,
                    uint8_t mouse_button,
                    bool alt_key,
@@ -123,9 +122,21 @@ class ContextualSearchboxHandler
   void GetTabPreview(int32_t tab_id, GetTabPreviewCallback callback) override;
   void GetInputState(GetInputStateCallback callback) override;
 
+  // Continues the process of adding tab context for a given `tab_id`.
+  // This method is used when a `context_token` has already been generated
+  // (e.g., by a composebox handler's AddTabContext) and the tab context needs
+  // to be associated with that specific token. This differs from
+  // `AddTabContext` since `AddTabContext` generates a new context token
+  // associated with a session handle.
+  void ContinueAddTabContext(int32_t tab_id,
+                             bool delay_upload,
+                             base::UnguessableToken context_token,
+                             AddTabContextCallback callback);
+
   // Called from browser code (e.g., Views-based file selector) to add file
   // context.
   void AddFileContextFromBrowser(
+      std::string file_name,
       std::string mime_type,
       mojo_base::BigBuffer file_bytes,
       std::optional<lens::ImageEncodingOptions> image_encoding_options,
@@ -161,10 +172,15 @@ class ContextualSearchboxHandler
 
   std::vector<base::UnguessableToken> GetUploadedContextTokens();
 
+  contextual_search::InputStateModel* input_state_model() {
+    return input_state_model_.get();
+  }
+
   // Resets `input_state_model_`.
   void ResetInputStateModel();
   void SetActiveToolMode(omnibox::ToolMode tool) override;
   void SetActiveModelMode(omnibox::ModelMode model) override;
+  void ActivateMetricsFunnel(const std::string& funnel_name) override;
 
  protected:
   void ComputeAndOpenQueryUrl(
@@ -211,6 +227,8 @@ class ContextualSearchboxHandler
   // Records metrics for when a tab is added to the composebox.
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
+
+  void InitializeInputStateModel();
 
   std::unique_ptr<contextual_search::InputStateModel> input_state_model_;
 

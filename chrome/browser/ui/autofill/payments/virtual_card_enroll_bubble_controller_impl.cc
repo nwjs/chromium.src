@@ -200,15 +200,15 @@ void VirtualCardEnrollBubbleControllerImpl::OnLinkClicked(
   VirtualCardEnrollMetricsLogger::OnLinkClicked(
       link_type, ui_model_->enrollment_fields().virtual_card_enrollment_source);
 
+#if !BUILDFLAG(IS_ANDROID)
+  bubble_state_ = BubbleState::kShowingIconAndBubble;
+#endif
+
   web_contents()->OpenURL(
       content::OpenURLParams(url, content::Referrer(),
                              WindowOpenDisposition::NEW_FOREGROUND_TAB,
                              ui::PAGE_TRANSITION_LINK, false),
       /*navigation_handle_callback=*/{});
-
-#if !BUILDFLAG(IS_ANDROID)
-  bubble_state_ = BubbleState::kShowingIconAndBubble;
-#endif
 }
 
 void VirtualCardEnrollBubbleControllerImpl::OnBubbleDiscarded() {
@@ -340,6 +340,14 @@ void VirtualCardEnrollBubbleControllerImpl::OnVisibilityChanged(
 #endif
 }
 
+bool VirtualCardEnrollBubbleControllerImpl::ShouldReshowOnTabVisible() const {
+#if !BUILDFLAG(IS_ANDROID)
+  return bubble_state_ == BubbleState::kShowingIconAndBubble;
+#else
+  return false;
+#endif
+}
+
 #if !BUILDFLAG(IS_ANDROID)
 bool VirtualCardEnrollBubbleControllerImpl::ShouldShowPageAction() {
   return IsIconVisible();
@@ -424,7 +432,8 @@ void VirtualCardEnrollBubbleControllerImpl::DoShowBubble() {
 
 bool VirtualCardEnrollBubbleControllerImpl::CanBeReshown() const {
 #if !BUILDFLAG(IS_ANDROID)
-  return enrollment_status_ != EnrollmentStatus::kCompleted;
+  return enrollment_status_ != EnrollmentStatus::kCompleted &&
+         enrollment_status_ != EnrollmentStatus::kNone;
 #else
   NOTREACHED();
 #endif

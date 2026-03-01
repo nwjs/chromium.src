@@ -19,30 +19,30 @@ BASE_FEATURE(kContextualTasks, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of the kSearchResultsOAuth2Scope instead of the
 // kChromeSyncOAuth2Scope.
-BASE_FEATURE(kContextualTasksScopeChange, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualTasksScopeChange, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables relevant context determination for contextual tasks.
 BASE_FEATURE(kContextualTasksContext, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables integration with the server side context library.
-BASE_FEATURE(kContextualTasksContextLibrary, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualTasksContextLibrary, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables quality logging for relevant context determination for contextual
 // tasks.
 BASE_FEATURE(kContextualTasksContextLogging, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables context menu settings for contextual tasks.
-BASE_FEATURE(kContextualTasksContextMenu,
-             "ContextualTasksContextMenu",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kContextualTasksContextMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables suggestions for contextual tasks.
 BASE_FEATURE(kContextualTasksSuggestionsEnabled,
-             "ContextualTasksSuggestionsEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables tab auto-chip for contextual tasks.
+BASE_FEATURE(kContextualTasksTabAutoSuggestionChipEnabled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualTasksShowOnboardingTooltip,
-             "ContextualTasksShowOnboardingTooltip",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Overrides the value of EntryPointEligibilitymanager::IsEligible to true.
@@ -58,6 +58,23 @@ BASE_FEATURE(kContextualTasksRemoveTasksWithoutThreadsOrTabAssociations,
 
 BASE_FEATURE(kEnableNotifyZeroStateRenderedCapability,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksExpandButton, base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kContextualTasksLockAndUnlockInputCapability(
+    &kContextualTasks,
+    "ContextualTasksLockAndUnlockInputCapability",
+    true);
+
+const base::FeatureParam<bool> kContextualTasksBasicModeZOrder(
+    &kContextualTasks,
+    "ContextualTasksBasicModeZOrder",
+    true);
+
+const base::FeatureParam<bool> kContextualTasksEnableCookieSync(
+    &kContextualTasks,
+    "ContextualTasksEnableCookieSync",
+    true);
 
 const base::FeatureParam<bool> kOnlyUseTitlesForSimilarity(
     &kContextualTasksContext,
@@ -79,7 +96,7 @@ const base::FeatureParam<double> kContextualTasksContextLoggingSampleRate{
 // The base URL for the AI page.
 const base::FeatureParam<std::string> kContextualTasksAiPageUrl{
     &kContextualTasks, "contextual-tasks-ai-page-url",
-    "https://www.google.com/search?udm=50"};
+    "https://www.google.com/search?udm=50&sourceid=chrome"};
 
 // The host that any URL loaded in the embedded WebUi page will be routed to.
 const base::FeatureParam<std::string> kContextualTasksForcedEmbeddedPageHost{
@@ -124,7 +141,7 @@ const base::FeatureParam<bool> kForceGscInTabMode(
 
 // The user agent suffix to use for requests from the contextual tasks UI.
 const base::FeatureParam<std::string> kContextualTasksUserAgentSuffix{
-    &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/1.0"};
+    &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/1.1"};
 
 const base::FeatureParam<bool> kEnableSteadyComposeboxVoiceSearch(
     &kContextualTasks,
@@ -136,10 +153,12 @@ const base::FeatureParam<bool> kEnableExpandedComposeboxVoiceSearch(
     "ContextualTasksEnableExpandedComposeboxVoiceSearch",
     true);
 
+// TODO(b/481079194): Remove `kAutoSubmitVoiceSearchQuery` and the code that
+// respects its disabled state.
 const base::FeatureParam<bool> kAutoSubmitVoiceSearchQuery(
     &kContextualTasks,
     "ContextualTasksAutoSubmitVoiceSearchQuery",
-    false);
+    true);
 
 const base::FeatureParam<std::string> kContextualTasksHelpUrl(
     &kContextualTasks,
@@ -187,6 +206,17 @@ const base::FeatureParam<bool> kEnableContextualTasksSmartCompose(
     "ContextualTasksEnableContextualTasksSmartCompose",
     true);
 
+const base::FeatureParam<bool> kContextualTasksEnableNativeZeroStateSuggestions(
+    &kContextualTasks,
+    "ContextualTasksEnableNativeZeroStateSuggestions",
+    true);
+
+const base::FeatureParam<bool>
+    kContextualTasksForceBasicModeIfOpeningThreadHistory(
+        &kContextualTasks,
+        "ContextualTasksForceBasicModeIfOpeningThreadHistory",
+        true);
+
 int GetContextualTasksShowOnboardingTooltipSessionImpressionCap() {
   if (!base::FeatureList::IsEnabled(kContextualTasksShowOnboardingTooltip)) {
     return 0;
@@ -230,6 +260,10 @@ bool GetIsProtectedPageErrorEnabled() {
 
 bool GetIsGhostLoaderEnabled() {
   return kEnableGhostLoader.Get();
+}
+
+bool ShouldForceBasicModeIfOpeningThreadHistory() {
+  return kContextualTasksForceBasicModeIfOpeningThreadHistory.Get();
 }
 
 bool ShouldForceGscInTabMode() {
@@ -316,8 +350,25 @@ bool GetEnableContextualTasksSmartCompose() {
          kEnableContextualTasksSmartCompose.Get();
 }
 
+bool GetEnableNativeZeroStateSuggestions() {
+  return kContextualTasksEnableNativeZeroStateSuggestions.Get();
+}
+
 bool ShouldUseSearchResultsScope() {
   return base::FeatureList::IsEnabled(kContextualTasksScopeChange);
+}
+
+bool ShouldEnableBasicModeZOrder() {
+  return kContextualTasksBasicModeZOrder.Get();
+}
+
+bool ShouldEnableCookieSync() {
+  return kContextualTasksEnableCookieSync.Get();
+}
+
+bool ShouldEnableLockAndUnlockInputCapability() {
+  return base::FeatureList::IsEnabled(kContextualTasks) &&
+         kContextualTasksLockAndUnlockInputCapability.Get();
 }
 
 namespace flag_descriptions {
@@ -334,6 +385,12 @@ const char kContextualTasksContextLibraryName[] =
     "Contextual Tasks Context Library";
 const char kContextualTasksContextLibraryDescription[] =
     "Enables integration with the server side context library.";
+
+const char kContextualTasksExpandButtonName[] =
+    "Contextual Tasks Expand Button";
+const char kContextualTasksExpandButtonDescription[] =
+    "Replace the overflow menu in the side panel with a button to move the "
+    "thread to a new tab.";
 
 const char kContextualTasksSuggestionsEnabledName[] =
     "Contextual Tasks Suggestions Enabled";

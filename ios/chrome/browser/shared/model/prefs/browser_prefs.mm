@@ -7,7 +7,6 @@
 #import <utility>
 
 #import "base/apple/foundation_util.h"
-#import "base/containers/contains.h"
 #import "base/json/values_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/threading/thread_restrictions.h"
@@ -84,7 +83,7 @@
 #import "components/strings/grit/components_locale_settings.h"
 #import "components/supervised_user/core/browser/supervised_user_metrics_service.h"
 #import "components/supervised_user/core/browser/supervised_user_preferences.h"
-#import "components/sync/service/device_statistics_tracker.h"
+#import "components/sync/service/device_statistics_scheduler.h"
 #import "components/sync/service/glue/sync_transport_data_prefs.h"
 #import "components/sync/service/sync_prefs.h"
 #import "components/sync_device_info/device_info_prefs.h"
@@ -256,6 +255,8 @@ inline constexpr char kFingerprintingProtectionEnabled[] =
 // Deprecated 01/2026.
 inline constexpr char kMagicStackSafetyCheckNotificationsShown[] =
     "ios.home_customization.magic_stack.safety_check.notifications_shown";
+inline constexpr char kBottomOmniboxByDefault[] =
+    "ios.bottom_omnibox_by_default";
 
 // Migrates a integer pref from source to target PrefService.
 void MigrateIntegerPref(std::string_view pref_name,
@@ -358,8 +359,8 @@ void MigrateIntegerPrefFromLocalStatePrefsToProfilePrefs(
                      GetApplicationContext()->GetLocalState());
 }
 
-// Helper function migrating the `Value::Dict` preference from LocalState prefs
-// to Profile prefs.
+// Helper function migrating the `base::DictValue` preference from LocalState
+// prefs to Profile prefs.
 void MigrateDictionaryPrefFromLocalStatePrefsToProfilePrefs(
     std::string_view pref_name,
     PrefService* profile_pref_service) {
@@ -382,7 +383,7 @@ void MigrateBooleanFromUserDefaultsToProfilePrefs(
   [defaults removeObjectForKey:user_defaults_key];
 }
 
-// Helper function migrating the `base::Value::List` preference from LocalState
+// Helper function migrating the `base::ListValue` preference from LocalState
 // prefs to Profile prefs.
 void MigrateListPrefFromLocalStatePrefsToProfilePrefs(
     std::string_view pref_name,
@@ -541,9 +542,6 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kIOSChromeUpgradeURLKey, std::string());
   registry->RegisterTimePref(kLastInfobarDisplayTimeKey, base::Time());
 
-  // Bottom omnibox preferences.
-  registry->RegisterBooleanPref(prefs::kBottomOmniboxByDefault, false);
-
   // Preferences related to the Docking Promo feature (used only if
   // `kIOSDockingPromoForEligibleUsersOnly` is enabled).
   registry->RegisterBooleanPref(prefs::kIosDockingPromoEligibilityMet, false);
@@ -611,6 +609,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kIOSAppPreviewLastAttributionWindowType,
                                 0);
 
+  registry->RegisterTimePref(prefs::kLastRecordedActiveDay, base::Time());
+
   // Deprecated 02/2025.
   registry->RegisterIntegerPref(
       prefs::kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness,
@@ -648,6 +648,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   // Deprecated 01/2026.
   registry->RegisterListPref(kMagicStackSafetyCheckNotificationsShown);
+  registry->RegisterListPref(kBottomOmniboxByDefault);
 }
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
@@ -696,7 +697,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   supervised_user::SupervisedUserMetricsService::RegisterProfilePrefs(registry);
   sync_sessions::SessionSyncPrefs::RegisterProfilePrefs(registry);
   syncer::DeviceInfoPrefs::RegisterProfilePrefs(registry);
-  syncer::DeviceStatisticsTracker::RegisterProfilePrefs(registry);
+  syncer::DeviceStatisticsScheduler::RegisterProfilePrefs(registry);
   syncer::SyncPrefs::RegisterProfilePrefs(registry);
   syncer::SyncTransportDataPrefs::RegisterProfilePrefs(registry);
   TemplateURLPrepopulateData::RegisterProfilePrefs(registry);
@@ -1021,6 +1022,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
                              base::Time());
 
   registry->RegisterIntegerPref(prefs::kGeminiEnabledByPolicy, 0);
+  registry->RegisterIntegerPref(prefs::kGenAiEnabledByPolicy, 0);
   registry->RegisterBooleanPref(prefs::kAIHubEligibilityTriggered, false);
 
   registry->RegisterListPref(policy::policy_prefs::kIncognitoModeUrlBlocklist);
@@ -1158,6 +1160,7 @@ void MigrateObsoleteLocalStatePrefs(PrefService* prefs) {
                     prefs);
   // Added 01/2026.
   prefs->ClearPref(kMagicStackSafetyCheckNotificationsShown);
+  prefs->ClearPref(kBottomOmniboxByDefault);
 }
 
 // This method should be periodically pruned of year+ old migrations.

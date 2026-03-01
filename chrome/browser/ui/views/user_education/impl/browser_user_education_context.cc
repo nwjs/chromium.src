@@ -76,6 +76,11 @@ void BrowserUserEducationContext::Invalidate(
   browser_view_ = nullptr;
 }
 
+BrowserWindowInterface* BrowserUserEducationContext::GetBrowser() const {
+  CHECK(IsValid());
+  return browser_view_->browser();
+}
+
 BrowserView& BrowserUserEducationContext::GetBrowserView() const {
   CHECK(IsValid());
   return *browser_view_;
@@ -120,6 +125,12 @@ void BrowserUserEducationContext::CreateSharedPreconditions(
   // Education system, so tests are consistent.
   ptr = std::make_unique<UserNotActivePrecondition>(*browser_view_,
                                                     time_provider);
+  CHECK(shared_preconditions_.emplace(ptr->GetIdentifier(), std::move(ptr))
+            .second);
+
+  // Do not show promos while the actor is actuating the active tab.
+  ptr = std::make_unique<ActorNotActuatingActiveTabPrecondition>(
+      *browser_view_->browser());
   CHECK(shared_preconditions_.emplace(ptr->GetIdentifier(), std::move(ptr))
             .second);
 }

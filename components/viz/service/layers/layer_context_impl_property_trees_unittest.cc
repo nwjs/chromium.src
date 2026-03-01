@@ -1448,7 +1448,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
   int mask_layer_id =
       AddDefaultLayerToUpdate(update.get(), cc::mojom::LayerType::kTileDisplay);
   cc::ElementId mask_element_id(mask_layer_id);
-  update->layers.back()->element_id = mask_element_id;
+  SetLayerElementId(update->layers.back().get(), mask_element_id);
 
   // Create an EffectNode that references this layer.
   auto node_update = CreateDefaultSecondaryRootEffectNode();
@@ -1486,7 +1486,7 @@ TEST_F(LayerContextImplUpdateDisplayTreeEffectNodeTest,
   int mask_layer_id =
       AddDefaultLayerToUpdate(update.get(), cc::mojom::LayerType::kLayer);
   cc::ElementId mask_element_id(mask_layer_id);
-  update->layers.back()->element_id = mask_element_id;
+  SetLayerElementId(update->layers.back().get(), mask_element_id);
 
   auto node_update = CreateDefaultSecondaryRootEffectNode();
   node_update->backdrop_mask_element_id = mask_element_id;
@@ -1889,6 +1889,35 @@ TEST_P(LayerContextImplUpdateDisplayTreeEffectNodeWithBoolParamTest,
 
 INSTANTIATE_TEST_SUITE_P(
     NeedsEffectFor2dScaleTransform,
+    LayerContextImplUpdateDisplayTreeEffectNodeWithBoolParamTest,
+    ::testing::Bool(),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeEffectNodeWithBoolParamTest::
+            ParamType>& info) {
+      std::stringstream name;
+      name << (info.param ? "True" : "False");
+      return name.str();
+    });
+
+TEST_P(LayerContextImplUpdateDisplayTreeEffectNodeWithBoolParamTest,
+       OnlyDrawsVisibleContent) {
+  const bool only_draws_visible_content = GetParam();
+  auto update = CreateDefaultUpdate();
+  auto node_update = CreateDefaultSecondaryRootEffectNode();
+  node_update->only_draws_visible_content = only_draws_visible_content;
+  update->effect_nodes.push_back(std::move(node_update));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_TRUE(result.has_value());
+
+  cc::EffectNode* node_impl =
+      GetEffectNodeFromActiveTree(cc::kSecondaryRootPropertyNodeId);
+  ASSERT_TRUE(node_impl);
+  EXPECT_EQ(node_impl->only_draws_visible_content, only_draws_visible_content);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    OnlyDrawsVisibleContent,
     LayerContextImplUpdateDisplayTreeEffectNodeWithBoolParamTest,
     ::testing::Bool(),
     [](const testing::TestParamInfo<

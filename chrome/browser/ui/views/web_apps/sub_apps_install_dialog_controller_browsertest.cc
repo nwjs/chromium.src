@@ -58,15 +58,14 @@ class SubAppsInstallDialogControllerBrowserTest : public InProcessBrowserTest {
 
  protected:
   views::Widget* CreateAndShowDialog(base::OnceCallback<void(bool)> callback) {
-    const webapps::AppId parent_app_id =
-        web_app::GenerateAppIdFromManifestId(GURL(kParentAppScope));
+    const webapps::AppId parent_app_id = web_app::GenerateAppIdFromManifestId(
+        webapps::ManifestId(GURL(kParentAppScope)));
 
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "SubAppsInstallDialog");
     ShowSubAppsInstallDialog(
         browser()->tab_strip_model()->GetActiveWebContents(), /*sub_apps=*/{},
-        kParentAppName, parent_app_id, browser()->profile(),
-        std::move(callback));
+        kParentAppName, parent_app_id, std::move(callback));
     return waiter.WaitIfNeededAndGet();
   }
 
@@ -95,13 +94,13 @@ IN_PROC_BROWSER_TEST_F(SubAppsInstallDialogControllerBrowserTest,
   sub_apps.emplace_back(CreateInstallInfoWithIconForSubApp(kSubAppName2));
   sub_apps.emplace_back(CreateInstallInfoWithIconForSubApp(kSubAppName3));
 
-  const webapps::AppId parent_app_id =
-      web_app::GenerateAppIdFromManifestId(GURL(kParentAppScope));
+  const webapps::AppId parent_app_id = web_app::GenerateAppIdFromManifestId(
+      webapps::ManifestId(GURL(kParentAppScope)));
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        "SubAppsInstallDialog");
   ShowSubAppsInstallDialog(browser()->tab_strip_model()->GetActiveWebContents(),
                            sub_apps, kParentAppName, parent_app_id,
-                           browser()->profile(), base::DoNothing());
+                           base::DoNothing());
   views::Widget* widget = waiter.WaitIfNeededAndGet();
   views::DialogDelegate* dialog = widget->widget_delegate()->AsDialogDelegate();
 
@@ -136,13 +135,13 @@ IN_PROC_BROWSER_TEST_F(SubAppsInstallDialogControllerBrowserTest,
   std::vector<std::unique_ptr<WebAppInstallInfo>> sub_apps;
   sub_apps.emplace_back(std::move(sub_app_install_info));
 
-  webapps::AppId parent_app_id =
-      web_app::GenerateAppIdFromManifestId(GURL(kParentAppScope));
+  webapps::AppId parent_app_id = web_app::GenerateAppIdFromManifestId(
+      webapps::ManifestId(GURL(kParentAppScope)));
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        "SubAppsInstallDialog");
   ShowSubAppsInstallDialog(browser()->tab_strip_model()->GetActiveWebContents(),
                            sub_apps, kParentAppName, parent_app_id,
-                           browser()->profile(), base::DoNothing());
+                           base::DoNothing());
   views::Widget* widget = waiter.WaitIfNeededAndGet();
 
   std::vector<raw_ptr<views::View, VectorExperimental>> sub_app_labels;

@@ -560,17 +560,6 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
     }
   }
 
-  void SetLineClampEndPadding(LayoutUnit end_padding) {
-#if DCHECK_IS_ON()
-    DCHECK(!is_line_clamp_end_padding_set_);
-    is_line_clamp_end_padding_set_ = true;
-#endif
-    DCHECK(!is_new_fc_);
-    if (end_padding) {
-      EnsureRareData()->SetLineClampEndPadding(end_padding);
-    }
-  }
-
   void SetShouldTextBoxTrimNodeStart(bool b) {
     if (b || space_.rare_data_) {
       EnsureRareData()->should_text_box_trim_node_start = b;
@@ -599,6 +588,10 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
 
   void SetShouldForceTextBoxTrimEnd() {
     EnsureRareData()->should_force_text_box_trim_end = true;
+  }
+
+  void SetShouldForceMarginTrimEnd() {
+    EnsureRareData()->should_force_margin_trim_end = true;
   }
 
   void SetDecorationPercentageResolutionType(
@@ -688,7 +681,6 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
   bool is_table_cell_with_collapsed_borders_set_ = false;
   bool is_custom_layout_data_set_ = false;
   bool is_line_clamp_data_set_ = false;
-  bool is_line_clamp_end_padding_set_ = false;
   bool is_line_clamp_end_margin_strut_set_ = false;
   bool is_table_row_data_set_ = false;
   bool is_table_section_data_set_ = false;

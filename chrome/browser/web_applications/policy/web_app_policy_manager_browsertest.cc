@@ -24,6 +24,7 @@
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
@@ -174,22 +175,22 @@ class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
     return response;
   }
 
-  base::Value::Dict GetForceInstalledAppItem() {
-    base::Value::Dict item;
+  base::DictValue GetForceInstalledAppItem() {
+    base::DictValue item;
     item.Set(kUrlKey, GetInstallUrl().spec());
     item.Set(kDefaultLaunchContainerKey, kDefaultLaunchContainerWindowValue);
     return item;
   }
 
-  base::Value::Dict GetCustomAppNameItem() {
-    base::Value::Dict item = GetForceInstalledAppItem();
+  base::DictValue GetCustomAppNameItem() {
+    base::DictValue item = GetForceInstalledAppItem();
     item.Set(kCustomNameKey, kDefaultCustomName);
     return item;
   }
 
-  base::Value::Dict GetCustomAppIconItem() {
-    base::Value::Dict item = GetForceInstalledAppItem();
-    base::Value::Dict sub_item;
+  base::DictValue GetCustomAppIconItem() {
+    base::DictValue item = GetForceInstalledAppItem();
+    base::DictValue sub_item;
     sub_item.Set(
         kCustomIconURLKey,
         embedded_https_test_server().GetURL(kCustomIconUrlSuffix).spec());
@@ -198,8 +199,8 @@ class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
     return item;
   }
 
-  base::Value::Dict GetCustomAppIconAndNameItem() {
-    base::Value::Dict item = GetCustomAppIconItem();
+  base::DictValue GetCustomAppIconAndNameItem() {
+    base::DictValue item = GetCustomAppIconItem();
     item.Set(kCustomNameKey, kDefaultCustomName);
     return item;
   }
@@ -253,10 +254,9 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest, AppIdWhenNoManifestId) {
   observer.BeginListening({});
   const GURL install_url =
       https_server()->GetURL("/web_apps/get_manifest.html?no_manifest_id.json");
-  profile()->GetPrefs()->SetList(
-      prefs::kWebAppInstallForceList,
-      base::Value::List().Append(
-          base::Value::Dict().Set(kUrlKey, install_url.spec())));
+  profile()->GetPrefs()->SetList(prefs::kWebAppInstallForceList,
+                                 base::ListValue().Append(base::DictValue().Set(
+                                     kUrlKey, install_url.spec())));
   ASSERT_EQ(app_id, observer.Wait());
 
   const WebApp* app = provider.registrar_unsafe().GetAppById(app_id);
@@ -286,7 +286,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
   base::test::TestFuture<void> on_apps_synchronized;
   provider().policy_manager().SetOnAppsSynchronizedCompletedCallbackForTesting(
       on_apps_synchronized.GetCallback());
-  base::Value::List list;
+  base::ListValue list;
   list.Append(GetCustomAppIconAndNameItem());
   profile()->GetPrefs()->SetList(prefs::kWebAppInstallForceList,
                                  std::move(list));
@@ -312,10 +312,10 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
 // icon should work.
 IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
                        RedirectedPlaceholderAppHasNameIcon) {
-  base::Value::Dict app = GetCustomAppIconAndNameItem();
+  base::DictValue app = GetCustomAppIconAndNameItem();
   app.Set(kUrlKey, GetRedirectingOtherOriginInstallUrl().spec());
-  webapps::AppId app_id =
-      GenerateAppIdFromManifestId(GetRedirectingOtherOriginInstallUrl());
+  webapps::AppId app_id = GenerateAppIdFromManifestId(
+      webapps::ManifestId(GetRedirectingOtherOriginInstallUrl()));
   ASSERT_TRUE(SetPolicyAndWaitForInstall(std::move(app), app_id));
 
   // We should have the custom name and icon.
@@ -336,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
 // overridden.
 IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
                        RedirectedSameOriginAppHasNameIcon) {
-  base::Value::Dict app = GetCustomAppIconAndNameItem();
+  base::DictValue app = GetCustomAppIconAndNameItem();
   app.Set(kUrlKey, GetRedirectingSameOriginInstallUrl().spec());
   ASSERT_TRUE(SetPolicyAndWaitForInstall(std::move(app)));
 
@@ -425,8 +425,8 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerGuestModeTest,
 
   // This test should pass on all platforms, including on a ChromeOS
   // guest session.
-  EXPECT_EQ(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-            provider().registrar_unsafe().GetInstallState(app_id));
+  EXPECT_TRUE(provider().registrar_unsafe().AppMatches(
+      app_id, WebAppFilter::InstalledInOperatingSystemForTesting()));
 
 #if !BUILDFLAG(IS_CHROMEOS)
   Profile* guest_profile = CreateGuestBrowser()->profile();

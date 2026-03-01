@@ -343,8 +343,7 @@ VariationsService::VariationsService(
     std::unique_ptr<VariationsServiceClient> client,
     std::unique_ptr<web_resource::ResourceRequestAllowedNotifier> notifier,
     PrefService* local_state,
-    metrics::MetricsStateManager* state_manager,
-    const UIStringOverrider& ui_string_overrider)
+    metrics::MetricsStateManager* state_manager)
     : client_(std::move(client)),
       local_state_(local_state),
       state_manager_(state_manager),
@@ -368,8 +367,7 @@ VariationsService::VariationsService(
                   entropy_providers_.get()),
               client_.get()->GetChannelForVariations(),
               client_.get()->GetVariationsSeedFileDir(),
-              entropy_providers_.get()),
-          ui_string_overrider) {
+              entropy_providers_.get())) {
   DCHECK(client_);
   DCHECK(resource_request_allowed_notifier_);
 
@@ -384,7 +382,6 @@ VariationsService::~VariationsService() = default;
 
 void VariationsService::PerformPreMainMessageLoopStartup() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(field_trial_creator_.IsOverrideResourceMapEmpty());
 
   InitResourceRequestedAllowedNotifier();
 
@@ -601,7 +598,6 @@ std::unique_ptr<VariationsService> VariationsService::Create(
     PrefService* local_state,
     metrics::MetricsStateManager* state_manager,
     const char* disable_network_switch,
-    const UIStringOverrider& ui_string_overrider,
     web_resource::ResourceRequestAllowedNotifier::NetworkConnectionTrackerGetter
         network_connection_tracker_getter) {
   return base::WrapUnique(new VariationsService(
@@ -609,7 +605,7 @@ std::unique_ptr<VariationsService> VariationsService::Create(
       std::make_unique<web_resource::ResourceRequestAllowedNotifier>(
           local_state, disable_network_switch,
           std::move(network_connection_tracker_getter)),
-      local_state, state_manager, ui_string_overrider));
+      local_state, state_manager));
 }
 
 // static
@@ -1032,10 +1028,6 @@ SeedType VariationsService::GetSeedType() const {
   return field_trial_creator_.seed_type();
 }
 
-void VariationsService::OverrideCachedUIStrings() {
-  field_trial_creator_.OverrideCachedUIStrings();
-}
-
 void VariationsService::CancelCurrentRequestForTesting() {
   pending_seed_request_.reset();
 }
@@ -1086,9 +1078,9 @@ void VariationsService::GetStudiesAvailableToForceFromSeed(
     std::move(done_callback).Run({});
     return;
   }
-  // TODO(crbug.com/41492213): chrome://field-trial-internals will not support
-  // studies that are constrained to a layer with LIMITED entropy mode before
-  // limited entropy randomization fully lands.
+  // TODO(crbug.com/41492213): chrome://metrics-internals/#field-trials will not
+  // support studies that are constrained to a layer with LIMITED entropy mode
+  // before limited entropy randomization fully lands.
   auto entropy_providers = state_manager_->CreateEntropyProviders(
       /*enable_limited_entropy_mode=*/false);
   auto studies = variations::GetStudiesAvailableToForce(

@@ -27,7 +27,6 @@
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/input/native_web_keyboard_event.h"
-#include "components/zoom/zoom_controller.h"
 #include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -108,6 +107,10 @@ void OmniboxPopupWebUIBaseContent::ShowUI() {
         base::StrCat({GetMetricPrefix(), ".CrashRecovery"}), false);
   }
   SetWebContents(contents_wrapper_->web_contents());
+
+  // The View may have changed, so this reinstates auto-resizing to prevent
+  // the omnibox from staying collapsed until a resize is observed.
+  OnViewBoundsChanged(location_bar_view_);
 
   is_shown_ = true;
 }
@@ -199,18 +202,6 @@ void OmniboxPopupWebUIBaseContent::LoadContent() {
   OmniboxPopupWebContentsHelper::CreateForWebContents(GetWebContents());
   OmniboxPopupWebContentsHelper::FromWebContents(GetWebContents())
       ->set_omnibox_controller(controller_);
-
-  // Manually set zoom level, since any zooming is undesirable in the omnibox.
-  auto* zoom_controller =
-      zoom::ZoomController::FromWebContents(GetWebContents());
-  if (!zoom_controller) {
-    // Create ZoomController manually, if not already exists, because it is
-    // not automatically created when the WebUI has not been opened in a tab.
-    zoom_controller =
-        zoom::ZoomController::CreateForWebContents(GetWebContents());
-  }
-  zoom_controller->SetZoomMode(zoom::ZoomController::ZOOM_MODE_ISOLATED);
-  zoom_controller->SetZoomLevel(0);
 
   // Set ViewType::kComponent so `ChromeSpeechRecognitionManagerDelegate`
   // allows speech recognition in `CheckRenderFrameType()`.

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/containers/map_util.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -66,14 +65,10 @@
 
 namespace features {
 
-// TODO(https://crbug.com/324934416): Remove this killswitch once the new
-// CanCommitURL restrictions finish rolling out.
-BASE_FEATURE(kAdditionalNavigationCommitChecks,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// TODO(https://crbug.com/325410297): Remove this killswitch once the new
-// sandboxed frame enforcements finish rolling out.
-BASE_FEATURE(kSandboxedFrameEnforcements, base::FEATURE_ENABLED_BY_DEFAULT);
+// TODO(crbug.com/476409377): Remove this guard once the known cases of missing
+// SecurityState have been fixed.
+BASE_FEATURE(kDumpWithoutCrashingForMissingSecurityState,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features
 
@@ -156,6 +151,18 @@ bool IsRunningOnExpectedThread() {
   return false;
 }
 
+using AccessType = ChildProcessSecurityPolicyImpl::AccessType;
+std::string AccessTypeToString(AccessType access_type) {
+  switch (access_type) {
+    case AccessType::kCanCommitNewOrigin:
+      return "can_commit_new_origin";
+    case AccessType::kHostsOrigin:
+      return "hosts_origin";
+    case AccessType::kCanAccessDataForCommittedOrigin:
+      return "can_access_data_for_origin";
+  }
+}
+
 base::debug::CrashKeyString* GetRequestedOriginCrashKey() {
   static auto* requested_origin_key = base::debug::AllocateCrashKeyString(
       "requested_origin", base::debug::CrashKeySize::Size256);
@@ -198,6 +205,18 @@ base::debug::CrashKeyString* GetCanAccessDataProcessRFHCount() {
   return process_rfh_count_key;
 }
 
+base::debug::CrashKeyString* GetCommittedOriginsKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "committed_origins", base::debug::CrashKeySize::Size256);
+  return crash_key;
+}
+
+base::debug::CrashKeyString* GetAccessTypeKey() {
+  static auto* crash_key = base::debug::AllocateCrashKeyString(
+      "access_type", base::debug::CrashKeySize::Size32);
+  return crash_key;
+}
+
 void LogCanAccessDataForOriginCrashKeys(
     const std::string& expected_process_lock,
     const std::string& killed_process_origin_lock,
@@ -205,7 +224,9 @@ void LogCanAccessDataForOriginCrashKeys(
     const std::string& failure_reason,
     const std::string& keep_alive_durations,
     const std::string& shutdown_delay_ref_count,
-    const std::string& process_rfh_count) {
+    const std::string& process_rfh_count,
+    const std::string& committed_origin_list,
+    const std::string& access_type) {
   base::debug::SetCrashKeyString(GetExpectedProcessLockKey(),
                                  expected_process_lock);
   base::debug::SetCrashKeyString(GetKilledProcessOriginLockKey(),
@@ -220,12 +241,36 @@ void LogCanAccessDataForOriginCrashKeys(
                                  shutdown_delay_ref_count);
   base::debug::SetCrashKeyString(GetCanAccessDataProcessRFHCount(),
                                  process_rfh_count);
+  base::debug::SetCrashKeyString(GetCommittedOriginsKey(),
+                                 committed_origin_list);
+  base::debug::SetCrashKeyString(GetAccessTypeKey(), access_type);
 }
 
 void LogCanCommitUrlFailureReason(const std::string& failure_reason) {
   static auto* const failure_reason_key = base::debug::AllocateCrashKeyString(
       "cpspi_can_commit_url_failure_reason", base::debug::CrashKeySize::Size64);
   base::debug::SetCrashKeyString(failure_reason_key, failure_reason);
+}
+
+// If a ChildProcessSecurityPolicy query is unable to find the SecurityState,
+// this indicates a bug in the browser process where the caller is not ensuring
+// the SecurityState is alive as long as needed (e.g., by holding a
+// ChildProcessSecurityPolicy::Handle).
+//
+// When these cases occur, possibly send a DumpWithoutCrashing report to track
+// down the caller (including in tasks posted from other threads) and fix it.
+// This function uses NOINLINE to ensure all such reports are handled from a
+// consistent and self-explanatory magic signature while they are investigated.
+//
+// TODO(crbug.com/476409377): Once all known cases are fixed, upgrade this to a
+// browser crash to prevent future regressions.
+NOINLINE void NoChildProcessSecurityPolicySecurityStateFound() {
+  // For now, gate the crash report behind a feature flag to control the number
+  // of reports while there may be many unknown causes.
+  if (base::FeatureList::IsEnabled(
+          features::kDumpWithoutCrashingForMissingSecurityState)) {
+    base::debug::DumpWithoutCrashing();
+  }
 }
 
 // Checks whether a lock mismatch should be ignored to allow most visited tiles
@@ -239,8 +284,8 @@ bool AllowProcessLockMismatchForNTP(const ProcessLock& expected_lock,
   // does not require its process to be locked.  This should only be the case
   // for sites used to load most visited tiles.
   const auto& webui_schemes = URLDataManagerBackend::GetWebUISchemes();
-  if (!base::Contains(webui_schemes,
-                      expected_lock.GetProcessLockURL().GetScheme())) {
+  if (!std::ranges::contains(webui_schemes,
+                             expected_lock.GetProcessLockURL().GetScheme())) {
     return false;
   }
   if (GetContentClient()->browser()->DoesWebUIUrlRequireProcessLock(
@@ -309,8 +354,7 @@ bool ChildProcessSecurityPolicyImpl::Handle::CanReadFile(
   }
 
   auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
-  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
-  return policy->CanReadFile(child_id_.GetUnsafeValue(), file);
+  return policy->CanReadFile(child_id_, file);
 }
 
 bool ChildProcessSecurityPolicyImpl::Handle::CanReadFileSystemFile(
@@ -320,8 +364,59 @@ bool ChildProcessSecurityPolicyImpl::Handle::CanReadFileSystemFile(
   }
 
   auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
-  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
-  return policy->CanReadFileSystemFile(child_id_.GetUnsafeValue(), url);
+  return policy->CanReadFileSystemFile(child_id_, url);
+}
+
+bool ChildProcessSecurityPolicyImpl::Handle::CanWriteFileSystemFile(
+    const storage::FileSystemURL& url) {
+  if (!child_id_) {
+    return false;
+  }
+
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  return policy->CanWriteFileSystemFile(child_id_, url);
+}
+
+bool ChildProcessSecurityPolicyImpl::Handle::CanCreateFileSystemFile(
+    const storage::FileSystemURL& url) {
+  if (!child_id_) {
+    return false;
+  }
+
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  return policy->CanCreateFileSystemFile(child_id_, url);
+}
+
+bool ChildProcessSecurityPolicyImpl::Handle::CanDeleteFileSystemFile(
+    const storage::FileSystemURL& url) {
+  if (!child_id_) {
+    return false;
+  }
+
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  return policy->CanDeleteFileSystemFile(child_id_, url);
+}
+
+bool ChildProcessSecurityPolicyImpl::Handle::CanMoveFileSystemFile(
+    const storage::FileSystemURL& src_url,
+    const storage::FileSystemURL& dest_url) {
+  if (!child_id_) {
+    return false;
+  }
+
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  return policy->CanMoveFileSystemFile(child_id_, src_url, dest_url);
+}
+
+bool ChildProcessSecurityPolicyImpl::Handle::CanCopyFileSystemFile(
+    const storage::FileSystemURL& src_url,
+    const storage::FileSystemURL& dest_url) {
+  if (!child_id_) {
+    return false;
+  }
+
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  return policy->CanCopyFileSystemFile(child_id_, src_url, dest_url);
 }
 
 bool ChildProcessSecurityPolicyImpl::Handle::CanAccessDataForOrigin(
@@ -330,7 +425,8 @@ bool ChildProcessSecurityPolicyImpl::Handle::CanAccessDataForOrigin(
     LogCanAccessDataForOriginCrashKeys(
         "(unknown)", "(unknown)", origin.GetDebugString(), "handle_not_valid",
         "no_keep_alive_durations", "no shutdown delay ref count",
-        "no process rfh count");
+        "no process rfh count", "(unknown)",
+        AccessTypeToString(AccessType::kCanAccessDataForCommittedOrigin));
     return false;
   }
 
@@ -1152,12 +1248,10 @@ void ChildProcessSecurityPolicyImpl::GrantCommitURL(int child_id,
 }
 
 void ChildProcessSecurityPolicyImpl::GrantRequestOfSpecificFile(
-    int child_id,
+    ChildProcessId child_id,
     const base::FilePath& path) {
   base::AutoLock lock(lock_);
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  auto* state = security_states_.GetSecurityStateForMutation(
-      ChildProcessId::FromUnsafeValue(child_id));
+  auto* state = security_states_.GetSecurityStateForMutation(child_id);
   if (!state) {
     return;
   }
@@ -1190,11 +1284,9 @@ void ChildProcessSecurityPolicyImpl::GrantAll(int child_id) {
   state->GrantAll();
 }
 
-void ChildProcessSecurityPolicyImpl::GrantReadFile(int child_id,
+void ChildProcessSecurityPolicyImpl::GrantReadFile(ChildProcessId child_id,
                                                    const base::FilePath& file) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  GrantPermissionsForFile(ChildProcessId::FromUnsafeValue(child_id), file,
-                          READ_FILE_GRANT);
+  GrantPermissionsForFile(child_id, file, READ_FILE_GRANT);
 }
 
 void ChildProcessSecurityPolicyImpl::GrantCreateReadWriteFile(
@@ -1232,13 +1324,11 @@ void ChildProcessSecurityPolicyImpl::GrantPermissionsForFile(
 }
 
 void ChildProcessSecurityPolicyImpl::RevokeAllPermissionsForFile(
-    int child_id,
+    ChildProcessId child_id,
     const base::FilePath& file) {
   base::AutoLock lock(lock_);
 
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  if (auto* state = security_states_.GetSecurityStateForMutation(
-          ChildProcessId::FromUnsafeValue(child_id))) {
+  if (auto* state = security_states_.GetSecurityStateForMutation(child_id)) {
     state->RevokeAllPermissionsForFile(file);
   }
 }
@@ -1247,8 +1337,13 @@ void ChildProcessSecurityPolicyImpl::GrantReadFileSystem(
     int child_id,
     const std::string& filesystem_id) {
   // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  GrantPermissionsForFileSystem(ChildProcessId::FromUnsafeValue(child_id),
-                                filesystem_id, READ_FILE_GRANT);
+  GrantReadFileSystem(ChildProcessId::FromUnsafeValue(child_id), filesystem_id);
+}
+
+void ChildProcessSecurityPolicyImpl::GrantReadFileSystem(
+    ChildProcessId child_id,
+    const std::string& filesystem_id) {
+  GrantPermissionsForFileSystem(child_id, filesystem_id, READ_FILE_GRANT);
 }
 
 void ChildProcessSecurityPolicyImpl::GrantWriteFileSystem(
@@ -1449,7 +1544,7 @@ bool ChildProcessSecurityPolicyImpl::CanRequestURL(int child_id,
   // scheme.
   const auto& webui_schemes = URLDataManagerBackend::GetWebUISchemes();
   if (!RenderProcessHost::run_renderer_in_process() &&
-      base::Contains(webui_schemes, url.GetScheme())) {
+      std::ranges::contains(webui_schemes, url.GetScheme())) {
     bool should_be_locked =
         GetContentClient()->browser()->DoesWebUIUrlRequireProcessLock(url);
     if (should_be_locked) {
@@ -1588,15 +1683,13 @@ bool ChildProcessSecurityPolicyImpl::CanCommitURL(int child_id,
   }
 }
 
-bool ChildProcessSecurityPolicyImpl::CanReadFile(int child_id,
+bool ChildProcessSecurityPolicyImpl::CanReadFile(ChildProcessId child_id,
                                                  const base::FilePath& file) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFile(ChildProcessId::FromUnsafeValue(child_id), file,
-                               READ_FILE_GRANT);
+  return HasPermissionsForFile(child_id, file, READ_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanReadAllFiles(
-    int child_id,
+    ChildProcessId child_id,
     const std::vector<base::FilePath>& files) {
   return std::ranges::all_of(files,
                              [this, child_id](const base::FilePath& file) {
@@ -1605,7 +1698,7 @@ bool ChildProcessSecurityPolicyImpl::CanReadAllFiles(
 }
 
 bool ChildProcessSecurityPolicyImpl::CanReadRequestBody(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemContext* file_system_context,
     const scoped_refptr<network::ResourceRequestBody>& body) {
   if (!body) {
@@ -1644,8 +1737,8 @@ bool ChildProcessSecurityPolicyImpl::CanReadRequestBody(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   return CanReadRequestBody(
-      process->GetDeprecatedID(),
-      process->GetStoragePartition()->GetFileSystemContext(), body);
+      process->GetID(), process->GetStoragePartition()->GetFileSystemContext(),
+      body);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanCreateReadWriteFile(
@@ -1764,86 +1857,64 @@ bool ChildProcessSecurityPolicyImpl::HasPermissionsForFileSystemFile(
 }
 
 bool ChildProcessSecurityPolicyImpl::CanReadFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      READ_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         READ_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanWriteFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      WRITE_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         WRITE_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanCreateFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      CREATE_NEW_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         CREATE_NEW_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanCreateReadWriteFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      CREATE_READ_WRITE_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         CREATE_READ_WRITE_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanCopyIntoFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      COPY_INTO_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         COPY_INTO_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanDeleteFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& filesystem_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-      ChildProcessId::FromUnsafeValue(child_id), filesystem_url,
-      DELETE_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, filesystem_url,
+                                         DELETE_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanMoveFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& src_url,
     const storage::FileSystemURL& dest_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-             ChildProcessId::FromUnsafeValue(child_id), dest_url,
-             CREATE_NEW_FILE_GRANT) &&
-         HasPermissionsForFileSystemFile(
-             ChildProcessId::FromUnsafeValue(child_id), src_url,
-             READ_FILE_GRANT) &&
-         HasPermissionsForFileSystemFile(
-             ChildProcessId::FromUnsafeValue(child_id), src_url,
-             DELETE_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, dest_url,
+                                         CREATE_NEW_FILE_GRANT) &&
+         HasPermissionsForFileSystemFile(child_id, src_url, READ_FILE_GRANT) &&
+         HasPermissionsForFileSystemFile(child_id, src_url, DELETE_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanCopyFileSystemFile(
-    int child_id,
+    ChildProcessId child_id,
     const storage::FileSystemURL& src_url,
     const storage::FileSystemURL& dest_url) {
-  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
-  return HasPermissionsForFileSystemFile(
-             ChildProcessId::FromUnsafeValue(child_id), src_url,
-             READ_FILE_GRANT) &&
-         HasPermissionsForFileSystemFile(
-             ChildProcessId::FromUnsafeValue(child_id), dest_url,
-             COPY_INTO_FILE_GRANT);
+  return HasPermissionsForFileSystemFile(child_id, src_url, READ_FILE_GRANT) &&
+         HasPermissionsForFileSystemFile(child_id, dest_url,
+                                         COPY_INTO_FILE_GRANT);
 }
 
 bool ChildProcessSecurityPolicyImpl::HasWebUIBindings(int child_id) {
@@ -1900,9 +1971,7 @@ CanCommitStatus ChildProcessSecurityPolicyImpl::CanCommitOriginAndUrl(
   const url::Origin& origin = *url_info.origin;
   // First check whether the URL is allowed to commit, without considering the
   // origin. This involves scheme checks as well as CanAccessDataForOrigin.
-  if (base::FeatureList::IsEnabled(
-          features::kAdditionalNavigationCommitChecks) &&
-      !CanCommitURL(child_id, url_info.url)) {
+  if (!CanCommitURL(child_id, url_info.url)) {
     // WebView's allow_universal_access_from_file_urls setting allows file
     // origins to access any other origin and bypass normal commit checks. When
     // this mode is enabled, RenderFrameHostImpl::ValidateURLAndOrigin returns
@@ -1921,12 +1990,7 @@ CanCommitStatus ChildProcessSecurityPolicyImpl::CanCommitOriginAndUrl(
     bool exempt_due_to_webview_universal_access =
         (origin.scheme() == url::kFileScheme) &&
         HasOriginCheckExemptionForWebView(child_id, origin);
-
-    // This enforcement is currently skipped on Android WebView due to crashes.
-    // TODO(https://crbug.com/326250356): Diagnose and enable for Android
-    // WebView as well.
-    if (GetContentClient()->browser()->ShouldEnforceNewCanCommitUrlChecks() &&
-        !exempt_due_to_webview_universal_access) {
+    if (!exempt_due_to_webview_universal_access) {
       return CanCommitStatus::CANNOT_COMMIT_URL;
     }
   }
@@ -2043,10 +2107,6 @@ bool ChildProcessSecurityPolicyImpl::IsAccessAllowedForSandboxedProcess(
     const GURL& url,
     bool url_is_for_opaque_origin,
     AccessType access_type) {
-  if (!base::FeatureList::IsEnabled(features::kSandboxedFrameEnforcements)) {
-    return true;
-  }
-
   switch (access_type) {
     case AccessType::kCanCommitNewOrigin:
       // TODO(crbug.com/325410297): Sandboxed frames may commit normal URLs, as
@@ -2072,10 +2132,6 @@ bool ChildProcessSecurityPolicyImpl::IsAccessAllowedForSandboxedProcess(
 
 bool ChildProcessSecurityPolicyImpl::IsAccessAllowedForPdfProcess(
     AccessType access_type) {
-  if (!base::FeatureList::IsEnabled(features::kPdfEnforcements)) {
-    return true;
-  }
-
   // PDF processes are allowed to commit normal URLs, and they should be able to
   // claim that they host a regular origin for things like verifying source
   // origins for postMessage. However, PDF renderers should never need to access
@@ -2407,15 +2463,13 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
 
   if (!security_state) {
     failure_reason = "no_security_state";
-  } else if (!security_state->browser_context()) {
-    failure_reason = "no_browser_context";
   } else {
     ProcessLock actual_process_lock = security_state->process_lock();
 
-    // Deny access if the process is unlocked. An unlocked process means that
-    // the process has not been associated with a SiteInstance yet and therefore
-    // this request is likely invalid.
     if (actual_process_lock.is_invalid()) {
+      // Deny access if the process is unlocked. An unlocked process means
+      // that the process has not been associated with a SiteInstance yet
+      // and therefore this request is likely invalid.
       failure_reason = "process_lock_is_invalid";
     } else if (actual_process_lock.is_sandboxed() &&
                !IsAccessAllowedForSandboxedProcess(
@@ -2438,63 +2492,29 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
       bool can_use_committed_origin_checks =
           (access_type == AccessType::kHostsOrigin ||
            access_type == AccessType::kCanAccessDataForCommittedOrigin) &&
-          base::FeatureList::IsEnabled(features::kCommittedOriginTracking);
-      bool passes_committed_origin_checks =
-          can_use_committed_origin_checks &&
-          security_state->MatchesCommittedOrigin(
-              url, url_is_precursor_of_opaque_origin);
-
-      // Perform Jail and Citadel checks. See PerformJailAndCitadelChecks() for
-      // more details. Eventually, `passes_committed_origin_checks` will replace
-      // these checks for kHostsOrigin and kCanAccessDataForOrigin access
-      // checks.
-      bool passes_jail_and_citadel_checks = PerformJailAndCitadelChecks(
-          child_id, *security_state, url, url_is_precursor_of_opaque_origin,
-          access_type, expected_process_lock, failure_reason);
-
-      // Collect a DumpWithoutCrashing report when the two checks disagree. This
-      // is to validate the committed origin checks in the wild.
-      if (can_use_committed_origin_checks &&
-          passes_jail_and_citadel_checks != passes_committed_origin_checks) {
-        SCOPED_CRASH_KEY_BOOL("CommittedOrigins", "jc_check",
-                              passes_jail_and_citadel_checks);
-        SCOPED_CRASH_KEY_BOOL("CommittedOrigins", "co_check",
-                              passes_committed_origin_checks);
-        SCOPED_CRASH_KEY_STRING256("CommittedOrigins", "actual_process_lock",
-                                   actual_process_lock.ToString());
-        SCOPED_CRASH_KEY_STRING256(
-            "CommittedOrigins", "requested_url_origin",
-            url.DeprecatedGetOriginAsURL().possibly_invalid_spec());
-        SCOPED_CRASH_KEY_BOOL("CommittedOrigins", "is_precursor",
-                              url_is_precursor_of_opaque_origin);
-        SCOPED_CRASH_KEY_STRING256(
-            "CommittedOrigins", "list",
-            security_state->GetCommittedOriginsAsStringForDebugging());
-        base::debug::DumpWithoutCrashing();
-      }
-
-      if (can_use_committed_origin_checks &&
-          base::FeatureList::IsEnabled(
-              features::kCommittedOriginEnforcements)) {
-        // TODO(crbug.com/40148776): The actual committed origin enforcements
-        // are currently behind a feature: if the feature is on, it overrides
-        // the Jail and Citadel checks (for kHostsOrigin and
-        // kCanAccessDataForOrigin access types). If the check didn't pass, fall
-        // through to collect crash keys before returning false.
-        if (passes_committed_origin_checks) {
+          base::FeatureList::IsEnabled(features::kCommittedOriginTracking) &&
+          base::FeatureList::IsEnabled(features::kCommittedOriginEnforcements);
+      if (can_use_committed_origin_checks) {
+        if (security_state->MatchesCommittedOrigin(
+                url, url_is_precursor_of_opaque_origin)) {
           return true;
         }
-      } else if (passes_jail_and_citadel_checks) {
+        failure_reason = "no_matching_committed_origin";
+      } else {
         // If the committed origin enforcements are off, or if we couldn't use
-        // them (i.e., for kCanCommitNewOrigin checks), Jail and Citadel checks
-        // are the source of truth. If they don't pass, collect crash keys below
-        // before returning false.
-        return true;
-      }
-
-      if (can_use_committed_origin_checks) {
-        failure_reason +=
-            passes_committed_origin_checks ? " co_pass" : " co_fail";
+        // them (i.e., for kCanCommitNewOrigin checks), Jail and Citadel
+        // checks are the source of truth. If they don't pass, collect crash
+        // keys below before returning false. Unlike committed origin
+        // enforcements, these checks require BrowserContext to still exist
+        // in the SecurityState.
+        if (!security_state->browser_context()) {
+          failure_reason = "no_browser_context";
+        } else if (PerformJailAndCitadelChecks(
+                       child_id, *security_state, url,
+                       url_is_precursor_of_opaque_origin, access_type,
+                       expected_process_lock, failure_reason)) {
+          return true;
+        }
       }
     }
   }
@@ -2515,13 +2535,26 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
     keep_alive_durations = "no durations available: on IO thread.";
   }
 
-  // Returning false here will result in a renderer kill.  Set some crash
+  // Returning false here will often result in a renderer kill.  Set some crash
   // keys that will help understand the circumstances of that kill.
+  // TODO(crbug.com/476412562): Find a way to scope these keys so that they do
+  // not appear in later unrelated crash reports.
   LogCanAccessDataForOriginCrashKeys(
       expected_process_lock.ToString(),
       GetKilledProcessOriginLock(security_state),
       url.DeprecatedGetOriginAsURL().spec(), failure_reason,
-      keep_alive_durations, shutdown_delay_ref_count, process_rfh_count);
+      keep_alive_durations, shutdown_delay_ref_count, process_rfh_count,
+      GetCommittedOriginsForCrashKey(security_state),
+      AccessTypeToString(access_type));
+  if (failure_reason == "no_security_state") {
+    // For the time being, log a crash report in this case with the crash keys
+    // above, to help diagnose any unknown causes.
+    // TODO(crbug.com/476409377): Once this case is fixed in practice and
+    // upgraded to a browser crash, move this call closer to where the missing
+    // SecurityState was detected.
+    NoChildProcessSecurityPolicySecurityStateFound();
+  }
+
   return false;
 }
 
@@ -2799,7 +2832,7 @@ bool ChildProcessSecurityPolicyImpl::IsIsolatedOrigin(
 
 bool ChildProcessSecurityPolicyImpl::IsGloballyIsolatedOriginForTesting(
     const url::Origin& origin) {
-  return base::Contains(GetIsolatedOrigins(), origin);
+  return std::ranges::contains(GetIsolatedOrigins(), origin);
 }
 
 std::vector<url::Origin> ChildProcessSecurityPolicyImpl::GetIsolatedOrigins(
@@ -3274,8 +3307,8 @@ void ChildProcessSecurityPolicyImpl::
   // We only support adding new entries, not modifying existing ones. If at
   // some point in the future we allow isolation status to change during the
   // lifetime of a BrowsingInstance, then this will need to be updated.
-  if (!base::Contains(it->second, origin,
-                      &OriginAgentClusterOptInEntry::origin)) {
+  if (!std::ranges::contains(it->second, origin,
+                             &OriginAgentClusterOptInEntry::origin)) {
     it->second.emplace_back(oac_isolation_state, origin);
   }
 }
@@ -3435,6 +3468,15 @@ std::string ChildProcessSecurityPolicyImpl::GetKilledProcessOriginLock(
   }
 
   return security_state->process_lock().ToString();
+}
+
+// static
+std::string ChildProcessSecurityPolicyImpl::GetCommittedOriginsForCrashKey(
+    const SecurityState* security_state) {
+  if (!security_state) {
+    return "(no security state)";
+  }
+  return security_state->GetCommittedOriginsAsStringForDebugging();
 }
 
 void ChildProcessSecurityPolicyImpl::LogKilledProcessOriginLock(int child_id) {

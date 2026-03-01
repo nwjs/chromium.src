@@ -65,10 +65,6 @@ source_set("client_sources") {
     "cmd_buffer_helper.h",
     "fenced_allocator.cc",
     "fenced_allocator.h",
-    "gl_helper.cc",
-    "gl_helper.h",
-    "gl_helper_scaling.cc",
-    "gl_helper_scaling.h",
     "gpu_control.h",
     "mapped_memory.cc",
     "mapped_memory.h",
@@ -249,7 +245,6 @@ component("gles2_implementation") {
     "//gpu/command_buffer/common:gles2_utils",
     "//ui/gfx:color_space",
     "//ui/gfx/geometry",
-    "//ui/gfx/ipc/color",
   ]
 }
 
@@ -274,7 +269,6 @@ source_set("raster_sources") {
     "//ui/base:features",
     "//ui/gfx:color_space",
     "//ui/gfx/geometry",
-    "//ui/gfx/ipc/color",
   ]
   public_deps = [ ":raster_interface" ]
 
@@ -343,7 +337,6 @@ component("gles2_implementation_no_check") {
     "//ui/gfx",
     "//ui/gfx:color_space",
     "//ui/gfx/geometry",
-    "//ui/gfx/ipc/color",
   ]
 }
 

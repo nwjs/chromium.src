@@ -10,6 +10,7 @@ import android.app.Activity;
 
 import androidx.annotation.IntDef;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
@@ -42,7 +43,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
 
 /** Class that contains logic for showing signin survey. */
 @NullMarked
@@ -51,7 +51,8 @@ public class SigninSurveyController implements Destroyable {
     @IntDef({
         SigninSurveyType.FRE,
         SigninSurveyType.WEB,
-        SigninSurveyType.NTP_AVATAR,
+        SigninSurveyType.NTP_SIGNIN_BUTTON,
+        SigninSurveyType.NTP_ACCOUNT_AVATAR_TAP,
         SigninSurveyType.NTP_PROMO,
         SigninSurveyType.BOOKMARK_PROMO
     })
@@ -59,19 +60,20 @@ public class SigninSurveyController implements Destroyable {
     public @interface SigninSurveyType {
         int FRE = 0;
         int WEB = 1;
-        int NTP_AVATAR = 2;
-        int NTP_PROMO = 3;
-        int BOOKMARK_PROMO = 4;
+        int NTP_SIGNIN_BUTTON = 2;
+        int NTP_ACCOUNT_AVATAR_TAP = 3;
+        int NTP_PROMO = 4;
+        int BOOKMARK_PROMO = 5;
         int MAX_VALUE = BOOKMARK_PROMO;
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:SigninSurveyTrigger)
 
-    // 5 second delay.
-    private static final int DELAY = 5000;
     private static final ProfileKeyedMap<SigninSurveyController> sProfileMap =
             ProfileKeyedMap.createMapOfDestroyables();
 
+    // 5 second delay.
+    private static int sDelay = 5000;
     private static boolean sEnableForTesting;
 
     private final Profile mProfile;
@@ -129,6 +131,18 @@ public class SigninSurveyController implements Destroyable {
         controller.mRegisteredTrigger = surveyType;
     }
 
+    // Enables triggering the survey in tests and a delay after which the survey will be shown.
+    public static void enableWithoutDelayForTesting() {
+        int prevDelay = sDelay;
+        sEnableForTesting = true;
+        sDelay = 0;
+        ResettersForTesting.register(
+                () -> {
+                    sEnableForTesting = false;
+                    sDelay = prevDelay;
+                });
+    }
+
     private static SigninSurveyController getForProfile(Profile profile) {
         return sProfileMap.getForProfile(profile, SigninSurveyController::buildForProfile);
     }
@@ -184,12 +198,14 @@ public class SigninSurveyController implements Destroyable {
                             assertNonNull(mActivityLifecycleDispatcher),
                             Collections.emptyMap(),
                             getSurveyPsd());
+                    // Destroy after showing the survey to not show it again.
+                    destroy();
                 };
         // Post the task to not show the survey abruptly. If the user navigates away from the
-        // ChromeTabbedActivity within DELAY then the ui message is queued to be shown the next time
+        // ChromeTabbedActivity within sDelay then the ui message is queued to be shown the next
+        // time
         // ChromeTabbedActivity activity is resumed.
-        PostTask.postDelayedTask(TaskTraits.UI_DEFAULT, task, DELAY);
-        destroy();
+        PostTask.postDelayedTask(TaskTraits.UI_DEFAULT, task, sDelay);
     }
 
     private @Nullable SurveyClient constructSurveyClient(@SigninSurveyType int surveyType) {
@@ -214,9 +230,7 @@ public class SigninSurveyController implements Destroyable {
                         message,
                         assertNonNull(mMessageDispatcher),
                         assertNonNull(mTabModelSelector),
-                        (Supplier<@Nullable Boolean>)
-                                SurveyClientFactory.getInstance()
-                                        .getCrashUploadPermissionSupplier());
+                        SurveyClientFactory.getInstance().getCrashUploadPermissionSupplier());
         return SurveyClientFactory.getInstance()
                 .createClient(surveyConfig, messageDelegate, mProfile, mTabModelSelector);
     }
@@ -226,7 +240,8 @@ public class SigninSurveyController implements Destroyable {
         return switch (type) {
             case SigninSurveyType.FRE -> "signin-first-run";
             case SigninSurveyType.WEB -> "signin-web";
-            case SigninSurveyType.NTP_AVATAR -> "signin-ntp-avatar";
+            case SigninSurveyType.NTP_SIGNIN_BUTTON -> "signin-ntp-signin-button";
+            case SigninSurveyType.NTP_ACCOUNT_AVATAR_TAP -> "signin-ntp-account-avatar-tap";
             case SigninSurveyType.NTP_PROMO -> "signin-ntp-promo";
             case SigninSurveyType.BOOKMARK_PROMO -> "signin-bookmark-promo";
             default -> throw new IllegalStateException("Invalid signin survey type");

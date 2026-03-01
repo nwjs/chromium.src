@@ -10,13 +10,6 @@
 
 namespace client_certificates::features {
 
-// Controls whether the management of a client certificate for the browser
-// is enabled or not (still requires the policy to be enabled).
-BASE_DECLARE_FEATURE(kManagedBrowserClientCertificateEnabled);
-
-// Return true if the managed browser's client cert feature is enabled.
-bool IsManagedBrowserClientCertificateEnabled();
-
 // Controls whether user client certs storage relies on prefs or LevelDB.
 BASE_DECLARE_FEATURE(kManagedUserClientCertificateInPrefs);
 
@@ -35,6 +28,14 @@ BASE_DECLARE_FEATURE(kWindowsSoftwareKeysEnabled);
 
 // Return true if Windows software keys are enabled.
 bool AreWindowsSoftwareKeysEnabled();
+
+// Controls whether Windows TPM keys are blocked from
+// being used if they are not compatible with TLS 1.3.
+BASE_DECLARE_FEATURE(kWindowsTpmTls13Check);
+
+// Return true if Windows TPM keys are blocked from
+// being used if they are not compatible with TLS 1.3.
+bool IsWindowsTpmTls13CheckEnabled();
 #endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace client_certificates::features

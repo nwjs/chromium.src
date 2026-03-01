@@ -27,7 +27,7 @@ TestIPCMessageSender::~TestIPCMessageSender() = default;
 void TestIPCMessageSender::SendRequestIPC(ScriptContext* context,
                                           mojom::RequestParamsPtr params,
                                           bool sync,
-                                          bool* success, ::base::Value::List* response,
+                                          bool* success, ::base::ListValue* response,
                                           std::string* error) {
   last_params_ = std::move(params);
 }
@@ -103,7 +103,9 @@ void NativeExtensionBindingsSystemUnittest::OnWillDisposeContext(
     ASSERT_TRUE(allow_unregistered_contexts_);
     return;
   }
-  bindings_system_->WillReleaseScriptContext(*iter);
+  if (bindings_system_) {
+    bindings_system_->WillReleaseScriptContext(*iter);
+  }
   script_context_set_->Remove(*iter);
   raw_script_contexts_.erase(iter);
 }
@@ -123,6 +125,10 @@ void NativeExtensionBindingsSystemUnittest::RegisterExtension(
 
 bool NativeExtensionBindingsSystemUnittest::UseStrictIPCMessageSender() {
   return false;
+}
+
+void NativeExtensionBindingsSystemUnittest::DestroyBindingsSystem() {
+  bindings_system_.reset();
 }
 
 ScriptContextSetIterable*

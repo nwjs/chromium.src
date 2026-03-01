@@ -61,6 +61,90 @@ std::string_view ReauthFlowEventToHistogramSuffix(ReauthFlowEvent event) {
 
 }  // namespace
 
+std::optional<AccessPoint> AccessPointFromInt(int value) {
+  AccessPoint access_point = static_cast<AccessPoint>(value);
+  switch (access_point) {
+    case AccessPoint::kStartPage:
+    case AccessPoint::kMenu:
+    case AccessPoint::kSettings:
+    case AccessPoint::kExtensionInstallBubble:
+    case AccessPoint::kExtensions:
+    case AccessPoint::kBookmarkBubble:
+    case AccessPoint::kBookmarkManager:
+    case AccessPoint::kAvatarBubbleSignIn:
+    case AccessPoint::kUserManager:
+    case AccessPoint::kFullscreenSigninPromo:
+    case AccessPoint::kRecentTabs:
+    case AccessPoint::kUnknown:
+    case AccessPoint::kPasswordBubble:
+    case AccessPoint::kAutofillDropdown:
+    case AccessPoint::kResigninInfobar:
+    case AccessPoint::kMachineLogon:
+    case AccessPoint::kForcedSignin:
+    case AccessPoint::kWebSignin:
+    case AccessPoint::kSafetyCheck:
+    case AccessPoint::kSigninInterceptFirstRunExperience:
+    case AccessPoint::kSendTabToSelfPromo:
+    case AccessPoint::kNtpFeedTopPromo:
+    case AccessPoint::kSettingsSyncOffRow:
+    case AccessPoint::kPostDeviceRestoreSigninPromo:
+    case AccessPoint::kPostDeviceRestoreBackgroundSignin:
+    case AccessPoint::kNtpSignedOutIcon:
+    case AccessPoint::kNtpFeedCardMenuPromo:
+    case AccessPoint::kNtpFeedBottomPromo:
+    case AccessPoint::kDesktopSigninManager:
+    case AccessPoint::kForYouFre:
+    case AccessPoint::kCreatorFeedFollow:
+    case AccessPoint::kReadingList:
+    case AccessPoint::kReauthInfoBar:
+    case AccessPoint::kAccountConsistencyService:
+    case AccessPoint::kSetUpList:
+    case AccessPoint::kSaveToPhotosIos:
+    case AccessPoint::kChromeSigninInterceptBubble:
+    case AccessPoint::kRestorePrimaryAccountOnProfileLoad:
+    case AccessPoint::kTabOrganization:
+    case AccessPoint::kSaveToDriveIos:
+    case AccessPoint::kTipsNotification:
+    case AccessPoint::kNotificationsOptInScreenContentToggle:
+    case AccessPoint::kSigninChoiceRemembered:
+    case AccessPoint::kProfileMenuSignoutConfirmationPrompt:
+    case AccessPoint::kSettingsSignoutConfirmationPrompt:
+    case AccessPoint::kOidcRedirectionInterception:
+    case AccessPoint::kWebauthnModalDialog:
+    case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
+    case AccessPoint::kAccountMenuSwitchAccount:
+    case AccessPoint::kProductSpecifications:
+    case AccessPoint::kAccountMenuSwitchAccountFailed:
+    case AccessPoint::kAddressBubble:
+    case AccessPoint::kCctAccountMismatchNotification:
+    case AccessPoint::kDriveFilePickerIos:
+    case AccessPoint::kCollaborationShareTabGroup:
+    case AccessPoint::kGlicLaunchButton:
+    case AccessPoint::kHistoryPage:
+    case AccessPoint::kCollaborationJoinTabGroup:
+    case AccessPoint::kHistorySyncOptinExpansionPillOnStartup:
+    case AccessPoint::kWidget:
+    case AccessPoint::kCollaborationLeaveOrDeleteTabGroup:
+    case AccessPoint::kHistorySyncEducationalTip:
+    case AccessPoint::kManagedProfileAutoSigninIos:
+    case AccessPoint::kNonModalSigninPasswordPromo:
+    case AccessPoint::kNonModalSigninBookmarkPromo:
+    case AccessPoint::kUserManagerWithPrefilledEmail:
+    case AccessPoint::kEnterpriseManagementDisclaimerAtStartup:
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterBrowserFocus:
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterSignin:
+    case AccessPoint::kNtpFeaturePromo:
+    case AccessPoint::kEnterpriseDialogAfterSigninInterception:
+    case AccessPoint::kSettingsYourSavedInfo:
+    case AccessPoint::kCredentialExchangeImport:
+    case AccessPoint::kSetSyncConsentFromSyncInternals:
+    case AccessPoint::kIosChromeWebView:
+      return access_point;
+  }
+
+  return std::nullopt;
+}
+
 // These intermediate macros are necessary when we may emit to different
 // histograms from the same logical place in the code. The base histogram macros
 // expand in a way that can only work for a single histogram name, so these
@@ -401,9 +485,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromStartPage"));
       break;
-    case AccessPoint::kNtpLink:
-      base::RecordAction(base::UserMetricsAction("Signin_Signin_FromNTP"));
-      break;
     case AccessPoint::kMenu:
       base::RecordAction(base::UserMetricsAction("Signin_Signin_FromMenu"));
       break;
@@ -413,10 +494,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kSettingsYourSavedInfo:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromYourSavedInfo"));
-      break;
-    case AccessPoint::kSupervisedUser:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromSupervisedUser"));
       break;
     case AccessPoint::kExtensionInstallBubble:
       base::RecordAction(
@@ -442,10 +519,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromUserManager"));
       break;
-    case AccessPoint::kDevicesPage:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromDevicesPage"));
-      break;
     case AccessPoint::kFullscreenSigninPromo:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromSigninPromo"));
@@ -470,21 +543,9 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromReSigninInfobar"));
       break;
-    case AccessPoint::kTabSwitcher:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromTabSwitcher"));
-      break;
     case AccessPoint::kMachineLogon:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromMachineLogon"));
-      break;
-    case AccessPoint::kGoogleServicesSettings:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromGoogleServicesSettings"));
-      break;
-    case AccessPoint::kEnterpriseSignoutCoordinator:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromEnterpriseSignoutSheet"));
       break;
     case AccessPoint::kSigninInterceptFirstRunExperience:
       base::RecordAction(base::UserMetricsAction(
@@ -494,14 +555,7 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromNTPFeedTopPromo"));
       break;
-    case AccessPoint::kKaleidoscope:
-      NOTREACHED() << "Access point " << static_cast<int>(access_point)
-                   << " is only used to trigger non-sync sign-in and this"
-                   << " action should only be triggered for sync-enabled"
-                   << " sign-ins.";
-    case AccessPoint::kSyncErrorCard:
     case AccessPoint::kForcedSignin:
-    case AccessPoint::kAccountRenamed:
     case AccessPoint::kWebSignin:
     case AccessPoint::kSaveToDriveIos:
     case AccessPoint::kSaveToPhotosIos:
@@ -519,6 +573,8 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kWidget:
     case AccessPoint::kHistorySyncEducationalTip:
     case AccessPoint::kManagedProfileAutoSigninIos:
+    case AccessPoint::kSetSyncConsentFromSyncInternals:
+    case AccessPoint::kIosChromeWebView:
       NOTREACHED() << "Access point " << static_cast<int>(access_point)
                    << " is not supposed to log signin user actions.";
     case AccessPoint::kCollaborationShareTabGroup:
@@ -577,10 +633,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromAccountConsistencyService"));
       break;
-    case AccessPoint::kSearchCompanion:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromSearchCompanion"));
-      break;
     case AccessPoint::kSetUpList:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromSetUpList"));
@@ -600,10 +652,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kNotificationsOptInScreenContentToggle:
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromNotificationsOptInScreenContentToggle"));
-      break;
-    case AccessPoint::kNtpIdentityDisc:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromNtpIdentityDisc"));
       break;
     case AccessPoint::kOidcRedirectionInterception:
       base::RecordAction(base::UserMetricsAction(
@@ -682,9 +730,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromStartPage"));
       break;
-    case AccessPoint::kNtpLink:
-      base::RecordAction(base::UserMetricsAction("Signin_Impression_FromNTP"));
-      break;
     case AccessPoint::kMenu:
       base::RecordAction(base::UserMetricsAction("Signin_Impression_FromMenu"));
       break;
@@ -712,10 +757,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromAvatarBubbleSignin"));
       break;
-    case AccessPoint::kDevicesPage:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Impression_FromDevicesPage"));
-      break;
     case AccessPoint::kFullscreenSigninPromo:
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromSigninPromo"));
@@ -735,18 +776,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kResigninInfobar:
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromReSigninInfobar"));
-      break;
-    case AccessPoint::kTabSwitcher:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Impression_FromTabSwitcher"));
-      break;
-    case AccessPoint::kGoogleServicesSettings:
-      base::RecordAction(base::UserMetricsAction(
-          "Signin_Impression_FromGoogleServicesSettings"));
-      break;
-    case AccessPoint::kKaleidoscope:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Impression_FromKaleidoscope"));
       break;
     case AccessPoint::kUserManager:
       base::RecordAction(
@@ -779,10 +808,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kReadingList:
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromReadingList"));
-      break;
-    case AccessPoint::kSearchCompanion:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Impression_FromSearchCompanion"));
       break;
     case AccessPoint::kSetUpList:
       base::RecordAction(
@@ -820,14 +845,10 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Impression_FromCredentialExchangeImport"));
       break;
-    case AccessPoint::kEnterpriseSignoutCoordinator:
     case AccessPoint::kExtensions:
-    case AccessPoint::kSupervisedUser:
     case AccessPoint::kUnknown:
     case AccessPoint::kMachineLogon:
-    case AccessPoint::kSyncErrorCard:
     case AccessPoint::kForcedSignin:
-    case AccessPoint::kAccountRenamed:
     case AccessPoint::kWebSignin:
     case AccessPoint::kSigninChoiceRemembered:
     case AccessPoint::kSafetyCheck:
@@ -845,7 +866,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kTabOrganization:
     case AccessPoint::kProfileMenuSignoutConfirmationPrompt:
     case AccessPoint::kSettingsSignoutConfirmationPrompt:
-    case AccessPoint::kNtpIdentityDisc:
     case AccessPoint::kOidcRedirectionInterception:
     case AccessPoint::kWebauthnModalDialog:
     case AccessPoint::kAvatarBubbleSignInWithSyncPromo:
@@ -868,6 +888,8 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kEnterpriseManagementDisclaimerAfterBrowserFocus:
     case AccessPoint::kEnterpriseManagementDisclaimerAfterSignin:
     case AccessPoint::kNtpFeaturePromo:
+    case AccessPoint::kSetSyncConsentFromSyncInternals:
+    case AccessPoint::kIosChromeWebView:
       NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
                       "for access point "
                    << static_cast<int>(access_point);

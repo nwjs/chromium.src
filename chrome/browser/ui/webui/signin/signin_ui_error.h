@@ -23,20 +23,22 @@ class SigninUIError {
  public:
   // An error type.
   // Different types of UI might be shown for different error types.
-  enum class Type {
-    kOk,
-    kUsernameNotAllowedByPatternFromPrefs,
-    kWrongReauthAccount,
-    kAccountAlreadyUsedByAnotherProfile,
-    kProfileWasUsedByAnotherAccount,
-    kFromGoogleServiceAuthError,
-    kFromCredentialProviderUiExitCode,
-    kProfileIsBlocked,
-    kNoProfile,
-    kSigninDisallowed,
-    kSigninCookiesDisallowed,
-    kNoIdentityManager
+  // LINT.IfChange(SigninUIErrorType)
+  enum class Type : int {
+    kOk = 0,
+    kUsernameNotAllowedByPatternFromPrefs = 1,
+    kWrongReauthAccount = 2,
+    kAccountAlreadyUsedByAnotherProfile = 3,
+    kProfileWasUsedByAnotherAccount = 4,
+    kFromGoogleServiceAuthError = 5,
+    kFromCredentialProviderUiExitCode = 6,
+    kNoProfile = 7,
+    kSigninDisallowed = 8,
+    kSigninCookiesDisallowed = 9,
+    kNoIdentityManager = 10,
+    kMaxValue = kNoIdentityManager,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/profile/enums.xml:SigninUIErrorType)
 
   // Following static functions construct a `SigninUIError` with a corresponding
   // type and error message.
@@ -59,7 +61,6 @@ class SigninUIError {
       const std::string& email,
       credential_provider::UiExitCodes exit_code);
 #endif
-  static SigninUIError ProfileIsBlocked();
   static SigninUIError NoProfile(const std::string& email);
   static SigninUIError SigninDisallowed(const std::string& email);
   static SigninUIError SigninCookiesDisallowed(const std::string& email);

@@ -18,7 +18,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabHostUtils;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
@@ -108,7 +108,7 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
         // for now and wait until a subsequent call after initialization has finished.
         if (mParentToolbar == null) return;
         if (mIsIncognitoBranded == null) return;
-        if (!ChromeFeatureList.sTabStripIncognitoMigration.isEnabled()) return;
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()) return;
 
         if (mIncognitoIndicator == null && mIsIncognitoBranded) {
             ViewStub stub = mParentToolbar.findViewById(R.id.incognito_indicator_stub);
@@ -130,18 +130,50 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
 
     @Override
     public int updateVisibility(int availableWidth) {
+        return updateVisibilityInternal(
+                availableWidth,
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+    }
+
+    @Override
+    public int updateVisibility(int availableWidth, int widthMeasureSpec, int heightMeasureSpec) {
+        return updateVisibilityInternal(availableWidth, widthMeasureSpec, heightMeasureSpec);
+    }
+
+    private int updateVisibilityInternal(
+            int availableWidth, int widthMeasureSpec, int heightMeasureSpec) {
         assert ToolbarUtils.isToolbarTabletResizeRefactorEnabled();
-        // Hide and consume no width if the incognito indicator feature is not enabled, or if the
-        // device is not in incognito mode. Do not cache the width of the indicator.
-        if (!ChromeFeatureList.sTabStripIncognitoMigration.isEnabled()
+        // Hide and consume no width if the desktop-like incognito window feature is not enabled,
+        // or if the device is not in incognito mode. Do not cache the width of the indicator.
+        if (!IncognitoUtils.shouldOpenIncognitoAsWindow()
                 || Boolean.FALSE.equals(mIsIncognitoBranded)) {
             setVisibility(false);
             return 0;
         }
 
         // If the incognito indicator has been displayed, cache its measured width.
-        if (mIncognitoIndicator != null && mIncognitoIndicator.getMeasuredWidth() > 0) {
-            mCachedWidth = mIncognitoIndicator.getMeasuredWidth();
+        if (mIncognitoIndicator != null) {
+            // Actively measure the view content to get the "Stable Width" upfront.
+            // This mimics the "Fixed Width" behavior of other buttons by determining the
+            // intrinsic size immediately.
+            // Use the parent's measure specs to mimic the actual measurement that will happen
+            // in ToolbarTablet.onMeasure.
+            android.view.ViewGroup.LayoutParams lp = mIncognitoIndicator.getLayoutParams();
+            int childWidthSpec =
+                    android.view.ViewGroup.getChildMeasureSpec(
+                            widthMeasureSpec,
+                            mParentToolbar.getPaddingLeft() + mParentToolbar.getPaddingRight(),
+                            lp.width);
+            int childHeightSpec =
+                    android.view.ViewGroup.getChildMeasureSpec(
+                            heightMeasureSpec,
+                            mParentToolbar.getPaddingTop() + mParentToolbar.getPaddingBottom(),
+                            lp.height);
+
+            mIncognitoIndicator.measure(childWidthSpec, childHeightSpec);
+            int measuredWidth = mIncognitoIndicator.getMeasuredWidth();
+            mCachedWidth = measuredWidth > 0 ? measuredWidth : mDefaultFallbackWidth;
         } else {
             mCachedWidth = mDefaultFallbackWidth;
         }
@@ -199,26 +231,29 @@ public class IncognitoIndicatorCoordinator extends ToolbarChild
                         context,
                         listItems,
                         delegate,
+                        R.drawable.popup_menu_bg_no_horizontal_padding,
                         R.color.toolbar_text_box_background_incognito,
                         null);
 
+        int measuredWidth = menu.getMenuDimensions()[0];
         mMenuWindow =
-                new AnchoredPopupWindow(
-                        context,
-                        mIncognitoIndicator,
-                        new ColorDrawable(Color.TRANSPARENT),
-                        menu.getContentView(),
-                        new ViewRectProvider(mIncognitoIndicator));
-        mMenuWindow.setDismissOnTouchInteraction(true);
-        mMenuWindow.setDismissOnScreenSizeChange(true);
-        mMenuWindow.setFocusable(true);
-        mMenuWindow.setHorizontalOverlapAnchor(true);
-        mMenuWindow.setVerticalOverlapAnchor(false);
-        mMenuWindow.setPreferredHorizontalOrientation(
-                AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE);
-        mMenuWindow.setMaxWidth(
-                context.getResources()
-                        .getDimensionPixelSize(R.dimen.incognito_indicator_menu_max_width));
+                new AnchoredPopupWindow.Builder(
+                                context,
+                                mIncognitoIndicator,
+                                new ColorDrawable(Color.TRANSPARENT),
+                                menu::getContentView,
+                                new ViewRectProvider(mIncognitoIndicator))
+                        .setAnimateFromAnchor(true)
+                        .setDismissOnScreenSizeChange(true)
+                        .setDismissOnTouchInteraction(true)
+                        .setFocusable(true)
+                        .setTouchModal(true)
+                        .setDesiredContentWidth(measuredWidth)
+                        .setHorizontalOverlapAnchor(true)
+                        .setPreferredHorizontalOrientation(
+                                AnchoredPopupWindow.HorizontalOrientation.MAX_AVAILABLE_SPACE)
+                        .setVerticalOverlapAnchor(false)
+                        .build();
 
         mMenuWindow.show();
     }

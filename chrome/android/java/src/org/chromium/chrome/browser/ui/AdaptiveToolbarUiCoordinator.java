@@ -4,11 +4,14 @@
 
 package org.chromium.chrome.browser.ui;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import android.content.Context;
 
 import androidx.appcompat.content.res.AppCompatResources;
 
-import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -52,6 +55,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -74,7 +78,7 @@ public class AdaptiveToolbarUiCoordinator {
     private AdaptiveToolbarButtonController mAdaptiveToolbarButtonController;
     private VoiceToolbarButtonController mVoiceToolbarButtonController;
     private BottomSheetController mBottomSheetController;
-    private ObservableSupplier<Profile> mProfileSupplier;
+    private MonotonicObservableSupplier<Profile> mProfileSupplier;
     private Supplier<ScrimManager> mScrimSupplier;
     private Supplier<TabModelSelector> mTabModelSelectorSupplier;
     private @Nullable CommerceBottomSheetContentCoordinator mCommerceBottomSheetContentCoordinator;
@@ -110,10 +114,10 @@ public class AdaptiveToolbarUiCoordinator {
             BottomSheetController bottomSheetController,
             Supplier<SnackbarManager> snackbarManagerSupplier,
             Supplier<TabBookmarker> tabBookmarkerSupplier,
-            ObservableSupplier<Profile> profileSupplier,
-            ObservableSupplier<BookmarkModel> bookmarkModelSupplier,
+            MonotonicObservableSupplier<Profile> profileSupplier,
+            NullableObservableSupplier<BookmarkModel> bookmarkModelSupplier,
             Supplier<@Nullable ReadAloudController> readAloudControllerSupplier,
-            ObservableSupplier<ShareDelegate> shareDelegateSupplier,
+            MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
             Runnable onShareRunnable,
             WindowAndroid windowAndroid,
             Supplier<@Nullable Tracker> trackerSupplier,
@@ -125,8 +129,6 @@ public class AdaptiveToolbarUiCoordinator {
         mProfileSupplier = profileSupplier;
         mScrimSupplier = scrimSupplier;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
-        IdentityDiscController identityDiscController =
-                new IdentityDiscController(mContext, profileSupplier);
         mCurrentTabPriceTrackingStateSupplier =
                 new CurrentTabPriceTrackingStateSupplier(
                         mActivityTabProvider.asObservable(), profileSupplier);
@@ -136,7 +138,9 @@ public class AdaptiveToolbarUiCoordinator {
                         mContext,
                         mActivityTabProvider,
                         tabModelSelectorSupplier,
-                        () -> ShoppingServiceFactory.getForProfile(profileSupplier.get()),
+                        () ->
+                                ShoppingServiceFactory.getForProfile(
+                                        assertNonNull(profileSupplier.get())),
                         mModalDialogManagerSupplier.get(),
                         bottomSheetController,
                         snackbarManagerSupplier.get(),
@@ -220,11 +224,20 @@ public class AdaptiveToolbarUiCoordinator {
                         profileSupplier,
                         mActivityTabProvider.asObservable(),
                         adaptiveToolbarButtonController,
-                        () -> ShoppingServiceFactory.getForProfile(profileSupplier.get()),
+                        () ->
+                                ShoppingServiceFactory.getForProfile(
+                                        assertNonNull(profileSupplier.get())),
                         bookmarkModelSupplier);
         mAdaptiveToolbarButtonController = adaptiveToolbarButtonController;
         toolbarBehavior.registerPerSurfaceButtons(adaptiveToolbarButtonController, trackerSupplier);
-        mButtonDataProviders = List.of(identityDiscController, adaptiveToolbarButtonController);
+
+        if (SigninFeatureMap.sSigninLevelUpButton.isEnabled()) {
+            mButtonDataProviders = List.of(adaptiveToolbarButtonController);
+        } else {
+            IdentityDiscController identityDiscController =
+                    new IdentityDiscController(mContext, profileSupplier);
+            mButtonDataProviders = List.of(identityDiscController, adaptiveToolbarButtonController);
+        }
     }
 
     /**
@@ -341,7 +354,8 @@ public class AdaptiveToolbarUiCoordinator {
         // This flag is for discounts and commerce bottom sheet as a feature together.
         if (mCommerceBottomSheetContentCoordinator == null
                 && CommerceFeatureUtils.isDiscountInfoApiEnabled(
-                        ShoppingServiceFactory.getForProfile(mProfileSupplier.get()))) {
+                        ShoppingServiceFactory.getForProfile(
+                                assertNonNull(mProfileSupplier.get())))) {
 
             List<Supplier<CommerceBottomSheetContentProvider>> contentProviderSuppliers =
                     new ArrayList<>();

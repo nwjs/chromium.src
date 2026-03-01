@@ -41,6 +41,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/installer/util/update_did_run_state.h"
 #include "chrome/installer/util/util_constants.h"
+#include "components/activity_reporter/buildflags.h"
 #include "content/public/app/sandbox_helper_win.h"
 #include "content/public/common/content_switches.h"
 #include "sandbox/policy/mojom/sandbox.mojom.h"
@@ -60,7 +61,9 @@ typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 #define BUFSIZE MAX_PATH
 
 void RecordDidRun(const base::FilePath& dll_path) {
+#if BUILDFLAG(USE_LEGACY_ACTIVE_DEFINITION)
   installer::UpdateDidRunState();
+#endif
 }
 
 // Indicates whether a file can be opened using the same flags that

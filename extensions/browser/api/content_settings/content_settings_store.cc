@@ -371,7 +371,7 @@ void ContentSettingsStore::ClearContentSettingsForExtensionAndContentType(
   NotifyOfContentSettingChanged(ext_id, scope != ChromeSettingScope::kRegular);
 }
 
-base::Value::List ContentSettingsStore::GetSettingsForExtension(
+base::ListValue ContentSettingsStore::GetSettingsForExtension(
     const ExtensionId& extension_id,
     ChromeSettingScope scope) const {
   base::AutoLock lock(lock_);
@@ -385,7 +385,7 @@ base::Value::List ContentSettingsStore::GetSettingsForExtension(
     base::AutoLock map_lock(map->GetLock());
     keys = map->types();
   }
-  base::Value::List settings;
+  base::ListValue settings;
   for (ContentSettingsType key : keys) {
     std::unique_ptr<RuleIterator> rule_iterator(map->GetRuleIterator(key));
     if (!rule_iterator)
@@ -393,7 +393,7 @@ base::Value::List ContentSettingsStore::GetSettingsForExtension(
 
     while (rule_iterator->HasNext()) {
       std::unique_ptr<Rule> rule = rule_iterator->Next();
-      base::Value::Dict setting_dict;
+      base::DictValue setting_dict;
       setting_dict.Set(kPrimaryPatternKey, rule->primary_pattern.ToString());
       setting_dict.Set(kSecondaryPatternKey,
                        rule->secondary_pattern.ToString());
@@ -421,7 +421,7 @@ base::Value::List ContentSettingsStore::GetSettingsForExtension(
 
 void ContentSettingsStore::SetExtensionContentSettingFromList(
     const ExtensionId& extension_id,
-    const base::Value::List& list,
+    const base::ListValue& list,
     ChromeSettingScope scope) {
   for (const base::Value& value : list) {
     if (!value.is_dict()) {
@@ -429,7 +429,7 @@ void ContentSettingsStore::SetExtensionContentSettingFromList(
       continue;
     }
 
-    const base::Value::Dict& dict = value.GetDict();
+    const base::DictValue& dict = value.GetDict();
     const std::string* primary_pattern_str =
         dict.FindString(kPrimaryPatternKey);
     if (!primary_pattern_str) {

@@ -28,6 +28,7 @@ try_.defaults.set(
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
+    siso_keep_going = siso.KEEP_GOING,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
     siso_remote_linking = True,
@@ -427,4 +428,13 @@ try_.builder(
             "chrome/browser/ash/chromebox_for_meetings/.+",
         ],
     ),
+)
+
+try_.builder(
+    name = "linux-chromeos-treesinviz-enabled-rel",
+    mirrors = [
+        "ci/linux-chromeos-treesinviz-enabled-rel",
+    ],
+    gn_args = "ci/linux-chromeos-treesinviz-enabled-rel",
+    contact_team_email = "chrome-gpu-team@google.com",
 )

@@ -67,7 +67,7 @@ class MockOtpPhishGuardDelegate : public OtpPhishGuardDelegate {
 class OtpManagerImplTest : public testing::Test,
                            public WithTestAutofillClientDriverManager<> {
  public:
-  OtpManagerImplTest() = default;
+  OtpManagerImplTest() : one_time_token_service_(&sms_otp_backend_, nullptr) {}
   ~OtpManagerImplTest() override = default;
 
   void SetUp() override {
@@ -93,8 +93,8 @@ class OtpManagerImplTest : public testing::Test,
     autofill_manager().NotifyObservers(
         &TestBrowserAutofillManager::Observer::OnFieldTypesDetermined,
         form.global_id(),
-        TestBrowserAutofillManager::Observer::FieldTypeSource::
-            kAutofillAiModel);
+        TestBrowserAutofillManager::Observer::FieldTypeSource::kAutofillAiModel,
+        /*small_forms_were_parsed=*/false);
   }
 
   void AddFormWithOtpField() {
@@ -123,7 +123,7 @@ class OtpManagerImplTest : public testing::Test,
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   MockSmsOtpBackend sms_otp_backend_;
-  OneTimeTokenServiceImpl one_time_token_service_{&sms_otp_backend_};
+  OneTimeTokenServiceImpl one_time_token_service_;
   base::HistogramTester histogram_tester_;
 };
 

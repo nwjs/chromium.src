@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/dom/named_animation_trigger_map.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -91,7 +92,12 @@ void DocumentAnimations::FindRelevantTriggerAttachments(
   // aware of triggers that are outside the owning_element's ancestry but in the
   // same trigger-scope - such a trigger might come later in tree-order and
   // therefore be the correct candidate).
-  TriggerScopedNameMap* ancestors_named_triggers =
+  TriggerScopedNameMap* global_trigger_map =
+      MakeGarbageCollected<TriggerScopedNameMap>();
+  // Map to accumulate triggers defined on elements in the ancestry of the
+  // owning element. These are to be checked first before looking at the global
+  // list.
+  TriggerScopedNameMap* ancestor_trigger_map =
       MakeGarbageCollected<TriggerScopedNameMap>();
 
   const Element* element = owning_element;
@@ -102,6 +108,20 @@ void DocumentAnimations::FindRelevantTriggerAttachments(
       continue;
     }
 
+    if (NamedAnimationTriggerMap* element_named_triggers =
+            element->NamedTriggers()) {
+      for (const auto& named_trigger : element_named_triggers->Keys()) {
+        TriggerScopedName* trigger_scoped_name =
+            ToTriggerScopedName(*named_trigger, *element);
+        auto it = ancestor_trigger_map->find(trigger_scoped_name);
+        // Within the ancestry, the nearest ancestor with the name is selected.
+        // So, if a name has already been found, skip the update.
+        if (it == ancestor_trigger_map->end()) {
+          ancestor_trigger_map->Set(trigger_scoped_name, element);
+        }
+      }
+    }
+
     for (const auto& fragment : element_box->PhysicalFragments()) {
       const TriggerScopedNameMap* named_triggers = fragment.NamedTriggers();
       if (!named_triggers) {
@@ -109,24 +129,37 @@ void DocumentAnimations::FindRelevantTriggerAttachments(
       }
 
       for (const auto& entry : *named_triggers) {
-        ancestors_named_triggers->Set(entry.key, entry.value);
+        global_trigger_map->Set(entry.key, entry.value);
       }
     }
 
     element = element->parentElement();
   }
 
+  const auto add_relevant_trigger =
+      [&](const Element* source, TriggerScopedName* trigger_scoped_name,
+          const StyleTriggerAttachment* attachment) {
+        AnimationTrigger* trigger =
+            source->NamedTrigger(trigger_scoped_name->GetScopedName());
+        DCHECK(trigger);
+        relevant_attachments_out.Set(trigger_scoped_name,
+                                     std::make_pair(trigger, attachment));
+      };
+
   for (const auto& attachment : *animation_trigger_attachments) {
     TriggerScopedName* trigger_scoped_name =
         ToTriggerScopedName(*attachment->TriggerName(), *owning_element);
 
-    auto it = ancestors_named_triggers->find(trigger_scoped_name);
-    if (it != ancestors_named_triggers->end()) {
-      AnimationTrigger* trigger =
-          it->value->NamedTrigger(trigger_scoped_name->GetScopedName());
-      DCHECK(trigger);
-      relevant_attachments_out.Set(trigger_scoped_name,
-                                   std::make_pair<>(trigger, attachment));
+    auto it = ancestor_trigger_map->find(trigger_scoped_name);
+    if (it != ancestor_trigger_map->end()) {
+      add_relevant_trigger(it->value, trigger_scoped_name, attachment);
+      continue;
+    }
+
+    // If we didn't find a name in the ancestry, search the global map.
+    it = global_trigger_map->find(trigger_scoped_name);
+    if (it != global_trigger_map->end()) {
+      add_relevant_trigger(it->value, trigger_scoped_name, attachment);
     }
   }
 }
@@ -141,17 +174,22 @@ void DocumentAnimations::UpdateTriggerAttachments(
   // get added below.
   animation.NamedTriggerAttachments().swap(named_trigger_attachments_copy);
 
-  // Track triggers from obsolete associations.
-  HeapHashSet<Member<AnimationTrigger>> obsolete_triggers;
+  const auto& relevant_attachment_values = relevant_attachments.Values();
+  // Remove obsolete triggers.
   for (const auto& [scope, trigger] : named_trigger_attachments_copy) {
-    auto it = relevant_attachments.find(scope);
-    if (it != relevant_attachments.end()) {
+    // As only a single trigger is allowed per animation, we need to first
+    // remove obsolete triggers before relevant triggers can be attached.
+    if (std::any_of(
+            relevant_attachment_values.begin(),
+            relevant_attachment_values.end(),
+            [&](const std::pair<Member<AnimationTrigger>,
+                                Member<const StyleTriggerAttachment>>& pair) {
+              return pair.first == trigger;
+            })) {
       continue;
     }
-    // If a previous attachment was not found in the search, it is now
-    // obsolete and should be removed. However, don't call removeAnimation just
-    // yet, as the trigger might simply be under a different scope.
-    obsolete_triggers.insert(trigger);
+
+    trigger->removeAnimation(&animation);
   }
 
   for (const auto& [scope, trigger_attachment] : relevant_attachments) {
@@ -160,12 +198,6 @@ void DocumentAnimations::UpdateTriggerAttachments(
 
     animation.SetNamedTriggerAttachment(scope, trigger);
     attachment->Attach(*trigger, *scope, animation);
-
-    obsolete_triggers.erase(trigger);
-  }
-
-  for (AnimationTrigger* trigger : obsolete_triggers) {
-    trigger->removeAnimation(&animation);
   }
 }
 
@@ -224,7 +256,7 @@ void DocumentAnimations::UpdateAnimations(
     document_->View()->ScheduleAnimation();
   }
 
-  UpdateCompositorAnimationTriggers();
+  UpdateCompositorAnimationTriggers(paint_artifact_compositor);
 
   document_->GetWorkletAnimationController().UpdateAnimationStates();
   document_->GetFrame()->ScheduleNextServiceForPostLayoutSnapshotClients();
@@ -324,6 +356,7 @@ void DocumentAnimations::Trace(Visitor* visitor) const {
   visitor->Trace(timelines_);
   visitor->Trace(triggers_);
   visitor->Trace(triggered_animations_);
+  visitor->Trace(global_deferred_timelines_);
 }
 
 void DocumentAnimations::GetAnimationsTargetingTreeScope(
@@ -414,14 +447,15 @@ void DocumentAnimations::AddAnimationTrigger(AnimationTrigger& trigger) {
   triggers_.insert(&trigger);
 }
 
-void DocumentAnimations::UpdateCompositorAnimationTriggers() {
+void DocumentAnimations::UpdateCompositorAnimationTriggers(
+    const PaintArtifactCompositor* paint_artifact_compositor) {
   if (!RuntimeEnabledFeatures::AnimationTriggerEnabled() ||
       !Platform::Current()->IsThreadedAnimationEnabled()) {
     return;
   }
 
   for (AnimationTrigger* trigger : triggers_) {
-    trigger->UpdateCompositorTrigger();
+    trigger->UpdateCompositorTrigger(paint_artifact_compositor);
   }
 }
 

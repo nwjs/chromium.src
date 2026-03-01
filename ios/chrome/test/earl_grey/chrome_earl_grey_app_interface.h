@@ -80,9 +80,6 @@ enum class TipsNotificationType;
 // Reloads the page without waiting for the page to load.
 + (void)startReloading;
 
-// Loads `URL` as if it was opened from an external application.
-+ (void)openURLFromExternalApp:(NSString*)URL;
-
 // Programmatically dismisses settings screen.
 + (void)dismissSettings;
 
@@ -540,6 +537,9 @@ enum class TipsNotificationType;
 
 // Returns YES if AskGeminiChip is enabled.
 + (BOOL)isAskGeminiChipEnabled [[nodiscard]];
+
+// Returns YES if ProactiveSuggestionsFramework is enabled.
++ (BOOL)isProactiveSuggestionsFrameworkEnabled [[nodiscard]];
 
 // Returns YES if the `launchSwitch` is found in host app launch switches.
 + (BOOL)appHasLaunchSwitch:(NSString*)launchSwitch;

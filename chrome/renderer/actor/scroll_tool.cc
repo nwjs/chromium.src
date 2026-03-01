@@ -59,14 +59,12 @@ ScrollTool::ScrollTool(content::RenderFrame& frame,
 ScrollTool::~ScrollTool() = default;
 
 void ScrollTool::Execute(ToolFinishedCallback callback) {
-  ValidatedResult validated_result = Validate();
-  if (!validated_result.has_value()) {
-    std::move(callback).Run(std::move(validated_result.error()));
-    return;
-  }
-
-  WebElement scrolling_element = validated_result->scroller;
-  gfx::Vector2dF offset_physical = validated_result->scroll_by_offset;
+  CHECK(validated_scroller_and_distance_.has_value())
+      << "Execute tool was called before validation";
+  WebElement scrolling_element =
+      validated_scroller_and_distance_.value().scroller;
+  gfx::Vector2dF offset_physical =
+      validated_scroller_and_distance_.value().scroll_by_offset;
 
   float physical_to_css = 1 / scrolling_element.GetEffectiveZoom();
   gfx::Vector2dF offset_css =
@@ -95,14 +93,14 @@ std::string ScrollTool::DebugString() const {
                          base::ToString(action_->direction), action_->distance);
 }
 
-ScrollTool::ValidatedResult ScrollTool::Validate() const {
+ValidationResult ScrollTool::Validate() {
   WebLocalFrame* web_frame = frame_->GetWebFrame();
   CHECK(web_frame);
   CHECK(web_frame->FrameWidget());
 
   // The scroll distance should always be positive.
   if (action_->distance <= 0.0) {
-    return base::unexpected(
+    return ValidationResult(
         MakeResult(mojom::ActionResultCode::kArgumentsInvalid,
                    /*requires_page_stabilization=*/false, "Negative Distance"));
   }
@@ -141,7 +139,7 @@ ScrollTool::ValidatedResult ScrollTool::Validate() const {
     // the browser.
     ToolBase::ResolveResult resolved_target = ResolveTarget(*target_);
     if (!resolved_target.has_value()) {
-      return base::unexpected(std::move(resolved_target.error()));
+      return ValidationResult(std::move(resolved_target.error()));
     }
 
     blink::WebNode& node = resolved_target->node;
@@ -163,7 +161,7 @@ ScrollTool::ValidatedResult ScrollTool::Validate() const {
     }
 
     if (node.IsNull()) {
-      return base::unexpected(
+      return ValidationResult(
           MakeResult(mojom::ActionResultCode::kScrollTargetNotUserScrollable,
                      /*requires_page_stabilization=*/false,
                      "No scrollable ancestor found by coordinate"));
@@ -179,27 +177,28 @@ ScrollTool::ValidatedResult ScrollTool::Validate() const {
     if (dom_node_id == kRootElementDomNodeId) {
       scrolling_element = web_frame->GetDocument().ScrollingElement();
       if (scrolling_element.IsNull()) {
-        return base::unexpected(
+        return ValidationResult(
             MakeResult(mojom::ActionResultCode::kScrollNoScrollingElement));
       }
     } else {
       ToolBase::ResolveResult resolved_target = ValidateAndResolveTarget();
       if (!resolved_target.has_value()) {
-        return base::unexpected(std::move(resolved_target.error()));
+        return ValidationResult(std::move(resolved_target.error()));
       }
       scrolling_element = resolved_target->node.DynamicTo<WebElement>();
     }
 
     if (!IsTargetUserScrollable(scrolling_element, offset_physical)) {
-      return base::unexpected(
+      return ValidationResult(
           MakeResult(mojom::ActionResultCode::kScrollTargetNotUserScrollable,
                      /*requires_page_stabilization=*/false,
                      absl::StrFormat("ScrollingElement [%s]",
                                      base::ToString(scrolling_element))));
     }
   }
-
-  return ScrollerAndDistance{scrolling_element, offset_physical};
+  validated_scroller_and_distance_.emplace(
+      ScrollerAndDistance{scrolling_element, offset_physical});
+  return ValidationResult(MakeOkResult());
 }
 
 }  // namespace actor

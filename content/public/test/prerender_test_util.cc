@@ -73,7 +73,8 @@ std::string BuildScriptElementSpeculationRules(
     std::optional<blink::mojom::SpeculationEagerness> eagerness,
     std::optional<std::string> no_vary_search_hint,
     const std::string& target_hint,
-    std::optional<std::string> ruleset_tag) {
+    std::optional<std::string> ruleset_tag,
+    std::optional<bool> form_submission) {
   std::stringstream ss;
 
   // Add source filed.
@@ -106,6 +107,14 @@ std::string BuildScriptElementSpeculationRules(
   // Add target_hint field.
   if (!target_hint.empty()) {
     ss << base::StringPrintf(R"(, "target_hint": "%s")", target_hint.c_str());
+  }
+
+  if (form_submission.has_value()) {
+    if (form_submission.value()) {
+      ss << R"(, "form_submission": true)";
+    } else {
+      ss << R"(, "form_submission": false)";
+    }
   }
 
   return ruleset_tag.has_value()
@@ -151,12 +160,6 @@ PrerenderHostRegistry& GetPrerenderHostRegistry(WebContents* web_contents) {
 
 PrerenderHost* GetPrerenderHostById(WebContents* web_contents,
                                     PrerenderHostId host_id) {
-  auto& registry = GetPrerenderHostRegistry(web_contents);
-  return registry.FindNonReservedHostById(host_id);
-}
-
-PrerenderHost* GetPrerenderHostById(WebContents* web_contents,
-                                    FrameTreeNodeId host_id) {
   auto& registry = GetPrerenderHostRegistry(web_contents);
   return registry.FindNonReservedHostById(host_id);
 }
@@ -304,14 +307,6 @@ class PrerenderHostObserverImpl : public PrerenderHost::Observer {
     StartObserving(*host);
   }
 
-  PrerenderHostObserverImpl(WebContents& web_contents,
-                            FrameTreeNodeId host_id) {
-    PrerenderHost* host = GetPrerenderHostById(&web_contents, host_id);
-    DCHECK(host)
-        << "A PrerenderHost with the given id does not, or no longer, exists.";
-    StartObserving(*host);
-  }
-
   PrerenderHostObserverImpl(WebContents& web_contents, const GURL& url) {
     registry_observer_ =
         std::make_unique<PrerenderHostRegistryObserver>(web_contents);
@@ -436,11 +431,6 @@ PrerenderHostObserver::PrerenderHostObserver(WebContents& web_contents,
                                              PrerenderHostId host_id)
     : impl_(
           std::make_unique<PrerenderHostObserverImpl>(web_contents, host_id)) {}
-
-PrerenderHostObserver::PrerenderHostObserver(WebContents& web_contents,
-                                             FrameTreeNodeId prerender_host)
-    : impl_(std::make_unique<PrerenderHostObserverImpl>(web_contents,
-                                                        prerender_host)) {}
 
 PrerenderHostObserver::PrerenderHostObserver(WebContents& web_contents,
                                              const GURL& url)
@@ -622,7 +612,8 @@ PrerenderHostId PrerenderTestHelper::AddPrerender(
     std::optional<std::string> no_vary_search_hint,
     const std::string& target_hint,
     std::optional<std::string> ruleset_tag,
-    int32_t world_id) {
+    int32_t world_id,
+    std::optional<bool> form_submission) {
   TRACE_EVENT("test", "PrerenderTestHelper::AddPrerender", "prerendering_url",
               prerendering_url);
   EXPECT_TRUE(content::BrowserThread::CurrentlyOn(BrowserThread::UI));
@@ -638,14 +629,14 @@ PrerenderHostId PrerenderTestHelper::AddPrerender(
           run_loop.QuitClosure().Run();
         }));
     AddPrerendersAsync({prerendering_url}, eagerness, no_vary_search_hint,
-                       target_hint, ruleset_tag, world_id);
+                       target_hint, ruleset_tag, world_id, form_submission);
     run_loop.Run();
   } else {
     // For other target hints, the initiator's WebContents will host a
     // prerendered page.
     prerender_web_contents = GetWebContents();
     AddPrerendersAsync({prerendering_url}, eagerness, no_vary_search_hint,
-                       target_hint, ruleset_tag, world_id);
+                       target_hint, ruleset_tag, world_id, form_submission);
   }
 
   WaitForPrerenderLoadCompletion(*prerender_web_contents, prerendering_url);
@@ -668,7 +659,8 @@ void PrerenderTestHelper::AddPrerendersAsync(
     int32_t world_id) {
   AddPrerendersAsync(prerendering_urls, eagerness,
                      /*no_vary_search_hint=*/std::nullopt, target_hint,
-                     /*ruleset_tag=*/std::nullopt, world_id);
+                     /*ruleset_tag=*/std::nullopt, world_id,
+                     /*form_submission=*/std::nullopt);
 }
 
 void PrerenderTestHelper::AddPrerendersAsync(
@@ -677,7 +669,8 @@ void PrerenderTestHelper::AddPrerendersAsync(
     std::optional<std::string> no_vary_search_hint,
     const std::string& target_hint,
     std::optional<std::string> ruleset_tag,
-    int32_t world_id) {
+    int32_t world_id,
+    std::optional<bool> form_submission) {
   TRACE_EVENT(
       "test", "PrerenderTestHelper::AddPrerendersAsync", "prerendering_urls",
       prerendering_urls, "eagerness",
@@ -689,7 +682,7 @@ void PrerenderTestHelper::AddPrerendersAsync(
   EXPECT_TRUE(content::BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::string script = BuildScriptElementSpeculationRules(
       prerendering_urls, eagerness, no_vary_search_hint, target_hint,
-      ruleset_tag);
+      ruleset_tag, form_submission);
 
   if (world_id == ISOLATED_WORLD_ID_GLOBAL) {
     // Have to use ExecuteJavaScriptForTests instead of ExecJs/EvalJs here,
@@ -806,8 +799,11 @@ PrerenderTestHelper::NavigatePrimaryPageAsync(WebContents& web_contents,
                                               ui::PageTransition transition) {
   TRACE_EVENT("test", "PrerenderTestHelper::NavigatePrimaryPage",
               "web_contents", web_contents, "url", url);
+  const bool is_form_submission =
+      PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_FORM_SUBMIT);
   const bool is_renderer_initiated =
-      PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_LINK);
+      PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_LINK) ||
+      is_form_submission;
   if (is_renderer_initiated && web_contents.IsLoading()) {
     // Ensure that any ongoing navigation is complete prior to the construction
     // of |observer| below (this navigation may complete while executing ExecJs
@@ -825,7 +821,17 @@ PrerenderTestHelper::NavigatePrimaryPageAsync(WebContents& web_contents,
       std::make_unique<content::TestNavigationObserver>(&web_contents);
   observer->set_wait_event(
       content::TestNavigationObserver::WaitEvent::kLoadStopped);
-  if (is_renderer_initiated) {
+  if (is_form_submission) {
+    const std::string script = base::StringPrintf(R"(
+        const form = document.createElement("form");
+        form.method = "GET";
+        form.action = "%s";
+        document.body.appendChild(form);
+        form.submit();
+    )",
+                                                  url.spec());
+    std::ignore = ExecJs(web_contents.GetPrimaryMainFrame(), script);
+  } else if (is_renderer_initiated) {
     // Ignore the result of ExecJs().
     //
     // Depending on timing, activation could destroy a navigating frame before

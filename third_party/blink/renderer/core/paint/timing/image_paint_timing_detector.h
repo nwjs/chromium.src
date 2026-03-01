@@ -244,9 +244,6 @@ class CORE_EXPORT ImagePaintTimingDetector final
                                         const DOMPaintTimingInfo&)>>
   TakePaintTimingCallback();
 
-  // Return the image LCP candidate and whether the candidate has changed.
-  std::pair<ImageRecord*, bool> UpdateMetricsCandidate();
-
   // Called when documentElement changes from zero to nonzero opacity. Makes the
   // largest image that was hidden due to this a Largest Contentful Paint
   // candidate.
@@ -281,6 +278,7 @@ class CORE_EXPORT ImagePaintTimingDetector final
                                 const PropertyTreeStateOrAlias&,
                                 const LayoutObject&,
                                 const MediaTiming&);
+  void SendRectsToHud();
 
   LargestContentfulPaintCalculator* GetLargestContentfulPaintCalculator() const;
 

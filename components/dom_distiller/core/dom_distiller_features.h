@@ -35,19 +35,18 @@ BASE_DECLARE_FEATURE(kReaderModeSupportNewFonts);
 #if BUILDFLAG(IS_ANDROID)
 // Feature declarations below -- alphabetical order.
 COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
+BASE_DECLARE_FEATURE(kReaderModeBlurTransitionAnimation);
+COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
+BASE_DECLARE_FEATURE(kReaderModeDelayBottomSheetPeek);
+COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
 BASE_DECLARE_FEATURE(kReaderModeDistillInApp);
 COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
-BASE_DECLARE_FEATURE(kReaderModeDistillInAppFastFollows);
+BASE_DECLARE_FEATURE(kReaderModeDelayBottomSheetPeek);
 COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
 BASE_DECLARE_FEATURE(kReaderModeImprovements);
-#endif
-
-
-#if BUILDFLAG(IS_IOS)
-// Feature to enable the new CSS for Reader mode.
 COMPONENT_EXPORT(DOM_DISTILLER_FEATURES)
-BASE_DECLARE_FEATURE(kEnableReaderModeNewCss);
-#endif  // BUILDFLAG(IS_IOS)
+BASE_DECLARE_FEATURE(kReaderModeToggleLinks);
+#endif
 
 }  // namespace dom_distiller
 

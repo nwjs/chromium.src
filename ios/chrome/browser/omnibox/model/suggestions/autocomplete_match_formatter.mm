@@ -6,10 +6,10 @@
 
 #import <UIKit/UIKit.h>
 
+#import <algorithm>
 #import <array>
 #import <string>
 
-#import "base/containers/contains.h"
 #import "base/metrics/field_trial_params.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -27,9 +27,11 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/web/public/web_client.h"
 
 namespace {
 
@@ -54,6 +56,13 @@ UIColor* DimColorIncognito() {
   return UIColor.whiteColor;
 }
 
+/// Returns whether the given URL is shareable.
+BOOL IsShareableURL(GURL URL) {
+  return URL.is_valid() &&
+         (UrlIsDownloadedFile(URL) || UrlIsExternalFileReference(URL) ||
+          !web::GetWebClient()->IsAppSpecificURL(URL));
+}
+
 }  // namespace
 
 @implementation AutocompleteMatchFormatter {
@@ -69,7 +78,7 @@ UIColor* DimColorIncognito() {
   self = [super init];
   if (self) {
     _match = AutocompleteMatch(match);
-    _isReverseColorLogic = base::Contains(
+    _isReverseColorLogic = std::ranges::contains(
         kReverseColorLocales,
         GetApplicationContext()->GetApplicationLocaleStorage()->Get());
   }
@@ -362,6 +371,10 @@ UIColor* DimColorIncognito() {
 /// the omnibox would be a noop. However, this list also omits other types that
 /// are deprecated or not launched on iOS.
 - (BOOL)isAppendable {
+  if (_match.IsThreadsHistorySuggestion()) {
+    return NO;
+  }
+
   if (_match.suggest_template) {
     return YES;
   }
@@ -386,6 +399,17 @@ UIColor* DimColorIncognito() {
 
 - (BOOL)isTabMatch {
   return _match.has_tab_match.value_or(false);
+}
+
+- (BOOL)isShareable {
+  if (!base::FeatureList::IsEnabled(kShareInVerbatimMatch)) {
+    return NO;
+  }
+
+  return _match.IsVerbatimUrlSuggestion() &&
+         (_match.suggestion_group_id ==
+          omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX) &&
+         IsShareableURL(_match.destination_url);
 }
 
 - (id<OmniboxPedal>)pedal {

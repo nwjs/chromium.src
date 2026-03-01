@@ -7,7 +7,7 @@ import 'chrome://resources/cr_components/composebox/contextual_entrypoint_button
 
 import type {ContextualEntrypointButtonElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_button.js';
 import {assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {$$, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {$$, eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 suite('ContextualEntrypointButton', () => {
   let entrypointButton: ContextualEntrypointButtonElement;
@@ -17,19 +17,19 @@ suite('ContextualEntrypointButton', () => {
 
     entrypointButton =
         document.createElement('cr-composebox-contextual-entrypoint-button');
-    Object.assign(
-        entrypointButton,
-        {inputsDisabled: false, showContextMenuDescription: false});
     document.body.appendChild(entrypointButton);
     await microtasksFinished();
   });
 
-  test('clicking entrypoint shows context menu', async () => {
+  test('clicking entrypoint fires event', async () => {
     // Act.
+    const eventPromise =
+        eventToPromise('context-menu-entrypoint-click', entrypointButton);
     $$(entrypointButton, '#entrypoint')!.click();
     await microtasksFinished();
 
     // Assert.
-    assertTrue(entrypointButton.$.menu.open);
+    const event = await eventPromise;
+    assertTrue(!!event);
   });
 });

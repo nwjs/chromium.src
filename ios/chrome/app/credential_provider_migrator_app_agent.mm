@@ -6,7 +6,6 @@
 
 #import <map>
 
-#import "base/containers/contains.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
@@ -248,7 +247,7 @@ void MigrationCompleteForProfile(
   }
 
   password_manager::PasswordForm::Store defaultStore =
-      password_manager::features_util::IsAccountStorageEnabled(
+      password_manager::features_util::IsAccountStorageActive(
           SyncServiceFactory::GetForProfile(profile))
           ? password_manager::PasswordForm::Store::kAccountStore
           : password_manager::PasswordForm::Store::kProfileStore;

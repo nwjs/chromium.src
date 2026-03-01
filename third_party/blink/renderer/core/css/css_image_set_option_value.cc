@@ -73,26 +73,8 @@ bool CSSImageSetOptionValue::Equals(const CSSImageSetOptionValue& other) const {
          base::ValuesEquivalent(type_, other.type_);
 }
 
-const CSSValue*
-CSSImageSetOptionValue::CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-    const CSSPropertyName& property_name,
-    wtf_size_t& property_value_index) const {
-  const CSSValue* image =
-      image_ ? image_->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                   property_name, property_value_index)
-             : nullptr;
-  const CSSPrimitiveValue* resolution =
-      resolution_
-          ? To<CSSPrimitiveValue>(
-                resolution_
-                    ->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-                        property_name, property_value_index))
-          : nullptr;
-  if (image != image_ || resolution != resolution_) {
-    return MakeGarbageCollected<CSSImageSetOptionValue>(image, resolution,
-                                                        type_);
-  }
-  return this;
+bool CSSImageSetOptionValue::HasRandomFunctions() const {
+  return resolution_ && resolution_->HasRandomFunctions();
 }
 
 void CSSImageSetOptionValue::TraceAfterDispatch(blink::Visitor* visitor) const {

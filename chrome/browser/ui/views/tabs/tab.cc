@@ -29,6 +29,7 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
@@ -43,12 +44,13 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
-#include "chrome/browser/ui/views/tabs/tab_close_button.h"
+#include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
+#include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
+#include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
+#include "chrome/browser/ui/views/tabs/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.h"
-#include "chrome/browser/ui/views/tabs/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -87,6 +89,7 @@
 #include "ui/resources/grit/ui_resources.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
+#include "ui/views/bubble/bubble_border.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
@@ -113,6 +116,10 @@
 #include "chrome/browser/glic/browser_ui/tab_underline_view_controller_impl.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
+#endif
+
 using base::UserMetricsAction;
 namespace {
 
@@ -127,10 +134,6 @@ constexpr int kPinnedTabExtraWidthToRenderAsNormal = 30;
 // indicator when `extra_alert_indicator_padding_` is true.
 constexpr int kTabAlertIndicatorCloseButtonPaddingAdjustmentTouchUI = 8;
 constexpr int kTabAlertIndicatorCloseButtonPaddingAdjustment = 4;
-
-// When the DiscardRingImprovements feature is enabled, increase the radius of
-// the discard ring by this amount if there is enough space.
-constexpr int kIncreasedDiscardIndicatorRadiusDp = 2;
 
 bool g_show_hover_card_on_mouse_hover = true;
 
@@ -151,6 +154,16 @@ int Center(int size, int item_size) {
   }
   return extra_space / 2;
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Returns true if the tab should be locked for the task and false otherwise.
+bool IsLockedForOnTask(BrowserWindowInterface* browser_window_interface) {
+  return browser_window_interface
+             ? ash::boca::OnTaskLockedController::From(browser_window_interface)
+                   ->is_locked_for_on_task()
+             : false;
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 class TabStyleHighlightPathGenerator : public views::HighlightPathGenerator {
  public:
@@ -220,7 +233,8 @@ void Tab::SetShowHoverCardOnMouseHoverForTesting(bool value) {
 }
 
 Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
-    : tab_handle_(handle),
+    : HoverCardAnchorTarget(this),
+      tab_handle_(handle),
       controller_(controller),
       title_(new views::Label()),
       title_animation_(this) {
@@ -286,7 +300,8 @@ Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
   UpdateInsets();
 
 #if BUILDFLAG(IS_CHROMEOS)
-  showing_close_button_ = !controller_->IsLockedForOnTask();
+  showing_close_button_ = !IsLockedForOnTask(browser_window_interface);
+
   close_button_->SetVisible(showing_close_button_);
 #endif
 
@@ -383,11 +398,8 @@ void Tab::Layout(PassKey) {
     } else {
       MaybeAdjustLeftForPinnedTab(&favicon_bounds, gfx::kFaviconSize);
     }
-    icon_->EnlargeDiscardIndicatorRadius(
-        width() - 2 * tab_style()->GetBottomCornerRadius() >=
-                gfx::kFaviconSize + 2 * kIncreasedDiscardIndicatorRadiusDp
-            ? kIncreasedDiscardIndicatorRadiusDp
-            : 0);
+    icon_->ResizeDiscardIndicatorRadiusForWidth(
+        width() - 2 * tab_style()->GetBottomCornerRadius());
 
     // Add space for insets outside the favicon bounds.
     favicon_bounds.Inset(-icon_->GetInsets());
@@ -789,7 +801,7 @@ void Tab::UpdateAccessibleName() {
 
 void Tab::OnAXNameChanged(ax::mojom::StringAttribute attribute,
                           const std::optional<std::string>& name) {
-  if (GetWidget()) {
+  if (GetWidget() && IsActive()) {
     GetWidget()->UpdateAccessibleNameForRootView();
   }
 }
@@ -841,12 +853,17 @@ void Tab::RemovedFromWidget() {
 
 void Tab::OnFocus() {
   View::OnFocus();
+
+  controller_->TabKeyboardFocusChangedTo(tab_handle_.Get());
   controller_->UpdateHoverCard(this,
                                TabSlotController::HoverCardUpdateType::kFocus);
 }
 
 void Tab::OnBlur() {
   View::OnBlur();
+
+  controller_->TabKeyboardFocusChangedTo(nullptr);
+
   if (!controller_->IsFocusInTabs()) {
     controller_->UpdateHoverCard(
         nullptr, TabSlotController::HoverCardUpdateType::kFocus);
@@ -902,11 +919,24 @@ bool Tab::IsActive() const {
   }
 }
 
+bool Tab::IsValid() const {
+  return !closing() && !detached() && !dragging() && GetVisible();
+}
+
+const TabRendererData& Tab::data() const {
+  return data_;
+}
+
+views::BubbleBorder::Arrow Tab::GetAnchorPosition() const {
+  return views::BubbleBorder::Arrow::TOP_LEFT;
+}
+
 void Tab::ActiveStateChanged() {
-  UpdateTabIconNeedsAttentionBlocked();
+  UpdateTabIconAttention();
   UpdateForegroundColors();
   icon_->SetActiveState(IsActive());
   alert_indicator_button_->OnParentTabButtonColorChanged();
+  alert_indicator_button_->UpdateEnabledForMuteToggle();
   DeprecatedLayoutImmediately();
 }
 
@@ -947,39 +977,6 @@ bool Tab::HasThumbnail() const {
   return data().thumbnail && data().thumbnail->has_data();
 }
 
-// This function checks for the parameters that influence the accessible name
-// change. Note: If any new parameters are added or existing ones are removed
-// that affect the accessible name, ensure that the corresponding logic in
-// BrowserView::GetAccessibleTabLabel is updated accordingly to maintain
-// consistency.
-bool Tab::ShouldUpdateAccessibleName(TabRendererData& old_data,
-                                     TabRendererData& new_data) {
-  bool has_old_message = old_data.collaboration_messaging &&
-                         old_data.collaboration_messaging->HasMessage();
-  bool has_new_message = new_data.collaboration_messaging &&
-                         new_data.collaboration_messaging->HasMessage();
-  bool collaboration_message_changed = has_old_message != has_new_message;
-  if (!collaboration_message_changed && has_old_message) {
-    // Old and new data have both have messages, so compare the contents.
-    collaboration_message_changed =
-        (old_data.collaboration_messaging->given_name() !=
-         new_data.collaboration_messaging->given_name()) ||
-        (old_data.collaboration_messaging->collaboration_event() !=
-         new_data.collaboration_messaging->collaboration_event());
-  }
-
-  return ((old_data.network_state != new_data.network_state) ||
-          old_data.is_crashed != new_data.is_crashed ||
-          old_data.alert_state != new_data.alert_state ||
-          old_data.should_show_discard_status !=
-              new_data.should_show_discard_status ||
-          old_data.discarded_memory_savings !=
-              new_data.discarded_memory_savings ||
-          old_data.tab_resource_usage != new_data.tab_resource_usage ||
-          old_data.pinned != new_data.pinned ||
-          old_data.title != new_data.title || collaboration_message_changed);
-}
-
 void Tab::SetData(TabRendererData data) {
   DCHECK(GetWidget());
 
@@ -992,8 +989,8 @@ void Tab::SetData(TabRendererData data) {
 
   icon_->SetData(data_);
   icon_->SetCanPaintToLayer(controller_->CanPaintThrobberToLayer());
-  UpdateTabIconNeedsAttentionBlocked();
-  if (ShouldUpdateAccessibleName(old, data_)) {
+  UpdateTabIconAttention();
+  if (tabs::ShouldUpdateAccessibleName(old, data_)) {
     UpdateAccessibleName();
   }
 
@@ -1047,12 +1044,6 @@ void Tab::StepLoadingAnimation(const base::TimeDelta& elapsed_time) {
   icon_->SetCanPaintToLayer(controller_->CanPaintThrobberToLayer());
 }
 
-void Tab::SetTabNeedsAttention(bool attention) {
-  icon_->SetAttention(TabIcon::AttentionType::kTabWantsAttentionStatus,
-                      attention);
-  SchedulePaint();
-}
-
 void Tab::CreateFreezingVote(content::WebContents* contents) {
   if (!freezing_vote_.has_value()) {
     freezing_vote_.emplace(contents);
@@ -1077,10 +1068,6 @@ std::u16string Tab::GetTooltipText(const std::u16string& title,
   result.append(
       tabs::TabAlertController::GetTabAlertStateText(alert_state.value()));
   return result;
-}
-
-void Tab::SetShouldShowDiscardIndicator(bool enabled) {
-  icon_->SetShouldShowDiscardIndicator(enabled);
 }
 
 void Tab::UpdateInsets() {
@@ -1183,11 +1170,16 @@ void Tab::UpdateIconVisibility() {
       available_width >= (touch_ui ? kTouchMinimumContentsWidthForCloseButtons
                                    : kMinimumContentsWidthForCloseButtons);
 
+#if BUILDFLAG(IS_CHROMEOS)
+  const bool should_show_close_button =
+      !IsLockedForOnTask(controller_->GetBrowserWindowInterface());
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   if (IsActive()) {
 #if BUILDFLAG(IS_CHROMEOS)
     // Hide tab close button for OnTask if locked. Only applicable for non-web
     // browser scenarios.
-    showing_close_button_ = !controller_->IsLockedForOnTask();
+    showing_close_button_ = should_show_close_button;
 #else
     // Close button is shown on active tabs regardless of the size.
     showing_close_button_ = true;
@@ -1218,7 +1210,7 @@ void Tab::UpdateIconVisibility() {
 
     showing_close_button_ =
 #if BUILDFLAG(IS_CHROMEOS)
-        !controller_->IsLockedForOnTask() &&
+        should_show_close_button &&
 #endif
         large_enough_for_close_button;
     if (showing_close_button_) {
@@ -1249,16 +1241,15 @@ bool Tab::ShouldRenderAsNormalTab() const {
                                         kPinnedTabExtraWidthToRenderAsNormal));
 }
 
-void Tab::UpdateTabIconNeedsAttentionBlocked() {
+void Tab::UpdateTabIconAttention() {
   // Only show the blocked attention indicator on non-active tabs. For active
   // tabs, the user sees the dialog blocking the tab, so there's no point to it
   // and it would be distracting.
-  if (IsActive()) {
-    icon_->SetAttention(TabIcon::AttentionType::kBlockedWebContents, false);
-  } else {
-    icon_->SetAttention(TabIcon::AttentionType::kBlockedWebContents,
-                        data_.blocked);
-  }
+  icon_->SetAttention(TabIcon::AttentionType::kBlockedWebContents,
+                      !IsActive() && data_.blocked);
+
+  icon_->SetAttention(TabIcon::AttentionType::kTabWantsAttentionStatus,
+                      data_.needs_attention);
 }
 
 int Tab::GetWidthOfLargestSelectableRegion() const {
@@ -1287,6 +1278,12 @@ void Tab::UpdateForegroundColors() {
 }
 
 void Tab::CloseButtonPressed(const ui::Event& event) {
+  if (IsActive()) {
+    base::RecordAction(UserMetricsAction("CloseTab_Active"));
+  } else {
+    base::RecordAction(UserMetricsAction("CloseTab_Inactive"));
+  }
+
   if (!alert_indicator_button_ || !alert_indicator_button_->GetVisible()) {
     base::RecordAction(UserMetricsAction("CloseTab_NoAlertIndicator"));
   } else if (tabs::TabAlertController::GetAlertStateToShow(data_.alert_state) ==

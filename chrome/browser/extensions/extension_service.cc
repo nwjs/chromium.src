@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -17,7 +18,6 @@
 #include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
@@ -51,7 +51,6 @@
 #include "chrome/browser/extensions/external_install_manager.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
 #include "chrome/browser/extensions/external_provider_manager.h"
-#include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
 #include "chrome/browser/extensions/install_verifier_factory.h"
 #include "chrome/browser/extensions/installed_loader.h"
 #include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
@@ -63,6 +62,7 @@
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/lifetime/termination_notification.h"
+#include "chrome/browser/policy/cloud/extension_install_policy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
@@ -91,6 +91,7 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/external_install_info.h"
+#include "extensions/browser/forced_extensions/install_stage_tracker.h"
 #include "extensions/browser/install_flag.h"
 #include "extensions/browser/install_verifier.h"
 #include "extensions/browser/management_policy.h"
@@ -159,7 +160,7 @@ constexpr int kAllowUnpublishedExtensions = 0;
 const char kBlockLoadCommandline[] = "command_line";
 
 bool ShouldBlockCommandLineExtension(Profile& profile) {
-  const base::Value::List& list =
+  const base::ListValue& list =
       profile.GetPrefs()->GetList(pref_names::kExtensionInstallTypeBlocklist);
   for (const auto& val : list) {
     if (val.is_string() && val.GetString() == kBlockLoadCommandline) {
@@ -255,6 +256,13 @@ ExtensionService::ExtensionService(
 
   ExtensionManagementFactory::GetForBrowserContext(profile_)->AddObserver(this);
 
+  if (auto* extension_install_policy_service =
+          policy::ExtensionInstallPolicyServiceFactory::GetForBrowserContext(
+              profile_)) {
+    extension_install_policy_observation_.Observe(
+        extension_install_policy_service);
+  }
+
 #if 0
   if (autoupdate_enabled) {
     // Initialize and enable the ExtensionUpdater.
@@ -307,6 +315,7 @@ ExtensionService::~ExtensionService() {
 void ExtensionService::Shutdown() {
   delayed_install_manager_ = nullptr;
   cws_info_service_observation_.Reset();
+  extension_install_policy_observation_.Reset();
   ExtensionManagementFactory::GetForBrowserContext(profile())->RemoveObserver(
       this);
   external_install_manager_->Shutdown();
@@ -478,7 +487,7 @@ void ExtensionService::LoadSigninProfileTestExtension(const std::string& path) {
 
 void ExtensionService::PerformActionBasedOnOmahaAttributes(
     const std::string& extension_id,
-    const base::Value::Dict& attributes) {
+    const base::DictValue& attributes) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   omaha_attributes_handler_.PerformActionBasedOnOmahaAttributes(extension_id,
                                                                 attributes);
@@ -521,7 +530,7 @@ void ExtensionService::DisableUserExtensionsExcept(
       continue;
     }
     const std::string& id = extension->id();
-    if (!base::Contains(except_ids, id)) {
+    if (!std::ranges::contains(except_ids, id)) {
       extension_registrar_->DisableExtension(
           id, {disable_reason::DISABLE_USER_ACTION});
     }
@@ -777,6 +786,10 @@ void ExtensionService::OnExtensionManagementSettingsChanged() {
       kAllowUnpublishedExtensions) {
     CWSInfoService::Get(profile_)->CheckAndMaybeFetchInfo();
   }
+}
+
+void ExtensionService::OnExtensionInstallPolicyUpdated() {
+  CheckManagementPolicy();
 }
 
 bool ExtensionService::FinishDelayedInstallationIfReady(

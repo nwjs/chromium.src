@@ -113,8 +113,9 @@ NOINLINE void FatalGpuProcessLaunchFailureOnBackground() {
     // app has crashed which doesn't look good. So we use SIGKILL instead. But
     // still do a crash dump for 1% cases to make sure we're not regressing this
     // case.
-    if (base::RandInt(1, 100) == 1)
+    if (base::RandIntInclusive(1, 100) == 1) {
       base::debug::DumpWithoutCrashing();
+    }
     kill(getpid(), SIGKILL);
   }
 }
@@ -423,7 +424,11 @@ void CollectExtraDevicePerfInfo(const gpu::GPUInfo& gpu_info,
   const gpu::GPUInfo::GPUDevice& device = gpu_info.active_gpu();
   if (device.vendor_id == 0xffff /* internal flag for software rendering */ ||
       device.vendor_id == 0x15ad /* VMware */ ||
-      device.vendor_id == 0x1414 /* Microsoft software renderer */ ||
+      // Starting with Windows 8, an adapter called the "Microsoft Basic Render
+      // Driver" is always present. This adapter has a VendorId of 0x1414 and a
+      // DeviceID of 0x8c. The Microsoft vendor id is used for other,
+      // non-software devices such as Xbox, so we must also check the device id.
+      (device.vendor_id == 0x1414 && device.device_id == 0x8c) /* WARP */ ||
       gl::IsSoftwareGLImplementation(
           gpu_info.gl_implementation_parts) /* SwiftShader */) {
     device_perf_info->software_rendering = true;
@@ -1451,10 +1456,10 @@ void GpuDataManagerImplPrivate::ProcessCrashed() {
                          &GpuDataManagerObserver::OnGpuProcessCrashed);
 }
 
-base::Value::List GpuDataManagerImplPrivate::GetLogMessages() const {
-  base::Value::List value;
+base::ListValue GpuDataManagerImplPrivate::GetLogMessages() const {
+  base::ListValue value;
   for (const auto& log_message : log_messages_) {
-    base::Value::Dict dict;
+    base::DictValue dict;
     dict.Set("level", log_message.level);
     dict.Set("header", log_message.header);
     dict.Set("message", log_message.message);

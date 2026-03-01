@@ -296,7 +296,7 @@ void AppBannerManagerAndroid::DoNativeAppInstallableCheck(
 }
 
 void AppBannerManagerAndroid::OnWebAppInstallableCheckedNoErrors(
-    const ManifestId& manifest_id) const {
+    const ManifestId& manifest_id) {
   delegate_->OnInstallableCheckedNoErrors(manifest_id);
 }
 
@@ -678,11 +678,6 @@ void AppBannerManagerAndroid::OnMlInstallPrediction(
   // TODO(crbug.com/40269982): Implement.
 }
 
-base::WeakPtr<AppBannerManager>
-AppBannerManagerAndroid::GetWeakPtrForThisNavigation() {
-  return weak_factory_.GetWeakPtr();
-}
-
 base::WeakPtr<AppBannerManagerAndroid>
 AppBannerManagerAndroid::GetAndroidWeakPtr() {
   return weak_factory_.GetWeakPtr();
@@ -737,15 +732,15 @@ static void JNI_AppBannerManager_IgnoreChromeChannelForTesting(JNIEnv*) {
 // static
 static void JNI_AppBannerManager_SetDaysAfterDismissAndIgnoreToTrigger(
     JNIEnv* env,
-    jint dismiss_days,
-    jint ignore_days) {
+    int32_t dismiss_days,
+    int32_t ignore_days) {
   AppBannerSettingsHelper::SetDaysAfterDismissAndIgnoreToTrigger(dismiss_days,
                                                                  ignore_days);
 }
 
 // static
 static void JNI_AppBannerManager_SetTimeDeltaForTesting(JNIEnv* env,
-                                                        jint days) {
+                                                        int32_t days) {
   AppBannerManager::SetTimeDeltaForTesting(days);
 }
 

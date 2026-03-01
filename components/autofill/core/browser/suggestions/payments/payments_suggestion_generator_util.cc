@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "base/check_deref.h"
-#include "base/containers/contains.h"
+#include "base/containers/extend.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
@@ -57,6 +57,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/autofill/core/common/credit_card_number_validation.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/grit/components_scaled_resources.h"
@@ -745,9 +746,8 @@ BnplSuggestionUpdateResult MaybeUpdateDesktopSuggestionsWithBnpl(
       }
       suggestion_update_result.suggestions.push_back(CreateBnplSuggestion(
           std::move(bnpl_issuers), extracted_amount_in_micros));
-      suggestion_update_result.suggestions.insert(
-          suggestion_update_result.suggestions.end(),
-          current_suggestions.begin() + index, current_suggestions.end());
+      base::Extend(suggestion_update_result.suggestions,
+                   current_suggestions.subspan(index));
       suggestion_update_result.is_bnpl_suggestion_added = true;
       return suggestion_update_result;
     }
@@ -766,7 +766,7 @@ Suggestion CreateBnplSuggestion(
     std::optional<int64_t> extracted_amount_in_micros,
     const payments::AmountExtractionStatus& amount_extraction_status) {
   Suggestion bnpl_suggestion(SuggestionType::kBnplEntry);
-  bnpl_suggestion.icon = Suggestion::Icon::kBnpl;
+  bnpl_suggestion.icon = Suggestion::Icon::kBnplGeneric;
   bnpl_suggestion.main_text = Suggestion::Text(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_BNPL_PAY_LATER_OPTIONS_TEXT),
       Suggestion::Text::IsPrimary(true));
@@ -820,7 +820,8 @@ Suggestion CreateBnplSuggestion(
 #if !BUILDFLAG(IS_ANDROID)
   using IssuerId = BnplIssuer::IssuerId;
   auto issuer_present = [&bnpl_issuers](IssuerId issuer_id) {
-    return base::Contains(bnpl_issuers, issuer_id, &BnplIssuer::issuer_id);
+    return std::ranges::contains(bnpl_issuers, issuer_id,
+                                 &BnplIssuer::issuer_id);
   };
   bool affirm_present = issuer_present(IssuerId::kBnplAffirm);
   bool zip_present = issuer_present(IssuerId::kBnplZip);
@@ -958,14 +959,10 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
                                  .GetBnplIssuers(),
                              /*extracted_amount_in_micros=*/std::nullopt));
     manager.GetCreditCardFormEventLogger().OnBnplSuggestionShown();
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
     manager.client()
         .GetPersonalDataManager()
         .payments_data_manager()
         .SetAutofillHasSeenBnpl();
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   }
   manager.GetCreditCardFormEventLogger().OnMetadataLoggingContextReceived(
       std::move(metadata_logging_context));
@@ -1048,6 +1045,8 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kManageAddress:
     case SuggestionType::kManageAutofillAi:
+    case SuggestionType::kManageAutofillAiIdentityDocs:
+    case SuggestionType::kManageAutofillAiTravel:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManagePlusAddress:
@@ -1360,7 +1359,9 @@ std::vector<Suggestion> GetCreditCardFooterSuggestions(
 
   // TODO(crbug.com/444684996): Add another check to not show BNPL chip anymore
   // for this transaction if the previous amount extraction is timeout.
-  if (should_show_bnpl_suggestion) {
+  if (should_show_bnpl_suggestion &&
+      !base::FeatureList::IsEnabled(
+          features::kAutofillEnablePayNowPayLaterTabs)) {
     if (base::FeatureList::IsEnabled(
             features::
                 kAutofillEnableBuyNowPayLaterUpdatedSuggestionSecondLineString)) {
@@ -1469,8 +1470,9 @@ GetVirtualCreditCardsForStandaloneCvcField(
         it != usage_data.end()) {
       VirtualCardUsageData::VirtualCardLastFour virtual_card_last_four =
           it->virtual_card_last_four();
-      if (base::Contains(four_digit_combinations_in_dom,
-                         base::UTF16ToUTF8(virtual_card_last_four.value()))) {
+      if (std::ranges::contains(
+              four_digit_combinations_in_dom,
+              base::UTF16ToUTF8(virtual_card_last_four.value()))) {
         // Card has usage data on webpage and last four is present in DOM.
         virtual_card_guid_to_last_four_map[credit_card->guid()] =
             virtual_card_last_four;
@@ -1507,6 +1509,31 @@ bool ShouldShowVirtualCardOption(const CreditCard* candidate_card,
   // virtual cards.
   return candidate_card->virtual_card_enrollment_state() ==
          CreditCard::VirtualCardEnrollmentState::kEnrolled;
+}
+
+bool ShouldShowScanCreditCard(const FormStructure& form,
+                              const AutofillField& trigger_field,
+                              const AutofillClient& client) {
+  if (!client.GetPaymentsAutofillClient()->HasCreditCardScanFeature() ||
+      !client.GetPaymentsAutofillClient()->IsAutofillPaymentMethodsEnabled()) {
+    return false;
+  }
+
+  bool is_card_number_field =
+      trigger_field.Type().GetCreditCardType() == CREDIT_CARD_NUMBER &&
+      base::ContainsOnlyChars(StripCardNumberSeparators(trigger_field.value()),
+                              u"0123456789");
+
+  if (!is_card_number_field) {
+    return false;
+  }
+
+  if (IsFormOrClientNonSecure(client, form)) {
+    return false;
+  }
+
+  static const int kShowScanCreditCardMaxValueLength = 6;
+  return trigger_field.value().size() <= kShowScanCreditCardMaxValueLength;
 }
 
 }  // namespace autofill

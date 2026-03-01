@@ -44,13 +44,12 @@ class TabsEventRouterPlatformDelegate : public TabModelListObserver,
   void OnTabModelRemoved(TabModel* tab_model) override;
 
   // TabModelObserver:
-  void DidAddTab(TabAndroid* tab, TabModel::TabLaunchType type) override;
   void TabRemoved(TabAndroid* tab) override;
 
  private:
   void DispatchEvent(events::HistogramValue histogram_value,
                      const std::string& event_name,
-                     base::Value::List args,
+                     base::ListValue args,
                      EventRouter::UserGestureState user_gesture);
 
   // The platform-agnostic TabsEventRouter.

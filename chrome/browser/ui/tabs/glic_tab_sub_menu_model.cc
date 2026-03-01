@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tabs/glic_tab_sub_menu_model.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -27,21 +28,20 @@ GlicTabSubMenuModel::GlicTabSubMenuModel(TabStripModel* tab_strip_model,
     return;
   }
 
-  recent_conversations_ =
-      glic_service->window_controller().GetRecentConversations(
-          kMaxRecentConversations);
+  AddItem(TabStripModel::CommandGlicCreateNewChat,
+          l10n_util::GetStringUTF16(IDS_TAB_CXMENU_GLIC_CREATE_NEW_CHAT));
 
-  for (size_t i = 0; i < recent_conversations_.size(); ++i) {
-    AddItem(kMinRecentConversationCommandId + i,
-            base::UTF8ToUTF16(recent_conversations_[i].title));
-  }
+  recent_conversations_ =
+      glic_service->window_controller().GetRecentlyActiveInstances(
+          kMaxRecentConversations);
 
   if (!recent_conversations_.empty()) {
     AddSeparator(ui::NORMAL_SEPARATOR);
+    for (size_t i = 0; i < recent_conversations_.size(); ++i) {
+      AddItem(kMinRecentConversationCommandId + i,
+              base::UTF8ToUTF16(recent_conversations_[i].title));
+    }
   }
-
-  AddItem(TabStripModel::CommandGlicCreateNewChat,
-          l10n_util::GetStringUTF16(IDS_TAB_CXMENU_GLIC_CREATE_NEW_CHAT));
 }
 
 GlicTabSubMenuModel::~GlicTabSubMenuModel() = default;
@@ -78,13 +78,17 @@ void GlicTabSubMenuModel::ExecuteCommand(int command_id, int event_flags) {
   }
 
   if (command_id == TabStripModel::CommandGlicCreateNewChat) {
+    base::UmaHistogramCounts100(
+        "Glic.TabContextMenu.PinnedTabsToNewConversation", tabs.size());
     service->window_controller().CreateNewConversationForTabs(tabs);
   } else if (command_id >= kMinRecentConversationCommandId &&
              command_id <= kMaxRecentConversationCommandId) {
     size_t conversation_index = command_id - kMinRecentConversationCommandId;
     CHECK_LT(conversation_index, recent_conversations_.size());
-    service->window_controller().MoveTabsToConversation(
-        tabs, recent_conversations_[conversation_index].id);
+    base::UmaHistogramCounts100(
+        "Glic.TabContextMenu.PinnedTabsToExistingConversation", tabs.size());
+    service->window_controller().ShowInstanceForTabs(
+        tabs, recent_conversations_[conversation_index].instance_id);
   }
 }
 

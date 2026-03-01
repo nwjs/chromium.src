@@ -58,6 +58,10 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, BackgroundManager) {
   RunTest("new_tab_page/background_manager_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(NewTabPageTest, BackgroundImage) {
+  RunTest("new_tab_page/background_image_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, MiddleSlotPromo) {
   RunTest("new_tab_page/middle_slot_promo_test.js", "mocha.run()");
 }
@@ -70,7 +74,13 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, Transparency) {
   RunTest("new_tab_page/transparency_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, Composebox) {
+// TODO(crbug.com/483519387): Flaky on Linux Debug bots.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_Composebox DISABLED_Composebox
+#else
+#define MAYBE_Composebox Composebox
+#endif
+IN_PROC_BROWSER_TEST_F(NewTabPageTest, MAYBE_Composebox) {
   RunTest("new_tab_page/composebox/composebox_test.js", "mocha.run()");
 }
 
@@ -82,7 +92,9 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxFileThumbnail) {
   RunTest("new_tab_page/composebox/file_thumbnail_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, ContextualEntrypointAndCarousel) {
+// TODO(crbug.com/452644435): Test is flaky on no_field_trial.
+IN_PROC_BROWSER_TEST_F(NewTabPageTest,
+                       DISABLED_ContextualEntrypointAndCarousel) {
   RunTest("new_tab_page/composebox/contextual_entrypoint_and_carousel_test.js",
           "mocha.run()");
 }

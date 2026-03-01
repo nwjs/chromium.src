@@ -5,14 +5,15 @@
 #ifndef COMPONENTS_CONTEXTUAL_SEARCH_CONTEXTUAL_SEARCH_TYPES_H_
 #define COMPONENTS_CONTEXTUAL_SEARCH_CONTEXTUAL_SEARCH_TYPES_H_
 
+#include <optional>
 #include <string>
 
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
+#include "components/lens/contextual_input.h"
 #include "components/sessions/core/session_id.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
 #include "url/gurl.h"
-#include "components/lens/contextual_input.h"
 
 namespace lens {
 enum class MimeType;
@@ -39,6 +40,8 @@ enum class FileUploadStatus {
   kUploadExpired = 6,
   // File being processed, and suggest signals are ready.
   kProcessingSuggestSignalsReady = 7,
+  // File is being replaced.
+  kUploadReplaced = 8,
 };
 
 // For upload error notifications and metrics.
@@ -68,7 +71,10 @@ struct FileInfo {
   virtual ~FileInfo();
 
   // Gets the context id for this request.
-  int64_t GetContextId() const { return request_id.context_id(); }
+  std::optional<int64_t> GetContextId() const;
+
+  // Gets the injected input id if it exists.
+  std::optional<std::string> GetInjectedInputId() const;
 
   // Client-side unique identifier.
   base::UnguessableToken file_token;
@@ -106,37 +112,18 @@ struct FileInfo {
 
   // The request ID for this request. Updated by the context
   // controller when the file upload is started.
-  lens::LensOverlayRequestId request_id;
+  std::optional<lens::LensOverlayRequestId> request_id;
 
   // The raw response bodies from the upload requests.
   std::vector<std::string> response_bodies;
 
   // The input data associated with this file.
   std::unique_ptr<lens::ContextualInputData> input_data;
+
+  // Whether or not this file was superceded by a new file upload with the same
+  // context id.
+  bool is_superceded = false;
 };
-
-// LINT.IfChange(SubmissionType)
-
-// How an AIM Composebox query was submitted.
-enum class SubmissionType {
-  kDefault = 0,
-  kDeepSearch = 1,
-  kCreateImages = 2,
-  kMaxValue = kCreateImages,
-};
-
-// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:SubmissionType)
-
-// LINT.IfChange(AimToolState)
-
-// Value to hold the state of an AIM Tool.
-enum class AimToolState {
-  kDisabled = 0,
-  kEnabled = 1,
-  kMaxValue = kEnabled,
-};
-
-// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:AimToolState)
 
 // LINT.IfChange(ContextualSearchErrorPage)
 

@@ -158,6 +158,7 @@ void AddNativeUiColorMixer(ColorProvider* provider,
   mixer[kColorAlertLowSeverity] = {kColorNativeWindowText};
   mixer[kColorAlertMediumSeverityIcon] = {kColorNativeWindowText};
   mixer[kColorAlertMediumSeverityText] = {kColorNativeWindowText};
+  mixer[kColorIconHovered] = {kColorNativeHighlightText};
   mixer[kColorAlertHighSeverity] = {kColorNativeWindowText};
   mixer[kColorIcon] = {kColorNativeWindowText};
   mixer[kColorMidground] = {kColorNativeWindowText};
@@ -211,6 +212,7 @@ void AddNativeUiColorMixer(ColorProvider* provider,
 
   // Highlight/Selected Background
   mixer[kColorAccent] = {kColorNativeHighlight};
+  mixer[kColorAppMenuRowBackgroundHovered] = {kColorMenuSelectionBackground};
   mixer[kColorButtonBackgroundProminent] = {kColorNativeHighlight};
   mixer[kColorButtonBorder] = {kColorNativeHighlight};
   mixer[kColorButtonBackgroundProminentFocused] = {kColorNativeHighlight};

@@ -33,7 +33,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/media_router/browser/media_router_factory.h"
 #include "components/media_router/common/test/test_helper.h"
-#include "components/performance_manager/public/features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -96,10 +95,6 @@ AccessCodeCastIntegrationBrowserTest::AccessCodeCastIntegrationBrowserTest()
     : url_to_intercept_(std::string(kDefaultDiscoveryEndpoint) +
                         kDiscoveryServicePath),
       mock_cast_socket_service_(nullptr, base::OnTaskRunnerDeleter(nullptr)) {
-  // TODO(crbug.com/323780452): Remove performance manager feature after deflake
-  feature_list_.InitAndEnableFeature(
-      performance_manager::features::
-          kBackgroundTabLoadingFromPerformanceManager);
   task_runner_ = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
 }
 
@@ -194,7 +189,7 @@ void AccessCodeCastIntegrationBrowserTest::SetUpOnMainThread() {
   content::SetNetworkConnectionTrackerForTesting(
       network_connection_tracker_.get());
   network::TestNetworkConnectionTracker::GetInstance()->SetConnectionType(
-      network::mojom::ConnectionType::CONNECTION_WIFI);
+      net::NetworkChangeNotifier::ConnectionType::CONNECTION_WIFI);
   url_loader_interceptor_ =
       std::make_unique<content::URLLoaderInterceptor>(base::BindRepeating(
           &AccessCodeCastIntegrationBrowserTest::InterceptRequest,
@@ -351,7 +346,7 @@ int AccessCodeCastIntegrationBrowserTest::WaitForAddSinkErrorCode(
 
 bool AccessCodeCastIntegrationBrowserTest::HasSinkInDevicesDict(
     const MediaSink::Id& sink_id) {
-  base::test::TestFuture<base::Value::Dict> media_sink;
+  base::test::TestFuture<base::DictValue> media_sink;
   GetPrefUpdater()->GetMediaSinkInternalValueBySinkId(sink_id,
                                                       media_sink.GetCallback());
 

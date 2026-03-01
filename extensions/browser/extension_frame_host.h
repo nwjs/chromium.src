@@ -56,7 +56,7 @@ class ExtensionFrameHost : public mojom::LocalFrameHost {
                    RequestSyncCallback callback) override;
   bool RequestSync(mojom::RequestParamsPtr params,
                    bool* success,
-                   base::Value::List* response,
+                   base::ListValue* response,
                    std::string* error) override;
   void WatchedPageChange(
       const std::vector<std::string>& css_selectors) override;

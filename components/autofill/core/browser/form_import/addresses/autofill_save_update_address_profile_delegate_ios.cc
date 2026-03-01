@@ -4,9 +4,9 @@
 
 #include "components/autofill/core/browser/form_import/addresses/autofill_save_update_address_profile_delegate_ios.h"
 
+#include <algorithm>
 #include <utility>
 
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/optional_util.h"
@@ -113,11 +113,15 @@ std::u16string AutofillSaveUpdateAddressProfileDelegateIOS::GetDescription()
 }
 
 std::u16string AutofillSaveUpdateAddressProfileDelegateIOS::GetSubtitle() {
-  DCHECK(original_profile_);
+  CHECK(original_profile_);
   std::vector<ProfileValueDifference> differences =
       GetProfileDifferenceForUi(original_profile_.value(), profile_, locale_);
-  bool address_updated = base::Contains(differences, ADDRESS_HOME_ADDRESS,
-                                        &ProfileValueDifference::type);
+  // TODO(crbug.com/481234059): Convert this to CHECK after investigation.
+  // Based of hypothesis in crbug.com/477044258, `GetProfileDifferenceForUi` is
+  // returning empty.
+  DUMP_WILL_BE_CHECK(!differences.empty());
+  bool address_updated = std::ranges::contains(
+      differences, ADDRESS_HOME_ADDRESS, &ProfileValueDifference::type);
   return GetProfileDescription(
       original_profile_.value(), locale_,
       /*include_address_and_contacts=*/!address_updated);

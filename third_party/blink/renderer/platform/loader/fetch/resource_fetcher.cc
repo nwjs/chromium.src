@@ -35,7 +35,6 @@
 #include <utility>
 
 #include "base/auto_reset.h"
-#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -1054,6 +1053,16 @@ Resource* ResourceFetcher::CreateResourceForStaticData(
     // TODO(yhirano): Consider removing this.
     if (!IsSupportedMimeType(response.MimeType().Utf8())) {
       return nullptr;
+    }
+
+    if (data && data->size()) {
+      // For cases where size limit is violated, including the URL in the report
+      // would send the large data. Use an empty URL in the report for now. This
+      // needs to be resolved by the spec.
+      // TODO(crbug.com/475522251): update report URL once behavior is defined
+      // in spec.
+      Context().CheckGuardrailsPolicyForAssetSize(
+          GuardrailPolicyAssetType::kData, data->size(), KURL());
     }
   } else {
     ArchiveResource* archive_resource =
@@ -2263,7 +2272,7 @@ void ResourceFetcher::PopulateResourceRequestPermissionsPolicy(
     // policies, this might be removed.
     request->permissions_policy =
         *network::PermissionsPolicy::CreateFromParsedPolicy(
-            {}, {}, url::Origin::Create(request->url));
+            {}, url::Origin::Create(request->url));
   }
 }
 
@@ -3347,7 +3356,8 @@ bool ResourceFetcher::IsPotentiallyUnusedPreload(
       break;
   }
 
-  return base::Contains(context_->GetPotentiallyUnusedPreloads(), params.Url());
+  return std::ranges::contains(context_->GetPotentiallyUnusedPreloads(),
+                               params.Url());
 }
 
 void ResourceFetcher::Trace(Visitor* visitor) const {

@@ -13,7 +13,6 @@
 
 #include "base/bits.h"
 #include "base/compiler_specific.h"
-#include "base/containers/contains.h"
 #include "base/debug/alias.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -442,7 +441,8 @@ PersistentMemoryAllocator::PersistentMemoryAllocator(Memory memory,
   } else {
     if (shared_meta()->size == 0 ||
         (shared_meta()->version != kGlobalVersion &&
-         !Contains(kOldCompatibleVersions, shared_meta()->version)) ||
+         !std::ranges::contains(kOldCompatibleVersions,
+                                shared_meta()->version)) ||
         shared_meta()->freeptr.load(std::memory_order_relaxed) == 0 ||
         shared_meta()->tailptr == 0 || shared_meta()->queue.cookie == 0 ||
         shared_meta()->queue.next.load(std::memory_order_relaxed) == 0) {
@@ -504,6 +504,10 @@ void PersistentMemoryAllocator::CreateTrackingHistograms(
 
 void PersistentMemoryAllocator::Flush(bool sync) {
   FlushPartial(used(), sync);
+}
+
+span<const uint8_t> PersistentMemoryAllocator::bytes() const {
+  return UNSAFE_TODO({static_cast<const uint8_t*>(data()), size()});
 }
 
 void PersistentMemoryAllocator::SetMemoryState(uint8_t memory_state) {

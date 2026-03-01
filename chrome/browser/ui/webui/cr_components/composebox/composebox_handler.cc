@@ -158,56 +158,6 @@ ComposeboxHandler::ComposeboxHandler(
 
 ComposeboxHandler::~ComposeboxHandler() = default;
 
-// TODO(crbug.com/450894455): Clean up how we set the tool mode. Create a enum
-// on the WebUI side that can set this.
-void ComposeboxHandler::SetDeepSearchMode(bool enabled) {
-  if (input_state_model_) {
-    input_state_model_->setActiveTool(
-        enabled ? omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH
-                : omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
-  }
-
-  if (auto* metrics_recorder = GetMetricsRecorder()) {
-    metrics_recorder->RecordToolState(
-        contextual_search::SubmissionType::kDeepSearch,
-        enabled ? contextual_search::AimToolState::kEnabled
-                : contextual_search::AimToolState::kDisabled);
-  }
-}
-
-void ComposeboxHandler::SetCreateImageMode(bool enabled, bool image_present) {
-  std::optional<contextual_search::AimToolState> tool_state;
-  if (enabled) {
-    // Only log if not already in some form of create image mode so this metric
-    // does not get double counted.
-    if (GetInputState().active_tool ==
-        omnibox::ToolMode::TOOL_MODE_UNSPECIFIED) {
-      tool_state = contextual_search::AimToolState::kEnabled;
-    }
-    // Server uses different `azm` param to make IMAGE_GEN requests when an
-    // image is present.
-    if (input_state_model_) {
-      input_state_model_->setActiveTool(
-          image_present ? omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD
-                        : omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
-    }
-  } else {
-    if (input_state_model_) {
-      input_state_model_->setActiveTool(
-          omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
-    }
-    tool_state = contextual_search::AimToolState::kDisabled;
-  }
-
-  if (!tool_state) {
-    return;
-  }
-  if (auto* metrics_recorder = GetMetricsRecorder()) {
-    metrics_recorder->RecordToolState(
-        contextual_search::SubmissionType::kCreateImages, *tool_state);
-  }
-}
-
 void ComposeboxHandler::FocusChanged(bool focused) {
   // Unimplemented. Currently the composebox session is tied to when it is
   // connected/disconnected from the DOM, so this is not needed.
@@ -257,8 +207,8 @@ void ComposeboxHandler::OnThumbnailRemoved() {
   mojo::ReportBadMessage("No thumbnails in composebox input");
 }
 
-void ComposeboxHandler::ClearFiles() {
-  ContextualSearchboxHandler::ClearFiles();
+void ComposeboxHandler::ClearFiles(bool should_block_auto_suggested_tabs) {
+  ContextualSearchboxHandler::ClearFiles(should_block_auto_suggested_tabs);
   // Reset the AIM tool mode to not include file upload if it currently does.
   if (GetInputState().active_tool ==
       omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD) {
@@ -294,32 +244,19 @@ void ComposeboxHandler::SubmitQuery(
     WindowOpenDisposition disposition,
     omnibox::ChromeAimEntryPoint aim_entrypoint,
     std::map<std::string, std::string> additional_params) {
-  contextual_search::SubmissionType submission_type;
-  switch (GetInputState().active_tool) {
-    case omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH:
-      submission_type = contextual_search::SubmissionType::kDeepSearch;
-      break;
-    case omnibox::ToolMode::TOOL_MODE_IMAGE_GEN:
-    case omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD:
-      submission_type = contextual_search::SubmissionType::kCreateImages;
-      break;
-    default:
-      submission_type = contextual_search::SubmissionType::kDefault;
-      break;
-  }
-
   if (auto* metrics_recorder = GetMetricsRecorder()) {
-    metrics_recorder->RecordToolsSubmissionType(submission_type);
+    // Record AIM tool and model mode on query submission.
+    const auto& input_state = GetInputState();
+    metrics_recorder->RecordModesOnSubmission(
+        mojo::EnumTraits<composebox_query::mojom::ToolMode,
+                         omnibox::ToolMode>::ToMojom(input_state.active_tool),
+        mojo::EnumTraits<composebox_query::mojom::ModelMode,
+                         omnibox::ModelMode>::ToMojom(input_state
+                                                          .active_model));
   }
 
   ComputeAndOpenQueryUrl(query_text, disposition, aim_entrypoint,
                          std::move(additional_params));
-}
-
-void ComposeboxHandler::UpdateSuggestedTabContext(
-    searchbox::mojom::TabInfoPtr tab_info) {
-  has_suggested_tab_context_ = !tab_info.is_null();
-  SearchboxHandler::page_->UpdateAutoSuggestedTabContext(std::move(tab_info));
 }
 
 std::string ComposeboxHandler::AutocompleteIconToResourceName(
@@ -334,4 +271,3 @@ std::string ComposeboxHandler::AutocompleteIconToResourceName(
 
   return SearchboxHandler::AutocompleteIconToResourceName(icon);
 }
-

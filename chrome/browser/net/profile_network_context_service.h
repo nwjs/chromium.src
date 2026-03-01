@@ -20,10 +20,12 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/enterprise/encryption/cache_encryption_provider_impl.h"
 #include "chrome/browser/net/proxy_config_monitor.h"
 #include "chrome/common/buildflags.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
@@ -214,11 +216,6 @@ class ProfileNetworkContextService
   void UpdateSSLComplianceConfig();
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(ENABLE_REPORTING)
-  base::flat_map<std::string, GURL> GetEnterpriseReportingEndpoints() const;
-  void UpdateEnterpriseReportingEndpoints();
-#endif
-
   // Creates parameters for the NetworkContext. Use |in_memory| instead of
   // |profile_->IsOffTheRecord()| because sometimes normal profiles want off the
   // record partitions (e.g. for webview tag).
@@ -242,6 +239,15 @@ class ProfileNetworkContextService
   void OnThirdPartyCookieBlockingChanged(
       bool block_third_party_cookies) override;
   void OnMitigationsEnabledFor3pcdChanged(bool enable) override;
+
+#if BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
+  void SaveEncryptedCachePrimaryKey(
+      const std::vector<uint8_t>& encrypted_primary_key);
+
+  // Returns the encrypted cache primary key stored in the profile prefs.
+  // Returns an empty vector if the key is not set or cannot be decoded.
+  std::vector<uint8_t> GetEncryptedCachePrimaryKey();
+#endif  // BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
 
   // KeyedService:
   void Shutdown() override;
@@ -284,6 +290,11 @@ class ProfileNetworkContextService
 
   base::RepeatingCallback<std::unique_ptr<net::ClientCertStore>()>
       client_cert_store_factory_for_testing_;
+
+#if BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
+  std::unique_ptr<enterprise_encryption::CacheEncryptionProviderImpl>
+      cache_encryption_provider_;
+#endif  // BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
 
   base::WeakPtrFactory<ProfileNetworkContextService> weak_factory_{this};
 };

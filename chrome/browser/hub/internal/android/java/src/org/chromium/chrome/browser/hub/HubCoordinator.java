@@ -19,9 +19,9 @@ import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
@@ -100,9 +100,9 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
             NullableObservableSupplier<Tab> currentTabSupplier,
             MenuButtonCoordinator menuButtonCoordinator,
             SearchActivityClient searchActivityClient,
-            ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             HubColorMixer hubColorMixer,
-            @Nullable ObservableSupplier<Boolean> xrSpaceModeObservableSupplier,
+            NonNullObservableSupplier<Boolean> xrSpaceModeObservableSupplier,
             @PaneId int defaultPaneId) {
         Context context = containerView.getContext();
         mBackPressStateChangeCallback = (ignored) -> updateHandleBackPressSupplier();
@@ -112,7 +112,7 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
                         .getFocusedPaneSupplier()
                         .createTransitiveNonNull(
                                 false, BackPressHandler::getHandleBackPressChangedSupplier);
-        mFocusedPaneHandleBackPressSupplier.addObserver(
+        mFocusedPaneHandleBackPressSupplier.addSyncObserverAndPostIfNonNull(
                 castCallback(mBackPressStateChangeCallback));
 
         mContainerView = containerView;
@@ -136,7 +136,7 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
         NonNullObservableSupplier<Boolean> bottomToolbarVisibilitySupplier =
                 bottomToolbarDelegate != null
                         ? bottomToolbarDelegate.getBottomToolbarVisibilitySupplier()
-                        : null;
+                        : ObservableSuppliers.alwaysFalse();
 
         mHubToolbarCoordinator =
                 new HubToolbarCoordinator(
@@ -150,7 +150,6 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
                         userEducationHelper,
                         hubLayoutController.getIsAnimatingSupplier(),
                         bottomToolbarVisibilitySupplier,
-                        currentTabSupplier,
                         () -> {
                             RecordUserAction.record("Hub.BackButtonPressed");
                             selectCurrentTabAndHideHub();
@@ -196,7 +195,7 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, OnPa
         mPaneBackStackHandler = new PaneBackStackHandler(paneManager);
         mPaneBackStackHandler
                 .getHandleBackPressChangedSupplier()
-                .addObserver(castCallback(mBackPressStateChangeCallback));
+                .addSyncObserverAndPostIfNonNull(castCallback(mBackPressStateChangeCallback));
 
         mCurrentTabSupplier = currentTabSupplier;
         setCurrentTabSupplierObserver();

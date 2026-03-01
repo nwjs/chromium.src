@@ -31,6 +31,7 @@
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/save_and_fill_manager.h"
+#include "components/autofill/core/browser/suggestions/suggestion_util.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -483,10 +484,7 @@ void CreditCardFormEventLogger::OnDidFillFormFillingSuggestion(
   base::RecordAction(
       base::UserMetricsAction("Autofill_FilledCreditCardSuggestion"));
 
-  if (trigger_source_ != AutofillTriggerSource::kFastCheckout) {
-    ++form_interaction_counts_.autofill_fills;
-  }
-  UpdateFlowId();
+  ++form_interaction_counts_.autofill_fills;
 }
 
 void CreditCardFormEventLogger::OnDidUndoAutofill() {
@@ -512,7 +510,8 @@ void CreditCardFormEventLogger::Log(FormEvent event,
     };
     return ".WithBothServerAndLocalData";
   }();
-  for (FormTypeNameForLogging form_type : GetFormTypesForLogging(form)) {
+  for (FormTypeNameForLogging form_type :
+       GetFormTypesForLogging(form, GetAcUnrecognizedBehavior(client()))) {
     std::string name = base::StrCat(
         {"Autofill.FormEvents.", FormTypeNameForLoggingToStringView(form_type),
          data_suffix});
@@ -755,8 +754,9 @@ CreditCardFormEventLogger::GetSupportedFormTypeNamesForLogging() const {
 
 DenseSet<FormTypeNameForLogging>
 CreditCardFormEventLogger::GetFormTypesForLogging(
-    const FormStructure& form) const {
-  return GetCreditCardFormTypesForLogging(form);
+    const FormStructure& form,
+    AutocompleteUnrecognizedBehavior ac_unrecognized_behavior) const {
+  return GetCreditCardFormTypesForLogging(form, ac_unrecognized_behavior);
 }
 
 FormEvent CreditCardFormEventLogger::GetCardNumberStatusFormEvent(

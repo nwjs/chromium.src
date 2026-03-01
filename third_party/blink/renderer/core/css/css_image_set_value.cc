@@ -29,6 +29,7 @@
 
 #include "third_party/blink/renderer/core/css/css_image_set_option_value.h"
 #include "third_party/blink/renderer/core/css/css_length_resolver.h"
+#include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
@@ -188,25 +189,16 @@ CSSImageSetValue& CSSImageSetValue::ResolveValuesIfNeeded(
   return *this;
 }
 
-const CSSValue*
-CSSImageSetValue::CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-    const CSSPropertyName& property_name,
-    wtf_size_t& property_value_index) const {
-  HeapVector<Member<const CSSImageSetOptionValue>> options(options_);
-  wtf_size_t random_values_count = 0;
-  for (wtf_size_t i = 0; i < options.size(); i++) {
-    options[i] = To<CSSImageSetOptionValue>(
-        options[i]->CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-            property_name, property_value_index));
-    if (options[i] != options_[i]) {
-      random_values_count++;
+bool CSSImageSetValue::HasRandomFunctions() const {
+  if (CSSValueList::HasRandomFunctions()) {
+    return true;
+  }
+  for (const auto& option : options_) {
+    if (option && option->HasRandomFunctions()) {
+      return true;
     }
   }
-  if (random_values_count) {
-    return MakeGarbageCollected<CSSImageSetValue>(
-        cached_image_, cached_device_scale_factor_, std::move(options));
-  }
-  return this;
+  return false;
 }
 
 void CSSImageSetValue::TraceAfterDispatch(blink::Visitor* visitor) const {

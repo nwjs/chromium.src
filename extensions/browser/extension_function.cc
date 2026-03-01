@@ -362,7 +362,7 @@ void ExtensionFunction::ResponseAction::Execute() {
   }
 }
 
-bool ExtensionFunction::RunNWSync(base::Value::List* response, std::string* error) {
+bool ExtensionFunction::RunNWSync(base::ListValue* response, std::string* error) {
   return false;
 }
 
@@ -427,8 +427,8 @@ ExtensionFunction::~ExtensionFunction() {
   if (!response_callback_.is_null()) {
     constexpr char kShouldCallMojoCallback[] = "Ignored did_respond()";
     std::move(response_callback_)
-        .Run(ResponseType::kFailed, base::Value::List(),
-             kShouldCallMojoCallback, nullptr);
+        .Run(ResponseType::kFailed, base::ListValue(), kShouldCallMojoCallback,
+             nullptr);
   }
 #endif  // DCHECK_IS_ON()
 }
@@ -506,12 +506,12 @@ void ExtensionFunction::OnQuotaExceeded(std::string violation_error) {
   RespondWithError(std::move(violation_error));
 }
 
-void ExtensionFunction::SetArgs(base::Value::List args) {
+void ExtensionFunction::SetArgs(base::ListValue args) {
   DCHECK(!args_.has_value());
   args_ = std::move(args);
 }
 
-const base::Value::List* ExtensionFunction::GetResultListForTest() const {
+const base::ListValue* ExtensionFunction::GetResultListForTest() const {
   return results_ ? &(*results_) : nullptr;
 }
 
@@ -613,7 +613,7 @@ bool ExtensionFunction::ShouldKeepWorkerAliveIndefinitely() {
   return false;
 }
 
-const base::Value::List& ExtensionFunction::GetOriginalArgs() const {
+const base::ListValue& ExtensionFunction::GetOriginalArgs() const {
   CHECK(base::FeatureList::IsEnabled(
       extensions_features::kAvoidCloneArgsOnExtensionFunctionDispatch));
 
@@ -636,11 +636,11 @@ void ExtensionFunction::OnResponseAck() {
 }
 
 ExtensionFunction::ResponseValue ExtensionFunction::NoArguments() {
-  return CreateArgumentListResponse(base::Value::List());
+  return CreateArgumentListResponse(base::ListValue());
 }
 
 ExtensionFunction::ResponseValue ExtensionFunction::ArgumentList(
-    base::Value::List results) {
+    base::ListValue results) {
   return CreateArgumentListResponse(std::move(results));
 }
 
@@ -649,7 +649,7 @@ ExtensionFunction::ResponseValue ExtensionFunction::Error(std::string error) {
 }
 
 ExtensionFunction::ResponseValue ExtensionFunction::ErrorWithArgumentsDoNotUse(
-    base::Value::List args,
+    base::ListValue args,
     const std::string& error) {
   return CreateErrorWithArgumentsResponse(std::move(args), error);
 }
@@ -720,7 +720,7 @@ void ExtensionFunction::SetTransferredBlobs(
   transferred_blobs_ = std::move(blobs);
 }
 
-base::Value::List& ExtensionFunction::GetMutableArgs() {
+base::ListValue& ExtensionFunction::GetMutableArgs() {
   DCHECK(args_);
   if (!original_args_.has_value() &&
       base::FeatureList::IsEnabled(
@@ -750,7 +750,7 @@ void ExtensionFunction::SendResponseImpl(bool success) {
     results_.emplace();
   }
 
-  base::Value::List results;
+  base::ListValue results;
   if (preserve_results_for_testing_) {
     // Keep |results_| untouched.
     results = results_->Clone();
@@ -779,7 +779,7 @@ ExtensionFunction::ScopedUserGestureForTests::~ScopedUserGestureForTests() {
 }
 
 ExtensionFunction::ResponseValue ExtensionFunction::CreateArgumentListResponse(
-    base::Value::List result) {
+    base::ListValue result) {
   SetFunctionResults(std::move(result));
   // It would be nice to DCHECK(error.empty()) but some legacy extension
   // function implementations... I'm looking at chrome.input.ime... do this
@@ -788,7 +788,7 @@ ExtensionFunction::ResponseValue ExtensionFunction::CreateArgumentListResponse(
 }
 
 ExtensionFunction::ResponseValue
-ExtensionFunction::CreateErrorWithArgumentsResponse(base::Value::List result,
+ExtensionFunction::CreateErrorWithArgumentsResponse(base::ListValue result,
                                                     const std::string& error) {
   SetFunctionResults(std::move(result));
   SetFunctionError(error);
@@ -808,7 +808,7 @@ ExtensionFunction::ResponseValue ExtensionFunction::CreateBadMessageResponse() {
   return ResponseValue(false, PassKey());
 }
 
-void ExtensionFunction::SetFunctionResults(base::Value::List results) {
+void ExtensionFunction::SetFunctionResults(base::ListValue results) {
   DCHECK(!results_) << "Function " << name() << " already has results set.";
   results_ = std::move(results);
 }
@@ -826,7 +826,7 @@ NWSyncExtensionFunction::~NWSyncExtensionFunction() {
 
 ExtensionFunction::ResponseAction NWSyncExtensionFunction::Run() {
   NOTREACHED() << "NWSyncExtensionFunction::Run";
-  //return RespondNow(ArgumentList(base::Value::List()));
+  //return RespondNow(ArgumentList(base::ListValue()));
 }
 
 // static
@@ -845,7 +845,7 @@ void NWSyncExtensionFunction::SetResult(std::unique_ptr<base::Value> result) {
 }
 
 void NWSyncExtensionFunction::SetResultList(
-       const base::Value::List& results) {
+       const base::ListValue& results) {
   results_ = results.Clone();
 }
 

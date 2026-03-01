@@ -17,7 +17,6 @@
 
 #include "base/check.h"
 #include "base/check_op.h"
-#include "base/containers/contains.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
@@ -47,6 +46,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
+#include "components/password_manager/core/browser/password_form.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -507,22 +507,22 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
   const auto mss = Step::kMechanismSelection;
   const auto plat_ui = Step::kPlatformAuthenticator;
   const auto cable_ui = Step::kCableActivate;
-  [[maybe_unused]] const auto create_pk = Step::kCreatePasskey;
+  [[maybe_unused]] const auto create_pk = Step::kChromeProfileCreatePasskey;
   const auto create_pk_or_mss =
 #if BUILDFLAG(IS_MAC)
-      Step::kCreatePasskey;
+      Step::kChromeProfileCreatePasskey;
 #else
       Step::kMechanismSelection;
 #endif
   const auto create_pk_or_plat_ui =
 #if BUILDFLAG(IS_MAC)
-      Step::kCreatePasskey;
+      Step::kChromeProfileCreatePasskey;
 #else
       Step::kPlatformAuthenticator;
 #endif
   const auto create_pk_or_qr =
 #if BUILDFLAG(IS_MAC)
-      Step::kCreatePasskey;
+      Step::kChromeProfileCreatePasskey;
 #else
       Step::kCableV2QRCode;
 #endif
@@ -1024,8 +1024,8 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
     SCOPED_TRACE(testing::Message() << "At line number: " << test.line_num);
 
 #if BUILDFLAG(IS_WIN)
-    bool has_win_hybrid = base::Contains(
-        test.params, TransportAvailabilityParam::kWindowsHandlesHybrid);
+    bool has_win_hybrid =
+        test.params.contains(TransportAvailabilityParam::kWindowsHandlesHybrid);
     fake_win_webauthn_api.set_version(has_win_hybrid ? 7 : 4);
 #endif
 
@@ -1160,7 +1160,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
       has_v2_cable_extension = false;
     }
     if (test.params.contains(TransportAvailabilityParam::kEnclaveCred)) {
-      model->EnclaveEnabledStatusChanged(EnclaveEnabledStatus::kEnabled);
+      model->OnGPMEnclaveEnabledStatusChanged(EnclaveEnabledStatus::kEnabled);
     }
 
     if (test.params.contains(
@@ -1176,7 +1176,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
     }
 #if BUILDFLAG(IS_MAC)
     transports_info.platform_has_biometrics =
-        !base::Contains(test.params, TransportAvailabilityParam::kNoTouchId);
+        !test.params.contains(TransportAvailabilityParam::kNoTouchId);
 #endif
 
     std::optional<device::FidoTransportProtocol> hint_transport;
@@ -1200,7 +1200,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
     }
 
     if (test.params.contains(TransportAvailabilityParam::kEnclaveNeedsSignIn)) {
-      controller.EnclaveEnabledStatusChanged(
+      controller.OnGPMEnclaveEnabledStatusChanged(
           EnclaveEnabledStatus::kEnabledAndReauthNeeded);
     }
 
@@ -1585,7 +1585,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, AwaitingAcknowledgement) {
                                /*is_off_the_record=*/false);
     controller.StartFlow(std::move(transports_info), {});
 #if BUILDFLAG(IS_MAC)
-    EXPECT_EQ(Step::kCreatePasskey, model->step());
+    EXPECT_EQ(Step::kChromeProfileCreatePasskey, model->step());
 #else
     EXPECT_EQ(Step::kMechanismSelection, model->step());
 #endif
@@ -2394,7 +2394,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Dispatch) {
       if (should_create_in_icloud_keychain) {
         EXPECT_EQ(request_callback.WaitForResult(), kICloudKeychainId);
       } else {
-        EXPECT_EQ(model->step(), Step::kCreatePasskey);
+        EXPECT_EQ(model->step(), Step::kChromeProfileCreatePasskey);
         controller.HideDialogAndDispatchToPlatformAuthenticator();
         EXPECT_EQ(request_callback.WaitForResult(), kProfileAuthenticatorId);
       }
@@ -2875,3 +2875,74 @@ TEST_F(AuthenticatorRequestDialogControllerTest,
 }
 
 #endif  // BUILDFLAG(IS_MAC)
+
+TEST_F(AuthenticatorRequestDialogControllerTest, PopulatePasswordsWithOrigin) {
+  auto model =
+      base::MakeRefCounted<AuthenticatorRequestDialogModel>(main_rfh());
+  AuthenticatorRequestDialogController controller(model.get(), main_rfh());
+
+  // Setup TransportAvailabilityInfo
+  device::FidoRequestHandlerBase::TransportAvailabilityInfo tai;
+  tai.request_type = device::FidoRequestType::kGetAssertion;
+  tai.available_transports = {};
+
+  // Create PasswordCredentials
+  std::vector<std::unique_ptr<password_manager::PasswordForm>> passwords;
+
+  // 1. Exact Match
+  auto exact_match = std::make_unique<password_manager::PasswordForm>();
+  exact_match->username_value = u"user_exact";
+  exact_match->url = GURL("https://example.com/login");
+  exact_match->signon_realm = "https://example.com/";
+  exact_match->match_type = password_manager::PasswordForm::MatchType::kExact;
+  passwords.push_back(std::move(exact_match));
+
+  // 2. PSL Match
+  auto psl_match = std::make_unique<password_manager::PasswordForm>();
+  psl_match->username_value = u"user_psl";
+  psl_match->url = GURL("https://sub.example.com/login");
+  psl_match->signon_realm = "https://sub.example.com/";
+  psl_match->match_type = password_manager::PasswordForm::MatchType::kPSL;
+  passwords.push_back(std::move(psl_match));
+
+  // Start Flow
+  model->relying_party_id = "example.com";
+  UpdateModelBeforeStartFlow(model.get(), tai, /*is_off_the_record=*/false);
+  controller.StartFlow(std::move(tai), std::move(passwords));
+
+  // Verify Mechanisms
+  ASSERT_EQ(model->mechanisms.size(), 2u);
+
+  // Helper to find mechanism by username
+  auto find_mechanism = [&](const std::u16string& username)
+      -> const AuthenticatorRequestDialogModel::Mechanism* {
+    for (const auto& mech : model->mechanisms) {
+      if (mech.name == username) {
+        return &mech;
+      }
+    }
+    return nullptr;
+  };
+
+  auto get_origin = [](const AuthenticatorRequestDialogModel::Mechanism* mech)
+      -> std::optional<std::u16string> {
+    if (const auto* password =
+            std::get_if<AuthenticatorRequestDialogModel::Mechanism::Password>(
+                &mech->type)) {
+      return password->value().origin;
+    }
+    return std::nullopt;
+  };
+
+  // 1. Exact Match: Origin should be empty
+  const auto* mech_exact = find_mechanism(u"user_exact");
+  ASSERT_TRUE(mech_exact);
+  EXPECT_FALSE(get_origin(mech_exact).has_value());
+
+  // 2. PSL Match: Origin should be "https://sub.example.com/"
+  const auto* mech_psl = find_mechanism(u"user_psl");
+  ASSERT_TRUE(mech_psl);
+  auto origin_psl = get_origin(mech_psl);
+  EXPECT_TRUE(origin_psl.has_value());
+  EXPECT_EQ(origin_psl.value(), u"sub.example.com");
+}

@@ -294,7 +294,7 @@ class TipsNotificationClientTest : public PlatformTest {
         AuthenticationServiceFactory::GetForProfile(profile_.get());
     identity_manager->AddIdentity([FakeSystemIdentity fakeIdentity1]);
     authentication_service->SignIn([FakeSystemIdentity fakeIdentity1],
-                                   signin_metrics::AccessPoint::kUnknown);
+                                   signin_metrics::AccessPoint::kStartPage);
   }
 
   web::WebTaskEnvironment task_environment_;
@@ -482,20 +482,6 @@ TEST_F(TipsNotificationClientTest, SetUpListContinuationHandle) {
   histogram_tester_.ExpectUniqueSample(
       "IOS.Notifications.Tips.Interaction",
       TipsNotificationType::kSetUpListContinuation, 1);
-}
-
-// Tests that the client handles a Docking promo notification response.
-TEST_F(TipsNotificationClientTest, DockingHandle) {
-  StubPrepareToPresentModal();
-  id mock_handler = MockHandler(@protocol(DockingPromoCommands));
-  OCMExpect([mock_handler showDockingPromo:YES]);
-
-  mock_response_ = MockRequestResponse(TipsNotificationType::kDocking);
-  client_->HandleNotificationInteraction(mock_response_);
-
-  EXPECT_OCMOCK_VERIFY(mock_handler);
-  histogram_tester_.ExpectUniqueSample("IOS.Notifications.Tips.Interaction",
-                                       TipsNotificationType::kDocking, 1);
 }
 
 // Tests that the client handles an Omnibox Position promo notification

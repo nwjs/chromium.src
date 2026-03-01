@@ -255,7 +255,7 @@ scoped_refptr<Extension> LoadExtension(
     std::u16string* error) {
   error->clear();
   std::string utf8_error;
-  std::optional<base::Value::Dict> manifest;
+  std::optional<base::DictValue> manifest;
   if (!manifest_file) {
     manifest = LoadManifest(extension_path, &utf8_error);
   } else {
@@ -294,7 +294,7 @@ scoped_refptr<Extension> LoadExtension(
 
 // TODO(crbug.com/41317803): Continue removing std::string errors and replacing
 // with std::u16string.
-std::optional<base::Value::Dict> LoadManifest(
+std::optional<base::DictValue> LoadManifest(
     const base::FilePath& extension_path,
     std::string* error) {
   base::FilePath manifest_path = extension_path.Append(kNWJSManifestFilename);
@@ -302,7 +302,7 @@ std::optional<base::Value::Dict> LoadManifest(
   if (!base::PathExists(manifest_path))
     return LoadManifest(extension_path, kManifestFilename, error);
 
-  std::optional<base::Value::Dict> manifest =
+  std::optional<base::DictValue> manifest =
     LoadManifest(extension_path, kNWJSManifestFilename, error);
   content::GetContentClient()->LoadNWAppAsExtension(&manifest.value(), extension_path, error);
 
@@ -313,7 +313,7 @@ std::optional<base::Value::Dict> LoadManifest(
   return manifest;
 }
 
-std::optional<base::Value::Dict> LoadManifest(
+std::optional<base::DictValue> LoadManifest(
     const base::FilePath& extension_path,
     const base::FilePath::CharType* manifest_filename,
     std::string* error) {

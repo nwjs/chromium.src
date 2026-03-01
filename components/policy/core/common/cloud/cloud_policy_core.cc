@@ -35,13 +35,11 @@ CloudPolicyCore::CloudPolicyCore(
     const std::string& policy_type,
     const std::string& settings_entity_id,
     CloudPolicyStore* store,
-    CloudPolicyStore* extension_install_store,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner,
     network::NetworkConnectionTrackerGetter network_connection_tracker_getter)
     : policy_type_(policy_type),
       settings_entity_id_(settings_entity_id),
       store_(store),
-      extension_install_store_(extension_install_store),
       task_runner_(task_runner),
       network_connection_tracker_getter_(
           std::move(network_connection_tracker_getter)) {
@@ -61,11 +59,6 @@ void CloudPolicyCore::Connect(std::unique_ptr<CloudPolicyClient> client) {
   client_ = std::move(client);
   service_ = std::make_unique<CloudPolicyService>(
       policy_type_, settings_entity_id_, client_.get(), store_);
-  if (extension_install_store_) {
-    extension_install_service_ = std::make_unique<CloudPolicyService>(
-        policy_type_, settings_entity_id_, client_.get(),
-        extension_install_store_);
-  }
   for (auto& observer : observers_) {
     observer.OnCoreConnected(this);
   }
@@ -81,7 +74,6 @@ void CloudPolicyCore::Disconnect() {
   refresh_scheduler_.reset();
   remote_commands_service_.reset();
   service_.reset();
-  extension_install_service_.reset();
   client_.reset();
 }
 

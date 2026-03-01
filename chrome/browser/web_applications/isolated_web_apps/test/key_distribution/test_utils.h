@@ -49,7 +49,8 @@ class KeyDistributionComponentBuilder {
   // Component update requires the higher component version than the current
   // one.
   explicit KeyDistributionComponentBuilder(
-      const base::Version& component_version);
+      const base::Version& component_version,
+      bool is_preloaded = false);
   ~KeyDistributionComponentBuilder();
 
   KeyDistributionComponentBuilder(const KeyDistributionComponentBuilder&) =
@@ -62,10 +63,10 @@ class KeyDistributionComponentBuilder {
   // used many times when several key rotations are required.
   KeyDistributionComponentBuilder& AddToKeyRotations(
       const web_package::SignedWebBundleId& web_bundle_id,
-      std::optional<base::span<const uint8_t>> expected_key) &;
+      base::span<const uint8_t> expected_key) &;
   KeyDistributionComponentBuilder&& AddToKeyRotations(
       const web_package::SignedWebBundleId& web_bundle_id,
-      std::optional<base::span<const uint8_t>> expected_key) &&;
+      base::span<const uint8_t> expected_key) &&;
 
   // Sets the special permissions for a specific app
   KeyDistributionComponentBuilder& AddToSpecialAppPermissions(

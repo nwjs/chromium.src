@@ -20,26 +20,6 @@ export interface ActorOverlayAppElement {
   $: {magicCursor: HTMLDivElement};
 }
 
-/**
- * Magic Cursor Kinematics Tuning Parameters for CSS Transitions.
- *
- * These constants define the cursor's movement (speed, duration, and
- * responsiveness). Adjusting these values controls the perceived pace and
- * smoothness of the cursor.
- */
-
-// Constant speed the cursor maintains during animation, measured in pixels per
-// millisecond.
-const DESIRED_SPEED_PX_PER_MS = 0.667;
-// The minimum allowed duration (in ms) for any single cursor movement.
-// Increasing this value makes short movements appear slower and smoother;
-// decreasing it makes them pop into position more instantly.
-const MIN_DURATION_MS = 50;
-// The maximum allowed duration (in ms) for any single cursor movement.
-// Increasing this value allows long movements to take more time; decreasing it
-// makes all long movements finish faster.
-const MAX_DURATION_MS = 675;
-
 export class ActorOverlayAppElement extends CrLitElement {
   static get is() {
     return 'actor-overlay-app';
@@ -72,10 +52,27 @@ export class ActorOverlayAppElement extends CrLitElement {
   private isCursorInitialized_: boolean = false;
   private isStandaloneBorderGlowEnabled_: boolean =
       loadTimeData.getBoolean('isStandaloneBorderGlowEnabled');
+  // Timer to start the loading state animation after cursor clicks and
+  // movements.
+  private loadingTimerId_: number|null = null;
 
   // Position State for Magic Cursor (Logical Pixels)
   private currentX_: number = 0;
   private currentY_: number = 0;
+  // Speed the cursor maintains during animation, measured in pixels per
+  // millisecond.
+  private desiredSpeedPxPerMs_: number =
+      Number(loadTimeData.getValue('magicCursorSpeed'));
+  // The minimum allowed duration (in ms) for any single cursor movement.
+  // Increasing this value makes short movements appear slower and smoother;
+  // decreasing it makes them pop into position more instantly.
+  private minDurationMs_: number =
+      loadTimeData.getInteger('magicCursorMinDurationMs');
+  // The maximum allowed duration (in ms) for any single cursor movement.
+  // Increasing this value allows long movements to take more time; decreasing
+  // it makes all long movements finish faster.
+  private maxDurationMs_: number =
+      loadTimeData.getInteger('magicCursorMaxDurationMs');
 
   override connectedCallback() {
     super.connectedCallback();
@@ -134,6 +131,10 @@ export class ActorOverlayAppElement extends CrLitElement {
     assert(this.setThemeListenerId_);
     ActorOverlayBrowserProxy.getInstance().callbackRouter.removeListener(
         this.setThemeListenerId_);
+    if (this.loadingTimerId_) {
+      clearTimeout(this.loadingTimerId_);
+      this.loadingTimerId_ = null;
+    }
   }
 
   // Prevents user scroll gestures (mouse wheel, touchpad) from moving the
@@ -174,14 +175,23 @@ export class ActorOverlayAppElement extends CrLitElement {
       return Promise.resolve();
     }
 
+    if (this.loadingTimerId_) {
+      clearTimeout(this.loadingTimerId_);
+      this.loadingTimerId_ = null;
+    }
+
+    cursor.classList.remove('loading');
     cursor.style.setProperty('--cursor-x', `${Math.round(this.currentX_)}px`);
     cursor.style.setProperty('--cursor-y', `${Math.round(this.currentY_)}px`);
 
     return new Promise((resolve) => {
       const onAnimationEnd = () => {
         cursor.classList.remove('clicking');
+        this.startLoadingTimer_();
         resolve();
       };
+      // TODO(crbug.com/454339982): If the animationed event is never triggered,
+      // we should resolve the callback with a false signal.
       cursor.addEventListener('animationend', onAnimationEnd, {once: true});
       cursor.classList.add('clicking');
     });
@@ -192,35 +202,73 @@ export class ActorOverlayAppElement extends CrLitElement {
       return Promise.resolve();
     }
 
+    if (this.loadingTimerId_) {
+      clearTimeout(this.loadingTimerId_);
+      this.loadingTimerId_ = null;
+    }
+
+    this.$.magicCursor.classList.remove('loading');
+
     const scale = window.devicePixelRatio;
     const targetX = point.x / scale;
     const targetY = point.y / scale;
+
+    const prefersReducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Initialize cursor position and state if first movement.
     if (!this.isCursorInitialized_) {
       this.$.magicCursor.style.opacity = '1';
       this.isCursorInitialized_ = true;
-      // Initialize cursor at the top-left or top-right corner, whichever is
-      // closer to the target.
-      this.currentX_ =
-          (targetX < window.innerWidth / 2) ? 0 : window.innerWidth;
-      this.currentY_ = 0;
+      // Check if the user prefers reduced motion to determine start position.
+      if (prefersReducedMotion) {
+        this.currentX_ = targetX;
+        this.currentY_ = targetY;
+      } else {
+        // Initialize cursor at the top-left or top-right corner, whichever is
+        // closer to the target.
+        this.currentX_ =
+            (targetX < window.innerWidth / 2) ? 0 : window.innerWidth;
+        this.currentY_ = 0;
+      }
       this.setCursorTransform(this.currentX_, this.currentY_);
       // Querying `offsetWidth` forces a page reflow to render the magic cursor
       // before calculating the cursor movement to the target.
       void this.$.magicCursor.offsetWidth;
     }
 
+    // Resolve early if the visual position won't change, as no 'transitionend'
+    // event will fire.
+    if (Math.round(targetX) === Math.round(this.currentX_) &&
+        Math.round(targetY) === Math.round(this.currentY_)) {
+      this.currentX_ = targetX;
+      this.currentY_ = targetY;
+      return Promise.resolve();
+    }
+
+    // If reduced motion is enabled, skip the movement animation and update
+    // coordinates of cursor instantly to the target position.
+    if (prefersReducedMotion) {
+      this.$.magicCursor.style.transitionDuration = '0ms';
+      this.setCursorTransform(targetX, targetY);
+      this.currentX_ = targetX;
+      this.currentY_ = targetY;
+      return Promise.resolve();
+    }
+
     // Calculate distance and duration for animation
     const dx = targetX - this.currentX_;
     const dy = targetY - this.currentY_;
     const distance = Math.hypot(dx, dy);
-    let durationMs = Math.round(distance / DESIRED_SPEED_PX_PER_MS);
-    durationMs =
-        Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, durationMs));
+    let durationMs = Math.round(distance / this.desiredSpeedPxPerMs_);
+    durationMs = Math.max(
+        this.minDurationMs_, Math.min(this.maxDurationMs_, durationMs));
 
     const transitionFinished = new Promise<void>(resolve => {
+      // TODO(crbug.com/454339982): If the transitionend event is never
+      // triggered, we should resolve the callback with a false signal.
       this.$.magicCursor.addEventListener('transitionend', () => {
+        this.startLoadingTimer_();
         resolve();
       }, {once: true});
     });
@@ -234,6 +282,26 @@ export class ActorOverlayAppElement extends CrLitElement {
     this.currentX_ = targetX;
     this.currentY_ = targetY;
     return transitionFinished;
+  }
+
+  private startLoadingTimer_() {
+    if (this.loadingTimerId_) {
+      clearTimeout(this.loadingTimerId_);
+    }
+
+    // Skip the loading animation when reduced motion is enabled.
+    const prefersReducedMotion =
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      return;
+    }
+
+    this.loadingTimerId_ = setTimeout(() => {
+      if (this.$.magicCursor) {
+        this.$.magicCursor.classList.add('loading');
+      }
+      this.loadingTimerId_ = null;
+    }, 200);
   }
 
   private setCursorTransform(drawX: number, drawY: number) {

@@ -26,8 +26,8 @@
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
-#include "third_party/omnibox_proto/aim_tools.pb.h"
 #include "third_party/omnibox_proto/chrome_searchbox_stats.pb.h"
+#include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 #include "url/third_party/mozilla/url_parse.h"
@@ -840,12 +840,19 @@ class TemplateURL {
   TemplateURLData::ActiveStatus is_active() const { return data().is_active; }
   void set_is_active(TemplateURLData::ActiveStatus active_status);
 
-  int starter_pack_id() const { return data().starter_pack_id; }
-  // Some starter packs are considered 'ask a question' kind of starter packs.
+  template_url_starter_pack_data::StarterPackId starter_pack_id() const {
+    return static_cast<template_url_starter_pack_data::StarterPackId>(
+        data().starter_pack_id);
+  }
+  // Some templates (including certain starter packs) are considered
+  // 'ask' types.
   // This can be used to condition UI text or a11y strings.
-  bool is_ask_starter_pack() const {
-    return starter_pack_id() == template_url_starter_pack_data::kGemini ||
-           starter_pack_id() == template_url_starter_pack_data::kAiMode;
+  bool is_ask_type() const {
+    return starter_pack_id() ==
+               template_url_starter_pack_data::StarterPackId::kGemini ||
+           starter_pack_id() ==
+               template_url_starter_pack_data::StarterPackId::kAiMode ||
+           policy_origin() == TemplateURLData::PolicyOrigin::kSearchAggregator;
   }
 
   const std::vector<TemplateURLRef>& url_refs() const { return url_refs_; }
@@ -1035,6 +1042,10 @@ class TemplateURL {
   // overridden keyword pref list. Should be used for engines that are created
   // by an Enterprise policy that doesn't define the Default Search Provider.
   bool CanPolicyBeOverridden() const;
+
+  // Gets text shown in the chip at the front of the omnibox when the
+  // user has selected the keyword.
+  std::u16string GetFullName() const;
 
  private:
   // Resizes the |url_refs_| vector, which always holds the search URL as the

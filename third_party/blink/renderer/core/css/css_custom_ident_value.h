@@ -52,9 +52,7 @@ class CORE_EXPORT CSSCustomIdentValue : public CSSValue {
 
   bool Equals(const CSSCustomIdentValue& other) const;
 
-  const CSSValue* CopyRandomValueWithPropertyNameAndValueIndexIfNeeded(
-      const CSSPropertyName&,
-      wtf_size_t& property_value_index) const;
+  bool HasRandomFunctions() const;
 
   void TraceAfterDispatch(blink::Visitor*) const;
 

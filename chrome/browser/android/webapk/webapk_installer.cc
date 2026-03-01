@@ -177,7 +177,7 @@ void WebApkInstaller::SetTimeoutMs(int timeout_ms) {
   webapk_server_timeout_ms_ = timeout_ms;
 }
 
-void WebApkInstaller::OnInstallFinished(JNIEnv* env, jint result) {
+void WebApkInstaller::OnInstallFinished(JNIEnv* env, int32_t result) {
   OnResult(static_cast<webapps::WebApkInstallResult>(result));
 }
 
@@ -297,7 +297,7 @@ void WebApkInstaller::CheckFreeSpace() {
   Java_WebApkInstaller_checkFreeSpace(env, java_ref_);
 }
 
-void WebApkInstaller::OnGotSpaceStatus(JNIEnv* env, jint status) {
+void WebApkInstaller::OnGotSpaceStatus(JNIEnv* env, int32_t status) {
   SpaceStatus space_status = static_cast<SpaceStatus>(status);
   if (space_status == SpaceStatus::NOT_ENOUGH_SPACE) {
     OnResult(webapps::WebApkInstallResult::NOT_ENOUGH_SPACE);
@@ -414,7 +414,7 @@ void WebApkInstaller::OnURLLoaderComplete(
   base::StringToInt(response->version(), &webapk_version_);
   const std::string& token = response->token();
   if (task_type_ == UPDATE && token.empty()) {
-    // https://crbug.com/680131. The server sends an empty URL if the server
+    // https://crbug.com/40501010. The server sends an empty URL if the server
     // does not have a newer WebAPK to update to.
     relax_updates_ = response->relax_updates();
     OnResult(webapps::WebApkInstallResult::SUCCESS);

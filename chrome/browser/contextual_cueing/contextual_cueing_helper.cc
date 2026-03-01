@@ -14,14 +14,12 @@
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
 #include "chrome/browser/contextual_cueing/zero_state_suggestions_page_data.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -41,10 +39,19 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
+#endif
+
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#endif
+
+#if BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #endif
 
@@ -101,6 +108,7 @@ ContextualCueingHelper::ContextualCueingHelper(
 ContextualCueingHelper::~ContextualCueingHelper() = default;
 
 tabs::GlicNudgeController* ContextualCueingHelper::GetGlicNudgeController() {
+#if !BUILDFLAG(IS_ANDROID)
   if (!IsContextualCueingEnabled()) {
     return nullptr;
   }
@@ -110,6 +118,9 @@ tabs::GlicNudgeController* ContextualCueingHelper::GetGlicNudgeController() {
     return nullptr;
   }
   return browser->browser_window_features()->glic_nudge_controller();
+#else  // NEEDS_ANDROID_IMPL
+  return nullptr;
+#endif
 }
 
 void ContextualCueingHelper::PrimaryPageChanged(content::Page& page) {
@@ -291,7 +302,13 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
     return false;
   }
 
-  auto* browser_window_interface = tab_interface->GetBrowserWindowInterface();
+  BrowserWindowInterface* browser_window_interface =
+#if !BUILDFLAG(IS_ANDROID)
+      tab_interface->GetBrowserWindowInterface();
+#else
+      // NEEDS_ANDROID_IMPL: GetBrowserWindowInterface will be available later
+      nullptr;
+#endif
   if (!browser_window_interface) {
     return false;
   }
@@ -302,13 +319,16 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
     return false;
   }
 
+#if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
   if (user_education_interface->IsFeaturePromoActive(
           feature_engagement::kIPHGlicPromoFeature)) {
     recorder->set_nudge_decision(NudgeDecision::kNudgeNotShownIPH);
     return true;
   }
+#endif
 
-#if BUILDFLAG(ENABLE_GLIC)
+#if BUILDFLAG(ENABLE_GLIC) && !BUILDFLAG(IS_ANDROID)
+  // NEEDS_ANDROID_IMPL
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
 
@@ -342,10 +362,9 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 #if !BUILDFLAG(IS_ANDROID)
-  auto* coordinator =
-      contextual_tasks::ContextualTasksSidePanelCoordinator::From(
-          browser_window_interface);
-  if (coordinator && coordinator->IsSidePanelOpenForContextualTask()) {
+  auto* controller = contextual_tasks::ContextualTasksPanelController::From(
+      browser_window_interface);
+  if (controller && controller->IsPanelOpenForContextualTask()) {
     recorder->set_nudge_decision(
         NudgeDecision::kNudgeNotShownContextualTasksSidePanelForTabShowing);
     return true;
@@ -380,6 +399,36 @@ void ContextualCueingHelper::OnCueingDecision(
   decision_recorder->set_nudge_decision(can_show_decision);
   if (can_show_decision != NudgeDecision::kSuccess) {
     return;
+  }
+
+  // Handle side panel auto-open case: bypass nudge and open panel directly.
+  // If auto-open fails or is disabled, falls through to standard nudge.
+  const bool should_open_side_panel =
+      decision_result->auto_open_eligible &&
+      base::FeatureList::IsEnabled(kEnableAutoOpenGlicSidePanel);
+
+  if (should_open_side_panel) {
+    auto* tab_interface = tabs::TabInterface::GetFromContents(web_contents());
+    auto* browser_window_interface = tab_interface->GetBrowserWindowInterface();
+    Profile* profile =
+        Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+    auto* glic_service =
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+    if (glic_service && browser_window_interface) {
+      const bool auto_send_prompt =
+          decision_result->auto_send_params.has_value() &&
+          decision_result->auto_send_params->auto_send_eligible &&
+          !prompt_suggestion.empty();
+      glic_service->ToggleUI(
+          browser_window_interface,
+          /*prevent_close=*/true,
+          glic::mojom::InvocationSource::kAutoOpenedByContextualCue,
+          prompt_suggestion.empty() ? std::nullopt
+                                    : std::make_optional(prompt_suggestion),
+          auto_send_prompt);
+      return;
+    }
+    // Fall through to nudge if side panel open fails.
   }
 
   GetGlicNudgeController()->UpdateNudgeLabel(
