@@ -180,6 +180,7 @@ void FileChooserImpl::OpenFileChooser(blink::mojom::FileChooserParamsPtr params,
   // The File System Access API handles save pickers in the browser process,
   // bypassing this Mojo interface.
   // See https://crbug.com/435684924 for context.
+#if 0
   if (params->mode == blink::mojom::FileChooserParams::Mode::kSave) {
     mojo::ReportBadMessage("FileChooser: Save mode is not allowed.");
     listener->FileSelectionCanceled();
@@ -189,7 +190,7 @@ void FileChooserImpl::OpenFileChooser(blink::mojom::FileChooserParamsPtr params,
   // Do not allow open dialogs to have renderer-controlled default_file_name.
   // See https://crbug.com/433800617 for context.
   params->default_file_name = base::FilePath();
-
+#endif
   // Don't allow page with open FileChooser to enter BackForwardCache to avoid
   // any unexpected behaviour from BackForwardCache.
   BackForwardCache::DisableForRenderFrameHost(
