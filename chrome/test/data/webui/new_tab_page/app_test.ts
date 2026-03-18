@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ActionChipsHandlerRemote, ChipType, IconType, PageCallbackRouter as ActionChipsPageCallbackRouter} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
+import {ActionChipsHandlerRemote, IconType, PageCallbackRouter as ActionChipsPageCallbackRouter} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import type {PageRemote as ActionChipsPageRemote, TabInfo} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import type {CustomizeButtonsDocumentRemote} from 'chrome://new-tab-page/customize_buttons.mojom-webui.js';
 import {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote, SidePanelOpenTrigger} from 'chrome://new-tab-page/customize_buttons.mojom-webui.js';
@@ -2295,27 +2295,30 @@ suite('NewTabPageAppTest', () => {
       actionChipshandler.setResultMapperFor('startActionChipsRetrieval', () => {
         actionChipsPageRemote.onActionChipsChanged([
           {
-            title: 'TabContext',
-            subtitle: 'tab-subtitle',
             suggestion: 'tab-suggestion',
-            type: ChipType.kRecentTab,
-            suggestTemplateInfo: {typeIcon: IconType.kFavicon},
+            suggestTemplateInfo: {
+              typeIcon: IconType.kFavicon,
+              primaryText: {text: 'TabContext', a11yText: null},
+              secondaryText: {text: 'tab-subtitle', a11yText: null},
+            },
             tab: fakeTab,
           },
           {
-            title: 'Nano Banana',
-            subtitle: 'image-subtitle',
             suggestion: 'image-suggestion',
-            type: ChipType.kImage,
-            suggestTemplateInfo: {typeIcon: IconType.kBanana},
+            suggestTemplateInfo: {
+              typeIcon: IconType.kBanana,
+              primaryText: {text: 'Nano Banana', a11yText: null},
+              secondaryText: {text: 'image-subtitle', a11yText: null},
+            },
             tab: null,
           },
           {
-            title: 'DeepSearch',
-            subtitle: 'ds-subtitle',
             suggestion: 'ds-suggestion',
-            type: ChipType.kDeepSearch,
-            suggestTemplateInfo: {typeIcon: IconType.kGlobeWithSearchLoop},
+            suggestTemplateInfo: {
+              typeIcon: IconType.kGlobeWithSearchLoop,
+              primaryText: {text: 'DeepSearch', a11yText: null},
+              secondaryText: {text: 'ds-subtitle', a11yText: null},
+            },
             tab: null,
           },
         ]);
@@ -2469,11 +2472,12 @@ suite('NewTabPageAppTest', () => {
           const subtitle = 'Help me with this page subtitle';
           const suggestion = 'Help me with this page suggestion';
           actionChipsPageRemote.onActionChipsChanged([{
-            title: 'Deep dive',
-            subtitle: subtitle,
             suggestion: suggestion,
-            type: ChipType.kDeepDive,
-            suggestTemplateInfo: {typeIcon: IconType.kSubArrowRight},
+            suggestTemplateInfo: {
+              typeIcon: IconType.kSubArrowRight,
+              primaryText: {text: 'Deep dive', a11yText: null},
+              secondaryText: {text: subtitle, a11yText: null},
+            },
             tab: {
               tabId: 1,
               title: 'Test Title',

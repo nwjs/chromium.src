@@ -232,13 +232,13 @@ BASE_DECLARE_FEATURE(kGlicHandoffButtonResetFocusAndHoverStatus);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicHandoffButtonHideWhenOmniboxPopupOpened);
 COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kGlicActorUiOverlayMagicCursor);
+BASE_DECLARE_FEATURE(kGlicActorUiMagicCursor);
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double> kGlicActorUiOverlayMagicCursorSpeed;
+extern const base::FeatureParam<double> kGlicActorUiMagicCursorSpeed;
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int> kGlicActorUiOverlayMagicCursorMinDuration;
+extern const base::FeatureParam<int> kGlicActorUiMagicCursorMinDuration;
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int> kGlicActorUiOverlayMagicCursorMaxDuration;
+extern const base::FeatureParam<int> kGlicActorUiMagicCursorMaxDuration;
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorSplitValidateAndExecute);
 
@@ -679,6 +679,18 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicButtonAltLabelVariant;
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicDaisyChainNewTabs);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicGeminiContinueURLRedirect);
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicWebContinuity);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicWebContinuityUrl;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kGlicWebContinuityOriginatingHost;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kGlicWebContinuityMaxCIDLength;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int> kGlicWebContinuityMaxTargetUrlLength;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicUseToolbarHeightSidePanel);

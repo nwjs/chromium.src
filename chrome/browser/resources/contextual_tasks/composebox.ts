@@ -4,12 +4,15 @@
 
 import '//resources/cr_components/composebox/composebox_dropdown.js';
 import '//resources/cr_components/composebox/composebox.js';
+import '//resources/cr_components/localized_link/localized_link.js';
 import './onboarding_tooltip.js';
 
 import type {ComposeboxElement} from '//resources/cr_components/composebox/composebox.js';
+import type {PageHandlerRemote} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from '//resources/cr_components/composebox/composebox_proxy.js';
 import {GlowAnimationState} from '//resources/cr_components/search/constants.js';
+import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
@@ -23,7 +26,6 @@ import {getCss} from './composebox.css.js';
 import {getHtml} from './composebox.html.js';
 import {VoiceSearchState} from './constants.js';
 import type {ContextualTasksOnboardingTooltipElement} from './onboarding_tooltip.js';
-import type {Rect} from './post_message_handler.js';
 
 function recordVoiceSearchAction(voiceSearchState: VoiceSearchState) {
   // Safety return statement in rare case chrome metrics is not available.
@@ -54,7 +56,8 @@ export interface ContextualTasksComposeboxElement {
   };
 }
 
-export class ContextualTasksComposeboxElement extends CrLitElement {
+export class ContextualTasksComposeboxElement extends I18nMixinLit
+(CrLitElement) {
   static get is() {
     return 'contextual-tasks-composebox';
   }
@@ -80,6 +83,11 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
       },
       isLensOverlayShowing: {
         type: Boolean,
+        reflect: true,
+      },
+      maybeShowOverlayHintText: {
+        type: Boolean,
+        reflect: true,
       },
       composeboxHeight_: {type: Number},
       composeboxDropdownHeight_: {type: Number},
@@ -107,7 +115,10 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
-      forcedComposeboxBounds: {type: Object},
+      showSuggestionsActivityLink_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
@@ -115,8 +126,8 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
   accessor isZeroState: boolean = false;
   accessor isSidePanel: boolean = false;
   accessor isLensOverlayShowing: boolean = false;
+  accessor maybeShowOverlayHintText: boolean = false;
   accessor inputEnabled: boolean = true;
-  accessor forcedComposeboxBounds: Rect|null = null;
 
   protected accessor zeroStateSuggestions_: AutocompleteResult = {
     input: '',
@@ -139,7 +150,9 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
   protected accessor showOnboardingTooltip_: boolean =
       loadTimeData.getBoolean('showOnboardingTooltip');
   protected accessor activeToolMode_: ToolMode = ToolMode.kUnspecified;
+  protected accessor showSuggestionsActivityLink_: boolean = false;
   private eventTracker_: EventTracker = new EventTracker();
+  private pageHandler_: PageHandlerRemote;
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
   private searchboxListenerIds_: number[] = [];
   private onboardingTooltipIsVisible_: boolean = false;
@@ -153,9 +166,12 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
   private tooltipImpressionTimer_: number|null = null;
   private readonly tooltipImpressionDelay_: number =
       loadTimeData.getInteger('composeboxShowOnboardingTooltipImpressionDelay');
+  protected caretAnimationsEnabled_: boolean =
+      loadTimeData.getBoolean('caretAnimationEnabled');
 
   constructor() {
     super();
+    this.pageHandler_ = ComposeboxProxyImpl.getInstance().handler;
     this.searchboxCallbackRouter_ =
         ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
   }
@@ -181,12 +197,15 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
         this.clearInputAndFocus(/* querySubmitted= */ true);
       });
       this.eventTracker_.add(
-          composebox, 'composebox-resize', (e: CustomEvent) => {
-            if (e.detail.carouselHeight !== undefined) {
+          composebox, 'carousel-resize', (e: CustomEvent) => {
+            if (e.detail.height !== undefined) {
               composebox.style.setProperty(
-                  '--carousel-height', `${e.detail.carouselHeight}px`);
+                  '--carousel-height', `${e.detail.height}px`);
               this.updateTooltipVisibility_();
             }
+          });
+      this.eventTracker_.add(
+          composebox, 'composebox-resize', (e: CustomEvent) => {
             if (e.detail.height !== undefined) {
               this.composeboxHeight_ = e.detail.height;
             }
@@ -242,6 +261,20 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
     }
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.clearTooltipImpressionTimer_();
+    this.stopObservingResize_();
+    if (this.resizeObserver_) {
+      this.resizeObserver_.disconnect();
+      this.resizeObserver_ = null;
+    }
+    this.eventTracker_.removeAll();
+    this.searchboxListenerIds_.forEach(
+        id => assert(this.searchboxCallbackRouter_.removeListener(id)));
+    this.searchboxListenerIds_ = [];
+  }
+
   // Must have `$` access in updated to avoid violating Lit contract since
   // since `willUpdate` runs before `render`, which will cause `$`
   // to not be populated yet.
@@ -257,35 +290,26 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
     }
   }
 
+  protected get showSuggestions_() {
+    return this.isZeroState;
+  }
+
   get showLensButton_() {
     //Lens should be hidden in the side panel if deep search is enabled.
     return this.isSidePanel && this.activeToolMode_ !== ToolMode.kDeepSearch;
   }
 
   protected getInputPlaceholder_() {
-    return this.isLensOverlayShowing ?
+    return this.maybeShowOverlayHintText ?
         loadTimeData.getString('composeboxHintTextLensOverlay') :
         '';
   }
 
-  protected getComposeboxBoundsStyles_() {
-    if (this.isZeroState || !this.forcedComposeboxBounds) {
-      return '';
-    }
-    // Do not set height, since the expanding of the composebox is dynamic.
-    // Set the bottom of the rect instead of the top to allow the composebox to
-    // expand upwards.
-    const rect = this.forcedComposeboxBounds;
-    const style: string[] = [
-      `position: fixed;`,
-      `bottom: ${window.innerHeight - rect.bottom}px;`,
-      `left: ${rect.left}px;`,
-      `width: ${rect.width}px;`,
-      `margin: 0;`,
-      `max-width: none;`,
-      `min-width: 0;`,
-    ];
-    return style.join(' ');
+  // Called when cr-composebox suggestion activity link should be
+  // shown or hidden. That is calculated based on results and
+  // `showDropdown_`.
+  protected onShowSuggestionActivityLink_(e: CustomEvent<boolean>) {
+    this.showSuggestionsActivityLink_ = e.detail;
   }
 
   private updateTooltipVisibility_() {
@@ -357,20 +381,6 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
     }
   }
 
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    this.clearTooltipImpressionTimer_();
-    this.stopObservingResize_();
-    if (this.resizeObserver_) {
-      this.resizeObserver_.disconnect();
-      this.resizeObserver_ = null;
-    }
-    this.eventTracker_.removeAll();
-    this.searchboxListenerIds_.forEach(
-        id => assert(this.searchboxCallbackRouter_.removeListener(id)));
-    this.searchboxListenerIds_ = [];
-  }
-
   clearInputAndFocus(querySubmitted: boolean = false): void {
     // Clear text from composebox and focus.
     this.$.composebox.clearAllInputs(
@@ -379,10 +389,21 @@ export class ContextualTasksComposeboxElement extends CrLitElement {
     this.$.composebox.clearAutocompleteMatches();
   }
 
-  startExpandAnimation() {
+  async startExpandAnimation() {
     const composebox = this.$.composebox;
     composebox.animationState = GlowAnimationState.NONE;
+    await composebox.updateComplete;
+    // Force a reflow to ensure the animation restarts.
+    composebox.offsetHeight;
     composebox.animationState = GlowAnimationState.EXPANDING;
+  }
+
+  protected handleImageUpload_() {
+    this.pageHandler_.handleFileUpload(true);
+  }
+
+  protected handleFileUpload_() {
+    this.pageHandler_.handleFileUpload(false);
   }
 
   private startObservingResize_(target: Element|null) {

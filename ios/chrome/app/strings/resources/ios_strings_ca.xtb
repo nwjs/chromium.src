@@ -1653,7 +1653,6 @@ Handoff també ha d'estar activat a la secció General de Configuració, i els v
 <translation id="6964300328304469089">Selecció actual: <ph name="NAME" />, <ph name="EMAIL" />. Tria un compte.</translation>
 <translation id="6964760285928603117">Suprimeix del grup</translation>
 <translation id="6965382102122355670">D'acord</translation>
-<translation id="6967355534157677591">Crea imatges Pro</translation>
 <translation id="6973630695168034713">Carpetes</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">Sempre</translation>
@@ -1788,6 +1787,7 @@ Handoff també ha d'estar activat a la secció General de Configuració, i els v
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Per bloquejar les pestanyes d'incògnit, configura Touch ID, Face ID o una contrasenya.</translation>
 <translation id="750886945254958667">Conserva aquest grup per afegir-hi pestanyes més endavant o surt-ne si ja no vols accedir-hi més</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Afegeix fins a 1 pestanya}other{Afegeix fins a {COUNT} pestanyes}}</translation>
 <translation id="7512909159512473473">Introdueix la frase de contrasenya…</translation>
 <translation id="7514365320538308">Baixa</translation>
 <translation id="7514530647142300459">Continua utilitzant les contrasenyes al teu Compte de Google <ph name="EMAIL" /></translation>

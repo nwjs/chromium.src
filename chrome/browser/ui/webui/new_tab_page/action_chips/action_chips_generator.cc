@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_generator.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -57,7 +58,6 @@ using ::action_chips::RemoteSuggestionsServiceSimple;
 using ::action_chips::RemoteSuggestionsServiceSimpleImpl;
 using ::action_chips::mojom::ActionChip;
 using ::action_chips::mojom::ActionChipPtr;
-using ::action_chips::mojom::ChipType;
 using ::action_chips::mojom::IconType;
 using ::action_chips::mojom::SuggestTemplateInfo;
 using ::action_chips::mojom::SuggestTemplateInfoPtr;
@@ -79,14 +79,94 @@ enum class ChipsGenerationScenario {
   kDeepDive,
 };
 
+template <typename T>
+void AssignMojoField(const T& source, T& dest) {
+  dest = source;
+}
+
+template <typename T>
+void AssignMojoField(const T& source, std::optional<T>& dest) {
+  dest = source;
+}
+
+template <typename ProtoEnum, typename MojoEnum>
+  requires std::is_enum_v<ProtoEnum> && std::is_enum_v<MojoEnum>
+void AssignMojoField(const ProtoEnum& source, MojoEnum& dest) {
+  dest = static_cast<MojoEnum>(source);
+}
+
+template <typename Proto, typename MojoPtr>
+void SyncProtoToMojo(const Proto& a, MojoPtr& b);
+
+template <typename ProtoChild, typename MojoChildPtr>
+void AssignMojoField(const ProtoChild& source, MojoChildPtr& dest) {
+  if (!dest) {
+    dest = MojoChildPtr::element_type::New();
+  }
+  SyncProtoToMojo(source, dest);
+}
+
+// Specializations for known mappings.
+
+// Helper to make static_assert dependent on template parameters.
+// This is necessary because static_assert(false, ...) would be evaluated at
+// definition time, causing compilation failure even if the function is never
+// instantiated. By making it dependent on T, evaluation is deferred to
+// instantiation time.
+template <typename... T>
+struct AlwaysFalse : std::false_type {};
+
+template <typename ProtoA, typename MojoBPtr>
+void SyncProtoToMojo(const ProtoA& a, MojoBPtr& b) {
+  static_assert(AlwaysFalse<ProtoA, MojoBPtr>::value,
+                "SyncProtoToMojo is not implemented to convert from the given "
+                "Proto type to the given Mojo type. Please add a "
+                "specialization.");
+}
+
+template <>
+void SyncProtoToMojo<omnibox::FormattedString,
+                     action_chips::mojom::FormattedStringPtr>(
+    const omnibox::FormattedString& a,
+    action_chips::mojom::FormattedStringPtr& b) {
+  if (a.has_text()) {
+    AssignMojoField(a.text(), b->text);
+  }
+  if (a.has_a11y_text()) {
+    AssignMojoField(a.a11y_text(), b->a11y_text);
+  }
+}
+
+template <>
+void SyncProtoToMojo<omnibox::SuggestTemplateInfo,
+                     action_chips::mojom::SuggestTemplateInfoPtr>(
+    const omnibox::SuggestTemplateInfo& a,
+    action_chips::mojom::SuggestTemplateInfoPtr& b) {
+  if (a.has_type_icon()) {
+    AssignMojoField(a.type_icon(), b->type_icon);
+  }
+
+  if (a.has_primary_text()) {
+    AssignMojoField(a.primary_text(), b->primary_text);
+  }
+  if (a.has_secondary_text()) {
+    AssignMojoField(a.secondary_text(), b->secondary_text);
+  }
+}
+
 // Creates a SuggestTemplateInfoPtr from an omnibox::SuggestTemplateInfo.
 // Returns nullptr if we cannot handle the proto (e.g., the enum is not
 // available on our side).
 SuggestTemplateInfoPtr CreateSuggestTemplateInfo(
     const omnibox::SuggestTemplateInfo& suggest_template_info) {
+  static_assert(
+      static_cast<int32_t>(omnibox::SuggestTemplateInfo::IconType_MAX) ==
+          static_cast<int32_t>(action_chips::mojom::IconType::kMaxValue),
+      "IconType enum values must match between omnibox and action chips.");
   // The remote endpoint may send the icon type unknown to us.
   // When this occurs, we get the following:
-  // - the default value of the enum (when the closed enum is used as in proto2)
+  // - the default value of the enum (when the closed enum is used as in
+  //   proto2)
   // - the actual (invalid) value (when the open enum is used)
   if (suggest_template_info.type_icon() ==
           omnibox::SuggestTemplateInfo::ICON_TYPE_UNSPECIFIED ||
@@ -95,11 +175,11 @@ SuggestTemplateInfoPtr CreateSuggestTemplateInfo(
     VLOG(1) << "Invalid icon type is returned from the remote endpoint.";
     return nullptr;
   }
+
   SuggestTemplateInfoPtr mojom_suggest_template_info =
       SuggestTemplateInfo::New();
-  // Assumption: The mojom enum values are in sync with the proto enum values.
-  mojom_suggest_template_info->type_icon =
-      static_cast<IconType>(suggest_template_info.type_icon());
+  SyncProtoToMojo(suggest_template_info, mojom_suggest_template_info);
+
   return mojom_suggest_template_info;
 }
 
@@ -156,31 +236,37 @@ ChipsGenerationScenario GetScenario(
 // |-------------------------|
 ActionChipPtr CreateRecentTabChip(TabInfoPtr tab, std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
-  chip->type = ChipType::kRecentTab;
-  chip->title =
-      !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_TAB_HEADING_1);
-  // As mentioned above, the title of the tab is displayed on the second line.
-  chip->subtitle = tab->title;
   chip->suggestion = std::string();
   chip->tab = std::move(tab);
   chip->suggest_template_info = SuggestTemplateInfo::New();
   chip->suggest_template_info->type_icon = IconType::kFavicon;
+  chip->suggest_template_info->primary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->primary_text->text =
+      !suggestion.empty()
+          ? std::string(suggestion)
+          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_TAB_HEADING_1);
+  chip->suggest_template_info->secondary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->secondary_text->text = chip->tab->title;
   return chip;
 }
 
 ActionChipPtr CreateDeepSearchChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
-  chip->type = ChipType::kDeepSearch;
-  chip->title = l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_DEEP_SEARCH);
-  chip->subtitle =
-      !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY);
   chip->suggestion = std::string();
   chip->suggest_template_info = SuggestTemplateInfo::New();
   chip->suggest_template_info->type_icon = IconType::kGlobeWithSearchLoop;
+  chip->suggest_template_info->primary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->primary_text->text =
+      l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_DEEP_SEARCH);
+  chip->suggest_template_info->secondary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->secondary_text->text =
+      !suggestion.empty()
+          ? std::string(suggestion)
+          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY);
   return chip;
 }
 
@@ -196,15 +282,19 @@ std::optional<ActionChipPtr> CreateDeepSearchChipIfEligible(
 
 ActionChipPtr CreateImageCreationChip(std::string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
-  chip->type = ChipType::kImage;
-  chip->title = l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_CREATE_IMAGES);
-  chip->subtitle =
-      !suggestion.empty()
-          ? std::string(suggestion)
-          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1);
   chip->suggestion = std::string();
   chip->suggest_template_info = SuggestTemplateInfo::New();
   chip->suggest_template_info->type_icon = IconType::kBanana;
+  chip->suggest_template_info->primary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->primary_text->text =
+      l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_CREATE_IMAGES);
+  chip->suggest_template_info->secondary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->secondary_text->text =
+      !suggestion.empty()
+          ? std::string(suggestion)
+          : l10n_util::GetStringUTF8(IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1);
   return chip;
 }
 
@@ -221,13 +311,14 @@ std::optional<ActionChipPtr> CreateImageCreationChipIfEligible(
 ActionChipPtr CreateDeepDiveChip(TabInfoPtr tab,
                                  const std::u16string_view suggestion) {
   ActionChipPtr chip = ActionChip::New();
-  chip->type = ChipType::kDeepDive;
   const std::string suggestion_string = base::UTF16ToUTF8(suggestion);
-  chip->subtitle = suggestion_string;
   chip->suggestion = suggestion_string;
   chip->tab = std::move(tab);
   chip->suggest_template_info = SuggestTemplateInfo::New();
   chip->suggest_template_info->type_icon = IconType::kSubArrowRight;
+  chip->suggest_template_info->secondary_text =
+      action_chips::mojom::FormattedString::New();
+  chip->suggest_template_info->secondary_text->text = suggestion_string;
   return chip;
 }
 
@@ -253,36 +344,19 @@ std::vector<ActionChipPtr> CreateDeepDiveChips(
 
 std::vector<omnibox::ToolMode> GetAllowedTools(
     const AimEligibilityService* aim_eligibility_service) {
-  std::vector<omnibox::ToolMode> allowed_tools;
+  std::vector<omnibox::ToolMode> tools;
   if (aim_eligibility_service == nullptr) {
-    return allowed_tools;
+    return tools;
   }
-  if (aim_eligibility_service->IsDeepSearchEligible()) {
-    allowed_tools.push_back(omnibox::TOOL_MODE_DEEP_SEARCH);
+  const omnibox::SearchboxConfig* searchbox_config =
+      aim_eligibility_service->GetSearchboxConfig();
+  if (!searchbox_config->has_rule_set()) {
+    return tools;
   }
-  if (aim_eligibility_service->IsCreateImagesEligible()) {
-    allowed_tools.push_back(omnibox::TOOL_MODE_IMAGE_GEN);
+  for (const int tool : searchbox_config->rule_set().allowed_tools()) {
+    tools.push_back(static_cast<omnibox::ToolMode>(tool));
   }
-  return allowed_tools;
-}
-
-std::optional<ChipType> GetChipType(
-    omnibox::GroupId group_id,
-    base::optional_ref<const omnibox::PageVertical> page_vertical) {
-  switch (group_id) {
-    case omnibox::GROUP_AI_MODE_DEEP_SEARCH_ACTION:
-      return ChipType::kDeepSearch;
-    case omnibox::GROUP_AI_MODE_CREATE_IMAGE_ACTION:
-      return ChipType::kImage;
-    case omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION:
-      if (page_vertical.has_value() &&
-          *page_vertical == omnibox::PAGE_VERTICAL_EDU) {
-        return ChipType::kDeepDive;
-      }
-      return ChipType::kRecentTab;
-    default:
-      return std::nullopt;
-  }
+  return tools;
 }
 
 TabInfoPtr CreateTabInfo(const TabIdGenerator& tab_id_generator,
@@ -344,7 +418,6 @@ TitleAndUrl GetTitleAndUrl(base::optional_ref<const TabInterface> tab) {
 struct ParsedActionChipData {
   SuggestTemplateInfoPtr suggest_template_info;
   omnibox::GroupId group_id;
-  ChipType chip_type;
 };
 
 std::optional<ParsedActionChipData> ExtractActionChipData(
@@ -356,8 +429,10 @@ std::optional<ParsedActionChipData> ExtractActionChipData(
     return std::nullopt;
   }
 
-  if (!suggestion.suggestion_group_id().has_value()) {
-    VLOG(1) << "A suggestion did not have a group ID. Its match_contents was: "
+  if (!suggestion.suggestion_group_id().has_value() ||
+      suggestion.suggestion_group_id().value() == omnibox::GROUP_INVALID) {
+    VLOG(1) << "A suggestion did not have a valid group ID. Its "
+               "match_contents was: "
             << suggestion.match_contents();
     return std::nullopt;
   }
@@ -372,26 +447,9 @@ std::optional<ParsedActionChipData> ExtractActionChipData(
   if (mojom_suggest_template_info.is_null()) {
     return std::nullopt;
   }
-  const omnibox::GroupId group_id = *suggestion.suggestion_group_id();
-  const std::optional<ChipType> chip_type =
-      GetChipType(group_id, page_vertical);
+  omnibox::GroupId group_id = suggestion.suggestion_group_id().value();
 
-  if (!chip_type.has_value()) {
-    if (VLOG_IS_ON(1)) {
-      std::vector<std::string_view> subtypes;
-      std::ranges::transform(
-          suggestion.subtypes(), std::back_inserter(subtypes),
-          [](int subtype) { return omnibox::SuggestSubtype_Name(subtype); });
-      VLOG(1) << "Skipping a suggestion since its chip type cannot be "
-                 "determined. Its group ID is "
-              << omnibox::GroupId_Name(group_id) << ", its subtypes are "
-              << base::JoinString(subtypes, ", ");
-    }
-    return std::nullopt;
-  }
-
-  return ParsedActionChipData{std::move(mojom_suggest_template_info), group_id,
-                              *chip_type};
+  return ParsedActionChipData{std::move(mojom_suggest_template_info), group_id};
 }
 
 }  // namespace
@@ -532,12 +590,8 @@ void ActionChipsGeneratorImpl::GenerateActionChipsFromRemoteResponse(
     }
 
     ActionChipPtr chip = ActionChip::New();
-    // In the deep-dive state, the first chip needs to be a recent tab chip.
-    chip->type = chips.empty() && parsed_data->chip_type == ChipType::kDeepDive
-                     ? ChipType::kRecentTab
-                     : parsed_data->chip_type;
-    chip->title = base::UTF16ToUTF8(suggestion.match_contents());
-    chip->subtitle = base::UTF16ToUTF8(suggestion.annotation());
+    chip->suggest_template_info = std::move(parsed_data->suggest_template_info);
+
     chip->suggestion = base::UTF16ToUTF8(suggestion.suggestion());
     if (parsed_data->group_id ==
         omnibox::GROUP_AI_MODE_CONTEXTUAL_SEARCH_ACTION) {
@@ -545,7 +599,6 @@ void ActionChipsGeneratorImpl::GenerateActionChipsFromRemoteResponse(
         chip->tab = tab->Clone();
       }
     }
-    chip->suggest_template_info = std::move(parsed_data->suggest_template_info);
     chips.push_back(std::move(chip));
   }
   std::move(callback).Run(std::move(chips));

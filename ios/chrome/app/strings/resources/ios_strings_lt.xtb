@@ -1653,7 +1653,6 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="6964300328304469089">Šiuo metu pasirinkta: <ph name="NAME" />, <ph name="EMAIL" />. Pasirinkite paskyrą.</translation>
 <translation id="6964760285928603117">Pašalinti iš grupės</translation>
 <translation id="6965382102122355670">Gerai</translation>
-<translation id="6967355534157677591">Sukurti vaizdą („Pro“)</translation>
 <translation id="6973630695168034713">Aplankai</translation>
 <translation id="6979158407327259162">„Google“ diskas</translation>
 <translation id="6979737339423435258">Visas laikotarpis</translation>
@@ -1788,6 +1787,7 @@ Be to, reikia įgalinti „Handoff“ nustatymų skiltyje „Bendrieji“, o įr
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Norėdami užrakinti inkognito skirtukus, nustatykite „Touch ID“, „Face ID“ arba slaptažodį.</translation>
 <translation id="750886945254958667">Išsaugokite šią grupę, kad galėtumėte vėliau pridėti skirtukų, arba išeikite, jei nebenorite jos pasiekti</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Pridėkite ne daugiau kaip vieną skirtuką}one{Pridėkite daugiausia {COUNT} skirtuką}few{Pridėkite daugiausia {COUNT} skirtukus}many{Pridėkite daugiausia {COUNT} skirtuko}other{Pridėkite daugiausia {COUNT} skirtukų}}</translation>
 <translation id="7512909159512473473">Įvesti slaptafrazę…</translation>
 <translation id="7514365320538308">Atsisiųsti</translation>
 <translation id="7514530647142300459">Toliau naudokite slaptažodžius „Google“ paskyroje <ph name="EMAIL" /></translation>

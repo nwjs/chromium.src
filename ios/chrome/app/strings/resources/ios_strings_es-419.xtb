@@ -1653,7 +1653,6 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="6964300328304469089">Selección actual: <ph name="NAME" />, <ph name="EMAIL" />. Elige una cuenta.</translation>
 <translation id="6964760285928603117">Quitar del grupo</translation>
 <translation id="6965382102122355670">Aceptar</translation>
-<translation id="6967355534157677591">Crear con el motor Pro de imágenes</translation>
 <translation id="6973630695168034713">Carpetas</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">Todos</translation>
@@ -1788,6 +1787,7 @@ Handoff también debe estar habilitado en la sección General de la configuraci�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Para bloquear tus pestañas de incógnito, configura Touch ID, Face ID o una contraseña.</translation>
 <translation id="750886945254958667">Conserva este grupo para agregar pestañas más tarde o abandónalo si ya no quieres acceder a él</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Agrega hasta 1 pestaña}other{Agrega hasta {COUNT} pestañas}}</translation>
 <translation id="7512909159512473473">Ingresar la frase de contraseña…</translation>
 <translation id="7514365320538308">Descargar</translation>
 <translation id="7514530647142300459">Sigue usando las contraseñas en tu Cuenta de Google <ph name="EMAIL" /></translation>

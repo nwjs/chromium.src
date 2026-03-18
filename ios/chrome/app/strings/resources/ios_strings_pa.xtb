@@ -1653,7 +1653,6 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="6964300328304469089">ਫ਼ਿਲਹਾਲ <ph name="NAME" />, <ph name="EMAIL" /> ਨੂੰ ਚੁਣਿਆ ਗਿਆ ਹੈ। ਕੋਈ ਖਾਤਾ ਚੁਣੋ।</translation>
 <translation id="6964760285928603117">ਗਰੁੱਪ ਵਿੱਚੋਂ ਹਟਾਓ</translation>
 <translation id="6965382102122355670">ਠੀਕ</translation>
-<translation id="6967355534157677591">Pro ਮਾਡਲ ਨਾਲ ਚਿੱਤਰ ਬਣਾਓ</translation>
 <translation id="6973630695168034713">ਫੋਲਡਰ</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">ਸਾਰੇ ਸਮੇਂ</translation>
@@ -1788,6 +1787,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">ਆਪਣੀਆਂ ਇਨਕੋਗਨਿਟੋ ਟੈਬਾਂ ਨੂੰ ਲਾਕ ਕਰਨ ਲਈ, ਸਪਰਸ਼ ਆਈਡੀ, ਚਿਹਰਾ ਆਈਡੀ ਜਾਂ ਪਾਸਕੋਡ ਦਾ ਸੈੱਟਅੱਪ ਕਰੋ।</translation>
 <translation id="750886945254958667">ਬਾਅਦ ਵਿੱਚ ਟੈਬਾਂ ਸ਼ਾਮਲ ਕਰਨ ਲਈ, ਇਸ ਗਰੁੱਪ ਨੂੰ ਬਣਾਈ ਰੱਖੋ ਜਾਂ ਜੇ ਤੁਸੀਂ ਹੁਣ ਇਸ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ ਕਰਨਾ ਚਾਹੁੰਦੇ, ਤਾਂ ਇਸ ਨੂੰ ਛੱਡੋ</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{ਵੱਧੋ-ਵੱਧ 1 ਟੈਬ ਸ਼ਾਮਲ ਕਰੋ}one{ਵੱਧੋ-ਵੱਧ {COUNT} ਟੈਬ ਸ਼ਾਮਲ ਕਰੋ}other{ਵੱਧੋ-ਵੱਧ {COUNT} ਟੈਬਾਂ ਸ਼ਾਮਲ ਕਰੋ}}</translation>
 <translation id="7512909159512473473">ਪਾਸਫਰੇਜ਼ ਦਾਖਲ ਕਰੋ…</translation>
 <translation id="7514365320538308">ਡਾਊਨਲੋਡ ਕਰੋ</translation>
 <translation id="7514530647142300459">ਆਪਣੇ Google ਖਾਤੇ, <ph name="EMAIL" /> ਵਿੱਚ ਪਾਸਵਰਡਾਂ ਨੂੰ ਵਰਤਣਾ ਜਾਰੀ ਰੱਖੋ</translation>

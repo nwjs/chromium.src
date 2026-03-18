@@ -59,6 +59,13 @@ class InputStateModel {
   // Called when an input of type `InputType` is added or deleted.
   void OnContextChanged();
 
+  // Sets the tools that should be forced to be disabled.
+  void SetPermanentlyDisabledTools(const std::vector<ToolMode>& tools);
+
+  // Sets the input types that should be forced to be disabled.
+  void SetPermanentlyDisabledInputTypes(
+      const std::vector<InputType>& input_types);
+
   // Gets additional query params for the current state.
   std::map<std::string, std::string> GetAdditionalQueryParams();
 
@@ -94,12 +101,19 @@ class InputStateModel {
 
   InputState state_;
   omnibox::RuleSet rule_set_;
-  base::raw_ref<contextual_search::ContextualSearchSessionHandle>
+  base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
       session_handle_;
   base::RepeatingCallbackList<void(const InputState&)> subscribers_;
 
   raw_ptr<const PrefService> pref_service_ = nullptr;
   const bool is_off_the_record_;
+
+  // Stores tools that are permanently disabled by an external trigger and must
+  // persist through state updates. Persists after Initialize() is called.
+  std::vector<ToolMode> permanently_disabled_tools_;
+  // Stores input_types that are permanently disabled by an external trigger and
+  // must persist through state updates. Persists after Initialize() is called.
+  std::vector<InputType> permanently_disabled_input_types_;
 };
 
 }  // namespace contextual_search

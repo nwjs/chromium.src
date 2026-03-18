@@ -292,6 +292,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddBoolean("multiLineEnabled",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
                          ntp_realbox::kMultiLineEnabled.Get());
+  source->AddBoolean(
+      "caretAnimationEnabled",
+      base::FeatureList::IsEnabled(ntp_features::kNtpAnimatedCaret));
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"doneButton", IDS_DONE},
@@ -802,7 +805,9 @@ constexpr std::string_view kDisabledBrowserPromo = "disabled";
 int NewTabPageUI::instance_count_ = 0;
 
 NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
-    : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true),
+    : ui::MojoWebUIController(web_ui,
+                              /*enable_chrome_send=*/true,
+                              /*enable_chrome_histograms=*/true),
       content::WebContentsObserver(web_ui->GetWebContents()),
       page_factory_receiver_(this),
       customize_buttons_factory_receiver_(this),

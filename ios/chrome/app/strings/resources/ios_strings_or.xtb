@@ -1653,7 +1653,6 @@ Handoff, ନିଶ୍ଚିତ ରୂପେ ସେଟିଂସ୍‍ର ସା�
 <translation id="6964300328304469089"><ph name="NAME" />, <ph name="EMAIL" />କୁ ବର୍ତ୍ତମାନ ଚୟନ କରାଯାଇଛି। ଏକ ଆକାଉଣ୍ଟ ବାଛନ୍ତୁ।</translation>
 <translation id="6964760285928603117">ଗୋଷ୍ଠୀରୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="6965382102122355670">ଓକେ ବଟନ୍</translation>
-<translation id="6967355534157677591">Pro ଇମେଜ ତିଆରି କରନ୍ତୁ</translation>
 <translation id="6973630695168034713">ଫୋଲ୍ଡର୍‌ଗୁଡ଼ିକ</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">ସବୁ ସମୟରେ</translation>
@@ -1788,6 +1787,7 @@ Handoff, ନିଶ୍ଚିତ ରୂପେ ସେଟିଂସ୍‍ର ସା�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />)।</translation>
 <translation id="7508728395076009983">ଆପଣଙ୍କ ଇନକଗ୍ନିଟୋ ଟାବଗୁଡ଼ିକୁ ଲକ୍ କରିବାକୁ, ଟଚ୍ ID, ଫେସ୍ ID କିମ୍ବା ଏକ ପାସକୋଡ୍ ସେଟ୍ ଅପ୍ କରନ୍ତୁ।</translation>
 <translation id="750886945254958667">ପରେ ଟାବଗୁଡ଼ିକ ଯୋଗ କରିବାକୁ ଏହି ଗ୍ରୁପକୁ ରଖନ୍ତୁ କିମ୍ୱା ଆପଣ ଯଦି ଆଉ ଏହାକୁ ଆକ୍ସେସ କରିବାକୁ ଚାହୁଁନାହାଁନ୍ତି, ତେବେ ଏଥିରୁ ବାହାରି ଯାଆନ୍ତୁ</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{1 ପର୍ଯ୍ୟନ୍ତ ଟାବ ଯୋଗ କରନ୍ତୁ}other{{COUNT} ପର୍ଯ୍ୟନ୍ତ ଟାବ ଯୋଗ କରନ୍ତୁ}}</translation>
 <translation id="7512909159512473473">ପାସଫ୍ରେଜ ଲେଖନ୍ତୁ…</translation>
 <translation id="7514365320538308">ଡାଉନ୍‌‌ଲୋଡ୍‌ କରନ୍ତୁ</translation>
 <translation id="7514530647142300459">ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟ <ph name="EMAIL" />ରେ ପାସୱାର୍ଡଗୁଡ଼ିକୁ ବ୍ୟବହାର କରିବା ଜାରି ରଖନ୍ତୁ</translation>

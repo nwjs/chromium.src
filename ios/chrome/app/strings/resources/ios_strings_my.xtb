@@ -1652,7 +1652,6 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="6964300328304469089"><ph name="NAME" />၊ <ph name="EMAIL" /> ကို လောလောဆယ် ရွေးထားသည်။ အကောင့်ရွေးပါ။</translation>
 <translation id="6964760285928603117">အဖွဲ့မှ ဖယ်ရှားပါ</translation>
 <translation id="6965382102122355670">OK</translation>
-<translation id="6967355534157677591">ပုံပြုလုပ်စနစ် Pro</translation>
 <translation id="6973630695168034713">ဖိုင်တွဲ</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">အားလုံး</translation>
@@ -1787,6 +1786,7 @@ Handoff ကို ဆက်တင်များ၏ ယေဘူယျအပိ�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />)။</translation>
 <translation id="7508728395076009983">သင့် ‘ရုပ်ဖျက်တဘ်များ' လော့ခ်လုပ်ရန် ‘တို့ထိ ID’၊ ’မျက်နှာ ID’ (သို့) ‘လျှို့ဝှက်ကုဒ်’ သတ်မှတ်ပါ။</translation>
 <translation id="750886945254958667">တဘ်များကို နောက်မှထည့်ရန် ဤအုပ်စုကို ဆက်ထားနိုင်သည်။ သို့မဟုတ် ၎င်းကို မသုံးလိုတော့ပါက ထွက်နိုင်သည်</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{တဘ် ၁ ခုအထိ ထည့်ပါ}other{တဘ် {COUNT} ခုအထိ ထည့်ပါ}}</translation>
 <translation id="7512909159512473473">စကားဝှက်စာ ထည့်ရန်…</translation>
 <translation id="7514365320538308">ဒေါင်းလုဒ်</translation>
 <translation id="7514530647142300459">သင့် Google Account <ph name="EMAIL" /> တွင် စကားဝှက်များ ဆက်သုံးပါ</translation>

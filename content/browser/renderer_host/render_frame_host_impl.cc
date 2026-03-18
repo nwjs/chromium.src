@@ -282,6 +282,7 @@
 #include "third_party/blink/public/common/loader/resource_type_util.h"
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/common/navigation/navigation_params_mojom_traits.h"
+#include "third_party/blink/public/common/page_state/page_state_serialization.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy.h"
 #include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
@@ -10108,8 +10109,8 @@ void RenderFrameHostImpl::CreateNewWindow(
 
   DCHECK(IsRenderFrameLive());
 
-  // The non-owning pointer |new_frame_tree| is valid in this stack frame since
-  // nothing can delete it until this thread is freed up again.
+  // The non-owning pointer |new_frame_tree| is valid in this stack frame at
+  // least until the call to ShowCreatedWindow() below.
   FrameTree* new_frame_tree =
       delegate_->CreateNewWindow(this, *params, is_new_browsing_instance,
                                  was_consumed, cloned_namespace.get());
@@ -10168,11 +10169,11 @@ void RenderFrameHostImpl::CreateNewWindow(
   bool wait_for_debugger =
       devtools_instrumentation::ShouldWaitForDebuggerInWindowOpen();
 
-  // NOTE: if the call to ShowCreatedWindow() below returns nullptr, then
+  // NOTE: after the call to ShowCreatedWindow() below it's possible that
   // new_frame_tree, new_main_rfh, and new_main_rwh will all have been destroyed
-  // and point to freed memory! To preserve legacy behavior, we still need to
-  // send a fully-populated reply along with kSuccess, so we construct the reply
-  // here prior to ShowCreatedWindow().
+  // and point to freed memory! We still need to send a fully-populated reply
+  // along with kSuccess, so we construct the reply here prior to
+  // ShowCreatedWindow().
 
   blink::VisualProperties visual_properties;
   // If we can't get an accurate set of VisualProperties after ShowCreatedWindow
@@ -10192,24 +10193,35 @@ void RenderFrameHostImpl::CreateNewWindow(
 
   new_main_rfh->render_view_host()->RenderViewCreated(new_main_rfh);
 
-  // ShowCreatedWindow will return nullptr if the new WebContents has been
-  // destroyed, as described above (see NOTE).
+  int routing_id = new_rwh->GetRoutingID();
+
+  // These can point to freed memory after the call to ShowCreatedWindow(), even
+  // if that method returns non-null. Null them out here to prevent inadvertent
+  // UAF in the future.
+  new_frame_tree = nullptr;
+  new_main_rfh = nullptr;
+  new_rwh = nullptr;
+
   WebContents* shown_contents = delegate()->ShowCreatedWindow(
-      this, new_rwh->GetRoutingID(), params->disposition, *params->features,
+      this, routing_id, params->disposition, *params->features,
       params->consumes_user_activation, base::UTF16ToUTF8(params->nw_window_manifest));
 
-  if (!shown_contents) {
-    // These point to freed memory, so null them out to prevent inadvertent
-    // UAF in the future (see NOTE above).
-    new_frame_tree = nullptr;
-    new_main_rfh = nullptr;
-    new_rwh = nullptr;
-  } else if (new_main_rfh->GetView()) {
-    // Cannot populate window geometry until after ShowCreatedWindow().
-    reply->widget_screen_rect.emplace(new_main_rfh->GetView()->GetViewBounds());
-    reply->window_screen_rect.emplace(
-        new_main_rfh->GetView()->GetBoundsInRootWindow());
-    reply->visual_properties = new_rwh->GetVisualProperties();
+  // Cannot populate window geometry until after ShowCreatedWindow().
+  if (shown_contents) {
+    if (auto* shown_rfh = shown_contents->GetPrimaryMainFrame()) {
+      if (auto* shown_rwh = static_cast<RenderFrameHostImpl*>(shown_rfh)
+                                ->GetLocalRenderWidgetHost()) {
+        if (auto* shown_rwhv = shown_rwh->GetView()) {
+          reply->widget_screen_rect.emplace(shown_rwhv->GetViewBounds());
+          reply->window_screen_rect.emplace(
+              static_cast<RenderWidgetHostViewBase*>(shown_rwhv)
+                  ->GetBoundsInRootWindow());
+          reply->visual_properties =
+              static_cast<RenderWidgetHostImpl*>(shown_rwh)
+                  ->GetVisualProperties();
+        }
+      }
+    }
   }
 
   std::move(callback).Run(mojom::CreateNewWindowStatus::kSuccess,
@@ -13754,8 +13766,29 @@ RenderFrameHostImpl* RenderFrameHostImpl::GetOutermostMainFrame() {
 
 bool RenderFrameHostImpl::CanAccessFilesOfPageState(
     const blink::PageState& state) {
+  // Ensure that all of the files in the PageState were actually listed in the
+  // GetReferencedFiles list, using a set to prune duplicates.
+  // See https://crbug.com/487383169.
+  std::vector<base::FilePath> all_files;
+  if (!blink::GetAllFilesInPageState(state.ToEncodedData(), &all_files)) {
+    // All files in the PageState weren't recovered due to parsing failures.
+    // The renderer should be killed instead of proceeding with a PageState that
+    // might still contain files that could be used without being validated.
+    return false;
+  }
+  std::vector<base::FilePath> referenced_files = state.GetReferencedFiles();
+  std::set<base::FilePath> referenced_file_set(referenced_files.begin(),
+                                               referenced_files.end());
+  for (const base::FilePath& file : all_files) {
+    if (!referenced_file_set.contains(file)) {
+      // Found a file that was not in the list to be validated, so the renderer
+      // should be killed.
+      return false;
+    }
+  }
+
   return ChildProcessSecurityPolicyImpl::GetInstance()->CanReadAllFiles(
-      GetProcess()->GetID(), state.GetReferencedFiles());
+      GetProcess()->GetID(), referenced_files);
 }
 
 void RenderFrameHostImpl::GrantFileAccessFromPageState(

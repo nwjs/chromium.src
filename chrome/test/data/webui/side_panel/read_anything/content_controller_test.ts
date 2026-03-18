@@ -899,4 +899,181 @@ suite('ContentController', () => {
       assertTrue(receivedContentChange);
     });
   });
+
+  suite('updateAnchorsForReadability', () => {
+    let container: HTMLElement;
+    let anchor: HTMLAnchorElement;
+    const url = 'https://www.google.com/';
+    const axId = 100;
+
+    setup(() => {
+      container = document.createElement('div');
+      anchor = document.createElement('a');
+      anchor.href = url;
+      container.appendChild(anchor);
+
+      chrome.readingMode.isReadabilityEnabled = true;
+      chrome.readingMode.isReadabilityWithLinksEnabled = true;
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      chrome.readingMode.axTreeAnchors = {};
+      contentController.setState(ContentType.HAS_CONTENT);
+    });
+
+    test('associates dom node when 1:1 match exists', () => {
+      chrome.readingMode.axTreeAnchors = {[url]: [{axId: axId, name: 'text'}]};
+      contentController.updateAnchorsForReadability(container);
+
+      assertEquals(anchor, nodeStore.getDomNode(axId));
+    });
+
+    test('resolves ambiguity using HTML ID match (highest priority)', () => {
+      anchor.id = 'correct-id';
+      chrome.readingMode.axTreeAnchors = {
+        [url]: [
+          {axId: 200, htmlId: 'wrong-id', name: 'same text'},
+          {axId: axId, htmlId: 'correct-id', name: 'same text'},
+        ],
+      };
+      contentController.updateAnchorsForReadability(container);
+
+      assertEquals(anchor, nodeStore.getDomNode(axId));
+      assertFalse(!!nodeStore.getDomNode(200));
+    });
+
+    test('resolves ambiguity using text content match', () => {
+      anchor.textContent = 'Click Here';
+      chrome.readingMode.axTreeAnchors = {
+        [url]:
+            [{axId: 200, name: 'Read More'}, {axId: axId, name: 'Click Here'}],
+      };
+      contentController.updateAnchorsForReadability(container);
+
+      assertEquals(anchor, nodeStore.getDomNode(axId));
+    });
+
+    test('resolves ambiguity using surrounding text context', () => {
+      const textNode = document.createTextNode('Previous Text');
+      container.insertBefore(textNode, anchor);
+      anchor.textContent = 'Link';
+
+      chrome.readingMode.axTreeAnchors = {
+        [url]: [
+          {axId: 200, name: 'Link', textBefore: 'Wrong Context'},
+          {axId: axId, name: 'Link', textBefore: 'Previous Text'},
+        ],
+      };
+      contentController.updateAnchorsForReadability(container);
+
+      assertEquals(anchor, nodeStore.getDomNode(axId));
+    });
+
+    test('does not associate node when strictly ambiguous (tie score)', () => {
+      anchor.textContent = 'Ambiguous';
+      chrome.readingMode.axTreeAnchors = {
+        [url]:
+            [{axId: axId, name: 'Ambiguous'}, {axId: 101, name: 'Ambiguous'}],
+      };
+      contentController.updateAnchorsForReadability(container);
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+      assertFalse(!!nodeStore.getDomNode(101));
+    });
+
+    test('matches multiple anchors correctly by consuming candidates', () => {
+      container.replaceChildren();
+      const anchor1 = document.createElement('a');
+      anchor1.href = url;
+      anchor1.textContent = 'First Link';
+      container.appendChild(anchor1);
+
+      const anchor2 = document.createElement('a');
+      anchor2.href = url;
+      anchor2.textContent = 'Second Link';
+      container.appendChild(anchor2);
+
+      chrome.readingMode.axTreeAnchors = {
+        [url]:
+            [{axId: 100, name: 'First Link'}, {axId: 200, name: 'Second Link'}],
+      };
+      contentController.updateAnchorsForReadability(container);
+
+      assertEquals(anchor1, nodeStore.getDomNode(100));
+      assertEquals(anchor2, nodeStore.getDomNode(200));
+    });
+
+    test('does not associate node when no match exists in map', () => {
+      chrome.readingMode
+          .axTreeAnchors = {['https://other.com/']: [{axId: axId}]};
+      contentController.updateAnchorsForReadability(container);
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+    });
+
+    test('converts anchor to span when no matching URL is found', () => {
+      chrome.readingMode.axTreeAnchors = {};
+      anchor.textContent = 'Text with no URL';
+      contentController.updateAnchorsForReadability(container);
+      const spans = container.querySelectorAll('span');
+      const anchors = container.querySelectorAll('a');
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+      assertTrue(!!spans[0]);
+      assertEquals(1, spans.length);
+      assertEquals(0, anchors.length);
+      assertEquals('Text with no URL', spans[0].textContent);
+    });
+
+    test('converts anchor to span when href is empty', () => {
+      anchor.removeAttribute('href');
+      contentController.updateAnchorsForReadability(container);
+      const anchors = container.querySelectorAll('a');
+      const spans = container.querySelectorAll('span');
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+      assertEquals(0, anchors.length);
+      assertEquals(1, spans.length);
+    });
+
+    test(
+        'converts anchor to span when URL is not present in axTreeAnchors',
+        () => {
+          chrome.readingMode.axTreeAnchors = {
+            'https://www.wasteheadquarters.com/': [{axId: 999, name: 'waste'}],
+          };
+          contentController.updateAnchorsForReadability(container);
+          const anchors = container.querySelectorAll('a');
+          const spans = container.querySelectorAll('span');
+
+          assertFalse(!!nodeStore.getDomNode(axId));
+          assertEquals(0, anchors.length);
+          assertEquals(1, spans.length);
+        });
+
+    test('does nothing if not in Readability mode', () => {
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeScreen2x;
+      chrome.readingMode.axTreeAnchors = {[url]: [{axId: axId}]};
+      contentController.updateAnchorsForReadability(container);
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+    });
+
+    test('does nothing if Readability is not enabled', () => {
+      chrome.readingMode.isReadabilityEnabled = false;
+      chrome.readingMode.axTreeAnchors = {[url]: [{axId: axId}]};
+      contentController.updateAnchorsForReadability(container);
+
+      assertFalse(!!nodeStore.getDomNode(axId));
+    });
+
+    test(
+        'does nothing if Readability is enabled but links are disabled', () => {
+          chrome.readingMode.isReadabilityWithLinksEnabled = false;
+          chrome.readingMode.axTreeAnchors = {[url]: [{axId: axId}]};
+          contentController.updateAnchorsForReadability(container);
+
+          assertFalse(!!nodeStore.getDomNode(axId));
+        });
+  });
 });

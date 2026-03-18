@@ -1653,7 +1653,6 @@ Također, Handoff mora biti omogućen u odjeljku Opće u Postavkama, a vaši ure
 <translation id="6964300328304469089">Trenutno je odabrano: <ph name="NAME" />, <ph name="EMAIL" />. Odabir računa.</translation>
 <translation id="6964760285928603117">Ukloni iz grupe</translation>
 <translation id="6965382102122355670">Uredu</translation>
-<translation id="6967355534157677591">Kreiraj slike uz Pro</translation>
 <translation id="6973630695168034713">Folderi</translation>
 <translation id="6979158407327259162">Google Disk</translation>
 <translation id="6979737339423435258">Sve vrijeme</translation>
@@ -1788,6 +1787,7 @@ Također, Handoff mora biti omogućen u odjeljku Opće u Postavkama, a vaši ure
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Da zaključate anonimne kartice, postavite Touch ID, Face ID ili šifru.</translation>
 <translation id="750886945254958667">Zadržite ovu grupu da kasnije dodate kartice ili je napustite ako joj više ne želite pristupati</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Dodajte do 1 kartice}one{Dodajte do {COUNT} kartice}few{Dodajte do {COUNT} kartice}other{Dodajte do {COUNT} kartica}}</translation>
 <translation id="7512909159512473473">Unos pristupnog izraza…</translation>
 <translation id="7514365320538308">Preuzmi</translation>
 <translation id="7514530647142300459">Nastavite koristiti lozinke na Google računu <ph name="EMAIL" /></translation>

@@ -1653,7 +1653,6 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="6964300328304469089">현재 <ph name="NAME" />님(<ph name="EMAIL" />)이 선택되었습니다. 계정을 선택하세요.</translation>
 <translation id="6964760285928603117">그룹에서 삭제</translation>
 <translation id="6965382102122355670">확인</translation>
-<translation id="6967355534157677591">이미지 만들기 Pro</translation>
 <translation id="6973630695168034713">폴더</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">전체 기간</translation>
@@ -1788,6 +1787,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="7506817096924591340"><ph name="FILENAME" />(<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">시크릿 탭을 잠그려면 Touch ID, Face ID 또는 비밀번호를 설정하세요.</translation>
 <translation id="750886945254958667">나중에 탭을 추가하려면 이 그룹을 유지하고, 더 이상 액세스할 필요가 없으면 그룹에서 나가세요.</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{최대 1개 탭 추가}other{최대 {COUNT}개 탭 추가}}</translation>
 <translation id="7512909159512473473">암호 입력…</translation>
 <translation id="7514365320538308">다운로드</translation>
 <translation id="7514530647142300459">Google 계정(<ph name="EMAIL" />)의 비밀번호를 계속 사용하세요.</translation>

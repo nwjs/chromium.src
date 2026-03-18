@@ -75,7 +75,10 @@ class MockPage : public mojom::Page {
   MOCK_METHOD(void, RestoreInput, (), (override));
   MOCK_METHOD(void, OnZeroStateChange, (bool is_zero_state), (override));
   MOCK_METHOD(void, OnAiPageStatusChanged, (bool is_ai_page), (override));
-  MOCK_METHOD(void, OnLensOverlayStateChanged, (bool is_showing), (override));
+  MOCK_METHOD(void,
+              OnLensOverlayStateChanged,
+              (bool is_showing, bool maybe_show_overlay_hint_text),
+              (override));
   MOCK_METHOD(void, ShowErrorPage, (), (override));
   MOCK_METHOD(void, HideErrorPage, (), (override));
   MOCK_METHOD(void, ShowOauthErrorDialog, (), (override));
@@ -138,6 +141,7 @@ class MockUiService : public ContextualTasksUiService {
               (const GURL&, BrowserWindowInterface*),
               (override));
   MOCK_METHOD(bool, IsAiUrl, (const GURL&), (override));
+  MOCK_METHOD(bool, IsPendingErrorPage, (const base::Uuid&), (override));
 };
 
 class TestContextualTasksUI : public ContextualTasksUI {
@@ -214,6 +218,33 @@ class ContextualTasksPageHandlerTest : public BrowserWithTestWindowTest {
   NiceMock<MockPage> page_;
   base::test::ScopedFeatureList feature_list_;
 };
+
+TEST_F(ContextualTasksPageHandlerTest, IsPendingErrorPage) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+
+  EXPECT_CALL(*mock_contextual_tasks_ui_service_, IsPendingErrorPage(task_id))
+      .WillOnce(Return(true));
+
+  base::RunLoop run_loop;
+  page_handler_->IsPendingErrorPage(
+      task_id, base::BindLambdaForTesting([&](bool is_pending_error_page) {
+        EXPECT_TRUE(is_pending_error_page);
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
+
+TEST_F(ContextualTasksPageHandlerTest, IsPendingErrorPage_TaskNotPending) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+
+  base::RunLoop run_loop;
+  page_handler_->IsPendingErrorPage(
+      task_id, base::BindLambdaForTesting([&](bool is_pending_error_page) {
+        EXPECT_FALSE(is_pending_error_page);
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+}
 
 TEST_F(ContextualTasksPageHandlerTest, GetThreadUrl) {
   GURL expected_url(kAiPageUrl);
@@ -629,6 +660,7 @@ TEST_F(ContextualTasksPageHandlerTest, GetCommonSearchParams) {
         /*is_dark_mode=*/false, /*is_side_panel=*/true,
         base::BindLambdaForTesting(
             [&](const base::flat_map<std::string, std::string>& params) {
+              EXPECT_EQ(params.at(lens::kLanguageCodeParameterKey), "en-US");
               EXPECT_EQ(params.at(lens::kDarkModeParameterKey),
                         lens::kDarkModeParameterLightValue);
               EXPECT_EQ(params.at(lens::kChromeSidePanelParameterKey), "2");
@@ -644,6 +676,7 @@ TEST_F(ContextualTasksPageHandlerTest, GetCommonSearchParams) {
         /*is_dark_mode=*/true, /*is_side_panel=*/false,
         base::BindLambdaForTesting(
             [&](const base::flat_map<std::string, std::string>& params) {
+              EXPECT_EQ(params.at(lens::kLanguageCodeParameterKey), "en-US");
               EXPECT_EQ(params.at(lens::kDarkModeParameterKey),
                         lens::kDarkModeParameterDarkValue);
               EXPECT_EQ(params.at(lens::kChromeSidePanelParameterKey), "");
@@ -663,6 +696,7 @@ TEST_F(ContextualTasksPageHandlerTest, GetCommonSearchParams) {
         /*is_dark_mode=*/false, /*is_side_panel=*/true,
         base::BindLambdaForTesting(
             [&](const base::flat_map<std::string, std::string>& params) {
+              EXPECT_EQ(params.at(lens::kLanguageCodeParameterKey), "US");
               EXPECT_EQ(params.at("gl"), "us");
               run_loop.Quit();
             }));
@@ -735,11 +769,13 @@ TEST_F(ContextualTasksPageHandlerTest, OnTaskUpdated) {
                                ContextualTasksService::TriggerSource::kLocal);
 }
 
-TEST_F(ContextualTasksPageHandlerTest, OnContextUpdated_TabsImagesAndFiles) {
+TEST_F(ContextualTasksPageHandlerTest,
+       OnContextUpdated_TabsImagesAndFiles_WithFiltering) {
   base::Uuid task_id = base::Uuid::GenerateRandomV4();
   contextual_tasks_ui_->SetTaskId(task_id);
 
   ContextualTask task(task_id);
+  // Valid items
   UrlResource tab_resource(GURL(kQueryUrl), ResourceType::kWebpage);
   tab_resource.title = "Example Tab";
   tab_resource.tab_id = SessionID::NewUnique();
@@ -753,6 +789,19 @@ TEST_F(ContextualTasksPageHandlerTest, OnContextUpdated_TabsImagesAndFiles) {
   pdf_resource.title = "Example PDF";
   task.AddUrlResource(pdf_resource);
 
+  // Invalid items to be filtered.
+  UrlResource empty_pdf_url_resource(GURL(), ResourceType::kPdf);
+  empty_pdf_url_resource.title = "Valid PDF with empty URL";
+  task.AddUrlResource(empty_pdf_url_resource);
+
+  UrlResource empty_url_resource(GURL(""), ResourceType::kWebpage);
+  empty_url_resource.title = "Tab with empty URL";
+  task.AddUrlResource(empty_url_resource);
+
+  UrlResource empty_title_resource(GURL(kExampleUrl), ResourceType::kWebpage);
+  empty_title_resource.title = "";
+  task.AddUrlResource(empty_title_resource);
+
   EXPECT_CALL(*mock_contextual_tasks_service_,
               GetContextForTask(task_id, _, _, _))
       .WillOnce(
@@ -761,13 +810,16 @@ TEST_F(ContextualTasksPageHandlerTest, OnContextUpdated_TabsImagesAndFiles) {
               base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
                   callback) {
             std::move(callback).Run(
+
                 std::make_unique<ContextualTaskContext>(task));
           });
 
   base::RunLoop run_loop;
   EXPECT_CALL(page_, OnContextUpdated(_))
       .WillOnce([&](std::vector<mojom::ContextInfoPtr> context) {
-        EXPECT_EQ(context.size(), 3u);
+        // Only the first 3 valid items should be present.
+        ASSERT_EQ(context.size(), 4u);
+
         EXPECT_TRUE(context[0]->is_tab());
         EXPECT_EQ(context[0]->get_tab()->title, tab_resource.title);
         EXPECT_EQ(context[0]->get_tab()->url, GURL(kQueryUrl));
@@ -780,6 +832,10 @@ TEST_F(ContextualTasksPageHandlerTest, OnContextUpdated_TabsImagesAndFiles) {
         EXPECT_TRUE(context[2]->is_file());
         EXPECT_EQ(context[2]->get_file()->title, pdf_resource.title);
         EXPECT_EQ(context[2]->get_file()->url, GURL(kExamplePdfUrl));
+
+        EXPECT_TRUE(context[3]->is_file());
+        EXPECT_EQ(context[3]->get_file()->title, empty_pdf_url_resource.title);
+        EXPECT_EQ(context[3]->get_file()->url, GURL());
 
         run_loop.Quit();
       });

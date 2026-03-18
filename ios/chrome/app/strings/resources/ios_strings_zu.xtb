@@ -1653,7 +1653,6 @@ I-Handoff futhi kufanele inikwe amandla esigabeni sokuvamile zezilungiselelo, fu
 <translation id="6964300328304469089"><ph name="NAME" />, <ph name="EMAIL" /> kukhethiwe njengamanje. Khetha i-akhawunti.</translation>
 <translation id="6964760285928603117">Susa kusukela kuqembu</translation>
 <translation id="6965382102122355670">KULUNGILE</translation>
-<translation id="6967355534157677591">Sungula isithombe sePro</translation>
 <translation id="6973630695168034713">Amafolda</translation>
 <translation id="6979158407327259162">I-Google Drayivu</translation>
 <translation id="6979737339423435258">Sonke isikhathi</translation>
@@ -1788,6 +1787,7 @@ I-Handoff futhi kufanele inikwe amandla esigabeni sokuvamile zezilungiselelo, fu
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Ukuze ukhiye amathebhu akho e-Incognito, setha i-Touch ID, Face ID, noma Ikhodi yokudlula.</translation>
 <translation id="750886945254958667">Gcina leli qembu ukuze wengeze amathebhu kamuva, noma ulishiye uma ungasafuni ukufinyelela kulo</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Faka ithebhu efika kwe-1}one{Faka amathebhu afika kwangu-{COUNT}}other{Faka amathebhu afika kwangu-{COUNT}}}</translation>
 <translation id="7512909159512473473">Faka umushwana wokungena…</translation>
 <translation id="7514365320538308">Landa</translation>
 <translation id="7514530647142300459">Qhubeka usebenzisa amaphasiwedi kuGoogle Account yakho ethi <ph name="EMAIL" /></translation>

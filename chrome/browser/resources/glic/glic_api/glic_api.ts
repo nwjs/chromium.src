@@ -2041,6 +2041,8 @@ export declare interface ZeroStateSuggestionsV2 {
    * the current tab context.
    */
   isPending?: boolean;
+  /** The host's invocation source. */
+  invocationSource?: InvocationSource;
 }
 
 /**
@@ -2645,6 +2647,10 @@ export enum InvocationSource {
   AUTO_OPENED_BY_CONTEXTUAL_CUE = 16,
   // User clicked the summarize button in the PDF viewer.
   PDF_SUMMARIZE_BUTTON = 17,
+  // From a navigation capture.
+  NAVIGATION_CAPTURE = 18,
+  // Automatically opened for a PDF.
+  AUTO_OPENED_FOR_PDF = 19,
 }
 
 ///////////////////////////////////////////////
@@ -2725,6 +2731,8 @@ export enum HostCapability {
   TRUST_FIRST_ONBOARDING_ARM2 = 5,
   // Glic host supports sharing additional image context.
   SHARE_ADDITIONAL_IMAGE_CONTEXT = 6,
+  // Enables the PDF Zero State Web UI.
+  PDF_ZERO_STATE = 7,
 }
 
 ///////////////////////////////////////////////

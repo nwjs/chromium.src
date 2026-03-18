@@ -1364,6 +1364,9 @@ inline constexpr char kGlicActorCursorDescription[] =
 inline constexpr char kGlicCaptureRegionDescription[] =
     "Enables Glic to capture a region of the screen.";
 inline constexpr char kGlicCaptureRegionName[] = "Glic Capture Region";
+inline constexpr char kGlicChromeStatusIconName[] = "Glic Chrome Status Icon";
+inline constexpr char kGlicChromeStatusIconDescription[] =
+    "Use the Chrome logo as glic OS status bar icon on Mac.";
 inline constexpr char kGlicDetachedName[] = "Glic detached-only mode";
 inline constexpr char kGlicDetachedDescription[] =
     "Detach only mode forces the Glic UI to always be floating";
@@ -3253,6 +3256,11 @@ inline constexpr char kWebUIOmniboxPopupDebugName[] =
     "WebUI Omnibox Popup Debug Mode";
 inline constexpr char kWebUIOmniboxPopupDebugDescription[] =
     "Enables the WebUI for omnibox suggestions without modifying the popup UI.";
+
+inline constexpr char kWebUIOmniboxPopupSelectionControlName[] =
+    "WebUI Omnibox Popup Selection Control";
+inline constexpr char kWebUIOmniboxPopupSelectionControlDescription[] =
+    "If enabled, the WebUI omnibox popup will control its own selection state.";
 
 inline constexpr char kOmniboxDynamicMaxAutocompleteName[] =
     "Omnibox Dynamic Max Autocomplete";
@@ -7813,6 +7821,12 @@ inline constexpr char kCrOSSystemVoiceIsolationOptionName[] =
     "Enable the options of setting system voice isolation per stream";
 inline constexpr char kCrOSSystemVoiceIsolationOptionDescription[] =
     "Enable the options of setting system voice isolation per stream.";
+
+inline constexpr char kAudioFlexibleLoopbackForSystemLoopbackName[] =
+    "Use FLEXIBLE_LOOPBACK instead of POST_MIX_LOOPBACK";
+inline constexpr char kAudioFlexibleLoopbackForSystemLoopbackDescription[] =
+    "Request a FLEXIBLE_LOOPBACK instead of POST_MIX_LOOPBACK for system "
+    "loopback";
 
 inline constexpr char kShowSpatialAudioToggleName[] =
     "Enable a setting toggle for spatial audio";

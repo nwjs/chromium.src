@@ -603,6 +603,19 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
   model_.PrepareForAXTreeUpdates(tree_id);
+  if (IsReadabilityEnabled() && IsReadabilityWithLinksEnabled() &&
+      model_.should_extract_anchors_from_tree_for_readability()) {
+    model_.ApplyAccessibilityUpdates(
+        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
+        const_cast<std::vector<ui::AXEvent>&>(events));
+    // If the tree is not ready, ProcessAXTreeAnchors will do an early return
+    // and wait for the next update until it is able to process the tree.
+    bool didProcessAnchors = model_.ProcessAXTreeAnchors();
+    if (didProcessAnchors) {
+      ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
+    }
+    return;
+  }
 
   // Remove the const-ness of the data here so that subsequent methods can move
   // the data.
@@ -708,8 +721,17 @@ void ReadAnythingAppController::SetDistillationState(
   if (model_.distillation_state() == state) {
     return;
   }
+
   page_handler_->OnDistillationStateChanged(state);
   model_.set_distillation_state(state);
+  // Ensure that we always clear the AXTree anchors when a new
+  // distillation occurs.
+  if (IsReadabilityWithLinksEnabled() &&
+      state == read_anything::mojom::ReadAnythingDistillationState::
+                   kDistillationInProgress) {
+    model_.set_should_extract_anchors_from_tree_for_readability(false);
+    model_.ResetAXTreeAnchors();
+  }
 }
 
 void ReadAnythingAppController::OnActiveAXTreeIDChanged(
@@ -1312,6 +1334,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                    &ReadAnythingAppController::GetDomDistillerTitle)
       .SetProperty("htmlContent",
                    &ReadAnythingAppController::GetDomDistillerContentHtml)
+      .SetProperty("axTreeAnchors",
+                   &ReadAnythingAppController::GetDomDistillerAnchors)
       .SetProperty("distillationTypeScreen2x",
                    &ReadAnythingAppController::DistillationTypeScreen2x)
       .SetProperty("distillationTypeReadability",
@@ -1379,6 +1403,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("allFonts", &ReadAnythingAppController::GetAllFonts)
       .SetMethod("setContentForTesting",
                  &ReadAnythingAppController::SetContentForTesting)
+      .SetMethod("setAnchorsForTesting",
+                 &ReadAnythingAppController::SetAnchorsForTesting)
       .SetMethod("setLanguageForTesting",
                  &ReadAnythingAppController::SetLanguageForTesting)
       .SetMethod("initAxPositionWithNode",
@@ -2510,6 +2536,14 @@ void ReadAnythingAppController::SetContentForTesting(
                              {selection_event});
 }
 
+void ReadAnythingAppController::SetAnchorsForTesting(
+    v8::Local<v8::Value> v8_snapshot_lite,
+    std::vector<ui::AXNodeID> content_node_ids) {
+  SetContentForTesting(v8_snapshot_lite, content_node_ids);
+  model_.set_should_extract_anchors_from_tree_for_readability(true);
+  model_.ProcessAXTreeAnchors();
+}
+
 void ReadAnythingAppController::ShouldShowUI() {
   page_handler_factory_->ShouldShowUI();
 }
@@ -2756,6 +2790,57 @@ std::string ReadAnythingAppController::GetDomDistillerContentHtml() const {
   return dom_distiller_content_html_;
 }
 
+v8::Local<v8::Value> ReadAnythingAppController::GetDomDistillerAnchors() const {
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  if (!IsReadabilityEnabled() || !IsReadabilityWithLinksEnabled() || !isolate) {
+    return v8::Undefined(isolate);
+  }
+
+  v8::EscapableHandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  if (context.IsEmpty()) {
+    return v8::Undefined(isolate);
+  }
+
+  v8::Local<v8::Object> result_obj = v8::Object::New(isolate);
+  auto anchors = model_.ax_tree_anchors();
+
+  for (const auto& [url, link_data_list] : anchors) {
+    v8::Local<v8::Array> v8_array =
+        v8::Array::New(isolate, static_cast<int>(link_data_list.size()));
+    for (size_t i = 0; i < link_data_list.size(); ++i) {
+      const auto& data = link_data_list[i];
+      v8::Local<v8::Object> link_obj = v8::Object::New(isolate);
+      gin::Dictionary link_dict(isolate, link_obj);
+      link_dict.Set("axId", data.id);
+
+      if (!data.html_id.empty()) {
+        link_dict.Set("htmlId", data.html_id);
+      }
+      if (!data.target.empty()) {
+        link_dict.Set("target", data.target);
+      }
+      if (!data.title.empty()) {
+        link_dict.Set("title", data.title);
+      }
+      if (!data.name.empty()) {
+        link_dict.Set("text", data.name);
+      }
+      if (!data.text_before.empty()) {
+        link_dict.Set("textBefore", data.text_before);
+      }
+      if (!data.text_after.empty()) {
+        link_dict.Set("textAfter", data.text_after);
+      }
+
+      v8_array->Set(context, static_cast<uint32_t>(i), link_obj).Check();
+    }
+    result_obj->Set(context, gin::StringToV8(isolate, url), v8_array).Check();
+  }
+
+  return handle_scope.Escape(result_obj);
+}
+
 void ReadAnythingAppController::UpdateContent(const std::string& title,
                                               const std::string& content) {
   if (!features::IsReadAnythingWithReadabilityEnabled()) {
@@ -2794,6 +2879,14 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
   model_.set_current_content_distillation_method(
       ReadAnythingAppModel::DistillationMethod::kReadability);
   ExecuteJavaScript("chrome.readingMode.updateContent();");
+
+  if (IsReadabilityWithLinksEnabled()) {
+    model_.set_should_extract_anchors_from_tree_for_readability(true);
+    bool didProcessAnchors = model_.ProcessAXTreeAnchors();
+    if (didProcessAnchors) {
+      ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
+    }
+  }
 }
 
 void ReadAnythingAppController::OnReadabilityDistillationStateChanged(

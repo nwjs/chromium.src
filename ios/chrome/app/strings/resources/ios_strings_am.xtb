@@ -1653,7 +1653,6 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="6964300328304469089"><ph name="NAME" />፣ <ph name="EMAIL" /> አሁን ተመርጧል። መለያ ይምረጡ።</translation>
 <translation id="6964760285928603117">ከቡድን አስወግድ</translation>
 <translation id="6965382102122355670">እሺ</translation>
-<translation id="6967355534157677591">ምስል Pro ፍጠር</translation>
 <translation id="6973630695168034713">አቃፊዎች</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">የምንጊዜም</translation>
@@ -1788,6 +1787,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />)።</translation>
 <translation id="7508728395076009983">ማንነት የማያሳውቁ ትሮችዎን ለመቆለፍ። የንኪ መታወቂያ፣ የፊት መታወቂያ፣ ወይም የይለፍ ኮድ ያዘጋጁ።</translation>
 <translation id="750886945254958667">በኋላ ላይ ትሮችን ለማከል ይህን ቡድን ያቆዩት ወይም ከእንግዲህ ሊደርሱት ካልፈለጉ ለቅቀው ይውጡ</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{እስከ 1 ትር ድረስ ያክሉ}one{እስከ {COUNT} ትር ድረስ ያከሉ}other{እስከ {COUNT} ትሮች ድረስ ያክሉ}}</translation>
 <translation id="7512909159512473473">የይለፍ ሐረግ አስገባ…</translation>
 <translation id="7514365320538308">አውርድ</translation>
 <translation id="7514530647142300459">በGoogle መለያዎ <ph name="EMAIL" /> ውስጥ የይለፍ ቃላትን መጠቀምዎን ይቀጥሉ</translation>

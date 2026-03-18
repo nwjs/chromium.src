@@ -14790,6 +14790,7 @@ from previous Chrome versions.
   <int value="130059719" label="ThreadedPreloadScanner:disabled"/>
   <int value="130939792" label="FilesJsModules:disabled"/>
   <int value="131042807" label="IsolatedWebAppManagedAllowlist:enabled"/>
+  <int value="131188289" label="GlicActorUiMagicCursor:enabled"/>
   <int value="131881947" label="D3DVsync:enabled"/>
   <int value="132560299"
       label="OmniboxUIExperimentHideSteadyStateUrlScheme:disabled"/>
@@ -16332,6 +16333,7 @@ from previous Chrome versions.
   <int value="665320858" label="WebViewHitTestInBlinkOnTouchStart:disabled"/>
   <int value="665409384"
       label="AutofillToolkitViewsCreditCardDialogsMac:enabled"/>
+  <int value="665421480" label="GlicChromeStatusIcon:enabled"/>
   <int value="665647051" label="DiscountConsentV2:enabled"/>
   <int value="666163273" label="WebMachineLearningNeuralNetwork:enabled"/>
   <int value="666428855" label="MediaRemotingWithoutFullscreen:enabled"/>
@@ -16750,6 +16752,7 @@ from previous Chrome versions.
   <int value="793816915" label="MessagesForAndroidPopupBlocked:disabled"/>
   <int value="794018820" label="LensOverlayStraightToSrp:disabled"/>
   <int value="794100639" label="CameraAppAutoQRDetection:enabled"/>
+  <int value="795030823" label="WebUIOmniboxPopupSelectionControl:enabled"/>
   <int value="797344274" label="OmniboxTriggerForPrerender2:disabled"/>
   <int value="797924041" label="DeferredShaping:enabled"/>
   <int value="798093827"
@@ -17457,6 +17460,7 @@ from previous Chrome versions.
   <int value="1053743655" label="NewOverviewAnimations:enabled"/>
   <int value="1054363360"
       label="PrivateNetworkAccessForNavigationsWarningOnly:enabled"/>
+  <int value="1054377531" label="WebUIOmniboxPopupSelectionControl:disabled"/>
   <int value="1054910800" label="enable-timezone-tracking-option"/>
   <int value="1055116004" label="AllowTouchpadHapticClickSettings:enabled"/>
   <int value="1055690028"
@@ -19271,6 +19275,7 @@ from previous Chrome versions.
   <int value="1664401033" label="ColorCorrectRendering:enabled"/>
   <int value="1664463407" label="FirstPartySets:enabled"/>
   <int value="1664710107" label="BorealisScaleClientByDPI:enabled"/>
+  <int value="1665076479" label="GlicChromeStatusIcon:disabled"/>
   <int value="1665349789" label="spurious-power-button-window"/>
   <int value="1665400247" label="OsSettingsDeepLinking:enabled"/>
   <int value="1665430464" label="force-control-face-ae"/>
@@ -20315,6 +20320,7 @@ from previous Chrome versions.
   <int value="2005344314" label="AutofillEnableServerIban:disabled"/>
   <int value="2005475213" label="CrostiniContainerless:enabled"/>
   <int value="2005614493" label="tab-management-experiment-type-dill"/>
+  <int value="2006364154" label="GlicActorUiMagicCursor:disabled"/>
   <int value="2006374447" label="EnableAIRewriterAPI:enabled"/>
   <int value="2006413281"
       label="ContextualSuggestionsAlternateCardLayout:enabled"/>

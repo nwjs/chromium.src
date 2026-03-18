@@ -12,6 +12,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_tasks/ai_mode_context_library_converter.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/feedback/public/feedback_source.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/global_features.h"
@@ -23,6 +24,7 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/application_locale_storage/application_locale_storage.h"
+#include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_tasks/public/context_decoration_params.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_task_context.h"
@@ -63,12 +65,23 @@ PopulateContextualResources(contextual_tasks::ContextualTaskContext* context) {
     return {};
   }
   std::vector<contextual_tasks::mojom::ContextInfoPtr> context_items;
-  for (const auto& attachment : context->GetUrlAttachments()) {
+  for (const auto& attachment : context->GetUniqueUrlAttachments()) {
+    const GURL url = attachment.GetURL();
+    const std::string title = base::UTF16ToUTF8(attachment.GetTitle());
+
+    // Skip if the title is empty. Empty URLs are right now allowed for PDF /
+    // images.
+    if (title.empty() ||
+        (!url.is_valid() && attachment.GetResourceType() ==
+                                contextual_tasks::ResourceType::kWebpage)) {
+      continue;
+    }
+
     switch (attachment.GetResourceType()) {
       case contextual_tasks::ResourceType::kWebpage: {
         auto tab_context = contextual_tasks::mojom::TabContext::New();
-        tab_context->title = base::UTF16ToUTF8(attachment.GetTitle());
-        tab_context->url = attachment.GetURL();
+        tab_context->title = title;
+        tab_context->url = url;
         tab_context->tab_id = attachment.GetTabSessionId().id();
         context_items.push_back(contextual_tasks::mojom::ContextInfo::NewTab(
             std::move(tab_context)));
@@ -76,16 +89,16 @@ PopulateContextualResources(contextual_tasks::ContextualTaskContext* context) {
       }
       case contextual_tasks::ResourceType::kPdf: {
         auto file_context = contextual_tasks::mojom::FileContext::New();
-        file_context->title = base::UTF16ToUTF8(attachment.GetTitle());
-        file_context->url = attachment.GetURL();
+        file_context->title = title;
+        file_context->url = url;
         context_items.push_back(contextual_tasks::mojom::ContextInfo::NewFile(
             std::move(file_context)));
         break;
       }
       case contextual_tasks::ResourceType::kImage: {
         auto image_context = contextual_tasks::mojom::ImageContext::New();
-        image_context->title = base::UTF16ToUTF8(attachment.GetTitle());
-        image_context->url = attachment.GetURL();
+        image_context->title = title;
+        image_context->url = url;
         context_items.push_back(contextual_tasks::mojom::ContextInfo::NewImage(
             std::move(image_context)));
         break;
@@ -212,6 +225,12 @@ void ContextualTasksPageHandler::IsAiPage(const GURL& url,
   std::move(callback).Run(ui_service_->IsAiUrl(url));
 }
 
+void ContextualTasksPageHandler::IsPendingErrorPage(
+    const base::Uuid& task_id,
+    IsPendingErrorPageCallback callback) {
+  std::move(callback).Run(ui_service_->IsPendingErrorPage(task_id));
+}
+
 void ContextualTasksPageHandler::CloseSidePanel() {
   web_ui_controller_->CloseSidePanel();
 }
@@ -267,15 +286,7 @@ void ContextualTasksPageHandler::OpenUrl(const GURL& url,
 }
 
 void ContextualTasksPageHandler::MoveTaskUiToNewTab() {
-  auto* browser = web_ui_controller_->GetBrowser();
-  const auto& task_id = web_ui_controller_->GetTaskId();
-  if (!task_id.has_value()) {
-    LOG(ERROR) << "Attempted to open in new tab with no valid task ID.";
-    return;
-  }
-
-  ui_service_->MoveTaskUiToNewTab(task_id.value(), browser,
-                                  web_ui_controller_->GetInnerFrameUrl());
+  web_ui_controller_->MoveTaskUiToNewTab();
 }
 
 void ContextualTasksPageHandler::OnTabClickedFromSourcesMenu(int32_t tab_id,
@@ -368,7 +379,7 @@ void ContextualTasksPageHandler::GetCommonSearchParams(
     country_code = "US";
   }
 
-  auto params = lens::GetCommonSearchParametersMap(std::nullopt, is_dark_mode,
+  auto params = lens::GetCommonSearchParametersMap(country_code, is_dark_mode,
                                                    is_side_panel);
   if (contextual_tasks::ShouldForceCountryCodeUS()) {
     params["gl"] = "us";
@@ -414,6 +425,16 @@ void ContextualTasksPageHandler::PostMessageToWebview(
   }
 
   web_ui_controller_->GetPageRemote()->PostMessageToWebview(serialized_message);
+}
+
+void ContextualTasksPageHandler::OnTaskAdded(
+    const contextual_tasks::ContextualTask& task,
+    contextual_tasks::ContextualTasksService::TriggerSource source) {
+  if (!web_ui_controller_->GetPageRemote()) {
+    return;
+  }
+
+  UpdateContextForTask(task.GetTaskId());
 }
 
 void ContextualTasksPageHandler::OnTaskUpdated(

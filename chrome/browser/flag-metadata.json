@@ -663,6 +663,11 @@
     "expiry_milestone": 150
   },
   {
+    "name": "audio-flexible-loopback-for-system-loopback",
+    "owners": ["aaronyu@google.com", "chromeos-audio@google.com" ],
+    "expiry_milestone": 200
+  },
+  {
     "name": "audio-selection-improvement",
     "owners": [ "zhangwenyu@google.com", "cros-device-enablement@google.com" ],
     "expiry_milestone": 148
@@ -1744,6 +1749,11 @@
     "name": "composebox-menu-title",
     "owners": [ "christianxu@chromium.org", "bling-search@google.com" ],
     "expiry_milestone": 149
+  },
+  {
+    "name": "composebox-server-side-state",
+    "owners": [ "radunitescu@google.com", "bling-search@google.com" ],
+    "expiry_milestone": 150
   },
   {
     "name":"composebox-tab-picker-variation",
@@ -5181,6 +5191,16 @@
   {
     "name": "glic-capture-region",
     "owners": [ "gklassen@chromium.org" ],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "glic-chrome-status-icon",
+    "owners": [ "iwells@chromium.org", "//chrome/browser/glic/OWNERS" ],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "glic-contextual-cue-bubble",
+    "owners": [ "iwells@chromium.org" ],
     "expiry_milestone": 150
   },
   {
@@ -9946,27 +9966,32 @@
   {
     "name": "webui-omnibox-aim-popup",
     "owners": [ "mahmadi@chromium.org", "kylixrd@chromium.org", "chrome-desktop-search@google.com" ],
-    "expiry_milestone": 150
+    "expiry_milestone": 160
   },
   {
     "name": "webui-omnibox-aim-popup-disable-animation",
     "owners": [ "mahmadi@chromium.org", "kylixrd@chromium.org", "chrome-desktop-search@google.com" ],
-    "expiry_milestone": 150
+    "expiry_milestone": 160
   },
   {
     "name": "webui-omnibox-full-popup",
     "owners": [ "mahmadi@chromium.org", "kylixrd@chromium.org", "chrome-desktop-search@google.com" ],
-    "expiry_milestone": 150
+    "expiry_milestone": 160
   },
   {
     "name": "webui-omnibox-popup",
     "owners": [ "mahmadi@chromium.org", "chrome-desktop-search@google.com" ],
-    "expiry_milestone": 150
+    "expiry_milestone": 160
   },
   {
     "name": "webui-omnibox-popup-debug",
     "owners": [ "mahmadi@chromium.org", "chrome-desktop-search@google.com" ],
-    "expiry_milestone": 150
+    "expiry_milestone": 160
+  },
+  {
+    "name": "webui-omnibox-popup-selection-control",
+    "owners": [ "mahmadi@chromium.org", "orinj@chromium.org", "chrome-desktop-search@google.com" ],
+    "expiry_milestone": 160
   },
   {
     "name" : "webui-tab-strip-context-menu-after-tap",

@@ -145,6 +145,8 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
   private url_: Url;
   private isInTab_: boolean = true;
   private page_: MockPage;
+  private isAiPageResult_: boolean = false;
+  private isPendingErrorPageMap_: {[key: string]: boolean} = {};
 
   constructor(url: string, page: MockPage) {
     super([
@@ -156,6 +158,7 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
       'getThreadUrl',
       'getUrlForTask',
       'isAiPage',
+      'isPendingErrorPage',
       'isShownInTab',
       'isZeroState',
       'moveTaskUiToNewTab',
@@ -222,9 +225,24 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
     return Promise.resolve({isZeroState: false});
   }
 
+  setIsAiPage(isAiPage: boolean) {
+    this.isAiPageResult_ = isAiPage;
+  }
+
   isAiPage(url: Url) {
     this.methodCalled('isAiPage', url);
-    return Promise.resolve({isAiPage: false});
+    return Promise.resolve({isAiPage: this.isAiPageResult_});
+  }
+
+  setIsPendingErrorPage(taskId: Uuid, isPendingErrorPage: boolean) {
+    this.isPendingErrorPageMap_[taskId.value] = isPendingErrorPage;
+  }
+
+  isPendingErrorPage(taskId: Uuid) {
+    this.methodCalled('isPendingErrorPage', taskId);
+    const isPendingErrorPage =
+        this.isPendingErrorPageMap_[taskId.value] ?? false;
+    return Promise.resolve({isPendingErrorPage: isPendingErrorPage});
   }
 
   openMyActivityUi() {

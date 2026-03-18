@@ -1653,7 +1653,6 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="6964300328304469089"><ph name="NAME" />، <ph name="EMAIL" /> فی الحال منتخب کردہ ہے۔ ایک اکاؤنٹ منتخب کریں۔</translation>
 <translation id="6964760285928603117">گروپ سے ہٹائیں</translation>
 <translation id="6965382102122355670">ٹھیک ہے</translation>
-<translation id="6967355534157677591">‏‫PRO کے ساتھ تصویر تخلیق کریں</translation>
 <translation id="6973630695168034713">فولڈرز</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">ہر وقت</translation>
@@ -1788,6 +1787,7 @@ Handoff ترتیبات کے عام سیکشن میں بھی فعال ہونی ض
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />)۔</translation>
 <translation id="7508728395076009983">‏اپنے پوشیدگی ٹیبز کو مقفل کرنے کے لئے ٹچ ID، چہرے کی ID یا پاس کوڈ سیٹ اپ کریں۔</translation>
 <translation id="750886945254958667">اس گروپ کو بعد میں ٹیبز شامل کرنے کے لیے رکھیں، یا اگر آپ اس تک مزید رسائی نہیں چاہتے ہیں تو اسے چھوڑ دیں</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{‫1 ٹیب تک شامل کریں}other{‫{COUNT} ٹیبز تک شامل کریں}}</translation>
 <translation id="7512909159512473473">پاس فریز درج کریں…</translation>
 <translation id="7514365320538308">ڈاؤن لوڈ کریں</translation>
 <translation id="7514530647142300459">‏اپنے Google اکاؤنٹ <ph name="EMAIL" /> میں پاس ورڈز استعمال کرتے رہیں</translation>

@@ -1653,7 +1653,6 @@ Handoff функциясы параметрлердің жалпы бөлімі�
 <translation id="6964300328304469089"><ph name="NAME" />, <ph name="EMAIL" /> таңдалды. Аккаунт таңдаңыз.</translation>
 <translation id="6964760285928603117">Топтан өшіру</translation>
 <translation id="6965382102122355670">Жарайды</translation>
-<translation id="6967355534157677591">Сурет жасау (Pro)</translation>
 <translation id="6973630695168034713">Қалталар</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">Барлық уақыт</translation>
@@ -1788,6 +1787,7 @@ Handoff функциясы параметрлердің жалпы бөлімі�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Инкогнито қойындыларын құлыптау үшін Touch ID, Face ID мүмкіндіктерін реттеңіз немесе рұқсат кодын енгізіңіз.</translation>
 <translation id="750886945254958667">Бұл топты кейінірек қойындылар қосу үшін сақтаңыз. Қажет болмаса, шығыңыз.</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{1 қойындыға дейін қосуға болады.}other{{COUNT} қойындыға дейін қосуға болады.}}</translation>
 <translation id="7512909159512473473">Құпия фразаны енгізу…</translation>
 <translation id="7514365320538308">Жүктеу</translation>
 <translation id="7514530647142300459"><ph name="EMAIL" /> Google аккаунтыңызда құпия сөздерді пайдалануды жалғастырыңыз.</translation>

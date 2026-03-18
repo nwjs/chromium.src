@@ -1464,9 +1464,6 @@
       <message name="IDS_IOS_COMPOSEBOX_CREATE_IMAGE_ACTION" desc="The contextual menu option instructing the input plate to use the image generation tool. [iOS only].">
         Create image
       </message>
-      <message name="IDS_IOS_COMPOSEBOX_CREATE_IMAGE_PRO_ACTION" desc="The contextual menu option instructing the input plate to use the image generation tool when the advanced model is being used. [iOS only].">
-        Create image Pro
-      </message>
       <message name="IDS_IOS_COMPOSEBOX_DEEP_SEARCH_ACTION" desc="The contextual menu option for opening the tool that helps users perform complex research tasks. [iOS only].">
         Deep Search
       </message>
@@ -1494,6 +1491,11 @@
         {COUNT, plural,
         =1 {Add up to 1 file, tab, or image}
         other {Add up to {COUNT} files, tabs, or images}}
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_MAXIMUM_TABS_REACHED" desc="Message displayed in a snackbar when the user tries to attach more than the maximum allowed number of tabs. [iOS only].">
+        {COUNT, plural,
+        =1 {Add up to 1 tab}
+        other {Add up to {COUNT} tabs}}
       </message>
       <message name="IDS_IOS_COMPOSEBOX_MENU_TITLE" desc="Title for the contextual menu, the menu allows the user to attach images, tabs, files to their query. [iOS only].">
         Ask Google about tabs and more

@@ -4,7 +4,7 @@
 
 import 'chrome://new-tab-page/lazy_load.js';
 
-import {ActionChipsHandlerRemote, ChipType, IconType, PageCallbackRouter} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
+import {ActionChipsHandlerRemote, IconType, PageCallbackRouter} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import type {ActionChip, PageRemote, TabInfo} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import {ActionChipsApiProxyImpl, ActionChipsRetrievalState} from 'chrome://new-tab-page/lazy_load.js';
 import type {ActionChipsElement} from 'chrome://new-tab-page/lazy_load.js';
@@ -25,6 +25,40 @@ suite('NewTabPageActionChipsTest', () => {
   let handler: TestMock<ActionChipsHandlerRemote>;
   let pageRemote: PageRemote;
   let windowProxy: TestMock<WindowProxy>;
+  const defaultActionChips = [
+    {
+      suggestTemplateInfo: {
+        typeIcon: IconType.kFavicon,
+        primaryText: {text: 'Example Tab', a11yText: null},
+        secondaryText: {text: 'Subtitle for recent tab', a11yText: null},
+      },
+      suggestion: 'Suggestion for recent tab',
+      tab: {
+        tabId: 1,
+        url: 'https://example.com/test',
+        title: 'Example Tab',
+        lastActiveTime: {internalValue: BigInt(12345)},
+      },
+    },
+    {
+      suggestTemplateInfo: {
+        typeIcon: IconType.kBanana,
+        primaryText: {text: 'Nano Banana', a11yText: null},
+        secondaryText: {text: 'Subtitle for image', a11yText: null},
+      },
+      suggestion: 'Suggestion for image',
+      tab: null,
+    },
+    {
+      suggestTemplateInfo: {
+        typeIcon: IconType.kGlobeWithSearchLoop,
+        primaryText: {text: 'Deep Search', a11yText: null},
+        secondaryText: {text: 'Subtitle for deep search', a11yText: null},
+      },
+      suggestion: 'Suggestion for deep search',
+      tab: null,
+    },
+  ];
 
   interface InitializeChipsOptions {
     actionChips: ActionChip[];
@@ -35,37 +69,7 @@ suite('NewTabPageActionChipsTest', () => {
   async function initializeChips(
       providedOptions: Partial<InitializeChipsOptions>): Promise<void> {
     const defaultOptions: InitializeChipsOptions = {
-      actionChips: [
-        {
-          type: ChipType.kRecentTab,
-          suggestTemplateInfo: {typeIcon: IconType.kFavicon},
-          title: 'Example Tab',
-          subtitle: 'Subtitle for recent tab',
-          suggestion: 'Suggestion for recent tab',
-          tab: {
-            tabId: 1,
-            url: 'https://example.com/test',
-            title: 'Example Tab',
-            lastActiveTime: {internalValue: BigInt(12345)},
-          },
-        },
-        {
-          type: ChipType.kImage,
-          suggestTemplateInfo: {typeIcon: IconType.kBanana},
-          title: 'Nano Banana',
-          subtitle: 'Subtitle for image',
-          suggestion: 'Suggestion for image',
-          tab: null,
-        },
-        {
-          type: ChipType.kDeepSearch,
-          suggestTemplateInfo: {typeIcon: IconType.kGlobeWithSearchLoop},
-          title: 'Deep Search',
-          subtitle: 'Subtitle for deep search',
-          suggestion: 'Suggestion for deep search',
-          tab: null,
-        },
-      ],
+      actionChips: defaultActionChips,
       windowTimestampStart: Date.now().valueOf(),
       windowTimestampEnd: Date.now().valueOf() + 1,
     };
@@ -122,10 +126,11 @@ suite('NewTabPageActionChipsTest', () => {
     await initializeChips({
       actionChips: [
         {
-          type: ChipType.kRecentTab,
-          suggestTemplateInfo: {typeIcon: IconType.kFavicon},
-          title: 'Example Tab',
-          subtitle: 'Subtitle for recent tab',
+          suggestTemplateInfo: {
+            typeIcon: IconType.kFavicon,
+            primaryText: {text: 'Example Tab', a11yText: null},
+            secondaryText: {text: 'Subtitle for recent tab', a11yText: null},
+          },
           suggestion: 'Suggestion for recent tab',
           tab: fakeTab,
         },
@@ -156,10 +161,11 @@ suite('NewTabPageActionChipsTest', () => {
   test('recent tab chip renders favicon', async () => {
     await initializeChips({
       actionChips: [{
-        type: ChipType.kRecentTab,
-        suggestTemplateInfo: {typeIcon: IconType.kFavicon},
-        title: 'Example Tab',
-        subtitle: 'Subtitle for recent tab',
+        suggestTemplateInfo: {
+          typeIcon: IconType.kFavicon,
+          primaryText: {text: 'Example Tab', a11yText: null},
+          secondaryText: {text: 'Subtitle for recent tab', a11yText: null},
+        },
         suggestion: 'Suggestion for recent tab',
         tab: {
           url: 'https://example.com',
@@ -177,10 +183,11 @@ suite('NewTabPageActionChipsTest', () => {
   test('deep dive chip renders correct format', async () => {
     await initializeChips({
       actionChips: [{
-        type: ChipType.kDeepDive,
-        suggestTemplateInfo: {typeIcon: IconType.kSubArrowRight},
-        title: 'Example Tab',
-        subtitle: 'Subtitle for deep dive',
+        suggestTemplateInfo: {
+          typeIcon: IconType.kSubArrowRight,
+          primaryText: {text: 'Example Tab', a11yText: null},
+          secondaryText: {text: 'Subtitle for deep dive', a11yText: null},
+        },
         suggestion: 'Suggestion for deep dive',
         tab: {
           url: 'https://example.com',
@@ -268,10 +275,11 @@ suite('NewTabPageActionChipsTest', () => {
       // Setup.
       await initializeChips({
         actionChips: [{
-          type: ChipType.kDeepDive,
-          suggestTemplateInfo: {typeIcon: IconType.kSubArrowRight},
-          title: 'Example Tab',
-          subtitle: 'Subtitle for deep dive',
+          suggestTemplateInfo: {
+            typeIcon: IconType.kSubArrowRight,
+            primaryText: {text: 'Example Tab', a11yText: null},
+            secondaryText: {text: 'Subtitle for deep dive', a11yText: null},
+          },
           suggestion: 'Suggestion for deep dive',
           tab: {
             url: 'https://example.com',
@@ -372,7 +380,10 @@ suite('NewTabPageActionChipsTest', () => {
           loadTimeData.overrideValues({
             ntpNextShowSimplificationUIEnabled: true,
           });
-          await initializeChips({});
+          const actionChips = structuredClone(defaultActionChips);
+          // By default, the recent tab chip has an empty suggestion.
+          actionChips[0]!.suggestion = '';
+          await initializeChips({actionChips});
           assertTrue(!!chips);
           const allChips = Array.from<HTMLButtonElement>(
               chips.shadowRoot.querySelectorAll<HTMLButtonElement>('button'));
@@ -460,10 +471,12 @@ suite('NewTabPageActionChipsTest', () => {
           });
           await initializeChips({
             actionChips: [{
-              type: ChipType.kDeepSearch,
-              suggestTemplateInfo: {typeIcon: IconType.kGlobeWithSearchLoop},
-              title: 'Deep Search',
-              subtitle: 'Subtitle for deep search',
+              suggestTemplateInfo: {
+                typeIcon: IconType.kGlobeWithSearchLoop,
+                primaryText: {text: 'Deep Search', a11yText: null},
+                secondaryText:
+                    {text: 'Subtitle for deep search', a11yText: null},
+              },
               suggestion: '',
               tab: null,
             }],
@@ -485,10 +498,11 @@ suite('NewTabPageActionChipsTest', () => {
           });
           await initializeChips({
             actionChips: [{
-              type: ChipType.kDeepSearch,
-              suggestTemplateInfo: {typeIcon: IconType.kGlobeWithSearchLoop},
-              title: 'Deep Search',
-              subtitle: '',
+              suggestTemplateInfo: {
+                typeIcon: IconType.kGlobeWithSearchLoop,
+                primaryText: {text: 'Deep Search', a11yText: null},
+                secondaryText: {text: '', a11yText: null},
+              },
               suggestion: '',
               tab: null,
             }],
@@ -531,10 +545,11 @@ suite('NewTabPageActionChipsTest', () => {
           await initializeChips({
             actionChips: [
               {
-                type: ChipType.kImage,
-                suggestTemplateInfo: {typeIcon: IconType.kBanana},
-                title: 'Nano Banana',
-                subtitle: 'Subtitle for image',
+                suggestTemplateInfo: {
+                  typeIcon: IconType.kBanana,
+                  primaryText: {text: 'Nano Banana', a11yText: null},
+                  secondaryText: {text: 'Subtitle for image', a11yText: null},
+                },
                 suggestion: 'Suggestion for image',
                 tab: null,
               },

@@ -1653,7 +1653,6 @@ Handoff को Settings के General अनुभाग में भी स�
 <translation id="6964300328304469089">फ़िलहाल, <ph name="NAME" />, <ph name="EMAIL" /> को चुना गया है. खाता चुनें.</translation>
 <translation id="6964760285928603117">समूह से हटाएं</translation>
 <translation id="6965382102122355670">ठीक है</translation>
-<translation id="6967355534157677591">इमेज जनरेट करने की Pro सुविधा</translation>
 <translation id="6973630695168034713">फ़ोल्डर</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">पूरा</translation>
@@ -1788,6 +1787,7 @@ Handoff को Settings के General अनुभाग में भी स�
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">अपने गुप्त टैब लॉक करने के लिए, Touch ID, Face ID या Passcode सेट अप करें.</translation>
 <translation id="750886945254958667">बाद में टैब जोड़ने के लिए, इस ग्रुप को बनाए रखें या छोड़ दें</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{ज़्यादा से ज़्यादा 1 टैब जोड़ें}one{ज़्यादा से ज़्यादा {COUNT} टैब जोड़ें}other{ज़्यादा से ज़्यादा {COUNT} जोड़ें}}</translation>
 <translation id="7512909159512473473">लंबा पासवर्ड डालें…</translation>
 <translation id="7514365320538308">डाउनलोड करें</translation>
 <translation id="7514530647142300459">अपने Google खाते <ph name="EMAIL" /> में सेव किए गए पासवर्ड इस्तेमाल करना जारी रखें</translation>

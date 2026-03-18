@@ -15,12 +15,13 @@ class MockAimEligibilityService : public AimEligibilityService {
       TemplateURLService* template_url_service,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       signin::IdentityManager* identity_manager,
-      bool is_off_the_record = false);
+      Configuration configuration = {});
   ~MockAimEligibilityService() override;
 
   MOCK_METHOD(bool, IsServerEligibilityEnabled, (), (const, override));
   MOCK_METHOD(bool, IsAimLocallyEligible, (), (const, override));
   MOCK_METHOD(bool, IsAimEligible, (), (const, override));
+  MOCK_METHOD(bool, IsCobrowseEligible, (), (const, override));
   MOCK_METHOD(bool, IsDeepSearchEligible, (), (const, override));
   MOCK_METHOD(bool, IsCreateImagesEligible, (), (const, override));
   MOCK_METHOD(base::CallbackListSubscription,
@@ -34,6 +35,17 @@ class MockAimEligibilityService : public AimEligibilityService {
               GetMostRecentResponse,
               (),
               (const, override));
+  MOCK_METHOD(void, FetchEligibility, (RequestSource), (override));
+  MOCK_METHOD(const omnibox::SearchboxConfig*,
+              GetSearchboxConfig,
+              (),
+              (const, override));
+
+  omnibox::SearchboxConfig& config() { return mock_config; }
+
+ private:
+  // Mock searchbox config object.
+  mutable omnibox::SearchboxConfig mock_config;
 };
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_MOCK_AIM_ELIGIBILITY_SERVICE_H_

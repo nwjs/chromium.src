@@ -1653,7 +1653,6 @@
 <translation id="6964300328304469089">Понастоящем сте избрали: <ph name="NAME" /> (<ph name="EMAIL" />). Изберете профил.</translation>
 <translation id="6964760285928603117">Премахване от групата</translation>
 <translation id="6965382102122355670">OK</translation>
-<translation id="6967355534157677591">Създаване на изображение Pro</translation>
 <translation id="6973630695168034713">Папки</translation>
 <translation id="6979158407327259162">Google Диск</translation>
 <translation id="6979737339423435258">За цялото време</translation>
@@ -1788,6 +1787,7 @@
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">За да заключите разделите си в режим „инкогнито“, настройте Touch ID, Face ID или код за достъп.</translation>
 <translation id="750886945254958667">Запазете тази група, за да добавяте раздели по-късно, или я напуснете, ако вече не искате достъп до нея</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Добавете до 1 раздел}other{Добавете до {COUNT} раздела}}</translation>
 <translation id="7512909159512473473">Въвеждане на пропуск…</translation>
 <translation id="7514365320538308">Изтегляне</translation>
 <translation id="7514530647142300459">Продължете да използвате паролите в профила си в Google <ph name="EMAIL" /></translation>

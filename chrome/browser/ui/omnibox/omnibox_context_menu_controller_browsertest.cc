@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/omnibox/omnibox_context_menu_controller.h"
 
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
+#include "chrome/browser/ui/omnibox/test_omnibox_popup_file_selector.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
@@ -34,6 +36,8 @@
 
 namespace {
 
+constexpr int kMinOmniboxContextMenuRecentTabsCommandId = 33000;
+
 size_t GetVisibleItemCount(const ui::SimpleMenuModel* menu_model) {
   size_t visible_count = 0;
   for (size_t i = 0; i < menu_model->GetItemCount(); i++) {
@@ -45,42 +49,6 @@ size_t GetVisibleItemCount(const ui::SimpleMenuModel* menu_model) {
 }
 
 }  // namespace
-
-// Override `OpenFileUploadDialog` to track calls.
-class TestOmniboxPopupFileSelector : public OmniboxPopupFileSelector {
- public:
-  explicit TestOmniboxPopupFileSelector(gfx::NativeWindow owning_window)
-      : OmniboxPopupFileSelector(owning_window) {}
-  ~TestOmniboxPopupFileSelector() override = default;
-
-  void OpenFileUploadDialog(
-      content::WebContents* web_contents,
-      bool is_image,
-      OmniboxEditModel* edit_model,
-      std::optional<lens::ImageEncodingOptions> image_encoding_options,
-      bool was_ai_mode_open) override {
-    open_file_upload_dialog_calls_++;
-    last_was_ai_mode_open_ = was_ai_mode_open;
-    edit_model_ = edit_model;
-  }
-
-  void FileSelectionCanceled() override {
-    if (last_was_ai_mode_open_ && edit_model_) {
-      edit_model_->OpenAiMode(false, true);
-    }
-  }
-
-  int open_file_upload_dialog_calls() const {
-    return open_file_upload_dialog_calls_;
-  }
-
-  bool last_was_ai_mode_open() const { return last_was_ai_mode_open_; }
-
- private:
-  int open_file_upload_dialog_calls_ = 0;
-  bool last_was_ai_mode_open_ = false;
-  raw_ptr<OmniboxEditModel> edit_model_ = nullptr;
-};
 
 class OmniboxContextMenuControllerBrowserTest : public InProcessBrowserTest {
  public:
@@ -214,6 +182,34 @@ IN_PROC_BROWSER_TEST_F(OmniboxContextMenuControllerBrowserTest,
   context = searchbox_context_data->TakePendingContext();
   ASSERT_TRUE(context);
   EXPECT_EQ(context->mode, searchbox::mojom::ToolMode::kCreateImage);
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxContextMenuControllerBrowserTest,
+                       RecordHistogramOnTabSelected) {
+  base::HistogramTester histogram_tester;
+
+  // Navigate the initial tab to the popup URL.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL(chrome::kChromeUIOmniboxPopupURL)));
+  auto* popup_web_contents = GetWebContents();
+
+  // Add a recent tab.
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  ASSERT_TRUE(AddTabAtIndex(1, url, ui::PAGE_TRANSITION_TYPED));
+
+  // The controller should be associated with the popup web contents.
+  auto owning_window = browser()->window()->GetNativeWindow();
+  auto omnibox_popup_file_selector =
+      std::make_unique<OmniboxPopupFileSelector>(owning_window);
+  OmniboxContextMenuController controller(omnibox_popup_file_selector.get(),
+                                          popup_web_contents);
+
+  // The first recent tab item should be at
+  // kMinOmniboxContextMenuRecentTabsCommandId.
+  controller.ExecuteCommand(kMinOmniboxContextMenuRecentTabsCommandId, 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.ContextAdded.ContextAddedMethod.Omnibox", 0, 1);
 }
 
 class OmniboxContextMenuControllerBrowserTestWithCommand

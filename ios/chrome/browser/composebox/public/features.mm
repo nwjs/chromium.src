@@ -50,6 +50,9 @@ BASE_FEATURE(kComposeboxAdditionalAdvancedTools,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool ShowComposeboxAdditionalAdvancedTools() {
+  if (!EnableComposeboxServerSideState()) {
+    return NO;
+  }
   return base::FeatureList::IsEnabled(kComposeboxAdditionalAdvancedTools);
 }
 
@@ -60,6 +63,12 @@ bool ShowDeepSearchTool() {
 }
 
 BASE_FEATURE(kComposeboxDeepSearch, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool EnableComposeboxServerSideState() {
+  return base::FeatureList::IsEnabled(kComposeboxServerSideState);
+}
+
+BASE_FEATURE(kComposeboxServerSideState, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsComposeboxCompactModeEnabled() {
   return base::FeatureList::IsEnabled(kComposeboxCompactMode);

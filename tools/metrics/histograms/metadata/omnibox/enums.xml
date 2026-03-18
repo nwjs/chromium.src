@@ -85,6 +85,8 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Search prefetch"/>
   <int value="2" label="AI Mode"/>
   <int value="3" label="Image Generation"/>
+  <int value="4" label="Canvas"/>
+  <int value="5" label="Deep Search"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/AutocompleteRequestType.java,//ios/chrome/browser/composebox/ui/composebox_metrics_recorder.h:AutocompleteRequestType)-->
@@ -134,6 +136,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="ThinkingModel"/>
   <int value="8" label="RegularModel"/>
   <int value="9" label="ProNoGenUiModel"/>
+  <int value="10" label="Unknown"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/omnibox/omnibox_context_menu_controller.h:ContextType) -->

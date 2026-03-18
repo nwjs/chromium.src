@@ -1653,7 +1653,6 @@
 <translation id="6964300328304469089">Зараз выбрана: <ph name="NAME" />, <ph name="EMAIL" />. Выберыце ўліковы запіс.</translation>
 <translation id="6964760285928603117">Выдаліць з групы</translation>
 <translation id="6965382102122355670">ОК</translation>
-<translation id="6967355534157677591">Стварыць відарыс (Pro)</translation>
 <translation id="6973630695168034713">Папкі</translation>
 <translation id="6979158407327259162">Google Дыск</translation>
 <translation id="6979737339423435258">За ўвесь час</translation>
@@ -1788,6 +1787,7 @@
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Каб блакіраваць свае ўкладкі ў рэжыме інкогніта, наладзьце Touch ID, Face ID або код доступу.</translation>
 <translation id="750886945254958667">Вы можаце захаваць гэту групу, каб дадаць укладкі пазней, ці выйсці з яе, калі доступ да гэтай групы вам больш не патрэбны</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Можна дадаць не больш за 1 укладку}one{Можна дадаць да {COUNT} укладкі}few{Можна дадаць да {COUNT} укладак}many{Можна дадаць да {COUNT} укладак}other{Можна дадаць да {COUNT} укладкі}}</translation>
 <translation id="7512909159512473473">Увесці фразу-пароль…</translation>
 <translation id="7514365320538308">Спампаваць</translation>
 <translation id="7514530647142300459">Працягвайце выкарыстоўваць паролі ва Уліковым запісе Google <ph name="EMAIL" /></translation>

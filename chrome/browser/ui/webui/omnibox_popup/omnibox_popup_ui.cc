@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_aim_handler.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
 #include "chrome/browser/ui/webui/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/searchbox/omnibox_composebox_handler.h"
@@ -66,7 +67,8 @@ bool OmniboxPopupUIConfig::IsWebUIEnabled(
 
 OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
     : TopChromeWebUIController(web_ui,
-                               true /* Needed for webui browser tests */),
+                               /*enable_chrome_send=*/true,
+                               /*enable_chrome_histograms=*/true),
       profile_(Profile::FromWebUI(web_ui)) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       Profile::FromWebUI(web_ui), chrome::kChromeUIOmniboxPopupHost);
@@ -76,9 +78,14 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                                          /*enable_lens_search=*/false);
 
   source->AddBoolean("isTopChromeSearchbox", true);
+  source->AddBoolean("omniboxAimPopupEnabled",
+                     omnibox::IsAimPopupFeatureEnabled());
   source->AddBoolean(
       "omniboxPopupDebugEnabled",
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug));
+  source->AddBoolean("webuiOmniboxPopupSelectionControlEnabled",
+                     base::FeatureList::IsEnabled(
+                         omnibox::kWebUIOmniboxPopupSelectionControl));
 
   source->AddBoolean("reportMetrics", true);
   source->AddString("charTypedToPaintMetricName",
@@ -114,6 +121,9 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                          composebox_config.is_pdf_upload_enabled();
   source->AddBoolean("composeboxShowPdfUpload", show_pdf_upload);
 
+  source->AddBoolean(
+      "caretAnimationEnabled",
+      base::FeatureList::IsEnabled(omnibox::kOmniboxAnimatedCaret));
   source->AddBoolean("composeboxCloseByClickOutside",
                      omnibox::kCloseComposeboxByClickOutside.Get());
   source->AddBoolean("composeboxCloseByEscape",
@@ -216,6 +226,19 @@ void OmniboxPopupUI::BindInterface(
       base::BindRepeating(&OmniboxPopupUI::GetOrCreateContextualSessionHandle,
                           base::Unretained(this)));
   omnibox_handler_->SetEmbedder(embedder());
+}
+
+void OmniboxPopupUI::BindInterface(
+    mojo::PendingReceiver<omnibox_popup::mojom::PageHandlerFactory> receiver) {
+  popup_page_factory_receiver_.reset();
+  popup_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void OmniboxPopupUI::CreatePageHandler(
+    mojo::PendingRemote<omnibox_popup::mojom::Page> page,
+    mojo::PendingReceiver<omnibox_popup::mojom::PageHandler> receiver) {
+  popup_handler_ = std::make_unique<OmniboxPopupHandler>(std::move(receiver),
+                                                         std::move(page));
 }
 
 void OmniboxPopupUI::BindInterface(

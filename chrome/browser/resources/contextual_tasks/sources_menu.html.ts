@@ -17,7 +17,8 @@ export function getHtml(this: SourcesMenuElement) {
             <cr-url-list-item class="dropdown-item" data-index="${index}"
                 @click="${this.onTabClick_}"
                 .description="${this.getHostname_(item.tab.url)}"
-                .url="${item.tab.url}" .title="${item.tab.title}">
+                .url="${item.tab.url}" .title="${item.tab.title}"
+                aria-label="${item.tab.title}">
             </cr-url-list-item>
           `;
         } else if (item.file) {
@@ -25,7 +26,8 @@ export function getHtml(this: SourcesMenuElement) {
             <cr-url-list-item class="dropdown-item" data-index="${index}"
                 @click="${this.onFileClick_}"
                 .url="${item.file.url}" .title="${item.file.title}">
-              <cr-icon slot="customIcon" icon="thumbnail:pdf" class="file-icon">
+              <cr-icon slot="customIcon" icon="contextual_tasks:pdf"
+                  class="file-icon">
               </cr-icon>
             </cr-url-list-item>
           `;
@@ -33,7 +35,9 @@ export function getHtml(this: SourcesMenuElement) {
           return html`
             <cr-url-list-item class="dropdown-item" data-index="${index}"
               @click="${this.onImageClick_}"
-              .imageUrls="${[item.image.url]}" .title="${item.image.title}">
+              .title="${item.image.title}">
+              <cr-icon slot="customIcon" icon="contextual_tasks:img_icon">
+              </cr-icon>
             </cr-url-list-item>
           `;
         } else {

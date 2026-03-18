@@ -14,6 +14,11 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
    *  Side panel has suggestions appear between header and composebox.
    *  Full tab has suggestions appear below the composebox (which is below the header).
    */
+
+  /*
+   * TODO(crbug.com/486996060): make suggestions component
+   * to dedupe logic
+   */
   return html`<!--_html_template_start_-->
     ${this.isSidePanel && this.enableNativeZeroStateSuggestions ? html`
       <cr-composebox-dropdown
@@ -21,8 +26,16 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
           role="listbox"
           .result="${this.zeroStateSuggestions_}"
           .maxSuggestions="${5}"
-          ?hidden="${!this.isZeroState}">
+          .overrideClampLineNum="${3}"
+          ?hidden="${!this.showSuggestions_}">
       </cr-composebox-dropdown>
+      ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
+        <div id="suggestionActivity">
+          <localized-link
+            localized-string="${this.i18nAdvanced('suggestionActivityLink')}">
+          </localized-link>
+        </div>
+      `: ''}
     ` : ''}
     <div id="composeboxContainer"
       style="
@@ -36,19 +49,24 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
       ` : ''}
       <cr-composebox
           id="composebox"
-          style="${this.getComposeboxBoundsStyles_()}"
           ?autofocus="${false}"
           carousel-on-top_
           entrypoint-name="ContextualTasks"
           searchbox-layout-mode="TallBottomContext"
           .lensButtonDisabled="${false}"
           .showLensButton="${this.showLensButton_}"
-          .disableCaretColorAnimation="${true}"
+          .suggestionActivityEnabled="${false}"
+          .disableCaretColorAnimation="${!this.caretAnimationsEnabled_}"
           .inputPlaceholderOverride="${this.getInputPlaceholder_()}"
           .isInCoBrowsingZeroState="${this.isZeroState}"
           .lensButtonTriggersOverlay="${true}"
           .enableCarouselScrolling="${true}"
-          @result-changed="${this.onSuggestionsResultReceived_}">
+          .isFollowupQuery="${!this.isZeroState}"
+          @result-changed="${this.onSuggestionsResultReceived_}"
+          @open-image-upload="${this.handleImageUpload_}"
+          @open-file-upload="${this.handleFileUpload_}"
+          @show-suggestion-activity-link=
+              "${this.onShowSuggestionActivityLink_}">
       </cr-composebox>
     </div>
     ${!this.isSidePanel && this.enableNativeZeroStateSuggestions ? html`
@@ -57,9 +75,18 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
           role="listbox"
           .result="${this.zeroStateSuggestions_}"
           .maxSuggestions="${5}"
-          ?hidden="${!this.isZeroState}">
+          .overrideClampLineNum="${3}"
+          ?hidden="${!this.showSuggestions_}">
       </cr-composebox-dropdown>
+      ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
+        <div id="suggestionActivity">
+          <localized-link
+            localized-string="${this.i18nAdvanced('suggestionActivityLink')}">
+          </localized-link>
+        </div>
+      `: ''}
     ` : ''}
+
   <!--_html_template_end_-->`;
 }
 // clang-format on

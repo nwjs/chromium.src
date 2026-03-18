@@ -362,6 +362,8 @@ export class AppElement extends AppElementBase {
   protected accessor wasComposeboxOpened_: boolean = false;
   protected accessor showLensUploadDialog_: boolean = false;
   protected accessor showComposebox_: boolean = false;
+  protected caretAnimationsEnabled_: boolean =
+      loadTimeData.getBoolean('caretAnimationEnabled');
   protected accessor logoEnabled_: boolean =
       loadTimeData.getBoolean('logoEnabled');
   protected accessor oneGoogleBarEnabled_: boolean =
@@ -662,7 +664,7 @@ export class AppElement extends AppElementBase {
     if (this.ntpRealboxNextEnabled_ && this.realboxLayoutMode_ !== '') {
       this.registerHelpBubble(
           CONTEXTUAL_ENTRYPOINT_ELEMENT_ID,
-          ['#searchbox', '#context', '#contextEntrypoint'], {fixed: true});
+          ['#searchbox', '#context'], {fixed: true});
     }
   }
 

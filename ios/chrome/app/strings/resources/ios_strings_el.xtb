@@ -1654,7 +1654,6 @@
 <translation id="6964300328304469089">Τρέχουσα επιλογή: <ph name="NAME" />, <ph name="EMAIL" />. Επιλέξτε λογαριασμό.</translation>
 <translation id="6964760285928603117">Κατάργηση από την ομάδα</translation>
 <translation id="6965382102122355670">OK</translation>
-<translation id="6967355534157677591">Δημιουργία εικόνας Pro</translation>
 <translation id="6973630695168034713">Φάκελοι</translation>
 <translation id="6979158407327259162">Google Drive</translation>
 <translation id="6979737339423435258">Από την αρχή</translation>
@@ -1709,7 +1708,7 @@
 <translation id="7203496777391039568">Τα δεδομένα του οργανισμού σας είναι ιδιωτικά και ασφαλή</translation>
 <translation id="720399613139435155">Αποτυχία μετάφρασης</translation>
 <translation id="7204922488054642675">Εξατομικευμένες ειδήσεις</translation>
-<translation id="7206979415662233817">Όροι Παροχής Υπηρεσιών</translation>
+<translation id="7206979415662233817">Όροι παροχής υπηρεσιών</translation>
 <translation id="7215621211572884440">Επιτρέπονται αναδυόμ.</translation>
 <translation id="7218491361283758048">Ταχυδρομικός κώδικας</translation>
 <translation id="7221173315674413369">Εξερευνήστε νέες λειτουργίες και συμβουλές στην ενότητα Τι νέο υπάρχει</translation>
@@ -1789,6 +1788,7 @@
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Για να κλειδώσετε τις καρτέλες ανώνυμης περιήγησης, ρυθμίστε το Touch ID, το Face ID ή έναν κωδικό πρόσβασης.</translation>
 <translation id="750886945254958667">Διατηρήστε αυτή την ομάδα, για να προσθέσετε καρτέλες αργότερα, ή αποχωρήστε, αν δεν θέλετε πλέον να έχετε πρόσβαση σε αυτή</translation>
+<translation id="7511727374778217603">{COUNT,plural, =1{Προσθέστε έως και 1 καρτέλα}other{Προσθέστε έως και {COUNT} καρτέλες}}</translation>
 <translation id="7512909159512473473">Εισαγωγή φράσης πρόσβασης…</translation>
 <translation id="7514365320538308">Λήψη</translation>
 <translation id="7514530647142300459">Συνεχίστε να χρησιμοποιείτε τους κωδικούς πρόσβασης στον Λογαριασμό σας Google <ph name="EMAIL" /></translation>

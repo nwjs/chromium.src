@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
@@ -129,6 +130,9 @@ class LensQueryFlowRouter
       std::optional<lens::ImageCrop> image_crop,
       lens::LensOverlayInteractionResponse interaction_response);
 
+  // Removes the contextual search context if no region selection was made.
+  void RemoveContextualSearchContextIfNecessary(bool has_region_selection);
+
   void reset_file_upload_status_observation() {
     file_upload_status_observation_.Reset();
   }
@@ -145,6 +149,10 @@ class LensQueryFlowRouter
   // exists. Virtual for testing.
   virtual contextual_search::ContextualSearchSessionHandle*
   GetContextualSearchSessionHandle() const;
+
+  // Returns the tab contextualization controller. Virtual for testing.
+  virtual TabContextualizationController* GetTabContextualizationController()
+      const;
 
  private:
   // contextual_search::ContextualSearchContextController::FileUploadStatusObserver:
@@ -200,6 +208,9 @@ class LensQueryFlowRouter
   // Opens the contextual tasks panel to a provided URL.
   void OpenContextualTasksPanel(GURL url);
 
+  // Opens the contextual tasks error page.
+  void ShowContextualTasksErrorPage();
+
   // Uploads the viewport and page context using the contextual search session
   // handle for the query router.
   void UploadContextualInputData(
@@ -235,6 +246,9 @@ class LensQueryFlowRouter
       std::map<std::string, std::string> additional_search_query_params,
       base::Time query_start_time,
       lens::LensOverlayInvocationSource invocation_source);
+
+  // Returns whether the current active tab is context eligible.
+  bool IsActiveTabContextEligible() const;
 
   // Stores a pending search request to be sent to contextual tasks after the
   // tab context is ready.
