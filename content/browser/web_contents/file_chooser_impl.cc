@@ -228,12 +228,14 @@ void FileChooserImpl::FileSelected(
     const base::FilePath& base_dir,
     blink::mojom::FileChooserParams::Mode mode,
     std::vector<blink::mojom::FileChooserFileInfoPtr> files) {
+#if 0
   if (mode == blink::mojom::FileChooserParams::Mode::kSave) {
     // Save mode should be blocked by OpenFileChooser, but if we get here, e.g.
     // via test, we must not process it to avoid granting read permissions to
     // the renderer.
     return;
   }
+#endif
 
   listener_impl_ = nullptr;
   if (!render_frame_host()) {
